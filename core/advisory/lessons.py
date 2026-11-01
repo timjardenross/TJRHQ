@@ -29,7 +29,7 @@ if str(_COORD) not in sys.path:
 
 def _load_store():
     try:
-        import mission_knowledge_store  # noqa: PLC0415
+        import mission_knowledge_store
         return mission_knowledge_store
     except Exception:  # noqa: BLE001
         return None

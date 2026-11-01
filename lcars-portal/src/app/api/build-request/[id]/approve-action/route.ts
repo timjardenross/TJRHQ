@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { createMission, createHandoff, logDecision, publishContent, supabaseAdmin, validateActionPayload, type ActionResult } from '@/lib/ai-actions';
 import { fetchGovernedRow } from '@/lib/governedFetch';
+import { errorDetail } from '@/lib/errorDetail';
 
 interface BuildRequestRow {
   id: string;
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: detail }, { status: 400 });
     }
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     await recordExecutionResult(admin, id, { type: row.action_type, success: false, detail });
     return NextResponse.json({ error: 'Execution failed', detail }, { status: 500 });
   }

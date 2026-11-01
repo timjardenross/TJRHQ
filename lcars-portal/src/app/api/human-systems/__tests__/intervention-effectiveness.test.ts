@@ -21,9 +21,22 @@ function makeSb(opts: {
     from(table: string) {
       return {
         select(_cols: string) {
-          if (table === 'capacity_intervention_events') return Promise.resolve({ data: events });
-          if (table === 'capacity_interventions') return Promise.resolve({ data: catalogue });
-          throw new Error(`unexpected table ${table}`);
+          // Mission 5 (0218): computeInterventionEffectiveness now scopes
+          // both queries with .eq('domain', domain) — this stub's default
+          // ('capacity', matching every call site here since none of
+          // these tests pass a domain arg) resolves the same as before
+          // .eq() existed, so no test below needs to change.
+          const resolved = table === 'capacity_intervention_events'
+            ? Promise.resolve({ data: events })
+            : table === 'capacity_interventions'
+              ? Promise.resolve({ data: catalogue })
+              : Promise.reject(new Error(`unexpected table ${table}`));
+          return {
+            eq(_col: string, _val: string) {
+              return resolved;
+            },
+            then: resolved.then.bind(resolved),
+          };
         },
       };
     },

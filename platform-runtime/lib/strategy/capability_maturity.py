@@ -28,7 +28,6 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +37,12 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.capabilities import Capability, MaturityLevel, list_capabilities, update_capability
+from lib.strategy.capabilities import (
+    Capability,
+    MaturityLevel,
+    list_capabilities,
+    update_capability,
+)
 
 
 @dataclass
@@ -70,8 +74,7 @@ def assess_capability_maturity(cap: Capability) -> MaturityAssessment:
     # Evidence 1: linked initiative / delivery health
     if cap.initiative_id:
         try:
-            from lib.program.forecasting import forecast_initiative
-            from lib.program.forecasting import DeliveryForecast
+            from lib.program.forecasting import DeliveryForecast, forecast_initiative
             fc = forecast_initiative(cap.initiative_id)
             if fc:
                 if fc.forecast == DeliveryForecast.ON_TRACK:
@@ -84,7 +87,7 @@ def assess_capability_maturity(cap: Capability) -> MaturityAssessment:
                 elif fc.forecast in (DeliveryForecast.LIKELY_DELAYED, DeliveryForecast.CRITICAL):
                     notes.append("initiative delayed/critical")
                     actions.append("Stabilise initiative delivery first")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - forecast evidence, best-effort scorer, already logged
             log.debug("[capability_maturity] forecast unavailable: %s", exc)
 
     # Evidence 2: outcome achievement linked to this objective
@@ -101,7 +104,7 @@ def assess_capability_maturity(cap: Capability) -> MaturityAssessment:
                     actions.append("Improve outcome delivery against objective")
             else:
                 actions.append("Register outcomes against linked objective")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - outcomes evidence, best-effort scorer, already logged
             log.debug("[capability_maturity] outcomes unavailable: %s", exc)
 
     # Evidence 3: benefit realisation
@@ -115,7 +118,7 @@ def assess_capability_maturity(cap: Capability) -> MaturityAssessment:
                 notes.append(f"benefit realisation {pct:.0%}")
                 if pct < 0.2:
                     actions.append("Accelerate benefit realisation")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - value-realisation evidence, best-effort scorer, already logged
             log.debug("[capability_maturity] value_realisation unavailable: %s", exc)
 
     # Evidence 4: knowledge quality signal (proxy for managed/documented capability)
@@ -130,7 +133,7 @@ def assess_capability_maturity(cap: Capability) -> MaturityAssessment:
                 score += 0.07
             else:
                 actions.append("Improve knowledge documentation for this capability")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - knowledge-quality evidence, best-effort scorer, already logged
         log.debug("[capability_maturity] knowledge_quality unavailable: %s", exc)
 
     # Evidence 5: owner/system linkage (proxy for operational maturity)
@@ -150,7 +153,7 @@ def assess_capability_maturity(cap: Capability) -> MaturityAssessment:
     if changed:
         try:
             update_capability(cap.capability_id, maturity=assessed)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - maturity persistence, best-effort, already logged
             log.debug("[capability_maturity] update failed: %s", exc)
 
     if not actions and assessed.value < 4:
@@ -187,7 +190,7 @@ def assess_all_maturity() -> list[MaturityAssessment]:
     for cap in caps:
         try:
             results.append(assess_capability_maturity(cap))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate one capability's assessment failure, already logged
             log.warning("[capability_maturity] assessment failed for %s: %s", cap.capability_id, exc)
     log.info("[capability_maturity] %d capabilities assessed", len(results))
     return results
@@ -221,8 +224,8 @@ def format_maturity_summary(assessments: list[MaturityAssessment]) -> str:
 
 __all__ = [
     "MaturityAssessment",
-    "assess_capability_maturity",
     "assess_all_maturity",
-    "get_maturity_distribution",
+    "assess_capability_maturity",
     "format_maturity_summary",
+    "get_maturity_distribution",
 ]

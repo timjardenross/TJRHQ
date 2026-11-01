@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -40,10 +40,6 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.improvement.framework import ImprovementCategory, ImprovementOpportunity
-
-if TYPE_CHECKING:
-    from lib.daily_ops_cycle import CycleContext
-
 
 # ── Review schedule (WP10) ─────────────────────────────────────────────────────
 
@@ -488,7 +484,7 @@ def review_knowledge(ctx: Any) -> list[ImprovementOpportunity]:
 
         if completed:
             # Count lesson-learned decisions logged by knowledge officer
-            res_lessons = c.raw_client.table("decisions").select(
+            res_lessons = c.raw_client.table("command_memory_records").select(
                 "id,owner"
             ).like("owner", "knowledge:%").order("created_at", desc=True).limit(20).execute()
 
@@ -514,7 +510,7 @@ def review_knowledge(ctx: Any) -> list[ImprovementOpportunity]:
                 ))
 
         # Check for decisions with very thin rationale (< 40 characters)
-        res_decisions = c.raw_client.table("decisions").select(
+        res_decisions = c.raw_client.table("command_memory_records").select(
             "id,statement,rationale"
         ).order("created_at", desc=True).limit(20).execute()
 
@@ -538,7 +534,7 @@ def review_knowledge(ctx: Any) -> list[ImprovementOpportunity]:
                 expected_benefit="Decision quality improves; Command Memory becomes genuinely searchable",
             ))
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - knowledge review Supabase check skipped, already logged
         log.debug("[improvement] knowledge review Supabase check skipped: %s", exc)
 
     # Check from CycleContext signals
@@ -593,7 +589,7 @@ def run_all_reviews(ctx: Any) -> list[ImprovementOpportunity]:
             ops = fn(ctx)
             all_opportunities.extend(ops)
             log.debug("[improvement] %s review: %d opportunity/ies", officer, len(ops))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-officer review, already logged
             log.warning("[improvement] %s review failed (non-blocking): %s", officer, exc)
 
     return all_opportunities
@@ -601,12 +597,12 @@ def run_all_reviews(ctx: Any) -> list[ImprovementOpportunity]:
 
 __all__ = [
     "REVIEW_SCHEDULE",
-    "review_human_systems",
-    "review_strategic_planning",
-    "review_engineering",
     "review_communications",
-    "review_ori",
-    "review_number_one",
+    "review_engineering",
+    "review_human_systems",
     "review_knowledge",
+    "review_number_one",
+    "review_ori",
+    "review_strategic_planning",
     "run_all_reviews",
 ]

@@ -2,6 +2,17 @@
 Description=USS TJR Self-Improving System
 Documentation=file:///opt/starship-endeavour/docs/self-improvement/DECISION-REMEDIATION-WORKFLOW.md
 After=network.target
+# 2026-09-15 adversarial review: the live deployed unit had drifted from
+# this file (still ran orchestrator.py directly, pre-MSN-0377) and was
+# crash-looping every ~5.5min for 3+ days (518 restarts) because the
+# growing uncommitted-file list fed into evidence.json blew past a
+# downstream 1M-char LLM redaction limit -- fixed in collector.py, but
+# StartLimit below is a circuit breaker against the *next* unrelated
+# failure mode, not just this one. See
+# docs/security/2026-09-15-adversarial-review-remediation.md.
+OnFailure=alert-on-failure@%n.service
+StartLimitIntervalSec=3600
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
@@ -9,8 +20,16 @@ User=root
 WorkingDirectory=/opt/starship-endeavour
 Environment="PATH=/opt/starship-endeavour/scripts/self_improvement/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
 
-# Run full cycle: collect → analyze → classify → decide → remediate
-ExecStart=/opt/starship-endeavour/scripts/self_improvement/.venv/bin/python3 /opt/starship-endeavour/scripts/self_improvement/orchestrator.py
+# USS-TJR-MSN-0377: this used to invoke orchestrator.py directly against
+# /opt/starship-endeavour -- the same checkout every interactive session on
+# this host also uses, routinely left on whatever feature branch a human
+# was last working on. orchestrator.py's git_commit() fails closed unless
+# that checkout is on `self-improvement` (LL-146/LL-149), so this ran daily
+# and silently refused to commit for ~24h+ straight (~64 cycles) before
+# anyone noticed. run_daily_cycle.sh gives this its own dedicated worktree,
+# permanently on `self-improvement`, so the branch check now passes by
+# construction. See knowledge/missions/USS-TJR-MSN-0377-knowledge-record.md.
+ExecStart=/opt/starship-endeavour/scripts/self_improvement/run_daily_cycle.sh
 
 # Logging
 StandardOutput=journal

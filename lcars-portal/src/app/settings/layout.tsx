@@ -22,7 +22,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     <WorkbenchShell
       title="Settings"
       eyebrow="How HQ works for you"
-      tagline="TJR HQ · Settings — preferences and defaults, not a diagnostics console. For job health and sync failures, see Agent & Job Status."
+      tagline="TJR HQ · Settings — preferences and defaults, not a diagnostics console. For job health and sync failures, see HQ Status."
       wide
     >
       <div className="flex flex-col gap-6 lg:flex-row">

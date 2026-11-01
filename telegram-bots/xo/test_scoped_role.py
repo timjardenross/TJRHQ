@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Standalone pre-cutover verification for the xo_bot scoped Supabase role.
 
 Run this AFTER SUPABASE_JWT_SECRET (or a pre-minted XO_BOT_SCOPED_TOKEN) and
@@ -42,11 +43,11 @@ _BOT_DIR = Path(__file__).parent
 _REPO_ROOT = _BOT_DIR.parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(_BOT_DIR / ".env")
 
-import os  # noqa: E402
+import os
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 
@@ -60,7 +61,7 @@ def check(name: str, fn):
         _PASS.append(name)
         print(f"  PASS  {name}" + (f"  ({detail})" if detail else ""))
         return detail
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic test-runner harness must catch any failure from fn() to report pass/fail
         _FAIL.append((name, str(exc)))
         print(f"  FAIL  {name}  -> {exc}")
         return None
@@ -73,7 +74,7 @@ def cleanup(fn) -> None:
     pass/fail signal."""
     try:
         fn()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort cleanup must never abort the run regardless of failure type
         print(f"  (cleanup skipped/failed, non-fatal: {exc})")
 
 

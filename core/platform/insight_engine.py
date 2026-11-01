@@ -32,9 +32,12 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
 
-from core.platform.understanding_engine import Conflict, OperationalContextGraph, Relationship
+from core.platform.understanding_engine import (
+    Conflict,
+    OperationalContextGraph,
+    Relationship,
+)
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +63,7 @@ class Insight:
     generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     # Carried through from the source Relationship for dedup — see
     # understanding_engine.Relationship.aggregation_key.
-    aggregation_key: Optional[str] = None
+    aggregation_key: str | None = None
 
 
 # 2026-08-10: shared grounding preamble (Captain directive — Cognitive Core's
@@ -125,7 +128,7 @@ def _build_synthesis_prompt(item: Relationship | Conflict) -> str:
     )
 
 
-def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 280) -> Optional[str]:
+def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 280) -> str | None:
     """Real HTTP call to the model router's captain-insight-synthesis
     endpoint. Non-blocking on failure — returns None, never raises,
     matching every other network-dependent call in this platform.
@@ -142,7 +145,7 @@ def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: in
     try:
         body = json.dumps({"prompt": prompt}).encode()
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url defaults to hardcoded _MODEL_ROUTER_URL localhost constant, not user input - reviewed 2026-09-12
             result = json.loads(resp.read())
         if not result.get("success"):
             log.warning("[insight-engine] model router call failed: %s", result.get("error"))
@@ -151,7 +154,7 @@ def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: in
     except (urllib.error.URLError, OSError, TimeoutError) as exc:
         log.info("[insight-engine] model router unreachable (non-blocking): %s", exc)
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[insight-engine] model router call failed unexpectedly (non-blocking): %s", exc)
         return None
 
@@ -171,9 +174,9 @@ def strip_markdown_json_fence(text: str) -> str:
 
 
 def _parse_insight_response(
-    raw_text: Optional[str],
+    raw_text: str | None,
     item: Relationship | Conflict,
-) -> Optional[Insight]:
+) -> Insight | None:
     """Parses + validates the LLM's raw text into a structured Insight.
     Rejects (returns None) rather than fabricating a value for any
     missing/malformed field — a malformed response produces no insight,

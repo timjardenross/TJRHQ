@@ -16,14 +16,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 sys.path.insert(0, str(REPO_ROOT))
 
-import dashboard  # noqa: E402
+import dashboard
 
 
 class TestEngineeringHandoffArtifactApi(unittest.TestCase):

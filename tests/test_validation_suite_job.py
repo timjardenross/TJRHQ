@@ -8,10 +8,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import intelligence.scheduler as scheduler  # noqa: E402
-import intelligence.validation_suite as validation_suite  # noqa: E402
-import core.platform.notification_service as notification_service  # noqa: E402
-from intelligence.validation_suite import SuiteReport, _fail, _pass  # noqa: E402
+from core.platform import notification_service
+from intelligence import (
+    scheduler,
+    validation_suite,
+)
+from intelligence.validation_suite import SuiteReport, _fail, _pass
 
 
 def test_all_pass_does_not_dispatch(monkeypatch):

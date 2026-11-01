@@ -14,18 +14,17 @@ Run: python3 test_number_one.py
 """
 
 import sys
-from datetime import datetime, timedelta
-from number_one import (
-    NumberOne,
-    Mission,
-    MissionStatus,
-    Priority,
-    ConfidenceBand,
-    RoutingDecision,
-    EscalationLevel,
-    CoordinationConfig,
-)
+from datetime import datetime, timedelta, timezone
 
+from number_one import (
+    ConfidenceBand,
+    CoordinationConfig,
+    EscalationLevel,
+    MissionStatus,
+    NumberOne,
+    Priority,
+    RoutingDecision,
+)
 
 # ============================================================================
 # Test Fixtures
@@ -35,12 +34,12 @@ def create_test_mission(
     mission_id: str,
     priority: Priority = Priority.P1,
     status: MissionStatus = MissionStatus.ACTIVE,
-    blockers: list = None,
-    last_updated: datetime = None,
-    assigned_role: str = None,
+    blockers: list | None = None,
+    last_updated: datetime | None = None,
+    assigned_role: str | None = None,
 ) -> dict:
     """Create a test mission dict."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if last_updated is None:
         last_updated = now
 
@@ -109,6 +108,8 @@ class TestNumberOne:
         self.test_xo_escalations()
         self.test_engineering_handoff_ingestion()
         self.test_engineering_handoff_lifecycle()
+        self.test_blocked_ops_status_treated_as_blocked()
+        self.test_health_adjusted_queue()
 
         print()
         print("=" * 80)
@@ -172,7 +173,7 @@ class TestNumberOne:
         print("-" * 80)
 
         # Create missions with various follow-up triggers
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         stale_date = now - timedelta(days=6)  # 6 days old
         recent_date = now - timedelta(days=1)  # 1 day old
 
@@ -270,14 +271,14 @@ class TestNumberOne:
         queue = self.number_one.get_work_queue(missions, routing)
 
         # Check 1: High confidence specialist shown confidently
-        high_conf = [q for q in queue if q.mission_id == "MSN-1"][0]
+        high_conf = next(q for q in queue if q.mission_id == "MSN-1")
         self.assert_true(
             high_conf.confidence_band == ConfidenceBand.HIGH,
             "High confidence routing should be HIGH band"
         )
 
         # Check 2: Low confidence specialist escalated
-        low_conf = [q for q in queue if q.mission_id == "MSN-3"][0]
+        low_conf = next(q for q in queue if q.mission_id == "MSN-3")
         self.assert_true(
             "XO" in (low_conf.assigned_specialist or ""),
             "Low confidence should escalate to XO"
@@ -296,7 +297,7 @@ class TestNumberOne:
         print("TEST 5: Daily Brief Generation")
         print("-" * 80)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         missions = [
             create_test_mission("P0-A", Priority.P0, MissionStatus.ACTIVE),
             create_test_mission("P1-B", Priority.P1, MissionStatus.ACTIVE),
@@ -346,7 +347,7 @@ class TestNumberOne:
         print("TEST 6: XO Escalation Engine")
         print("-" * 80)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         missions = [
             # Critical: Blocked P0
             create_test_mission("P0-BLOCKED", Priority.P0, MissionStatus.BLOCKED),
@@ -402,6 +403,111 @@ class TestNumberOne:
 
         print()
 
+    def test_blocked_ops_status_treated_as_blocked(self):
+        """Regression test (2026-09-08): live missions carry the D-008
+        canonical status string "Blocked", which _to_status() maps to
+        MissionStatus.BLOCKED_OPS — a different enum member from the legacy
+        MissionStatus.BLOCKED every other test in this file uses. Every
+        "is this mission blocked" check used to test only the legacy value,
+        so the BLOCKED_P0 critical escalation, the blocked-mission count,
+        and the blocker-age report were all silently blind to real, live
+        blocked missions. Confirmed live while wiring Number One into an
+        actual Supabase-backed brief for the first time."""
+        print("TEST 9: BLOCKED_OPS ('Blocked') status treated as blocked (regression)")
+        print("-" * 80)
+
+        now = datetime.now(timezone.utc)
+        missions = [
+            create_test_mission("P0-BLOCKED-OPS", Priority.P0, MissionStatus.BLOCKED_OPS),
+            create_test_mission("P1-LONG-BLOCKED-OPS", Priority.P1, MissionStatus.BLOCKED_OPS,
+                                 last_updated=now - timedelta(days=4)),
+        ]
+
+        # Check 1: BLOCKED_P0 critical escalation fires for BLOCKED_OPS too.
+        escalations = self.number_one.get_xo_escalations(missions)
+        blocked_p0 = [e for e in escalations if e.escalation_type == "BLOCKED_P0"]
+        self.assert_true(
+            len(blocked_p0) == 1 and blocked_p0[0].mission_id == "P0-BLOCKED-OPS",
+            "BLOCKED_P0 escalation should fire for MissionStatus.BLOCKED_OPS, not just BLOCKED",
+        )
+
+        # Check 2: blocked_count in the daily brief counts BLOCKED_OPS missions.
+        brief = self.number_one.get_daily_brief(missions)
+        self.assert_true(
+            brief.blocked_count == 2,
+            f"blocked_count should count BLOCKED_OPS missions too (got {brief.blocked_count})",
+        )
+
+        # Check 3: get_blockers() report includes a BLOCKED_OPS mission with blocker text.
+        with_blocker_text = create_test_mission(
+            "P0-BLOCKED-OPS-WITH-TEXT", Priority.P0, MissionStatus.BLOCKED_OPS,
+            blockers=["waiting on infra"],
+        )
+        report = self.number_one.get_blockers([with_blocker_text])
+        self.assert_true(
+            report["total_blockers"] == 1 and len(report["critical"]) == 1,
+            "get_blockers() should report a BLOCKED_OPS mission with blocker text",
+        )
+
+        print()
+
+    def test_health_adjusted_queue(self):
+        """Test 10: get_health_adjusted_queue() — the capacity overlay had
+        zero test coverage and zero live callers before it was wired into
+        context_service.py's /queue/health-adjusted (2026-09-08,
+        USS-TJR-MSN-0054 follow-on). Covers the Red/Amber/Green branches
+        already in the function plus the new Unknown branch, which must
+        give an honest "no check-in data" advisory rather than silently
+        reusing Green's "Normal prioritisation applies" wording."""
+        print("TEST 10: Health-Adjusted Queue (capacity overlay)")
+        print("-" * 80)
+
+        missions = [
+            create_test_mission("P0-ACTIVE", Priority.P0, MissionStatus.ACTIVE),
+            create_test_mission("P1-ACTIVE", Priority.P1, MissionStatus.ACTIVE),
+            create_test_mission("P2-ACTIVE", Priority.P2, MissionStatus.ACTIVE),
+        ]
+
+        red = self.number_one.get_health_adjusted_queue(missions, "Red")
+        red_notes = {m["mission_id"]: m["capacity_note"] for m in red["queue"]}
+        self.assert_true(
+            "CRITICAL" in red_notes["P0-ACTIVE"] and "DEFERRED" in red_notes["P1-ACTIVE"],
+            "Red capacity should mark P0 critical and defer everything else",
+        )
+        self.assert_true(
+            "RED" in red["advisory"].upper(),
+            "Red advisory should name the Red capacity state",
+        )
+
+        amber = self.number_one.get_health_adjusted_queue(missions, "Amber")
+        amber_notes = {m["mission_id"]: m["capacity_note"] for m in amber["queue"]}
+        self.assert_true(
+            "Proceed" in amber_notes["P1-ACTIVE"] and "Advisory" in amber_notes["P2-ACTIVE"],
+            "Amber capacity should greenlight P0/P1 and flag P2/P3 as advisory-only",
+        )
+
+        green = self.number_one.get_health_adjusted_queue(missions, "Green")
+        self.assert_true(
+            all(m["capacity_note"] == "" for m in green["queue"]),
+            "Green capacity should not annotate any queue item",
+        )
+        self.assert_true(
+            "GREEN" in green["advisory"].upper(),
+            "Green advisory should name the Green capacity state",
+        )
+
+        unknown = self.number_one.get_health_adjusted_queue(missions, "Unknown")
+        self.assert_true(
+            all(m["capacity_note"] == "" for m in unknown["queue"]),
+            "Unknown capacity should not annotate any queue item (nothing to gate against)",
+        )
+        self.assert_true(
+            "UNKNOWN" in unknown["advisory"].upper() and "GREEN" not in unknown["advisory"].upper(),
+            "Unknown capacity must say so honestly, not silently claim Green",
+        )
+
+        print()
+
     def test_engineering_handoff_ingestion(self):
         """Test 7: Phase-1 (D-054) engineering-handoff ingestion into the queue.
 
@@ -414,6 +520,7 @@ class TestNumberOne:
 
         import tempfile
         from pathlib import Path
+
         from engineering_handoff_reader import load_engineering_handoffs
 
         def _handoff(status="APPROVED_FOR_ENGINEERING", batch="PENDING",
@@ -470,7 +577,7 @@ class TestNumberOne:
 
         # Graceful degradation: missing/empty dir -> [] (non-blocking)
         self.assert_true(
-            load_engineering_handoffs("/tmp/__missing_handoffs_dir__") == [],
+            load_engineering_handoffs("/tmp/__missing_handoffs_dir__") == [],  # nosec B108 - test fixture path asserting graceful degradation on a missing dir, not a real temp-file write - reviewed 2026-09-12
             "Missing handoff directory degrades gracefully to []"
         )
         with tempfile.TemporaryDirectory() as empty_dir:
@@ -495,11 +602,12 @@ class TestNumberOne:
 
         import tempfile
         from pathlib import Path
+
         from engineering_handoff_reader import (
+            EngineeringStatus,
+            derive_engineering_status,
             load_engineering_handoffs,
             summarise_engineering_handoffs,
-            derive_engineering_status,
-            EngineeringStatus,
         )
 
         # Read-only derivation maps raw Batch Status -> lifecycle vocabulary.

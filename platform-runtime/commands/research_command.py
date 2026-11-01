@@ -27,14 +27,14 @@ Public API:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import sys
 import threading
-import hashlib
-from pathlib import Path
-from datetime import datetime
 from collections import deque
-from typing import Callable, Any, Optional
+from collections.abc import Callable
+from datetime import datetime, timezone
+from pathlib import Path
 
 # RESEARCH DELEGATOR FIX: Ensure repo root is in sys.path before importing
 # This ensures imports work whether app.py has run yet or not
@@ -45,6 +45,7 @@ if str(_repo_root) not in sys.path:
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 from lib.provider_health import ProviderHealth
+
 from core.coordination.advisory_memory_formatter import format_memory_block
 from core.coordination.memory_metrics import log_memory_metric
 
@@ -76,7 +77,7 @@ def _build_research_supabase_client():
         raw_client = client.raw_client
         if raw_client is not None:
             return raw_client
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Supabase client unavailable for research memory, already logged
         log.warning("[research] Supabase client unavailable for research memory: %s", exc)
     return None
 
@@ -84,10 +85,12 @@ def _build_research_supabase_client():
 def _build_mission_registry_memory_adapter():
     """Return the mission registry memory adapter if available."""
     try:
-        from core.coordination.mission_registry_memory_adapter import MissionRegistryMemoryAdapter
+        from core.coordination.mission_registry_memory_adapter import (
+            MissionRegistryMemoryAdapter,
+        )
 
         return MissionRegistryMemoryAdapter()
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Mission registry memory adapter unavailable, already logged
         log.warning("[research] Mission registry memory adapter unavailable: %s", exc)
         return None
 
@@ -95,10 +98,12 @@ def _build_mission_registry_memory_adapter():
 def _build_decision_registry_memory_adapter():
     """Return the decision registry memory adapter if available."""
     try:
-        from core.coordination.decision_registry_memory_adapter import DecisionRegistryMemoryAdapter
+        from core.coordination.decision_registry_memory_adapter import (
+            DecisionRegistryMemoryAdapter,
+        )
 
         return DecisionRegistryMemoryAdapter()
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Decision registry memory adapter unavailable, already logged
         log.warning("[research] Decision registry memory adapter unavailable: %s", exc)
         return None
 
@@ -109,7 +114,7 @@ def _compute_research_query_hash(query: str) -> str:
 def _generate_queue_mission_id() -> str:
     """Generate unique mission ID for queue tracking."""
     from datetime import datetime
-    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")[:14]
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")[:14]
     return f"QUEUED-{ts}"
 
 
@@ -148,7 +153,7 @@ def handle_research_request_with_slack(
         Slack-formatted markdown response string (or queue position message)
     """
 
-    global _research_lock, _research_queue, _research_executing, _slack_say_func
+    global _slack_say_func
 
     # Store say function globally so queue processor can use it
     _slack_say_func = say
@@ -190,7 +195,7 @@ def handle_research_request(
         Slack-formatted markdown response string (or queue position message)
     """
 
-    global _research_lock, _research_queue, _research_executing
+    global _research_executing
 
     log.info(
         "[research] Handling research request: user=%s channel=%s topic_len=%d",
@@ -260,8 +265,9 @@ def _execute_research_mission(
     try:
         # Import orchestrator and memory retriever (MSN-0057 WP1)
         # These are validated at app.py startup, so import should succeed
-        from core.coordination.research_orchestration import ResearchOrchestrator
         from lib.research_memory_retrieval import ResearchMemoryRetriever
+
+        from core.coordination.research_orchestration import ResearchOrchestrator
 
         log.info("[research] ResearchOrchestrator imported successfully (cached from startup)")
 
@@ -272,7 +278,7 @@ def _execute_research_mission(
         return (
             "❌ Number One research orchestration unavailable.\n"
             f"Error: Research delegation module not found.\n"
-            f"_Debug: {str(e)}_"
+            f"_Debug: {e!s}_"
         )
 
     # Step 2: Check research memory BEFORE executing new research (MSN-0057 WP1)
@@ -307,7 +313,7 @@ def _execute_research_mission(
             details={"recommendation": retrieval_result.recommendation},
         )
 
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 - Memory retrieval failed, already logged
         log.warning("[research] Memory retrieval failed (non-blocking): %s", e)
         retrieval_result = None
         # Continue with new research; retrieval failure does not block execution
@@ -346,7 +352,7 @@ def _execute_research_mission(
                     memory_type="mission",
                     details={"related_count": len(registry_context.related_missions)},
                 )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Mission registry lookup failed, already logged
         log.warning("[research] Mission registry lookup failed (non-blocking): %s", exc)
 
     decision_registry_note = ""
@@ -384,7 +390,7 @@ def _execute_research_mission(
                         memory_type="decision",
                         details={"conflict_count": len(decision_context.conflict_warnings)},
                     )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Decision registry lookup failed, already logged
         log.warning("[research] Decision registry lookup failed (non-blocking): %s", exc)
 
     if retrieval_result and retrieval_result.recommendation in ("REUSE", "REUSE_WITH_NOTE"):
@@ -433,8 +439,6 @@ def _execute_research_mission(
     # Step 3: Execute new research mission (prior research not reusable)
     log.info("[research] Starting new research mission (executing)")
     try:
-        global _provider_health
-
         # MSN-0055C WP2: Reset provider health for new mission
         _provider_health.reset()
         log.debug("[research] Provider health tracker reset for new mission")
@@ -451,7 +455,7 @@ def _execute_research_mission(
             result.primary_provider,
         )
 
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 - Orchestration failed, already logged
         log.error("[research] Orchestration failed: %s — %s", type(e).__name__, e)
         return (
             "❌ Research mission failed.\n"
@@ -496,8 +500,6 @@ def _execute_research_mission(
 
 def _process_research_queue() -> None:
     """Process queued research requests one by one and post results to Slack (MSN-0054E-FIX)."""
-    global _research_lock, _research_queue, _slack_say_func
-
     while len(_research_queue) > 0:
         # Acquire lock for next queued mission
         _research_lock.acquire()
@@ -533,7 +535,7 @@ def _process_research_queue() -> None:
                     user_id=mission["user_id"],
                 )
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Queued mission execution failed, already logged
             log.error("[research-queue] Queued mission execution failed: %s", e)
             message_text = f"❌ Research mission failed: {str(e)[:100]}"
 
@@ -564,8 +566,6 @@ def _post_queued_mission_result(
     Posts to original thread if available, otherwise to channel.
     Failures are logged but do not crash the bot.
     """
-    global _slack_say_func
-
     if not _slack_say_func:
         log.warning(
             "[research-queue] Cannot post result: no Slack say() function available. "
@@ -596,7 +596,7 @@ def _post_queued_mission_result(
             channel_id, result_thread_ts, user_id,
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - queued mission result posting, already logged
         log.error(
             "[research-queue] Failed to post queued mission result: %s — %s",
             type(e).__name__, e,
@@ -669,9 +669,9 @@ def _format_research_result(result) -> str:
     if hasattr(result, 'captains_brief') and result.captains_brief:
         # Brief is available - use it as primary output
         message = result.captains_brief
-        message += f"\n\n---\n"
+        message += "\n\n---\n"
         message += f"*Mission ID:* `{result.mission_id}`\n"
-        message += f"Full research available in research log.\n"
+        message += "Full research available in research log.\n"
         return message
 
     # FALLBACK: Standard research format (if brief unavailable)
@@ -746,22 +746,6 @@ def _queue_mission_logging(result, user_id: str | None) -> None:
 
     try:
         # MSN-0056: Save research outcome to memory
-        research_memory = {
-            "mission_id": result.mission_id,
-            "research_topic": result.research_topic,
-            "research_date": result.timestamp,
-            "task_breakdown": result.task_breakdown or [],
-            "tasks_executed": result.task_count,
-            "tasks_completed": result.tasks_completed,
-            "status": result.status,
-            "consolidated_findings": result.consolidated_findings,
-            "recommendation": result.recommendation,
-            "confidence_level": result.confidence,
-            "providers_used": result.provider_paths or [],
-            "primary_provider": result.primary_provider,
-            "execution_status": "success" if result.status == "success" else "partial" if result.status == "partial" else "failed",
-            "researcher_id": user_id or "slack-bot",
-        }
 
         # TODO: Phase 5 implementation
         # Persist to memory system (e.g., Supabase research_memory table)
@@ -778,7 +762,7 @@ def _queue_mission_logging(result, user_id: str | None) -> None:
             result.confidence * 100
         )
 
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 - Failed to save mission outcome to memory, already logged
         log.warning("[research] Failed to save mission outcome to memory: %s", e)
         # Non-blocking: research already delivered to user; memory save is auxiliary
 
@@ -820,7 +804,7 @@ def _queue_mission_logging_reuse(
         #     "question": question,
         #     "confidence": confidence,
         #     "user_id": user_id,
-        #     "timestamp": datetime.utcnow(),
+        #     "timestamp": datetime.now(timezone.utc),
         # })
 
         log.debug(
@@ -829,7 +813,7 @@ def _queue_mission_logging_reuse(
             confidence,
         )
 
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 - Failed to log reuse event, already logged
         log.warning("[research-reuse] Failed to log reuse event: %s", e)
         # Non-blocking: reuse already delivered to user; metrics logging is auxiliary
 
@@ -852,7 +836,7 @@ def _record_research_learning_loop(result, user_id: str | None) -> None:
             provider_path=result.provider_paths or [],
             user_id=user_id,
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Learning loop recording failed, already logged
         log.warning("[research] Learning loop recording failed (non-blocking): %s", exc)
 
 
@@ -881,7 +865,7 @@ def _persist_research_memory(result, user_id: str | None) -> None:
             "query_hash": query_hash,
             "researcher_id": user_id or "slack-bot",
             "execution_status": "success" if result.status == "success" else "partial" if result.status == "partial" else "failed",
-            "stored_at": datetime.utcnow().isoformat(),
+            "stored_at": datetime.now(timezone.utc).isoformat(),
         }
 
         write_result = client.insert("research_memory", payload)
@@ -910,9 +894,9 @@ def _persist_research_memory(result, user_id: str | None) -> None:
                 confidence=round(float(result.confidence or 0.0) * 100) if result.confidence else None,
                 recommended_action=result.recommendation or None,
             )
-        except Exception:
-            pass
-    except Exception as exc:
+        except Exception as _exc:  # noqa: BLE001 - Captain Brief event publish, non-blocking
+            log.debug("[commands.research_command] publish_event(research.memory_persisted) failed, continuing: %s", _exc)
+    except Exception as exc: # noqa: BLE001 - Failed to persist research memory, already logged
         log.warning("[research] Failed to persist research memory (non-blocking): %s", exc)
 
 
@@ -965,7 +949,7 @@ def _attach_episodic_embedding(result) -> None:
 
         client.table("research_memory").update({"embedding": vector}).eq("id", row_id).execute()
         log.info("[research] Episodic embedding attached to memory row %s", row_id)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - _attach_episodic_embedding failed, already logged
         log.warning("[research] _attach_episodic_embedding failed (non-blocking): %s", exc)
 
 
@@ -997,10 +981,10 @@ if __name__ == "__main__":
         response = handle_research_request(topic, "test-user", "test-channel")
 
         if response.startswith(":x:"):
-            print(f"  Status: error")
+            print("  Status: error")
             print(f"  Message: {response[:80]}")
         else:
-            print(f"  Status: success")
+            print("  Status: success")
             print(f"  Message length: {len(response)} chars")
             if "MSN-" in response:
                 # Extract mission ID

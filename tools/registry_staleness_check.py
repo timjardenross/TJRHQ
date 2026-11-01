@@ -96,9 +96,10 @@ def _last_commit_date(relative_path: str) -> date | None:
     try:
         out = subprocess.run(
             ["git", "log", "-1", "--format=%cs", "--", relative_path],
-            cwd=_REPO_ROOT, capture_output=True, text=True, timeout=10,
+            cwd=_REPO_ROOT, capture_output=True, text=True, check=False, timeout=10,
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - git log failure (timeout, not a repo, etc.); caller treats None as "can't determine staleness for this path, skip it"
+        print(f"  (could not check git history for {relative_path}: {exc})")
         return None
     out_text = out.stdout.strip()
     if not out_text:

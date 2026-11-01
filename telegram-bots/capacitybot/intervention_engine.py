@@ -16,6 +16,19 @@ dependency for V02. Start deterministic."). Ranks by:
      minimum-sample floor so a single lucky/unlucky trial can't dominate
      (spec §15/§31 — never claim certainty from a small sample)
   7. a fresh penalty against an intervention that just failed twice in a row
+
+Mission 5 (spec §17/§20/§29) adds one more step ahead of all of the above:
+an explicit Captain correction recorded in capacity_preferences always
+outranks historical/inferred evidence for the same intervention.
+'do_not_suggest' is a hard exclude from ranking, applied before scoring —
+never blended into the score, so strong positive personal evidence can
+never outvote it. 'preferred' is a hard tie-break-first bucket applied
+after scoring — it moves a candidate to the front of the result ahead of
+every non-preferred candidate regardless of score, but does not reorder
+within the preferred/non-preferred groups (still governed by _score).
+This is deliberately NOT "highest score wins with a preference bonus
+added in" — spec §29 warns against exactly that conflation of explicit
+Captain intent with inferred evidence.
 """
 
 from __future__ import annotations
@@ -27,6 +40,12 @@ log = logging.getLogger(__name__)
 
 TABLE = "capacity_interventions"
 EVENTS_TABLE = "capacity_intervention_events"
+PREFERENCES_TABLE = "capacity_preferences"
+
+# This bot's domain in capacity_preferences / capacity_interventions.domain
+# (migration 0218). Ready Room's own selection path reads the same table
+# with domain='ready_room' — see docs/architecture/mission5-preferences-contract.md.
+DOMAIN = "capacity"
 
 # Below this many completed (better/same/worse) attempts, personal-outcome
 # weighting is skipped entirely — not enough signal to trust (spec §31).
@@ -44,7 +63,7 @@ async def _fetch_candidates(db, capacity_state: str | None) -> list[dict]:
             query = query.contains("capacity_allowed", [capacity_state])
         res = query.execute()
         return res.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_interventions fetch failed: %s", exc)
         return []
 
@@ -68,8 +87,35 @@ async def _fetch_personal_outcomes(db, intervention_ids: list[str]) -> dict[str,
         for row in res.data or []:
             by_id.setdefault(row["intervention_id"], []).append(row["outcome"])
         return by_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.warning("capacity_intervention_events fetch failed (ranking continues unweighted): %s", exc)
+        return {}
+
+
+async def _fetch_preferences(db, domain: str) -> dict[str, str]:
+    """intervention_id -> preference_state ('preferred' | 'do_not_suggest'),
+    for every capacity_preferences row in `domain` that targets a specific
+    item_code (spec §17). Empty dict on any failure — a lookup failure
+    must fail open into "no correction on record", never crash ranking
+    (same posture as _fetch_personal_outcomes), and must never be read as
+    "everything is do_not_suggest"."""
+    if not db:
+        return {}
+    try:
+        res = (
+            db.table(PREFERENCES_TABLE)
+            .select("item_code,preference_state")
+            .eq("domain", domain)
+            .not_.is_("item_code", "null")
+            .execute()
+        )
+        return {
+            row["item_code"]: row["preference_state"]
+            for row in (res.data or [])
+            if row.get("item_code") and row.get("preference_state")
+        }
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
+        log.warning("capacity_preferences fetch failed (ranking continues without corrections): %s", exc)
         return {}
 
 
@@ -95,15 +141,11 @@ def _score(
 
     stim_effect = row.get("stimulation_effect")
     if stimulation_state is not None:
-        if stimulation_state == "low" and stim_effect == "increase":
-            score += 3.0
-        elif stimulation_state == "high" and stim_effect == "decrease":
+        if stimulation_state == "low" and stim_effect == "increase" or stimulation_state == "high" and stim_effect == "decrease":
             score += 3.0
         elif stim_effect == "neutral":
             score += 1.0
-        elif stimulation_state == "low" and stim_effect == "decrease":
-            score -= 3.0
-        elif stimulation_state == "high" and stim_effect == "increase":
+        elif stimulation_state == "low" and stim_effect == "decrease" or stimulation_state == "high" and stim_effect == "increase":
             score -= 3.0
 
     if pain_state in ("elevated", "high") and not row.get("pain_compatible", True):
@@ -144,6 +186,7 @@ async def rank_interventions(
     executive_function: str | None = None,
     max_minutes: int | None = None,
     limit: int = 5,
+    domain: str = DOMAIN,
 ) -> list[dict]:
     """Returns up to `limit` candidate rows from capacity_interventions,
     highest-scored first, safety-filtered by capacity/pain compatibility.
@@ -152,7 +195,16 @@ async def rank_interventions(
     max_minutes (spec §16 — /guide's "available time" dimension): excludes
     anything with a longer estimated_minutes than the caller has time for.
     An intervention with no fixed duration (estimated_minutes is null) is
-    never excluded by this filter."""
+    never excluded by this filter.
+
+    Captain preference override (spec §17/§20/§29), applied around the
+    existing capacity/pain hard filters and score, never blended into it:
+      - 'do_not_suggest' excludes the candidate before scoring, regardless
+        of how strong its personal evidence is.
+      - 'preferred' is applied AFTER scoring as a hard tie-break-first
+        bucket, not folded into the score — explicit Captain intent must
+        never be outvoted by inferred evidence, and must never look like
+        "it happened to score highest"."""
     candidates = await _fetch_candidates(db, capacity_state)
     if not candidates:
         return []
@@ -160,6 +212,15 @@ async def rank_interventions(
         candidates = [
             c for c in candidates
             if c.get("estimated_minutes") is None or c["estimated_minutes"] <= max_minutes
+        ]
+        if not candidates:
+            return []
+
+    preferences = await _fetch_preferences(db, domain)
+    if preferences:
+        candidates = [
+            c for c in candidates
+            if preferences.get(c["intervention_id"]) != "do_not_suggest"
         ]
         if not candidates:
             return []
@@ -180,7 +241,14 @@ async def rank_interventions(
         if s is not None:
             scored.append((s, row))
 
+    # Score first (existing deterministic ranking, untouched)...
     scored.sort(key=lambda pair: pair[0], reverse=True)
+    # ...then a stable hard tie-break: every 'preferred' candidate moves
+    # ahead of every non-preferred one, but relative order within each
+    # group is left exactly as the score put it. This is a re-ordering,
+    # not a rescoring — the score numbers themselves are never touched.
+    if preferences:
+        scored.sort(key=lambda pair: 0 if preferences.get(pair[1]["intervention_id"]) == "preferred" else 1)
     return [row for _, row in scored[:limit]]
 
 
@@ -191,7 +259,7 @@ async def get_intervention(db, intervention_id: str) -> dict | None:
         res = db.table(TABLE).select("*").eq("intervention_id", intervention_id).limit(1).execute()
         rows = res.data or []
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_interventions lookup failed: %s", exc)
         return None
 
@@ -206,7 +274,6 @@ async def create_event(
     capacity_before: str | None = None,
     stimulation_before: str | None = None,
     pain_before: str | None = None,
-    pain_score_before: int | None = None,
     regulation_before: str | None = None,
     executive_before: str | None = None,
     compensation_before: str | None = None,
@@ -224,7 +291,6 @@ async def create_event(
         "capacity_before": capacity_before,
         "stimulation_before": stimulation_before,
         "pain_before": pain_before,
-        "pain_score_before": pain_score_before,
         "regulation_before": regulation_before,
         "executive_before": executive_before,
         "compensation_before": compensation_before,
@@ -236,7 +302,7 @@ async def create_event(
         res = db.table(EVENTS_TABLE).insert(payload).execute()
         row = (res.data or [None])[0]
         return True, row, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_intervention_events insert failed: %s | payload=%s", exc, payload)
         return False, None, str(exc)
 
@@ -266,9 +332,70 @@ async def complete_reassessment(
     try:
         db.table(EVENTS_TABLE).update(payload).eq("id", event_id).execute()
         return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_intervention_events reassessment update failed: %s", exc)
         return False, str(exc)
+
+
+async def set_preference(
+    db,
+    *,
+    domain: str,
+    preference_state: str,
+    item_code: str | None = None,
+    note: str | None = None,
+    source: str = "captain_stated",
+    updated_by: str = "captain",
+) -> tuple[bool, dict | None, str | None]:
+    """Write/overwrite a Captain preference or correction (spec §17/§20/§29
+    — "stop suggesting body doubling" / "I prefer X" durably overrides
+    future support selection). Upserts on (domain, item_code) when
+    item_code is given, matching migration 0218's partial unique index —
+    calling this twice for the same (domain, item_code) updates the one
+    row rather than creating a duplicate, so retries are safe.
+
+    `source` defaults to 'captain_stated' and is NEVER silently changed by
+    this function — a caller that is genuinely writing a platform-inferred
+    default (nothing in this codebase does that yet) must pass
+    source='inferred' explicitly. This function will not upgrade an
+    'inferred' row to 'captain_stated' or the reverse on its own; each
+    call simply writes whatever `source` its caller decided on (spec §9)."""
+    if not db:
+        return False, None, "Supabase unavailable (check SUPABASE_KEY)"
+    if preference_state not in ("preferred", "do_not_suggest"):
+        return False, None, f"invalid preference_state: {preference_state!r}"
+    if source not in ("captain_stated", "inferred"):
+        return False, None, f"invalid source: {source!r}"
+
+    payload = {
+        "domain": domain,
+        "item_code": item_code,
+        "preference_state": preference_state,
+        "note": note,
+        "source": source,
+        "updated_by": updated_by,
+    }
+    try:
+        if item_code is not None:
+            # Upsert against the (domain, item_code) partial unique index —
+            # a repeat correction on the same intervention replaces the
+            # prior row instead of accumulating duplicates.
+            res = (
+                db.table(PREFERENCES_TABLE)
+                .upsert(payload, on_conflict="domain,item_code")
+                .execute()
+            )
+        else:
+            # A general, non-item-targeted note isn't covered by the
+            # partial unique index (it only applies where item_code is not
+            # null) — nothing to conflict against, so this is always a
+            # plain insert.
+            res = db.table(PREFERENCES_TABLE).insert(payload).execute()
+        row = (res.data or [None])[0]
+        return True, row, None
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
+        log.error("capacity_preferences write failed: %s | payload=%s", exc, payload)
+        return False, None, str(exc)
 
 
 async def personal_effectiveness_summary(db, min_sample: int = MIN_SAMPLE_FOR_WEIGHTING) -> list[dict]:
@@ -289,7 +416,7 @@ async def personal_effectiveness_summary(db, min_sample: int = MIN_SAMPLE_FOR_WE
             row["intervention_id"]: row["title"]
             for row in (db.table(TABLE).select("intervention_id,title").execute()).data or []
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("personal_effectiveness_summary fetch failed: %s", exc)
         return []
 
@@ -388,7 +515,7 @@ async def intervention_context_by_state(db) -> list[dict]:
             row["intervention_id"]: row["title"]
             for row in (db.table(TABLE).select("intervention_id,title").execute()).data or []
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("intervention_context_by_state fetch failed: %s", exc)
         return []
 

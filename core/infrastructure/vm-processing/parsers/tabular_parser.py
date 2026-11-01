@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .base import ExtractionResult, ExtractionError
+from .base import ExtractionError, ExtractionResult
 
 MAX_ROWS_PREVIEW = 500
 

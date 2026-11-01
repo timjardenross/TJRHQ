@@ -1,10 +1,23 @@
 """ROS-001 v1.1 — /health-brief command handler.
 
-Generates a Medical Officer weekly health synthesis from analytics_health_daily
-and delivers it as a DM to the Captain.
+Generates a Medical Officer weekly health synthesis from analytics_health_daily.
+
+2026-09-26: Slack fully decommissioned (Captain confirmed). The
+`handle_health_brief()` Slack-DM entry point has been removed — it had
+no live Slack app registering `/health-brief` since the slack-bot
+service was retired (its only output was the
+`client.chat_postMessage` send, so there was nothing to keep once that
+was gone), and the weekly health-synthesis feature this handler covered
+already has a live, more capable successor at
+core/health/weekly_synthesis.py (persists to `health_insights`, updates
+memory/Health-Summary.md). The pure data/formatting helpers below
+(`_fetch_recent_logs`, `_summarise`, `_llm_synthesis`) have no Slack
+dependency and are kept, still covered by
+platform-runtime/test_health_synthesis.py.
 
 Public API:
-    handle_health_brief(user_id, client)
+    _fetch_recent_logs(db, days) -> list[dict]
+    _summarise(rows) -> str
 """
 
 from __future__ import annotations
@@ -12,7 +25,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -26,7 +39,7 @@ def _make_supabase():
     try:
         from tools.supabase.client import CommanderSupabaseClient
         return CommanderSupabaseClient()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[health-brief] Supabase client unavailable: %s", exc)
         return None
 
@@ -38,7 +51,7 @@ def _fetch_recent_logs(db, days: int = 7) -> list[dict]:
     if db is None or not db.is_enabled() or db.raw_client is None:
         return []
     try:
-        since = (date.today() - timedelta(days=days)).isoformat()
+        since = (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
         result = (
             db.raw_client
             .table("analytics_health_daily")
@@ -48,7 +61,7 @@ def _fetch_recent_logs(db, days: int = 7) -> list[dict]:
             .execute()
         )
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort data fetch, already logged
         log.error("[health-brief] Data fetch failed: %s", exc)
         return []
 
@@ -69,7 +82,7 @@ def _summarise(rows: list[dict]) -> str:
     if not rows:
         return (
             "No check-in data found for the past 7 days.\n\n"
-            "Use `/health-check` to log today's check-in."
+            "Use `/capacity` to log today's check-in."
         )
 
     total = len(rows)
@@ -109,14 +122,14 @@ def _summarise(rows: list[dict]) -> str:
     # Dominant nervous system state (most frequent)
     dominant_ns = max(ns_counts, key=ns_counts.get) if ns_counts else None
     dysregulated_days = ns_counts.get("dysregulated", 0)
-    calm_days = ns_counts.get("calm", 0)
+    ns_counts.get("calm", 0)
 
     avg_sleep = sum(sleep_hours_list) / len(sleep_hours_list) if sleep_hours_list else None
 
     # Build summary text
     lines = [
-        f"*Weekly Health Brief — Medical Officer*",
-        f"_{date.today().strftime('%d %b %Y')} · Last {days_with_data} check-in(s)_",
+        "*Weekly Health Brief — Medical Officer*",
+        f"_{datetime.now(timezone.utc).date().strftime('%d %b %Y')} · Last {days_with_data} check-in(s)_",
         "",
         "*Nervous System*",
     ]
@@ -177,35 +190,11 @@ def _llm_synthesis(raw_summary: str) -> str | None:
     """Attempt to enrich the summary via Gemini. Returns None if unavailable."""
     try:
         sys.path.insert(0, str(os.path.dirname(__file__) + "/.."))
-        from llm import generate_with_gemini, LLMUnavailableError
+        from llm import generate_with_gemini
         prompt = f"Weekly health data:\n\n{raw_summary}\n\nProvide a Medical Officer interpretation."
         return generate_with_gemini(prompt=prompt, system_prompt=_MEDICAL_OFFICER_SYSTEM)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM enrichment, already logged
         log.warning("[health-brief] LLM synthesis unavailable: %s", exc)
         return None
 
 
-# ── Public handler ────────────────────────────────────────────────────────────
-
-def handle_health_brief(user_id: str, client) -> None:
-    """Fetch 7 days of health data, synthesise, and DM the brief to the Captain."""
-    db = _make_supabase()
-    rows = _fetch_recent_logs(db, days=7)
-    raw_summary = _summarise(rows)
-
-    # Attempt LLM enrichment; fall back to statistical summary
-    llm_text = _llm_synthesis(raw_summary)
-
-    if llm_text:
-        dm_text = (
-            f"{raw_summary}\n\n"
-            f"*Medical Officer Interpretation*\n{llm_text}"
-        )
-    else:
-        dm_text = raw_summary
-
-    try:
-        client.chat_postMessage(channel=user_id, text=dm_text)
-        log.info("[health-brief] Brief delivered to user=%s (%d rows)", user_id, len(rows))
-    except Exception as exc:
-        log.error("[health-brief] DM failed: %s", exc)

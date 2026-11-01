@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the MSN-0092 Advisory Runtime (core/advisory).
 
 These run fully offline — the specialist pipeline degrades deterministically
@@ -17,8 +18,8 @@ for _p in (str(_ADVISORY),):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-import schema  # noqa: E402
-from _local_import_advisory import import_sibling  # noqa: E402
+import schema
+from _local_import_advisory import import_sibling
 
 # Fleet Engineering Review 2026-08-11: evidence, lessons, service collide
 # with same-named files elsewhere in the repo — see core/advisory/
@@ -119,7 +120,7 @@ def test_related_lessons_returns_lessonrefs():
 
 def test_lessons_brief_structure():
     brief = lessons_mod.lessons_brief("advisory runtime evidence")
-    assert set(["query", "lessons", "similar_missions", "narrative"]).issubset(brief.keys())
+    assert {"query", "lessons", "similar_missions", "narrative"}.issubset(brief.keys())
     assert isinstance(brief["lessons"], list)
 
 

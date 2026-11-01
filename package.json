@@ -1,0 +1,13 @@
+{
+  "name": "starship-endeavour",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Starship Endeavour repository root tooling (governance/ADR build tools; application code lives in lcars-portal/ and elsewhere).",
+  "scripts": {
+    "adr:build": "log4brains build",
+    "adr:preview": "log4brains preview"
+  },
+  "devDependencies": {
+    "log4brains": "^1.1.0"
+  }
+}

@@ -2,7 +2,7 @@
 Description=LCARS Portal — Next.js Command Centre
 # Caddy (127.0.0.1:3200, see /etc/caddy/Caddyfile) is the real front door —
 # start after it so the very first requests after a reboot don't 502.
-After=network.target caddy.service
+After=network.target caddy.service docker.service
 
 [Service]
 Type=simple
@@ -13,7 +13,13 @@ WorkingDirectory=/opt/starship-endeavour/lcars-portal
 # launched `npm exec next start -p 3200` quietly took over serving
 # instead, unmanaged and not surviving a reboot. This unit was enabled
 # the whole time but pointed at a port nothing routed to.
-ExecStart=/opt/starship-endeavour/lcars-portal/node_modules/.bin/next start -p 3200
+# 2026-09-21: OLLAMA_MODEL_DEFAULT misconfig (misspelled Infisical key ->
+# code fell back to a model Ollama doesn't have) silently killed Content
+# Workbench AI Review/Polish/Generate — no crash, no error, the honest
+# fallback path just quietly served scaffold output forever. Fail the
+# start loudly instead of coming up into that same silent state again.
+ExecStartPre=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/check-ollama-model-default.sh
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/lcars-portal/node_modules/.bin/next start -p 3200
 # Restart=always (not on-failure) matches this repo's other persistent
 # daemons (see deploy/model-router.service) — a clean-exit hang is just as
 # much an outage as a crash for a request-serving process.
@@ -29,11 +35,35 @@ RestartSec=5
 # rather than a silent infinite crash-loop.
 StartLimitIntervalSec=120
 StartLimitBurst=6
-EnvironmentFile=/opt/starship-endeavour/lcars-portal/.env.local
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 3): cut over to Infisical, old
+# EnvironmentFile= kept commented as rollback. NOTE: this only covers
+# server-side runtime env — NEXT_PUBLIC_* values are baked into the
+# client bundle at `next build` time, not read at `next start` runtime;
+# a future rebuild still needs its own env source for those (currently
+# .env.local at build time — not addressed by this cutover).
+# EnvironmentFile=/opt/starship-endeavour/lcars-portal/.env.local
 Environment=NODE_ENV=production
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=lcars-portal
+
+# 2026-09-15 adversarial review: unit had no User= (ran as root, same as
+# every other process on this box) and no systemd sandboxing at all for a
+# service that serves requests directly (via Caddy) from the public
+# internet. Not switching User= away from root here — the whole repo tree
+# is root:root and auto-deploy.sh's `npm run build` step (also root, see
+# auto-deploy.service) writes .next/ as root between deploys, so a
+# non-root User= would need a matching ownership/permissions change
+# verified against a live deploy cycle before it's safe; flagged as a
+# longer-term follow-up rather than attempted blind against the live
+# dashboard. NoNewPrivileges/ProtectSystem/ProtectHome/PrivateTmp reduce
+# blast radius without touching file ownership: ReadWritePaths scopes the
+# one directory `next start` actually writes to (ISR/data cache).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/starship-endeavour/lcars-portal/.next/cache
 
 [Install]
 WantedBy=multi-user.target

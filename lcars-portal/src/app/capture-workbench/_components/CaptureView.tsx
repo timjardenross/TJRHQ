@@ -94,7 +94,7 @@ export function CaptureView({ onCaptured }: { onCaptured: () => void }) {
           rows={4}
           placeholder="What do you want to capture?"
           aria-label="Capture text"
-          className="w-full resize-none rounded-md border border-wb-line bg-wb-bg px-3 py-3 text-base text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none"
+          className="w-full resize-none rounded-md border border-wb-line bg-wb-bg px-3 py-3 text-base text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         />
 
         <div className="mt-3 flex flex-col gap-3">
@@ -109,7 +109,7 @@ export function CaptureView({ onCaptured }: { onCaptured: () => void }) {
           ) : (
             <div className="flex flex-col gap-2">
               <TypeChips selected={type} onChange={setType} />
-              <p className="text-[11px] italic text-wb-ink2">{meta.hint}</p>
+              <p className="text-wb-label italic text-wb-ink2">{meta.hint}</p>
             </div>
           )}
 
@@ -117,11 +117,11 @@ export function CaptureView({ onCaptured }: { onCaptured: () => void }) {
             type="button"
             onClick={submit}
             disabled={saving || !text.trim()}
-            className="w-full rounded-md bg-wb-sage-deep px-4 py-3 text-base font-semibold uppercase tracking-[0.14em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+            className="w-full rounded-md bg-wb-sage-deep px-4 py-3 text-base font-semibold uppercase tracking-[0.14em] text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {saving ? 'Capturing…' : `Capture ${meta.label}`}
           </button>
-          <p className="text-center text-[10px] uppercase tracking-[0.14em] text-wb-ink2">⌘/Ctrl + Enter to capture</p>
+          <p className="text-center text-wb-label uppercase tracking-[0.14em] text-wb-ink2">⌘/Ctrl + Enter to capture</p>
         </div>
       </Card>
 

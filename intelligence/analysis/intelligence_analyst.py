@@ -25,7 +25,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, ClassVar
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +74,10 @@ class SignalScore:
     relevance_score: float          # 1.0–5.0 overall (total / 10, clamped)
     risk_rating: str                # HIGH | MEDIUM | LOW
     method: str                     # 'llm' | 'heuristic'
-    provider: Optional[str] = None  # LLM provider name when method == 'llm'
+    provider: str | None = None  # LLM provider name when method == 'llm'
+    model_name: str | None = None    # resolved model, when method == 'llm'
+    input_tokens: int | None = None  # when the provider's response reported it
+    output_tokens: int | None = None
     notes: dict[str, Any] = field(default_factory=dict)
 
     def as_event_columns(self) -> dict[str, Any]:
@@ -93,15 +96,15 @@ class DualPathScoringResult:
     """Issue 14 shadow-mode result: both scoring paths + Issue 20 provenance."""
 
     heuristic: SignalScore
-    llm: Optional[SignalScore]
-    agree: Optional[bool]           # risk_rating agreement, None if LLM path didn't run
+    llm: SignalScore | None
+    agree: bool | None           # risk_rating agreement, None if LLM path didn't run
     provenance: dict[str, Any]
 
 
 def _clamp(value: Any) -> int:
     """Coerce a model/heuristic value to an int in [1, 5]; default 3 on garbage."""
     try:
-        v = int(round(float(value)))
+        v = round(float(value))
     except (TypeError, ValueError):
         return 3
     return max(_MIN, min(_MAX, v))
@@ -126,7 +129,10 @@ def _downgrade_if_resolved(score: SignalScore, signal: dict) -> SignalScore:
     return score
 
 
-def _finalise(breakdown: dict[str, int], method: str, provider=None, notes=None) -> SignalScore:
+def _finalise(
+    breakdown: dict[str, int], method: str, provider=None, notes=None,
+    model_name=None, input_tokens=None, output_tokens=None,
+) -> SignalScore:
     clean = {dim: _clamp(breakdown.get(dim, 3)) for dim in DIMENSIONS}
     total = sum(clean.values())
     relevance = round(max(1.0, min(5.0, total / 10.0)), 1)
@@ -137,6 +143,9 @@ def _finalise(breakdown: dict[str, int], method: str, provider=None, notes=None)
         risk_rating=risk_rating_for(total),
         method=method,
         provider=provider,
+        model_name=model_name,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
         notes=notes or {},
     )
 
@@ -146,10 +155,10 @@ class IntelligenceAnalyst:
 
     def __init__(
         self,
-        llm_provider: Optional[Any] = None,
+        llm_provider: Any | None = None,
         use_llm: bool = True,
         shadow_mode: bool = False,
-        cost_governor: Optional[Any] = None,
+        cost_governor: Any | None = None,
     ):
         # Lazy default so importing this module never requires network/config.
         # use_llm=False forces the deterministic heuristic path — used by batch
@@ -170,7 +179,7 @@ class IntelligenceAnalyst:
             try:
                 from intelligence.brief.llm_provider import LLMProvider
                 self._llm = LLMProvider()
-            except Exception as exc:  # pragma: no cover
+            except Exception as exc:  # pragma: no cover  # noqa: BLE001 - optional LLM-provider init; already logged, caller falls back to the deterministic heuristic path
                 log.warning("IntelligenceAnalyst: LLMProvider unavailable (%s)", exc)
                 self._llm = None
         return self._llm
@@ -202,7 +211,7 @@ class IntelligenceAnalyst:
 
     # ── Shadow mode (Issue 14 + 20 + 21) ─────────────────────────────────────
     def score_dual_path(
-        self, signal: dict, event_id: Optional[str] = None,
+        self, signal: dict, event_id: str | None = None,
         task_type: str = "signal-scoring",
     ) -> DualPathScoringResult:
         """Score a signal via both paths. Heuristic is always authoritative;
@@ -212,8 +221,8 @@ class IntelligenceAnalyst:
         heuristic = _downgrade_if_resolved(self._heuristic_score(signal), signal)
         heuristic_scored_at = datetime.now(timezone.utc).isoformat()
 
-        llm_result: Optional[SignalScore] = None
-        llm_scored_at: Optional[str] = None
+        llm_result: SignalScore | None = None
+        llm_scored_at: str | None = None
         notes: dict[str, Any] = {}
 
         check = self._cost_governor.can_call_llm(task_type) if self._cost_governor else None
@@ -225,7 +234,7 @@ class IntelligenceAnalyst:
                 llm_result = self._score_via_llm(signal)
                 if llm_result is not None:
                     llm_result = _downgrade_if_resolved(llm_result, signal)
-            except Exception as exc:  # pragma: no cover — _score_via_llm already guards this
+            except Exception as exc:  # pragma: no cover — _score_via_llm already guards this  # noqa: BLE001 - already logged into notes['llm_error'] — surfaced to the caller's scoring result, not swallowed
                 notes["llm_error"] = str(exc)
             latency_ms = int((time.monotonic() - start) * 1000)
 
@@ -233,6 +242,9 @@ class IntelligenceAnalyst:
                 self._cost_governor.log_call(
                     task_type=task_type,
                     provider=(llm_result.provider if llm_result else "unknown"),
+                    model_name=llm_result.model_name if llm_result else None,
+                    input_tokens=llm_result.input_tokens if llm_result else None,
+                    output_tokens=llm_result.output_tokens if llm_result else None,
                     latency_ms=latency_ms,
                     success=llm_result is not None,
                     failure_reason=None if llm_result else "no_llm_result_or_unparseable",
@@ -272,13 +284,18 @@ class IntelligenceAnalyst:
             'Return ONLY JSON: {"score_breakdown": {"criticality": N, ...all 10...}}'
         )
 
-    def _score_via_llm(self, signal: dict) -> Optional[SignalScore]:
+    def _score_via_llm(self, signal: dict) -> SignalScore | None:
         llm = self._get_llm()
         if llm is None:
             return None
         try:
-            raw, provider = llm.generate(self._build_prompt(signal))
-        except Exception as exc:
+            # use_mistral_pipeline=False: this is a short structured-JSON
+            # scoring call, not a narrative — the 7-agent brief pipeline
+            # (~30-70s) has nothing to offer it over Gemini/Mistral Small
+            # (~2-3s) and was confirmed live as a 13-14x latency spike for
+            # zero quality benefit on this task (HQ Status Usage tab data).
+            raw, provider = llm.generate(self._build_prompt(signal), use_mistral_pipeline=False)
+        except Exception as exc:  # noqa: BLE001 - best-effort LLM generate call, already logged; caller falls back to the heuristic path per the returned None
             log.warning("IntelligenceAnalyst: LLM generate failed (%s)", exc)
             return None
         if not raw:
@@ -287,10 +304,16 @@ class IntelligenceAnalyst:
         if breakdown is None:
             log.info("IntelligenceAnalyst: unparseable LLM scoring output; using heuristic")
             return None
-        return _finalise(breakdown, method="llm", provider=provider)
+        usage = getattr(llm, "last_usage", None)
+        return _finalise(
+            breakdown, method="llm", provider=provider,
+            model_name=usage.model if usage else None,
+            input_tokens=usage.input_tokens if usage else None,
+            output_tokens=usage.output_tokens if usage else None,
+        )
 
     @staticmethod
-    def _parse_breakdown(raw: str) -> Optional[dict[str, int]]:
+    def _parse_breakdown(raw: str) -> dict[str, int] | None:
         """Extract a score_breakdown mapping from raw LLM text."""
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not match:
@@ -309,8 +332,8 @@ class IntelligenceAnalyst:
         return breakdown
 
     # ── Heuristic path (deterministic, never fails) ──────────────────────────
-    _IMPACT = {"low": 2, "medium": 3, "high": 5, "": 2, None: 2}
-    _ESSENTIAL_EVENTS = {
+    _IMPACT: ClassVar[dict] = {"low": 2, "medium": 3, "high": 5, "": 2, None: 2}
+    _ESSENTIAL_EVENTS: ClassVar[set[str]] = {
         "telecom_outage", "payments_disruption", "energy_disruption",
         "technology_outage", "cyber", "transport_disruption",
     }

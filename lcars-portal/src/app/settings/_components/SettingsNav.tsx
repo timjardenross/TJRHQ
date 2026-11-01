@@ -25,7 +25,7 @@ export function SettingsNav() {
             href={section.href}
             aria-current={active ? 'page' : undefined}
             className={[
-              'flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition-colors',
+              'flex items-center gap-2.5 rounded-md px-3 py-2 text-wb-body transition-colors',
               active
                 ? 'bg-wb-sage-deep/10 font-medium text-wb-sage-deep'
                 : 'text-wb-ink2 hover:bg-wb-surface-raised hover:text-wb-ink',

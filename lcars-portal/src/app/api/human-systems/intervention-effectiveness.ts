@@ -15,16 +15,23 @@ const MIN_SAMPLE_FOR_EFFECTIVENESS = 3; // mirrors the bot's intervention_engine
  *  personal_effectiveness_summary() (intervention_engine.py). All-time,
  *  same as the bot (no window filter) — counts accumulate meaning over
  *  time, and this is exactly the same query the bot's /actions and this
- *  workbench should never disagree on. */
-export async function computeInterventionEffectiveness(sb: any): Promise<InterventionEffectiveness[]> {
+ *  workbench should never disagree on.
+ *
+ *  Mission 5: `domain` narrows both queries to one domain's rows —
+ *  'capacity' (default, unchanged call sites/behaviour) or 'ready_room'
+ *  (migration 0218). Personal vs general evidence is never blended
+ *  regardless of domain (see the header comment above); domain scoping is
+ *  a second, orthogonal separation — a ready_room row must never be
+ *  counted into capacitybot's own effectiveness summary or vice versa. */
+export async function computeInterventionEffectiveness(sb: any, domain: 'capacity' | 'ready_room' = 'capacity'): Promise<InterventionEffectiveness[]> {
   const [{ data: events }, { data: catalogueRows }] = await Promise.all([
-    sb.from('capacity_intervention_events').select('intervention_id,outcome,help_state'),
+    sb.from('capacity_intervention_events').select('intervention_id,outcome,help_state').eq('domain', domain),
     // evidence_strength/evidence_basis: V3 doc §16 "Evidence Metadata"
     // (migration 0157) — general evidence metadata, kept separate from
     // the personal better/same/worse counts computed below. evidence_
     // strength defaults to 'unknown' at the DB layer so every one of the
     // 30 originally-seeded rows resolves it explicitly rather than null.
-    sb.from('capacity_interventions').select('intervention_id,title,evidence_strength,evidence_basis'),
+    sb.from('capacity_interventions').select('intervention_id,title,evidence_strength,evidence_basis').eq('domain', domain),
   ]);
   const catalogue = new Map<string, { title: string; evidence_strength: InterventionEffectiveness['evidence_strength']; evidence_basis: string | null }>(
     (catalogueRows ?? []).map((r: any) => [

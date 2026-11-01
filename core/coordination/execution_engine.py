@@ -1,5 +1,26 @@
 """Number One Execution Engine (EXEC-001 WP2 — ADR-0003 Implementation).
 
+*** LEGACY / UNREACHABLE (Mission 1 Round 2, USS-TJR-MSN-1, 2026-09-19) ***
+Its only caller anywhere in the repo is platform-runtime/lib/
+daily_ops_cycle.py's _step_number_one(), and that orchestrator's own
+public entrypoint, run_daily_cycle(), has zero callers of its own anywhere
+in the repo (confirmed twice, Round 1 and Round 2). This module is
+therefore not a live competitor to core/coordination/number_one.py — it is
+dead code reachable only through an unreachable entrypoint.
+
+core/coordination/number_one.py is the canonical, live-authoritative
+engine: reached through context_service.py's _http_number_one_brief()
+(GET /brief/number-one), already shared identically by lcars-portal's
+api/number-one-brief route, core/coordination/command_bus.py's alert
+watchdog, and telegram-bots/xo/app.py's /priorities and /brief commands.
+Do not build new integrations against this module — extend number_one.py
+and its attention_state.py normalizer instead. Retiring this file outright
+was out of scope for Round 2 (daily_ops_cycle.py is a 20-step orchestrator;
+gutting one step of an otherwise-dormant module carries more risk than
+leaving it clearly marked dead until a real decision is made about
+daily_ops_cycle.py's own future — see Round 2's Retirement/Adapter
+Decisions register).
+
 Transforms Number One's deterministic analysis into executed actions.
 Number One DECIDES; this engine ACTS.
 
@@ -25,7 +46,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -119,7 +140,10 @@ class NumberOneExecutionEngine:
         # is unchanged.
         try:
             from core.governance.authority_enforcement import AuthorityContext
-            from core.governance.authority_validator import AuthorityError
+            from core.governance.authority_validator import (
+                AuthorityError,
+                ManifestGapError,
+            )
 
             try:
                 with AuthorityContext(
@@ -132,11 +156,23 @@ class NumberOneExecutionEngine:
             except AuthorityError as exc:
                 log.warning("[exec-engine] Assignment blocked by authority gate: %s", exc.reason)
                 return None
-        except Exception as exc:
+            except ManifestGapError as exc:
+                # 2026-09-15 adversarial review: this used to fall through to
+                # the broad `except Exception` below, which logged it as
+                # "non-blocking" and let the assignment proceed anyway —
+                # silently defeating Wave 3/4's fail-closed-by-default
+                # design for every officer, since governance/authority/ had
+                # no manifests at all until this same review added them. A
+                # manifest gap now means what it says: block, same as an
+                # explicit denial, so a newly-introduced officer/action pair
+                # with no manifest decision yet fails loud instead of quiet.
+                log.warning("[exec-engine] Assignment blocked — manifest gap: %s", exc.reason)
+                return None
+        except Exception as exc:  # noqa: BLE001 - genuinely unexpected failure (e.g. Supabase down for the audit write) — already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Authority check failed (non-blocking): %s", exc)
 
         days = review_days or self.REVIEW_DATE_DEFAULT_DAYS
-        review_date = datetime.utcnow() + timedelta(days=days)
+        review_date = datetime.now(timezone.utc) + timedelta(days=days)
 
         action = AssignmentAction(
             mission_id=mission_id,
@@ -245,7 +281,7 @@ class NumberOneExecutionEngine:
         Organises missions by state, surfaces escalations and recent assignments.
         This is the primary Number One contribution to the daily Captain brief.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         escalations = escalations or []
         assignments = assignments or []
 
@@ -271,7 +307,7 @@ class NumberOneExecutionEngine:
                 try:
                     lu = datetime.fromisoformat(str(last_updated_str).replace("Z", "+00:00"))
                     days_since = (now - lu.replace(tzinfo=None)).days
-                except Exception:
+                except Exception:  # noqa: BLE001 - documented default: days_since=0 on any unparseable timestamp
                     days_since = 0
 
             stale_threshold = STALE_P0_DAYS if priority == "P0" else STALE_DAYS
@@ -307,7 +343,7 @@ class NumberOneExecutionEngine:
         )
 
     def format_captain_brief_section(self, summary: ExecutiveSummary) -> str:
-        """Format executive summary as a Slack-ready Captain brief section."""
+        """Format executive summary as a Captain brief section (mrkdwn-style)."""
         health_icon = {"green": ":large_green_circle:", "amber": ":large_yellow_circle:", "red": ":red_circle:"}.get(summary.system_health, ":white_circle:")
         lines = [
             f"{health_icon} *NUMBER ONE EXECUTIVE SUMMARY*",
@@ -345,16 +381,12 @@ class NumberOneExecutionEngine:
 
     def _get_client(self):
         try:
-            from slack_bot.command_memory_integration import get_client
+            sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
+            from command_memory_integration import get_client
             return get_client()
-        except Exception:
-            try:
-                sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
-                from command_memory_integration import get_client
-                return get_client()
-            except Exception as exc:
-                log.warning("[exec-engine] Command Memory client unavailable: %s", exc)
-                return None
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+            log.warning("[exec-engine] Command Memory client unavailable: %s", exc)
+            return None
 
     def _write_assignment(self, action: AssignmentAction) -> None:
         """Write assignment to missions table and log decision to Command Memory."""
@@ -365,12 +397,12 @@ class NumberOneExecutionEngine:
                     action.mission_id,
                     {
                         "owner": action.assigned_to,
-                        "updated_at": datetime.utcnow().isoformat() + "Z",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
                         "updated_by": "number_one",
                     }
                 )
                 log.info("[exec-engine] Mission %s assigned to %s", action.mission_id, action.assigned_to)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Assignment write failed (non-blocking): %s", exc)
 
         self._log_decision(
@@ -390,7 +422,7 @@ class NumberOneExecutionEngine:
         """Non-blocking write to Command Memory decisions table."""
         try:
             _try_log_decision(statement, rationale, owner="number_one")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Decision log failed (non-blocking): %s", exc)
 
     def _build_recommendations(
@@ -422,13 +454,13 @@ def _try_log_decision(statement: str, rationale: str, owner: str) -> None:
         sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
         from command_memory_integration import log_decision_to_command_memory
         log_decision_to_command_memory(statement=statement, rationale=rationale, owner=owner)
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort Command Memory mirror; must not break the actual decision-logging flow
         pass
 
 
 __all__ = [
-    "NumberOneExecutionEngine",
     "AssignmentAction",
     "EscalationAction",
     "ExecutiveSummary",
+    "NumberOneExecutionEngine",
 ]

@@ -1,0 +1,7 @@
+project:
+  name: Starship Endeavour
+  tz: Australia/Sydney
+  adrFolder: ./core/governance/architecture-decision-records
+  repository:
+    url: https://github.com/timjardenross/TJRHQ
+    provider: github

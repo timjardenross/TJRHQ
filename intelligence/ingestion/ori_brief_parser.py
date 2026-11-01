@@ -19,7 +19,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
 
 # ─── Section name normalisation (heading / bold-label synonyms → canonical) ────
 
@@ -67,7 +66,7 @@ _REGION_TO_GEOGRAPHY = {"australia": "AU", "au": "AU", "apac": "APAC",
 class ParsedBrief:
     file_name: str
     file_path: str
-    brief_date: Optional[date]
+    brief_date: date | None
     region: str                       # human label, e.g. "Australia"
     geography: str                    # normalised AU | APAC | GLOBAL
     version: str                      # "0" | "1" | "1.0"
@@ -115,7 +114,7 @@ def split_front_matter(raw: str) -> tuple[dict, str]:
         loaded = yaml.safe_load(fm_block)
         if isinstance(loaded, dict):
             fm = loaded
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional PyYAML import/parse — explicit key:value fallback parser implemented right below when missing/invalid
         # Minimal key: value fallback if PyYAML missing/invalid.
         for line in fm_block.splitlines():
             if ":" in line:
@@ -134,7 +133,7 @@ def detect_version(body: str) -> str:
 
 # ─── Section extraction strategies ─────────────────────────────────────────────
 
-def _canonical_section(label: str) -> Optional[str]:
+def _canonical_section(label: str) -> str | None:
     key = re.sub(r"[^a-z0-9 ]", "", label.strip().lower())
     key = re.sub(r"\s+", " ", key).strip()
     # try exact, then prefix match against synonyms
@@ -204,7 +203,7 @@ def _extract_sections_v0(body: str) -> dict:
 
 # ─── Metadata resolution ───────────────────────────────────────────────────────
 
-def _date_from_filename(file_name: str) -> Optional[date]:
+def _date_from_filename(file_name: str) -> date | None:
     m = _FILENAME_DATE_RE.search(file_name)
     if not m:
         return None

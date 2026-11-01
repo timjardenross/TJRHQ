@@ -16,8 +16,6 @@ Optional version overrides (default: 1):
 from __future__ import annotations
 
 import logging
-import os
-from typing import Optional
 
 from lib.mistral_agent_client import call_agent
 
@@ -78,8 +76,8 @@ TESTING, DEPLOYMENT, or any other lifecycle model.
 def call_engineering_officer(
     build_request: str,
     brief_text: str,
-    mission_id: Optional[str] = None,
-) -> Optional[str]:
+    mission_id: str | None = None,
+) -> str | None:
     """
     Ask the Engineering Officer to review a build brief before approval.
 
@@ -110,7 +108,7 @@ def call_engineering_officer(
 def engineering_officer_slack_block(
     build_request: str,
     brief_text: str,
-    mission_id: Optional[str] = None,
+    mission_id: str | None = None,
 ) -> str:
     """
     Return a Slack-formatted Engineering Officer advisory block.
@@ -149,7 +147,7 @@ def call_qa_validation_officer(
     mission_id: str,
     mission_dossier: str,
     closing_note: str = "",
-) -> Optional[str]:
+) -> str | None:
     """
     Ask the QA Validation Officer to review a mission before closure.
 

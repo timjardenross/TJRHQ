@@ -16,9 +16,9 @@ Reuse-only: timeline, signals, core/health/trend_utils. No new store.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:

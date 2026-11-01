@@ -21,7 +21,7 @@ from __future__ import annotations
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import ClassVar
 
 # Make core packages importable
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -33,7 +33,6 @@ for _p in [
         sys.path.insert(0, _p)
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures — minimal test data
@@ -122,7 +121,7 @@ def normal_health():
 class TestHealthDataPrivacy:
     """Health context must never expose clinical detail."""
 
-    FORBIDDEN_FIELDS = {
+    FORBIDDEN_FIELDS: ClassVar[set[str]] = {
         "diagnosis", "diagnoses", "medication", "medications",
         "prescription", "prescriptions", "clinical_report",
         "clinical_detail", "clinical_notes", "treatment",
@@ -148,7 +147,11 @@ class TestHealthDataPrivacy:
             assert h.workload_constraint in ("reduced", "normal", "unknown")
 
     def test_health_context_missing_data_is_safe_default(self):
-        from models import HealthContextPackage, HealthStatusSnapshot, HealthTrendSummary
+        from models import (
+            HealthContextPackage,
+            HealthStatusSnapshot,
+            HealthTrendSummary,
+        )
         h = HealthContextPackage(
             assembled_at="2026-06-12T09:00:00Z",
             source_file="",
@@ -283,8 +286,10 @@ class TestFallbackLabelling:
 
     def test_health_data_quality_missing_does_not_raise(self):
         """Missing health data must degrade gracefully, not crash."""
+        import os
+        import tempfile
+
         from assembler import assemble_health_context
-        import tempfile, os
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write("# Health Summary\n\n(empty)\n")
             tmp = f.name
@@ -412,8 +417,8 @@ class TestSourceTraceability:
 class TestADR0001LifecycleAlignment:
     """Context assembly must not act on closed/rejected missions."""
 
-    ACTIVE_STATUSES = {"ACTIVE", "BLOCKED", "PLANNED", "DRAFT", "IN_REVIEW"}
-    CLOSED_STATUSES = {"COMPLETED", "CLOSED", "CANCELLED", "REJECTED"}
+    ACTIVE_STATUSES: ClassVar[set[str]] = {"ACTIVE", "BLOCKED", "PLANNED", "DRAFT", "IN_REVIEW"}
+    CLOSED_STATUSES: ClassVar[set[str]] = {"COMPLETED", "CLOSED", "CANCELLED", "REJECTED"}
 
     def test_recommendations_do_not_surface_closed_missions(self):
         from recommendation_engine import rank_missions

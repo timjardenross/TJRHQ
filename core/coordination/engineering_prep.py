@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 4 — Ready-for-Engineering prep + linkage surfacing (AP3/AP4).
 
 When a handoff is approved but still pending engineering, the Captain currently
@@ -31,9 +32,10 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 from core.coordination import delivery_reconciler as dr
 from core.coordination.lifecycle_reconciler import items_at_stage
@@ -45,13 +47,13 @@ PREP_PKG_DIR = REPO_ROOT / "USS-TJR-Control" / "logs" / "missions" / "engineerin
 _DEFAULT = object()  # sentinel: "load the real defensive planner"
 
 # A planner takes (title, context_text) and returns the prep advisory or None.
-PlanFn = Callable[[str, str], Optional[str]]
+PlanFn = Callable[[str, str], str | None]
 
 # Handoff Mission ID values that mean "not actually linked to a mission".
 _UNLINKED = {"", "unassigned", "unknown", "n/a", "none"}
 
 
-def _load_planner() -> Optional[PlanFn]:
+def _load_planner() -> PlanFn | None:
     """GLM-5.2 ready-for-engineering planner, fail-open to None.
 
     One call returns the four AP3 outputs as labelled sections. `glm.call` raises
@@ -60,7 +62,7 @@ def _load_planner() -> Optional[PlanFn]:
     try:
         from core.engineering.providers import glm
 
-        def _fn(title: str, context: str) -> Optional[str]:
+        def _fn(title: str, context: str) -> str | None:
             prompt = (
                 f"Approved engineering handoff: {title}\n\n"
                 f"Handoff context:\n{context or '(none provided)'}\n\n"
@@ -116,8 +118,8 @@ def _linkage(item: dict, ctx: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_prep_packages(
-    ledger: Optional[dict[str, Any]] = None,
-    plan_fn: "PlanFn | object | None" = _DEFAULT,
+    ledger: dict[str, Any] | None = None,
+    plan_fn: PlanFn | object | None = _DEFAULT,
 ) -> dict[str, Any]:
     """Assemble a ready-for-engineering prep package per Build-stage handoff.
 
@@ -158,7 +160,7 @@ def build_prep_packages(
 
     packages.sort(key=lambda p: str(p["id"]))
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(packages),
         "linkage_gaps": linkage_gaps,
         "packages": packages,
@@ -170,8 +172,8 @@ def format_prep_packages(report: dict[str, Any]) -> str:
     pkgs = report.get("packages", [])
     if not pkgs:
         return "Engineering prep — no approved-pending handoffs at the Build stage. ✅"
-    lines = [f"Engineering prep — {len(pkgs)} handoff(s) ready for engineering"
-             f"  ({report.get('linkage_gaps', 0)} linkage gap(s))"]
+    lines = [(f"Engineering prep — {len(pkgs)} handoff(s) ready for engineering"
+              f"  ({report.get('linkage_gaps', 0)} linkage gap(s))")]
     for p in pkgs:
         t = f" — {p['title']}" if p["title"] else ""
         lines.append(f"\n• {p['id']}{t}")
@@ -186,7 +188,7 @@ def format_prep_packages(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def write_prep_packages(report: dict[str, Any]) -> Optional[Path]:
+def write_prep_packages(report: dict[str, Any]) -> Path | None:
     """Persist an advisory JSON snapshot. NOT an engineering run. Never raises."""
     try:
         PREP_PKG_DIR.mkdir(parents=True, exist_ok=True)

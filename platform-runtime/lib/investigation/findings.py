@@ -28,9 +28,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -41,10 +39,12 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.investigation.framework import (
-    EvidencePackage, Finding, FindingsReport, Recommendation,
     FINDING_OWNER_PREFIX,
+    EvidencePackage,
+    Finding,
+    FindingsReport,
+    Recommendation,
 )
-
 
 # ── Pattern signal tables ─────────────────────────────────────────────────────
 
@@ -225,7 +225,7 @@ def _store_findings(report: FindingsReport) -> None:
                 ),
                 owner=f"{FINDING_OWNER_PREFIX}{report.investigation_id}",
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort findings store, already logged
         log.debug("[investigation.findings] Store findings failed: %s", exc)
 
 
@@ -286,7 +286,7 @@ def get_findings(investigation_id: str) -> FindingsReport | None:
             return None
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{FINDING_OWNER_PREFIX}{investigation_id}")
             .order("created_at", desc=True)
@@ -323,7 +323,7 @@ def get_findings(investigation_id: str) -> FindingsReport | None:
 
         return report
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort findings lookup, already logged
         log.debug("[investigation.findings] get_findings failed: %s", exc)
         return None
 
@@ -356,7 +356,7 @@ def format_findings_report(report: FindingsReport) -> str:
 
 
 __all__ = [
+    "format_findings_report",
     "generate_findings",
     "get_findings",
-    "format_findings_report",
 ]

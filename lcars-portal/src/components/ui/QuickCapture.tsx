@@ -69,17 +69,23 @@ export function QuickCapture() {
           real device inset where one exists — a no-op on desktop/most
           Android, a real fix on notched/gesture-nav iOS. active: added
           alongside the existing hover:-only lift, which never fired on
-          touch. */}
+          touch.
+          Mission 7 adversarial pass: that offset alone still wasn't enough
+          below `xl` — MobileCommandBar is a *separate* fixed element
+          covering the bottom ~4.5rem of the viewport at a higher z-index
+          (z-50 vs this button's z-40), so on every real phone/tablet this
+          button rendered partly hidden behind the nav bar, not floating
+          above it. `max(5.25rem, …)` clears that bar; `xl:bottom-5`
+          reverts to the original tight offset once MobileCommandBar
+          itself is `xl:hidden`. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Quick capture"
         title="Quick capture"
-        className="fixed z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-sage-deep text-[22px] font-semibold text-white shadow-lg transition hover:shadow-xl active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
-        style={{
-          bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
-          right: 'max(1.25rem, env(safe-area-inset-right))',
-        }}
+        className="fixed z-40 endeavour-mobile-action bg-wb-sage-deep text-[22px] font-semibold text-white
+          bottom-[max(5.25rem,calc(env(safe-area-inset-bottom)_+_4.75rem))] right-[max(1.25rem,env(safe-area-inset-right))]
+          xl:bottom-[max(1.25rem,env(safe-area-inset-bottom))]"
       >
         +
       </button>
@@ -95,7 +101,7 @@ export function QuickCapture() {
             rows={4}
             placeholder="What do you want to capture?"
             aria-label="Capture text"
-            className="w-full resize-none rounded-md border border-wb-line bg-wb-bg px-3 py-3 text-[14px] text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="w-full resize-none rounded-md border border-wb-line bg-wb-bg px-3 py-3 text-wb-body text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           />
           <div className="flex flex-wrap gap-1.5">
             {CAPTURE_TYPES.map((t) => (
@@ -104,7 +110,7 @@ export function QuickCapture() {
                 type="button"
                 onClick={() => setType(t.key)}
                 aria-pressed={type === t.key}
-                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${
+                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-wb-label font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${
                   type === t.key ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'
                 }`}
               >
@@ -113,20 +119,20 @@ export function QuickCapture() {
               </button>
             ))}
           </div>
-          <p className="text-[11px] italic text-wb-ink2">{captureTypeMeta(type).hint}</p>
+          <p className="text-wb-label italic text-wb-ink2">{captureTypeMeta(type).hint}</p>
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={submit}
               disabled={saving || !text.trim()}
-              className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-md bg-wb-sage-deep px-4 py-2 text-wb-body font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? 'Capturing…' : 'Capture'}
             </button>
-            <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-[10px] font-medium text-wb-ink2">⌘/Ctrl + Enter</span>
-            {flash && <span className="text-[12px] text-wb-ok-on" role="status" aria-live="polite">{flash}</span>}
+            <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-wb-label font-medium text-wb-ink2">⌘/Ctrl + Enter</span>
+            {flash && <span className="text-wb-label text-wb-ok-on" role="status" aria-live="polite">{flash}</span>}
           </div>
-          {error && <p className="text-[12px] text-wb-crit-on">{error}</p>}
+          {error && <p className="text-wb-label text-wb-crit-on">{error}</p>}
         </div>
       </Modal>
     </>

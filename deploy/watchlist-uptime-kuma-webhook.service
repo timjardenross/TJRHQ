@@ -1,0 +1,33 @@
+[Unit]
+# USS-TJR-MSN-0366 Stream 6 — receives Uptime Kuma's real Webhook
+# notification (fired on a real up/down state transition — Uptime Kuma's
+# own first-party direct probe of the target, independent of any vendor
+# self-report) and feeds it into intelligence/watchlist/webhook_queue.py,
+# which intelligence/ingestion/uptime_kuma_adapter.py drains on the next
+# collection cycle (same collection entry point as every other adapter —
+# see collection_engine.py's `_ADAPTER_MAP`). Must be reachable from the
+# Uptime Kuma container at host.docker.internal:8766 — see
+# deploy/docker-compose.watchlist.yml's `extra_hosts` and this mission's
+# knowledge record for the monitor-side Webhook notification configuration.
+#
+# Long-running daemon (stdlib ThreadingHTTPServer, never exits under normal
+# operation) — Type=simple, matching intelligence-scheduler.service's
+# pattern, not delivery-reconciler's oneshot+timer pattern.
+Description=USS TJR Watchlist — Uptime Kuma webhook receiver
+After=network-online.target watchlist-docker.service
+Wants=network-online.target
+Requires=watchlist-docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour
+Environment="KUMA_WEBHOOK_PORT=8766"
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python -m intelligence.watchlist.uptime_kuma_webhook
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=watchlist-uptime-kuma-webhook
+
+[Install]
+WantedBy=multi-user.target

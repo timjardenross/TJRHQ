@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for Intelligence Maturity Phase 2
 Mission: M-20260613-INTELLIGENCE-MATURITY-PHASE2
@@ -23,6 +24,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -258,10 +260,10 @@ class TestReadinessHistory(unittest.TestCase):
 
     def setUp(self):
         from readiness_history import (
-            persist_readiness_snapshot,
-            load_readiness_history,
             compute_readiness_trends,
             generate_readiness_trend_report,
+            load_readiness_history,
+            persist_readiness_snapshot,
         )
         self.persist = persist_readiness_snapshot
         self.load = load_readiness_history
@@ -280,8 +282,8 @@ class TestReadinessHistory(unittest.TestCase):
         }
 
     def test_persist_creates_file(self):
-        import tempfile, os
-        from readiness_history import _READINESS_LOG_DIR
+        import tempfile
+
         # Patch _READINESS_LOG_DIR temporarily
         with tempfile.TemporaryDirectory() as tmpdir:
             import readiness_history
@@ -300,17 +302,24 @@ class TestReadinessHistory(unittest.TestCase):
 
     def test_load_returns_sorted_list(self):
         import tempfile
+
         import readiness_history
         orig = readiness_history._READINESS_LOG_DIR
+        # load_readiness_history(30) filters to the last 30 days from
+        # today's real date — hardcoded calendar dates go stale and get
+        # filtered out as soon as more than 30 days pass. Use dates
+        # relative to today instead.
+        today = datetime.now().astimezone().date()
+        dates = [(today - timedelta(days=2)).isoformat(), (today - timedelta(days=1)).isoformat()]
         with tempfile.TemporaryDirectory() as tmpdir:
             readiness_history._READINESS_LOG_DIR = Path(tmpdir)
             try:
-                for score, date_str in [(85, "2026-06-10"), (75, "2026-06-11")]:
+                for score, date_str in zip([85, 75], dates):
                     snap = {"assessment_date": date_str, "readiness_score": score, "readiness_status": "Green"}
                     (Path(tmpdir) / f"{date_str}.json").write_text(json.dumps(snap))
                 history = self.load(30)
                 self.assertEqual(len(history), 2)
-                self.assertEqual(history[0]["assessment_date"], "2026-06-10")
+                self.assertEqual(history[0]["assessment_date"], dates[0])
             finally:
                 readiness_history._READINESS_LOG_DIR = orig
 
@@ -319,8 +328,12 @@ class TestReadinessHistory(unittest.TestCase):
         self.assertEqual(result["status"], "insufficient_data")
 
     def test_trends_stable(self):
+        # avg_7d is computed against today's real date (_days_ago(s, today)
+        # <= 7) — hardcoded calendar dates go stale as soon as more than 7
+        # days pass, silently emptying the 7d window. Use relative dates.
+        today = datetime.now().astimezone().date()
         history = [
-            {"assessment_date": f"2026-06-{i+1:02d}", "readiness_score": 80, "readiness_status": "Green"}
+            {"assessment_date": (today - timedelta(days=7 - i)).isoformat(), "readiness_score": 80, "readiness_status": "Green"}
             for i in range(8)
         ]
         result = self.trends(history)
@@ -497,8 +510,8 @@ class TestEnhancedReadinessScore(unittest.TestCase):
         self.assertLessEqual(result.score, 100)
 
     def test_deadline_pressure_reduces_ops(self):
-        from datetime import date, timedelta
-        due_soon = (date.today() + timedelta(days=1)).isoformat()
+        from datetime import datetime, timedelta, timezone
+        due_soon = (datetime.now(timezone.utc).date() + timedelta(days=1)).isoformat()
         missions = [
             {"id": "M1", "priority": "P0", "status": "Designed",
              "due_date": due_soon, "title": "Urgent mission"},
@@ -521,7 +534,11 @@ class TestIntelligenceReporter(unittest.TestCase):
 
     def test_import_succeeds(self):
         try:
-            from intelligence_reporter import run_all_reports, run_single_report, _REPORTS
+            from intelligence_reporter import (  # noqa: F401 - importability itself is what this test asserts
+                _REPORTS,
+                run_all_reports,
+                run_single_report,
+            )
             self.assertEqual(len(_REPORTS), 6)
         except ImportError as e:
             self.fail(f"intelligence_reporter import failed: {e}")
@@ -539,13 +556,13 @@ class TestIntelligenceReporter(unittest.TestCase):
         self.assertEqual(set(_REPORTS.keys()), expected)
 
     def test_dry_run_does_not_write_files(self):
+
         from intelligence_reporter import run_all_reports
-        import tempfile, os
 
         outputs_dir = _REPO_ROOT / "outputs"
         before = set(outputs_dir.glob("*.json")) if outputs_dir.exists() else set()
 
-        result = run_all_reports(dry_run=True, persist_readiness=False)
+        run_all_reports(dry_run=True, persist_readiness=False)
 
         after = set(outputs_dir.glob("*.json")) if outputs_dir.exists() else set()
         new_files = after - before

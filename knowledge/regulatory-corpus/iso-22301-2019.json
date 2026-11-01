@@ -1,0 +1,18 @@
+{
+  "framework_id": "ISO-22301-2019",
+  "title": "ISO 22301:2019 Security and resilience — Business continuity management systems — Requirements",
+  "issuer": "ISO",
+  "jurisdiction": "INTL",
+  "role": "international",
+  "status": "in_force",
+  "effective_date": "2019-10-31",
+  "source_url": "https://www.iso.org/standard/75106.html",
+  "licence": "proprietary",
+  "notes": "Paid standard. Store clause numbers and your own summaries only, unless you hold a licensed copy and pass --licensed.",
+  "ingestion": {
+    "method": "pending",
+    "source_sha256": null,
+    "ingested_at": null
+  },
+  "clauses": []
+}

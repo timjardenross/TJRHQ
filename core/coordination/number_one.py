@@ -27,15 +27,27 @@ Design:
 
 from __future__ import annotations
 
+import logging
+import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-from datetime import datetime, timedelta
-import json
+from pathlib import Path
+from typing import Any
+
+_REPO_ROOT_FOR_ENFORCEMENT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT_FOR_ENFORCEMENT) not in sys.path:  # this module is also imported by bare name
+    sys.path.insert(0, str(_REPO_ROOT_FOR_ENFORCEMENT))
+from core.health.capacity_enforcement import enforcing
+
+log = logging.getLogger(__name__)
 
 try:
-    from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter, MemoryContext
-except Exception:  # pragma: no cover - advisory-only fallback
+    from core.coordination.number_one_memory_adapter import (
+        MemoryContext,
+        NumberOneMemoryAdapter,
+    )
+except Exception:  # pragma: no cover - advisory-only fallback  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     NumberOneMemoryAdapter = None
     MemoryContext = None
 
@@ -111,13 +123,13 @@ class Mission:
     status: MissionStatus
     priority: Priority
     domain: str
-    assigned_role: Optional[str] = None
+    assigned_role: str | None = None
     assigned_specialists: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)  # mission_ids
     blockers: list[str] = field(default_factory=list)  # descriptions
     created_at: datetime = field(default_factory=datetime.utcnow)
     last_updated: datetime = field(default_factory=datetime.utcnow)
-    next_action: Optional[str] = None
+    next_action: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
@@ -164,17 +176,17 @@ class WorkQueueItem:
     priority: Priority
     status: MissionStatus
     title: str
-    assigned_specialist: Optional[str]
-    next_action: Optional[str]
+    assigned_specialist: str | None
+    next_action: str | None
     blockers: list[str]
     dependencies: list[str]
-    confidence: Optional[float] = None
-    confidence_band: Optional[ConfidenceBand] = None
-    rationale: Optional[str] = None
+    confidence: float | None = None
+    confidence_band: ConfidenceBand | None = None
+    rationale: str | None = None
     # Engineering-handoff lifecycle projection (read-only; None for missions).
     # M-20260614-ENGINEERING-HANDOFF-LIFECYCLE: surfaces the handoff's
     # Pending Triage / Assigned / In Progress / Awaiting Review stage.
-    engineering_status: Optional[str] = None
+    engineering_status: str | None = None
 
 
 @dataclass
@@ -227,10 +239,10 @@ class CoordinationConfig:
     LOW_CONFIDENCE = 0.0
 
     # Priority order for queuing
-    PRIORITY_ORDER = [Priority.P0, Priority.P1, Priority.P2, Priority.P3]
+    PRIORITY_ORDER = (Priority.P0, Priority.P1, Priority.P2, Priority.P3)
 
     # Status order within priority
-    STATUS_ORDER = [
+    STATUS_ORDER = (
         # D-008 active states (most-needs-attention first), then legacy, then terminal
         MissionStatus.AWAITING_XO_APPROVAL,
         MissionStatus.AWAITING_NUMBER_ONE_REVIEW,
@@ -249,7 +261,7 @@ class CoordinationConfig:
         MissionStatus.ARCHIVED,
         MissionStatus.CANCELLED,
         MissionStatus.COMPLETED,
-    ]
+    )
 
 
 # ============================================================================
@@ -264,10 +276,19 @@ class NumberOne:
     management through deterministic rules-based coordination.
     """
 
-    def __init__(self, config: Optional[CoordinationConfig] = None):
+    def __init__(self, config: CoordinationConfig | None = None):
         """Initialize Number One."""
         self.config = config or CoordinationConfig()
-        self.current_time = datetime.utcnow()
+        # Naive UTC, matching Mission.created_at/last_updated's default
+        # (datetime.utcnow()) and _parse_iso_datetime()'s documented "naive
+        # UTC" contract below -- must stay naive or every `self.current_time
+        # - mission.last_updated` age computation raises TypeError the
+        # instant a real mission has a parseable last_updated (Mission 1
+        # fix, USS-TJR-MSN-1: this was silently crashing
+        # NumberOneExporter.export_brief() in production, see
+        # number-one-exporter.service journal, "can't subtract
+        # offset-naive and offset-aware datetimes").
+        self.current_time = datetime.utcnow()  # noqa: DTZ003 - must be naive to match Mission's naive created_at/last_updated, see above
         self.memory_adapter = NumberOneMemoryAdapter() if NumberOneMemoryAdapter else None
 
     def request_advisory_support(self, mission: dict[str, Any]) -> dict[str, Any]:
@@ -279,7 +300,7 @@ class NumberOne:
         the advisory layer (returns a clear note if it is unavailable).
         """
         try:
-            from number_one_advisory import advisory_support  # noqa: PLC0415
+            from number_one_advisory import advisory_support
             return advisory_support(mission)
         except Exception as exc:  # noqa: BLE001
             return {
@@ -342,7 +363,7 @@ class NumberOne:
         self,
         missions: list[dict[str, Any]],
         capacity_status: str,
-        routing_results: dict[str, "RoutingDecision"] | None = None,
+        routing_results: dict[str, RoutingDecision] | None = None,
     ) -> dict[str, Any]:
         """
         Return the work queue with an advisory health-capacity overlay.
@@ -369,6 +390,12 @@ class NumberOne:
         """
         base_queue = self.get_work_queue(missions, routing_results)
 
+        # Advisory mode (owner decision 2026-10-18; see core/health/capacity_enforcement.py):
+        # capacity is reported but nothing is marked deferred or P0-only. The Red/Amber text and
+        # focus list below are the original enforcing behaviour, kept unchanged under
+        # CAPACITY_ENFORCEMENT=enforce.
+        advisory_only = capacity_status in ("Red", "Amber") and not enforcing()
+
         annotated = []
         for item in base_queue:
             d = {
@@ -382,7 +409,9 @@ class NumberOne:
                 "capacity_note": "",
             }
             pri = d["priority"]
-            if capacity_status == "Red":
+            if advisory_only:
+                d["capacity_note"] = f"Capacity is {capacity_status} today (advisory only, nothing deferred)"
+            elif capacity_status == "Red":
                 if pri == "P0":
                     d["capacity_note"] = "CRITICAL — proceed regardless of capacity"
                 else:
@@ -397,7 +426,17 @@ class NumberOne:
             annotated.append(d)
 
         # Advisory statement
-        if capacity_status == "Red":
+        if advisory_only:
+            advisory = (
+                f"Captain's capacity is {capacity_status.upper()} today. Capacity gating is advisory "
+                "for now: nothing is deferred or limited, and normal prioritisation applies. "
+                "Pace yourself as you see fit."
+            )
+            recommended_focus = [
+                m["title"] for m in annotated
+                if "BLOCKED" not in m["status"].upper()
+            ][:3]
+        elif capacity_status == "Red":
             advisory = (
                 "Captain is at RED capacity today. "
                 "Number One recommends P0 missions only. "
@@ -416,8 +455,25 @@ class NumberOne:
                 m["title"] for m in annotated
                 if m["priority"] in ("P0", "P1") and "BLOCKED" not in m["status"].upper()
             ][:3]
-        else:
+        elif capacity_status == "Green":
             advisory = "Captain is at GREEN capacity. Normal prioritisation applies."
+            recommended_focus = [
+                m["title"] for m in annotated
+                if "BLOCKED" not in m["status"].upper()
+            ][:3]
+        else:
+            # 2026-09-08 (USS-TJR-MSN-0054): capacity_status is "Unknown" (no
+            # Captain's Log check-in for today) or any other unrecognised
+            # value. Must not silently collapse into the Green branch's
+            # "Normal prioritisation applies" wording — that overstates
+            # confidence in data we don't actually have. No gating overlay
+            # is applied either way (there's nothing to gate against), but
+            # the advisory says so honestly instead of claiming Green.
+            advisory = (
+                "Captain's capacity is UNKNOWN today — no check-in data available. "
+                "Number One is not applying a capacity gate; normal prioritisation applies "
+                "but is not capacity-adjusted."
+            )
             recommended_focus = [
                 m["title"] for m in annotated
                 if "BLOCKED" not in m["status"].upper()
@@ -508,7 +564,7 @@ class NumberOne:
         normal_blockers = []
 
         for mission in mission_objs:
-            if mission.status != MissionStatus.BLOCKED or not mission.blockers:
+            if mission.status not in BLOCKED_STATUSES or not mission.blockers:
                 continue
 
             blocker_age = self._calculate_blocker_age(mission)
@@ -560,7 +616,7 @@ class NumberOne:
             routing = routing_results.get(mission.mission_id)
 
             # Escalation: Blocked P0 mission
-            if mission.priority == Priority.P0 and mission.status == MissionStatus.BLOCKED:
+            if mission.priority == Priority.P0 and mission.status in BLOCKED_STATUSES:
                 escalations.append(Escalation(
                     escalation_type="BLOCKED_P0",
                     mission_id=mission.mission_id,
@@ -656,7 +712,7 @@ class NumberOne:
         active_missions = [m for m in mission_objs if m.status not in TERMINAL_STATUSES and m.status not in DORMANT_STATUSES]
         total = len(active_missions)
         active = len([m for m in active_missions if m.status == MissionStatus.ACTIVE])
-        blocked = len([m for m in active_missions if m.status == MissionStatus.BLOCKED])
+        blocked = len([m for m in active_missions if m.status in BLOCKED_STATUSES])
         proposed = len([m for m in active_missions if m.status == MissionStatus.PROPOSED])
 
         # System health
@@ -668,7 +724,7 @@ class NumberOne:
         top_priorities = work_queue[:3]
 
         # Blocked missions
-        blocked_missions = [item for item in work_queue if item.status == MissionStatus.BLOCKED]
+        blocked_missions = [item for item in work_queue if item.status in BLOCKED_STATUSES]
 
         # Specialist workload
         specialist_workload = self._calculate_specialist_workload(mission_objs)
@@ -710,8 +766,8 @@ class NumberOne:
     def _determine_specialist(
         self,
         mission: Mission,
-        routing: Optional[RoutingDecision]
-    ) -> Optional[str]:
+        routing: RoutingDecision | None
+    ) -> str | None:
         """Determine specialist for queue display."""
         # If already assigned, show that
         if mission.assigned_role:
@@ -760,7 +816,7 @@ class NumberOne:
             )
         )
 
-    def _is_stale_mission(self, mission: Mission, days: Optional[int] = None) -> bool:
+    def _is_stale_mission(self, mission: Mission, days: int | None = None) -> bool:
         """Check if mission is stale (no updates)."""
         threshold_days = days or self.config.STALE_MISSION_DAYS
         if mission.priority == Priority.P0:
@@ -769,9 +825,9 @@ class NumberOne:
         age = (self.current_time - mission.last_updated).days
         return age >= threshold_days
 
-    def _is_long_blocked(self, mission: Mission, days: Optional[int] = None) -> bool:
+    def _is_long_blocked(self, mission: Mission, days: int | None = None) -> bool:
         """Check if mission has been blocked too long."""
-        if mission.status != MissionStatus.BLOCKED:
+        if mission.status not in BLOCKED_STATUSES:
             return False
 
         threshold_days = days or (
@@ -803,7 +859,7 @@ class NumberOne:
         follow_ups: list[dict],
         escalations: list[Escalation],
         blocked: list[WorkQueueItem],
-        memory_context: Optional[Any] = None,
+        memory_context: Any | None = None,
     ) -> list[str]:
         """Generate recommended actions for brief."""
         recommendations = []
@@ -847,7 +903,7 @@ class NumberOne:
             return None
         try:
             return self.memory_adapter.retrieve_context(missions, routing_results or {})
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one] memory retrieval failed (non-blocking): %s", exc)
             return None
 
@@ -868,7 +924,7 @@ class NumberOne:
                 "confidence": 0.0,
             }
             self.memory_adapter.persist_brief(payload)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one] memory persistence failed (non-blocking): %s", exc)
 
 
@@ -882,6 +938,19 @@ TERMINAL_STATUSES = {
     MissionStatus.COMPLETED, MissionStatus.CANCELLED,    # legacy terminal
 }
 
+# 2026-09-08: every "is this mission blocked" check below used to test only
+# MissionStatus.BLOCKED (the legacy pre-D-008 value) — but live missions
+# use the D-008 canonical status "Blocked", which _to_status() maps to
+# BLOCKED_OPS, a *different* enum member (both are real, coexisting values;
+# see MissionStatus's own docstring). The result: the BLOCKED_P0 critical
+# escalation, the blocked-mission count, and the blocker-age report were all
+# silently blind to every real, live blocked mission — confirmed live 2026-
+# 09-08 while wiring Number One into an actual Supabase-backed brief for
+# the first time (core/context-assembly/context_service.py). Both values
+# mean "blocked" to a human reading mission status; check both everywhere
+# that matters.
+BLOCKED_STATUSES = {MissionStatus.BLOCKED, MissionStatus.BLOCKED_OPS}
+
 # Dormant states: captured but not yet triaged — excluded from active work queue
 # without permanently closing the record. Promoted to Designed when actioned.
 DORMANT_STATUSES = {
@@ -889,7 +958,7 @@ DORMANT_STATUSES = {
 }
 
 
-def _to_status(value: Optional[str]) -> MissionStatus:
+def _to_status(value: str | None) -> MissionStatus:
     """Parse a status string to MissionStatus. Never raises (MSN-0053).
 
     Handles D-008 values, legacy values, and case differences (e.g. live
@@ -908,7 +977,7 @@ def _to_status(value: Optional[str]) -> MissionStatus:
     return MissionStatus.DESIGNED
 
 
-def _to_priority(value: Optional[str]) -> Priority:
+def _to_priority(value: str | None) -> Priority:
     """Parse a priority to Priority. Never raises (MSN-0053).
 
     Tolerates None (-> P3), 'P1', and 'P1 High' style. Unknown -> P3.
@@ -922,10 +991,18 @@ def _to_priority(value: Optional[str]) -> Priority:
     return Priority.P3
 
 
-def _parse_iso_datetime(datetime_str: Optional[str]) -> datetime:
-    """Parse ISO 8601 datetime string to naive UTC datetime."""
+def _parse_iso_datetime(datetime_str: str | None) -> datetime:
+    """Parse ISO 8601 datetime string to naive UTC datetime.
+
+    Both fallback paths must also return naive UTC (Mission 1 fix,
+    USS-TJR-MSN-1) -- they previously returned tz-aware `datetime.now(
+    timezone.utc)`, so a mission with a missing/unparseable last_updated
+    got an aware datetime while one with a valid string got naive, and
+    NumberOne.current_time (also naive) blew up subtracting whichever
+    combination didn't match ("can't subtract offset-naive and
+    offset-aware datetimes")."""
     if not datetime_str:
-        return datetime.utcnow()
+        return datetime.utcnow()  # noqa: DTZ003 - must be naive, see docstring above
     try:
         # Parse with timezone info, then convert to naive UTC
         dt = datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
@@ -934,7 +1011,7 @@ def _parse_iso_datetime(datetime_str: Optional[str]) -> datetime:
             return dt.replace(tzinfo=None)
         return dt
     except (ValueError, AttributeError):
-        return datetime.utcnow()
+        return datetime.utcnow()  # noqa: DTZ003 - must be naive, see docstring above
 
 
 # ============================================================================
@@ -942,15 +1019,15 @@ def _parse_iso_datetime(datetime_str: Optional[str]) -> datetime:
 # ============================================================================
 
 __all__ = [
-    "NumberOne",
-    "MissionStatus",
-    "Priority",
     "ConfidenceBand",
-    "EscalationLevel",
-    "Mission",
-    "RoutingDecision",
-    "WorkQueueItem",
-    "Escalation",
     "CoordinationBrief",
     "CoordinationConfig",
+    "Escalation",
+    "EscalationLevel",
+    "Mission",
+    "MissionStatus",
+    "NumberOne",
+    "Priority",
+    "RoutingDecision",
+    "WorkQueueItem",
 ]

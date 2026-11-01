@@ -1,14 +1,33 @@
 #!/usr/bin/env python3
 """
-Starship Endeavour Chatterbox TTS — local voice service.
+Starship Endeavour Chatterbox TTS — local voice-CLONING service.
 
-Wraps resemble-ai/chatterbox behind a small HTTP API so workbenches and
-LifeOS can request local, voice-cloneable speech without going through
-edge-tts (cloud). Defaults to the Turbo variant (GPT2_medium) — switched
-from Nano (GPT2_small) 2026-09-05 after a live listen test came back
-"typewriter speed, couldn't understand"; set CHATTERBOX_NANO=true to
-go back to Nano (faster, lower quality). See get_model()'s own comment
-for the full story.
+RE-SCOPED 2026-09-12 (USS-TJR-MSN-0366 Stream 7): this service is now
+voice-cloning-only. Wraps resemble-ai/chatterbox behind a small HTTP API
+so workbenches and LifeOS can request a cloned voice (`voice_ref` set)
+without going through edge-tts (cloud). Plain narration (no `voice_ref`)
+is no longer routed here — see core/voice/tts_kokoro.py, which handles
+that niche at real CPU speed. This split follows directly from why:
+Chatterbox measured 0.08x realtime on this VM's CPU (a 4-second clip
+took 48 seconds; ~35s for one ~90-char sentence, see the 2026-09-05 note
+below) — unusable for anything but a background job someone is willing
+to wait on, and Kokoro-82M (via `kokoro-onnx`, ONNX Runtime, no GPU)
+measured 2.63x realtime on an equivalent-length clip in the same
+sandbox. Chatterbox is kept running, not torn out, for the one thing
+Kokoro's fixed voice bank cannot do at all: cloning a specific reference
+voice via `audio_prompt_path`/`voice_ref`. `intelligence/scheduler.py`'s
+`_pregenerate_brief_audio()` — the one real caller found in this
+codebase, always narration, never a `voice_ref` — was moved to call
+Kokoro instead; nothing else was calling this service's `/api/tts/generate`
+in production (`lcars-portal`'s route already moved to Google Cloud TTS
+earlier, kept as a fallback in this file's history — see git log). A
+future caller that sets `voice_ref` still gets served here, unaffected.
+
+Defaults to the Turbo variant (GPT2_medium) — switched from Nano
+(GPT2_small) 2026-09-05 after a live listen test came back "typewriter
+speed, couldn't understand"; set CHATTERBOX_NANO=true to go back to
+Nano (faster, lower quality). See get_model()'s own comment for the
+full story.
 
 Endpoints:
     POST /api/tts/generate   {"text": str, "voice_ref": str|null, "cache_key": str|null} -> wav bytes
@@ -29,7 +48,10 @@ predictable content (the daily brief, pre-generated the moment it's
 written — see intelligence/scheduler.py) plays back instantly instead of
 regenerating on every tap. Live/dynamic content (e.g. the alerts
 read-aloud) has no cache_key and still pays the full ~35s each time —
-accepted for now (Captain's call, testing phase).
+accepted for now (Captain's call, testing phase). As of 2026-09-12 the
+cache_key path above is Kokoro's for narration; this service still pays
+the same ~35s per cloning request, accepted because cloning has no
+faster local alternative in this platform yet.
 """
 from __future__ import annotations
 
@@ -40,7 +62,6 @@ import os
 import threading
 from pathlib import Path
 
-import torch
 import torchaudio as ta
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
@@ -137,7 +158,7 @@ def generate(req: GenerateRequest, x_tts_secret: str | None = Header(default=Non
             wav = model.generate(req.text, audio_prompt_path=voice_ref)
         else:
             wav = model.generate(req.text)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.exception("generation failed")
         raise HTTPException(500, f"generation failed: {exc}") from exc
 
@@ -157,4 +178,4 @@ def generate(req: GenerateRequest, x_tts_secret: str | None = Header(default=Non
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)  # nosec B104 - genuinely exposed publicly via Caddy for Vercel/lcars-portal to reach (see module docstring); TTS_SERVICE_SECRET auth is the compensating control - reviewed 2026-09-12

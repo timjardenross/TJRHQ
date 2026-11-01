@@ -8,37 +8,36 @@ assembled context parts.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import List, Optional
 from datetime import datetime, timezone
+from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 
 from models import (
+    BlockerContextPackage,
+    BlockersSummary,
     CaptainBriefContext,
     CaptainOperatingPictureContext,
-    HealthContextPackage,
-    Recommendation,
-    BlockerContextPackage,
-    DecisionContextPackage,
-    SystemHealthSummary,
-    KeyDate,
     COPPriorityItem,
+    DecisionContextPackage,
+    HealthContextPackage,
+    KeyDate,
     OperationalStatus,
-    BlockersSummary,
+    Recommendation,
+    SystemHealthSummary,
 )
 
 
 def compose_captain_brief(
-    health: Optional[HealthContextPackage],
-    top_priorities: List[Recommendation],
-    blockers: List[BlockerContextPackage],
-    decisions_awaiting_input: List[DecisionContextPackage],
+    health: HealthContextPackage | None,
+    top_priorities: list[Recommendation],
+    blockers: list[BlockerContextPackage],
+    decisions_awaiting_input: list[DecisionContextPackage],
     active_mission_count: int = 0,
     alert_count: int = 0,
-    key_dates: Optional[List[KeyDate]] = None,
-    number_one_summary: Optional[str] = None,
+    key_dates: list[KeyDate] | None = None,
+    number_one_summary: str | None = None,
     source: str = "fresh",
 ) -> CaptainBriefContext:
     """
@@ -67,7 +66,7 @@ def compose_captain_brief(
     )
 
     return CaptainBriefContext(
-        assembled_at=datetime.utcnow().isoformat() + "Z",
+        assembled_at=datetime.now(timezone.utc).isoformat(),
         date=today,
         source=source,
         health=health,
@@ -101,13 +100,16 @@ def compose_operating_picture(brief: CaptainBriefContext) -> CaptainOperatingPic
             from pathlib import Path
             _h_root = Path(__file__).resolve().parents[2]
             sys.path.insert(0, str(_h_root / "core" / "health"))
-            from calibration_engine import get_calibration_summary, get_calibration_status
+            from calibration_engine import (
+                get_calibration_status,
+                get_calibration_summary,
+            )
             cal_summary = get_calibration_summary()
             if cal_summary:
                 cal_accuracy = cal_summary.get("agreement_rate")
                 cal_status = get_calibration_status(cal_summary)
                 governance_flag = bool(cal_summary.get("weighting_review_flag"))
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort calibration enrichment; brief still assembles with the calibration fields left at their defaults
             pass
 
         health_snapshot = {

@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -250,7 +250,7 @@ def _persist_synthesis(synthesis: XOSynthesis) -> None:
         if not (c.is_enabled() and c.raw_client):
             return
 
-        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         owner = f"xo_synthesis:{date_str}"
         statement = f"[XO SYNTHESIS] {date_str}: {synthesis.risk_level.upper()}"
         rationale = (
@@ -259,22 +259,22 @@ def _persist_synthesis(synthesis: XOSynthesis) -> None:
             f"OFFICERS_ACTIVE: {sum(1 for s in synthesis.officer_statuses if s.is_active)}"
         )
 
-        existing = c.raw_client.table("decisions").select("id").eq("owner", owner).limit(1).execute()
+        existing = c.raw_client.table("command_memory_records").select("id").eq("owner", owner).limit(1).execute()
         if list(existing.data or []):
-            c.raw_client.table("decisions").update({
+            c.raw_client.table("command_memory_records").update({
                 "statement": statement,
                 "rationale": rationale,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("owner", owner).execute()
         else:
-            c.raw_client.table("decisions").insert({
+            c.raw_client.table("command_memory_records").insert({
                 "owner": owner,
                 "statement": statement,
                 "rationale": rationale,
                 "decision_type": "xo_synthesis",
                 "status": "active",
             }).execute()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort orchestrator persist, already logged
         log.debug("[xo_orchestrator] Persist failed: %s", exc)
 
 
@@ -356,7 +356,7 @@ def format_xo_synthesis(synthesis: XOSynthesis) -> str:
 __all__ = [
     "OfficerStatus",
     "XOSynthesis",
-    "synthesise_officer_outputs",
     "format_xo_synthesis",
     "get_officer_statuses",
+    "synthesise_officer_outputs",
 ]

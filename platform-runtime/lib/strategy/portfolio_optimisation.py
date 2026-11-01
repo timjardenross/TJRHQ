@@ -40,7 +40,7 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.initiatives import list_initiatives, InitiativeHealth
+from lib.strategy.initiatives import list_initiatives
 
 
 class OptimisationDecision(str, Enum):
@@ -92,8 +92,8 @@ def optimise_initiative(
     """Generate an optimisation decision for a single initiative."""
     inputs = inputs or {}
     try:
+        from lib.program.forecasting import DeliveryForecast, forecast_initiative
         from lib.strategy.initiatives import get_initiative
-        from lib.program.forecasting import forecast_initiative, DeliveryForecast
         from lib.strategy.prioritisation import score_initiative
         from lib.strategy.value_realisation import assess_initiative_value
 
@@ -130,8 +130,8 @@ def optimise_initiative(
                 forecast_score = _band_scores.get(fr.forecast, 5.0)
                 forecast_band = fr.forecast
                 signals.append(f"forecast: {fr.forecast.value}")
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort forecast lookup, already logged
+            log.debug("[lib.strategy.portfolio_optimisation] best-effort step failed, continuing: %s", _exc)
 
         # Program health (EXEC-007)
         program_healthy = True
@@ -141,8 +141,8 @@ def optimise_initiative(
             if ph and getattr(ph, "health", None) == "red":
                 program_healthy = False
                 signals.append("program health: red")
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort program health lookup, already logged
+            log.debug("[lib.strategy.portfolio_optimisation] best-effort step failed, continuing: %s", _exc)
 
         # ── Decision logic ────────────────────────────────────────────────────
         decision = OptimisationDecision.MAINTAIN
@@ -187,7 +187,7 @@ def optimise_initiative(
             signals=signals,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort optimise computation, already logged
         log.debug("[strategy.portfolio_optimisation] optimise failed for %s: %s", initiative_id, exc)
         return None
 
@@ -201,7 +201,7 @@ def optimise_portfolio(inputs: dict[str, Any] | None = None) -> PortfolioOptimis
             opt = optimise_initiative(init.initiative_id, inputs)
             if opt:
                 decisions.append(opt)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-initiative optimise, already logged
             log.debug("[strategy.portfolio_optimisation] %s failed: %s", init.initiative_id, exc)
 
     _order = {
@@ -275,10 +275,10 @@ def format_optimisation(opt: PortfolioOptimisation) -> str:
 
 
 __all__ = [
-    "OptimisationDecision",
     "InitiativeOptimisation",
+    "OptimisationDecision",
     "PortfolioOptimisation",
+    "format_optimisation",
     "optimise_initiative",
     "optimise_portfolio",
-    "format_optimisation",
 ]

@@ -1,0 +1,8 @@
+{
+  "counts_by_state": {
+    "learned": 1,
+    "rejected": 137,
+    "resolved_before_research": 4
+  },
+  "open_opportunities": []
+}

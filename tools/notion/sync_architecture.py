@@ -5,7 +5,14 @@ from __future__ import annotations
 
 import argparse
 
-from notion_client import date, required_database_id, rich_text, select, sync_records, title
+from notion_client import (
+    date,
+    required_database_id,
+    rich_text,
+    select,
+    sync_records,
+    title,
+)
 from source_parsers import architecture_records
 
 

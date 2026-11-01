@@ -8,7 +8,7 @@
  */
 
 import { createSupabaseBrowserClient } from './supabase-browser';
-import type { StatusTone } from './types';
+import type { StateTone } from './types';
 
 // Session-aware client (2026-07-18): mission_delivery/mission_delivery_metrics
 // have never granted anon any privilege at all (checked live via
@@ -49,15 +49,19 @@ export interface Bottleneck {
 
 export const OPEN_STATES = ['proposed', 'planned', 'in_progress', 'in_review', 'validated', 'blocked'];
 
-export const STATE_TONE: Record<string, StatusTone> = {
-  proposed: 'neutral',
-  planned: 'command',
-  in_progress: 'medical',
-  in_review: 'command',
-  validated: 'status',
-  blocked: 'operations',
-  closed: 'status',
-  archived: 'neutral'
+// Delivery-state -> risk/WIP tone (StateTone, not department identity —
+// MSN-0394 Phase 9 found these badges were repurposing department colours
+// to mean pipeline state, the exact conflation `stateToneClasses()`'s doc
+// comment warns against; fixed Phase 12, see mission §6 Reporting).
+export const STATE_TONE: Record<string, StateTone> = {
+  proposed: 'unknown',
+  planned: 'info',
+  in_progress: 'ok',
+  in_review: 'info',
+  validated: 'ok',
+  blocked: 'crit',
+  closed: 'ok',
+  archived: 'unknown'
 };
 
 export async function fetchDeliveryRows(): Promise<DeliveryRow[]> {

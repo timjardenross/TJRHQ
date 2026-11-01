@@ -16,17 +16,17 @@ export function SourceDetail({ summary, sections }: { summary: SystemSummary; se
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left text-[13px] font-medium text-wb-ink"
+        className="flex w-full items-center justify-between px-4 py-3 text-left text-wb-body font-medium text-wb-ink"
         aria-expanded={open}
       >
         Source Detail
-        <span className="text-[11px] text-wb-ink2">{open ? 'Hide ▲' : 'Show ▼'}</span>
+        <span className="text-wb-label text-wb-ink2">{open ? 'Hide ▲' : 'Show ▼'}</span>
       </button>
       {open && (
         <div className="flex flex-col gap-4 border-t border-wb-line px-4 py-4">
           <SummaryCards summary={summary} />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {sections.map((section) => <WorkbenchCard key={section.key} section={section} />)}
+            {sections.map((section) => <WorkbenchCard key={section.key} section={section} observedAt={summary.weekEnd} />)}
           </div>
         </div>
       )}

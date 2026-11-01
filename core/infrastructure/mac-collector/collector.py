@@ -15,9 +15,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import cloud_detection
-from config import Config, Source
 from db import TrackingDB
 from ignore_rules import IgnoreMatcher
+
+from config import Config
 
 CHUNK_SIZE = 1024 * 1024
 

@@ -21,7 +21,6 @@ ms|dismiss|{mission_id} button presses.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from core.platform.attention_engine import (
     AttentionCategory,
@@ -68,7 +67,7 @@ def send_approval_notification(
     mission_name: str,
     old_status: str,
     new_status: str,
-    event_id: Optional[str] = None,
+    event_id: str | None = None,
 ) -> bool:
     """Send a Telegram message with Acknowledge/Dismiss inline buttons for a
     mission status change.
@@ -94,13 +93,20 @@ def send_approval_notification(
         True if the notification was delivered, False otherwise (non-blocking
         — callers must not propagate failures into the mission lifecycle).
     """
+    # Signal-leakage fix (consolidation mission follow-up, same class of bug
+    # PR #275 fixed in interrupt_dispatcher.py): this used to append
+    # `decision.reason` (a bare "importance=X >= Y AND confidence=Z >= W"
+    # scoring formula) as an "Attention: ..." line — never genuine content,
+    # and evaluate_and_route_mission_status_change() doesn't build an
+    # AttentionDecision.description for this event type either. The
+    # transition line above already carries the real information the
+    # Captain needs; the urgency tier is already visible via the title and
+    # severity styling, so the correct fix is to not add a fabricated-
+    # looking third line at all rather than invent a description just to
+    # have a fallback for it.
     urgency_label = "INTERRUPT" if decision.category == AttentionCategory.INTERRUPT_NOW else "REVIEW"
     title = f"Mission Status Changed [{urgency_label}]"
-    body = (
-        f"{mission_name} ({mission_id})\n"
-        f"{old_status} → {new_status}\n"
-        f"Attention: {decision.reason}"
-    )
+    body = f"{mission_name} ({mission_id})\n{old_status} → {new_status}"
     severity = (
         Severity.ALERT if decision.category == AttentionCategory.INTERRUPT_NOW
         else Severity.WARNING
@@ -137,9 +143,9 @@ def evaluate_and_route_mission_status_change(
     mission_name: str,
     old_status: str,
     new_status: str,
-    event_id: Optional[str] = None,
-    importance: Optional[int] = None,
-    confidence: Optional[int] = None,
+    event_id: str | None = None,
+    importance: int | None = None,
+    confidence: int | None = None,
 ) -> str:
     """Convenience entry point called from mission_lifecycle.py after a
     mission.status_changed event is emitted.
@@ -187,7 +193,7 @@ def evaluate_and_route_mission_status_change(
 
 
 __all__ = [
+    "evaluate_and_route_mission_status_change",
     "route_for_approval",
     "send_approval_notification",
-    "evaluate_and_route_mission_status_change",
 ]

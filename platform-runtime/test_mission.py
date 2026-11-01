@@ -1,12 +1,13 @@
+#!/usr/bin/env python3
 """Tests for ADR-006 Phase 3 mission registry memory integration."""
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import sys
 import tempfile
 import unittest
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,14 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-MISSION_REGISTRY_DIR = ROOT / "core" / "missions" / "mission-registry"
-if str(MISSION_REGISTRY_DIR) not in sys.path:
-    sys.path.insert(0, str(MISSION_REGISTRY_DIR))
+from commands import research_command
 
-from mission_registry import MissionRegistry
-from core.coordination.mission_registry_memory_adapter import MissionRegistryMemoryAdapter
+from core.coordination.mission_registry_memory_adapter import (
+    MissionRegistryMemoryAdapter,
+)
 from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter
-import commands.research_command as research_command
+from core.missions.mission_registry import MissionRegistry
 
 
 def _seed_mission(registry: MissionRegistry, *, mission_id: str, title: str, description: str, domain: str, priority: str, source: str, status: str, tags: list[str]):
@@ -52,7 +52,7 @@ def _seed_mission(registry: MissionRegistry, *, mission_id: str, title: str, des
     ]
     placeholders = ", ".join(["?"] * len(values))
     cursor.execute(
-        f"INSERT INTO missions ({', '.join(columns)}) VALUES ({placeholders})",
+        f"INSERT INTO missions ({', '.join(columns)}) VALUES ({placeholders})",  # nosec B608 - columns is a fixed literal list, values are parameterized
         values,
     )
     conn.commit()

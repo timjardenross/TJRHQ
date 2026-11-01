@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 import id_registry
+
 MISSIONS_DIR = BASE_DIR / "Missions"
 MISSION_INDEX = MISSIONS_DIR / "Mission-Index.md"
 
@@ -27,8 +27,7 @@ MISSION_HISTORY_TRIGGERS = [
 ]
 
 SECRET_ENV_KEYS = [
-    "SLACK_BOT_TOKEN",
-    "SLACK_APP_TOKEN",
+    "TELEGRAM_BOT_TOKEN",
 ]
 
 
@@ -76,7 +75,7 @@ def save_mission_log(
 ) -> Path:
     ensure_missions_dir()
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     safe_request = redact_secrets(user_request)
     safe_response = redact_secrets(commander_response)
     specialists = ", ".join(assigned_specialists)
@@ -99,7 +98,7 @@ Priority: {priority}
 
 Status: {status}
 
-Source: Slack
+Source: Commander
 
 ## User Request
 
@@ -129,9 +128,9 @@ Optional future notes.
         save_mission_after_creation(
             mission_id=mission_id,
             title=build_title(user_request),
-            user_id="slack-bot",  # Will be replaced by actual user_id when available
+            user_id="commander",  # Will be replaced by actual user_id when available
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Command Memory write, non-blocking, mission still created locally, already logged
         log.error("[mission-logger] Failed to save to Command Memory: %s", e)
         # Non-blocking failure — mission still created locally
 
@@ -144,23 +143,20 @@ def _supabase_insert_mission(
     domain: str,
     status: str,
 ) -> None:
-    """Insert or upsert a mission row into the Supabase missions table."""
+    """Insert the mission row into the Supabase missions table (best-effort).
+
+    Delegates to command_memory_integration.save_mission_to_command_memory(),
+    which maps onto the live missions schema (mission_id/repo, a valid status)
+    and ignores duplicates — so the Command Memory save that runs right after
+    this is a harmless no-op. The old payload (id, domain) matched no columns
+    and was rejected every time. `domain` has no column and is not stored.
+    """
     try:
-        sys.path.insert(0, str(_BASE_DIR / "tools" / "supabase"))
-        from client import CommanderSupabaseClient
-        client = CommanderSupabaseClient()
-        if not client.is_enabled():
-            return
-        payload = {
-            "id": mission_id,
-            "title": title,
-            "domain": domain,
-            "status": status,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-        client.insert("missions", payload)
-    except Exception as exc:
+        from command_memory_integration import save_mission_to_command_memory
+        save_mission_to_command_memory(
+            mission_id=mission_id, title=title, created_by="commander", status=status,
+        )
+    except Exception as exc:  # noqa: BLE001 - supabase mission insert, best-effort, already logged
         log.debug("[mission-logger] Supabase mission insert failed: %s", exc)
 
 

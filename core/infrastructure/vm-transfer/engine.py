@@ -233,7 +233,7 @@ class TransferEngine:
     def _verify_and_move(self, group, source_name, batch_id):
         checksums_text = "\n".join(f"{e['sha256']}  {e['rel_path']}" for e in group)
         remote_pending = f"{self.config.remote.base_path}/pending/{source_name}"
-        rc, out, err = self.transport.verify_checksums(remote_pending, checksums_text)
+        _rc, out, _err = self.transport.verify_checksums(remote_pending, checksums_text)
         results = parse_checksum_output(out)
 
         now = _now()
@@ -265,7 +265,7 @@ class TransferEngine:
             move_lines.append(f"mkdir -p {dst_dir_q} && mv {src_q} {dst_q}")
 
         if move_lines:
-            move_rc, move_out, move_err = self.transport.run_remote_script("\n".join(move_lines))
+            move_rc, _move_out, move_err = self.transport.run_remote_script("\n".join(move_lines))
             self.db.log_event(batch_id, source_name, None,
                                "moved" if move_rc == 0 else "move_failed",
                                None if move_rc == 0 else move_err.strip()[:500], _now())

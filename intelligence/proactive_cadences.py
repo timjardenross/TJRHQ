@@ -20,8 +20,20 @@ Jobs registered here:
   mission_registry_sync    daily 06:45 — sync Supabase missions → registry (background)
   content_pipeline         daily 06:15 — content signal promotion + draft worker (background)
   pending_research_sweep   every 5 min — recover stuck captured_items (background)
+  appointment_prep         daily 08:45 — appointment prep briefs (see job_appointment_prep)
 
 Migration: 2026-08-23. Slack bot (starfleet-slack-bot.service) decommissioned.
+
+appointment_prep added 2026-09-08: platform-runtime/commands/health_appointment_prep.py's
+scheduled job (check_upcoming_appointments(), daily 08:45 per its own module docstring)
+was never migrated in the 2026-08-23 pass above — a gap, not a deliberate skip. Its
+Supabase query + brief-generation helpers aren't Slack-specific, so job_appointment_prep()
+below reuses them directly and delivers over Telegram via _tg_notify(). The module's
+Slack-coupled entry points (check_upcoming_appointments, handle_health_prep, _post())
+were removed 2026-09-26 (Slack fully decommissioned, Captain confirmed) — the
+platform-runtime/proactive_scheduler.py + app.py this docstring used to say they were
+"still live" through no longer exist in this repo, confirming they were already dead
+before removal.
 """
 
 from __future__ import annotations
@@ -29,9 +41,8 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +60,7 @@ _KNOWLEDGE_WATCH_DIRS = ["knowledge", "governance", "Captains-Log"]
 
 def _today() -> date:
     """Return today as a date in local (system) time."""
-    return date.today()
+    return datetime.now().astimezone().date()
 
 
 def _today_iso() -> str:
@@ -60,10 +71,10 @@ def _tg_notify(text: str) -> bool:
     """Send text to Captain via Telegram. Returns True on success."""
     try:
         sys.path.insert(0, str(_REPO_ROOT))
-        from core.platform.notification_service import notify, Severity, Transport
+        from core.platform.notification_service import Severity, Transport, notify
         result = notify(text, severity=Severity.INFO, transport=Transport.TELEGRAM)
         return result.ok
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Telegram notify helper, already logged; caller gets a bool and decides what to do
         log.error("[proactive] Telegram notify failed: %s", exc)
         return False
 
@@ -74,7 +85,7 @@ def _shakedown_log(job_id: str, status: str, detail: str = "") -> None:
         sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
         from shakedown_logger import log_event
         log_event(job_id, status, detail, "telegram")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort shakedown event write, already logged at debug (explicitly 'non-critical' per the log message)
         log.debug("[shakedown] log_event failed (non-critical): %s", exc)
     try:
         # Relied on intelligence/scheduler.py having already inserted this
@@ -89,7 +100,7 @@ def _shakedown_log(job_id: str, status: str, detail: str = "") -> None:
         if not record_heartbeat(job_id, status=hb, detail=detail or None,
                                 error_message=detail if hb == "failed" else None):
             log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", job_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - heartbeat recording is observability-only and must never crash the caller it's reporting on
         log.warning("[heartbeat] record_heartbeat(%s) raised: %s", job_id, exc)
 
 
@@ -112,16 +123,17 @@ def _get_pending_decisions() -> list[dict]:
                         "question": data.get("question") or data.get("title") or "(no title)",
                         "date": data.get("date") or data.get("timestamp", "")[:10],
                     })
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 - best-effort per-file parse; one bad decision file must not abort the scan
+                log.debug("[proactive] Skipping unreadable decision file %s: %s", f, exc)
                 continue
         return pending[:10]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decisions-dir scan, already logged; caller treats an empty list as "nothing pending"
         log.warning("[proactive] Pending decision check failed: %s", exc)
         return []
 
 
 def _get_stale_knowledge_files(limit: int = 10) -> list[dict]:
-    cutoff = datetime.now().timestamp() - (_KNOWLEDGE_STALENESS_DAYS * 86400)
+    cutoff = datetime.now(timezone.utc).timestamp() - (_KNOWLEDGE_STALENESS_DAYS * 86400)
     stale = []
     for rel in _KNOWLEDGE_WATCH_DIRS:
         base = _REPO_ROOT / rel
@@ -131,7 +143,7 @@ def _get_stale_knowledge_files(limit: int = 10) -> list[dict]:
             try:
                 mtime = path.stat().st_mtime
                 if mtime < cutoff:
-                    age_days = int((datetime.now().timestamp() - mtime) / 86400)
+                    age_days = int((datetime.now(timezone.utc).timestamp() - mtime) / 86400)
                     stale.append({"path": str(path.relative_to(_REPO_ROOT)), "age_days": age_days})
             except OSError:
                 continue
@@ -144,7 +156,7 @@ def _get_decisions_overdue_outcome(limit: int = 8) -> list[dict]:
     decisions_dir = _REPO_ROOT / "knowledge" / "decisions"
     if not decisions_dir.exists():
         return []
-    cutoff = datetime.now().timestamp() - (_DECISION_OUTCOME_DAYS * 86400)
+    cutoff = datetime.now(timezone.utc).timestamp() - (_DECISION_OUTCOME_DAYS * 86400)
     overdue = []
     for path in sorted(decisions_dir.glob("*.md")):
         try:
@@ -159,7 +171,7 @@ def _get_decisions_overdue_outcome(limit: int = 8) -> list[dict]:
                 continue
             id_match = _re.search(r"decision id:\s*(DEC-\S+)", content, _re.IGNORECASE)
             dec_id = id_match.group(1).upper() if id_match else path.stem
-            age_days = int((datetime.now().timestamp() - mtime) / 86400)
+            age_days = int((datetime.now(timezone.utc).timestamp() - mtime) / 86400)
             overdue.append({"id": dec_id, "age_days": age_days})
         except OSError:
             continue
@@ -167,34 +179,69 @@ def _get_decisions_overdue_outcome(limit: int = 8) -> list[dict]:
     return overdue[:limit]
 
 
+_DIGEST_MAX_LESSONS = 30
+
+
+def _lesson_section(entry: str, name: str) -> str:
+    """First non-blank line under an entry's `### <name>` heading, or ""."""
+    import re as _re
+    match = _re.search(
+        rf"^### {_re.escape(name)}[ \t]*\n(?:[ \t]*\n)*[ \t]*(\S.*)$",
+        entry, _re.MULTILINE,
+    )
+    return match.group(1).strip() if match else ""
+
+
 def _generate_lessons_digest() -> str:
+    # Register entries (written by platform-runtime/lesson_capture.py and
+    # core/knowledge/lesson_capture.py) are `## LL-NNN` followed by
+    # `### Title` / `### Date` / optional `### Mission` sections. This used to
+    # look for inline `Mission:` / `Outcome:` lines no writer produces, so
+    # every line read "unknown: see record", and it treated an entry as recent
+    # if a `YYYY-MM` string appeared anywhere in its body.
     import re as _re
     lessons_path = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
     if not lessons_path.exists():
         return ""
     content = lessons_path.read_text(encoding="utf-8", errors="replace")
-    entries = _re.split(r"(?=^## LL-\d+)", content, flags=_re.MULTILINE)
-    if len(entries) <= 1:
+    entries = [
+        e for e in _re.split(r"(?=^## LL-\d+)", content, flags=_re.MULTILINE)
+        if e.startswith("## LL-")
+    ]
+    if not entries:
         return ""
     today = _today()
-    last_month = today.replace(day=1) - timedelta(days=1)
-    month_pattern = last_month.strftime("%Y-%m")
-    this_month_pattern = today.strftime("%Y-%m")
-    recent = [e for e in entries if month_pattern in e or this_month_pattern in e]
-    all_entries = [e for e in entries if e.strip().startswith("## LL-")]
+    period_start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+    recent = []
+    for entry in entries:
+        try:
+            entry_date = date.fromisoformat(_lesson_section(entry, "Date")[:10])
+        except ValueError:
+            continue
+        if period_start <= entry_date <= today:
+            recent.append((entry_date, int(entry[6:].split(None, 1)[0]), entry))
+    recent.sort()
     lines = [f"Monthly Lessons Digest — {today.strftime('%B %Y')}", ""]
     if recent:
-        lines.append(f"{len(recent)} lesson(s) this period:")
-        for entry in recent:
-            id_match = _re.search(r"## (LL-\d+)", entry)
-            mission_match = _re.search(r"Mission:\s*(.+)", entry)
-            outcome_match = _re.search(r"Outcome:\s*(.+)", entry)
-            eid = id_match.group(1) if id_match else "?"
-            mission = mission_match.group(1).strip()[:60] if mission_match else "unknown"
-            outcome = outcome_match.group(1).strip()[:80] if outcome_match else "see record"
-            lines.append(f"  • {eid} — {mission}: {outcome}")
+        lines.append(
+            f"{len(recent)} lesson(s) recorded since "
+            f"{period_start.strftime('%-d %B %Y')}:"
+        )
+        for entry_date, _, entry in recent[:_DIGEST_MAX_LESSONS]:
+            eid = _re.match(r"## (LL-\d+)", entry).group(1)
+            title = _lesson_section(entry, "Title") or "(untitled)"
+            if len(title) > 100:
+                title = title[:99].rstrip() + "…"
+            mission = _lesson_section(entry, "Mission")
+            suffix = f" [{mission[:40]}]" if mission else ""
+            lines.append(f"  • {eid} ({entry_date.isoformat()}) — {title}{suffix}")
+        if len(recent) > _DIGEST_MAX_LESSONS:
+            lines.append(
+                f"  …and {len(recent) - _DIGEST_MAX_LESSONS} more — "
+                "see knowledge/Lessons-Learned.md"
+            )
     else:
-        lines.append(f"No new lessons recorded this period. {len(all_entries)} total in register.")
+        lines.append(f"No new lessons recorded this period. {len(entries)} total in register.")
         lines.append("Use 'close mission [ID] outcome: ...' when closing missions.")
     return "\n".join(lines)
 
@@ -232,14 +279,18 @@ def _generate_ko_monthly_brief() -> str:
 
 def _get_idea_missions() -> list[dict]:
     try:
-        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
-        from tools.supabase.client import CommanderSupabaseClient
+        # 2026-09-26: was `sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))`
+        # — that directory no longer exists (Slack fully decommissioned,
+        # Captain confirmed). Aligned to the same tools/supabase import
+        # pattern _check_health_logged_today() below already uses.
+        sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
+        from client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         if not c.is_enabled():
             return []
         rows = c.get("missions?select=*&status=ilike.Idea&order=created_at.asc&limit=30")
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort idea-missions lookup, already logged at debug; caller treats an empty list as 'nothing to triage'
         log.debug("[proactive] Idea missions unavailable: %s", exc)
         return []
 
@@ -247,7 +298,7 @@ def _get_idea_missions() -> list[dict]:
 def _format_idea_review(missions: list[dict]) -> str:
     if not missions:
         return ""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     lines = [
         "Number One — Fortnightly Idea Review",
         f"Cycle: {_today().strftime('%Y-%m-%d')}",
@@ -262,8 +313,9 @@ def _format_idea_review(missions: list[dict]) -> str:
         age_str = ""
         if created_raw:
             try:
-                from datetime import timezone as _tz
-                created = datetime.fromisoformat(created_raw.replace("Z", "+00:00").replace("+00:00", ""))
+                created = datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
                 age_days = (now - created).days
                 age_str = f" · {age_days}d old"
                 if age_days >= 28:
@@ -298,7 +350,7 @@ def _check_health_logged_today() -> bool:
         today = _today_iso()
         rows = c.get(f"capacity_checkins?select=id&log_date=eq.{today}&limit=1")
         return bool(rows)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort health check-in lookup, already logged
         log.warning("[proactive] Health check-in check failed: %s", exc)
         return False
 
@@ -325,7 +377,7 @@ def job_weekly_review() -> None:
     """Fri 16:30 — weekly review summary."""
     health_logged = _check_health_logged_today()
     lines = [
-        f"Weekly Review — Starship Endeavour",
+        "Weekly Review — Starship Endeavour",
         f"Week ending {_today().strftime('%Y-%m-%d')}",
         "",
         f"Health check-in today: {'logged' if health_logged else 'not logged'}",
@@ -405,9 +457,11 @@ def job_forgotten_decisions() -> None:
     try:
         sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
         from captain_notifications import (
-            get_config as _get_notif_config,
-            get_forgotten_decisions,
             format_forgotten_decisions,
+            get_forgotten_decisions,
+        )
+        from captain_notifications import (
+            get_config as _get_notif_config,
         )
     except ImportError:
         log.debug("[proactive] captain_notifications unavailable — forgotten_decisions skipped")
@@ -427,7 +481,7 @@ def job_forgotten_decisions() -> None:
         log.info("[proactive] Forgotten decisions alert sent (%d items)", len(items))
         _shakedown_log("forgotten_decisions", "success" if ok else "failure",
                        f"{len(items)} items")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Forgotten decisions job failed: %s", exc)
         _shakedown_log("forgotten_decisions", "failure", str(exc))
 
@@ -445,7 +499,7 @@ def job_fortnightly_idea_review() -> None:
         if msg:
             _tg_notify(msg)
             log.info("[proactive] Fortnightly idea review sent (%d ideas)", len(missions))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Fortnightly idea review failed: %s", exc)
 
 
@@ -487,16 +541,65 @@ def job_lifecycle_recommendations() -> None:
         log.info("[proactive] Lifecycle recommendations sent (%d items)", needing)
         _shakedown_log("lifecycle_recommendations", "success" if ok else "failure",
                        f"{needing} items")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Lifecycle recommendations failed: %s", exc)
         _shakedown_log("lifecycle_recommendations", "failure", str(exc))
+
+
+def job_appointment_prep() -> None:
+    """Daily 08:45 — appointment prep briefs for appointments within lead
+    days (APPOINTMENT_LEAD_DAYS env, default 2). See module docstring for
+    the 2026-09-08 migration note: reuses health_appointment_prep.py's
+    query + brief-generation helpers (not Slack-specific), delivers over
+    Telegram instead of that module's chat_postMessage-based _post()."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "platform-runtime" / "commands"))
+        from health_appointment_prep import (
+            _generate_prep_brief,
+            _get_health_summary_period,
+            _get_pending_followups,
+            _get_recent_health_events,
+            _get_upcoming_appointments,
+        )
+    except ImportError as exc:
+        log.debug("[proactive] health_appointment_prep unavailable — appointment_prep skipped: %s", exc)
+        return
+
+    lead_days = int(os.environ.get("APPOINTMENT_LEAD_DAYS", "2"))
+    try:
+        appointments = _get_upcoming_appointments(lead_days)
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
+        log.error("[proactive] Appointment prep: query failed: %s", exc)
+        _shakedown_log("appointment_prep", "failure", str(exc))
+        return
+    if not appointments:
+        log.info("[proactive] No appointments within %d days", lead_days)
+        _shakedown_log("appointment_prep", "skipped", f"No appointments within {lead_days} days")
+        return
+
+    health_summary = _get_health_summary_period(days=7)
+    recent_events  = _get_recent_health_events(since_days=30)
+    follow_ups     = _get_pending_followups()
+
+    sent = 0
+    for appt in appointments:
+        try:
+            brief = _generate_prep_brief(appt, health_summary, recent_events, follow_ups)
+            if _tg_notify(brief):
+                sent += 1
+        except Exception as exc:  # noqa: BLE001 - per-appointment brief failure inside a loop — one bad appointment must not abort the batch; already logged
+            log.error("[proactive] Appointment prep brief failed for %s: %s",
+                      appt.get("title", "appointment"), exc)
+    log.info("[proactive] Appointment prep: %d/%d brief(s) sent", sent, len(appointments))
+    _shakedown_log("appointment_prep", "success" if sent else "failure",
+                   f"{sent}/{len(appointments)} briefs sent")
 
 
 def job_shakedown_digest() -> None:
     """Daily 20:00 — operational shakedown day summary."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
-        from shakedown_logger import get_day_summary, format_day_summary_for_slack
+        from shakedown_logger import format_day_summary_for_slack, get_day_summary
         summary = get_day_summary(_today())
         msg = format_day_summary_for_slack(summary)
         ok = _tg_notify(msg)
@@ -505,7 +608,7 @@ def job_shakedown_digest() -> None:
         _shakedown_log("shakedown_digest", "success" if ok else "failure",
                        f"Day {summary['day_n']}: {summary['total_events']} events, "
                        f"{summary['failure_count']} failures")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Shakedown digest failed: %s", exc)
         _shakedown_log("shakedown_digest", "failure", str(exc))
 
@@ -514,7 +617,7 @@ def job_mission_registry_sync() -> None:
     """Daily 06:45 — sync Supabase missions → mission-index.txt (no delivery)."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "tools"))
-        from sync_supabase_to_registry import sync, load_registry_ids
+        from sync_supabase_to_registry import load_registry_ids, sync
         before = load_registry_ids()
         sync(dry_run=False)
         added = len(load_registry_ids()) - len(before)
@@ -524,7 +627,7 @@ def job_mission_registry_sync() -> None:
         else:
             log.info("[proactive] Mission registry sync: already up to date")
             _shakedown_log("mission_registry_sync", "skipped", "Registry already up to date")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Mission registry sync failed: %s", exc)
         _shakedown_log("mission_registry_sync", "failure", str(exc))
 
@@ -533,11 +636,13 @@ def job_content_pipeline() -> None:
     """Daily 06:15 — content signal promotion + draft worker (no delivery)."""
     try:
         sys.path.insert(0, str(_REPO_ROOT))
-        from core.content.signal_opportunity_converter import create_opportunities_from_signals
+        from core.content.signal_opportunity_converter import (
+            create_opportunities_from_signals,
+        )
         promoted = create_opportunities_from_signals(limit=5, min_rank_score=70.0)
         log.info("[proactive] Content signal promotion: %s (%d/%d created)",
                  promoted.get("status"), promoted.get("created", 0), promoted.get("requested", 0))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Content signal promotion failed: %s", exc)
         _shakedown_log("content_pipeline", "failure", f"promotion: {exc}")
         return
@@ -548,7 +653,7 @@ def job_content_pipeline() -> None:
         log.info("[proactive] Content drafting: %d/%d item(s) drafted", drafted, len(items))
         _shakedown_log("content_pipeline", "success",
                        f"promoted={promoted.get('created', 0)} drafted={drafted}/{len(items)}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Content drafting failed: %s", exc)
         _shakedown_log("content_pipeline", "failure", f"drafting: {exc}")
 
@@ -559,46 +664,54 @@ def job_pending_research_sweep() -> None:
     journalctl, zero heartbeats ever) — added below."""
     try:
         sys.path.insert(0, str(_REPO_ROOT))
-        from core.inbox.orchestrator import _run_research, _db, process_captured_item
+        from core.inbox.orchestrator import _db, _run_research, process_captured_item
         if not _db.enabled():
             _shakedown_log("pending_research_sweep", "skipped", "inbox DB disabled")
             return
-        unprocessed = (
+        # One read for both passes (was two every 5 min, ~576 requests/day,
+        # almost always both empty). Pass 2 only re-queries when this read
+        # came back full, so a large backlog can't starve research items.
+        _SWEEP_LIMIT = 50
+        pending = (
             _db._client.table("captured_items")
-            .select("id, title")
-            .eq("processing_status", "pending")
+            .select("*")
+            .or_("processing_status.eq.pending,research_status.eq.pending")
             .order("captured_at", desc=False)
-            .limit(10)
+            .limit(_SWEEP_LIMIT)
             .execute()
-        )
+        ).data or []
+        unprocessed = [r for r in pending if r.get("processing_status") == "pending"][:10]
         pass1_ids: set = set()
-        for item in (unprocessed.data or []):
+        for item in unprocessed:
             try:
                 log.info("[proactive] Orchestrating unprocessed item: %s",
                          item.get("title", item["id"])[:60])
                 pass1_ids.add(item["id"])
                 process_captured_item(item["id"])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-item orchestration failure inside a loop — one bad captured item must not abort the sweep; already logged
                 log.error("[proactive] Orchestration failed for %s: %s", item["id"], exc)
-        queued = (
-            _db._client.table("captured_items")
-            .select("*")
-            .eq("research_status", "pending")
-            .order("captured_at", desc=False)
-            .limit(5)
-            .execute()
-        )
-        research_items = [r for r in (queued.data or []) if r["id"] not in pass1_ids]
+        if len(pending) < _SWEEP_LIMIT:
+            queued = [r for r in pending if r.get("research_status") == "pending"][:5]
+        else:
+            queued = (
+                _db._client.table("captured_items")
+                .select("*")
+                .eq("research_status", "pending")
+                .order("captured_at", desc=False)
+                .limit(5)
+                .execute()
+            ).data or []
+        research_items = [r for r in queued if r["id"] not in pass1_ids]
         for item in research_items:
             try:
                 _run_research(item["id"], item)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-item research failure inside a loop — one bad item must not abort the sweep; already logged
                 log.error("[proactive] Research failed for %s: %s", item["id"], exc)
         _shakedown_log(
             "pending_research_sweep", "success",
             f"processed={len(pass1_ids)} researched={len(research_items)}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Pending research sweep failed: %s", exc)
         _shakedown_log("pending_research_sweep", "failure", str(exc))
 
@@ -638,13 +751,11 @@ def register_jobs(scheduler, tz) -> None:
     )
 
     # Telegram delivery jobs
-    scheduler.add_job(
-        job_lifecycle_recommendations,
-        CronTrigger(hour=8, minute=15, timezone=tz),
-        id="lifecycle_recommendations",
-        name="Lifecycle Pending Actions (MSN-0066)",
-        replace_existing=True,
-    )
+    # lifecycle_recommendations retired 2026-09-26 (Captain-directed): daily
+    # approval-queue digest no longer needed. Was firing on 2 stale
+    # ENG-HANDOFF records (PR #83/#84, closed-not-merged since 2026-09-09)
+    # that never got marked resolved after close — build_pending_actions()
+    # doesn't re-check PR state. Function left in place, just unregistered.
     # fortnightly_idea_review disabled: no dedup/ack, re-nags the same
     # Idea-status missions verbatim every cycle with no resolution path.
     scheduler.add_job(
@@ -668,20 +779,15 @@ def register_jobs(scheduler, tz) -> None:
         name="Forgotten Decisions & ADR Alert",
         replace_existing=True,
     )
-    scheduler.add_job(
-        job_decision_review,
-        CronTrigger(day_of_week="fri", hour=16, minute=0, timezone=tz),
-        id="decision_review",
-        name="Friday Decision Review",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        job_weekly_review,
-        CronTrigger(day_of_week="fri", hour=16, minute=30, timezone=tz),
-        id="weekly_review",
-        name="Friday Weekly Review",
-        replace_existing=True,
-    )
+    # decision_review retired 2026-09-26 (Captain-directed): no longer
+    # needed. _get_pending_decisions() had no dedup/ack (same disease as
+    # fortnightly_idea_review above) — 14 never-closed decision files from
+    # 2026-09-12 (~5 duplicate "Slack vs Voice Core" proposals fired in 15
+    # min under USS-TJR-MSN-0010A) kept re-nagging every Friday. Function
+    # left in place, just unregistered — re-add scheduler.add_job() to revive.
+    # weekly_review retired 2026-09-26 (Captain-directed): no longer needed.
+    # job_weekly_review() and weeklyReview.ts/alerts.ts untouched — just
+    # unregistered here.
     # shakedown_digest retired 2026-08-27 (Captain-directed): the shakedown
     # concept (core/health/shakedown_logger.py) was a 7-day operational
     # burn-in tracker starting 2026-06-15 (mission M-20260615), never
@@ -705,11 +811,19 @@ def register_jobs(scheduler, tz) -> None:
         name="Knowledge Officer Monthly Brief",
         replace_existing=True,
     )
+    scheduler.add_job(
+        job_appointment_prep,
+        CronTrigger(hour=8, minute=45, timezone=tz),
+        id="appointment_prep",
+        name="Appointment Preparation Brief (M-20260614 WP4)",
+        replace_existing=True,
+    )
 
     log.info(
-        "[proactive] 12 cadence jobs registered: "
+        "[proactive] 13 cadence jobs registered: "
         "content_pipeline 06:15, mission_registry_sync 06:45, lifecycle_recs 08:15, "
-        "fortnightly_idea_review Mon 08:45, knowledge_freshness Wed 09:00, "
+        "fortnightly_idea_review Mon 08:45, appointment_prep daily 08:45, "
+        "knowledge_freshness Wed 09:00, "
         "decision_outcome_reminder Wed 09:15, forgotten_decisions Mon+Thu 09:30, "
         "decision_review Fri 16:00, weekly_review Fri 16:30, "
         "monthly_digest+ko_brief 1st-of-month, "

@@ -6,13 +6,15 @@ Returns all items and health records.
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional
 
 from intelligence.ingestion.api_adapter import APIAdapter
+from intelligence.ingestion.browser_adapter import BrowserAdapter
+from intelligence.ingestion.changedetection_adapter import ChangeDetectionAdapter
 from intelligence.ingestion.downdetector_adapter import DowndetectorAdapter
 from intelligence.ingestion.github_markdown_adapter import GitHubMarkdownAdapter
 from intelligence.ingestion.rss_adapter import RSSAdapter
 from intelligence.ingestion.scrape_adapter import ScrapeAdapter
+from intelligence.ingestion.uptime_kuma_adapter import UptimeKumaAdapter
 from intelligence.models import IntelligenceItem, SourceHealth, SourceRecord
 from intelligence.persistence import intelligence_store as store
 
@@ -29,11 +31,30 @@ _ADAPTER_MAP = {
     # its own two-layer gate, not a JSON API and not generic article-list
     # scraping) — see intelligence/ingestion/downdetector_adapter.py.
     "downdetector":    DowndetectorAdapter,
+    # 2026-09-12: sources with no RSS/API and no working plain-HTTP scrape
+    # path (JS-rendered, or a server that just times out on urllib) — a
+    # headless browser fetch via browser_adapter.py. Only ever selected for
+    # a source explicitly registered with source_type="browser"; never a
+    # silent second collection path for a source that already has rss/api/
+    # scrape working (that would duplicate collection and skew
+    # source_fidelity_report()'s signal-to-noise metrics).
+    "browser":         BrowserAdapter,
+    # 2026-09-12 (USS-TJR-MSN-0366 Stream 6, watchlist execution engine):
+    # push-then-drain adapters — the real fetch/probe already happened in a
+    # separate, persistent Docker container (deploy/docker-compose.watchlist.yml);
+    # collect() only drains the on-disk queue their webhook receivers filled
+    # (intelligence/watchlist/webhook_queue.py). Two distinct signal types
+    # from two distinct mechanisms: changedetection.io diffs page content,
+    # Uptime Kuma directly probes up/down — see each adapter's own
+    # docstring for why neither duplicates downdetector_adapter.py's
+    # crowdsourced-report-volume signal.
+    "changedetection": ChangeDetectionAdapter,
+    "uptime_kuma":     UptimeKumaAdapter,
 }
 
 
 def collect_all(
-    sources: Optional[list[SourceRecord]] = None,
+    sources: list[SourceRecord] | None = None,
     max_workers: int = 8,
 ) -> tuple[list[IntelligenceItem], list[SourceHealth]]:
     """
@@ -74,12 +95,11 @@ def collect_all(
                 items, health = future.result()
                 all_items.extend(items)
                 all_health.append(health)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-source future-result retrieval inside a ThreadPoolExecutor loop — one bad source must not abort the batch; already logged
                 log.error("Unexpected error collecting %s: %s", source.source_name, exc)
 
-    # Persist health records (non-blocking; individual failures logged inside store)
-    for h in all_health:
-        store.save_source_health(h)
+    # Persist health records in one write (non-blocking; failures logged inside store)
+    store.save_source_health_batch(all_health)
 
     ok     = sum(1 for h in all_health if h.status == "ok")
     failed = sum(1 for h in all_health if h.status == "failed")
@@ -108,7 +128,7 @@ def collect_all(
                 "sources_total": len(all_health),
             },
         )
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block/fail the actual collection result
+        log.debug("[collection_engine] Failed to publish collection_run_completed event: %s", exc)
 
     return all_items, all_health

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 ORI GitHub Briefs Sync (WP3 backfill + WP7 daily sync).
 
@@ -35,13 +36,14 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from intelligence.classification.classifier import classify           # noqa: E402
-from intelligence.classification.ori_enrichment import enrich          # noqa: E402
-from intelligence.ingestion.github_markdown_adapter import (           # noqa: E402
-    discover_parsed_briefs, DEFAULT_LOOKBACK_DAYS,
+from intelligence.classification.classifier import classify
+from intelligence.classification.ori_enrichment import enrich
+from intelligence.ingestion.github_markdown_adapter import (
+    DEFAULT_LOOKBACK_DAYS,
+    discover_parsed_briefs,
 )
-from intelligence.models import IntelligenceItem, SourceRecord         # noqa: E402
-from intelligence.ranking.ranker import rank                           # noqa: E402
+from intelligence.models import IntelligenceItem, SourceRecord
+from intelligence.ranking.ranker import rank
 
 log = logging.getLogger("ori.github_sync")
 
@@ -61,7 +63,7 @@ def _resolve_source(dry_run: bool) -> SourceRecord:
             for s in store.load_source_registry():
                 if s.source_type == "github_markdown":
                     return s
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort source-registry lookup, already logged; falls back to the synthesized placeholder right below
             log.warning("Could not load source registry (%s) — using placeholder", exc)
     return SourceRecord(
         source_id=_PLACEHOLDER_SOURCE_ID,
@@ -77,7 +79,7 @@ def _resolve_source(dry_run: bool) -> SourceRecord:
 
 
 def _record_health(store, source, *, status: str, items: int,
-                   latency_ms: int, error: str = None) -> None:
+                   latency_ms: int, error: str | None = None) -> None:
     """Write one intelligence_source_health row for this sync run (WP7 obs).
 
     Best-effort: a health-logging failure must never mask the sync outcome.
@@ -93,12 +95,12 @@ def _record_health(store, source, *, status: str, items: int,
             latency_ms=latency_ms,
             error_message=error,
         ))
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:  # pragma: no cover - defensive  # noqa: BLE001 - explicitly marked defensive above (pragma: no cover) — best-effort health logging, already logged
         log.warning("Could not record source health: %s", exc)
 
 
 def run(days: int, dry_run: bool, backfill: bool,
-        emit_sql: bool = False, source_id: str = None) -> dict:
+        emit_sql: bool = False, source_id: str | None = None) -> dict:
     import time
     t0 = time.monotonic()
     lookback = max(days, 3650) if backfill else days
@@ -109,7 +111,7 @@ def run(days: int, dry_run: bool, backfill: bool,
     no_db = dry_run or emit_sql
     store = None
     if not no_db:
-        from intelligence.persistence import intelligence_store as store  # noqa
+        from intelligence.persistence import intelligence_store as store
     sql: list[str] = []
 
     try:
@@ -293,7 +295,7 @@ def _doc_insert_sql(doc: dict) -> str:
         _lit(doc["classification"]), _json_lit(doc["raw_front_matter"]),
         _lit(doc["raw_markdown"]), _json_lit(doc["parse_warnings"]),
     ]
-    return (f"insert into ori_source_documents ({', '.join(cols)}) "
+    return (f"insert into ori_source_documents ({', '.join(cols)}) "  # nosec B608 - vals built via _lit()/_json_lit() which quote-escape, not raw interpolation
             f"values ({', '.join(vals)}) "
             f"on conflict (file_path, content_sha) do nothing;")
 
@@ -320,7 +322,7 @@ def _event_insert_sql(e, ori: dict) -> str:
         _lit(ori.get("regulatory_topic")), _json_lit(ori.get("resilience_themes")),
         _lit(ori.get("watch_item_status")), _lit(ori.get("executive_relevance")),
     ]
-    return (f"insert into intelligence_events ({', '.join(cols)}) "
+    return (f"insert into intelligence_events ({', '.join(cols)}) "  # nosec B608 - vals built via _lit()/_json_lit() which quote-escape, not raw interpolation
             f"values ({', '.join(vals)}) "
             f"on conflict (dedup_hash) do nothing;")
 
@@ -371,8 +373,8 @@ def main() -> int:
         run(days=args.days, dry_run=args.dry_run, backfill=args.backfill,
             emit_sql=args.emit_sql, source_id=args.source_id)
         return 0
-    except Exception as exc:
-        log.error("Sync failed: %s", exc, exc_info=True)
+    except Exception:
+        log.exception("Sync failed")
         return 1
 
 

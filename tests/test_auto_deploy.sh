@@ -45,10 +45,35 @@ setup_fixture() {
     git config user.email test@example.com
     git config user.name Test
     git checkout --quiet -B main
-    mkdir -p lcars-portal deploy
+    mkdir -p lcars-portal deploy tools platform-runtime
     echo "one" > README.md
     echo "placeholder" > lcars-portal/page.tsx  # git never tracks an empty dir
     echo "context-service.service" > deploy/auto-deploy-services.conf
+    # These are called by their literal $REPO_ROOT-relative paths (not
+    # PATH-resolved like the npm/systemctl fakes below), so they have to
+    # actually exist inside the fixture's own clone. Trivial stubs are
+    # enough - their real behavior has its own dedicated coverage
+    # elsewhere; these tests only care that auto-deploy.sh's own
+    # git/staleness/restart logic runs correctly around them.
+    cat > tools/alert_on_stale_dirty_tree.py <<'PYEOF'
+#!/usr/bin/env python3
+import sys
+print(f"stub alert_on_stale_dirty_tree.py {' '.join(sys.argv[1:])}")
+sys.exit(0)
+PYEOF
+    chmod +x tools/alert_on_stale_dirty_tree.py
+    cat > platform-runtime/run-with-infisical.sh <<'SHEOF'
+#!/bin/bash
+echo "run-with-infisical.sh $*" >> "$CALL_LOG"
+exec "$@"
+SHEOF
+    chmod +x platform-runtime/run-with-infisical.sh
+    cat > platform-runtime/check-ollama-model-default.sh <<'SHEOF'
+#!/bin/bash
+echo "check-ollama-model-default.sh" >> "$CALL_LOG"
+exit 0
+SHEOF
+    chmod +x platform-runtime/check-ollama-model-default.sh
     git add -A
     git commit --quiet -m "initial"
     git push --quiet origin main
@@ -64,10 +89,52 @@ setup_fixture() {
 echo "npm $*" >> "$CALL_LOG"
 exit 0
 EOF
-  cat > "$bin/systemctl" <<'EOF'
+  # 2026-09-22: captured NOW, right after the fixture's own "initial"
+  # commit/push above and before any test pushes a LATER commit - so every
+  # unit looks like it started right when the fixture was built (not
+  # stale relative to the content setup_fixture itself just created), but
+  # IS stale relative to whatever a test pushes afterward. A fixed
+  # arbitrary-old timestamp here would make every unit - including
+  # lcars-portal.service, whose "placeholder" file setup_fixture itself
+  # commits above - look permanently stale in every test, which isn't
+  # what any of these tests are actually asserting.
+  FIXTURE_NOW="$(date -u +"%a %Y-%m-%d %H:%M:%S UTC")"
+  # Both this timestamp and git commit timestamps are 1-second resolution,
+  # and this fixture setup plus a test's own later commit routinely
+  # complete within the same wall-clock second - an exact "now" here can
+  # TIE against that later commit (not-stale, no restart) instead of the
+  # intended "started here, then a later commit made it stale." A real
+  # 1s delay (not a backdate, which would then risk tying the OTHER way
+  # against the initial commit above) guarantees genuine separation.
+  sleep 1
+  cat > "$bin/systemctl" <<EOF
 #!/bin/bash
-echo "systemctl $*" >> "$CALL_LOG"
-if [ "$FAIL_SYSTEMCTL_FOR" = "$2" ]; then exit 1; fi
+echo "systemctl \$*" >> "\$CALL_LOG"
+# a \`show -p ActiveEnterTimestamp\` call must actually print a real
+# timestamp, not just log-and-succeed like every other verb -
+# auto-deploy.sh's staleness check treats empty stdout as "unit never
+# started" and skips the restart entirely. Real bug this masked: the
+# production AUTO_DEPLOY_SYSTEMCTL override (deploy/scoped-restart.sh)
+# only implements \`restart\`, not \`show\`, and this stub used to return
+# the same empty-but-successful response for both - so this test suite
+# never would have caught the exact live failure it reproduced instead of
+# catching. auto-deploy.sh now calls unprefixed \`systemctl\` (this stub)
+# for the read and only "\$SYSTEMCTL" for the actual restart, so this one
+# stub must behave like a real systemctl for both call shapes.
+# \`show -p LoadState --value <unit>\`: "masked" for any unit listed in
+# \$MASKED_UNITS (space separated), "loaded" otherwise.
+if [ "\$1" = "show" ] && [ "\$3" = "LoadState" ]; then
+  for u in \$MASKED_UNITS; do
+    if [ "\$u" = "\${@: -1}" ]; then echo masked; exit 0; fi
+  done
+  echo loaded
+  exit 0
+fi
+if [ "\$1" = "show" ]; then
+  echo "$FIXTURE_NOW"
+  exit 0
+fi
+if [ "\$FAIL_SYSTEMCTL_FOR" = "\$2" ]; then exit 1; fi
 exit 0
 EOF
   chmod +x "$bin/npm" "$bin/systemctl"
@@ -80,7 +147,7 @@ run_script() {
   local call_log="$2"
   AUTO_DEPLOY_REPO_ROOT="$clone" \
   AUTO_DEPLOY_BRANCH="$(git -C "$clone" branch --show-current)" \
-  AUTO_DEPLOY_SERVICES_CONF="$clone/deploy/auto-deploy-services.conf" \
+  AUTO_DEPLOY_SERVICES_CONF="${SERVICES_CONF_OVERRIDE:-$clone/deploy/auto-deploy-services.conf}" \
   AUTO_DEPLOY_SYSTEMCTL="systemctl" \
   CALL_LOG="$call_log" \
   PATH="$3:$PATH" \
@@ -90,7 +157,11 @@ run_script() {
 echo "test: up to date -> no-op, exit 0, no restarts"
 tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
 if out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; then
-  if echo "$out" | grep -q "nothing to do" && [ ! -s "$log" ]; then
+  # 2026-09-22: staleness checks run every cycle regardless of whether a
+  # pull happened (by design - see auto-deploy.sh's own header comment),
+  # so `systemctl show` calls are expected here even on a no-op; only an
+  # actual `restart` would mean this test's "no restarts" claim is false.
+  if echo "$out" | grep -q "nothing to pull" && ! grep -q "systemctl restart" "$log"; then
     pass "up-to-date no-op"
   else
     fail "up-to-date no-op (output: $out / log: $(cat "$log"))"
@@ -168,6 +239,62 @@ else
 fi
 rm -rf "$tmp"
 
+echo "test: untracked file present -> does NOT abort, pulls normally (regression: live processes on the VM drop untracked files, e.g. handoff docs, that must not block deploy)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+(
+  cd "$tmp/pusher"
+  git config user.email test@example.com
+  git config user.name Test
+  echo "two" > core_change.txt
+  git add -A
+  git commit --quiet -m "backend change"
+  git push --quiet origin HEAD 2>&1
+)
+echo "untracked scratch file" > "$tmp/clone/untracked_handoff.md"
+before_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+after_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+if [ "$before_sha" != "$after_sha" ] && grep -q "systemctl restart context-service.service" "$log" && [ -f "$tmp/clone/untracked_handoff.md" ]; then
+  pass "untracked file does not block the pull, and survives it"
+else
+  fail "untracked file present (before=$before_sha after=$after_sha log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: mission-registry-sync's rewritten mission-index.txt -> does NOT abort, pulls normally, local copy kept"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+(
+  cd "$tmp/clone"
+  mkdir -p core/mission-control/registry
+  echo "MSN-1 original" > core/mission-control/registry/mission-index.txt
+  git add -A
+  git commit --quiet -m "track mission index"
+  git push --quiet origin main
+)
+git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+(
+  cd "$tmp/pusher"
+  git config user.email test@example.com
+  git config user.name Test
+  echo "two" > core_change.txt
+  git add -A
+  git commit --quiet -m "backend change"
+  git push --quiet origin HEAD 2>&1
+)
+echo "MSN-1 original
+MSN-2 synced from supabase" > "$tmp/clone/core/mission-control/registry/mission-index.txt"
+before_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+after_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+if [ "$before_sha" != "$after_sha" ] && grep -q "systemctl restart context-service.service" "$log" \
+   && grep -q "MSN-2 synced" "$tmp/clone/core/mission-control/registry/mission-index.txt"; then
+  pass "rewritten mission-index.txt does not block the pull, and survives it"
+else
+  fail "mission-index.txt dirty (before=$before_sha after=$after_sha log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
 echo "test: diverged history -> ff-only merge fails, aborts without corrupting local branch"
 tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
 git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
@@ -196,6 +323,97 @@ else
   else
     fail "diverged history abort (before=$before_sha after=$after_sha log=$(cat "$log") out=$out)"
   fi
+fi
+rm -rf "$tmp"
+
+
+# --- masked-unit skip (USS-TJR-MSN-0406) -----------------------------------
+# push_backend_change <origin> <tmp>: a non-lcars commit on origin, so the next run pulls and
+# every unit looks stale.
+push_change() {
+  local tmp="$1" path="${2:-core_change.txt}"
+  git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+  (
+    cd "$tmp/pusher"
+    git config user.email test@example.com
+    git config user.name Test
+    mkdir -p "$(dirname "$path")"
+    echo "two" > "$path"
+    git add -A
+    git commit --quiet -m "change"
+    git push --quiet origin HEAD 2>&1
+  )
+}
+
+echo "test: a MASKED unit in the services list is skipped and logged; unmasked units are still restarted"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+printf 'tg-xo.service\ncontext-service.service\n' > "$tmp/services.conf"
+push_change "$tmp"
+out="$(SERVICES_CONF_OVERRIDE="$tmp/services.conf" MASKED_UNITS="tg-xo.service" run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! grep -q "restart tg-xo.service" "$log" && grep -q "systemctl restart context-service.service" "$log" \
+   && echo "$out" | grep -q "SKIP tg-xo.service: unit is masked"; then
+  pass "masked unit skipped (logged), unmasked unit restarted, exit 0"
+else
+  fail "masked skip (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: a unit that is merely not masked (stopped/failed) is NOT skipped"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+printf 'tg-xo.service\ncontext-service.service\n' > "$tmp/services.conf"
+push_change "$tmp"
+out="$(SERVICES_CONF_OVERRIDE="$tmp/services.conf" MASKED_UNITS="" run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if grep -q "systemctl restart tg-xo.service" "$log" && grep -q "systemctl restart context-service.service" "$log" && ! echo "$out" | grep -q "SKIP"; then
+  pass "only masked units are skipped; others restart as before"
+else
+  fail "unmasked restart (log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: one failing restart is logged and the loop keeps going (exit 0)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+printf 'tg-xo.service\ncontext-service.service\n' > "$tmp/services.conf"
+push_change "$tmp"
+out="$(SERVICES_CONF_OVERRIDE="$tmp/services.conf" FAIL_SYSTEMCTL_FOR="tg-xo.service" run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -q "systemctl restart tg-xo.service" "$log" && grep -q "systemctl restart context-service.service" "$log" \
+   && echo "$out" | grep -q "WARNING: restart failed for tg-xo.service"; then
+  pass "failed restart logged as WARNING, next unit still restarted, exit 0"
+else
+  fail "restart failure continues (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: masked lcars-portal is not rebuilt or restarted"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+push_change "$tmp" "lcars-portal/page.tsx"
+out="$(MASKED_UNITS="lcars-portal.service" run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! grep -q "npm" "$log" && ! grep -q "restart lcars-portal.service" "$log" && echo "$out" | grep -q "SKIP lcars-portal.service: unit is masked"; then
+  pass "masked lcars-portal: no build, no restart, logged"
+else
+  fail "masked lcars-portal (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: service restarted AFTER last commit but .next/BUILD_ID predates it -> rebuilds (2026-10-20 stale-build blind spot)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+mkdir -p "$tmp/clone/lcars-portal/.next"; echo "oldbuild" > "$tmp/clone/lcars-portal/.next/BUILD_ID"
+touch -d "2000-01-01" "$tmp/clone/lcars-portal/.next/BUILD_ID"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -q "npm run build" "$log" && grep -q "systemctl restart lcars-portal.service" "$log" && echo "$out" | grep -q "built (.next/BUILD_ID) before"; then
+  pass "stale BUILD_ID triggers rebuild + restart"
+else
+  fail "stale BUILD_ID (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: .next/BUILD_ID newer than last commit -> no rebuild"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+mkdir -p "$tmp/clone/lcars-portal/.next"; echo "newbuild" > "$tmp/clone/lcars-portal/.next/BUILD_ID"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! grep -q "npm" "$log" && ! grep -q "restart lcars-portal.service" "$log"; then
+  pass "fresh BUILD_ID: no rebuild"
+else
+  fail "fresh BUILD_ID (rc=$rc log=$(cat "$log") out=$out)"
 fi
 rm -rf "$tmp"
 

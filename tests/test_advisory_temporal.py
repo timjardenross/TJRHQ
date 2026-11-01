@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0095 (temporal/patterns/episodic/signals) and MSN-0096
 (triggers/escalation/opportunities/notifications/advisory_health/proactive).
 
@@ -17,7 +18,7 @@ _ADVISORY = _REPO_ROOT / "core" / "advisory"
 if str(_ADVISORY) not in sys.path:
     sys.path.insert(0, str(_ADVISORY))
 
-from _local_import_advisory import import_sibling, reload_sibling  # noqa: E402
+from _local_import_advisory import import_sibling, reload_sibling
 
 # Fleet Engineering Review 2026-08-11: outcomes, learning, patterns,
 # escalation, opportunities, service collide with same-named files
@@ -131,12 +132,13 @@ def test_opportunities_detect(seeded):
 
 
 def test_notifications_route(seeded):
-    import triggers, notifications
+    import notifications
+    import triggers
     importlib.reload(triggers)
     importlib.reload(notifications)
     opportunities = reload_sibling("opportunities")
     plan = notifications.route(triggers.evaluate_triggers(), opportunities.detect_opportunities())
-    assert set(["interrupt", "daily_brief", "wait", "summary", "note"]).issubset(plan.keys())
+    assert {"interrupt", "daily_brief", "wait", "summary", "note"}.issubset(plan.keys())
     # opportunities are never interruptions
     assert all(it["level"] != "opportunity" for it in plan["interrupt"])
 

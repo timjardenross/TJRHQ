@@ -42,7 +42,6 @@ most-specific-first, no ML, no fabricated confidence.
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime, timezone
 
 # Ordered most-specific-first — same convention as parse_biorxiv_trending.py's

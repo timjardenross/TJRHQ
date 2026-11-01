@@ -6,10 +6,10 @@ Purpose: Collect and analyze production webhook performance metrics
 """
 
 import json
+import tempfile
 import time
-from dataclasses import dataclass, asdict
-from typing import List, Dict
-from datetime import datetime
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -31,7 +31,7 @@ class MetricsSnapshot:
     period_start: str
     period_end: str
     total_events: int
-    events_by_platform: Dict[str, int]
+    events_by_platform: dict[str, int]
     avg_latency_ms: float
     max_latency_ms: float
     min_latency_ms: float
@@ -46,8 +46,8 @@ class ProductionMetricsCollector:
 
     def __init__(self):
         """Initialize metrics collector."""
-        self.events: List[WebhookEvent] = []
-        self.start_time = datetime.now()
+        self.events: list[WebhookEvent] = []
+        self.start_time = datetime.now(timezone.utc)
 
     def record_event(
         self,
@@ -91,7 +91,7 @@ class ProductionMetricsCollector:
         if not self.events:
             return MetricsSnapshot(
                 period_start=self.start_time.isoformat(),
-                period_end=datetime.now().isoformat(),
+                period_end=datetime.now(timezone.utc).isoformat(),
                 total_events=0,
                 events_by_platform={},
                 avg_latency_ms=0.0,
@@ -131,7 +131,7 @@ class ProductionMetricsCollector:
 
         return MetricsSnapshot(
             period_start=self.start_time.isoformat(),
-            period_end=datetime.now().isoformat(),
+            period_end=datetime.now(timezone.utc).isoformat(),
             total_events=len(self.events),
             events_by_platform=events_by_platform,
             avg_latency_ms=avg_latency,
@@ -200,7 +200,7 @@ STATUS: {"✅ PRODUCTION READY" if snapshot.success_rate >= 99 and snapshot.avg_
         data = {
             "collection_period": {
                 "start": self.start_time.isoformat(),
-                "end": datetime.now().isoformat()
+                "end": datetime.now(timezone.utc).isoformat()
             },
             "events": [asdict(e) for e in self.events],
             "metrics": asdict(self.get_metrics_snapshot())
@@ -283,5 +283,10 @@ if __name__ == "__main__":
     dashboard.print_live_dashboard()
 
     # Export to JSON
-    collector.export_to_json("/tmp/production_metrics.json")
-    print("\n✅ Metrics exported to /tmp/production_metrics.json")
+    # 2026-09-12 (bandit B108): was a hardcoded "/tmp/..." literal; uses
+    # tempfile.gettempdir() instead (same default on this VM, honours
+    # TMPDIR if ever overridden). Metrics content is non-sensitive
+    # (latency/event-type counters), so no path change beyond that.
+    export_path = f"{tempfile.gettempdir()}/production_metrics.json"
+    collector.export_to_json(export_path)
+    print(f"\n✅ Metrics exported to {export_path}")

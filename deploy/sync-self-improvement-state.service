@@ -1,0 +1,22 @@
+[Unit]
+# Keeps 4 mechanically-rewritten self-improvement tracked state files in
+# sync with origin/main so they never block auto-deploy.sh's dirty-tree
+# guard. See deploy/sync-self-improvement-state.sh header for full
+# rationale (2026-09-15).
+Description=Sync self-improvement tracked state files (narrow allowlist auto-commit+push)
+After=network-online.target
+Wants=network-online.target
+OnFailure=alert-on-failure@%n.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/opt/starship-endeavour/deploy/sync-self-improvement-state.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sync-self-improvement-state
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

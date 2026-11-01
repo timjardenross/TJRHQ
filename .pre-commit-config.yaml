@@ -1,0 +1,149 @@
+# Pre-commit hook configuration for TJRHQ.
+#
+# Scope (USS-TJR-MSN-0365, Stream D): wire the gate, don't fix every finding
+# it surfaces. Ruff runs lint-only (no --fix, no ruff-format) on this pass so
+# adding this config does not trigger a mass reformat of an existing,
+# large Python monorepo as a side effect — that can be a deliberate follow-up
+# once findings are triaged.
+#
+# Post-merge setup (not automatic in CI or on clone): each contributor must
+# run, once, in their local checkout:
+#     pip install pre-commit
+#     pre-commit install
+# Only then do these hooks actually run on `git commit`.
+#
+# USS-TJR-MSN-0369/0370 update: both bandit's Medium backlog (0 unaddressed
+# repo-wide) and ruff's full backlog (0 findings repo-wide, including the
+# ~3,395 manual-judgment findings triaged in MSN-0370 after MSN-0369's
+# autofix PR) are clear. Both CI's bandit and ruff-check steps are now
+# blocking (see the bandit hook's own comment below for a real gap this had
+# in practice, fixed in USS-TJR-MSN-0373).
+# Never skip gitleaks or detect-secrets this way -- those stay hard-blocking
+# for a reason.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.7
+    hooks:
+      - id: ruff-check
+        name: ruff (lint only, no autofix)
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: "1.9.4"
+    hooks:
+      - id: bandit
+        name: bandit (security lint)
+        # -ll: report Medium+ severity only. CI's blocking gate (USS-TJR-MSN-0369)
+        # was triaged and verified against a manually-run `bandit -ll`, but this
+        # flag was never actually added here -- so the hook ran at bandit's
+        # default (all severities) and CI's "pre-commit run --all-files bandit"
+        # inherited that mismatch, failing on the ~2,503 pre-existing Low
+        # findings (assert/subprocess/random patterns) that triage explicitly
+        # left out of scope. Confirmed via `pre-commit run --all-files bandit`
+        # locally: 0 Medium, 0 High, 2503 Low -- so this flag now enforces
+        # exactly what was triaged, not more, and doesn't hide any real drift.
+        args: ["-q", "-ll"]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        name: gitleaks (staged secrets scan)
+        # v8's hook entry (`gitleaks git --pre-commit --staged`) is the
+        # current equivalent of the older `gitleaks protect --staged`
+        # invocation named in the mission brief; gitleaks v8 removed the
+        # `protect` subcommand in favor of `git --pre-commit`.
+
+  - repo: local
+    hooks:
+      - id: no-raw-env-secrets
+        name: no raw .env EnvironmentFile= in deploy/*.service (USS-TJR-MSN-0371)
+        entry: python3 tools/check_no_raw_env_secrets.py
+        language: system
+        files: ^deploy/.*\.service$
+
+      # pip-audit: dependency CVE scan (USS-TJR-MSN-0374 Stream 2). This repo
+      # had no pip-audit gate at all before this hook. Local (not a hosted
+      # `repo:` hook like bandit/ruff-check above) because pip-audit itself
+      # has no "report but don't fail" flag -- a real finding always exits
+      # non-zero, and a real, uncounted pre-existing CVE backlog across this
+      # repo's ~15 requirements*.txt files is not this mission's job to
+      # triage/fix (see the mission's knowledge record). tools/
+      # run_pip_audit_advisory.py is the wrapper that makes it report-only:
+      # it runs pip-audit for real against every changed requirements*.txt
+      # and always exits 0, printing findings to stderr instead of blocking
+      # the commit -- the same non-blocking landing pattern bandit/ruff-check
+      # used before their own backlogs were triaged to zero (see those
+      # hooks' comments above). `language: python` + `additional_dependencies`
+      # gives pre-commit its own isolated env for pip-audit, matching how the
+      # hosted hooks above get isolated envs, rather than requiring a system
+      # install.
+      - id: pip-audit
+        name: pip-audit (dependency CVE scan — advisory/report-only)
+        entry: python3 tools/run_pip_audit_advisory.py
+        language: python
+        additional_dependencies: ["pip-audit==2.10.1"]
+        files: 'requirements.*\.txt$'
+        pass_filenames: true
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+        # Without this, pre-commit is free to split a `--all-files` run of
+        # this hook across this 930+-file repo into multiple parallel
+        # subprocess batches, each getting only a subset of filenames.
+        # detect_secrets/pre_commit_hook.py's should_update_baseline() trims
+        # the loaded baseline down to just the files in *that invocation's*
+        # filelist before comparing — so a batch that doesn't include some
+        # already-tracked file makes the hook think that file's finding
+        # disappeared, and it rewrites the baseline and exits 3 ("files were
+        # modified") with no real secret involved (see #189: this reproduced
+        # locally clean every time — one process, one full file list — but
+        # failed in CI, where batching evidently split differently).
+        # require_serial forces exactly one invocation with the complete
+        # file list, matching detect-secrets' own documented pre-commit
+        # setup for this reason.
+        require_serial: true
+        # 2026-09-15: data/self-improvement/runs/*/evidence.json is
+        # auto-generated per-cycle evidence (mechanical dumps of scan
+        # output, never secrets — same class of exclusion as
+        # data/mem0_qdrant/ above), and by 2026-09-15 there were 451 such
+        # files (494MB) staged in one commit. Scanning that volume against
+        # this repo's ~10.8k-line baseline made a single detect-secrets
+        # invocation run for 45+ minutes single-threaded (require_serial
+        # above forces exactly one process — see its own comment for why),
+        # long enough to hold the shared git index open and collide with
+        # another concurrent commit on this host. Excluding this
+        # known-safe, high-volume, mechanically-generated path keeps the
+        # hook fast without touching require_serial or weakening it for
+        # anything a human actually writes.
+        # Note: `.*/data/mem0_qdrant/.*` below never actually matched —
+        # data/mem0_qdrant/ is top-level (no leading path segment before
+        # "data/"), and `.*/` requires a literal `/` immediately before
+        # the match, which a path starting at "data/" doesn't have.
+        # Verified via `pre-commit run detect-secrets --files
+        # data/self-improvement/runs/.../evidence.json` still flagging
+        # (false-positive) hits after adding the equivalently-anchored
+        # runs/ pattern below — dropped the forced leading slash on both
+        # so a match at the very start of the path works too.
+        # 2026-10-28: data/self-improvement/review/opportunity_snapshot.json
+        # is auto-generated every cycle (sync-self-improvement-state.service)
+        # and every record carries a 16-hex `fingerprint` dedup key that
+        # trips HexHighEntropyString (11+ false positives), so the sync
+        # commit failed on every run. Excluded by exact path only.
+        # 2026-10-29: Missions/Engineering-Handoffs/artifacts/*.patch.md are
+        # LLM-written patch text from batch_coding sync-one; they quote
+        # `"api_key_env": "GLM_5_2_CLOUD_API_KEY"`-style env var NAMES, which
+        # trip the Secret Keyword detector (5 false positives). Never real
+        # values; gitleaks still scans them.
+        exclude: |
+          (?x)^(
+            .*\.lock|
+            .*package-lock\.json|
+            .*data/mem0_qdrant/.*|
+            .*data/self-improvement/runs/.*/evidence\.json|
+            data/self-improvement/review/opportunity_snapshot\.json|
+            Missions/Engineering-Handoffs/artifacts/.*\.patch\.md
+          )$

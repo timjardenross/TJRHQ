@@ -26,12 +26,20 @@ export function notificationPermission(): NotificationPermission | 'unsupported'
 
 export function notifyEnabled(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.localStorage.getItem(NOTIFY_PREF_KEY) === 'true';
+  try {
+    return window.localStorage?.getItem(NOTIFY_PREF_KEY) === 'true';
+  } catch {
+    return false;
+  }
 }
 
 export function setNotifyEnabled(on: boolean): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(NOTIFY_PREF_KEY, on ? 'true' : 'false');
+  try {
+    window.localStorage?.setItem(NOTIFY_PREF_KEY, on ? 'true' : 'false');
+  } catch {
+    /* storage failures are non-fatal */
+  }
 }
 
 export async function requestNotificationPermission(): Promise<NotificationPermission | 'unsupported'> {

@@ -23,11 +23,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-import state_validation  # noqa: E402
-from investigation_schema import validate_investigation, honest_fallback_investigation, ALLOWED_RECOMMENDATIONS  # noqa: E402
-from opportunity_store import OpportunityStore, MISSION_ONLY_CLASSES  # noqa: E402
-import evolution_orchestrator  # noqa: E402
-import external_discovery  # noqa: E402
+import evolution_orchestrator
+import state_validation
+from investigation_schema import (
+    ALLOWED_RECOMMENDATIONS,
+    honest_fallback_investigation,
+    validate_investigation,
+)
+from opportunity_store import MISSION_ONLY_CLASSES, OpportunityStore
 
 
 def _load_real_watchlist() -> list[dict]:
@@ -63,6 +66,26 @@ class TestStateValidation(unittest.TestCase):
         topic = {"validation": {"check_type": "presence_confirms", "pattern": "x", "paths": ["definitely/does/not/exist"]}}
         verdict = state_validation.validate_topic(topic, REPO_ROOT)
         self.assertIn(verdict["result"], ("resolved", "unclear"))  # no match on nonexistent path -> "resolved" for presence_confirms, never raises
+
+    def test_grep_excludes_vendored_directories(self):
+        """EVO-0003: a topic's `paths` can name a whole directory, and that
+        directory can contain its own nested .venv/node_modules — those must
+        never be descended into (see this module's own _grep() docstring)."""
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            (tmp / "real_code.py").write_text("MATCH_TARGET = 1\n")
+            vendored = tmp / ".venv" / "lib" / "site-packages"
+            vendored.mkdir(parents=True)
+            (vendored / "vendored.py").write_text("MATCH_TARGET = 2\n")
+
+            # _grep() resolves its `paths` against `repo_root` — pass tmp
+            # itself as repo_root so "." resolves to our fixture directory,
+            # independent of where the real repo checkout happens to live.
+            matches = state_validation._grep("MATCH_TARGET", ["."], tmp)
+            self.assertIn("real_code.py", matches)
+            self.assertFalse(any(".venv" in m for m in matches))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     def test_duplicate_synthesis_regression_resolves_against_real_repo(self):
         """Section 16's worked example: the real repo's telegram-bots/xo/
@@ -135,7 +158,7 @@ class TestInvestigationSchema(unittest.TestCase):
         for garbage in (None, {}, {"random": object()}, {"confidence": float("nan")}):
             try:
                 validate_investigation(garbage if isinstance(garbage, dict) else {})
-            except Exception as exc:  # pragma: no cover - the assertion is that this never happens
+            except Exception as exc:  # noqa: BLE001 - test asserts validate_investigation never raises on garbage input  # pragma: no cover - the assertion is that this never happens
                 self.fail(f"validate_investigation raised on {garbage!r}: {exc}")
 
     def test_honest_fallback_never_presents_a_model_confidence(self):
@@ -171,9 +194,10 @@ class TestOverlapPrevention(unittest.TestCase):
 
     def test_run_cycle_skips_cleanly_when_lock_held(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
+        orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
-        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")
+        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")  # noqa: SIM115 - flock held across the try/finally below, can't use a `with` block
         fcntl.flock(held_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         try:
             result = orch.run_cycle(dry_run=False)
@@ -187,9 +211,10 @@ class TestOverlapPrevention(unittest.TestCase):
         """Section 5: dry-run remains scheduler-independent — it should
         succeed even while a real cycle's lock is held."""
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
+        orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
-        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")
+        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")  # noqa: SIM115 - flock held across the try/finally below, can't use a `with` block
         fcntl.flock(held_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         try:
             result = orch.run_cycle(dry_run=True)
@@ -211,6 +236,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
         EXTERNAL DISCOVERY. A topic that validates as resolved must never
         be handed to external_discovery.discover()."""
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch._load_watchlist = lambda: [
             {"id": "resolved-topic", "class": "capability", "why_relevant": "x",
              "validation": {"check_type": "file_exists_resolves", "paths": ["scripts/self_improvement/collector.py"]}},
@@ -218,7 +244,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
         ]
         captured_topic_ids = []
 
-        def fake_discover(topics, config):
+        def fake_discover(topics, config, **_kwargs):
             captured_topic_ids.extend(t["id"] for t in topics)
             return []
 
@@ -230,6 +256,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
 
     def test_resolved_topic_persists_as_resolved_before_research_and_is_not_duplicated(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch._load_watchlist = lambda: [
             {"id": "resolved-topic", "class": "capability", "why_relevant": "x", "gap_hypothesis": "g",
              "validation": {"check_type": "file_exists_resolves", "paths": ["scripts/self_improvement/collector.py"]}},
@@ -239,7 +266,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
             orch.run_cycle(dry_run=False)  # second cycle — must not duplicate the record
 
         store = OpportunityStore(self.tmpdir)
-        resolved = [r for r in store.all_current() if r["lifecycle_state"] == "resolved_before_research"]
+        resolved = [r for r in store.all_current() if r["stage_detail"] == "resolved_before_research"]
         self.assertEqual(len(resolved), 1)
         self.assertEqual(resolved[0]["validation_result"], "resolved")
         self.assertTrue(resolved[0]["validated_at"])
@@ -249,11 +276,12 @@ class TestResearchOrderAndBounds(unittest.TestCase):
 
     def test_external_search_count_bounded_regardless_of_active_topic_count(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch.evolution_config = {**orch.evolution_config, "max_external_searches_per_cycle": 2, "max_external_candidates_per_search": 1, "max_external_candidates_per_cycle": 2}
         many_topics = [{"id": f"t{i}", "class": "capability", "why_relevant": "x"} for i in range(10)]
         orch._load_watchlist = lambda: many_topics
 
-        with patch("external_discovery.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
+        with patch("sources.common.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
             result = orch.run_cycle(dry_run=False)
 
         self.assertLessEqual(result["cost_accounting"]["external_searches_made"], 10)  # all 10 are "active" (unclear)
@@ -270,7 +298,8 @@ class TestResearchOrderAndBounds(unittest.TestCase):
         automation_eligibility every time, because classify_finding() never
         reads the investigation dict at all."""
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
+        orch._load_watchlist = list
         candidate = {
             "title": "Some capability idea", "source": "s", "discovery_source": "internal",
             "change_class": "capability", "summary": "x", "why_relevant": "y",
@@ -283,7 +312,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
             with patch.object(orch.router, "health_check", return_value=True), \
                  patch.object(orch.router, "investigate_opportunity", return_value=fake_router_result), \
                  patch("internal_discovery.discover", return_value=[dict(candidate)]):
-                result = orch.run_cycle(dry_run=False)
+                orch.run_cycle(dry_run=False)
             store = OpportunityStore(self.tmpdir)
             current = [o for o in store.all_current() if o["title"] == candidate["title"]]
             eligibilities.add(current[-1]["automation_eligibility"] if current else None)
@@ -325,7 +354,7 @@ class TestMissionOnlyServerSideEnforcement(unittest.TestCase):
                 })
                 self.assertEqual(res.status_code, 400, f"{change_class} should refuse approve_improvement")
                 current = dashboard.opportunity_store.get(opp.opportunity_id)
-                self.assertEqual(current["lifecycle_state"], "proposed")  # unchanged
+                self.assertEqual(current["stage_detail"], "proposed")  # unchanged
         finally:
             dashboard.opportunity_store = original_store
 
@@ -346,7 +375,7 @@ class TestMissionOnlyServerSideEnforcement(unittest.TestCase):
             })
             self.assertEqual(res.status_code, 200)
             current = dashboard.opportunity_store.get(opp.opportunity_id)
-            self.assertEqual(current["lifecycle_state"], "implementing")
+            self.assertEqual(current["stage_detail"], "implementing")
             self.assertEqual(current["mission_id"], "MSN-0001")
         finally:
             dashboard.opportunity_store = original_store

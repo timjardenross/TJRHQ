@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { fetchRecommendations, type RecommendationPackage } from '@/lib/recommendations';
 import { fetchInvestigation, type InvestigationRunResult } from '@/lib/investigate';
 import { Dots, useElapsed, PullApartReasoning, ThinkResult } from './shared';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { ConsultView } from './ConsultView';
 import { REASONING_LENSES, type AdvisoryResult, type ReasoningGroup, type ReasoningLens, type ThinkSession } from './types';
 
@@ -31,6 +32,7 @@ export function ThinkView({
   investigationType,
   investigationReason,
   prefill,
+  advisorId,
 }: {
   investigationType?: string;
   investigationReason?: string;
@@ -38,6 +40,11 @@ export function ThinkView({
    * investigation deep link — bumping `prefill.nonce` re-applies `text`
    * even if it's identical to the current input. */
   prefill?: { text: string; nonce: number } | null;
+  /** Mission 6B: a Hub deep link (?advisor=number_one) — auto-expands the
+   * Advanced disclosure straight to that advisor instead of requiring the
+   * Captain to know it's hidden behind "Advanced — talk to an advisor
+   * directly" first. */
+  advisorId?: string;
 }) {
   const [input, setInput] = useState(investigationReason ?? '');
   const [loading, setLoading] = useState(false);
@@ -47,7 +54,7 @@ export function ThinkView({
   const [showLog, setShowLog] = useState(false);
   const [showPullApart, setShowPullApart] = useState(false);
   const [openGroup, setOpenGroup] = useState<ReasoningGroup | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(!!advisorId);
   const [recommendations, setRecommendations] = useState<RecommendationPackage | null>(null);
   const [investigation, setInvestigation] = useState<InvestigationRunResult | null>(null);
   const [challenge, setChallenge] = useState<AdvisoryResult | null>(null);
@@ -58,13 +65,13 @@ export function ThinkView({
     try { const raw = localStorage.getItem(LS_BOARD_LOG); if (raw) setLog(JSON.parse(raw) as ThinkSession[]); } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => {
-    fetchRecommendations().then(setRecommendations);
+  useAbortEffect((_signal, alive) => {
+    fetchRecommendations().then((r) => { if (alive()) setRecommendations(r); });
   }, []);
 
-  useEffect(() => {
+  useAbortEffect((_signal, alive) => {
     if (investigationType && investigationReason) {
-      fetchInvestigation(investigationType, investigationReason).then(setInvestigation);
+      fetchInvestigation(investigationType, investigationReason).then((r) => { if (alive()) setInvestigation(r); });
     }
   }, [investigationType, investigationReason]);
 
@@ -127,17 +134,17 @@ export function ThinkView({
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'advisory-export.md'; a.click();
   };
 
-  const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
+  const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-wb-label uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
 
   return (
     <div className="space-y-5">
       <div className="mx-auto max-w-xl space-y-3 text-center">
         <h1 className="font-serif text-2xl text-wb-ink">What are you thinking through?</h1>
-        <p className="text-[13px] text-wb-ink2">Bring a decision, problem, question, or idea — routed automatically to whichever specialists are relevant, synthesised into one answer.</p>
+        <p className="text-wb-body text-wb-ink2">Bring a decision, problem, question, or idea — routed automatically to whichever specialists are relevant, synthesised into one answer.</p>
         <div className="space-y-2 text-left">
           <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3}
             placeholder="Bring a decision, problem, question or idea…" disabled={loading}
-            className="w-full resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2.5 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-50" />
+            className="w-full resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2.5 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50" />
           <button onClick={submit} disabled={loading || !input.trim()}
             className="w-full rounded-md bg-wb-sage-deep px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
             Think it through
@@ -149,13 +156,13 @@ export function ThinkView({
         <div className="flex items-center justify-center gap-3 py-4">
           <Dots />
           <span className="text-sm text-wb-ink2">Routing to specialists…</span>
-          <span className="font-mono text-[10px] text-wb-ink2">{elapsed}s</span>
+          <span className="font-mono text-wb-label text-wb-ink2">{elapsed}s</span>
         </div>
       )}
       {error && (
         <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3 text-sm text-wb-crit-on">
           <p className="mb-1 font-semibold">Advisory runtime offline</p>
-          <p className="text-xs text-wb-crit-on/80">{error}</p>
+          <p className="text-xs text-wb-crit-on">{error}</p>
         </div>
       )}
 
@@ -166,7 +173,7 @@ export function ThinkView({
           <div className="flex flex-wrap gap-2">
             {REASONING_LENSES.map((l) => (
               <button key={l.key} onClick={() => applyLens(l.key)}
-                className="rounded-md border border-wb-line px-3 py-1.5 text-[11px] uppercase tracking-wider text-wb-ink2 transition-colors hover:border-wb-sage-deep/50 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+                className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label uppercase tracking-wider text-wb-ink2 transition-colors hover:border-wb-sage-deep/50 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
                 {l.label}
               </button>
             ))}
@@ -174,13 +181,13 @@ export function ThinkView({
 
           {openGroup === 'Challenge' && (
             <div className="space-y-1.5 rounded-md border border-wb-crit/30 bg-wb-crit/5 px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-crit-on">Challenge</p>
+              <p className="text-wb-label font-semibold uppercase tracking-[0.15em] text-wb-crit-on">Challenge</p>
               {challengeLoading ? (
                 <div className="flex items-center gap-2 py-1"><Dots size="sm" /><span className="text-xs text-wb-ink2">Running the adversarial review…</span></div>
               ) : challenge ? (
                 <>
-                  {challenge.reviewer && <p className="text-[10px] text-wb-ink2">Reviewed by {challenge.reviewer}</p>}
-                  <p className="text-sm leading-relaxed text-wb-ink/85">{challenge.disagreement || 'No material disagreement was raised on review.'}</p>
+                  {challenge.reviewer && <p className="text-wb-label text-wb-ink2">Reviewed by {challenge.reviewer}</p>}
+                  <p className="text-sm leading-relaxed text-wb-ink">{challenge.disagreement || 'No material disagreement was raised on review.'}</p>
                 </>
               ) : (
                 <p className="text-xs text-wb-ink2">The adversarial review could not be reached — the standing risks and challenge above still apply.</p>
@@ -190,7 +197,7 @@ export function ThinkView({
 
           <div>
             <button onClick={() => setShowPullApart((v) => !v)}
-              className="text-[11px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+              className="text-wb-label font-semibold uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
               {showPullApart ? '▲ Hide' : '▼'} Pull apart the reasoning
             </button>
             {showPullApart && (
@@ -204,12 +211,12 @@ export function ThinkView({
 
       <div className="mx-auto max-w-xl space-y-3 border-t border-wb-line pt-4">
         <button onClick={() => setShowAdvanced((v) => !v)}
-          className="text-[11px] uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+          className="text-wb-label uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
           {showAdvanced ? '▲ Hide' : '▼'} Advanced — talk to an advisor directly
         </button>
         {showAdvanced && (
           <div className="pt-2">
-            <ConsultView />
+            <ConsultView initialAdvisorId={advisorId} />
           </div>
         )}
       </div>
@@ -217,7 +224,7 @@ export function ThinkView({
       {log.length > 0 && (
         <div className="mx-auto max-w-xl space-y-2 border-t border-wb-line pt-4">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Recent</span>
+            <span className="text-wb-label uppercase tracking-[0.15em] text-wb-ink2">Recent</span>
             <div className="flex gap-2">
               <button onClick={() => setShowLog((v) => !v)} className={actionBtn}>{showLog ? 'Hide' : `View (${log.length})`}</button>
               <button onClick={exportLog} className={actionBtn}>Export ↓</button>
@@ -228,11 +235,11 @@ export function ThinkView({
               {log.map((s) => (
                 <div key={s.id} className="flex items-start justify-between gap-2 border-b border-wb-line pb-2 last:border-0">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs text-wb-ink/80">{s.question}</p>
-                    <p className="text-[10px] text-wb-ink2">{new Date(s.ts).toLocaleString()}</p>
+                    <p className="truncate text-xs text-wb-ink">{s.question}</p>
+                    <p className="text-wb-label text-wb-ink2">{new Date(s.ts).toLocaleString()}</p>
                   </div>
                   <button onClick={() => { setSummary(s.result); setInput(s.question); setShowLog(false); setShowPullApart(false); setOpenGroup(null); setChallenge(null); }}
-                    className="shrink-0 text-[9px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">View</button>
+                    className="shrink-0 text-wb-label uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">View</button>
                 </div>
               ))}
             </div>

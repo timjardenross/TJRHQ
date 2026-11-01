@@ -48,6 +48,6 @@ def log_autonomous_action(
         }).execute()
         log.info("[autonomy-log] Logged self-directed action: [%s] %s", actor, action)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort autonomy log write, already logged
         log.warning("[autonomy-log] Failed to log action: %s", exc)
         return False

@@ -25,27 +25,27 @@ if str(_ADVISORY) not in sys.path:
 
 
 def _service():
-    from _local_import_advisory import import_sibling  # noqa: PLC0415
+    from _local_import_advisory import import_sibling
     return import_sibling("service")
 
 
 def _lessons():
-    from _local_import_advisory import import_sibling  # noqa: PLC0415
+    from _local_import_advisory import import_sibling
     return import_sibling("lessons")
 
 
 def _outcomes():
-    from _local_import_advisory import import_sibling  # noqa: PLC0415
+    from _local_import_advisory import import_sibling
     return import_sibling("outcomes")
 
 
 def _metrics():
-    import metrics  # noqa: PLC0415
+    import metrics
     return metrics
 
 
 def _calibration():
-    import calibration  # noqa: PLC0415
+    import calibration
     return calibration
 
 
@@ -170,7 +170,7 @@ def handle_advisor_metrics(text: str, user_id: str | None = None, channel_id: st
 
 
 def _mod(name: str):
-    import importlib  # noqa: PLC0415
+    import importlib
     return importlib.import_module(name)
 
 

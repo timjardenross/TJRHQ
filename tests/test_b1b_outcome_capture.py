@@ -15,14 +15,10 @@ Design: Minimal MVP
 - Defers effectiveness scoring to B1C
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
 import logging
-import time
+import sys
+from dataclasses import dataclass
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -148,8 +144,8 @@ class TestOutcomeCaptureUnit:
         try:
             sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
             from lib.outcome_capture_service import (
-                OutcomeCapture,
                 DecisionOutcome,
+                OutcomeCapture,
                 OutcomeStatus,
             )
             self.OutcomeCapture = OutcomeCapture
@@ -357,7 +353,7 @@ class TestOutcomeCaptureUnit:
 
         assert len(implemented) >= 1, f"Expected implemented outcomes, got {[o.id for o in implemented]}"
         assert len(deferred_outcomes) >= 1, f"Expected deferred outcomes, got {[o.id for o in deferred_outcomes]}"
-        log.info(f"  ✓ Retrieved outcomes by status")
+        log.info("  ✓ Retrieved outcomes by status")
         log.info("✅ PASSED: Status-based retrieval works")
 
     def test_10_outcome_timestamp_handling(self):
@@ -546,7 +542,6 @@ class TestOutcomeCaptureIntegration:
 
         # Simulate B1A → B1B traceability
         mission_id = "MSN-0060B"
-        recommendation_id = "REC-20260610-142500"
         decision_id = "DEC-REC-20260610-143000"
 
         # Record outcome
@@ -566,7 +561,7 @@ class TestOutcomeCaptureIntegration:
         assert any(o.id == outcome.id for o in outcomes), "Outcome not in decision outcomes"
 
         log.info(f"  ✓ Mission {mission_id} → Recommendation → Decision → Outcome")
-        log.info(f"  ✓ Complete traceability chain verified")
+        log.info("  ✓ Complete traceability chain verified")
         log.info("✅ PASSED: E2E traceability chain complete")
 
 
@@ -617,7 +612,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 
@@ -630,7 +625,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 

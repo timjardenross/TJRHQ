@@ -25,13 +25,12 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import logging
-import numpy as np
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional, Any
+from datetime import datetime, timezone
 from enum import Enum
+
+import numpy as np
 
 log = logging.getLogger(__name__)
 
@@ -76,8 +75,8 @@ class TrendDirection(Enum):
 class EffectivenessForecast:
     """Forecast of provider effectiveness."""
     provider_name: str
-    model_name: Optional[str]
-    provider_route: Optional[str]
+    model_name: str | None
+    provider_route: str | None
 
     # Forecast details
     forecast_horizon: int              # Decisions ahead (e.g., 5)
@@ -96,16 +95,16 @@ class EffectivenessForecast:
 
     # Metadata
     forecast_id: str = field(default_factory=lambda: "")
-    forecast_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    forecast_timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str | None = None
 
 
 @dataclass
 class AnomalyDetection:
     """Detected anomaly in quality scores."""
     provider_name: str
-    model_name: Optional[str]
-    provider_route: Optional[str]
+    model_name: str | None
+    provider_route: str | None
 
     # Anomaly details
     score_id: str
@@ -116,8 +115,8 @@ class AnomalyDetection:
 
     # Metadata
     anomaly_id: str = field(default_factory=lambda: "")
-    detected_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    detected_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str | None = None
 
 
 @dataclass
@@ -186,10 +185,10 @@ class QualityForecasting:
     def forecast_effectiveness(
         self,
         provider_name: str,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
         horizon: int = FORECAST_HORIZON,
-    ) -> Optional[EffectivenessForecast]:
+    ) -> EffectivenessForecast | None:
         """
         Forecast provider effectiveness for next N decisions.
 
@@ -247,7 +246,7 @@ class QualityForecasting:
             # Linear regression: y = m*x + b
             coeffs = np.polyfit(x, y, 1)
             slope = coeffs[0]
-            intercept = coeffs[1]
+            coeffs[1]
 
             # Calculate R² (quality of fit)
             y_pred = np.polyval(coeffs, x)
@@ -312,7 +311,7 @@ class QualityForecasting:
 
             return forecast
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - effectiveness forecast, already logged
             log.error(
                 f"[quality-forecasting] Failed to forecast effectiveness: "
                 f"{type(e).__name__}: {str(e)[:100]}"
@@ -323,10 +322,10 @@ class QualityForecasting:
         self,
         provider_name: str,
         recent_score: float,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
-        score_id: Optional[str] = None,
-    ) -> Optional[AnomalyDetection]:
+        model_name: str | None = None,
+        provider_route: str | None = None,
+        score_id: str | None = None,
+    ) -> AnomalyDetection | None:
         """
         Detect if recent score is anomalous.
 
@@ -402,7 +401,7 @@ class QualityForecasting:
                 provider_name=provider_name,
                 model_name=model_name,
                 provider_route=provider_route,
-                score_id=score_id or f"UNKNOWN-{datetime.utcnow().isoformat()}",
+                score_id=score_id or f"UNKNOWN-{datetime.now(timezone.utc).isoformat()}",
                 score_value=recent_score,
                 anomaly_type=anomaly_type,
                 z_score=round(z_score, 2),
@@ -418,7 +417,7 @@ class QualityForecasting:
 
             return anomaly
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - anomaly detection, already logged
             log.error(
                 f"[quality-forecasting] Failed to detect anomalies: "
                 f"{type(e).__name__}: {str(e)[:100]}"
@@ -428,7 +427,7 @@ class QualityForecasting:
     def analyze_trend_persistence(
         self,
         provider_name: str,
-    ) -> Optional[TrendPersistence]:
+    ) -> TrendPersistence | None:
         """
         Analyze trend persistence and likelihood.
 
@@ -514,7 +513,7 @@ class QualityForecasting:
 
             return persistence
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - trend persistence analysis, already logged
             log.error(
                 f"[quality-forecasting] Failed to analyze trend: "
                 f"{type(e).__name__}: {str(e)[:100]}"
@@ -524,7 +523,7 @@ class QualityForecasting:
     def get_quality_forecast(
         self,
         provider_name: str,
-    ) -> Optional[ProviderForecast]:
+    ) -> ProviderForecast | None:
         """
         Get complete forecast for provider.
 
@@ -573,7 +572,7 @@ class QualityForecasting:
                 .execute()
             )
 
-            providers = list(set(p["provider_name"] for p in (response.data or [])))
+            providers = list({p["provider_name"] for p in (response.data or [])})
 
             routing_order = []
 
@@ -592,7 +591,7 @@ class QualityForecasting:
 
             return routing_order
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - proactive routing suggestion, already logged
             log.error(
                 f"[quality-forecasting] Failed to suggest routing: "
                 f"{type(e).__name__}: {str(e)[:100]}"
@@ -612,9 +611,7 @@ class QualityForecasting:
         # Count decisions moving with trend
         moving = 0
         for i in range(1, len(scores)):
-            if slope > 0 and scores[i] >= scores[i-1]:
-                moving += 1
-            elif slope < 0 and scores[i] <= scores[i-1]:
+            if slope > 0 and scores[i] >= scores[i-1] or slope < 0 and scores[i] <= scores[i-1]:
                 moving += 1
 
         persistence = moving / (len(scores) - 1)
@@ -631,10 +628,10 @@ class QualityForecasting:
 
     def _generate_forecast_id(self) -> str:
         """Generate forecast ID: FOR-YYYYMMDD-HHMMSS."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("FOR-%Y%m%d-%H%M%S")
 
     def _generate_anomaly_id(self) -> str:
         """Generate anomaly ID: ANO-YYYYMMDD-HHMMSS."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("ANO-%Y%m%d-%H%M%S")

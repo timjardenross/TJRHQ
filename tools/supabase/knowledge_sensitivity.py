@@ -40,4 +40,4 @@ def filter_general_access(rows: list[dict[str, Any]], metadata_key: str = "metad
     return [r for r in rows if is_visible_for_general_access(r.get(metadata_key))]
 
 
-__all__ = ["is_visible_for_general_access", "filter_general_access"]
+__all__ = ["filter_general_access", "is_visible_for_general_access"]

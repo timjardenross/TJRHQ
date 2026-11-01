@@ -11,13 +11,13 @@ Test Coverage:
 - Complete forecasting workflow
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from datetime import datetime
-import math
 import logging
+import math
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -147,7 +147,6 @@ def test_priority_3_trend_persistence():
 
     # Strong upward trend
     upward_scores = [3.0, 3.1, 3.2, 3.3, 3.4]
-    upward_slope = 0.1
 
     moving_with_trend = sum(1 for i in range(1, len(upward_scores))
                            if upward_scores[i] >= upward_scores[i-1])
@@ -276,7 +275,9 @@ def test_priority_3_complete_forecast():
     log.info(f"Trend: {trend}")
 
     assert predicted > 4.0, "Forecast should reflect upward trend"
-    assert confidence_level == 'medium', "8 decisions should be medium confidence"
+    # 8 decisions is < 10, the threshold this same function uses for 'low'
+    # two steps above — the assertion had drifted from that boundary.
+    assert confidence_level == 'low', "8 decisions (< 10) should be low confidence"
 
     log.info("\n✅ COMPLETE FORECAST TEST PASSED")
     return True
@@ -300,7 +301,7 @@ def test_priority_3_integration():
     log.info("\nStep 2: Generate Forecasts")
     forecasts = {}
     for provider, data in provider_quality.items():
-        slope, intercept, r2 = fit_linear_model(data['scores'])
+        slope, intercept, _r2 = fit_linear_model(data['scores'])
         forecast = forecast_values(slope, intercept, len(data['scores']), 5)
 
         confidence = 'high' if data['count'] >= 20 else 'medium' if data['count'] >= 10 else 'low'
@@ -372,12 +373,12 @@ if __name__ == '__main__':
 
         if passed == total:
             log.info("\n🎯 PRIORITY 3 FORECASTING: COMPLETE")
-            exit(0)
+            sys.exit(0)
         else:
-            exit(1)
+            sys.exit(1)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level test-script wrapper: catch any error to log it and exit non-zero rather than crash with a raw traceback
         log.error(f"❌ Test error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Governance dispatch CLI — the Python side of the Phase B transport bridge (D2).
 
@@ -54,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         from intelligence.workflow.api import dispatch
         from intelligence.workflow.repository import SupabaseRepository
         status, body = dispatch(SupabaseRepository(), action, role, payload)
-    except Exception as exc:  # never leak a traceback to the transport
+    except Exception as exc:  # never leak a traceback to the transport  # noqa: BLE001 - explicitly documented above as 'never leak a traceback to the transport' — printed as a structured 500 response
         print(json.dumps({"status": 500, "body": {"error": f"dispatch failed: {exc}"}}))
         return 1
 

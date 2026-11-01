@@ -16,7 +16,7 @@ replacement for the navigation layer's richer traversal features.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def _supabase_raw():
     return CommanderSupabaseClient().raw_client
 
 
-def ensure_node(node_id: str, node_type: str, title: str, *, level: int = 3, summary: Optional[str] = None) -> bool:
+def ensure_node(node_id: str, node_type: str, title: str, *, level: int = 3, summary: str | None = None) -> bool:
     """Upsert a node. Non-blocking — never raises. level defaults to 3
     ('mission'-depth) for platform-runtime entities that don't naturally
     fit the original 0-6 governance hierarchy depth."""
@@ -56,7 +56,7 @@ def ensure_node(node_id: str, node_type: str, title: str, *, level: int = 3, sum
             {"node_id": node_id, "node_type": node_type, "level": level, "title": title, "summary": summary},
         )
         return result.ok
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[relationship-model] ensure_node failed (non-blocking): %s", exc)
         return False
 
@@ -67,7 +67,7 @@ def add_relationship(
     relationship_type: str,
     *,
     confidence: float = 1.0,
-    evidence: Optional[str] = None,
+    evidence: str | None = None,
 ) -> bool:
     """Add a typed, directed relationship between two existing nodes."""
     if relationship_type not in VALID_RELATIONSHIP_TYPES:
@@ -93,7 +93,7 @@ def add_relationship(
             },
         )
         return result.ok
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[relationship-model] add_relationship failed (non-blocking): %s", exc)
         return False
 
@@ -112,9 +112,9 @@ def get_relationships_for(node_id: str, *, direction: str = "both") -> list[dict
             r = raw.table("knowledge_edges").select("*").eq("target_id", node_id).execute()
             results.extend(r.data or [])
         return results
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[relationship-model] get_relationships_for failed (non-blocking): %s", exc)
         return []
 
 
-__all__ = ["VALID_NODE_TYPES", "VALID_RELATIONSHIP_TYPES", "ensure_node", "add_relationship", "get_relationships_for"]
+__all__ = ["VALID_NODE_TYPES", "VALID_RELATIONSHIP_TYPES", "add_relationship", "ensure_node", "get_relationships_for"]

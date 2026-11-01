@@ -8,14 +8,16 @@ Runs on http://localhost:8892
 
 import json
 import logging
+import os
 import re
 import sys
-from pathlib import Path
 from datetime import datetime, timezone
-from flask import Flask, render_template, jsonify, request
+from pathlib import Path
 
-from opportunity_store import OpportunityStore
+import lifecycle
 import outcome_contract as outcome_contract_module
+from flask import Flask, jsonify, render_template, request
+from opportunity_store import OpportunityStore
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("dashboard")
@@ -38,6 +40,7 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = REPO_ROOT / "data" / "self-improvement"
 RUNS_DIR = DATA_ROOT / "runs"
 DECISIONS_FILE = DATA_ROOT / "review" / "decisions.jsonl"
+FINDING_STALENESS_FILE = DATA_ROOT / "review" / "finding_staleness.jsonl"
 REMEDIATION_RESULTS_FILE = DATA_ROOT / "review" / "remediation_results.jsonl"
 _PR_URL_RE = re.compile(r"https?://\S+")
 
@@ -84,7 +87,7 @@ def load_findings():
             data = json.load(f)
         findings = data.get("findings", [])
         return findings, run_dir.name
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load findings: {exc}")
         return [], None
 
@@ -103,10 +106,39 @@ def load_decisions():
                     finding_id = d.get("finding_id")
                     if finding_id:
                         decisions[finding_id] = d
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load decisions: {exc}")
 
     return decisions
+
+
+def load_finding_staleness(run_id):
+    """Latest evolution_orchestrator.py staleness-check result per
+    finding_id, for ONE specific run_id only (its own append-only
+    finding_staleness.jsonl, last entry per finding_id wins — same
+    convention as load_decisions()/load_remediation_results() above).
+    finding_id alone (e.g. 'FND-001') is recycled every run, so this must
+    filter on run_id too or it would silently attach one run's staleness
+    result to a different run's unrelated finding that happens to share
+    the same recycled id."""
+    if not run_id or not FINDING_STALENESS_FILE.exists():
+        return {}
+
+    results = {}
+    try:
+        with open(FINDING_STALENESS_FILE) as f:
+            for line in f:
+                if line.strip():
+                    r = json.loads(line)
+                    if r.get("run_id") != run_id:
+                        continue
+                    finding_id = r.get("finding_id")
+                    if finding_id:
+                        results[finding_id] = r
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
+        log.error(f"Failed to load finding staleness: {exc}")
+
+    return results
 
 
 def load_remediation_results():
@@ -125,7 +157,7 @@ def load_remediation_results():
                     finding_id = r.get("finding_id")
                     if finding_id:
                         results[finding_id] = r
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load remediation results: {exc}")
 
     return results
@@ -160,7 +192,7 @@ def save_decision(finding_id, decision, reasoning=""):
         "finding_id": finding_id,
         "decision": decision,
         "reasoning": reasoning,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     try:
@@ -168,7 +200,7 @@ def save_decision(finding_id, decision, reasoning=""):
             f.write(json.dumps(decision_record) + "\n")
         log.info(f"Saved decision for {finding_id}: {decision}")
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort append-only write; a failure here must not crash the decision-making request, caller already gets False + logged error
         log.error(f"Failed to save decision: {exc}")
         return False
 
@@ -184,6 +216,7 @@ def api_findings():
     """Get all findings from latest run."""
     findings, run_id = load_findings()
     decisions = load_decisions()
+    staleness = load_finding_staleness(run_id)
 
     # Enrich findings with decision status
     for f in findings:
@@ -193,6 +226,7 @@ def api_findings():
             f["decision_reasoning"] = decisions[fid].get("reasoning", "")
         else:
             f["decision"] = None
+        f["staleness"] = staleness.get(fid)
 
     return jsonify({
         "run_id": run_id,
@@ -270,11 +304,11 @@ def api_opportunities():
     """List current opportunities, optionally filtered by lifecycle_state
     (?state=discovered,investigating,proposed,...) — comma-separated."""
     state_filter = request.args.get("state")
-    states = set(s.strip() for s in state_filter.split(",")) if state_filter else None
+    states = {s.strip() for s in state_filter.split(",")} if state_filter else None
 
     opportunities = opportunity_store.all_current()
     if states:
-        opportunities = [o for o in opportunities if o.get("lifecycle_state") in states]
+        opportunities = [o for o in opportunities if lifecycle.matches(o, states)]
     opportunities.sort(key=lambda o: o.get("updated_at") or "", reverse=True)
     opportunities = _attach_remediation_status(opportunities, load_remediation_results())
 
@@ -324,8 +358,8 @@ def api_opportunity_decide():
         }), 400
     if decision_type == "create_mission" and not mission_id:
         return jsonify({"error": "create_mission requires mission_id (create the Mission via the canonical /api/missions endpoint first)"}), 400
-    if decision_type == "mark_implemented" and existing.get("lifecycle_state") not in ("approved", "implementing"):
-        return jsonify({"error": f"mark_implemented requires the opportunity to be 'approved' or 'implementing' (currently '{existing.get('lifecycle_state')}')"}), 400
+    if decision_type == "mark_implemented" and lifecycle.detail_of(existing) not in ("approved", "implementing"):
+        return jsonify({"error": f"mark_implemented requires the opportunity to be 'approved' or 'implementing' (currently '{lifecycle.detail_of(existing)}')"}), 400
     if decision_type == "mark_implemented" and not existing.get("outcome_contract"):
         return jsonify({"error": "No outcome contract on this opportunity — approve_improvement or create_mission must run first"}), 400
 
@@ -353,7 +387,7 @@ def api_opportunity_decide():
     if decision_type in ("approve_improvement", "create_mission") and not existing.get("outcome_contract"):
         try:
             changes["outcome_contract"] = outcome_contract_module.build_outcome_contract(existing, REPO_ROOT)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - build_outcome_contract() is an external module call whose exception surface isn't fully known here; already logged, and a contract-build failure must not block the underlying decision from being recorded
             log.warning(f"Failed to build outcome contract for {opportunity_id}: {exc}")
 
     # Bridge to the existing, unmodified bounded-remediation engine (spec
@@ -412,13 +446,13 @@ def api_evolution_summary():
         try:
             with open(summary_file) as f:
                 cycle_summary = json.load(f)
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError, AttributeError) as exc:
             log.warning(f"Failed to read evolution_summary.json: {exc}")
 
     current = opportunity_store.all_current()
-    pending_decisions_count = sum(1 for o in current if o.get("lifecycle_state") == "proposed")
+    pending_decisions_count = sum(1 for o in current if lifecycle.detail_of(o) == "proposed")
     any_verification_failure = any(
-        o.get("lifecycle_state") == "verifying" and o.get("outcome", {}).get("implementation_success") is False
+        lifecycle.detail_of(o) == "verifying" and o.get("outcome", {}).get("implementation_success") is False
         for o in current
     )
 
@@ -441,17 +475,18 @@ def api_evolution_summary():
     # pending_decisions_count above now applies to both.
     outcomes_completed_count = sum(
         1 for o in current
-        if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") is not None
+        if lifecycle.detail_of(o) == "learned" and o.get("outcome", {}).get("outcome_result") is not None
     )
     regressions_count = sum(
         1 for o in current
-        if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") == "regressed"
+        if lifecycle.detail_of(o) == "learned" and o.get("outcome", {}).get("outcome_result") == "regressed"
     )
 
     return jsonify({
         "run_id": cycle_summary.get("run_id"),
         "timestamp": cycle_summary.get("timestamp"),
         "investigated_count": cycle_summary.get("investigated_count", 0),
+        "rejected_at_gate_count": cycle_summary.get("rejected_at_gate_count", 0),
         "worth_considering_count": cycle_summary.get("worth_considering_count", 0),
         "nothing_worth_changing": cycle_summary.get("nothing_worth_changing", pending_decisions_count == 0),
         "highest_value_opportunity": cycle_summary.get("highest_value_opportunity"),
@@ -485,7 +520,7 @@ def load_mission_dispatch_log():
                     mission_id = r.get("mission_id")
                     if mission_id:
                         entries[mission_id] = r
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load mission dispatch log: {exc}")
 
     return entries
@@ -534,9 +569,11 @@ def api_engineering_handoffs():
         sys.path.insert(0, str(REPO_ROOT))
     include_completed = request.args.get("include_completed", "").strip().lower() in {"1", "true", "yes"}
     try:
-        from core.coordination.engineering_handoff_reader import load_engineering_handoffs
+        from core.coordination.engineering_handoff_reader import (
+            load_engineering_handoffs,
+        )
         handoffs = load_engineering_handoffs(include_completed=include_completed)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - load_engineering_handoffs() exception surface owned by another module (core/); already logged and surfaced as a 503, broad catch intentional so this read-only status route never 500s
         log.error(f"Failed to load engineering handoffs: {exc}")
         return jsonify({"handoffs": [], "error": str(exc)}), 503
     return jsonify({"handoffs": handoffs})
@@ -593,4 +630,11 @@ def api_status():
 
 if __name__ == "__main__":
     log.info("Starting Self-Improvement Dashboard on http://localhost:8892")
-    app.run(host="0.0.0.0", port=8892, debug=False)
+    # 2026-09-12: was "0.0.0.0" (B104). No evidence of any caller reaching this
+    # from outside the VM — every doc reference (docs/self-improvement/README.md,
+    # OPERATIONS.md, VM-DEPLOYMENT.md) describes it as http://127.0.0.1:8892 only,
+    # there's no systemd unit exposing it wider, and the app has no auth at all,
+    # so wide binding would be an unauthenticated findings-review API reachable
+    # from the network. Narrowed to loopback; override via DASHBOARD_HOST if a
+    # real cross-host caller ever needs it (would also need auth added first).
+    app.run(host=os.environ.get("DASHBOARD_HOST", "127.0.0.1"), port=8892, debug=False)

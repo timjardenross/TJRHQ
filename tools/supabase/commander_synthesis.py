@@ -4,15 +4,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
-from typing import Any
 import urllib.error
 import urllib.request
+from typing import Any
+
+log = logging.getLogger(__name__)
 
 from challenge_review import ChallengeReview
 from specialist_executor import SpecialistOutput
-
 
 DEFAULT_SYNTHESIS_PROVIDER = "deterministic"
 DEFAULT_SYNTHESIS_MODEL = "qwen3:8b"
@@ -89,7 +91,7 @@ def _deterministic_strategic(
     # Next action
     mission_id = context.get("mission_id")
     next_action_line = (
-        f"Raise a mission record for this decision"
+        "Raise a mission record for this decision"
         + (f" under {mission_id}" if mission_id else "")
         + " and assign a specialist owner before the next session."
     )
@@ -106,7 +108,7 @@ def _deterministic_strategic(
     ]
     # Rationale from specialist positions
     if outputs:
-        lines.append(f"Specialist consensus supports this direction:")
+        lines.append("Specialist consensus supports this direction:")
         for o in outputs:
             lines.append(f"- {o.specialist} ({o.confidence}%): {o.recommendation}")
     lines.extend([
@@ -323,7 +325,8 @@ def synthesize_commander(
         if not response.strip():
             return deterministic, {"provider": "deterministic", "model": "template"}
         return response, {"provider": "ollama", "model": model}
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort ollama attempt with an explicit deterministic-template fallback right here
+        log.debug("[commander-synthesis] ollama synthesis failed, using deterministic template: %s", exc)
         return deterministic, {"provider": "deterministic", "model": "template"}
 
 
@@ -338,7 +341,8 @@ def _build_hierarchy_block(question: str) -> str:
         from core.coordination.hierarchy_memory_adapter import HierarchyMemoryAdapter
         ctx = HierarchyMemoryAdapter().build_hierarchy_note(text=question)
         return ctx.context_block if ctx.found else ""
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort hierarchy-note lookup; caller treats "" as "no context available"
+        log.debug("[commander-synthesis] hierarchy note lookup failed: %s", exc)
         return ""
 
 
@@ -368,9 +372,44 @@ def ollama_synthesis(
         headers={"Content-Type": "application/json"},
     )
     timeout = float(os.environ.get("COMMANDER_SYNTHESIS_TIMEOUT_SECONDS", "30"))
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var with fixed default, not user input - reviewed 2026-09-12
         body = json.loads(response.read().decode("utf-8"))
     return strip_thinking(body.get("response") or body.get("thinking") or "")
+
+
+def litellm_synthesis(
+    question: str,
+    context: dict[str, Any],
+    outputs: list[SpecialistOutput],
+    challenge: ChallengeReview | None,
+    model: str,
+    decision_context: dict[str, Any] | None = None,
+) -> str:
+    """Same prompt/return contract as ollama_synthesis(), routed through
+    LiteLLM instead of Ollama's raw /api/generate. `model` must be a
+    LiteLLM-formatted model string (e.g. "gemini/gemini-2.5-flash",
+    "anthropic/claude-sonnet-5", "ollama/qwen3:8b") — LiteLLM reads the
+    provider out of the string itself, so no separate provider parsing is
+    needed here.
+
+    litellm is an optional dependency (see tools/supabase/requirements.txt
+    and tools/supabase/.venv) — imported lazily so this module stays
+    importable without it, same convention as ollama_synthesis() imposes no
+    import-time requirement on Ollama being installed/running.
+    """
+    import litellm
+
+    hierarchy_block = _build_hierarchy_block(question)
+    prompt = commander_prompt(question, context, outputs, challenge, decision_context, hierarchy_block)
+    timeout = float(os.environ.get("COMMANDER_SYNTHESIS_TIMEOUT_SECONDS", "30"))
+    response = litellm.completion(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        timeout=timeout,
+        temperature=0.2,
+    )
+    text = response.choices[0].message.content or ""
+    return strip_thinking(text)
 
 
 def commander_prompt(

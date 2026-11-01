@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -115,11 +115,11 @@ def _fetch_recent_text(lookback_days: int) -> list[str]:
         if not (c.is_enabled() and c.raw_client):
             return texts
 
-        cutoff = (datetime.utcnow() - timedelta(days=lookback_days)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
 
         # Recent decisions (exclude our own pattern registry rows)
         dres = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .gte("created_at", cutoff)
             .order("created_at", desc=True)
@@ -143,7 +143,7 @@ def _fetch_recent_text(lookback_days: int) -> list[str]:
         for row in mres.data or []:
             texts.append(f"{row.get('title','')} {row.get('status','')}".lower())
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort text fetch for pattern scan, already logged
         log.debug("[learning.patterns] fetch_recent_text failed: %s", exc)
     return texts
 
@@ -191,6 +191,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
     """Persist/update the pattern registry (dedup by theme)."""
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         owner = f"{PATTERN_OWNER_PREFIX}{pattern.theme}"
@@ -200,7 +201,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 existing = (
-                    c.raw_client.table("decisions")
+                    c.raw_client.table("command_memory_records")
                     .select("id")
                     .eq("owner", owner)
                     .order("created_at", desc=True)
@@ -208,15 +209,15 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
                     .execute()
                 )
                 if existing.data:
-                    c.raw_client.table("decisions").update({
+                    c.raw_client.table("command_memory_records").update({
                         "rationale": (
                             f"THEME: {pattern.theme} | OCCURRENCES: {pattern.occurrences} | "
                             f"WINDOW: {pattern.window_days}d | SIGNALS: {', '.join(pattern.signals_matched)} | "
-                            f"SEVERITY: {pattern.severity} | DETECTED: {datetime.utcnow().isoformat()}"
+                            f"SEVERITY: {pattern.severity} | DETECTED: {datetime.now(timezone.utc).isoformat()}"
                         ),
                     }).eq("id", existing.data[0]["id"]).execute()
                     return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort registry update, already logged
             log.debug("[learning.patterns] Pattern update skipped: %s", exc)
 
         log_decision_to_command_memory(
@@ -227,11 +228,11 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
             rationale=(
                 f"THEME: {pattern.theme} | OCCURRENCES: {pattern.occurrences} | "
                 f"WINDOW: {pattern.window_days}d | SIGNALS: {', '.join(pattern.signals_matched)} | "
-                f"SEVERITY: {pattern.severity} | DETECTED: {datetime.utcnow().isoformat()}"
+                f"SEVERITY: {pattern.severity} | DETECTED: {datetime.now(timezone.utc).isoformat()}"
             ),
             owner=owner,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort pattern registration, already logged
         log.debug("[learning.patterns] register_pattern failed: %s", exc)
 
 
@@ -244,7 +245,7 @@ def get_known_patterns(limit: int = 20) -> list[OrganisationalPattern]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{PATTERN_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -275,7 +276,7 @@ def get_known_patterns(limit: int = 20) -> list[OrganisationalPattern]:
             ))
         return patterns
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort registry read, already logged
         log.debug("[learning.patterns] get_known_patterns failed: %s", exc)
         return []
 
@@ -291,8 +292,8 @@ def pattern_to_investigation(pattern: OrganisationalPattern) -> str | None:
     if pattern.severity == "LOW":
         return None
     try:
-        from lib.investigation.registry import open_investigation
         from lib.investigation.framework import InvestigationType
+        from lib.investigation.registry import open_investigation
 
         try:
             inv_type = InvestigationType(pattern.inv_type)
@@ -313,7 +314,7 @@ def pattern_to_investigation(pattern: OrganisationalPattern) -> str | None:
             log.info("[learning.patterns] Pattern '%s' → investigation %s", pattern.theme, inv_id)
         return inv_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort investigation open, already logged
         log.debug("[learning.patterns] pattern_to_investigation failed: %s", exc)
         return None
 
@@ -333,10 +334,10 @@ def format_patterns(patterns: list[OrganisationalPattern]) -> str:
 
 
 __all__ = [
+    "PATTERN_OWNER_PREFIX",
     "OrganisationalPattern",
     "detect_patterns",
+    "format_patterns",
     "get_known_patterns",
     "pattern_to_investigation",
-    "format_patterns",
-    "PATTERN_OWNER_PREFIX",
 ]

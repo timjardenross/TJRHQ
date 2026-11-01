@@ -17,8 +17,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Configurable weights — adjust here to recalibrate without schema changes
@@ -66,7 +65,7 @@ CAPACITY_THRESHOLDS = {
 # Public API
 # ---------------------------------------------------------------------------
 
-def compute_capacity_score(entry: Dict[str, Any]) -> Tuple[Optional[int], str]:
+def compute_capacity_score(entry: dict[str, Any]) -> tuple[int | None, str]:
     """
     Compute capacity score and status from a captains_log_entries row.
 
@@ -148,7 +147,7 @@ def compute_capacity_score(entry: Dict[str, Any]) -> Tuple[Optional[int], str]:
     return score, status
 
 
-def capacity_zone_from_checkin(row: Optional[Dict[str, Any]]) -> Tuple[Optional[int], str]:
+def capacity_zone_from_checkin(row: dict[str, Any] | None) -> tuple[int | None, str]:
     """
     Capacity Gate adapter (D-055) — MY CAPACITY TODAY replaced Recovery
     Pulse/captains_log_entries as the Captain's day-to-day capacity input
@@ -183,7 +182,7 @@ def capacity_zone_from_checkin(row: Optional[Dict[str, Any]]) -> Tuple[Optional[
     return zone_score.get(state), zone_status.get(state, "Unknown")
 
 
-def capacity_status_only(score: Optional[int]) -> str:
+def capacity_status_only(score: int | None) -> str:
     """Derive status string from a pre-computed score."""
     if score is None:
         return "Unknown"
@@ -194,7 +193,7 @@ def capacity_status_only(score: Optional[int]) -> str:
     return "Red"
 
 
-def describe_weights() -> Dict[str, Any]:
+def describe_weights() -> dict[str, Any]:
     """Return the current weight configuration for documentation/API output."""
     return {
         "weights": WEIGHTS,

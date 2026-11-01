@@ -1,7 +1,19 @@
 import os
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(os.getenv("USSTJROS_REPO", Path(__file__).resolve().parents[2]))
+
+# The live deploy (context-service.service) already gets its env from
+# run-with-infisical.sh before this module ever imports; this load is only
+# for a standalone/dev run (`python context_service.py` outside that
+# wrapper), so CONTEXT_SERVICE_PORT below doesn't silently fall back to its
+# default just because .env wasn't sourced by the caller.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from core.platform.configuration_service import load_dotenv_files
+
+load_dotenv_files([REPO_ROOT / ".env"])
 
 # Existing paths
 MISSIONS_ACTIVE   = REPO_ROOT / "Missions" / "Active"

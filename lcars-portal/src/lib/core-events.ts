@@ -26,7 +26,20 @@ export interface PublishEventArgs {
   source: string;
   linkedMissions?: string[];
   linkedDocuments?: string[];
+  // A genuine reasoned proposition a Captain could act on. Never a raw
+  // signal (a scraped headline, an exception message, a bare state
+  // transition) — downstream consumers (Captain Brief, interrupt dispatch)
+  // treat a populated recommendedAction as "the platform is proposing
+  // something." Use `description` instead for observational content.
+  // Mirrors publish_event()'s own recommended_action/description split
+  // (core/platform/event_bus.py, migration 0218) — see its docstring.
   recommendedAction?: string | null;
+  // Free-text, human-readable account of what this event *is* (a headline,
+  // a status/state transition, an error message) — distinct from
+  // recommendedAction. Downstream consumers fall back to this (never to a
+  // fabricated recommendation) when they need readable content and no
+  // genuine recommended action exists.
+  description?: string | null;
   metrics?: Record<string, unknown>;
 }
 
@@ -62,6 +75,7 @@ export async function publishEvent(supabase: SupabaseClient, args: PublishEventA
       linked_entities: [],
       linked_documents: args.linkedDocuments ?? [],
       recommended_action: args.recommendedAction ?? null,
+      description: args.description ?? null,
       // MSN-0330: optional, matching publish_event()'s own Optional[dict]
       // contract — omitted entirely (not sent as {}) when the caller has
       // nothing structured to add; core_events.metrics defaults to {}
@@ -90,7 +104,11 @@ export async function publishMissionEvent(
     domain: 'mission-lifecycle',
     source: args.source,
     linkedMissions: [args.missionId],
-    recommendedAction: args.fromStatus ? `${args.fromStatus} -> ${args.toStatus}` : args.toStatus,
+    // A bare status transition ("Draft -> Approved") is observational
+    // content, not a reasoned recommendation — belongs in `description`,
+    // matching platform-runtime/commands/mission_lifecycle.py's Python
+    // analog (Briefs/Captain's Brief consolidation signal-leakage fix).
+    description: args.fromStatus ? `${args.fromStatus} -> ${args.toStatus}` : args.toStatus,
   });
 }
 
@@ -122,6 +140,8 @@ export async function publishMissionEventServerSide(
     domain: 'mission-lifecycle',
     source: args.source,
     linkedMissions: [args.missionId],
-    recommendedAction: args.fromStatus ? `${args.fromStatus} -> ${args.toStatus}` : args.toStatus,
+    // See publishMissionEvent()'s comment — a bare status transition is
+    // description, not a recommendation.
+    description: args.fromStatus ? `${args.fromStatus} -> ${args.toStatus}` : args.toStatus,
   });
 }

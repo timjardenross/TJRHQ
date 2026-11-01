@@ -24,10 +24,11 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from config import load_config  # noqa: E402
-from transfer_db import TransferDB  # noqa: E402
-from remote import RemoteTransport  # noqa: E402
-from engine import TransferEngine  # noqa: E402
+from engine import TransferEngine
+from remote import RemoteTransport
+from transfer_db import TransferDB
+
+from config import load_config
 
 DEFAULT_CONFIG = _HERE / "config.yaml"
 
@@ -47,7 +48,7 @@ def _build_engine(config_path):
 
 
 def cmd_transfer(args) -> int:
-    config, db, engine = _build_engine(args.config)
+    _config, db, engine = _build_engine(args.config)
     try:
         summary = engine.run_transfer(args.manifest, dry_run=False)
     finally:
@@ -57,7 +58,7 @@ def cmd_transfer(args) -> int:
 
 
 def cmd_transfer_dry_run(args) -> int:
-    config, db, engine = _build_engine(args.config)
+    _config, db, engine = _build_engine(args.config)
     try:
         summary = engine.run_transfer(args.manifest, dry_run=True)
     finally:
@@ -68,7 +69,7 @@ def cmd_transfer_dry_run(args) -> int:
 
 
 def cmd_verify_transfer(args) -> int:
-    config, db, engine = _build_engine(args.config)
+    _config, db, engine = _build_engine(args.config)
     try:
         summary = engine.verify_transfer(status=args.status)
     finally:
@@ -78,7 +79,7 @@ def cmd_verify_transfer(args) -> int:
 
 
 def cmd_retry_failed(args) -> int:
-    config, db, engine = _build_engine(args.config)
+    _config, db, engine = _build_engine(args.config)
     try:
         summary = engine.retry_failed(max_attempts=args.max_attempts)
     finally:

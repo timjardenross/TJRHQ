@@ -28,7 +28,7 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-import intelligence.proactive_cadences as tg_cadences  # noqa: E402
+import intelligence.proactive_cadences as tg_cadences
 
 
 def make_payload(pr_url: str | None):

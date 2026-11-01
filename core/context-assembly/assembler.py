@@ -7,14 +7,18 @@ operating picture contexts.
 """
 
 import re
-from typing import Dict, Any, List, Optional
-from models import (
-    ContextPackage, EntityRef, Relationship,
-    HealthContextPackage, CaptainBriefContext, CaptainOperatingPictureContext,
-    DecisionContextPackage, BlockerContextPackage, RecommendationPackage,
-)
-from extractor import extract_relationships
+from typing import Any
 
+from extractor import extract_relationships
+from models import (
+    BlockerContextPackage,
+    CaptainBriefContext,
+    CaptainOperatingPictureContext,
+    ContextPackage,
+    DecisionContextPackage,
+    EntityRef,
+    HealthContextPackage,
+)
 
 # ---------------------------------------------------------------------------
 # WP4 lazy imports (avoids circular deps at module level)
@@ -24,7 +28,7 @@ def _health_fns():
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "coordination"))
-    from health_context_adapter import parse_health_summary, build_health_context
+    from health_context_adapter import build_health_context, parse_health_summary
     return parse_health_summary, build_health_context
 
 def _health_live_fn():
@@ -48,7 +52,7 @@ def _brief_fns():
 import config
 
 
-def _ref(entity: Dict[str, Any], entity_type: str) -> EntityRef:
+def _ref(entity: dict[str, Any], entity_type: str) -> EntityRef:
     return EntityRef(
         id=entity.get("id", ""),
         type=entity_type,
@@ -57,7 +61,7 @@ def _ref(entity: Dict[str, Any], entity_type: str) -> EntityRef:
     )
 
 
-def assemble_mission_context(mission_id: str, corpus: Dict[str, Any]) -> Optional[ContextPackage]:
+def assemble_mission_context(mission_id: str, corpus: dict[str, Any]) -> ContextPackage | None:
     mission_id = mission_id.upper()
     mission = corpus["missions"].get(mission_id)
     if not mission:
@@ -103,9 +107,8 @@ def assemble_mission_context(mission_id: str, corpus: Dict[str, Any]) -> Optiona
 
         elif rel.target_type == "mission":
             dep_mission = corpus["missions"].get(rel.target_id)
-            if dep_mission:
-                if rel.relationship_type in ("depends_on", "triggered_by"):
-                    pkg.dependencies.append(_ref(dep_mission, "mission"))
+            if dep_mission and rel.relationship_type in ("depends_on", "triggered_by"):
+                pkg.dependencies.append(_ref(dep_mission, "mission"))
 
         elif rel.target_type == "capability":
             cap = corpus["capabilities"].get(rel.target_id)
@@ -123,17 +126,16 @@ def assemble_mission_context(mission_id: str, corpus: Dict[str, Any]) -> Optiona
             continue
         other_rels = extract_relationships(other_id, other.get("text", ""), corpus)
         for rel in other_rels:
-            if rel.target_id.upper() == mission_id.upper() and rel.relationship_type == "depends_on":
-                if rel.confidence >= config.CONFIDENCE_THRESHOLD:
-                    pkg.dependent_missions.append(_ref(other, "mission"))
+            if (rel.target_id.upper() == mission_id.upper() and rel.relationship_type == "depends_on"
+                    and rel.confidence >= config.CONFIDENCE_THRESHOLD):
+                pkg.dependent_missions.append(_ref(other, "mission"))
 
     # Reverse lookup: decisions that reference this mission
     for dec_id, dec in corpus["decisions"].items():
         dec_rels = extract_relationships(dec_id, dec.get("text", ""), corpus)
         for rel in dec_rels:
-            if rel.target_id.upper() == mission_id.upper():
-                if rel.confidence >= config.CONFIDENCE_THRESHOLD:
-                    pkg.related_decisions.append(_ref(dec, "decision"))
+            if rel.target_id.upper() == mission_id.upper() and rel.confidence >= config.CONFIDENCE_THRESHOLD:
+                pkg.related_decisions.append(_ref(dec, "decision"))
 
     # Deduplicate lists
     pkg.triggering_decisions = _dedup(pkg.triggering_decisions)
@@ -152,7 +154,7 @@ def assemble_mission_context(mission_id: str, corpus: Dict[str, Any]) -> Optiona
     return pkg
 
 
-def _dedup(refs: List[EntityRef]) -> List[EntityRef]:
+def _dedup(refs: list[EntityRef]) -> list[EntityRef]:
     seen = set()
     out = []
     for r in refs:
@@ -190,7 +192,7 @@ def _score_completeness(pkg: ContextPackage):
     return score, gaps
 
 
-def _generate_recommendations(pkg: ContextPackage, mission: Dict) -> List[str]:
+def _generate_recommendations(pkg: ContextPackage, mission: dict) -> list[str]:
     recs = []
     status = (mission.get("status") or "").upper()
 
@@ -226,7 +228,7 @@ def assemble_health_context(health_summary_path=None) -> HealthContextPackage:
     try:
         live_fn = _health_live_fn()
         return live_fn()
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - documented: falls through to the legacy Health-Summary.md path on any live-path failure
         pass
 
     # Legacy fallback
@@ -237,7 +239,7 @@ def assemble_health_context(health_summary_path=None) -> HealthContextPackage:
     return build_fn(summary)
 
 
-def assemble_blockers(missions: List[Dict[str, Any]]) -> List[BlockerContextPackage]:
+def assemble_blockers(missions: list[dict[str, Any]]) -> list[BlockerContextPackage]:
     """
     Analyze a mission list and return BlockerContextPackage for each blocked mission.
     """
@@ -245,7 +247,7 @@ def assemble_blockers(missions: List[Dict[str, Any]]) -> List[BlockerContextPack
     return analyze(missions)
 
 
-def assemble_decisions_awaiting_input(decision_register_path=None) -> List[DecisionContextPackage]:
+def assemble_decisions_awaiting_input(decision_register_path=None) -> list[DecisionContextPackage]:
     """
     Return decisions that require Captain input.
     """
@@ -254,13 +256,13 @@ def assemble_decisions_awaiting_input(decision_register_path=None) -> List[Decis
 
 
 def assemble_captain_brief_context(
-    missions: List[Dict[str, Any]],
-    recommendations: Optional[List] = None,
+    missions: list[dict[str, Any]],
+    recommendations: list | None = None,
     health_summary_path=None,
     decision_register_path=None,
-    active_mission_count: Optional[int] = None,
+    active_mission_count: int | None = None,
     alert_count: int = 0,
-    number_one_summary: Optional[str] = None,
+    number_one_summary: str | None = None,
     source: str = "fresh",
 ) -> CaptainBriefContext:
     """
@@ -279,7 +281,6 @@ def assemble_captain_brief_context(
 
     top_priorities = (recommendations or [])[:3]
 
-    from models import KeyDate
     from datetime import datetime, timezone
     today = datetime.now(timezone.utc)
     key_dates = _build_key_dates(missions, today)
@@ -298,8 +299,8 @@ def assemble_captain_brief_context(
 
 
 def assemble_operating_picture(
-    missions: List[Dict[str, Any]],
-    recommendations: Optional[List] = None,
+    missions: list[dict[str, Any]],
+    recommendations: list | None = None,
     health_summary_path=None,
     decision_register_path=None,
     source: str = "fresh",
@@ -323,10 +324,11 @@ def assemble_operating_picture(
 # Private helpers for WP4
 # ---------------------------------------------------------------------------
 
-def _build_key_dates(missions: List[Dict[str, Any]], today) -> List:
+def _build_key_dates(missions: list[dict[str, Any]], today) -> list:
     """Extract due dates from missions occurring this week."""
-    from models import KeyDate
     from datetime import timedelta
+
+    from models import KeyDate
     week_end = today + timedelta(days=7)
     key_dates = []
 

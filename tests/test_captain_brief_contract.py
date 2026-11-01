@@ -10,17 +10,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.platform.attention_engine import evaluate_batch, AttentionCategory
-from core.platform.priority_engine import PriorityInputs, rank_events
+from core.platform.attention_engine import AttentionCategory, evaluate_batch
 from core.platform.captain_brief_contract import (
     Recommendation,
     assemble_captain_brief,
 )
+from core.platform.priority_engine import PriorityInputs, rank_events
 from tests.fixtures.synthetic_core_events import (
     FULL_MULTI_DOMAIN_CORPUS,
     SUMMARISATION_EDGES,
-    SYNTHETIC_VALUE_DIMENSIONS,
     SYNTHETIC_OPPORTUNITY_VALUES,
+    SYNTHETIC_VALUE_DIMENSIONS,
 )
 
 

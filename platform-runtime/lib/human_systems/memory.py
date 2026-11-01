@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ def _client():
         if not client.is_enabled():
             return None
         return client
-    except Exception as exc:  # pragma: no cover - environment dependent
+    except Exception as exc:  # pragma: no cover - environment dependent # noqa: BLE001 - Supabase unavailable, already logged
         log.warning("[human-systems.memory] Supabase unavailable: %s", exc)
         return None
 
@@ -66,7 +66,7 @@ def record_recommendation(
     if client is None:
         return False
     payload = {
-        "issued_on": date.today().isoformat(),
+        "issued_on": datetime.now(timezone.utc).date().isoformat(),
         "kind": kind,
         "domain": domain,
         "output_class": output_class,
@@ -78,7 +78,7 @@ def record_recommendation(
     try:
         result = client.insert(REC_TABLE, payload)
         return bool(getattr(result, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - record_recommendation failed, already logged
         log.warning("[human-systems.memory] record_recommendation failed: %s", exc)
         return False
 
@@ -106,7 +106,7 @@ def record_feedback(
         return False
     category = category if category in _CATEGORY_USEFUL else "helpful"
     payload = {
-        "given_on": date.today().isoformat(),
+        "given_on": datetime.now(timezone.utc).date().isoformat(),
         "summary": summary[:1000],
         "category": category,
         "useful": _CATEGORY_USEFUL[category],
@@ -118,7 +118,7 @@ def record_feedback(
     try:
         result = client.insert(FEEDBACK_TABLE, payload)
         return bool(getattr(result, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - record_feedback failed, already logged
         log.warning("[human-systems.memory] record_feedback failed: %s", exc)
         return False
 
@@ -138,7 +138,7 @@ def record_pattern(
     if client is None:
         return False
     payload = {
-        "observed_on": date.today().isoformat(),
+        "observed_on": datetime.now(timezone.utc).date().isoformat(),
         "pattern_type": pattern_type,
         "description": description[:1000],
         "domain": domain,
@@ -148,7 +148,7 @@ def record_pattern(
     try:
         result = client.insert(PATTERN_TABLE, payload)
         return bool(getattr(result, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - record_pattern failed, already logged
         log.warning("[human-systems.memory] record_pattern failed: %s", exc)
         return False
 
@@ -159,7 +159,7 @@ def record_friction(*, friction_key: str, description: str, lever: str, confiden
     if client is None:
         return False
     payload = {
-        "observed_on": date.today().isoformat(),
+        "observed_on": datetime.now(timezone.utc).date().isoformat(),
         "friction_key": friction_key,
         "description": description[:1000],
         "lever": lever[:1000],
@@ -169,7 +169,7 @@ def record_friction(*, friction_key: str, description: str, lever: str, confiden
     try:
         result = client.insert(FRICTION_TABLE, payload)
         return bool(getattr(result, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - record_friction failed, already logged
         log.warning("[human-systems.memory] record_friction failed: %s", exc)
         return False
 
@@ -188,7 +188,7 @@ def get_recent_patterns(limit: int = 10) -> list[dict]:
             .execute()
         )
         return list(result.data or [])
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - get_recent_patterns failed, already logged
         log.warning("[human-systems.memory] get_recent_patterns failed: %s", exc)
         return []
 
@@ -208,6 +208,6 @@ def get_effective_interventions(limit: int = 10) -> list[dict]:
             .execute()
         )
         return list(result.data or [])
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - get_effective_interventions failed, already logged
         log.warning("[human-systems.memory] get_effective_interventions failed: %s", exc)
         return []

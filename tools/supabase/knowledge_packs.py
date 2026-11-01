@@ -7,9 +7,9 @@ Purpose: Auto-generate role-based, temporal, and differential knowledge packs
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
+from typing import ClassVar
 
 
 class PackType(Enum):
@@ -28,7 +28,7 @@ class Document:
     category: str  # 'adr', 'decision', 'runbook', 'design'
     created_at: datetime
     updated_at: datetime
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -36,10 +36,10 @@ class KnowledgePack:
     """Curated knowledge pack."""
     pack_type: PackType
     title: str
-    role: Optional[str]  # For role-based packs
+    role: str | None  # For role-based packs
     summary: str
-    documents: List[Document]
-    recommendations: List[str]
+    documents: list[Document]
+    recommendations: list[str]
     generated_at: datetime
     size_bytes: int = 0
 
@@ -70,7 +70,7 @@ class KnowledgePack:
 class RoleBasedPackGenerator:
     """Generate role-curated knowledge packs."""
 
-    ROLE_MAPPINGS = {
+    ROLE_MAPPINGS: ClassVar[dict] = {
         "Chief Engineer": {
             "categories": ["adr", "architecture", "deployment"],
             "tags": ["infrastructure", "scalability", "performance"]
@@ -88,7 +88,7 @@ class RoleBasedPackGenerator:
     def generate(
         self,
         role: str,
-        all_documents: List[Document],
+        all_documents: list[Document],
         max_documents: int = 50
     ) -> KnowledgePack:
         """
@@ -121,12 +121,12 @@ class RoleBasedPackGenerator:
             summary=summary,
             documents=filtered,
             recommendations=recommendations,
-            generated_at=datetime.now()
+            generated_at=datetime.now(timezone.utc)
         )
 
         return pack
 
-    def _generate_summary(self, role: str, documents: List[Document]) -> str:
+    def _generate_summary(self, role: str, documents: list[Document]) -> str:
         """Generate summary for pack."""
         summaries = {
             "Chief Engineer": (
@@ -145,7 +145,7 @@ class RoleBasedPackGenerator:
         }
         return summaries.get(role, f"Knowledge pack for {role} with {len(documents)} documents.")
 
-    def _generate_recommendations(self, role: str, documents: List[Document]) -> List[str]:
+    def _generate_recommendations(self, role: str, documents: list[Document]) -> list[str]:
         """Generate recommendations for role."""
         recommendations = {
             "Chief Engineer": [
@@ -172,7 +172,7 @@ class TemporalPackGenerator:
 
     def generate(
         self,
-        all_documents: List[Document],
+        all_documents: list[Document],
         days: int = 7
     ) -> KnowledgePack:
         """
@@ -185,7 +185,7 @@ class TemporalPackGenerator:
         Returns:
             KnowledgePack with recent documents
         """
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         recent = [doc for doc in all_documents if doc.updated_at >= cutoff]
 
         summary = (
@@ -206,7 +206,7 @@ class TemporalPackGenerator:
             summary=summary,
             documents=recent,
             recommendations=recommendations,
-            generated_at=datetime.now()
+            generated_at=datetime.now(timezone.utc)
         )
 
         return pack
@@ -221,7 +221,7 @@ class DifferentialPackGenerator:
     def generate(
         self,
         role: str,
-        all_documents: List[Document]
+        all_documents: list[Document]
     ) -> KnowledgePack:
         """
         Generate differential pack for role (changes since last review).
@@ -233,7 +233,7 @@ class DifferentialPackGenerator:
         Returns:
             KnowledgePack with only changed documents
         """
-        last_review = self.last_review_timestamps.get(role, datetime.now() - timedelta(days=7))
+        last_review = self.last_review_timestamps.get(role, datetime.now(timezone.utc) - timedelta(days=7))
 
         changed = [
             doc for doc in all_documents
@@ -258,11 +258,11 @@ class DifferentialPackGenerator:
             summary=summary,
             documents=changed,
             recommendations=recommendations,
-            generated_at=datetime.now()
+            generated_at=datetime.now(timezone.utc)
         )
 
         # Update last review timestamp
-        self.last_review_timestamps[role] = datetime.now()
+        self.last_review_timestamps[role] = datetime.now(timezone.utc)
 
         return pack
 
@@ -275,8 +275,8 @@ if __name__ == "__main__":
             title="ADR-001: Kubernetes Migration",
             content="Decision to migrate infrastructure to Kubernetes in Q3 2026...",
             category="adr",
-            created_at=datetime.now() - timedelta(days=10),
-            updated_at=datetime.now() - timedelta(days=10),
+            created_at=datetime.now(timezone.utc) - timedelta(days=10),
+            updated_at=datetime.now(timezone.utc) - timedelta(days=10),
             tags=["infrastructure", "scalability"]
         ),
         Document(
@@ -284,8 +284,8 @@ if __name__ == "__main__":
             title="DEC-015: Defer Kafka Upgrade",
             content="Decision to defer Kafka upgrade to Q4 due to current project load...",
             category="decision",
-            created_at=datetime.now() - timedelta(days=5),
-            updated_at=datetime.now() - timedelta(days=2),
+            created_at=datetime.now(timezone.utc) - timedelta(days=5),
+            updated_at=datetime.now(timezone.utc) - timedelta(days=2),
             tags=["messaging", "infrastructure"]
         ),
         Document(
@@ -293,8 +293,8 @@ if __name__ == "__main__":
             title="Deployment Runbook",
             content="Step-by-step guide for deploying to production...",
             category="runbook",
-            created_at=datetime.now() - timedelta(days=30),
-            updated_at=datetime.now() - timedelta(days=1),
+            created_at=datetime.now(timezone.utc) - timedelta(days=30),
+            updated_at=datetime.now(timezone.utc) - timedelta(days=1),
             tags=["deployment", "operations"]
         ),
     ]

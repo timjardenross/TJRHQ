@@ -6,10 +6,10 @@ Purpose: Measure adoption, collect feedback, track engagement metrics
 """
 
 import json
-import time
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+import os
+import tempfile
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -38,12 +38,12 @@ class PackEngagement:
     """Pack engagement metrics."""
     pack_id: str
     recipient_name: str
-    opened_at: Optional[str]
+    opened_at: str | None
     read: bool
-    read_duration_minutes: Optional[float]
+    read_duration_minutes: float | None
     shared: bool
     action_taken: bool
-    action_description: Optional[str]
+    action_description: str | None
 
 
 @dataclass
@@ -83,10 +83,10 @@ class TeamAdoptionTracker:
 
     def __init__(self):
         """Initialize tracker."""
-        self.team_members: List[TeamMember] = []
-        self.deliveries: List[KnowledgePackDelivery] = []
-        self.engagements: List[PackEngagement] = []
-        self.feedback: List[TeamMemberFeedback] = []
+        self.team_members: list[TeamMember] = []
+        self.deliveries: list[KnowledgePackDelivery] = []
+        self.engagements: list[PackEngagement] = []
+        self.feedback: list[TeamMemberFeedback] = []
 
     def add_team_member(
         self,
@@ -136,7 +136,7 @@ class TeamAdoptionTracker:
             recipient_role=member.role,
             pack_type=pack_type,
             delivery_method=delivery_method,
-            delivered_at=datetime.now().isoformat(),
+            delivered_at=datetime.now(timezone.utc).isoformat(),
             delivered=True
         )
         self.deliveries.append(delivery)
@@ -147,10 +147,10 @@ class TeamAdoptionTracker:
         recipient_name: str,
         opened: bool,
         read: bool,
-        read_duration_minutes: Optional[float] = None,
+        read_duration_minutes: float | None = None,
         shared: bool = False,
         action_taken: bool = False,
-        action_description: Optional[str] = None
+        action_description: str | None = None
     ) -> None:
         """Record pack engagement.
 
@@ -167,7 +167,7 @@ class TeamAdoptionTracker:
         engagement = PackEngagement(
             pack_id=pack_id,
             recipient_name=recipient_name,
-            opened_at=datetime.now().isoformat() if opened else None,
+            opened_at=datetime.now(timezone.utc).isoformat() if opened else None,
             read=read,
             read_duration_minutes=read_duration_minutes,
             shared=shared,
@@ -204,7 +204,7 @@ class TeamAdoptionTracker:
         feedback = TeamMemberFeedback(
             member_name=member_name,
             member_role=member.role,
-            feedback_date=datetime.now().isoformat(),
+            feedback_date=datetime.now(timezone.utc).isoformat(),
             rating=rating,
             relevance_score=relevance_score,
             usefulness_score=usefulness_score,
@@ -398,7 +398,13 @@ if __name__ == "__main__":
         "metrics": asdict(tracker.calculate_metrics())
     }
 
-    with open("/tmp/adoption_metrics.json", "w") as f:
+    # 2026-09-12 (bandit B108): was a hardcoded "/tmp/..." literal. Uses
+    # tempfile.gettempdir() (same default, honours TMPDIR) and the file is
+    # opened with 0o600 since this export includes team member names and
+    # free-text feedback, unlike production_metrics.py's aggregate counters.
+    export_path = os.path.join(tempfile.gettempdir(), "adoption_metrics.json")
+    fd = os.open(export_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(data, f, indent=2)
 
-    print("\n✅ Adoption data exported to /tmp/adoption_metrics.json")
+    print(f"\n✅ Adoption data exported to {export_path}")

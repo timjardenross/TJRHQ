@@ -29,6 +29,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+from typing_extensions import Self
+
 import id_registry
 
 PASS = "\033[32mPASS\033[0m"
@@ -63,7 +65,7 @@ class IsolatedCounter:
         self._orig_counter: Path | None = None
         self._orig_lock: Path | None = None
 
-    def __enter__(self) -> "IsolatedCounter":
+    def __enter__(self) -> Self:
         self._tmpdir = tempfile.TemporaryDirectory(prefix="mint_test_")
         tmp = Path(self._tmpdir.name)
         counter_file = tmp / ".id-counters.json"
@@ -106,7 +108,7 @@ def test_concurrent() -> None:
     results: list[str] = []
     lock = threading.Lock()
 
-    with IsolatedCounter() as ctx:
+    with IsolatedCounter():
         def mint() -> None:
             mid = id_registry.next_id("MSN")
             with lock:
@@ -153,7 +155,7 @@ def test_cli() -> None:
         env = {**os.environ, "_MINT_TEST_COUNTER": str(counter_path)}
         result = subprocess.run(
             [sys.executable, str(script), "MSN"],
-            capture_output=True, text=True, timeout=10, env=env,
+            capture_output=True, text=True, check=False, timeout=10, env=env,
         )
     out = result.stdout.strip()
     check("exit code 0", result.returncode == 0, result.stderr)
@@ -184,10 +186,10 @@ def test_http_server() -> None:
         try:
             # /health
             try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as r:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as r:  # nosec B310 - url is a fixed localhost test-server literal, not user input - reviewed 2026-09-12
                     body = json.loads(r.read())
                 check("/health status ok", body.get("status") == "ok", str(body))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test-fixture HTTP probe — a connection failure is a real test result, reported via check(), not swallowed
                 check("/health reachable", False, str(exc))
 
             # POST /mint
@@ -199,11 +201,11 @@ def test_http_server() -> None:
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=3) as r:
+                with urllib.request.urlopen(req, timeout=3) as r:  # nosec B310 - url is a fixed localhost test-server literal, not user input - reviewed 2026-09-12
                     body = json.loads(r.read())
                 check("POST /mint status allocated", body.get("status") == "allocated", str(body))
                 check("POST /mint canonical ID", "USS-TJR-MSN-" in body.get("mission_id", ""), str(body))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test-fixture HTTP probe — a connection failure is a real test result, reported via check(), not swallowed
                 check("POST /mint reachable", False, str(exc))
         finally:
             proc.send_signal(signal.SIGINT)

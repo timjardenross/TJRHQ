@@ -40,9 +40,13 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.strategy.initiatives import (
-    Initiative, InitiativeHealth, OutcomeTrend, list_initiatives, get_linked_missions,
+    Initiative,
+    InitiativeHealth,
+    OutcomeTrend,
+    get_linked_missions,
+    list_initiatives,
 )
-from lib.strategy.outcomes import assess_health, compute_progress, HealthAssessment
+from lib.strategy.outcomes import HealthAssessment, assess_health, compute_progress
 
 
 class Recommendation(str, Enum):
@@ -168,7 +172,7 @@ def recommend_all(inputs: dict[str, Any] | None = None) -> list[InitiativeRecomm
     for init in list_initiatives(include_closed=False):
         try:
             recs.append(recommend_for_initiative(init, inputs))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-initiative recommendation, already logged
             log.debug("[strategy.portfolio] recommend failed for %s: %s", init.initiative_id, exc)
     order = {
         Recommendation.STOP: 0, Recommendation.PAUSE: 1, Recommendation.MERGE: 2,
@@ -203,10 +207,13 @@ def analyse_portfolio() -> PortfolioAnalysis:
 
     # Objective load balance via strategic_objective_progress view
     try:
-        from lib.strategy.portfolio_queries import underfunded_objectives, overloaded_objectives
+        from lib.strategy.portfolio_queries import (
+            overloaded_objectives,
+            underfunded_objectives,
+        )
         analysis.underfunded_objectives = underfunded_objectives() or []
         analysis.overloaded_objectives = overloaded_objectives() or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort objective load, already logged
         log.debug("[strategy.portfolio] objective load query failed: %s", exc)
 
     # Objectives carrying many initiatives are overloaded at the initiative layer
@@ -259,12 +266,12 @@ def format_portfolio(analysis: PortfolioAnalysis) -> str:
 
 
 __all__ = [
-    "Recommendation",
     "InitiativeRecommendation",
     "PortfolioAnalysis",
-    "recommend_for_initiative",
-    "recommend_all",
+    "Recommendation",
     "analyse_portfolio",
-    "format_recommendations",
     "format_portfolio",
+    "format_recommendations",
+    "recommend_all",
+    "recommend_for_initiative",
 ]

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for the self-improvement system.
 
@@ -11,18 +12,25 @@ Tests:
 Uses stdlib unittest (no external dependencies).
 """
 
+import io
 import json
-import unittest
-from pathlib import Path
 import sys
+import unittest
+import urllib.error
+from pathlib import Path
+from unittest.mock import patch
 
 # Add repo root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import tempfile
 import shutil
+import tempfile
 
-from scripts.self_improvement.collector import EvidenceCollector, FileSystemAudit, CodeAnalysis
+from scripts.self_improvement.collector import (
+    CodeAnalysis,
+    EvidenceCollector,
+    FileSystemAudit,
+)
 from scripts.self_improvement.policy import PolicyEngine, classify_findings
 from scripts.self_improvement.router_client import ModelRouterClient
 
@@ -135,6 +143,47 @@ class TestFileSystemWalkExclusions(unittest.TestCase):
         todos = analysis._find_todos()
         self.assertEqual(len(todos.get("TODO", [])), 1)
         self.assertIn("real_code.py", todos["TODO"][0])
+
+
+class TestFileSystemAuditReconciliation(unittest.TestCase):
+    """Regression test for USS-TJR-MSN-1788844167855: _find_test_files()
+    used to only glob the top-level tests/ directory non-recursively, while
+    _count_python_files() counted every .py file repo-wide (tests included)
+    — so a real audit run reported 976 python_files against only 94
+    test_files, even though 220 real test files existed outside tests/.
+    Proves test discovery now covers the same scope as the python-file
+    count: every discovered test file is one of the counted python files,
+    and files outside tests/ are found at all."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+        (self.tmpdir / "pkg").mkdir()
+        (self.tmpdir / "pkg" / "module.py").write_text("x = 1\n")
+        (self.tmpdir / "pkg" / "test_module.py").write_text("def test_x(): pass\n")
+        tests_dir = self.tmpdir / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "test_top_level.py").write_text("def test_y(): pass\n")
+        (self.tmpdir / "pkg" / "helper_test.py").write_text("def test_z(): pass\n")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_test_files_found_outside_top_level_tests_dir(self):
+        audit = FileSystemAudit(self.tmpdir)
+        test_files = audit._find_test_files()
+        self.assertIn("pkg/test_module.py", test_files)
+        self.assertIn("pkg/helper_test.py", test_files)
+        self.assertIn("tests/test_top_level.py", test_files)
+        self.assertEqual(len(test_files), 3)
+
+    def test_test_file_count_reconciles_with_python_file_count(self):
+        audit = FileSystemAudit(self.tmpdir)
+        python_count = audit._count_python_files()
+        test_count = len(audit._find_test_files())
+        # module.py + 3 test files = 4 total; every test file is a python
+        # file, so the test count can never exceed the total count.
+        self.assertEqual(python_count, 4)
+        self.assertLessEqual(test_count, python_count)
 
 
 class TestPolicyEngine(unittest.TestCase):
@@ -261,6 +310,26 @@ class TestRouterClient(unittest.TestCase):
         client = ModelRouterClient()
         self.assertTrue(hasattr(client, "call_log"))
         self.assertIsInstance(client.call_log, list)
+
+    def test_call_router_surfaces_router_error_body_on_http_500(self):
+        """A 500 from the router carries the real failure reason in its
+        JSON body (e.g. a missing GEMINI_API_KEY) - the client must surface
+        that, not just the generic "HTTP Error 500: Internal Server Error"
+        reason phrase that urllib.error.HTTPError stringifies to."""
+        client = ModelRouterClient()
+        error_body = json.dumps({"success": False, "error": "GEMINI_API_KEY is not set"}).encode()
+        http_error = urllib.error.HTTPError(
+            url="http://127.0.0.1:8891/api/model/self-improvement-analyse",
+            code=500,
+            msg="Internal Server Error",
+            hdrs=None,
+            fp=io.BytesIO(error_body),
+        )
+        with patch("urllib.request.urlopen", side_effect=http_error):
+            result = client._call_router("self-improvement-analyse", "prompt")
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "GEMINI_API_KEY is not set")
 
 
 class TestFindingSchema(unittest.TestCase):

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0099 intelligence products + presentation layer.
 
 Key invariants:
@@ -23,8 +24,8 @@ _ADVISORY = _REPO_ROOT / "core" / "advisory"
 if str(_ADVISORY) not in sys.path:
     sys.path.insert(0, str(_ADVISORY))
 
-import presentation as P  # noqa: E402
-from _local_import_advisory import import_sibling, reload_sibling  # noqa: E402
+import presentation as P
+from _local_import_advisory import import_sibling, reload_sibling
 
 # Fleet Engineering Review 2026-08-11: 7 of the 17 names below (outcomes,
 # learning, patterns, opportunities, forecast, operating_picture, service)

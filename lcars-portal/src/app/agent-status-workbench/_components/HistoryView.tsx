@@ -8,10 +8,11 @@
  * this is a look-back view, not a live status board.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui';
 import { stateToneClasses } from '@/lib/departments';
 import { relativeTime } from './shared';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 type HistoryEvent =
   | { domainKey: string; label: string; at: string; kind: 'down'; detail: string | null }
@@ -74,11 +75,11 @@ function HistoryRow({ event }: { event: HistoryEvent }) {
       <span className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${classes.dot}`} aria-hidden />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className="text-[12px] tabular-nums text-wb-ink2">{relativeTime(event.at)}</span>
-          <span className="text-[13px] text-wb-ink">{narrativeText(event)}</span>
+          <span className="text-wb-label tabular-nums text-wb-ink2">{relativeTime(event.at)}</span>
+          <span className="text-wb-body text-wb-ink">{narrativeText(event)}</span>
         </div>
         {event.detail && (
-          <p className="mt-0.5 truncate text-[11px] text-wb-ink2" title={event.detail}>
+          <p className="mt-0.5 truncate text-wb-label text-wb-ink2" title={event.detail}>
             {event.detail}
           </p>
         )}
@@ -92,36 +93,34 @@ export function HistoryView() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     async function load() {
       try {
-        const res = await fetch('/api/agent-status-workbench/history', { cache: 'no-store' });
+        const res = await fetch('/api/agent-status-workbench/history', { cache: 'no-store', signal });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.error ?? `HTTP ${res.status}`);
         }
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (alive()) setData(json);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load history');
+        if (alive() && !(err instanceof Error && err.name === 'AbortError')) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load history');
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (alive()) setIsLoading(false);
       }
     }
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  if (isLoading) return <Card><p className="text-[13px] italic text-wb-ink2">Loading history…</p></Card>;
+  if (isLoading) return <Card><p className="text-wb-body italic text-wb-ink2">Loading history…</p></Card>;
   if (loadError || !data) {
     return (
       <Card>
         <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-          <p className="text-[13px] font-semibold text-wb-crit-on">History unavailable</p>
-          <p className="mt-1 text-[12px] text-wb-ink2">{loadError ?? 'No data returned.'}</p>
+          <p className="text-wb-body font-semibold text-wb-crit-on">History unavailable</p>
+          <p className="mt-1 text-wb-label text-wb-ink2">{loadError ?? 'No data returned.'}</p>
         </div>
       </Card>
     );
@@ -132,12 +131,12 @@ export function HistoryView() {
 
   return (
     <Card>
-      <p className="mb-3 text-[11px] text-wb-ink2">
+      <p className="mb-3 text-wb-label text-wb-ink2">
         Recent operational changes — last {data.windowHours} hours
       </p>
 
       {data.events.length === 0 ? (
-        <p className="text-[13px] italic text-wb-ink2">
+        <p className="text-wb-body italic text-wb-ink2">
           No failures or recoveries in the last {data.windowHours} hours.
         </p>
       ) : (
@@ -145,7 +144,7 @@ export function HistoryView() {
           {dayGroups.map((group) => (
             <div key={group.dayLabel}>
               {showDayHeaders && (
-                <p className="mt-3 border-b border-wb-line pb-1 text-[10px] uppercase tracking-wider text-wb-ink2 first:mt-0">
+                <p className="mt-3 border-b border-wb-line pb-1 text-wb-label uppercase tracking-wider text-wb-ink2 first:mt-0">
                   {group.dayLabel}
                 </p>
               )}

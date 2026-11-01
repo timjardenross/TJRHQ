@@ -6,12 +6,11 @@ Date: 2026-06-08
 Purpose: Generate embeddings for all document chunks using nomic-embed-text
 """
 
-from dataclasses import dataclass
-from typing import Optional, List
-import requests
-import json
 import time
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
+import requests
 
 
 @dataclass
@@ -23,7 +22,7 @@ class EmbeddingResult:
     skipped_chunks: int
     avg_time_per_chunk: float  # seconds
     total_time: float  # seconds
-    failed_ids: List[str]
+    failed_ids: list[str]
     embedding_timestamp: datetime = None
 
 
@@ -55,7 +54,7 @@ class EmbeddingGenerator:
 
     def generate_embeddings(
         self,
-        chunks: List[dict],  # From Supabase: [{'id': '...', 'content': '...', 'embedding': None}, ...]
+        chunks: list[dict],  # From Supabase: [{'id': '...', 'content': '...', 'embedding': None}, ...]
         force_regenerate: bool = False
     ) -> EmbeddingResult:
         """
@@ -80,7 +79,7 @@ class EmbeddingGenerator:
                 avg_time_per_chunk=0,
                 total_time=0,
                 failed_ids=[],
-                embedding_timestamp=datetime.now()
+                embedding_timestamp=datetime.now(timezone.utc)
             )
 
         # Filter chunks that need embedding
@@ -95,7 +94,6 @@ class EmbeddingGenerator:
         embedded_count = 0
         failed_count = 0
         failed_ids = []
-        batch_count = 0
 
         print(f"\n📊 Starting embedding generation for {len(chunks_to_embed)} chunks...")
         print(f"   Model: {self.model}")
@@ -103,9 +101,8 @@ class EmbeddingGenerator:
         print(f"   Skipping {len(skipped)} already-embedded chunks\n")
 
         # Process in batches
-        for i in range(0, len(chunks_to_embed), self.batch_size):
+        for batch_count, i in enumerate(range(0, len(chunks_to_embed), self.batch_size), start=1):
             batch = chunks_to_embed[i:i + self.batch_size]
-            batch_count += 1
             batch_start = time.time()
 
             for chunk in batch:
@@ -113,7 +110,7 @@ class EmbeddingGenerator:
                     embedding = self._embed_text(chunk['content'])
                     chunk['embedding'] = embedding
                     embedded_count += 1
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-chunk embed inside a batch loop — one bad chunk must not abort the batch; already printed + counted in failed_count/failed_ids
                     failed_ids.append(chunk['id'])
                     failed_count += 1
                     print(f"   ❌ Chunk {chunk['id']}: {str(e)[:50]}")
@@ -127,7 +124,7 @@ class EmbeddingGenerator:
         avg_time = total_time / max(embedded_count, 1)
 
         print(f"\n{'='*70}")
-        print(f"Embedding generation complete!")
+        print("Embedding generation complete!")
         print(f"  Total chunks: {len(chunks)}")
         print(f"  Embedded: {embedded_count}")
         print(f"  Failed: {failed_count}")
@@ -144,10 +141,10 @@ class EmbeddingGenerator:
             avg_time_per_chunk=avg_time,
             total_time=total_time,
             failed_ids=failed_ids,
-            embedding_timestamp=datetime.now()
+            embedding_timestamp=datetime.now(timezone.utc)
         )
 
-    def _embed_text(self, text: str) -> List[float]:
+    def _embed_text(self, text: str) -> list[float]:
         """Generate embedding for a single text using Ollama."""
         response = requests.post(
             self.OLLAMA_URL,
@@ -185,7 +182,7 @@ def generate_embeddings_from_db(
 
 if __name__ == "__main__":
     result = generate_embeddings_from_db(batch_size=5)
-    print(f"\nFinal Result:")
+    print("\nFinal Result:")
     print(f"  Chunks embedded: {result.chunks_embedded}")
     print(f"  Chunks failed: {result.chunks_failed}")
     print(f"  Avg time: {result.avg_time_per_chunk:.3f}s")

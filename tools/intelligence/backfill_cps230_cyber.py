@@ -44,9 +44,10 @@ try:
 except ImportError:
     pass
 
-from supabase import create_client  # noqa: E402
-from intelligence.models import IntelligenceItem  # noqa: E402
-from intelligence.classification.classifier import classify  # noqa: E402
+from supabase import create_client
+
+from intelligence.classification.classifier import classify
+from intelligence.models import IntelligenceItem
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")

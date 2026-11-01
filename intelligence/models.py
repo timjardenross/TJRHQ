@@ -5,8 +5,6 @@ All fields required for source attribution and audit trail.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
-import uuid
 
 
 @dataclass
@@ -20,9 +18,9 @@ class SourceRecord:
     jurisdiction: str         # AU | APAC | GLOBAL
     confidence_weight: float
     active: bool
-    rss_url: Optional[str] = None
-    api_endpoint: Optional[str] = None
-    notes: Optional[str] = None
+    rss_url: str | None = None
+    api_endpoint: str | None = None
+    notes: str | None = None
     # continuous: zero items is suspicious (news/regulatory feeds).
     # intermittent: zero items is the expected, correct state most of the time
     # (incident-only status feeds) — must not be flagged as degraded on that basis alone.
@@ -36,14 +34,14 @@ class SourceHealth:
     checked_at: datetime
     status: str               # ok | stale | failed | degraded | skipped
     items_retrieved: int = 0
-    latency_ms: Optional[int] = None
-    error_message: Optional[str] = None
-    http_status: Optional[int] = None
+    latency_ms: int | None = None
+    error_message: str | None = None
+    http_status: int | None = None
     # Orthogonal to status — whether the retrieved content is genuinely real, not
     # generic site furniture/marketing boilerplate/a stale identical repeat/a JS
     # template placeholder. None = not evaluated by this adapter type.
-    content_valid: Optional[bool] = None
-    content_validity_reason: Optional[str] = None
+    content_valid: bool | None = None
+    content_validity_reason: str | None = None
 
 
 @dataclass
@@ -56,9 +54,9 @@ class IntelligenceItem:
     source_category: str
     raw_title: str
     collected_at: datetime
-    raw_summary: Optional[str] = None
-    canonical_url: Optional[str] = None
-    published_at: Optional[datetime] = None
+    raw_summary: str | None = None
+    canonical_url: str | None = None
+    published_at: datetime | None = None
 
 
 @dataclass
@@ -71,9 +69,9 @@ class ClassifiedEvent:
     source_confidence_weight: float
     source_category: str
     raw_title: str
-    raw_summary: Optional[str]
-    canonical_url: Optional[str]
-    published_at: Optional[datetime]
+    raw_summary: str | None
+    canonical_url: str | None
+    published_at: datetime | None
     collected_at: datetime
     dedup_hash: str
 
@@ -88,7 +86,7 @@ class ClassifiedEvent:
     dependency_risk: bool
     confidence: float                 # 0.0–1.0
     suppressed: bool = False
-    suppression_reason: Optional[str] = None
+    suppression_reason: str | None = None
     affected_cves: list[str] = field(default_factory=list)  # CVE IDs extracted from title/summary
 
 
@@ -111,7 +109,7 @@ class BriefEvent:
     so_what: str
     status: str
     source_name: str
-    canonical_url: Optional[str]
+    canonical_url: str | None
     rank_score: float
 
 
@@ -137,24 +135,24 @@ class ResilienceBrief:
     overall_risk: str         # GREEN | AMBER | RED | UNKNOWN
 
     # Narrative (LLM-generated; None if all providers failed)
-    executive_snapshot: Optional[str]
-    emerging_themes: Optional[list]
-    forward_watch: Optional[list]
-    cps230_implications: Optional[list]
-    bottom_line: Optional[str]
+    executive_snapshot: str | None
+    emerging_themes: list | None
+    forward_watch: list | None
+    cps230_implications: list | None
+    bottom_line: str | None
 
     # Quality indicators
     narrative_available: bool
     llm_used: bool
-    provider_used: Optional[str]
+    provider_used: str | None
     confidence: float
     trigger_type: str         # scheduled | on_demand | test
 
     # Briefs canonical uplift (BRIEFS_CANONICAL_UPLIFT.md) — all optional,
     # None on a brief generated before this uplift or when the underlying
     # computation had nothing to report (e.g. no prior brief to compare to).
-    morning_cycle_id: Optional[str] = None   # AEST date 'YYYY-MM-DD' of this morning's collection cycle
-    coverage: Optional[dict] = None          # structured collection coverage / degraded-cutoff record
-    comparison: Optional[dict] = None        # deterministic vs-prior-brief diff (new/escalated/improved/...)
-    domain_picture: Optional[dict] = None    # deterministic domain grouping of top_events
-    known_unknowns: Optional[list] = None    # LLM-identified evidence gaps, if any
+    morning_cycle_id: str | None = None   # AEST date 'YYYY-MM-DD' of this morning's collection cycle
+    coverage: dict | None = None          # structured collection coverage / degraded-cutoff record
+    comparison: dict | None = None        # deterministic vs-prior-brief diff (new/escalated/improved/...)
+    domain_picture: dict | None = None    # deterministic domain grouping of top_events
+    known_unknowns: list | None = None    # LLM-identified evidence gaps, if any

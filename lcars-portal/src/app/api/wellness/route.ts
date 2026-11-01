@@ -96,7 +96,7 @@ export async function GET() {
         // "MY CAPACITY TODAY" fields (recovery_pulses is retired). Quick
         // check-in rows only — checkin_type also covers 'evening' rows,
         // which this route doesn't merge into the daily snapshot.
-        .select('log_date,captured_at,capacity_state,regulation_state,pain_score,notes,trigger_note')
+        .select('log_date,captured_at,capacity_state,regulation_state,pain_score,pain_state,notes,trigger_note')
         .eq('checkin_type', 'capacity')
         .eq('log_date', today)
         .order('captured_at', { ascending: false })

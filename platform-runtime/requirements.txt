@@ -1,5 +1,5 @@
 annotated-types==0.7.0
-anyio==4.12.1
+anyio==4.15.1
 certifi==2026.5.20
 distro==1.9.0
 exceptiongroup==1.3.1
@@ -7,38 +7,60 @@ h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
 idna==3.18
-jiter==0.15.0
-openai==2.41.0
-pydantic==2.13.4
-pydantic_core==2.46.4
+# 2026-09-12: anyio==4.15.1 (bumped in PR #112 for graphiti-core/mem0ai)
+# requires typing_extensions>=4.16.0 — was pinned at 4.15.0, an unresolvable
+# conflict a clean `pip install -r` always hits (first caught for real by
+# python-ci's first live run, PR #176). Bumped together with jiter (openai's
+# real minimum) and openai itself (the live Phoenix/pydantic-ai-slim chain
+# needs >=3.x; verified against the actually-running platform, USS-TJR-MSN-0365
+# incident response). garak, which needs openai<3.0, is deliberately NOT in
+# this file for exactly this reason — see core/quality/requirements-garak.txt.
+# Docling (USS-TJR-MSN-0366) is deliberately NOT in this file either — no
+# version conflict, just a torch/transformers footprint (~6.2GB on a plain
+# `pip install docling`, confirmed live 2026-09-12) this file's other
+# consumers shouldn't have to carry. See core/knowledge/requirements-docling.txt.
+jiter==0.16.0
+openai==3.37.0
+pydantic==2.14.1
+pydantic_core==2.50.1
 python-dotenv==1.2.1
-slack_bolt==1.28.0
-slack_sdk==3.42.0
 sniffio==1.3.1
 tqdm==4.67.3
-typing-inspection==0.4.2
-typing_extensions==4.15.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
 numpy>=1.26.0
 # Pin to v1.x: the code uses the v1 API (`from mistralai import Mistral`,
 # `client.beta.conversations.start`). v2.x ships an incompatible package layout
 # with no top-level `Mistral` export and breaks the import.
 mistralai>=1.0.0,<2
 # Gemini (Google) client used by the research decomposer (gemini_xo_decomposer).
-google-generativeai>=0.8.0
+google-generativeai>=0.8.6
 # Supabase client: research-metrics persistence + Command Memory / working memory.
 supabase>=2.0.0
 apscheduler>=3.10.0
+# USS-TJR-MSN-0375: Postgres-native durable-queue pilot for
+# human_systems_scheduler.py's --daemon mode (SKIP LOCKED dedup + a real
+# job ledger against the existing Supabase Postgres instance — no new
+# infra). Does not replace apscheduler above, which intelligence/scheduler.py
+# and revs/scheduler.py still use (out of scope for this pilot).
+pgqueuer>=1.3.2
+asyncpg>=0.29.0
 # intelligence/ RSS + scrape adapters (feedparser: ~25 RSS sources; beautifulsoup4:
 # ~15 scrape sources incl. APRA/ASIC/ACSC) — never declared here, so every
 # RSS/scrape source in intelligence_source_registry failed collection with
 # "not installed" (confirmed via intelligence_source_health) until this line was added.
 feedparser>=6.0.0
 beautifulsoup4>=4.12.0
+# USS-TJR-MSN-0368 Stream 9: was only a transitive dep (pulled in by
+# something else) -- pinned explicitly now that emergency-alert-adapters/
+# health-signal/RSS XML parsing depends on it directly for XXE safety
+# (swapped from stdlib xml.etree.ElementTree, which is not defused).
+defusedxml>=0.7.1
 # 2026-07-10: core/context-assembly/context_service.py's `serve` command
 # (Flask HTTP bridge for Captain's Brief + Recommendations, deploy/
 # context-service.service) needs these - not previously declared here
 # because nothing ran `serve` under process supervision before this unit.
-flask>=3.0.0
+flask>=3.1.3
 flask-cors>=4.0.0
 # 2026-08-22: core/platform/memory_graph.py (Graphiti Slice 1 — long-term
 # memory infrastructure). falkordblite embeds FalkorDB Lite in-process (no
@@ -46,9 +68,64 @@ flask-cors>=4.0.0
 # client dependency (distinct from the older google-generativeai above,
 # which something else in this codebase still needs — both coexist fine,
 # confirmed live, different import namespaces).
-graphiti-core[falkordblite,google-genai]>=0.29.0
-arize-phoenix
+graphiti-core[falkordblite,google-genai]>=0.30.2
+# 2026-09-06: core/platform/unified_memory.py's mem0 backend for SEMANTIC/
+# FACTUAL recall (_Mem0Backend) — already installed and merged, just never
+# declared here.
+mem0ai>=2.0.18
+arize-phoenix>=20.10.0
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
 openinference-instrumentation-openai
 openinference-instrumentation-mistralai
+# 2026-08-23: platform-runtime/lib/quality_scoring_service.py's score_output()
+# (HallucinationMetric-backed LLM-output quality scoring, GAP 1). Installed
+# and importable since e27d1ead, never declared here.
+deepeval>=4.1.10
+# 2026-09-12: core/context-assembly/context_service.py's `serve` command now
+# launches gunicorn instead of calling flask_app.run() (the Werkzeug dev
+# server) — that was never meant to serve production traffic and had no
+# concurrency/process-management guarantees under deploy/context-service.service.
+gunicorn>=23.0.0
+# garak (core/quality/garak_gate.py, tools/garak_sweep.sh) is intentionally
+# NOT declared here — see core/quality/requirements-garak.txt and its own
+# dedicated venv (platform-runtime/.venv-garak/). garak==0.17.0 hard-requires
+# openai<3.0 in its own package metadata; this file needs openai>=3.x for the
+# Phoenix/pydantic-ai-slim chain. pip's resolver correctly refuses to install
+# both together — confirmed via a real ResolutionImpossible error, not a
+# guess — so garak gets its own isolated dependency universe instead of an
+# unresolvable shared one. Found during USS-TJR-MSN-0365's incident response
+# (2026-09-12) after a live venv reached this exact inconsistent state via
+# incremental installs that bypassed the resolver.
+# 2026-09-12 (USS-TJR-MSN-0366 Stream 9): core/platform/notification_service.py's
+# Transport.APPRISE / _send_apprise() — a config-URL-per-transport hedge against
+# a repeat of the 2026-09-08 Slack-retirement migration (see that module's header
+# comment). Checked via `pip install --dry-run` before adding: no pinned (`==`)
+# dependencies of its own (requests, requests-oauthlib, markdown, PyYAML, click —
+# all already satisfied or unpinned), zero overlap/conflict with the
+# anthropic/google-genai/openai versions this file already pins.
+apprise>=1.13.1
+# Used by two independent callers, added in parallel PRs — kept as one
+# shared pin rather than two duplicate lines:
+# - tools/health-osint/health_signal_synthesis.py — cross-source semantic
+#   clustering of published health_signals (catches the same finding
+#   covered by different outlets with different wording;
+#   health_signal_curation.py's own _dedup_key() only catches same-source
+#   re-publication).
+# - core/capture/dedup.py — cross-item semantic duplicate detection for
+#   the Capture Workbench inbox (captured_items).
+# Small, embedding-based (Model2Vec, not a large model) — its default
+# encoder downloads from Hugging Face Hub on first use; verified
+# importable and API-correct via direct source inspection in both PRs
+# (DeduplicationResult/DuplicateRecord dataclasses), and 0.4.1 is
+# confirmed installable, but the actual embedding download could not be
+# exercised end-to-end in either authoring sandbox (proxy returns 403 for
+# huggingface.co) — confirm HF Hub is reachable from wherever
+# capture-enrichment.timer and the health-signal-synthesis pass actually
+# run before relying on either.
+semhash>=0.4.1
+
+# 2026-09-15 adversarial review: caps a single hanging/slow test at
+# --timeout=30 (set in pytest.ini) instead of letting it stall the whole
+# suite/CI job indefinitely.
+pytest-timeout>=2.3.1

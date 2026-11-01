@@ -1,0 +1,10 @@
+[Unit]
+Description=Run sync-self-improvement-state every 3 minutes (offset ahead of auto-deploy's 5min tick)
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=3min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

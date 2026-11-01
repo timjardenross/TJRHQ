@@ -8,7 +8,6 @@ from typing import Any
 
 from notion_client import NotionClient, required_env
 
-
 DATABASES = {
     "Knowledge Assets": {
         "env": "NOTION_KNOWLEDGE_DATABASE_ID",

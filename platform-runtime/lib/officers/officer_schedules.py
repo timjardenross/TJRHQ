@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -231,7 +231,7 @@ def _get_schedule_state(activity_id: str) -> tuple[datetime | None, int]:
             return None, 0
 
         owner = f"{_SCHEDULE_OWNER_PREFIX}{activity_id}"
-        res = c.raw_client.table("decisions").select("rationale").eq("owner", owner).limit(1).execute()
+        res = c.raw_client.table("command_memory_records").select("rationale").eq("owner", owner).limit(1).execute()
         rows = list(res.data or [])
         if not rows:
             return None, 0
@@ -252,7 +252,7 @@ def _get_schedule_state(activity_id: str) -> tuple[datetime | None, int]:
                 except ValueError:
                     pass
         return last_run, run_count
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort schedule state retrieval, already logged
         log.debug("[officer_schedules] State retrieval failed for %s: %s", activity_id, exc)
         return None, 0
 
@@ -264,7 +264,7 @@ def _is_due(schedule: OfficerSchedule, last_run: datetime | None) -> bool:
     if last_run is None:
         return True
     interval = timedelta(days=schedule.interval_days)
-    return (datetime.utcnow() - last_run) >= interval
+    return (datetime.now(timezone.utc) - last_run) >= interval
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ def get_due_activities(ctx: Any = None) -> list[ScheduledActivity]:
         try:
             last_run, run_count = _get_schedule_state(schedule.activity_id)
             next_due = (
-                (last_run + timedelta(days=schedule.interval_days)) if last_run else datetime.utcnow()
+                (last_run + timedelta(days=schedule.interval_days)) if last_run else datetime.now(timezone.utc)
             )
             is_due = _is_due(schedule, last_run)
             due.append(ScheduledActivity(
@@ -288,7 +288,7 @@ def get_due_activities(ctx: Any = None) -> list[ScheduledActivity]:
                 next_due=next_due,
                 run_count=run_count,
             ))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort due-check per schedule, already logged
             log.debug("[officer_schedules] Due check failed for %s: %s", schedule.activity_id, exc)
     return [a for a in due if a.is_due]
 
@@ -305,8 +305,8 @@ def record_activity_run(activity_id: str) -> None:
         if not schedule:
             return
 
-        last_run, run_count = _get_schedule_state(activity_id)
-        now = datetime.utcnow()
+        _last_run, run_count = _get_schedule_state(activity_id)
+        now = datetime.now(timezone.utc)
         next_due = now + timedelta(days=schedule.interval_days)
         new_count = run_count + 1
 
@@ -314,15 +314,15 @@ def record_activity_run(activity_id: str) -> None:
         rationale = f"LAST_RUN: {now.isoformat()} | NEXT_DUE: {next_due.isoformat()} | COUNT: {new_count}"
         statement = f"[OFFICER SCHEDULE] {activity_id}: {schedule.activity}"
 
-        existing = c.raw_client.table("decisions").select("id").eq("owner", owner).limit(1).execute()
+        existing = c.raw_client.table("command_memory_records").select("id").eq("owner", owner).limit(1).execute()
         if list(existing.data or []):
-            c.raw_client.table("decisions").update({
+            c.raw_client.table("command_memory_records").update({
                 "rationale": rationale,
                 "statement": statement,
                 "updated_at": now.isoformat(),
             }).eq("owner", owner).execute()
         else:
-            c.raw_client.table("decisions").insert({
+            c.raw_client.table("command_memory_records").insert({
                 "owner": owner,
                 "statement": statement,
                 "rationale": rationale,
@@ -331,15 +331,15 @@ def record_activity_run(activity_id: str) -> None:
             }).execute()
 
         log.info("[officer_schedules] Recorded run: %s (count=%d)", activity_id, new_count)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort run record write, already logged
         log.debug("[officer_schedules] Record run failed for %s: %s", activity_id, exc)
 
 
 __all__ = [
-    "ScheduleFrequency",
-    "OfficerSchedule",
-    "ScheduledActivity",
     "OFFICER_SCHEDULES",
+    "OfficerSchedule",
+    "ScheduleFrequency",
+    "ScheduledActivity",
     "get_due_activities",
     "record_activity_run",
 ]

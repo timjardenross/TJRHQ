@@ -40,7 +40,7 @@ def _with_stub(stub, fn):
 
 def test_complete_response_returns_immediately():
     stub = _Stub([_resp("all done", "stop")])
-    text, used = _with_stub(stub, lambda: oai.chat("http://x", "k", "m", "hi"))
+    text, _used = _with_stub(stub, lambda: oai.chat("http://x", "k", "m", "hi"))
     assert text == "all done"
     assert stub.calls == 1
 

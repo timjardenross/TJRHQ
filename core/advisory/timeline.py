@@ -18,15 +18,16 @@ from __future__ import annotations
 import json
 import re
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _outcomes = _import_sibling("outcomes")  # advisory snapshot/ledger paths honour ADVISORY_DATA_ROOT
 
 _REPO_ROOT = _HERE.parents[1]
@@ -52,8 +53,8 @@ class TimelineEvent:
     kind: str                    # decision | advice | advisory_outcome | mission_outcome | decision_outcome
     ref: str                     # id of the underlying record
     title: str = ""              # question / mission title
-    outcome: Optional[str] = None
-    score: Optional[float] = None  # confidence (advice) or outcome_score (mission) 0..1
+    outcome: str | None = None
+    score: float | None = None  # confidence (advice) or outcome_score (mission) 0..1
     tags: list[str] = field(default_factory=list)
     detail: dict[str, Any] = field(default_factory=dict)
 
@@ -200,9 +201,9 @@ _LOADERS = {
 
 def load_events(
     *,
-    kinds: Optional[list[str]] = None,
-    since: Optional[str] = None,
-    until: Optional[str] = None,
+    kinds: list[str] | None = None,
+    since: str | None = None,
+    until: str | None = None,
     newest_first: bool = True,
 ) -> list[TimelineEvent]:
     """Return all timeline events, optionally filtered by kind and date window.
@@ -240,7 +241,7 @@ def events_matching(query: str, *, limit: int = 20, **kw) -> list[TimelineEvent]
     return [e for _, e in scored[:limit]]
 
 
-def span() -> dict[str, Optional[str]]:
+def span() -> dict[str, str | None]:
     """Earliest and latest event dates on record."""
     events = load_events(newest_first=False)
     if not events:

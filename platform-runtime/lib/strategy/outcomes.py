@@ -31,7 +31,7 @@ import logging
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -44,8 +44,11 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.strategy.initiatives import (
-    Initiative, InitiativeHealth, OutcomeTrend, InitiativeStatus,
-    update_initiative, get_initiative,
+    Initiative,
+    InitiativeHealth,
+    OutcomeTrend,
+    get_initiative,
+    update_initiative,
 )
 
 OUTCOME_OWNER_PREFIX = "initiative_outcome:"
@@ -111,14 +114,14 @@ def record_outcome(initiative_id: str, value: str, evidence: str = "") -> bool:
             statement=f"{_OUTCOME_STATEMENT} {initiative_id}: {str(value)[:60]}",
             rationale=(
                 f"INITIATIVE: {initiative_id} | VALUE: {str(value)[:80]} | "
-                f"MEASURED: {datetime.utcnow().isoformat()} | EVIDENCE: {evidence[:120]}"
+                f"MEASURED: {datetime.now(timezone.utc).isoformat()} | EVIDENCE: {evidence[:120]}"
             ),
             owner=f"{OUTCOME_OWNER_PREFIX}{initiative_id}",
         )
         # Keep the initiative's current value in sync
         update_initiative(initiative_id, current=str(value)[:80])
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcome recording, best-effort, already logged
         log.debug("[strategy.outcomes] record_outcome failed: %s", exc)
         return False
 
@@ -131,7 +134,7 @@ def get_outcome_history(initiative_id: str, limit: int = 30) -> list[OutcomeMeas
         if not (c.is_enabled() and c.raw_client):
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{OUTCOME_OWNER_PREFIX}{initiative_id}")
             .order("created_at", desc=False)
@@ -153,7 +156,7 @@ def get_outcome_history(initiative_id: str, limit: int = 30) -> list[OutcomeMeas
                 evidence=parts.get("EVIDENCE", ""),
             ))
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcome history fetch, best-effort, already logged
         log.debug("[strategy.outcomes] get_outcome_history failed: %s", exc)
         return []
 
@@ -309,13 +312,13 @@ def refresh_initiative_health(
 
 
 __all__ = [
+    "HealthAssessment",
     "OutcomeMeasurement",
     "OutcomeProgress",
-    "HealthAssessment",
-    "record_outcome",
-    "get_outcome_history",
+    "assess_health",
     "compute_progress",
     "compute_trend",
-    "assess_health",
+    "get_outcome_history",
+    "record_outcome",
     "refresh_initiative_health",
 ]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import docx
 
-from .base import ExtractionResult, ExtractionError
+from .base import ExtractionError, ExtractionResult
 
 
 def extract(path) -> ExtractionResult:

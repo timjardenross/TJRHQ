@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 1 — Lifecycle Reconciler (read-only, advisory).
 
 The delivery reconciler (`delivery_reconciler.py`) already establishes the
@@ -32,9 +33,9 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from core.coordination import delivery_reconciler as dr
 from core.coordination.lifecycle_status_map import (
@@ -72,7 +73,7 @@ _BUCKET_TO_STAGE = {
 }
 
 
-def _spine_from_claimed(item: dict) -> Optional[LifecycleStage]:
+def _spine_from_claimed(item: dict) -> LifecycleStage | None:
     """Map a ledger item's claimed status onto the spine using the right vocab.
 
     Each item kind speaks a different source vocabulary; route to the matching
@@ -91,7 +92,7 @@ def _spine_from_claimed(item: dict) -> Optional[LifecycleStage]:
     return None
 
 
-def _effective_stage(item: dict) -> Optional[LifecycleStage]:
+def _effective_stage(item: dict) -> LifecycleStage | None:
     """The truthful spine stage for a ledger item.
 
     The delivery reconciler's bucket is authoritative — it already reconciled the
@@ -106,7 +107,7 @@ def _effective_stage(item: dict) -> Optional[LifecycleStage]:
 
 
 def items_at_stage(
-    stage: LifecycleStage, ledger: Optional[dict[str, Any]] = None
+    stage: LifecycleStage, ledger: dict[str, Any] | None = None
 ) -> list[dict[str, Any]]:
     """Return the ledger items whose effective spine stage equals `stage`.
 
@@ -128,7 +129,7 @@ def items_at_stage(
     return out
 
 
-def build_recommendations(ledger: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def build_recommendations(ledger: dict[str, Any] | None = None) -> dict[str, Any]:
     """Enrich the delivery ledger with spine stages and human-action recs.
 
     Read-only. `ledger` may be injected (for tests); otherwise the live delivery
@@ -181,7 +182,7 @@ def build_recommendations(ledger: Optional[dict[str, Any]] = None) -> dict[str, 
     recommendations.sort(key=lambda r: (_stage_rank.get(r["stage"], 9), str(r["id"])))
 
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "stage_counts": stage_counts,
         "recommendations": recommendations,
         "source": {
@@ -224,7 +225,7 @@ def format_recommendations(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def write_recommendations(report: dict[str, Any]) -> Optional[Path]:
+def write_recommendations(report: dict[str, Any]) -> Path | None:
     """Persist an advisory JSON snapshot. NOT a status write — a read-only record.
 
     Lands beside the existing transition/closure audit JSON. Never raises.

@@ -12,21 +12,21 @@ These are pure unit tests — no Supabase, no network calls. They verify:
 5. Scoring failure is non-blocking — a contrived bad input must not propagate.
 """
 
-import sys
 import os
+import sys
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
-from intelligence.models import ClassifiedEvent, RankedEvent
+from core.platform.priority_engine import PriorityScore
+from intelligence.models import RankedEvent
 from intelligence.persistence.intelligence_store import (
-    _priority_score_for_event,
     _PRIORITY_SCORING_IMPORTANCE_FLOOR,
     _derive_attention_importance,
+    _priority_score_for_event,
 )
-from core.platform.priority_engine import PriorityScore
 
 
 def _make_ranked_event(

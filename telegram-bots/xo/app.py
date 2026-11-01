@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """XO Bot — @Starship_endeavour_xO_bot
 
 Executive Officer: Captain's primary Telegram companion.
@@ -22,11 +23,11 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 
 from dotenv import load_dotenv
 
@@ -56,11 +57,33 @@ def _ensure_mistral_env() -> None:
             if line.startswith("MISTRAL_API_KEY") and "=" in line:
                 k, _, v = line.partition("=")
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort .env bootstrap, must not crash bot startup
+        logging.getLogger(__name__).debug("failed to load MISTRAL_API_KEY from .env: %s", exc)
 
 
 _ensure_mistral_env()
+
+
+def _ensure_github_env() -> None:
+    """Same single-key-borrow pattern as _ensure_mistral_env() above — this
+    process loads only its own .env, but /merge_pr and /decline_pr
+    (2026-09-26) need GITHUB_TOKEN/GITHUB_REPO, which live in
+    platform-runtime/.env alongside the rest of the GitHub config
+    core/engineering/providers/github_pr.py already reads."""
+    if os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPO"):
+        return
+    envf = _REPO_ROOT / "platform-runtime" / ".env"
+    try:
+        for line in envf.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith(("GITHUB_TOKEN=", "GITHUB_REPO=")):
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except Exception as exc:  # noqa: BLE001 - best-effort .env bootstrap, must not crash bot startup
+        logging.getLogger(__name__).debug("failed to load GITHUB_TOKEN/GITHUB_REPO from .env: %s", exc)
+
+
+_ensure_github_env()
 
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID   = int(os.environ["TELEGRAM_CHAT_ID"])
@@ -83,34 +106,24 @@ log = logging.getLogger("xo-bot")
 # python-telegram-bot's polling/send calls means the bot token in plaintext
 # on every log line. WARNING still surfaces real failures, just not the URL.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # ── Shared modules ────────────────────────────────────────────────────────────
 
 sys.path.insert(0, str(_REPO_ROOT))
 
+from core.engineering.providers import (
+    github_pr,
+)
+
 # ── Telemetry ─────────────────────────────────────────────────────────────────
 try:
     from platform_runtime.lib.telemetry import configure_tracing
     configure_tracing("xo-bot")
-except Exception:
-    pass
-
-from telegram_bots.recovery_officer.engagement_dispatcher import (
-    RecoveryStatus,
-    get_recovery_status,
-)
-from telegram_bots.llm import generate_async
-from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
-from telegram_bots.wellness_officer.brief import generate_wellness_brief_async
-
-# SUOC Wave 2 (MSN-0210F, Item C): canonical chat-ID allowlist gate.
-# TELEGRAM_CHAT_ID is passed as bootstrap_captain_chat_id — a fallback
-# only, kept for exact behavioural parity when TELEGRAM_ALLOWED_CHAT_IDS
-# is unset; the long-term authority model is the explicit env allowlist.
-from core.platform.telegram_access import is_allowed as _chat_is_allowed
+except Exception as exc:  # noqa: BLE001 - best-effort .env bootstrap, must not crash bot startup
+    logging.getLogger(__name__).debug("telemetry configure_tracing failed: %s", exc)
 
 # ── Telegram ──────────────────────────────────────────────────────────────────
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
@@ -122,6 +135,19 @@ from telegram.ext import (
     TypeHandler,
     filters,
 )
+
+# SUOC Wave 2 (MSN-0210F, Item C): canonical chat-ID allowlist gate.
+# TELEGRAM_CHAT_ID is passed as bootstrap_captain_chat_id — a fallback
+# only, kept for exact behavioural parity when TELEGRAM_ALLOWED_CHAT_IDS
+# is unset; the long-term authority model is the explicit env allowlist.
+from core.platform.telegram_access import is_allowed as _chat_is_allowed
+from telegram_bots.llm import generate_async
+from telegram_bots.recovery_officer.engagement_dispatcher import (
+    RecoveryStatus,
+    get_recovery_status,
+)
+from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
+from telegram_bots.xo import medication_reminder as meds
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -156,7 +182,7 @@ def _get_supabase():
         if scoped_supabase is not None:
             try:
                 scoped = scoped_supabase.build_scoped_client(SUPABASE_URL)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - scoped-client construction surface is unpredictable, already logged, falls back to service_role
                 log.warning("[supabase] scoped xo_bot client construction failed, falling back to service_role: %s", exc)
                 scoped = None
             if scoped is not None:
@@ -171,7 +197,7 @@ def _get_supabase():
                 _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
                 log.info("Supabase client initialised — service_role (scoped xo_bot role not configured; "
                          "see xo-bot-scoped-role-implemented.md)")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - client init surface (network/auth) is unpredictable, already logged
                 log.warning("Supabase client failed: %s", exc)
     return _supabase
 
@@ -212,32 +238,87 @@ def _bar(pct: int) -> str:
 # ── XO system prompt ──────────────────────────────────────────────────────────
 
 def _get_open_missions(db) -> str:
-    """Fetch open missions from Supabase, formatted compactly for the system prompt."""
+    """Open missions, formatted compactly for the XO system prompt.
+
+    Mission 1 Round 2 (USS-TJR-MSN-1): this used to run its own raw
+    `db.table("missions")...order("priority")` query — a second, silently
+    divergent priority ordering next to /priorities' and /brief's canonical
+    core/coordination/number_one.py-derived one (both already reuse
+    _get_number_one_brief() below). Reconciled to the same source: top
+    priorities + blocked missions from Number One's brief, same output
+    text shape as before so the LLM prompt format is unchanged. `db` is
+    accepted but unused now — kept so call sites don't need updating; if
+    Number One's brief is unreachable this degrades to "" exactly as the
+    old query's except-branch did.
+    """
+    brief = _get_number_one_brief()
+    if not brief:
+        return ""
+    rows = (brief.get("top_priorities") or []) + (brief.get("blocked_missions") or [])
+    if not rows:
+        return ""
+    lines = []
+    for r in rows[:20]:
+        pri = f"[{r['priority']}] " if r.get("priority") else ""
+        mid = r.get("mission_id", "?")
+        st = r.get("status", "?")
+        title = (r.get("title") or "")[:70]
+        lines.append(f"{pri}{mid} ({st}): {title}")
+    return "\n".join(lines)
+
+
+# ── Conversation turn memory (USS-TJR-MSN-0378 Stream 2) ────────────────────
+# XO's reply hot path had no turn-replay mechanism at all — each reply was
+# generated with zero knowledge of what was said a message ago. This is the
+# standalone, low-risk piece of the mission: replay the last few turns into
+# the system prompt. Long-term extraction (Stream 5, into Graphiti) stays
+# off this path entirely — these two helpers only ever do a cheap
+# insert/select against conversation_turns, never an LLM call.
+
+_RECENT_TURNS_LIMIT = 10
+_RECENT_TURNS_WINDOW_MINUTES = 120
+
+
+def _log_conversation_turn(db, chat_id: int, role: str, text: str) -> None:
+    """Best-effort insert — a logging failure must never break the reply path."""
+    if not db or not text:
+        return
+    try:
+        db.table("conversation_turns").insert({
+            "chat_id": chat_id,
+            "role": role,
+            "text": text[:4000],
+        }).execute()
+    except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, best-effort only
+        log.debug("[conversation_turns] insert failed (non-fatal): %s", exc)
+
+
+def _get_recent_turns(db, chat_id: int) -> str:
+    """Last few turns for this chat, oldest-first, formatted for the system prompt."""
     if not db:
         return ""
     try:
-        res = db.table("missions").select(
-            "mission_id,title,status,priority"
-        ).not_.in_(
-            "status", ["Closed", "completed", "cancelled", "deferred", "Archived"]
-        ).order("priority").limit(20).execute()
-        rows = res.data or []
-        if not rows:
-            return ""
-        lines = []
-        for r in rows:
-            pri  = f"[{r['priority']}] " if r.get("priority") else ""
-            mid  = r.get("mission_id", "?")
-            st   = r.get("status", "?")
-            title = (r.get("title") or "")[:70]
-            lines.append(f"{pri}{mid} ({st}): {title}")
-        return "\n".join(lines)
-    except Exception as exc:
-        log.warning("[missions] fetch failed: %s", exc)
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=_RECENT_TURNS_WINDOW_MINUTES)).isoformat()
+        rows = (
+            db.table("conversation_turns")
+            .select("role,text,created_at")
+            .eq("chat_id", chat_id)
+            .gte("created_at", cutoff)
+            .order("created_at", desc=True)
+            .limit(_RECENT_TURNS_LIMIT)
+            .execute()
+        )
+        turns = list(reversed(rows.data or []))
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, degrade to no recall
+        log.debug("[conversation_turns] recall failed (non-fatal): %s", exc)
         return ""
+    if not turns:
+        return ""
+    lines = [f"{'Captain' if t['role'] == 'captain' else 'XO'}: {t['text']}" for t in turns]
+    return "\n\nRecent conversation (most recent last):\n" + "\n".join(lines)
 
 
-def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> str:
+def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "", recent_turns: str = "") -> str:
     signals = ", ".join(filter(None, [
         f"energy={status.latest_energy}"              if status.latest_energy          else None,
         f"ns={status.latest_nervous_system}"          if status.latest_nervous_system  else None,
@@ -271,7 +352,8 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> 
         f"- Signals: {signals}\n"
         f"- Escalation: L{status.escalation_level} (0=clear 1=low 2=concern 3=critical)"
         f"{wellness_ctx}"
-        f"{missions_ctx}\n\n"
+        f"{missions_ctx}"
+        f"{recent_turns}\n\n"
         "Your role:\n"
         "- Primary daily companion. The Captain talks to you first.\n"
         "- Help make decisions through a capacity lens — can we do this given recovery state?\n"
@@ -307,6 +389,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/signals \\[today|high|cyber|all\\] — top intelligence events, last 24\\-48h\n"
         "/themes — emerging themes from the latest ORI intelligence brief\n"
         "/source\\_status — health of intelligence collection sources\n\n"
+        "*Missions*\n"
+        "/priorities — ask Number One: escalations, stale follow\\-ups, top priorities\n\n"
         "*Capacity Tracking*\n"
         "_Moved to @tjrmindbody\\_capacitybot — /capacity, /deepcheck, /evening, /today, /week, /month, "
         "/capacity\\_patterns, /actions, /therapy\\._\n\n"
@@ -319,10 +403,11 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/revs\\_generate \\<brief path\\> \\[formats\\] — REVS: design brief \\-\\> 7 formats "
         "\\(e\\.g\\. `/revs_generate examples/sample_brief.md poster,social`\\)\n\n"
         "*Health*\n"
-        "/mood\\_chart — log mood \\(1\\-10 scale\\) with optional context\n\n"
+        "/mood\\_chart — log mood \\(1\\-10 scale\\) with optional context\n"
+        "/meds\\_taken — confirm medicines taken \\(stops the 07:00 reminder, which repeats every 15 min\\)\n\n"
         "*System*\n"
         "/db\\_status — Supabase connectivity test\n"
-        "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
+        "/restart\\_bots \\[telegram\\|all\\] — restart XO itself\n\n"
         "_Or just talk to me — I understand plain English\\._",
         parse_mode="MarkdownV2",
     )
@@ -330,100 +415,29 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log mood (1-10 scale) at different times of day with optional context."""
-    from telegram_bots.xo.mood_chart import _TOD_LABELS, kb_time_of_day, _current_time_of_day
-    tod = _current_time_of_day()
-    label = _TOD_LABELS.get(tod, tod)
+    from telegram_bots.xo.mood_chart import kb_time_of_day
     await update.message.reply_text(
-        f"📊 *Mood Chart*\n\n"
-        f"Rate your mood from 1 \\(worst\\) to 10 \\(best\\)\\.\n"
-        f"Add optional context about sleep, pain, anxiety, substance use\\.\n\n"
-        f"When did you feel this way?",
+        "📊 *Mood Chart*\n\n"
+        "Rate your mood from 1 \\(worst\\) to 10 \\(best\\)\\.\n"
+        "Add optional context about sleep, pain, anxiety, substance use\\.\n\n"
+        "When did you feel this way?",
         parse_mode="MarkdownV2",
         reply_markup=kb_time_of_day(),
     )
 
 
-# ── MY CAPACITY TODAY (2026-08-21, replaces Recovery Pulse) ──────────────────
-
-async def cmd_capacity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quick capacity check-in. See capacity_today.py for the full flow."""
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "MY CAPACITY TODAY\n\nHow is your capacity right now?",
-        reply_markup=capacity_today.kb_capacity(),
-    )
-
-
-async def cmd_deepcheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Deeper reflection, standalone (not following a quick check-in)."""
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    saved, row, err = await capacity_today.write_quick_checkin(db, {})
-    if not saved or not row:
-        await update.message.reply_text(f"⚠️ Could not start deep check-in: {err}")
-        return
-    await update.message.reply_text(
-        "Going deeper.\n\nWhat was the main load — physical, cognitive, sensory, emotional, social, or environmental?",
-        reply_markup=capacity_today.kb_deep_load_category(str(row["id"])),
-    )
-
-
-async def cmd_evening(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "Evening reflection\n\nDid your capacity improve, stay the same, or decline today?",
-        reply_markup=capacity_today.kb_evening_trajectory(),
-    )
-
-
-async def cmd_capacity_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/today — show today's check-ins."""
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=0)
-    today = datetime.now(_TZ).date().isoformat()
-    rows = [r for r in rows if r.get("log_date") == today]
-    if not rows:
-        await update.message.reply_text("No check-ins logged today yet. /capacity to start one.")
-        return
-    parts = [capacity_today.render_summary(r) for r in rows if r.get("checkin_type") == "capacity"]
-    await update.message.reply_text("\n\n---\n\n".join(parts) if parts else "No capacity check-ins today yet.")
-
-
-async def cmd_capacity_week(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=7)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "WEEKLY CAPACITY REVIEW"))
-
-
-async def cmd_capacity_month(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "MONTHLY CAPACITY REVIEW"))
-
-
-async def cmd_capacity_patterns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "CAPACITY PATTERNS — LAST 30 DAYS"))
-
-
-async def cmd_capacity_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_actions_summary(rows))
-
-
-async def cmd_therapy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "Therapy summary — how far back?",
-        reply_markup=capacity_today.kb_therapy_window(),
-    )
+# Mission 2 (USS-TJR-MSN-2, 2026-09-19): removed a full block of dead
+# capacity-capture commands (cmd_capacity, cmd_deepcheck, cmd_evening,
+# cmd_capacity_today, cmd_capacity_week, cmd_capacity_month,
+# cmd_capacity_patterns, cmd_capacity_actions, cmd_therapy) that were never
+# registered as CommandHandlers (confirmed: no add_handler call for any of
+# them) and would have raised ImportError if somehow invoked anyway — they
+# imported `from telegram_bots.xo import capacity_today`, a module that
+# does not exist in this package (only telegram-bots/capacitybot/
+# capacity_today.py exists). This bot's own /help text already correctly
+# says capacity tracking "Moved to @tjrmindbody_capacitybot" — these were
+# leftover unreachable function bodies from before that migration,
+# confirming capacitybot as the sole live capacity-capture surface.
 
 
 async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -451,7 +465,7 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"capacity\\_checkins\\_today: {checkins} check\\-ins \\({_escape(str(label))}\\)",
             parse_mode="MarkdownV2",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - diagnostic /db_status probe surface is unpredictable by design, reported back to the caller
         await update.message.reply_text(
             f"⚠️ *Supabase: connected but query failed*\n\n`{_escape(str(exc))}`",
             parse_mode="MarkdownV2",
@@ -463,15 +477,20 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # XO is the only Telegram bot (Captain decision 2026-07-05); tg-engineer /
 # tg-engineering-dept are retired. The "telegram" group is therefore empty here —
 # XO self-restarts tg-xo.service separately below (restart_xo).
+# 2026-09-26: "slack" target removed — starfleet-slack-bot.service was deleted
+# (Slack fully retired). "all"/"telegram" previously restarted only the Slack
+# bot (never the XO process's own systemd unit via the services list — XO
+# restarting itself is handled separately below via restart_xo), so with
+# nothing Slack-related left, there are currently no services to restart via
+# this dict; the command still restarts XO itself when arg is telegram/all.
 _RESTARTABLE_SERVICES = {
-    "slack":    ["starfleet-slack-bot.service"],
     "telegram": [],
-    "all":      ["starfleet-slack-bot.service"],
+    "all":      [],
 }
 
 
 async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/restart_bots [slack|telegram|all]  — restart starfleet services. XO restarts itself last."""
+    """/restart_bots [telegram|all]  — restart XO itself (last remaining target after Slack removal)."""
     if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         return
 
@@ -487,13 +506,15 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     lines = []
     for svc in services:
         try:
-            r = subprocess.run(
+            r = await asyncio.to_thread(
+                subprocess.run,
                 ["systemctl", "restart", svc],
                 capture_output=True, text=True, timeout=15,
+                check=False,
             )
             icon = "✅" if r.returncode == 0 else f"⚠️ rc={r.returncode}"
             lines.append(f"{icon} {svc.replace('.service', '')}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - systemctl subprocess call surface is unpredictable, reported back to the caller
             lines.append(f"❌ {svc.replace('.service', '')}: {_escape(str(exc))}")
 
     restart_xo = arg in ("telegram", "all")
@@ -506,7 +527,71 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if restart_xo:
         await asyncio.sleep(3)
-        subprocess.Popen(["systemctl", "restart", "tg-xo.service"])
+        await asyncio.create_subprocess_exec("systemctl", "restart", "tg-xo.service")
+
+
+# ── Engineering review gate (2026-09-26) ──────────────────────────────────────
+# Merge/decline for the auto-generated version-bump PRs core/engineering/
+# batch_coding.py opens (see xo_review.py) — a human action, always. The
+# XO-review verdict posted as a PR comment is the single source of truth
+# for whether a merge is authorized; this bot never re-derives or stores
+# its own copy of that verdict, it just reads the PR back.
+
+async def cmd_merge_pr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/merge_pr <number> [anyway] — merges only if the PR's own XO-review
+    verdict comment says "approve"; `anyway` overrides a Hold (or an
+    unreviewed PR) explicitly, never silently."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /merge_pr <number> [anyway]")
+        return
+    try:
+        pr_number = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("PR number must be an integer.")
+        return
+    force = len(context.args) > 1 and context.args[1].lower() == "anyway"
+
+    token, repo = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        await update.message.reply_text("GitHub not configured for this bot.")
+        return
+
+    verdict = await asyncio.to_thread(github_pr.get_pr_review_verdict, token, repo, pr_number)
+    if verdict != "approve" and not force:
+        await update.message.reply_text(
+            f"PR #{pr_number} verdict: {verdict or 'unreviewed'} — refusing to merge.\n"
+            f"Reply /merge_pr {pr_number} anyway to override."
+        )
+        return
+
+    ok, message = await asyncio.to_thread(github_pr.merge_pr, token, repo, pr_number)
+    await update.message.reply_text(f"{'✅' if ok else '❌'} {message}")
+
+
+async def cmd_decline_pr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/decline_pr <number> — closes without merging."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /decline_pr <number>")
+        return
+    try:
+        pr_number = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("PR number must be an integer.")
+        return
+
+    token, repo = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        await update.message.reply_text("GitHub not configured for this bot.")
+        return
+
+    ok = await asyncio.to_thread(
+        github_pr.close_pr, token, repo, pr_number, "Declined by the Captain via XO bot.",
+    )
+    await update.message.reply_text("✅ Closed." if ok else "❌ Failed to close PR.")
 
 
 # ── OR Intelligence brief ─────────────────────────────────────────────────────
@@ -514,8 +599,43 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 _RISK_ICON = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢", "GREEN": "🟢", "AMBER": "🟡", "RED": "🔴"}
 
 
-_brief_regen_started_at: float | None = None  # monotonic timestamp — cooldown guard, not a completion signal
 _BRIEF_REGEN_COOLDOWN_SECONDS = 25 * 60  # a detached Popen can't report back when it's actually done
+_BRIEF_REGEN_RATE_KEY = "brief_regen"
+
+
+def _get_brief_regen_started_at(db) -> float | None:
+    """Cooldown state persisted in bot_rate_limits (2026-09-15 adversarial
+    review) instead of a process-global -- a bot restart no longer resets
+    the cooldown and lets an already-running ~15-25min regenerate get
+    kicked off a second time. Returns a monotonic-comparable value (time
+    since epoch, compared against time.time() by the caller) or None."""
+    try:
+        row = (
+            db.table("bot_rate_limits")
+            .select("triggered_at")
+            .eq("rate_key", _BRIEF_REGEN_RATE_KEY)
+            .limit(1)
+            .execute()
+        )
+        rows = row.data or []
+        if not rows:
+            return None
+        from datetime import datetime
+        return datetime.fromisoformat(rows[0]["triggered_at"].replace("Z", "+00:00")).timestamp()
+    except Exception as exc:  # noqa: BLE001 - best-effort cooldown read; a lookup failure just means "not cooling down"
+        log.debug("[brief] cooldown lookup failed: %s", exc)
+        return None
+
+
+def _set_brief_regen_started_at(db, when: float) -> None:
+    try:
+        from datetime import datetime, timezone
+        db.table("bot_rate_limits").upsert({
+            "rate_key": _BRIEF_REGEN_RATE_KEY,
+            "triggered_at": datetime.fromtimestamp(when, tz=timezone.utc).isoformat(),
+        }).execute()
+    except Exception as exc:  # noqa: BLE001 - best-effort cooldown write; a write failure just means the next call re-checks time.time() against no stored cooldown
+        log.debug("[brief] cooldown write failed: %s", exc)
 
 
 def _launch_brief_regen_detached() -> None:
@@ -547,13 +667,13 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     against an incomplete collection window. Otherwise (collection is done
     or past its bounded cutoff, brief just hasn't run yet) kick off the
     canonical generation path and say so."""
-    global _brief_regen_started_at
     db = _get_supabase()
     if not db:
         await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
         return
 
-    from intelligence.brief.morning_cycle import cycle_id_for, get_status as get_cycle_status
+    from intelligence.brief.morning_cycle import cycle_id_for
+    from intelligence.brief.morning_cycle import get_status as get_cycle_status
 
     todays_cycle_id = cycle_id_for()
     have_todays_brief = False
@@ -567,13 +687,14 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         rows = latest.data or []
         have_todays_brief = bool(rows) and rows[0].get("morning_cycle_id") == todays_cycle_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, falls back to regenerate-allowed
         log.warning("[brief] could not check today's cycle status: %s", exc)
 
-    now_mono = time.monotonic()
+    now_ts = time.time()
+    regen_started_at = _get_brief_regen_started_at(db)
     cooling_down = (
-        _brief_regen_started_at is not None
-        and (now_mono - _brief_regen_started_at) < _BRIEF_REGEN_COOLDOWN_SECONDS
+        regen_started_at is not None
+        and (now_ts - regen_started_at) < _BRIEF_REGEN_COOLDOWN_SECONDS
     )
 
     if have_todays_brief:
@@ -583,7 +704,8 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         try:
             cycle_status = get_cycle_status()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - get_cycle_status() best-effort probe, missing/unreadable status file falls back to None
+            log.debug("get_cycle_status probe failed: %s", exc)
             cycle_status = None
 
         if cycle_status is not None and not cycle_status.ready:
@@ -594,13 +716,13 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             try:
                 _launch_brief_regen_detached()
-                _brief_regen_started_at = now_mono
+                _set_brief_regen_started_at(db, now_ts)
                 await update.message.reply_text(
                     "⚙️ Kicked off a fresh regenerate in the background (~15-25 min — full source "
                     "collection + LLM synthesis). Showing the latest available digest below now; "
                     "run /brief again once that's had time to land."
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - background task launch surface is unpredictable, already logged
                 log.warning("[brief] failed to launch on-demand regenerate: %s", exc)
                 await update.message.reply_text("⚠️ Couldn't start a regenerate — showing the last available digest instead.")
 
@@ -642,17 +764,17 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         sources  = b.get("sources_checked", 0)
 
         lines = [
-            f"<b>🛡 OR Intelligence Brief — {bid}</b>",
-            f"{risk_icon} Risk: <b>{risk}</b>",
-            f"<i>Period {p_start} → {p_end} · Generated {gen_at} UTC</i>",
+            f"<b>🛡 OR Intelligence Brief — {_esc_html(bid)}</b>",
+            f"{risk_icon} Risk: <b>{_esc_html(risk)}</b>",
+            f"<i>Period {_esc_html(p_start)} → {_esc_html(p_end)} · Generated {_esc_html(gen_at)} UTC</i>",
             "",
         ]
 
         if bottom:
-            lines += ["<b>Bottom Line</b>", bottom[:600], ""]
+            lines += ["<b>Bottom Line</b>", _esc_html(bottom[:600]), ""]
 
         if snap and snap != bottom:
-            lines += ["<b>Snapshot</b>", snap[:500], ""]
+            lines += ["<b>Snapshot</b>", _esc_html(snap[:500]), ""]
 
         # Same canonical selection Telegram's morning push and Captain's
         # Chair render (BRIEFS_CANONICAL_UPLIFT.md Section 29) — this
@@ -666,19 +788,19 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 item_line = f"  {i}. {item['title']}"
                 if item.get("so_what"):
                     item_line += f" — {item['so_what']}"
-                lines.append(item_line[:220])
+                lines.append(_esc_html(item_line[:220]))
             lines.append("")
 
         if themes:
             lines.append("<b>Emerging Themes</b>")
             for t in themes[:5]:
                 label = t if isinstance(t, str) else (t.get("theme") or t.get("title") or str(t))
-                lines.append(f"  • {str(label)[:100]}")
+                lines.append(f"  • {_esc_html(str(label)[:100])}")
             lines.append("")
 
         if fw:
             fw_text = fw if isinstance(fw, str) else json.dumps(fw)
-            lines += ["<b>Forward Watch</b>", str(fw_text)[:300], ""]
+            lines += ["<b>Forward Watch</b>", _esc_html(str(fw_text)[:300]), ""]
 
         if view["changed"]:
             changed_bits = []
@@ -688,17 +810,17 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if changed_bits:
                 lines.append("<b>Changed Since Yesterday</b>")
                 for bit in changed_bits[:5]:
-                    lines.append(f"  • {bit}"[:200])
+                    lines.append(_esc_html(f"  • {bit}"[:200]))
                 lines.append("")
 
         if view["coverage_note"]:
-            lines += [f"⚠️ <i>{view['coverage_note']}</i>", ""]
+            lines += [f"⚠️ <i>{_esc_html(view['coverage_note'])}</i>", ""]
 
         ev_suppressed = ev_total - ev_in if ev_total and ev_in else None
-        ev_line = f"Events: {ev_in} included"
+        ev_line = f"Events: {_esc_html(ev_in)} included"
         if ev_suppressed is not None:
-            ev_line += f" · {ev_suppressed} suppressed"
-        ev_line += f" · {sources} sources checked"
+            ev_line += f" · {_esc_html(ev_suppressed)} suppressed"
+        ev_line += f" · {_esc_html(sources)} sources checked"
         lines.append(f"<i>{ev_line}</i>")
 
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
@@ -714,10 +836,10 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             from core.voice.tts_edge import send_voice_reply
             await send_voice_reply(context.bot, update.effective_chat.id, brief_voice_text)
-        except Exception:
-            pass  # voice is optional — text reply already delivered
+        except Exception as exc:  # noqa: BLE001 - best-effort voice reply, must never fail since the text reply is already delivered
+            log.debug("optional voice reply failed (text reply already delivered): %s", exc)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - brief-fetch call surface is unpredictable, already logged
         log.error("[brief] OR brief fetch failed: %s", exc)
         await update.message.reply_text(f"⚠️ Brief fetch failed: {str(exc)[:120]}")
 
@@ -779,12 +901,87 @@ async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("\n\n".join(lines), parse_mode="MarkdownV2")
         log.info("[signals] filter=%s rows=%d", filt, len(rows))
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[signals] failed: %s", exc)
         await update.message.reply_text(
             f"⚠️ Signals query failed: `{_escape_strict(str(exc)[:80])}`",
             parse_mode="MarkdownV2",
         )
+
+
+_NUMBER_ONE_LEVEL_ICON = {"CRITICAL": "🆘", "HIGH": "🔺", "MEDIUM": "🟡", "LOW": "⚪"}
+
+
+def _esc_html(value: object) -> str:
+    """Escape a dynamic value for Telegram's HTML parse_mode — Number One's
+    escalation/follow-up text is free-form and may contain &, <, >."""
+    text = str(value)
+    for ch, esc in (("&", "&amp;"), ("<", "&lt;"), (">", "&gt;")):
+        text = text.replace(ch, esc)
+    return text
+
+
+def _get_number_one_brief() -> dict | None:
+    """Fetch Number One's brief the same way core/coordination/command_bus.py's
+    escalation-push rule does — direct in-process import of context_service.py's
+    _http_number_one_brief(), not a reimplementation. Returns None on failure."""
+    try:
+        for p in (_REPO_ROOT / "core" / "context-assembly", _REPO_ROOT / "core" / "coordination", _REPO_ROOT):
+            if str(p) not in sys.path:
+                sys.path.insert(0, str(p))
+        import context_service
+        return context_service._http_number_one_brief()
+    except Exception as exc:  # noqa: BLE001 - cross-module HTTP call surface is unpredictable, already logged, returns None on failure
+        log.warning("[priorities] Could not fetch Number One's brief: %s", exc)
+        return None
+
+
+async def cmd_priorities(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/priorities — USS-TJR-MSN-0362 candidate B (2026-09-08): ask Number
+    One directly. Deterministic, rule-based (core/coordination/number_one.py)
+    — same data as Mission Workbench's "Number One Coordination" card, not
+    an LLM guess at ship status. Escalations + follow-ups + top priorities."""
+    brief = await asyncio.to_thread(_get_number_one_brief)
+    if brief is None:
+        await update.message.reply_text(
+            "⚠️ Couldn't reach Number One right now. This is a load failure, "
+            "not confirmation nothing needs attention."
+        )
+        return
+
+    escalations = brief.get("escalations") or []
+    follow_ups = brief.get("follow_ups") or []
+    top = brief.get("top_priorities") or []
+
+    lines = ["<b>🖖 Number One — Coordination</b>"]
+
+    if not escalations and not follow_ups:
+        lines.append("Nothing needs escalation right now — no blockers or stale follow-ups found.")
+    else:
+        for e in escalations[:8]:
+            level = str(e.get("level", "")).upper()
+            icon = _NUMBER_ONE_LEVEL_ICON.get(level, "⚪")
+            lines.append(
+                f"\n{icon} <b>{_esc_html(e.get('escalation_type', 'ESCALATION'))}</b> [{level}]\n"
+                f"<code>{_esc_html(e.get('mission_id', '?'))}</code> — {_esc_html(e.get('reason', ''))}"
+            )
+            if e.get("recommendation"):
+                lines.append(f"→ {_esc_html(e['recommendation'])}")
+        for f in follow_ups[:5]:
+            lines.append(
+                f"\n🟡 <b>{_esc_html(str(f.get('type', 'FOLLOW_UP')).replace('_', ' '))}</b>\n"
+                f"<code>{_esc_html(f.get('mission_id', '?'))}</code> — {_esc_html(f.get('reason', ''))}"
+            )
+            if f.get("recommendation"):
+                lines.append(f"→ {_esc_html(f['recommendation'])}")
+
+    if top:
+        lines.append("\n<b>Top priorities</b>")
+        for item in top[:5]:
+            lines.append(f"  • [{_esc_html(item.get('priority', '?'))}] {_esc_html(item.get('title', item.get('mission_id', '?')))}")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    log.info("[priorities] escalations=%d follow_ups=%d top=%d", len(escalations), len(follow_ups), len(top))
 
 
 async def cmd_themes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -839,7 +1036,7 @@ async def cmd_themes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
         log.info("[themes] brief_id=%s", brief_id)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[themes] failed: %s", exc)
         await update.message.reply_text(
             f"⚠️ Themes query failed: `{_escape_strict(str(exc)[:80])}`",
@@ -915,7 +1112,7 @@ async def cmd_source_status(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
         log.info("[source-status] total=%d ok=%d fail=%d", total, ok, fail)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[source-status] failed: %s", exc)
         await update.message.reply_text(
             f"⚠️ Source status query failed: `{_escape_strict(str(exc)[:80])}`",
@@ -934,7 +1131,7 @@ def _advisory_cli_call(cli_args: list[str], timeout: int) -> str:
     result = subprocess.run(
         [sys.executable, str(advisory_cli), *cli_args],
         capture_output=True, text=True, timeout=timeout, cwd=str(_REPO_ROOT),
-    )
+    check=False)
     return (result.stdout or result.stderr or "No response.").strip()
 
 
@@ -955,7 +1152,7 @@ async def _run_advisory(update: Update, title: str, cli_args: list[str],
     except subprocess.TimeoutExpired:
         await update.message.reply_text(f"⚠️ Advisory timed out ({timeout}s).")
         return
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - advisory CLI subprocess surface is unpredictable, already logged
         log.error("[advisory] %s failed: %s", title, exc)
         await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
         return
@@ -995,6 +1192,18 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # never got a reply, with no error visible anywhere except the service
     # log. Wrapped so a failure is always at least visible + logged.
     try:
+        # Daily medication reminder — "taken" / "I've taken my meds" stops
+        # today's 15-minute nag. Only while today's reminder is outstanding,
+        # and not when replying to some other XO message (e.g. a
+        # follow-through "done" belongs to that task, not the meds).
+        reply_to = update.message.reply_to_message
+        replying_elsewhere = reply_to is not None and not (reply_to.text or "").startswith("💊")
+        if (not replying_elsewhere and meds.is_outstanding()
+                and meds.is_confirmation_text(text)):
+            meds.confirm(context.job_queue)
+            await update.message.reply_text(meds.CONFIRMED_TEXT)
+            return
+
         db = _get_supabase()
 
         # Adaptive Follow-Through — NL updates against a tracked reminder.
@@ -1005,7 +1214,10 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # matches the capture trigger vocabulary ("remind me"), so checking
         # capture-intent first would misfile it as a brand-new task instead
         # of deferring the original — order matters here.
-        from telegram_bots.xo.follow_through_nl import parse_capture_intent, parse_update_intent
+        from telegram_bots.xo.follow_through_nl import (
+            parse_capture_intent,
+            parse_update_intent,
+        )
 
         reply_to = update.message.reply_to_message
         if db and reply_to is not None:
@@ -1037,7 +1249,7 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                             reply = await _ft_snooze_weekday(db, task_id, intent["weekday"])
                         else:
                             reply = None
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - follow-through action dispatch surface is unpredictable, already logged
                         log.error("[follow-through-nl] update %s failed: %s", action, exc)
                         await update.message.reply_text("Something went wrong — try again.")
                         return
@@ -1054,33 +1266,68 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # Adaptive Follow-Through — deterministic NL capture. Only reached
         # when the message was NOT a reply to a tracked reminder (handled
         # above). A hit here short-circuits the rest of cmd_message entirely.
+        #
+        # Mission 3 (capture-ingress normalisation): this used to write
+        # straight into personal_tasks, a second capture path that
+        # silently bypassed captured_items and its enrichment/
+        # classification pipeline entirely — the exact "two competing
+        # intake behaviours" discovery flagged. Now it goes through
+        # captured_items like every other capture channel (voice, portal,
+        # /note): the actionability/routing decision (does this actually
+        # become a personal_task, or something else — see
+        # core/capture/enrichment_worker.py's actionable bridge) is made
+        # once, in one place, not re-decided here by a second, looser
+        # regex classifier.
+        #
+        # UX tradeoff (deliberate, approved): the old path could reply
+        # "Added to Life Admin" immediately because it created the task
+        # synchronously. Routing through captured_items means the real
+        # routing decision happens on enrichment's next 15-minute pass,
+        # so this reply is now an honest instant acknowledgement, not a
+        # claim the task exists yet — enrichment sends its own Telegram
+        # confirmation (via the canonical notification service) once
+        # routing actually happens, matching every other capture channel.
         capture = parse_capture_intent(text)
         if capture and db:
-            row = {
-                "id": str(uuid.uuid4()),
-                "title": capture["title"][:200],
-                "category": "task",
-                "urgency": 3,
-                "importance": 3,
-                "effort_minutes": 30,
-                "work_state": "captured",
-                "follow_through_mode": "normal",
-                "due_date": capture["due_date"],
-            }
+            summary: dict = {}
+            if capture["due_date"]:
+                # Mission 3: preserves the NL parser's temporal-intent
+                # extraction across the bridge — captured_items has no
+                # due_date column of its own (deliberately not adding
+                # one; personal_tasks already owns that field), so the
+                # hint travels in `summary` and enrichment_worker.py's
+                # _route_to_personal_task() reads it back out when it
+                # actually creates the task.
+                summary["parsed_due_date"] = capture["due_date"]
+                summary["parse_source"] = "telegram_nl_capture"
             try:
-                inserted = db.table("personal_tasks").insert(row).execute()
-                task_id = inserted.data[0]["id"] if inserted.data else None
-                if task_id:
-                    _ft_insert_event(db, task_id, "nl_capture")
-                due_line = f"\nDue {_escape(capture['due_date'])}\\." if capture["due_date"] else ""
-                await update.message.reply_text(
-                    f"Added to Life Admin\\.\n\n*{_escape(capture['title'])}*{due_line}\n\n"
-                    f"I'll bring it back when it needs attention\\.",
-                    parse_mode="MarkdownV2",
-                )
-            except Exception as exc:
+                db.table("captured_items").insert({
+                    "id": str(uuid.uuid4()),
+                    "captured_by": "captain-tjr",
+                    "captured_at": datetime.now(timezone.utc).isoformat(),
+                    # Reuses the same source_type /note already established
+                    # for Telegram-originated text capture (0031b's enum
+                    # has no telegram-plain-text-specific value; "channel_
+                    # message" is the existing generic text-capture tag).
+                    "source_type": "channel_message",
+                    "source_channel_id": "telegram-xo-nl-capture",
+                    "source_message_id": str(update.message.message_id),
+                    "source_message_ts": str(int(time.time() * 1000)),
+                    "item_type": "task",
+                    "title": capture["title"][:200],
+                    "raw_text": text,
+                    "processing_status": "pending",
+                    "summary": summary or None,
+                }).execute()
+            except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, already logged
                 log.error("[follow-through-nl] capture insert failed: %s", exc)
                 await update.message.reply_text("⚠️ Couldn't save that — try again.")
+                return
+            due_line = f" \\(noted for {_escape(capture['due_date'])}\\)" if capture["due_date"] else ""
+            await update.message.reply_text(
+                f"Got it{due_line}\\. Filing that now — I'll confirm shortly\\.",
+                parse_mode="MarkdownV2",
+            )
             return
 
         if db:
@@ -1092,36 +1339,47 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     "[cmd_message] debrief_engine not present on this deploy — "
                     "degrading to plain LLM reply, no debrief routing available"
                 )
+            debrief_result = None
             if de is not None:
-                debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
-                if debrief_result["handled"]:
-                    await update.message.reply_text(debrief_result["reply"])
-                    # Voice reply — additive only; text reply already sent above.
-                    try:
-                        from core.voice.tts_edge import send_voice_reply
-                        await send_voice_reply(
-                            context.bot, update.effective_chat.id, debrief_result["reply"]
-                        )
-                    except Exception:
-                        pass  # voice is optional — text reply already delivered
-                    return
+                try:
+                    debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
+                except Exception as exc:  # an optional debrief feature must never block normal chat
+                    log.warning(
+                        "[cmd_message] debrief routing failed, falling back to the normal reply: %s",
+                        exc, exc_info=True,
+                    )
+            if debrief_result is not None and debrief_result["handled"]:
+                await update.message.reply_text(debrief_result["reply"])
+                # Voice reply — additive only; text reply already sent above.
+                try:
+                    from core.voice.tts_edge import send_voice_reply
+                    await send_voice_reply(
+                        context.bot, update.effective_chat.id, debrief_result["reply"]
+                    )
+                except Exception as exc:  # noqa: BLE001 - best-effort voice reply, must never fail since the text reply is already delivered
+                    log.debug("optional voice reply failed (text reply already delivered): %s", exc)
+                return
 
         status   = get_recovery_status(db)
         snap     = get_wellness_snapshot(db)
         missions = _get_open_missions(db)
+        recent_turns = _get_recent_turns(db, update.effective_chat.id)
+        _log_conversation_turn(db, update.effective_chat.id, "captain", text)
         await update.message.chat.send_action("typing")
-        reply = await generate_async(text, _xo_system_prompt(status, snap, missions))
+        # cloud_first: the local router's xo-response is far slower than its 20 s timeout on this host.
+        reply = await generate_async(text, _xo_system_prompt(status, snap, missions, recent_turns), cloud_first=True)
         if reply:
+            _log_conversation_turn(db, update.effective_chat.id, "xo", reply)
             await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
         else:
             await update.message.reply_text(
-                "XO here\\. LLM unreachable — use /recovery\\_status or /dispatch for now\\.",
+                "XO here\\. LLM unreachable — use /brief or /priorities for now\\.",
                 parse_mode="MarkdownV2",
             )
-    except Exception as exc:
-        log.exception("[cmd_message] failed: %s", exc)
+    except Exception:
+        log.exception("[cmd_message] failed")
         await update.message.reply_text(
-            "⚠️ Something went wrong processing that — try /recovery_status or /dispatch, "
+            "⚠️ Something went wrong processing that — try /brief or /priorities, "
             "or resend your message."
         )
 
@@ -1131,8 +1389,12 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def handle_mood_chart_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle mood chart tap flow: time_of_day → mood_score → optional context."""
     from telegram_bots.xo.mood_chart import (
-        parse_cb, kb_mood_score, kb_confirm_or_add_context,
-        _TOD_LABELS, _MOOD_EMOJI, write_mood_entry, format_mood_entry
+        _MOOD_EMOJI,
+        _TOD_LABELS,
+        kb_confirm_or_add_context,
+        kb_mood_score,
+        parse_cb,
+        write_mood_entry,
     )
 
     query = update.callback_query
@@ -1269,12 +1531,12 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "degrading to plain quick-capture, no active-session check or intent scoring"
         )
 
-    vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
     audio_path = str(vc.VOICE_TMP_DIR / f"tg_{msg.message_id}.oga")
     try:
         tg_file = await msg.voice.get_file()
         await tg_file.download_to_drive(audio_path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Telegram file-download surface is unpredictable, already logged
         log.error("[voice] download failed: %s", exc)
         await thinking.edit_text(f"⚠️ Could not download voice file: {exc}")
         return
@@ -1284,7 +1546,7 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # captured_items (debrief takes priority over quick-capture).
     try:
         t = vc.transcribe_audio(audio_path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - transcription subprocess surface is unpredictable, already logged
         log.error("[voice] transcription error: %s", exc)
         await thinking.edit_text(f"⚠️ Capture failed: {exc}")
         return
@@ -1402,7 +1664,7 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
     try:
         if action == "confirm":
             await query.edit_message_text(
-                f"✅ Capture confirmed\\.\nIn LCARS Portal → Capture Inbox for review\\.",
+                "✅ Capture confirmed\\.\nIn LCARS Portal → Capture Inbox for review\\.",
                 parse_mode="MarkdownV2",
             )
 
@@ -1433,7 +1695,7 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
                 parse_mode="MarkdownV2",
             )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - voice-capture callback action dispatch surface is unpredictable, already logged
         log.error("[voice-cb] %s failed: %s", action, exc)
         await query.edit_message_text(f"⚠️ Action failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
 
@@ -1503,7 +1765,7 @@ async def handle_voice_debrief_decision_callback(update: Update, context: Contex
             await query.edit_message_text(result["reply"])
             return
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - voice-debrief callback action dispatch surface is unpredictable, already logged
         log.error("[voice-debrief-cb] %s failed: %s", action, exc)
         await query.edit_message_text(f"⚠️ Action failed: {exc}")
 
@@ -1522,11 +1784,11 @@ _FT_MODEL_ROUTER_URL   = os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:88
 _FT_DECOMPOSE_TIMEOUT  = 65  # server-side cold model load can take ~50s
 
 _FT_BLOCK_REASONS = [
-    ("I don't know what to do",   "no_idea"),
-    ("I need information",        "need_info"),
-    ("I'm waiting on someone",    "waiting"),
-    ("It's too big",              "too_big"),
-    ("I don't have what I need",  "missing"),
+    ("No idea where to start",    "no_idea"),
+    ("Need information",          "need_info"),
+    ("Waiting on someone",        "waiting"),
+    ("Too big",                   "too_big"),
+    ("Don't have what I need",    "missing"),
     ("Not right now",             "not_now"),
     ("Something else",            "other"),
 ]
@@ -1580,11 +1842,11 @@ def _ft_call_decompose(title: str) -> str | None:
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=_FT_DECOMPOSE_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=_FT_DECOMPOSE_TIMEOUT) as resp:  # nosec B310 - url built from _FT_MODEL_ROUTER_URL env var with fixed local default; the Telegram-typed task title is sent only in the POST body, never in the URL - reviewed 2026-09-12
             body = json.loads(resp.read())
         action = (body.get("action") or "").strip()
         return action or None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - cross-module HTTP call surface is unpredictable, already logged, returns None on failure
         log.warning("[follow-through] decompose call failed: %s", exc)
         return None
 
@@ -1742,9 +2004,27 @@ async def handle_task_followthrough_callback(update: Update, context: ContextTyp
                 await query.edit_message_text(await _ft_block(db, task_id, code))
         elif action == "drop":
             await query.edit_message_text(await _ft_drop(db, task_id))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - follow-through callback action dispatch surface is unpredictable, already logged
         log.error("[follow-through-cb] %s failed: %s", action, exc)
         await query.edit_message_text("Something went wrong — try again.")
+
+
+# ── Daily medication reminder (07:00, repeats every 15 min until confirmed) ──
+
+async def cmd_meds_taken(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    meds.confirm(context.job_queue)
+    await update.message.reply_text(meds.CONFIRMED_TEXT)
+
+
+async def handle_meds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer("Logged")
+    meds.confirm(context.job_queue)
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception as exc:  # noqa: BLE001 - stale/already-edited message; confirmation itself already succeeded
+        log.debug("[meds] could not clear keyboard: %s", exc)
+    await query.message.reply_text(meds.CONFIRMED_TEXT)
 
 
 async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1787,14 +2067,14 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("captured_items", status="ok", detail="voice_type=text_note")
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary capture write
+            log.debug("captured_items heartbeat record failed: %s", exc)
         await update.message.reply_text(
-            f"✅ <b>Note captured</b>\n<i>{_escape(content[:200])}</i>",
+            f"✅ <b>Note captured</b>\n<i>{_esc_html(content[:200])}</i>",
             parse_mode="HTML",
         )
         log.info("[note] captured %d chars", len(content))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, already logged
         log.error("[note] failed: %s", exc)
         await update.message.reply_text(f"⚠️ Capture failed: {str(exc)[:120]}")
 
@@ -1841,7 +2121,7 @@ def _revs_generate_call(brief_path: str, formats: str | None, timeout: int) -> t
         args += ["--formats", formats]
     result = subprocess.run(
         args, capture_output=True, text=True, timeout=timeout, cwd=str(_REVS_ROOT),
-    )
+    check=False)
     return result.returncode, ((result.stdout or "") + (result.stderr or "")).strip()
 
 
@@ -1855,7 +2135,7 @@ async def _run_revs_generate(reply_fn, brief_path: str, formats: str | None) -> 
     except subprocess.TimeoutExpired:
         await reply_fn("⚠️ REVS generation timed out (10min).")
         return
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - REVS content-generation subprocess surface is unpredictable, already logged
         log.error("[revs] generate failed: %s", exc)
         await reply_fn(f"⚠️ REVS generation failed: {str(exc)[:200]}")
         return
@@ -1883,7 +2163,8 @@ async def _run_revs_generate(reply_fn, brief_path: str, formats: str | None) -> 
             reply.append(f"{icon} {o['format']} ({o['duration_seconds']}s){detail}")
         reply.append(f"\n📁 {version_dir}")
         await reply_fn("\n".join(reply))
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - reply formatting is best-effort; falls back to a simpler success message rather than losing the confirmation
+        log.debug("[revs] rich result reply formatting failed: %s", exc)
         await reply_fn(f"✅ {concept_id} v{version} — {ok}/{total} format(s)\n📁 {version_dir}")
 
 
@@ -1960,16 +2241,16 @@ async def handle_mission_approval_callback(update: Update, context: ContextTypes
             from core.platform.event_bus import mark_event_status
             if event_id:
                 mark_event_status(event_id, "acknowledged")
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort event-status mark, must never fail the ack callback
+            log.debug("mark_event_status(acknowledged) failed: %s", exc)
     elif action == "dismiss":
         await query.edit_message_text("🔕 Dismissed.")
         try:
             from core.platform.event_bus import mark_event_status
             if event_id:
                 mark_event_status(event_id, "dismissed")
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort event-status mark, must never fail the dismiss callback
+            log.debug("mark_event_status(dismissed) failed: %s", exc)
 
 
 async def handle_revs_generate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2019,8 +2300,11 @@ _BOT_COMMANDS = [
     ("revs_generate",   "REVS: brief -> 7 formats  e.g. /revs_generate examples/sample_brief.md"),
     # Health & recovery
     ("mood_chart",      "Log mood (1-10 scale) with optional context"),
+    ("meds_taken",      "Confirm medicines taken (stops today's reminders)"),
     # System
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
+    ("merge_pr",        "Merge an XO-reviewed auto-PR  e.g. /merge_pr 314"),
+    ("decline_pr",      "Close an auto-PR without merging  e.g. /decline_pr 314"),
     ("db_status",       "Supabase connectivity test"),
     ("start",           "XO introduction and quick-start"),
     ("help",            "Commands"),
@@ -2032,6 +2316,15 @@ async def _post_init(app) -> None:
     from telegram import BotCommand
     await app.bot.set_my_commands([BotCommand(cmd, desc) for cmd, desc in _BOT_COMMANDS])
     log.info("[startup] Telegram command menu registered (%d commands)", len(_BOT_COMMANDS))
+
+    if app.job_queue is None:
+        log.error("[startup] JobQueue unavailable (pytz/apscheduler missing?) — "
+                  "medication reminder NOT scheduled; re-run pip install -r requirements.txt")
+        return
+    meds.schedule(app.job_queue, TELEGRAM_CHAT_ID)
+    await meds.resume_if_due(app.bot, app.job_queue, TELEGRAM_CHAT_ID)
+    log.info("[startup] medication reminder scheduled 07:00 Australia/Melbourne, every %d min until confirmed",
+             meds.INTERVAL_MINUTES)
 
 
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2065,6 +2358,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start",           cmd_start))
     app.add_handler(CommandHandler("help",            cmd_help))
     app.add_handler(CommandHandler("mood_chart",      cmd_mood_chart))
+    app.add_handler(CommandHandler("meds_taken",      cmd_meds_taken))
     app.add_handler(CommandHandler("signals",         cmd_signals))
     app.add_handler(CommandHandler("themes",          cmd_themes))
     app.add_handler(CommandHandler("source_status",   cmd_source_status))
@@ -2074,8 +2368,12 @@ def main() -> None:
     app.add_handler(CommandHandler("note",            cmd_note))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("brief",           cmd_brief))
+    app.add_handler(CommandHandler("priorities",      cmd_priorities))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
+    app.add_handler(CommandHandler("merge_pr",        cmd_merge_pr))
+    app.add_handler(CommandHandler("decline_pr",      cmd_decline_pr))
     app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,         pattern=r"^mc\|"))
+    app.add_handler(CallbackQueryHandler(handle_meds_callback,               pattern=r"^md\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback,      pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
     app.add_handler(CallbackQueryHandler(handle_revs_generate_callback,      pattern=r"^rg\|"))

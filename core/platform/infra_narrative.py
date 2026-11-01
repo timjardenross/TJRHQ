@@ -24,10 +24,9 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from heartbeat import supabase_get  # noqa: E402
+from heartbeat import supabase_get
 
 from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
@@ -72,11 +71,11 @@ _SYSTEM_PROMPT = (
 _NOMINAL_NARRATIVE = "All platform domains reporting normally — no degraded signals."
 
 
-def _latest_verification_state() -> Optional[dict]:
+def _latest_verification_state() -> dict | None:
     try:
         rows = supabase_get("verification_state?order=computed_at.desc&limit=1&select=*")
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[infra-narrative] failed to read verification_state: %s", exc)
         return None
 
@@ -111,18 +110,18 @@ def _degraded_domain_detail(degraded_domains: list[dict]) -> list[dict]:
         for row in rows:
             row["notes"] = notes_by_key.get(row["domain_key"])
         return rows
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[infra-narrative] failed to read domain_heartbeat_latest detail: %s", exc)
         return []
 
 
-def _generate(prompt: str) -> Optional[str]:
+def _generate(prompt: str) -> str | None:
     """Try the shared provider chain in order. Never raises — returns None on
     total failure, matching every other narrative generator's fail-open contract."""
     providers = [
-        ("gemini-3.5-flash-lite", lambda p: call_gemini(_SYSTEM_PROMPT, p, api_key=_GEMINI_API_KEY, max_output_tokens=512)),
-        ("mistral-small",    lambda p: call_mistral(_SYSTEM_PROMPT, p, api_key=_MISTRAL_API_KEY, max_tokens=512)),
-        (_OLLAMA_MODEL,      lambda p: call_ollama(_SYSTEM_PROMPT, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL, num_predict=400)),
+        ("gemini-3.5-flash-lite", lambda p: call_gemini(_SYSTEM_PROMPT, p, api_key=_GEMINI_API_KEY, max_output_tokens=512).text),
+        ("mistral-small",    lambda p: call_mistral(_SYSTEM_PROMPT, p, api_key=_MISTRAL_API_KEY, max_tokens=512).text),
+        (_OLLAMA_MODEL,      lambda p: call_ollama(_SYSTEM_PROMPT, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL, num_predict=400).text),
     ]
     for name, fn in providers:
         try:
@@ -130,13 +129,13 @@ def _generate(prompt: str) -> Optional[str]:
             if result:
                 log.info("[infra-narrative] generated via %s", name)
                 return result
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[infra-narrative] provider %s failed: %s", name, exc)
     log.warning("[infra-narrative] all providers failed — narrative unavailable")
     return None
 
 
-def generate_infra_narrative() -> Optional[dict]:
+def generate_infra_narrative() -> dict | None:
     """
     Main entry point. Returns a dict:
       {"state": "sure"|"unsure", "narrative": str, "degraded_count": int}
@@ -153,7 +152,7 @@ def generate_infra_narrative() -> Optional[dict]:
     if isinstance(degraded, str):
         try:
             degraded = json.loads(degraded)
-        except Exception:
+        except Exception:  # noqa: BLE001 - documented contract: [] on any parse failure of possibly-malformed stored JSON
             degraded = []
 
     if state == "sure" or not degraded:

@@ -15,7 +15,6 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -34,18 +33,18 @@ def _request_once(url: str, api_key: str, payload: dict, *, label: str, timeout:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - base_url is a generic param, but all callers (qwen.py, kimi.py) source it from a fixed env-driven internal base URL, not end-user input - reviewed 2026-09-12
             raw = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         body = ""
         try:
             body = exc.read().decode("utf-8")[:400]
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort error-body read for a diagnostic message; the RuntimeError below is raised regardless
             pass
         raise RuntimeError(f"[{label}] request failed: HTTP {exc.code} {exc.reason}. {body}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"[{label}] request failed (endpoint unreachable): {exc}") from exc
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise RuntimeError(f"[{label}] unexpected error: {exc}") from exc
     try:
         return json.loads(raw)
@@ -58,7 +57,7 @@ def chat(
     api_key: str,
     model: str,
     prompt: str,
-    system: Optional[str] = None,
+    system: str | None = None,
     *,
     label: str = "oai",
     timeout: int = DEFAULT_TIMEOUT,

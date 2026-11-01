@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/ingestion/ori_brief_parser.py (USS-TJR-MSN-0074 WP2).
 
@@ -16,7 +17,9 @@ from datetime import date
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from intelligence.ingestion.ori_brief_parser import (
-    parse_brief, split_front_matter, detect_version,
+    detect_version,
+    parse_brief,
+    split_front_matter,
 )
 
 # ── Real fixtures (verbatim from the repository) ──────────────────────────────

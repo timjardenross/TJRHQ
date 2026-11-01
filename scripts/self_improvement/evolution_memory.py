@@ -42,6 +42,8 @@ investigation prompt.
 import re
 from typing import Any
 
+import lifecycle
+
 # Lifecycle states worth remembering. Anything else (discovered,
 # investigating, proposed, approved, implementing, verifying) has no
 # settled system-evidence or user-decision signal yet, so it carries
@@ -128,7 +130,7 @@ def find_related_outcomes(candidate: dict[str, Any], store: Any, max_results: in
         for rec in store.all_current():
             if not isinstance(rec, dict):
                 continue
-            if rec.get("lifecycle_state") not in _RELEVANT_STATES:
+            if lifecycle.detail_of(rec) not in _RELEVANT_STATES:
                 continue
             if rec.get("change_class") != candidate_change_class:
                 continue
@@ -152,7 +154,7 @@ def find_related_outcomes(candidate: dict[str, Any], store: Any, max_results: in
 
         results: list[dict[str, Any]] = []
         for relevance_score, rec in scored[:max_results]:
-            relationship = rec.get("lifecycle_state")
+            relationship = lifecycle.detail_of(rec)
             outcome = rec.get("outcome") or {}
             if not isinstance(outcome, dict):
                 outcome = {}
@@ -181,7 +183,7 @@ def find_related_outcomes(candidate: dict[str, Any], store: Any, max_results: in
             })
 
         return results
-    except Exception:
+    except Exception:  # noqa: BLE001 - memory recall/summary is a helpful enrichment, never a hard dependency; any failure here must not block investigation
         # Memory recall is a helpful enrichment, never a hard dependency —
         # any failure here must not block investigation of the candidate.
         return []
@@ -241,19 +243,17 @@ def format_related_experience(related: list[dict[str, Any]]) -> str:
         prefix = f"HQ has relevant prior experience with {count} similar idea{'s' if count != 1 else ''}: "
 
         summary = prefix
-        included = 0
         for i, clause in enumerate(clauses):
-            piece = clause if included == 0 else f"; {clause}"
-            if len(summary) + len(piece) + 1 > _MAX_SUMMARY_CHARS and included > 0:
-                remaining = count - included
+            piece = clause if i == 0 else f"; {clause}"
+            if len(summary) + len(piece) + 1 > _MAX_SUMMARY_CHARS and i > 0:
+                remaining = count - i
                 if remaining > 0:
                     summary += f"; and {remaining} more not shown here"
                 break
             summary += piece
-            included += 1
         else:
             summary += "."
 
         return summary
-    except Exception:
+    except Exception:  # noqa: BLE001 - memory recall/summary is a helpful enrichment, never a hard dependency; any failure here must not block investigation
         return ""

@@ -16,7 +16,7 @@ import os
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import ClassVar
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class NudgeRateLimiter:
     """In-memory rate limiter for task nudges (single-process)."""
 
     def __init__(self):
-        self.db_path = os.environ.get("ADHD_NUDGE_DB", "/tmp/adhd_nudges.db")
+        self.db_path = os.environ.get("ADHD_NUDGE_DB", "/tmp/adhd_nudges.db")  # nosec B108 - env-overridable rate-limiter cache, not sensitive data; single-process default matches other schedulers' convention - reviewed 2026-09-12
         self._init_db()
 
     def _init_db(self):
@@ -42,7 +42,7 @@ class NudgeRateLimiter:
                     """
                 )
                 conn.commit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort SQLite rate-limiter DB init, already logged; caller falls back to fail-open/closed behavior below
             log.warning("Failed to init nudge DB: %s", e)
 
     def should_nudge(self, task_id: str, min_hours_between: int = 8) -> bool:
@@ -64,7 +64,7 @@ class NudgeRateLimiter:
                 now_ts = int(time.time())
                 hours_since = (now_ts - last_nudge_ts) / 3600
                 return hours_since >= min_hours_between
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort rate-limit check, already logged; explicitly fails closed (returns False) on any error per the comment
             log.warning("Nudge rate limit check failed: %s", e)
             return False  # Fail closed — don't nudge if we can't check
 
@@ -84,14 +84,14 @@ class NudgeRateLimiter:
                     (task_id, now_ts),
                 )
                 conn.commit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort nudge-record write, already logged
             log.warning("Failed to record nudge: %s", e)
 
 
 class TaskNudgeComposer:
     """Composes non-judgmental nudge messages for stalled tasks."""
 
-    NUDGE_TEMPLATES = [
+    NUDGE_TEMPLATES: ClassVar[list[str]] = [
         "Still thinking about this one?",
         "Gently nudging: {title}",
         "This might be ready to start: {title}",
@@ -145,9 +145,9 @@ def _fetch_stalled_tasks(threshold_ts: str) -> list[dict]:
     }
     try:
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is built from SUPABASE_URL env config, not user input - reviewed 2026-09-12
             return json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase fetch wrapper — caller sees [] and handles it; already logged
         log.error("[TaskNudge] Failed to fetch stalled tasks: %s", exc)
         return []
 
@@ -162,7 +162,7 @@ async def check_and_nudge_stalled_tasks(supabase_client=None) -> dict:
 
     Returns a summary: {checked: N, nudged: N, errors: [...]}.
     """
-    from core.platform.notification_service import notify, Severity
+    from core.platform.notification_service import Severity, notify
 
     summary = {"checked": 0, "nudged": 0, "errors": []}
     limiter = NudgeRateLimiter()
@@ -203,14 +203,14 @@ async def check_and_nudge_stalled_tasks(supabase_client=None) -> dict:
                 limiter.record_nudge(task_id)
                 summary["nudged"] += 1
                 log.info("[TaskNudge] Nudge sent for %s", task_id)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-task nudge failure inside a batch loop — one bad task must not abort the run; already logged + collected into summary['errors']
                 error_msg = f"Failed to nudge {task_id}: {e}"
                 log.error(error_msg)
                 summary["errors"].append(error_msg)
 
         return summary
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level pass boundary — a full nudge pass must report what it could, not crash; already logged + collected into summary['errors']
         error_msg = f"[TaskNudge] Scheduler error: {e}"
         log.error(error_msg)
         summary["errors"].append(error_msg)

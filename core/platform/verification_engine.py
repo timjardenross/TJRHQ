@@ -26,10 +26,10 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from heartbeat import record_heartbeat, supabase_get, supabase_insert  # noqa: E402
+from heartbeat import record_heartbeat, supabase_get, supabase_insert
 
 _BACKEND_HEALTH_URL = os.environ.get("COMMAND_CENTRE_HEALTH_URL", "http://localhost:5000/health")
 
@@ -65,16 +65,16 @@ def _check_command_centre_backend() -> bool:
     """Same probe as core/coordination/command_bus.py's _backend_healthy()."""
     try:
         req = urllib.request.Request(_BACKEND_HEALTH_URL)
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - url is COMMAND_CENTRE_HEALTH_URL env var (defaults to fixed localhost:5000/health), not user input - reviewed 2026-09-12
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("status") == "operational"
-    except Exception:
+    except Exception:  # noqa: BLE001 - health-check probe; False is the documented 'not healthy' result for any failure mode
         return False
 
 
-def run_verification_pass() -> Dict[str, Any]:
+def run_verification_pass() -> dict[str, Any]:
     """Compute the Sure/Unsure state and persist it. Returns the computed report."""
-    degraded: List[Dict[str, str]] = []
+    degraded: list[dict[str, str]] = []
 
     # 1. Check the command-centre backend live, directly - don't rely on
     #    some other process having heartbeated it recently.
@@ -82,7 +82,7 @@ def run_verification_pass() -> Dict[str, Any]:
     record_heartbeat(
         "command_centre_backend",
         status="ok" if backend_ok else "failed",
-        detail=None if backend_ok else None,
+        detail=None,
         error_message=None if backend_ok else f"GET {_BACKEND_HEALTH_URL} did not return status=operational",
     )
     if not backend_ok:
@@ -94,7 +94,7 @@ def run_verification_pass() -> Dict[str, Any]:
             "domain_heartbeat_latest"
             "?select=domain_key,display_name,category,is_stale,never_succeeded,last_status,last_error_message"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already documented: deliberately does not write verification_state or self-heartbeat on this failure, by design
         # Can't even read domain state - this pass has failed outright.
         # Deliberately do NOT write verification_state (a failed read must
         # never produce a false "sure") and do NOT self-heartbeat, so the

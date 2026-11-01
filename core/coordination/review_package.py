@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 2 — Review Package generator (Automation Point 5).
 
 The Lifecycle Reconciler (Increment 1) finds the items parked at the REVIEW
@@ -28,9 +29,10 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 from core.coordination import delivery_reconciler as dr
 from core.coordination.lifecycle_reconciler import build_recommendations
@@ -43,10 +45,10 @@ REVIEW_PKG_DIR = REPO_ROOT / "USS-TJR-Control" / "logs" / "missions" / "review-p
 _DEFAULT_QA = object()
 
 # A QA function takes (mission_id, dossier_text) and returns advisory text or None.
-QaFn = Callable[[str, str], Optional[str]]
+QaFn = Callable[[str, str], str | None]
 
 
-def _load_qa_officer() -> Optional[QaFn]:
+def _load_qa_officer() -> QaFn | None:
     """Import the existing QA Validation Officer, fail-open to None.
 
     Mirrors how platform-runtime/commands/mission_lifecycle.py reaches it: put
@@ -60,7 +62,7 @@ def _load_qa_officer() -> Optional[QaFn]:
             sys.path.insert(0, bot_dir)
         from lib.mistral_agents import call_qa_validation_officer
 
-        def _call(mission_id: str, dossier: str) -> Optional[str]:
+        def _call(mission_id: str, dossier: str) -> str | None:
             try:
                 return call_qa_validation_officer(mission_id, dossier)
             except Exception:  # noqa: BLE001 - advisory must never raise
@@ -118,16 +120,16 @@ def _format_review_dossier(item: dict, ev: dict[str, Any]) -> str:
         f"Handoff     : {ev['handoff_file'] or 'n/a'}",
         f"Decision ID : {ev['decision_id'] or 'n/a'}",
         "",
-        "Assess whether this delivered change is ready to review/merge: confirm the "
-        "evidence above substantiates the work, call out missing validation, and give "
-        "a clear APPROVE-TO-REVIEW or FLAG recommendation. Do not approve closure.",
+        ("Assess whether this delivered change is ready to review/merge: confirm the "
+         "evidence above substantiates the work, call out missing validation, and give "
+         "a clear APPROVE-TO-REVIEW or FLAG recommendation. Do not approve closure."),
     ]
     return "\n".join(lines)
 
 
 def build_review_packages(
-    report: Optional[dict[str, Any]] = None,
-    qa_fn: "QaFn | object | None" = _DEFAULT_QA,
+    report: dict[str, Any] | None = None,
+    qa_fn: QaFn | object | None = _DEFAULT_QA,
 ) -> dict[str, Any]:
     """Assemble a review package per Review-stage item.
 
@@ -147,7 +149,7 @@ def build_review_packages(
     for item in review_items:
         ev = collect_evidence(item)
         dossier = _format_review_dossier(item, ev)
-        advisory: Optional[str] = None
+        advisory: str | None = None
         if callable(qa_fn):
             advisory = qa_fn(ev["mission_id"], dossier)
         packages.append({
@@ -162,7 +164,7 @@ def build_review_packages(
         })
 
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(packages),
         "packages": packages,
         "source": report.get("source", {}),
@@ -191,7 +193,7 @@ def format_review_packages(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def write_review_packages(report: dict[str, Any]) -> Optional[Path]:
+def write_review_packages(report: dict[str, Any]) -> Path | None:
     """Persist an advisory JSON snapshot. NOT a closure/approval write. Never raises."""
     try:
         REVIEW_PKG_DIR.mkdir(parents=True, exist_ok=True)

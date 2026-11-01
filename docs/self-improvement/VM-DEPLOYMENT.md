@@ -5,7 +5,8 @@ Quick deployment steps for the VM (109.123.227.196 / `vmi3371936`).
 Covers `scripts/self_improvement/orchestrator.py` — the canonical implementation,
 already deployed and running (`self-improving-system.timer`, enabled). A second
 implementation (`self_improving_loop.py`) was retired 2026-07-29 without ever
-being deployed to this VM — see `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`.
+being deployed to this VM and has since been removed from the tree — see git
+history for `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`.
 
 ## Prerequisites Check
 
@@ -56,8 +57,9 @@ jq . /tmp/usstjros-findings/review/cycle_summary.json
 
 ## Scheduled Runs — Already Enabled
 
-`self-improving-system.timer` fires daily 07:00 Melbourne local (±5 min
-randomized delay). To (re)install after a fresh clone:
+`self-improving-system.timer` fires daily 04:30 Melbourne local (±5 min
+randomized delay — moved from 07:00 by HQ V1 Integration QA §23). To
+(re)install after a fresh clone:
 
 ```bash
 sudo cp deploy/self-improving-system.service /etc/systemd/system/

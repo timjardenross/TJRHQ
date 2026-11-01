@@ -28,7 +28,7 @@ def main() -> None:
         for name, loader in dry_run_jobs:
             try:
                 print(f"{name}: dry_run_records={len(loader())}")
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 - per-job dry-run preview inside a CLI diagnostic loop — one bad job must not abort the preview; already printed
                 print(f"{name}: dry_run_skipped={error}")
         return
 

@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -116,7 +116,7 @@ class Initiative:
         if not self.review_date:
             return False
         try:
-            return date.fromisoformat(self.review_date[:10]) < date.today()
+            return date.fromisoformat(self.review_date[:10]) < datetime.now(timezone.utc).date()
         except ValueError:
             return False
 
@@ -173,7 +173,7 @@ def _row_to_initiative(row: dict[str, Any]) -> Initiative | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_INITIATIVE_STATEMENT} {init_id}: "
-    title = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    title = stmt.removeprefix(prefix)
 
     def _enum(cls, val, default):
         try:
@@ -203,7 +203,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (supabase unavailable)
         log.debug("[strategy.initiatives] Supabase unavailable: %s", exc)
         return None
 
@@ -231,7 +231,7 @@ def create_initiative(
         from command_memory_integration import log_decision_to_command_memory
 
         init_id = f"init-{uuid4().hex[:8]}"
-        review_date = (date.today() + timedelta(days=review_days)).isoformat()
+        review_date = (datetime.now(timezone.utc).date() + timedelta(days=review_days)).isoformat()
 
         init = Initiative(
             initiative_id=init_id,
@@ -255,7 +255,7 @@ def create_initiative(
         log.info("[strategy.initiatives] Created %s — %s (objective %s)", init_id, title[:60], objective_id)
         return init_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (create_initiative failed)
         log.warning("[strategy.initiatives] create_initiative failed: %s", exc)
         return None
 
@@ -271,7 +271,7 @@ def update_initiative(initiative_id: str, **fields: Any) -> bool:
 
         owner_key = f"{INITIATIVE_OWNER_PREFIX}{initiative_id}"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale")
             .eq("owner", owner_key)
             .limit(1)
@@ -302,10 +302,10 @@ def update_initiative(initiative_id: str, **fields: Any) -> bool:
         if "title" in fields:
             update["statement"] = f"{_INITIATIVE_STATEMENT} {initiative_id}: {init.title[:80]}"
 
-        c.raw_client.table("decisions").update(update).eq("id", rows[0]["id"]).execute()
+        c.raw_client.table("command_memory_records").update(update).eq("id", rows[0]["id"]).execute()
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (update_initiative failed)
         log.debug("[strategy.initiatives] update_initiative failed: %s", exc)
         return False
 
@@ -316,7 +316,7 @@ def get_initiative(initiative_id: str) -> Initiative | None:
         if c is None:
             return None
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{INITIATIVE_OWNER_PREFIX}{initiative_id}")
             .limit(1)
@@ -324,7 +324,7 @@ def get_initiative(initiative_id: str) -> Initiative | None:
         )
         rows = list(res.data or [])
         return _row_to_initiative(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_initiative failed)
         log.debug("[strategy.initiatives] get_initiative failed: %s", exc)
         return None
 
@@ -336,7 +336,7 @@ def list_initiatives(include_closed: bool = False, limit: int = 100) -> list[Ini
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{INITIATIVE_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -353,7 +353,7 @@ def list_initiatives(include_closed: bool = False, limit: int = 100) -> list[Ini
                 continue
             out.append(init)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (list_initiatives failed)
         log.debug("[strategy.initiatives] list_initiatives failed: %s", exc)
         return []
 
@@ -374,7 +374,7 @@ def link_mission(initiative_id: str, mission_id: str) -> bool:
 
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .eq("owner", owner)
                 .ilike("statement", f"%{mission_id}%")
@@ -386,11 +386,11 @@ def link_mission(initiative_id: str, mission_id: str) -> bool:
 
         log_decision_to_command_memory(
             statement=f"{_INITIATIVE_LINK_STATEMENT} {initiative_id} > {mission_id}",
-            rationale=f"INITIATIVE: {initiative_id} | MISSION: {mission_id} | LINKED: {datetime.utcnow().isoformat()}",
+            rationale=f"INITIATIVE: {initiative_id} | MISSION: {mission_id} | LINKED: {datetime.now(timezone.utc).isoformat()}",
             owner=owner,
         )
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (link_mission failed)
         log.debug("[strategy.initiatives] link_mission failed: %s", exc)
         return False
 
@@ -402,7 +402,7 @@ def get_linked_missions(initiative_id: str) -> list[str]:
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("rationale")
             .eq("owner", f"{INITIATIVE_MISSION_PREFIX}{initiative_id}")
             .execute()
@@ -413,22 +413,22 @@ def get_linked_missions(initiative_id: str) -> list[str]:
                 if seg.startswith("MISSION: "):
                     out.append(seg[len("MISSION: "):].strip())
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_linked_missions failed)
         log.debug("[strategy.initiatives] get_linked_missions failed: %s", exc)
         return []
 
 
 __all__ = [
-    "InitiativeStatus",
-    "InitiativeHealth",
-    "OutcomeTrend",
-    "Initiative",
-    "create_initiative",
-    "update_initiative",
-    "get_initiative",
-    "list_initiatives",
-    "close_initiative",
-    "link_mission",
-    "get_linked_missions",
     "INITIATIVE_OWNER_PREFIX",
+    "Initiative",
+    "InitiativeHealth",
+    "InitiativeStatus",
+    "OutcomeTrend",
+    "close_initiative",
+    "create_initiative",
+    "get_initiative",
+    "get_linked_missions",
+    "link_mission",
+    "list_initiatives",
+    "update_initiative",
 ]

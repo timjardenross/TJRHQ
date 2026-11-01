@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for USS-TJR-MSN-COMMS-001 — Communications & Presence Officer.
 
 WP2 pillars · WP3 opportunity engine (classify/score/build) · WP4/WP8 format
@@ -16,11 +17,12 @@ _BOT = Path(__file__).resolve().parent
 if str(_BOT) not in sys.path:
     sys.path.insert(0, str(_BOT))
 
-from lib import daily_brief  # noqa: E402
-from lib.comms import pillars, opportunities as opp, formats, weekly, portfolio, drafting  # noqa: E402
-from lib.human_systems import framework, decision, safety  # noqa: E402
-from lib.human_systems.mission_load import MissionLoad, Priority  # noqa: E402
-import commands.comms as comms_cmd  # noqa: E402
+import commands.comms as comms_cmd
+from lib import daily_brief
+from lib.comms import drafting, formats, pillars, portfolio, weekly
+from lib.comms import opportunities as opp
+from lib.human_systems import decision, framework, safety
+from lib.human_systems.mission_load import MissionLoad, Priority
 
 GOOD = {"energy": "high", "mood": "positive", "nervous_system_state": "calm",
         "sleep_hours": 8, "sleep_quality": "good", "captain_capacity_rating": "Green"}
@@ -80,7 +82,22 @@ class TestOpportunityEngine(unittest.TestCase):
         self.assertEqual(o.strategic_domain, "Career & Professional Impact")
 
     def test_gather_graceful_offline(self):
-        with patch.object(opp, "_client", return_value=None):
+        # 2026-09-12: gather_opportunities() has two independent data
+        # sources -- outcome_capture (MSN-0078 bridge, has its own graceful
+        # client, deliberately still consulted even when Command Memory is
+        # offline -- see that function's own inline comment) and Command
+        # Memory itself (gated by _client()). Patching only _client left
+        # the outcome source live, so this "offline" test was actually
+        # exercising real production data (17 real opportunities) instead
+        # of the empty list it asserted -- pre-existing, unrelated to
+        # anything else fixed in this pass, just never caught before
+        # because test_health_event.py's collection-abort bug (fixed
+        # separately) prevented this whole file from ever running. Patch
+        # both sources to genuinely represent "everything offline".
+        with (
+            patch.object(opp, "_client", return_value=None),
+            patch.object(opp, "_gather_outcome_candidates", return_value=[]),
+        ):
             self.assertEqual(opp.gather_opportunities(), [])
 
 
@@ -178,33 +195,27 @@ class TestCommsCommand(unittest.TestCase):
     def test_send_no_surface_configured(self):
         import human_systems_scheduler as hss
         from lib.human_systems import delivery
-        with patch.object(delivery, "get_slack_client", return_value=None), \
-             patch.object(delivery, "captain_channel", return_value=None), \
-             patch.object(delivery, "telegram_config", return_value=(None, None)), \
+        with patch.object(delivery, "telegram_config", return_value=(None, None)), \
              patch.object(hss, "run_job") as rj:
             out = comms_cmd.handle_comms("send")
         rj.assert_not_called()
         self.assertIn("no delivery surface", out.lower())
 
-    def test_send_delivers_to_both(self):
+    def test_send_delivers_via_telegram(self):
         import human_systems_scheduler as hss
         from lib.human_systems import delivery
-        with patch.object(delivery, "get_slack_client", return_value=object()), \
-             patch.object(delivery, "captain_channel", return_value="UCAP"), \
-             patch.object(delivery, "telegram_config", return_value=("t", "c")), \
+        with patch.object(delivery, "telegram_config", return_value=("t", "c")), \
              patch.object(hss, "run_job",
                           return_value={"job": "comms_weekly", "delivered": True,
-                                        "channel": "slack+telegram"}):
+                                        "channel": "telegram"}):
             out = comms_cmd.handle_comms("send")
         self.assertIn("sent", out.lower())
-        self.assertIn("slack+telegram", out)
+        self.assertIn("telegram", out)
 
     def test_send_quiet_when_nothing_publishable(self):
         import human_systems_scheduler as hss
         from lib.human_systems import delivery
-        with patch.object(delivery, "get_slack_client", return_value=None), \
-             patch.object(delivery, "captain_channel", return_value="UCAP"), \
-             patch.object(delivery, "telegram_config", return_value=(None, None)), \
+        with patch.object(delivery, "telegram_config", return_value=("t", "c")), \
              patch.object(hss, "run_job", return_value={"job": "comms_weekly", "skipped": True}):
             out = comms_cmd.handle_comms("send")
         self.assertIn("Nothing to send", out)
@@ -259,6 +270,7 @@ class TestGeminiProvider(unittest.TestCase):
     def test_generate_with_gemini_parses_rest(self):
         import io
         import json as _json
+
         import llm
         payload = {"candidates": [{"content": {"parts": [{"text": "Hello from Gemini"}]}}]}
 
@@ -384,7 +396,7 @@ class TestSensitiveApprovalGate(unittest.TestCase):
 
 # ── MSN-0082 Leadership Intelligence Brief ────────────────────────────────────
 
-from lib.comms import leadership  # noqa: E402
+from lib.comms import leadership
 
 
 class TestLeadershipBrief(unittest.TestCase):

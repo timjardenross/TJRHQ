@@ -15,21 +15,22 @@
  * the fuller note.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
 import { Badge, Button, Card, Textarea } from '@/components/ui';
 import { WorkbenchShell } from '@/components/ui';
 import { STATUS_OPTIONS, statusToBadge, fmtDate } from '../_components/shared';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { Mission } from '@/lib/types';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 
 function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   if (!value) return null;
   return (
     <div className="flex flex-col gap-0.5">
-      <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">{label}</p>
-      <p className={`break-all text-[13px] text-wb-ink ${mono ? 'font-mono text-[12px]' : ''}`}>{value}</p>
+      <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2">{label}</p>
+      <p className={`break-all text-wb-body text-wb-ink ${mono ? 'font-mono text-wb-label' : ''}`}>{value}</p>
     </div>
   );
 }
@@ -47,7 +48,7 @@ export default function MissionWorkbenchDetailPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useAbortEffect((_signal, alive) => {
     async function load() {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
@@ -56,6 +57,7 @@ export default function MissionWorkbenchDetailPage() {
         .eq('mission_id', id)
         .single();
 
+      if (!alive()) return;
       if (data) {
         setMission(data as Mission);
         setNewStatus(data.status);
@@ -99,19 +101,19 @@ export default function MissionWorkbenchDetailPage() {
 
   if (loadState === 'loading') {
     return (
-      <WorkbenchShell wide title="Mission Workbench" eyebrow="Loading" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering">
-        <p className="py-16 text-center text-[13px] text-wb-ink2">Loading mission…</p>
+      <WorkbenchShell wide title="Missions" eyebrow="Loading" tagline="TJR HQ · Mission Workbench · Registry — capacity-aware filtering">
+        <p className="py-16 text-center text-wb-body text-wb-ink2">Loading mission…</p>
       </WorkbenchShell>
     );
   }
 
   if (loadState === 'error') {
     return (
-      <WorkbenchShell wide title="Mission Data Unavailable" eyebrow="Fetch error" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
+      <WorkbenchShell wide title="Mission Data Unavailable" eyebrow="Fetch error" tagline="TJR HQ · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
         <Card>
           <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-            <p className="text-[13px] font-semibold text-wb-crit-on">Couldn&rsquo;t load this mission right now.</p>
-            <p className="mt-1 text-[12px] text-wb-ink2">
+            <p className="text-wb-body font-semibold text-wb-crit-on">Couldn&rsquo;t load this mission right now.</p>
+            <p className="mt-1 text-wb-label text-wb-ink2">
               This is a load failure — not a confirmation the mission is missing. No record is shown
               because the registry could not be read. Retry shortly.
             </p>
@@ -123,9 +125,9 @@ export default function MissionWorkbenchDetailPage() {
 
   if (loadState === 'notfound' || !mission) {
     return (
-      <WorkbenchShell wide title="Mission Not Found" eyebrow="No such record" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
+      <WorkbenchShell wide title="Mission Not Found" eyebrow="No such record" tagline="TJR HQ · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
         <Card>
-          <p className="text-[13px] text-wb-ink2">
+          <p className="text-wb-body text-wb-ink2">
             No mission with ID <span className="font-mono text-wb-ink">{id}</span> exists in the registry.
           </p>
         </Card>
@@ -136,22 +138,23 @@ export default function MissionWorkbenchDetailPage() {
   const eyebrow = [mission.mission_type, mission.task_type].filter(Boolean).join(' · ') || 'Mission';
 
   return (
-    <WorkbenchShell wide title={mission.mission_id} eyebrow={eyebrow} tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }} right={<Badge status={statusToBadge(mission.status)}>{mission.status}</Badge>}>
+    <WorkbenchShell wide title={mission.mission_id} eyebrow={eyebrow} tagline="TJR HQ · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }} right={<Badge status={statusToBadge(mission.status)}>{mission.status}</Badge>}>
       <div className="flex flex-col gap-4">
         <Card>
           <h2 className="font-serif text-xl text-wb-ink">{mission.title}</h2>
           {mission.description && (
-            <p className="mt-2 text-[13px] leading-relaxed text-wb-ink2">{mission.description}</p>
+            <p className="mt-2 text-wb-body leading-relaxed text-wb-ink2">{mission.description}</p>
           )}
           <div className="mt-3 flex flex-wrap gap-3 items-center">
             {mission.priority && <Badge status="neutral">{mission.priority}</Badge>}
             {mission.created_by && (
-              <span className="text-[12px] text-wb-ink2">Created by <span className="text-wb-ink">{mission.created_by}</span></span>
+              <span className="text-wb-label text-wb-ink2">Created by <span className="text-wb-ink">{mission.created_by}</span></span>
             )}
           </div>
         </Card>
 
         <Card title="Mission Details">
+          <EvidenceMeta source="Mission registry" observedAt={mission.updated_at} confidence={mission.status ? `Status: ${mission.status}` : undefined} />
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
             <Field label="Mission ID" value={mission.mission_id} />
             <Field label="Status" value={mission.status} />
@@ -164,12 +167,6 @@ export default function MissionWorkbenchDetailPage() {
             {mission.outcome_rating != null && <Field label="Outcome Rating" value={String(mission.outcome_rating)} />}
             {mission.rework_of && <Field label="Rework Of" value={mission.rework_of} />}
           </div>
-          <Link
-            href={`/comms-studio?type=mission_report&refId=${encodeURIComponent(mission.mission_id)}`}
-            className="mt-4 inline-block text-[12px] text-wb-sage-deep underline underline-offset-2 hover:text-wb-ink"
-          >
-            Draft a Mission Report →
-          </Link>
         </Card>
 
         {(mission.repo || mission.branch_name || mission.pr_url) && (
@@ -179,12 +176,12 @@ export default function MissionWorkbenchDetailPage() {
               <Field label="Branch" value={mission.branch_name} mono />
               {mission.pr_url && (
                 <div className="flex flex-col gap-0.5">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">Pull Request</p>
+                  <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2">Pull Request</p>
                   <a
                     href={mission.pr_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="break-all font-mono text-[12px] text-wb-sage-deep hover:underline"
+                    className="break-all font-mono text-wb-label text-wb-sage-deep hover:underline"
                   >
                     {mission.pr_url}
                   </a>
@@ -197,14 +194,14 @@ export default function MissionWorkbenchDetailPage() {
         <Card title="Update Status">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">New status</p>
+              <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2">New status</p>
               <div className="flex flex-wrap gap-2">
                 {STATUS_OPTIONS.map(s => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => setNewStatus(s)}
-                    className={`rounded-md border px-3 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline
+                    className={`rounded-md border px-3 py-1.5 text-wb-label font-semibold transition-colors focus-visible:outline
                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
                       newStatus === s
                         ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep'
@@ -225,7 +222,7 @@ export default function MissionWorkbenchDetailPage() {
               placeholder="What changed? What's the blocker?"
             />
 
-            {error && <p className="text-[12px] text-wb-crit-on">{error}</p>}
+            {error && <p className="text-wb-label text-wb-crit-on">{error}</p>}
 
             <Button
               onClick={handleSave}

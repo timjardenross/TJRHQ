@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 // USS-TJR-MSN-0205D: filtered document list for the Knowledge Library.
 // extracted_text is deliberately excluded (large field, not needed for a
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ documents: data ?? [], total: count ?? 0, limit, offset });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to load documents', detail }, { status: 500 });
   }
 }

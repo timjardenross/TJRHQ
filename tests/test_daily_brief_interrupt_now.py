@@ -18,11 +18,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # daily_brief.py's bare name collides with core/advisory/daily_brief.py —
 # load this file's own sibling by exact path instead (Fleet Engineering
 # Review 2026-08-11).
-from _local_import_lib import import_sibling as _import_sibling  # noqa: E402
+from _local_import_lib import import_sibling as _import_sibling
 
 daily_brief = _import_sibling("daily_brief")  # platform-runtime/lib/daily_brief.py
-from core.platform.attention_engine import AttentionCategory  # noqa: E402
-from core.platform.captain_brief_contract import CaptainBriefItem, Recommendation  # noqa: E402
+from core.platform.attention_engine import AttentionCategory
+from core.platform.captain_brief_contract import (
+    CaptainBriefItem,
+    Recommendation,
+)
 
 
 def _capacity():
@@ -46,7 +49,7 @@ def test_interrupt_now_items_are_rendered_into_brief_text():
         domain="operational-resilience-intelligence",
         event_type="intelligence.signal.ranked",
         category=AttentionCategory.INTERRUPT_NOW,
-        reason="importance=90 >= 75 AND confidence=85 >= 70",
+        _routing_reason="importance=90 >= 75 AND confidence=85 >= 70",
         recommendation=Recommendation(description="Telstra Service Alert: national outage confirmed."),
     )
     brief_doc = SimpleNamespace(interrupt_now=[item])

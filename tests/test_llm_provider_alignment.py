@@ -1,14 +1,14 @@
+#!/usr/bin/env python3
 import os
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "platform-runtime"))
 
-import llm  # noqa: E402
+import llm
 
 
 class LLMProviderAlignmentTest(unittest.TestCase):

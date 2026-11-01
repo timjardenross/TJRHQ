@@ -6,8 +6,9 @@
 // every ingested paper (server applies a 1-year lookback + page size cap
 // when no explicit date range is given).
 
-import { useEffect, useState } from 'react';
-import { Select } from '@/components/ui';
+import { useState } from 'react';
+import { Button, Input, Select } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { EVIDENCE_CONTRIBUTION_LABEL, type EvidenceItem } from './shared';
 
 const EVIDENCE_CONTRIBUTION_OPTIONS = Object.keys(EVIDENCE_CONTRIBUTION_LABEL);
@@ -19,7 +20,7 @@ const STRENGTH_OPTIONS = [
 
 function Row({ item }: { item: EvidenceItem }) {
   return (
-    <div className="border-b border-wb-line pb-2 text-[12.5px] last:border-0">
+    <div className="border-b border-wb-line pb-2 text-wb-label last:border-0">
       <div className="font-semibold text-wb-ink">
         {item.source_url ? (
           <a href={item.source_url} target="_blank" rel="noreferrer" className="hover:underline">{item.title}</a>
@@ -49,7 +50,7 @@ export function LibraryView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     setLoading(true);
     const params = new URLSearchParams();
     if (q.trim()) params.set('q', q.trim());
@@ -60,17 +61,14 @@ export function LibraryView() {
     params.set('page', String(page));
 
     const t = setTimeout(() => {
-      fetch(`/api/health-osint/library?${params.toString()}`)
+      fetch(`/api/health-osint/library?${params.toString()}`, { signal })
         .then(async (r) => {
           const d = await r.json();
           if (!r.ok) throw new Error(d?.error || 'Failed to load');
-          setItems(d.items ?? []);
-          setTotal(d.total ?? 0);
-          setHasMore(!!d.has_more);
-          setError(null);
+          if (alive()) { setItems(d.items ?? []); setTotal(d.total ?? 0); setHasMore(!!d.has_more); setError(null); }
         })
-        .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-        .finally(() => setLoading(false));
+        .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+        .finally(() => { if (alive()) setLoading(false); });
     }, 250); // debounce free-text search
     return () => clearTimeout(t);
   }, [q, evidenceContribution, strength, since, until, page]);
@@ -82,12 +80,12 @@ export function LibraryView() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <input
+        <Input
           type="text"
           value={q}
           onChange={(e) => resetPage(setQ)(e.target.value)}
           placeholder="Search title or summary…"
-          className="min-w-[200px] flex-1 rounded border border-wb-line bg-transparent px-2 py-1.5 text-[12.5px] text-wb-ink"
+          className="min-w-[200px] flex-1"
           aria-label="Search library"
         />
         <Select value={evidenceContribution} onChange={(e) => resetPage(setEvidenceContribution)(e.target.value)} aria-label="Filter by what changed">
@@ -98,8 +96,8 @@ export function LibraryView() {
           <option value="">All strengths</option>
           {STRENGTH_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
         </Select>
-        <input type="date" value={since} onChange={(e) => resetPage(setSince)(e.target.value)} className="rounded border border-wb-line bg-transparent px-2 py-1.5 text-[12px] text-wb-ink" aria-label="Since date" />
-        <input type="date" value={until} onChange={(e) => resetPage(setUntil)(e.target.value)} className="rounded border border-wb-line bg-transparent px-2 py-1.5 text-[12px] text-wb-ink" aria-label="Until date" />
+        <Input type="date" value={since} onChange={(e) => resetPage(setSince)(e.target.value)} aria-label="Since date" />
+        <Input type="date" value={until} onChange={(e) => resetPage(setUntil)(e.target.value)} aria-label="Until date" />
       </div>
 
       {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>}
@@ -114,11 +112,11 @@ export function LibraryView() {
         )}
       </div>
 
-      <div className="flex items-center justify-between text-[12px] text-wb-ink2">
+      <div className="flex items-center justify-between text-wb-label text-wb-ink2">
         <span>{total} total</span>
         <div className="flex gap-2">
-          <button type="button" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="rounded border border-wb-line px-2 py-1 disabled:opacity-40">Prev</button>
-          <button type="button" disabled={!hasMore} onClick={() => setPage((p) => p + 1)} className="rounded border border-wb-line px-2 py-1 disabled:opacity-40">Next</button>
+          <Button type="button" variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Prev</Button>
+          <Button type="button" variant="secondary" size="sm" disabled={!hasMore} onClick={() => setPage((p) => p + 1)}>Next</Button>
         </div>
       </div>
     </div>

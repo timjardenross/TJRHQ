@@ -37,15 +37,48 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys as _sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, datetime, time as dt_time, timedelta, timezone
-from typing import Any, Optional
+from datetime import date, datetime, timedelta, timezone
+from datetime import time as dt_time
+from pathlib import Path as _Path
+from typing import Any
 
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
+from intelligence.settings_store import (
+    follow_through_check_back_on_waiting_items,
+    follow_through_increase_as_deadline_approaches,
+    follow_through_reminder_style,
+)
+
+# Mission 3: reuse the one canonical raw-capacity_checkins-row -> Green/
+# Amber/Red/Unknown mapping (core/health/capacity_score.py's
+# capacity_zone_from_checkin(), already the mapping health_context_adapter.py
+# and the Human Systems Capacity Gate consume) instead of this engine's own
+# ad-hoc "orange"/"red" string handling. Deliberately NOT importing the
+# heavier health_context_adapter.build_health_context_live() here — that
+# pulls in a captains_log_entries round-trip + fallback chain this engine
+# doesn't need; capacity_score.py has zero heavy dependencies (stdlib only)
+# and is safe to import into this cron-driven process.
+_CAPACITY_SCORE_DIR = _Path(__file__).resolve().parents[2] / "core" / "health"
+if str(_CAPACITY_SCORE_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_CAPACITY_SCORE_DIR))
+from capacity_score import capacity_zone_from_checkin
 
 log = logging.getLogger(__name__)
+
+# Settings page's reminderStyle -> this engine's per-task follow_through_mode
+# vocabulary. Only used as the DEFAULT for tasks with no explicit mode of
+# their own — an explicit per-task follow_through_mode always wins (Mission 1
+# precedence: per-task DB field -> Settings page default -> "normal").
+_REMINDER_STYLE_TO_MODE = {"once": "gentle", "normal": "normal", "persistent": "persistent"}
+
+
+def _default_follow_through_mode() -> str:
+    style = follow_through_reminder_style()
+    return _REMINDER_STYLE_TO_MODE.get(style, "normal")
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -95,7 +128,7 @@ def _date_to_dt(d: date) -> datetime:
     return datetime.combine(d, dt_time.min, tzinfo=timezone.utc)
 
 
-def _parse_ts(value: Optional[str]) -> Optional[datetime]:
+def _parse_ts(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
@@ -108,11 +141,14 @@ def _parse_ts(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _parse_date(value: Optional[str]) -> Optional[date]:
+def _parse_date(value: str | None) -> date | None:
     if not value:
         return None
     try:
-        return datetime.strptime(value[:10], "%Y-%m-%d").date()
+        # Input is already a calendar-date string (or the date-prefix of an
+        # ISO timestamp) sliced to its first 10 chars — no time-of-day or
+        # offset component to lose, so tz-awareness doesn't apply here.
+        return datetime.strptime(value[:10], "%Y-%m-%d").date()  # noqa: DTZ007 - date-only input, no offset possible
     except ValueError:
         return None
 
@@ -125,7 +161,7 @@ def _esc_html(text: str) -> str:
 
 # ── PostgREST access ─────────────────────────────────────────────────────────
 
-def _pg_headers(extra: Optional[dict] = None) -> dict:
+def _pg_headers(extra: dict | None = None) -> dict:
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -137,7 +173,7 @@ def _pg_headers(extra: Optional[dict] = None) -> dict:
     return headers
 
 
-def _pg_get(path_and_query: str, count_exact: bool = False) -> tuple[list[dict], Optional[int]]:
+def _pg_get(path_and_query: str, count_exact: bool = False) -> tuple[list[dict], int | None]:
     """GET {SUPABASE_URL}/rest/v1/{path_and_query}. Returns (rows, total_count).
     total_count is only populated when count_exact=True (via Content-Range)."""
     if not SUPABASE_URL or not SUPABASE_KEY:
@@ -147,7 +183,7 @@ def _pg_get(path_and_query: str, count_exact: bool = False) -> tuple[list[dict],
     headers = _pg_headers({"Prefer": "count=exact"} if count_exact else None)
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             rows = json.loads(resp.read() or b"[]")
             total = None
             if count_exact:
@@ -157,7 +193,7 @@ def _pg_get(path_and_query: str, count_exact: bool = False) -> tuple[list[dict],
                     if tail.isdigit():
                         total = int(tail)
             return rows, total
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase GET wrapper — caller sees ([], None) and handles it; already logged
         log.error("[FollowThrough] GET %s failed: %s", path_and_query, exc)
         return [], None
 
@@ -172,9 +208,9 @@ def _pg_patch(table: str, row_id: str, payload: dict) -> bool:
         headers=_pg_headers({"Prefer": "return=minimal"}),
     )
     try:
-        with urllib.request.urlopen(req, timeout=15):
+        with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase PATCH wrapper — caller sees False and handles it; already logged
         log.error("[FollowThrough] PATCH %s/%s failed: %s", table, row_id, exc)
         return False
 
@@ -189,9 +225,9 @@ def _pg_post(table: str, payload: dict) -> bool:
         headers=_pg_headers({"Prefer": "return=minimal"}),
     )
     try:
-        with urllib.request.urlopen(req, timeout=15):
+        with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase POST wrapper — caller sees False and handles it; already logged
         log.error("[FollowThrough] POST %s failed: %s", table, exc)
         return False
 
@@ -233,7 +269,13 @@ def _fetch_candidates(now: datetime) -> list[dict]:
     return rows
 
 
-def _fetch_todays_capacity_state(now: datetime) -> Optional[str]:
+def _fetch_todays_capacity_state(now: datetime) -> str:
+    """Returns the canonical "Green"/"Amber"/"Red"/"Unknown" status —
+    same raw capacity_checkins row this engine always queried, now run
+    through capacity_zone_from_checkin() (the single canonical mapper)
+    instead of this engine's own inline "orange"/"red" string handling.
+    No today check-in still means "Unknown" (never Green), matching
+    Mission 2's absence-must-not-imply-Green requirement exactly."""
     today_iso = _today(now).isoformat()
     query = (
         "capacity_checkins"
@@ -241,9 +283,9 @@ def _fetch_todays_capacity_state(now: datetime) -> Optional[str]:
         "&order=captured_at.desc&limit=1"
     )
     rows, _ = _pg_get(query)
-    if not rows:
-        return None
-    return rows[0].get("capacity_state")
+    row = rows[0] if rows else None
+    _score, status = capacity_zone_from_checkin(row)
+    return status
 
 
 def _count_todays_surfaced(now: datetime) -> int:
@@ -272,7 +314,7 @@ def _in_quiet_hours(now: datetime) -> bool:
 
 # ── Deadline ladder ──────────────────────────────────────────────────────────
 
-def _next_deadline_checkpoint(due: date, today: date, inclusive: bool) -> tuple[Optional[date], str]:
+def _next_deadline_checkpoint(due: date, today: date, inclusive: bool) -> tuple[date | None, str]:
     """Earliest ladder checkpoint date that is still ahead (or, once
     overdue, the next day in the 1-day overdue drumbeat).
 
@@ -293,7 +335,7 @@ def _next_deadline_checkpoint(due: date, today: date, inclusive: bool) -> tuple[
 
 # ── Mode scheduling ──────────────────────────────────────────────────────────
 
-def compute_initial_schedule(task: dict, now: datetime) -> tuple[Optional[datetime], str, bool]:
+def compute_initial_schedule(task: dict, now: datetime) -> tuple[datetime | None, str, bool]:
     """For a candidate with next_review_at IS NULL (first-ever pass).
 
     Returns (next_review_at_to_persist_if_not_sent_now, tone,
@@ -302,7 +344,7 @@ def compute_initial_schedule(task: dict, now: datetime) -> tuple[Optional[dateti
     eligible immediately, a brand-new deadline item only if it's already
     within its first ladder checkpoint (or overdue).
     """
-    mode = task.get("follow_through_mode") or "normal"
+    mode = task.get("follow_through_mode") or _default_follow_through_mode()
     due = _parse_date(task.get("due_date"))
     today = _today(now)
 
@@ -343,9 +385,9 @@ def compute_initial_schedule(task: dict, now: datetime) -> tuple[Optional[dateti
     return now + timedelta(days=2), "neutral", True
 
 
-def compute_next_review_after_send(task: dict, now: datetime, new_nudge_count: int) -> Optional[datetime]:
+def compute_next_review_after_send(task: dict, now: datetime, new_nudge_count: int) -> datetime | None:
     """Post-send scheduling for the NEXT occurrence (or None to stop)."""
-    mode = task.get("follow_through_mode") or "normal"
+    mode = task.get("follow_through_mode") or _default_follow_through_mode()
     due = _parse_date(task.get("due_date"))
 
     if mode == "gentle":
@@ -374,6 +416,10 @@ def compute_next_review_after_send(task: dict, now: datetime, new_nudge_count: i
 def _tone_for_candidate(task: dict, mode_tone: str) -> str:
     if (task.get("deferral_count") or 0) >= 3:
         return "crit"
+    if mode_tone in ("warn", "crit") and follow_through_increase_as_deadline_approaches() is False:
+        # Settings page's "increase reminders as deadline approaches" toggle,
+        # off: keep deadline-ladder tone flat instead of escalating (Mission 1).
+        return "neutral"
     return mode_tone
 
 
@@ -385,7 +431,12 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
     had a next_review_at <= now (from the query) are eligible outright —
     the query already did that filtering."""
     eligible: list[dict] = []
+    skip_waiting = follow_through_check_back_on_waiting_items() is False
     for task in raw_rows:
+        if skip_waiting and task.get("follow_through_mode") == "waiting":
+            # Settings page's "check back on waiting items" toggle, off:
+            # suppress waiting-mode follow-ups entirely (Mission 1).
+            continue
         nra_raw = task.get("next_review_at")
         if nra_raw:
             # Already has a scheduled review time that's <= now (per query).
@@ -408,15 +459,48 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
     return eligible
 
 
-def _apply_capacity_gate(candidates: list[dict], capacity_state: Optional[str], now: datetime) -> list[dict]:
-    if capacity_state != "red":
+def _capacity_enforcing() -> bool:
+    try:
+        from core.health.capacity_enforcement import enforcing
+    except Exception:  # noqa: BLE001 - if the switch cannot load, keep the original behaviour
+        return True
+    return enforcing()
+
+
+def _apply_capacity_gate(candidates: list[dict], capacity_status: str, now: datetime) -> list[dict]:
+    """Green: fully unrestricted. Amber: trims only the lowest-urgency
+    "gentle" mode items not due soon. Red: also trims "normal" mode items
+    (unchanged from before this fix).
+
+    Unknown capacity (no check-in today) is treated as Amber, never as
+    Green (Mission 2, Capacity & Attention Engine: "absence of capacity
+    data must not automatically imply Green") -- no signal should never
+    read as full confidence to send every nudge unrestricted, but it also
+    shouldn't over-restrict to Red's stricter cut on a guess. Amber is
+    the safe, explainable middle ground.
+
+    `capacity_status` is the canonical "Green"/"Amber"/"Red"/"Unknown"
+    string (Mission 3: sourced from capacity_zone_from_checkin(), the
+    same mapper every other capacity-status consumer in the platform
+    uses -- this function no longer interprets the raw capacity_checkins
+    "green"/"orange"/"red" strings itself). Behaviour is unchanged from
+    before this mapping fix: raw orange/None both landed in this
+    function's "restrict to gentle only" branch, exactly what
+    Amber/Unknown do here; raw red and Green/canonical-Red are identical.
+    """
+    if not _capacity_enforcing():
+        # Advisory mode (owner decision 2026-10-18): capacity is still read and reported, but it
+        # never trims nudges. CAPACITY_ENFORCEMENT=enforce restores the behaviour below.
         return candidates
+    if capacity_status not in ("Amber", "Red", "Unknown"):
+        return candidates
+    modes_to_trim = ("gentle", "normal") if capacity_status == "Red" else ("gentle",)
     today = _today(now)
     kept = []
     for task in candidates:
         mode = task.get("follow_through_mode")
         due = _parse_date(task.get("due_date"))
-        if mode in ("gentle", "normal") and (due is None or (due - today).days > 1):
+        if mode in modes_to_trim and (due is None or (due - today).days > 1):
             continue
         kept.append(task)
     return kept
@@ -571,11 +655,11 @@ def _resolve_chat_id() -> str:
     return os.environ.get("TELEGRAM_CHAT_ID", "")
 
 
-def _send_telegram(text: str, reply_markup: dict) -> tuple[bool, Optional[str], Optional[int]]:
+def _send_telegram(text: str, reply_markup: dict) -> tuple[bool, str | None, int | None]:
     """Returns (ok, error, message_id) — text is caller-composed HTML
     (intentional <b>/<code> markup with already-escaped dynamic values),
     hence template="raw" (see notification_service._RAW_TEMPLATES)."""
-    from core.platform.notification_service import notify, Transport
+    from core.platform.notification_service import Transport, notify
 
     result = notify(
         text, template="raw", transport=Transport.TELEGRAM,
@@ -606,7 +690,7 @@ def _record_send(task: dict, now: datetime, tone: str, bundled: bool) -> None:
     })
 
 
-def _record_individual_sent(task_id: str, chat_id: str, message_id: Optional[int]) -> None:
+def _record_individual_sent(task_id: str, chat_id: str, message_id: int | None) -> None:
     if message_id is None:
         return
     _pg_post("follow_through_sends", {
@@ -665,7 +749,7 @@ def run_follow_through_pass() -> dict:
                 _record_individual_sent(task["id"], chat_id, message_id)
                 _record_send(task, now, task.get("_tone", "neutral"), bundled=False)
                 summary["nudged"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-task send failure inside a batch loop — one bad task must not abort the run; already logged + collected into summary['errors']
                 summary["errors"].append(f"task {task.get('id')}: {exc}")
                 log.error("[FollowThrough] Individual send failed for %s: %s", task.get("id"), exc)
 
@@ -679,16 +763,16 @@ def run_follow_through_pass() -> dict:
                     for task in bundle:
                         try:
                             _record_send(task, now, task.get("_tone", "neutral"), bundled=True)
-                        except Exception as exc:
+                        except Exception as exc:  # noqa: BLE001 - per-task bundle-record failure inside a nested loop — one bad task must not abort the bundle; already collected into summary['errors']
                             summary["errors"].append(f"bundle record failed for {task.get('id')}: {exc}")
                     summary["nudged"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-bundle send failure inside a batch loop — one bad bundle must not abort the run; already logged + collected into summary['errors']
                 summary["errors"].append(f"bundle: {exc}")
                 log.error("[FollowThrough] Bundle send failed: %s", exc)
 
         return summary
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level pass boundary — a full nudge pass must report what it could, not crash; already logged + collected into summary['errors']
         error_msg = f"[FollowThrough] Pass error: {exc}"
         log.error(error_msg)
         summary["errors"].append(error_msg)

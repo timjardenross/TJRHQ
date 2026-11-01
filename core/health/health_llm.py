@@ -28,7 +28,6 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
@@ -60,7 +59,7 @@ def _load_captain_profile_excerpt() -> str:
             text, re.DOTALL,
         )
         return m.group(1).strip() if m else ""
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: '' on any parse failure
         return ""
 
 
@@ -88,7 +87,7 @@ class HealthLLMProvider:
     Never raises — returns (None, None) on total failure.
     """
 
-    def generate(self, prompt: str) -> tuple[Optional[str], Optional[str]]:
+    def generate(self, prompt: str) -> tuple[str | None, str | None]:
         """
         Returns (raw_text, provider_name) or (None, None) if all fail.
         raw_text is the model's full response string; parsing is the caller's job.
@@ -104,33 +103,33 @@ class HealthLLMProvider:
                 if result:
                     log.info("Health LLM narrative generated via %s (%d chars)", name, len(result))
                     return result, name
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning("Health LLM provider %s failed: %s", name, exc)
 
         log.warning("All health LLM providers failed — narrative will use deterministic fallback")
         return None, None
 
-    def _gemini(self, prompt: str) -> Optional[str]:
+    def _gemini(self, prompt: str) -> str | None:
         return call_gemini(
             _SYSTEM_PROMPT, prompt,
             api_key=_GEMINI_API_KEY, max_output_tokens=1024, temperature=0.3, timeout=30,
-        )
+        ).text
 
-    def _mistral(self, prompt: str) -> Optional[str]:
+    def _mistral(self, prompt: str) -> str | None:
         return call_mistral(
             _SYSTEM_PROMPT, prompt,
             api_key=_MISTRAL_API_KEY, max_tokens=1024, temperature=0.3, timeout=30,
-        )
+        ).text
 
-    def _ollama(self, prompt: str) -> Optional[str]:
+    def _ollama(self, prompt: str) -> str | None:
         return call_ollama(
             _SYSTEM_PROMPT, prompt,
             base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL,
             temperature=0.3, num_predict=800, timeout=60,
-        )
+        ).text
 
 
-def parse_llm_narrative(raw: str) -> Optional[dict]:
+def parse_llm_narrative(raw: str) -> dict | None:
     """
     Extract and validate the JSON narrative object from a raw LLM response.
 
@@ -154,6 +153,6 @@ def parse_llm_narrative(raw: str) -> Optional[dict]:
             log.warning("LLM narrative missing keys: %s", missing)
             return None
         return {k: data[k] for k in _EXPECTED_KEYS}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Failed to parse LLM health narrative JSON: %s", exc)
         return None

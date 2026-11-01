@@ -46,8 +46,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from intelligence.classification.relevance_gate import assess_relevance
 from intelligence.classification.disposition import technical_disposition
+from intelligence.classification.relevance_gate import assess_relevance
 
 
 def _to_event_namespace(row: dict) -> types.SimpleNamespace:

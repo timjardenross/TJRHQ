@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { Card, Badge, toneToStatus } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { lifecycleStateToTone, valueToTone, opportunityRiskToTone, outcomeResultToTone } from '@/lib/departments';
 import { CHANGE_CLASS_LABEL, MISSION_ONLY_CLASSES, type Opportunity } from './types';
 
@@ -36,7 +37,7 @@ function observationWindowText(window: { type: string; count: number } | undefin
   if (!window) return null;
   switch (window.type) {
     case 'immediate': return 'Immediate verification';
-    case 'cycles': return `${window.count} completed HQ Evolution cycles`;
+    case 'cycles': return `${window.count} completed improvement cycles`;
     case 'events': return `${window.count} events`;
     case 'days': return `${window.count} days`;
     default: return null;
@@ -115,6 +116,16 @@ export function OpportunityDetail({
           <div className="text-sm text-wb-ink">{Math.round((inv.confidence ?? opportunity.confidence ?? 0) * 100)}%</div>
         </div>
       </div>
+
+      {/* WP2: opportunity_store.py's own provenance/created_at/confidence —
+       * no fabricated timestamp or score. `unavailable` only when the
+       * finding literally has no cited provenance entries at all. */}
+      <EvidenceMeta
+        source={opportunity.provenance?.length ? opportunity.provenance.map((p) => p.source).filter(Boolean).join(', ') : undefined}
+        observedAt={opportunity.created_at}
+        confidence={`${Math.round((inv.confidence ?? opportunity.confidence ?? 0) * 100)}%`}
+        state={!opportunity.provenance?.length ? 'unavailable' : undefined}
+      />
 
       {!!inv.potential_benefits?.length && (
         <Field label="Potential benefits">
@@ -200,7 +211,7 @@ export function OpportunityDetail({
                 <span className="text-wb-ink2"> ({IMPLEMENTATION_SOURCE_LABEL[outcome.implementation_source]})</span>
               )}
             </div>
-            <Badge status={toneToStatus(outcomeResultToTone(outcome.outcome_result))} className="text-[12px] px-3 py-1">
+            <Badge status={toneToStatus(outcomeResultToTone(outcome.outcome_result))} className="text-wb-label px-3 py-1">
               {OUTCOME_RESULT_LABEL[outcome.outcome_result as string] ?? outcome.outcome_result}
             </Badge>
           </div>
@@ -332,7 +343,7 @@ export function OpportunityDetail({
 
       {isMissionOnly && (
         <p className="mb-5 rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3 text-xs text-wb-ink">
-          {CHANGE_CLASS_LABEL[opportunity.change_class]} changes are Mission-only — HQ Evolution never applies these
+          {CHANGE_CLASS_LABEL[opportunity.change_class]} changes are Mission-only — Improvements never applies these
           directly, however high its confidence. A Mission hands this off for controlled implementation; it does not
           modify production by itself.
         </p>

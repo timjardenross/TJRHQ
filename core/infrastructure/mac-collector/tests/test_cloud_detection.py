@@ -2,13 +2,12 @@ import sys
 import textwrap
 from pathlib import Path
 
+import cloud_detection
 import pytest
+from collector import Collector
+from db import TrackingDB
 
 from config import load_config
-from db import TrackingDB
-from collector import Collector
-import cloud_detection
-
 
 # -- helpers ---------------------------------------------------------------
 

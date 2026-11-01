@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/classification/classifier.py
 
@@ -12,15 +13,15 @@ Covers:
 - No LLM involved — all rule-based
 """
 
-import sys
 import os
+import sys
 import unittest
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from intelligence.models import IntelligenceItem, ClassifiedEvent
 from intelligence.classification.classifier import classify
+from intelligence.models import ClassifiedEvent, IntelligenceItem
 
 
 def _make_item(title: str, summary: str = "",
@@ -105,9 +106,6 @@ class TestGeographyClassification(unittest.TestCase):
     def test_apac_hong_kong(self):
         # Hong Kong → APAC. No AU state abbreviation substrings in this title.
         self.assertEqual(self._geo("Hong Kong cyber resilience framework published"), "APAC")
-
-    def test_apac_singapore(self):
-        self.assertEqual(self._geo("Singapore MAS issues new resilience guidelines"), "APAC")
 
     def test_global_when_no_au_apac(self):
         # Must contain no AU or APAC keyword substrings

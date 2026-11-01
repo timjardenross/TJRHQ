@@ -37,7 +37,8 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
-from heartbeat import _URL, _KEY, record_heartbeat, supabase_get  # noqa: E402
+import alert_silences
+from heartbeat import _KEY, _URL, record_heartbeat, supabase_get
 
 from core.llm.provider_chain import call_gemini, call_mistral
 from core.notifications.resend_email import send_email
@@ -104,7 +105,7 @@ def _set_state(fingerprint: str, sent_at: str) -> None:
             "Prefer": "resolution=merge-duplicates,return=minimal",
         },
     )
-    with urllib.request.urlopen(req, timeout=15):
+    with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var (_URL), always https - reviewed 2026-09-12
         return
 
 
@@ -125,17 +126,61 @@ def _build_prompt(alerts: list[dict]) -> str:
     return f"Current active alerts ({len(alerts)} total):\n\n" + "\n".join(lines)
 
 
+def _verbatim_urgent_section(alerts: list[dict]) -> str:
+    """HQ V1 Integration QA §7/§9: the hourly digest's LLM prose is asked
+    not to invent facts, but is not required to preserve official
+    headline/jurisdiction wording verbatim — a real paraphrasing risk for
+    the safety-critical tiers specifically. Appends the raw, unedited
+    official fields for every watch_and_act/emergency_warning alert
+    regardless of what the summary prose says, so official wording always
+    survives even if the LLM's paraphrase doesn't. No-op (empty string)
+    when nothing urgent is active — the common case, so this never adds
+    noise to a routine Advice-only digest."""
+    urgent = [a for a in alerts if a["severity"] in _URGENT_TIERS]
+    if not urgent:
+        return ""
+    rows = "".join(
+        f"<li><strong>[{a['severity'].upper()}] {a['jurisdiction']}</strong> — {a['headline']}"
+        + (f" ({a['location']})" if a.get("location") else "")
+        + "</li>"
+        for a in urgent
+    )
+    return f"<hr><p><strong>Official alert wording (verbatim):</strong></p><ul>{rows}</ul>"
+
+
 def _generate_summary(alerts: list[dict]) -> tuple[str, str] | None:
     prompt = _build_prompt(alerts)
     try:
-        return call_gemini(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("GEMINI_API_KEY", "")), "gemini"
-    except Exception as exc:
+        return call_gemini(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("GEMINI_API_KEY", "")).text, "gemini"
+    except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain (Gemini -> Mistral) — one provider failing must not abort the chain; already logged
         log.warning("[emergency-alert-summary] Gemini failed, falling back to Mistral: %s", exc)
     try:
-        return call_mistral(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("MISTRAL_API_KEY", "")), "mistral"
-    except Exception as exc:
+        return call_mistral(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("MISTRAL_API_KEY", "")).text, "mistral"
+    except Exception as exc:  # noqa: BLE001 - final provider in the fallback chain; already logged, caller treats None as 'summary unavailable'
         log.warning("[emergency-alert-summary] Mistral also failed: %s", exc)
         return None
+
+
+def _exclude_silenced(alerts: list[dict]) -> list[dict]:
+    """Drops any alert currently covered by an active alert_silences rule
+    (migration 0205) before this hourly digest does anything else with the
+    active set — fingerprinting, the urgent-tier check, the LLM prompt, and
+    the verbatim official-wording section all only ever see what's left.
+    A planned hazard-reduction burn silenced for a jurisdiction should stop
+    showing up in the hourly email the same way it stops triggering its own
+    per-alert emergency-warning email (emergency_alerts.py's
+    _send_emergency_warning_emails) — otherwise "mute this" would still
+    leave it narrated in the digest an hour later.
+
+    Never raises: a silence-lookup failure degrades to "nothing silenced"
+    rather than blocking a real hourly summary — same posture as
+    emergency_alerts.py's own silence check."""
+    try:
+        active_silences = alert_silences.list_active_silences()
+    except Exception as exc:  # noqa: BLE001 - a silence-lookup failure must never block the hourly digest; degrade to "no active silences"
+        log.warning("[emergency-alert-summary] failed to read active silences (proceeding as if none): %s", exc)
+        return alerts
+    return [a for a in alerts if alert_silences.check_silence(a, active_silences) is None]
 
 
 def run() -> dict:
@@ -143,11 +188,13 @@ def run() -> dict:
     try:
         alerts = supabase_get(
             "alerts?is_active=eq.true&order=jurisdiction.asc,alert_type.asc"
-            "&select=id,jurisdiction,alert_type,severity,status,headline,location,description,issued_at"
+            "&select=id,jurisdiction,alert_type,severity,status,headline,location,description,issued_at,source_key"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level job boundary — already logged + heartbeat-recorded, surfaces error in the returned dict
         record_heartbeat(_DOMAIN_KEY, status="failed", error_message=str(exc)[:500])
         return {"error": str(exc)}
+
+    alerts = _exclude_silenced(alerts)
 
     fingerprint = _fingerprint(alerts)
     state = _get_state()
@@ -180,6 +227,7 @@ def run() -> dict:
     summary_text, provider = result
     subject = f"Emergency Alert Hub — hourly summary ({len(alerts)} active)"
     html = "<p>" + summary_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    html += _verbatim_urgent_section(alerts)
 
     sent = send_email(to=_EMAIL_TO, subject=subject, html=html)
     now_iso = None
@@ -188,7 +236,7 @@ def run() -> dict:
         now_iso = datetime.now(timezone.utc).isoformat()
         try:
             _set_state(fingerprint, now_iso)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort dedupe-state persistence, already logged as non-blocking (email already sent by this point)
             log.warning("[emergency-alert-summary] sent email but failed to persist state — may re-send next hour: %s", exc)
 
     detail = f"{len(alerts)} active alert(s), summary via {provider}, email {'sent' if sent else 'FAILED'}"

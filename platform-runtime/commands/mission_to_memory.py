@@ -48,6 +48,6 @@ def save_mission_after_creation(
         else:
             log.warning(f"[mission-to-memory] Could not save mission {mission_id} to Command Memory")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort mission-to-memory sync, non-blocking, already logged
         log.error(f"[mission-to-memory] Error saving mission {mission_id}: {e}")
         # Non-blocking failure — mission still created in local registry

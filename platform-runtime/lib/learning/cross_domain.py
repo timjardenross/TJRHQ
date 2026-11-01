@@ -100,7 +100,8 @@ def _derive_signals(ctx: Any) -> dict[str, bool]:
         signals["pattern_capacity"]       = "capacity_overload" in themes
         signals["pattern_knowledge_gap"]  = "knowledge_gap" in themes
         signals["pattern_arch_debt"]      = "architectural_debt" in themes
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort pattern registry lookup, defaults applied
+        log.debug("[learning.cross_domain] Pattern registry unavailable: %s", exc)
         signals.update({
             "pattern_delivery_delay": False,
             "pattern_capacity": False,
@@ -186,6 +187,7 @@ def detect_cross_domain_opportunities(ctx: Any) -> list[CrossDomainOpportunity]:
 def _store_opportunity(opp: CrossDomainOpportunity) -> None:
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         # Dedup by title within recent window
@@ -193,7 +195,7 @@ def _store_opportunity(opp: CrossDomainOpportunity) -> None:
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 res = (
-                    c.raw_client.table("decisions")
+                    c.raw_client.table("command_memory_records")
                     .select("id")
                     .eq("owner", CROSS_DOMAIN_OWNER)
                     .ilike("statement", f"%{opp.title[:40]}%")
@@ -202,8 +204,8 @@ def _store_opportunity(opp: CrossDomainOpportunity) -> None:
                 )
                 if res.data:
                     return
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort duplicate-check short-circuit, already logged
+            log.debug("[lib.learning.cross_domain] best-effort step failed, continuing: %s", _exc)
 
         log_decision_to_command_memory(
             statement=f"{_CROSS_DOMAIN_STATEMENT} {opp.title[:80]}",
@@ -217,7 +219,7 @@ def _store_opportunity(opp: CrossDomainOpportunity) -> None:
             ),
             owner=CROSS_DOMAIN_OWNER,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort opportunity storage, already logged
         log.debug("[learning.cross_domain] store_opportunity failed: %s", exc)
 
 
@@ -227,10 +229,12 @@ def route_to_improvement_backlog(opp: CrossDomainOpportunity) -> bool:
     Reuses the EXEC-003 backlog by constructing an ImprovementOpportunity.
     """
     try:
-        from lib.improvement.framework import (
-            ImprovementOpportunity, ImprovementCategory, ImprovementScore,
-        )
         from lib.improvement.backlog import add_to_backlog
+        from lib.improvement.framework import (
+            ImprovementCategory,
+            ImprovementOpportunity,
+            ImprovementScore,
+        )
 
         cat_map = {
             "automation":     ImprovementCategory.AUTOMATION,
@@ -259,12 +263,12 @@ def route_to_improvement_backlog(opp: CrossDomainOpportunity) -> bool:
                 strategic_alignment=round(opp.confidence * 6),
                 implementation_effort=5,
             )
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort backlog item construction, already logged
+            log.debug("[lib.learning.cross_domain] best-effort step failed, continuing: %s", _exc)
 
         return add_to_backlog(improvement)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort route to improvement backlog, already logged
         log.debug("[learning.cross_domain] route_to_improvement_backlog failed: %s", exc)
         return False
 
@@ -283,9 +287,9 @@ def format_cross_domain(opps: list[CrossDomainOpportunity]) -> str:
 
 
 __all__ = [
+    "CROSS_DOMAIN_OWNER",
     "CrossDomainOpportunity",
     "detect_cross_domain_opportunities",
-    "route_to_improvement_backlog",
     "format_cross_domain",
-    "CROSS_DOMAIN_OWNER",
+    "route_to_improvement_backlog",
 ]

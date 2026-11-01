@@ -42,7 +42,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -105,6 +105,7 @@ def generate_lesson_candidate(
     """
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         owner = f"{LESSON_CANDIDATE_OWNER_PREFIX}{trigger}"
@@ -114,7 +115,7 @@ def generate_lesson_candidate(
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 res = (
-                    c.raw_client.table("decisions")
+                    c.raw_client.table("command_memory_records")
                     .select("id")
                     .eq("owner", owner)
                     .ilike("statement", f"%{trigger}:{ref_id}:%")
@@ -123,7 +124,7 @@ def generate_lesson_candidate(
                 )
                 if res.data:
                     return None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - dedup lookup, best-effort, already logged
             log.debug("[learning.lessons] Lesson dedup skipped: %s", exc)
 
         candidate_id = log_decision_to_command_memory(
@@ -148,7 +149,7 @@ def generate_lesson_candidate(
             )
         return candidate_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - lesson candidate creation, best-effort, already logged
         log.debug("[learning.lessons] generate_lesson_candidate failed: %s", exc)
         return None
 
@@ -183,7 +184,7 @@ def lesson_from_investigation(investigation: Any) -> str | None:
             outcome=outcome_str,
             confidence=confidence,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - investigation-closure lesson gen, best-effort, already logged
         log.debug("[learning.lessons] lesson_from_investigation failed: %s", exc)
         return None
 
@@ -211,7 +212,7 @@ def lesson_from_mission(mission: dict[str, Any]) -> str | None:
             outcome=status,
             confidence=confidence,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - mission-closure lesson gen, best-effort, already logged
         log.debug("[learning.lessons] lesson_from_mission failed: %s", exc)
         return None
 
@@ -286,7 +287,7 @@ def get_lesson_candidates(
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale,owner,created_at")
             .like("owner", f"{LESSON_CANDIDATE_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -306,7 +307,7 @@ def get_lesson_candidates(
         candidates.sort(key=lambda x: x.confidence, reverse=True)
         return candidates[:limit]
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - candidate fetch, best-effort, already logged
         log.debug("[learning.lessons] get_lesson_candidates failed: %s", exc)
         return []
 
@@ -332,7 +333,7 @@ def promote_lesson_candidate(candidate_id: str) -> str | None:
 
         # Fetch candidate
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale,owner")
             .eq("id", candidate_id)
             .limit(1)
@@ -352,7 +353,7 @@ def promote_lesson_candidate(candidate_id: str) -> str | None:
         record = {
             "lesson_id": lesson_id,
             "title": cand.title[:200],
-            "date_recorded": date.today().isoformat(),
+            "date_recorded": datetime.now(timezone.utc).date().isoformat(),
             "context": cand.context,
             "lesson_text": cand.lesson_text,
             "outcome": cand.outcome,
@@ -368,14 +369,14 @@ def promote_lesson_candidate(candidate_id: str) -> str | None:
         new_rationale = str(rows[0].get("rationale") or "").replace(
             "STATUS: pending", f"STATUS: promoted | LESSON_ID: {lesson_id}"
         )
-        c.raw_client.table("decisions").update(
+        c.raw_client.table("command_memory_records").update(
             {"rationale": new_rationale, "status": "Closed"}
         ).eq("id", candidate_id).execute()
 
         log.info("[learning.lessons] Promoted candidate %s → lesson %s", candidate_id, lesson_id)
         return lesson_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - candidate promotion, already logged
         log.warning("[learning.lessons] promote_lesson_candidate failed: %s", exc)
         return None
 
@@ -388,10 +389,10 @@ def record_lesson_reuse(lesson_id: str, context: str = "") -> None:
         from command_memory_integration import log_decision_to_command_memory
         log_decision_to_command_memory(
             statement=f"[LESSON REUSE] {lesson_id}: {context[:80]}",
-            rationale=f"LESSON_ID: {lesson_id} | REUSED_AT: {datetime.utcnow().isoformat()} | CONTEXT: {context[:120]}",
+            rationale=f"LESSON_ID: {lesson_id} | REUSED_AT: {datetime.now(timezone.utc).isoformat()} | CONTEXT: {context[:120]}",
             owner=f"{LESSON_REUSE_OWNER_PREFIX}{lesson_id}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - reuse-tracking write, best-effort, already logged
         log.debug("[learning.lessons] record_lesson_reuse failed: %s", exc)
 
 
@@ -403,26 +404,27 @@ def get_reuse_count(lesson_id: str) -> int:
         if not (c.is_enabled() and c.raw_client):
             return 0
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id", count="exact")
             .eq("owner", f"{LESSON_REUSE_OWNER_PREFIX}{lesson_id}")
             .execute()
         )
         return int(getattr(res, "count", None) or 0)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort reuse count, defaults to 0
+        log.debug("[learning.lessons] get_reuse_count failed: %s", exc)
         return 0
 
 
 __all__ = [
+    "LESSON_CANDIDATE_OWNER_PREFIX",
     "LessonCandidate",
     "generate_lesson_candidate",
+    "get_lesson_candidate_count",
+    "get_lesson_candidates",
+    "get_reuse_count",
+    "lesson_from_decision",
     "lesson_from_investigation",
     "lesson_from_mission",
-    "lesson_from_decision",
-    "get_lesson_candidates",
-    "get_lesson_candidate_count",
     "promote_lesson_candidate",
     "record_lesson_reuse",
-    "get_reuse_count",
-    "LESSON_CANDIDATE_OWNER_PREFIX",
 ]

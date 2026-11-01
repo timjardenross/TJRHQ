@@ -23,26 +23,46 @@ Algorithm:
 from __future__ import annotations
 
 import sys
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from datetime import datetime, date
+from typing import Any
+
+from core.health.capacity_enforcement import enforcing
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
 
-from models import Recommendation, RecommendationPackage, HealthContextPackage
+from models import HealthContextPackage, Recommendation, RecommendationPackage
 
 try:
-    from intelligence_store import get_intelligence_evidence, IntelligenceEvidence
+    # 2026-09-15 adversarial review: this imported a bare `intelligence_store`
+    # module that has never existed anywhere in the repo -- IntelligenceEvidence
+    # and get_intelligence_evidence actually live in mission_knowledge_store.py,
+    # in this same directory (already on sys.path via the insert above).
+    # _INTELLIGENCE_STORE_AVAILABLE has been False in every real invocation
+    # since whatever rename left this stale, silently falling back to the
+    # null-evidence object in _gather_evidence() below -- recommendations
+    # have been running without historical-outcome/lessons-learned evidence
+    # enrichment this whole time, with nothing surfacing that degradation.
+    from mission_knowledge_store import (  # noqa: F401 - availability probe, only ImportError matters
+        IntelligenceEvidence,
+        get_intelligence_evidence,
+    )
     _INTELLIGENCE_STORE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_STORE_AVAILABLE = False
 
 try:
-    from number_one import (
-        NumberOne, Mission, Priority, MissionStatus,
-        TERMINAL_STATUSES, _to_status, _to_priority, _parse_iso_datetime,
+    from number_one import (  # noqa: F401 - availability probe, only ImportError matters
+        TERMINAL_STATUSES,
+        Mission,
+        MissionStatus,
+        NumberOne,
+        Priority,
+        _parse_iso_datetime,
+        _to_priority,
+        _to_status,
     )
     _NUMBER_ONE_AVAILABLE = True
 except ImportError:
@@ -53,7 +73,7 @@ except ImportError:
 # Public API
 # ---------------------------------------------------------------------------
 
-def _normalized_priority(mission: Dict[str, Any]) -> str:
+def _normalized_priority(mission: dict[str, Any]) -> str:
     """
     Return the mission's priority token (P0/P1/P2/P3/...), defaulting to
     "P3" both when the field is absent AND when it is present but blank.
@@ -72,10 +92,10 @@ def _normalized_priority(mission: Dict[str, Any]) -> str:
 
 
 def rank_missions(
-    missions: List[Dict[str, Any]],
-    health_context: Optional[HealthContextPackage] = None,
+    missions: list[dict[str, Any]],
+    health_context: HealthContextPackage | None = None,
     top_n: int = 3,
-) -> List[Recommendation]:
+) -> list[Recommendation]:
     """
     Given a list of mission dicts, return the top N ranked recommendations.
 
@@ -94,7 +114,7 @@ def rank_missions(
     for m in active:
         score = score_priority(m, missions)
         # Red capacity depresses non-critical mission scores so queue reorders
-        if cap_status == "Red":
+        if cap_status == "Red" and enforcing():  # advisory mode leaves ranking untouched
             priority = _normalized_priority(m)
             if priority in ("P2", "P3"):
                 score = max(0.0, score - 0.15)
@@ -146,14 +166,14 @@ def _gather_evidence(mission_type: str, objective: str):
     """Return IntelligenceEvidence if the store is available, else a null-object."""
     if not _INTELLIGENCE_STORE_AVAILABLE:
         try:
-            from intelligence_store import IntelligenceEvidence
+            from mission_knowledge_store import IntelligenceEvidence
             return IntelligenceEvidence()
         except ImportError:
             pass
         # Minimal fallback
         class _NullEvidence:
-            applicable_lessons = []
-            similar_closed_missions = []
+            applicable_lessons = ()
+            similar_closed_missions = ()
             historical_outcome_score = None
             outcome_sample_size = 0
             evidence_summary = ""
@@ -162,7 +182,7 @@ def _gather_evidence(mission_type: str, objective: str):
     return get_intelligence_evidence(mission_type, objective)
 
 
-def score_priority(mission: Dict[str, Any], all_missions: List[Dict[str, Any]]) -> float:
+def score_priority(mission: dict[str, Any], all_missions: list[dict[str, Any]]) -> float:
     """
     Score a mission 0.0–1.0 for recommendation priority.
 
@@ -199,9 +219,9 @@ def score_priority(mission: Dict[str, Any], all_missions: List[Dict[str, Any]]) 
 
 
 def check_health_constraints(
-    mission: Dict[str, Any],
-    health_context: Optional[HealthContextPackage],
-) -> Optional[str]:
+    mission: dict[str, Any],
+    health_context: HealthContextPackage | None,
+) -> str | None:
     """
     Return a health constraint note if the mission should be approached with care.
     Uses capacity_status (Green/Amber/Red) when available; falls back to
@@ -214,6 +234,12 @@ def check_health_constraints(
     priority = _normalized_priority(mission)
     domain = str(mission.get("domain", "")).lower()
     heavy_domains = {"engineering", "governance", "science", "workflow"}
+
+    if cap_status in ("Red", "Amber") and not enforcing():
+        # Advisory mode (owner decision 2026-10-18): a pacing note, never a defer instruction.
+        if cap_status == "Red" and (priority in ("P2", "P3") or domain in heavy_domains):
+            return "Capacity is Red today. Advisory only: pace yourself; nothing is deferred."
+        return None
 
     if cap_status == "Red":
         if priority in ("P2", "P3"):
@@ -248,8 +274,8 @@ def explain_recommendation(recommendation: Recommendation) -> str:
 
 
 def generate_recommendation_package(
-    missions: List[Dict[str, Any]],
-    health_context: Optional[HealthContextPackage] = None,
+    missions: list[dict[str, Any]],
+    health_context: HealthContextPackage | None = None,
     top_n: int = 3,
 ) -> RecommendationPackage:
     """
@@ -266,7 +292,7 @@ def generate_recommendation_package(
     )
 
     return RecommendationPackage(
-        assembled_at=datetime.utcnow().isoformat() + "Z",
+        assembled_at=datetime.now(timezone.utc).isoformat(),
         recommendations=recs,
         health_constraints_applied=health_applied,
         total_active_missions=active_count,
@@ -280,15 +306,15 @@ def generate_recommendation_package(
 _TERMINAL = {"COMPLETED", "CANCELLED", "CLOSED", "ARCHIVED", "DEFERRED"}
 
 
-def _filter_active(missions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _filter_active(missions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [m for m in missions if str(m.get("status", "")).upper() not in _TERMINAL]
 
 
-def _is_workload_reduced(health: Optional[HealthContextPackage]) -> bool:
+def _is_workload_reduced(health: HealthContextPackage | None) -> bool:
     return health is not None and health.workload_constraint == "reduced"
 
 
-def _capacity_status(health: Optional[HealthContextPackage]) -> Optional[str]:
+def _capacity_status(health: HealthContextPackage | None) -> str | None:
     """Return Green/Amber/Red/Unknown from the health package, or None if unavailable."""
     if not health:
         return None
@@ -302,12 +328,12 @@ def _capacity_status(health: Optional[HealthContextPackage]) -> Optional[str]:
     return None
 
 
-def _due_date_score(due_date: Optional[str]) -> float:
+def _due_date_score(due_date: str | None) -> float:
     if not due_date:
         return 0.0
     try:
         d = date.fromisoformat(str(due_date))
-        today = date.today()
+        today = datetime.now().astimezone().date()
         days_until = (d - today).days
         if days_until < 0:
             return 0.25  # Overdue
@@ -322,12 +348,12 @@ def _due_date_score(due_date: Optional[str]) -> float:
         return 0.0
 
 
-def _deadline_urgency(due_date: Optional[str]) -> str:
+def _deadline_urgency(due_date: str | None) -> str:
     if not due_date:
         return "none"
     try:
         d = date.fromisoformat(str(due_date))
-        days = (d - date.today()).days
+        days = (d - datetime.now().astimezone().date()).days
         if days < 0:
             return "high"   # Overdue
         if days <= 3:
@@ -339,7 +365,7 @@ def _deadline_urgency(due_date: Optional[str]) -> str:
         return "none"
 
 
-def _count_dependents(mission_id: str, all_missions: List[Dict[str, Any]]) -> int:
+def _count_dependents(mission_id: str, all_missions: list[dict[str, Any]]) -> int:
     count = 0
     for m in all_missions:
         deps = m.get("dependencies", [])
@@ -351,7 +377,7 @@ def _count_dependents(mission_id: str, all_missions: List[Dict[str, Any]]) -> in
     return count
 
 
-def _extract_blocker_descriptions(mission: Dict[str, Any]) -> List[str]:
+def _extract_blocker_descriptions(mission: dict[str, Any]) -> list[str]:
     raw = mission.get("blockers", [])
     if not raw:
         return []
@@ -366,7 +392,7 @@ def _extract_blocker_descriptions(mission: Dict[str, Any]) -> List[str]:
     return [str(raw)]
 
 
-def _recommend_next_action(mission: Dict[str, Any]) -> str:
+def _recommend_next_action(mission: dict[str, Any]) -> str:
     # Use existing next_action if set
     na = mission.get("next_action")
     if isinstance(na, dict):
@@ -392,8 +418,8 @@ def _recommend_next_action(mission: Dict[str, Any]) -> str:
 
 
 def _explain_recommendation(
-    mission: Dict[str, Any],
-    all_missions: List[Dict[str, Any]],
+    mission: dict[str, Any],
+    all_missions: list[dict[str, Any]],
     score: float,
     rank: int,
     evidence=None,
@@ -417,7 +443,7 @@ def _explain_recommendation(
     if due_date:
         try:
             d = date.fromisoformat(str(due_date))
-            days = (d - date.today()).days
+            days = (d - datetime.now().astimezone().date()).days
             if days < 0:
                 parts.append(f"overdue by {abs(days)} day{'s' if abs(days) != 1 else ''}")
             elif days == 0:
@@ -466,7 +492,7 @@ def _explain_recommendation(
     return base_reason
 
 
-def _confidence(score: float, mission: Dict[str, Any], evidence=None) -> float:
+def _confidence(score: float, mission: dict[str, Any], evidence=None) -> float:
     """
     Confidence in this recommendation.
 

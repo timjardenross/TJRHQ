@@ -47,6 +47,9 @@ _EXCLUDED_ROUTES: dict[str, str] = {
     "health-osint-curation": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "knowledge-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "mission-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
+    "engineering-handoffs": "consolidated into /decisions (Approved handoffs tab, Stage C 2026-10-18); the route is a redirect kept for bookmarks",
+    "focus-workbench": "retired 2026-10-18 (owner decision); the route answers with a retirement notice for bookmarks",
+    "physical-readiness": "retired 2026-10-18 (owner decision); the exercise catalogue moved to Knowledge -> Exercises, other pages answer with a retirement notice",
     "privacy": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
     "terms": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
     "settings": "index/nav page listing SETTINGS_SECTIONS (settings/page.tsx) — same category as the workbenches hub page itself, not a workbench of its own",
@@ -55,7 +58,7 @@ _EXCLUDED_ROUTES: dict[str, str] = {
 
 
 def _live_workbench_hrefs() -> set[str]:
-    text = _WORKBENCHES_TS.read_text()
+    text = _WORKBENCHES_TS.read_text().split('export const LIVE_WORKBENCHES', 1)[1].split('\n];', 1)[0]
     return {href.lstrip("/") for href in re.findall(r"href:\s*'([^']+)'", text)}
 
 

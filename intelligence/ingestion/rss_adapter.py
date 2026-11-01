@@ -12,7 +12,6 @@ Feed URL resolution order:
 import logging
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Optional
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
@@ -108,7 +107,7 @@ class RSSAdapter(BaseSourceAdapter):
 
         return items
 
-    def _get_summary(self, entry) -> Optional[str]:
+    def _get_summary(self, entry) -> str | None:
         for field in ("summary", "description", "content"):
             val = entry.get(field)
             if val:
@@ -121,7 +120,7 @@ class RSSAdapter(BaseSourceAdapter):
                 return val[:1000] if val else None
         return None
 
-    def _parse_date(self, entry) -> Optional[datetime]:
+    def _parse_date(self, entry) -> datetime | None:
         for field in ("published_parsed", "updated_parsed"):
             val = entry.get(field)
             if val:
@@ -129,14 +128,14 @@ class RSSAdapter(BaseSourceAdapter):
                     import time as _time
                     ts = _time.mktime(val)
                     return datetime.fromtimestamp(ts, tz=timezone.utc)
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
+                    log.debug("[rss_adapter] %s field failed mktime parse: %s", field, exc)
         # Fallback: try string fields
         for field in ("published", "updated"):
             val = entry.get(field)
             if val:
                 try:
                     return parsedate_to_datetime(val)
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
+                    log.debug("[rss_adapter] %s field failed RFC822 parse: %s", field, exc)
         return None

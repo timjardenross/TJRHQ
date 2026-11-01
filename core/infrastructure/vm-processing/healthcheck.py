@@ -43,10 +43,11 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from config import load_config  # noqa: E402
-from supabase_client import SupabaseClient  # noqa: E402
-from model_router_client import ModelRouterClient  # noqa: E402
-from worker import ProcessingWorker  # noqa: E402
+from model_router_client import ModelRouterClient
+from supabase_client import SupabaseClient
+from worker import ProcessingWorker
+
+from config import load_config
 
 DEFAULT_CONFIG = _HERE / "config.yaml"
 
@@ -142,14 +143,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
     try:
         repo_root = _HERE.parents[2]  # .../vm-processing -> infrastructure -> core -> repo root
         sys.path.insert(0, str(repo_root / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("knowledge_library", status=status, detail=detail, error_message=error_message)
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - already documented best-effort telemetry heartbeat
         pass
 
 

@@ -1,0 +1,32 @@
+[Unit]
+# USS-TJR-MSN-0366 Stream 6 — receives changedetection.io's real webhook
+# notification (fired on a real detected page-content change) and feeds it
+# into intelligence/watchlist/webhook_queue.py, which
+# intelligence/ingestion/changedetection_adapter.py drains on the next
+# collection cycle (same collection entry point as every other adapter —
+# see collection_engine.py's `_ADAPTER_MAP`). Must be reachable from the
+# changedetection.io container at host.docker.internal:8765 — see
+# deploy/docker-compose.watchlist.yml's `extra_hosts` and this mission's
+# knowledge record for the watch-side Notification URL configuration.
+#
+# Long-running daemon (stdlib ThreadingHTTPServer, never exits under normal
+# operation) — Type=simple, matching intelligence-scheduler.service's
+# pattern, not delivery-reconciler's oneshot+timer pattern.
+Description=USS TJR Watchlist — changedetection.io webhook receiver
+After=network-online.target watchlist-docker.service
+Wants=network-online.target
+Requires=watchlist-docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour
+Environment="CD_WEBHOOK_PORT=8765"
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python -m intelligence.watchlist.changedetection_webhook
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=watchlist-changedetection-webhook
+
+[Install]
+WantedBy=multi-user.target

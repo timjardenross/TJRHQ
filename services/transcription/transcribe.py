@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Local voice transcription using faster-whisper.
 USS-TJR Unified Capture Pipeline — CPU-only, no external API.
@@ -67,7 +68,7 @@ def transcribe_file(audio_path: str, language: str | None = None) -> dict:
             "text": " ".join(full_text_parts),
             "segments": segments,
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - faster-whisper transcription call has an unpredictable ML-library exception surface; returned as a structured {ok: False, error} result rather than raised, matching this function's own contract
         return {"ok": False, "audio_path": audio_path, "error": str(exc)}
 
 

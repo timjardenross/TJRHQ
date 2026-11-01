@@ -21,12 +21,12 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _outcomes = _import_sibling("outcomes")
-import timeline as _timeline
 import calibration as _calibration
 import metrics as _metrics
-
+import timeline as _timeline
 
 # ---------------------------------------------------------------------------
 # WP1 — Capture gaps
@@ -67,7 +67,7 @@ def capture_gaps() -> dict[str, Any]:
         "health_checkins",
         0,
         "Daily health check-ins drive wellness intelligence and capacity scoring.",
-        "Use `/health-check` (Slack) or the portal Medical pages — 30s/day.",
+        "Use `/capacity` (CapacityBot on Telegram) or the portal Medical pages — 30s/day.",
         standing=True,
     ))
 
@@ -105,7 +105,7 @@ def _gaps_narrative(gaps: list[dict]) -> str:
 def trust_metrics() -> dict[str, Any]:
     """Measure whether the system knows what it knows and recognises uncertainty."""
     cal = _calibration.calibration_report()
-    met = _metrics.advisory_metrics()
+    _metrics.advisory_metrics()
     records = _outcomes.load_records()
 
     total = len(records)

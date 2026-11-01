@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for HSF-002 — Captain Capacity Decision Engine.
 
 Covers:
@@ -23,9 +24,13 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.human_systems import decision, framework, xo, safety  # noqa: E402
-from lib.human_systems.mission_load import MissionLoad, Priority, load_priorities  # noqa: E402
-import commands.human_systems as hs  # noqa: E402
+import commands.human_systems as hs
+from lib.human_systems import decision, framework, safety, xo
+from lib.human_systems.mission_load import (
+    MissionLoad,
+    Priority,
+    load_priorities,
+)
 
 GOOD = {"log_date": "2026-06-20", "energy": "high", "mood": "positive",
         "nervous_system_state": "calm", "sleep_hours": 8.0, "sleep_quality": "good",
@@ -239,7 +244,7 @@ class TestCommand(unittest.TestCase):
 
     def test_red_flag_overrides_decision(self):
         out = hs.handle_human_systems("decide — also I have chest pain and can't breathe")
-        self.assertTrue(out.startswith(":rotating_light:") or out.startswith(":warning:"))
+        self.assertTrue(out.startswith((":rotating_light:", ":warning:")))
         self.assertEqual(safety.check_language(out), [])
 
     def test_all_decision_outputs_compliant(self):

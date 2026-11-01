@@ -1,0 +1,18 @@
+{
+  "framework_id": "EU-DORA",
+  "title": "Regulation (EU) 2022/2554 Digital Operational Resilience Act",
+  "issuer": "European Union",
+  "jurisdiction": "EU",
+  "role": "comparative",
+  "status": "in_force",
+  "effective_date": "2025-01-17",
+  "source_url": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj",
+  "licence": "EU legislation — reuse permitted with attribution (Commission Decision 2011/833/EU)",
+  "notes": "",
+  "ingestion": {
+    "method": "pending",
+    "source_sha256": null,
+    "ingested_at": null
+  },
+  "clauses": []
+}

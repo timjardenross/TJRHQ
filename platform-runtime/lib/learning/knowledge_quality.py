@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -114,7 +114,8 @@ def _count(client, table: str, *, like: tuple[str, str] | None = None,
             q = q.ilike(ilike[0], ilike[1])
         res = q.execute()
         return int(getattr(res, "count", None) or 0)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort count query, defaults to 0
+        log.debug("[learning.knowledge_quality] count query failed for %s: %s", table, exc)
         return 0
 
 
@@ -129,13 +130,13 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             score.notes.append("Command Memory unavailable — scores are zero.")
             return score
         rc = c.raw_client
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - client init failure, recorded in score.notes
         score.notes.append(f"Client unavailable: {exc}")
         return score
 
     # 1. Decision rationale coverage — sample recent decisions
     try:
-        res = rc.table("decisions").select("rationale").order(
+        res = rc.table("command_memory_records").select("rationale").order(
             "created_at", desc=True
         ).limit(200).execute()
         rows = list(res.data or [])
@@ -145,7 +146,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
                 if len(str(r.get("rationale") or "").strip()) >= _MIN_RATIONALE_LEN
             )
             score.decision_rationale_coverage = _safe_ratio(substantive, len(rows))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"decision_rationale: {exc}")
 
     # 2. Mission outcome coverage — completed missions with a lesson candidate or outcome note
@@ -155,7 +156,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
         completed = [m for m in missions if str(m.get("status") or "").lower() in _COMPLETED_STATUSES]
         if completed:
             # A mission has "captured outcome" if a lesson candidate references it
-            lres = rc.table("decisions").select("statement").like(
+            lres = rc.table("command_memory_records").select("statement").like(
                 "owner", "lesson_candidate:%"
             ).limit(500).execute()
             lesson_refs = " ".join(str(r.get("statement") or "") for r in (lres.data or []))
@@ -164,12 +165,12 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             score.lesson_coverage = score.mission_outcome_coverage  # lessons track outcomes
         else:
             score.notes.append("No completed missions to score.")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"mission_outcome: {exc}")
 
     # 3. Investigation outcome coverage — closed investigations with OUTCOME recorded
     try:
-        ires = rc.table("decisions").select("rationale").like(
+        ires = rc.table("command_memory_records").select("rationale").like(
             "owner", "investigation:%"
         ).limit(200).execute()
         invs = list(ires.data or [])
@@ -182,54 +183,54 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             score.investigation_outcome_coverage = 1.0 if invs else 0.0
             if not invs:
                 score.notes.append("No investigations recorded yet.")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"investigation_outcome: {exc}")
 
     # 4. ADR coverage — architecture_records vs architecture-flagged decisions
     try:
         adr_count = _count(rc, "architecture_records")
-        arch_decisions = _count(rc, "decisions", ilike=("statement", "%architecture%"))
+        arch_decisions = _count(rc, "command_memory_records", ilike=("statement", "%architecture%"))
         if arch_decisions > 0:
             score.adr_coverage = _safe_ratio(adr_count, arch_decisions)
         elif adr_count > 0:
             score.adr_coverage = 1.0
         else:
             score.notes.append("No architecture records found.")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"adr_coverage: {exc}")
 
     # 5. Knowledge reuse rate — lesson reuse events vs lessons
     try:
-        reuse_count = _count(rc, "decisions", like=("owner", "lesson_reuse:%"))
+        reuse_count = _count(rc, "command_memory_records", like=("owner", "lesson_reuse:%"))
         lesson_count = _count(rc, "lessons_learned")
-        cand_count = _count(rc, "decisions", like=("owner", "lesson_candidate:%"))
+        cand_count = _count(rc, "command_memory_records", like=("owner", "lesson_candidate:%"))
         denom = max(lesson_count + cand_count, 1)
         score.knowledge_reuse_rate = _safe_ratio(reuse_count, denom)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"reuse_rate: {exc}")
 
     # 6. Documentation freshness — lessons/ADR activity in last 30 days
     try:
-        cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
         recent_lessons = 0
         try:
             lr = rc.table("lessons_learned").select("id", count="exact").gte(
                 "created_at", cutoff
             ).execute()
             recent_lessons = int(getattr(lr, "count", None) or 0)
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort recent-lessons count, already logged
+            log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
         recent_candidates = 0
         try:
-            cr = rc.table("decisions").select("id", count="exact").like(
+            cr = rc.table("command_memory_records").select("id", count="exact").like(
                 "owner", "lesson_candidate:%"
             ).gte("created_at", cutoff).execute()
             recent_candidates = int(getattr(cr, "count", None) or 0)
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort recent-candidates count, already logged
+            log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
         # Freshness saturates at 5 recent knowledge events
         score.documentation_freshness = _safe_ratio(recent_lessons + recent_candidates, 5)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"freshness: {exc}")
 
     # 7. Knowledge fragmentation health — consolidation indicator
@@ -237,13 +238,13 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
     #    scattered as un-promoted candidates. health = promoted / (promoted+pending)
     try:
         promoted = _count(rc, "lessons_learned")
-        pending = _count(rc, "decisions", like=("owner", "lesson_candidate:%"))
+        pending = _count(rc, "command_memory_records", like=("owner", "lesson_candidate:%"))
         total = promoted + pending
         if total > 0:
             score.knowledge_fragmentation_health = _safe_ratio(promoted, total)
         else:
             score.knowledge_fragmentation_health = 0.5  # neutral when no data
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"fragmentation: {exc}")
 
     log.info(
@@ -256,7 +257,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
 def format_knowledge_quality(score: KnowledgeQualityScore) -> str:
     """Format the knowledge quality score as Slack-ready text."""
     def bar(v: float) -> str:
-        filled = int(round(v * 5))
+        filled = round(v * 5)
         return "█" * filled + "░" * (5 - filled)
 
     lines = [

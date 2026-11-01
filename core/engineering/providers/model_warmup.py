@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import logging
 import os
-import time
-from typing import Optional, Dict, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from event_bus import poll_events
 
 from core.engineering.providers.model_router import call as router_call
 from core.platform.operational_state_model import assemble_operational_state
-from event_bus import poll_events
 
 log = logging.getLogger(__name__)
 
@@ -28,8 +27,8 @@ class ModelWarmupManager:
     """Manages model warm-up and keep-alive operations."""
 
     def __init__(self):
-        self.last_warmup: Dict[str, datetime] = {}
-        self.keepalive_connections: Dict[str, datetime] = {}
+        self.last_warmup: dict[str, datetime] = {}
+        self.keepalive_connections: dict[str, datetime] = {}
         self.warmup_interval = int(os.getenv("MODEL_WARMUP_INTERVAL", DEFAULT_WARMUP_INTERVAL))
         self.keepalive_interval = int(os.getenv("MODEL_KEEPALIVE_INTERVAL", DEFAULT_KEEPALIVE_INTERVAL))
         self.warmup_prompt = os.getenv("MODEL_WARMUP_PROMPT", DEFAULT_WARMUP_PROMPT)
@@ -39,7 +38,7 @@ class ModelWarmupManager:
         if model_name not in self.last_warmup:
             return True
 
-        time_since_last = (datetime.now() - self.last_warmup[model_name]).total_seconds()
+        time_since_last = (datetime.now(timezone.utc) - self.last_warmup[model_name]).total_seconds()
         return time_since_last >= self.warmup_interval
 
     def should_keepalive(self, model_name: str) -> bool:
@@ -47,33 +46,33 @@ class ModelWarmupManager:
         if model_name not in self.keepalive_connections:
             return True
 
-        time_since_last = (datetime.now() - self.keepalive_connections[model_name]).total_seconds()
+        time_since_last = (datetime.now(timezone.utc) - self.keepalive_connections[model_name]).total_seconds()
         return time_since_last >= self.keepalive_interval
 
     def warmup_model(self, model_name: str) -> bool:
         """Perform warm-up for a specific model."""
         try:
             log.info(f"Warming up model: {model_name}")
-            response, _ = router_call(self.warmup_prompt, model_name)
-            self.last_warmup[model_name] = datetime.now()
+            _response, _ = router_call(self.warmup_prompt, model_name)
+            self.last_warmup[model_name] = datetime.now(timezone.utc)
             log.info(f"Successfully warmed up model: {model_name}")
             return True
-        except Exception as e:
-            log.error(f"Failed to warm up model {model_name}: {str(e)}")
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+            log.error(f"Failed to warm up model {model_name}: {e!s}")
             return False
 
     def keepalive_model(self, model_name: str) -> bool:
         """Maintain keep-alive connection for a specific model."""
         try:
             log.debug(f"Sending keep-alive for model: {model_name}")
-            response, _ = router_call(self.warmup_prompt, model_name)
-            self.keepalive_connections[model_name] = datetime.now()
+            _response, _ = router_call(self.warmup_prompt, model_name)
+            self.keepalive_connections[model_name] = datetime.now(timezone.utc)
             return True
-        except Exception as e:
-            log.error(f"Failed to maintain keep-alive for model {model_name}: {str(e)}")
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+            log.error(f"Failed to maintain keep-alive for model {model_name}: {e!s}")
             return False
 
-    def manage_models(self, models: Optional[List[str]] = None) -> Dict[str, bool]:
+    def manage_models(self, models: list[str] | None = None) -> dict[str, bool]:
         """Manage warm-up and keep-alive for specified models or all active models."""
         results = {}
 

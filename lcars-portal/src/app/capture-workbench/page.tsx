@@ -13,8 +13,9 @@
 // See CAPTURE-WORKBENCH-MIGRATION-PLAN.md.
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { WorkbenchShell, DomainToggle } from '@/components/ui';
+import { useUrlSync } from '@/lib/useUrlSync';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { CaptureView } from './_components/CaptureView';
 import { InboxView } from './_components/InboxView';
@@ -23,8 +24,8 @@ import { fetchCaptureAnalytics, type CaptureAnalytics } from '@/lib/capture';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
 
 function Workbench() {
-  const router = useRouter();
   const params = useSearchParams();
+  const { writeParams } = useUrlSync('/capture-workbench');
 
   const initialDomain = params.get('domain');
   const initialFilter = params.get('filter');
@@ -35,6 +36,7 @@ function Workbench() {
 
   const [stats, setStats] = useState<CaptureAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [live, setLive] = useState(false);
   // Bumped on a realtime change or a new capture; InboxView reloads its list on it.
@@ -43,8 +45,20 @@ function Workbench() {
   const loadStats = useCallback((withSpinner: boolean) => {
     if (withSpinner) setLoading(true);
     return fetchCaptureAnalytics()
-      .then((s) => { setStats(s); setLastUpdated(new Date()); })
-      .catch(() => setStats(null))
+      .then((s) => {
+        // fetchCaptureAnalytics()'s contract: null means the query/exception
+        // path failed; a genuinely empty week resolves to an all-zero object,
+        // never null (lib/capture.ts). A real fetch failure must not collapse
+        // into "no stats" — that's indistinguishable from a real zero-capture
+        // week (MSN-LCARS-003).
+        setStats(s);
+        setLoadError(s === null ? 'Couldn’t load capture stats right now.' : null);
+        if (s !== null) setLastUpdated(new Date());
+      })
+      .catch(() => {
+        setStats(null);
+        setLoadError('Couldn’t load capture stats right now.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -63,11 +77,11 @@ function Workbench() {
   });
 
   const syncUrl = useCallback((next: { domain?: Domain; filter?: InboxFilter }) => {
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    if (next.domain) sp.set('domain', next.domain);
-    if (next.filter) sp.set('filter', next.filter);
-    router.replace(`/capture-workbench?${sp.toString()}`, { scroll: false });
-  }, [params, router]);
+    writeParams((sp) => {
+      if (next.domain) sp.set('domain', next.domain);
+      if (next.filter) sp.set('filter', next.filter);
+    });
+  }, [writeParams]);
 
   const changeDomain = (d: Domain) => { setDomain(d); syncUrl({ domain: d }); };
   const changeFilter = (f: InboxFilter) => { setInboxFilter(f); syncUrl({ filter: f }); };
@@ -75,7 +89,7 @@ function Workbench() {
 
   const right = (
     <div className="flex items-center gap-3">
-      <span className="hidden text-[11px] text-wb-ink2 sm:inline">
+      <span className="hidden text-wb-label text-wb-ink2 sm:inline">
         {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
       </span>
       <DomainToggle
@@ -92,9 +106,9 @@ function Workbench() {
 
   return (
     <WorkbenchShell wide title="Capture" eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Capture · Review-first — nothing auto-routes without your say"
-      right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
-      <KpiDashboard stats={stats} loading={loading} onFilter={filterToInbox} />
+      tagline="TJR HQ · Capture · Review-first — nothing auto-routes without your say"
+      right={right} back={{ href: '/workbenches', label: 'Workbenches' }} mode="command">
+      <KpiDashboard stats={stats} loading={loading} loadError={loadError} onFilter={filterToInbox} />
       {domain === 'capture' && <CaptureView onCaptured={refresh} />}
       {domain === 'inbox' && (
         <InboxView

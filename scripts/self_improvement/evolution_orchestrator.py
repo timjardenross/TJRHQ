@@ -26,22 +26,28 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, IO, Optional
+from typing import IO, Any
 
-from collector import EvidenceCollector
-from router_client import ModelRouterClient
-from policy import PolicyEngine
-from opportunity_store import OpportunityStore, new_fingerprint, MISSION_ONLY_CLASSES
-from relevance import RelevanceGate
-from investigation_schema import validate_investigation, honest_fallback_investigation
-import internal_discovery
-import external_discovery
-import state_validation
-import outcome_evaluation
+import dependency_releases
 import evolution_memory
+import external_discovery
+import external_enrichment
+import internal_discovery
+import lifecycle
+import outcome_evaluation
+import staleness_check
+import state_validation
+import watchlist_rotation
+from collector import EvidenceCollector
+from decision_processor import DecisionProcessor
+from investigation_schema import honest_fallback_investigation, validate_investigation
+from opportunity_store import MISSION_ONLY_CLASSES, OpportunityStore, new_fingerprint
+from policy import PolicyEngine
+from relevance import RelevanceGate
+from router_client import ModelRouterClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
-from heartbeat import record_heartbeat  # noqa: E402
+from heartbeat import record_heartbeat
 
 log = logging.getLogger("evolution_orchestrator")
 _HEARTBEAT_DOMAIN = "hq_evolution_cycle"
@@ -58,8 +64,9 @@ class EvolutionOrchestrator:
         self.store = OpportunityStore(data_root)
         self.gate = RelevanceGate(self.evolution_config, self.store)
         self.watchlist_path = repo_root / "config" / "evolution_watchlist.json"
+        self.rotation_state_path = data_root / "review" / "watchlist_rotation_state.json"
         self._lock_path = data_root / "review" / ".evolution_cycle.lock"
-        self._lock_fd: Optional[IO] = None
+        self._lock_fd: IO | None = None
 
     def _try_acquire_lock(self) -> bool:
         """Section 5: no overlapping Evolution runs. Non-blocking exclusive
@@ -68,7 +75,7 @@ class EvolutionOrchestrator:
         blocks: a stuck prior run must not wedge every future scheduled
         run, it just means this run skips (and says so honestly)."""
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
-        fd = open(self._lock_path, "w")
+        fd = open(self._lock_path, "w")  # noqa: SIM115 - flock held across the run; closed explicitly in _release_lock(), can't use a `with` block here
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except (BlockingIOError, OSError):
@@ -104,7 +111,7 @@ class EvolutionOrchestrator:
             verdict = topic["validation_verdict"]
             fingerprint = new_fingerprint(topic["id"], "evolution_watchlist", "external")
             existing = self.store.find_by_fingerprint(fingerprint)
-            if existing is not None and existing.get("lifecycle_state") == "resolved_before_research":
+            if existing is not None and lifecycle.detail_of(existing) == "resolved_before_research":
                 continue  # already recorded this exact resolution — don't rewrite every cycle
             log.info(f"Watchlist topic '{topic['id']}' resolved before research: {verdict['reason']}")
             if dry_run:
@@ -136,6 +143,16 @@ class EvolutionOrchestrator:
 
         return active_topics
 
+    def _collect_dependency_releases(self, max_total: int) -> list[dict[str, Any]]:
+        """Own method (not inlined) so tests can neutralize this real-network
+        call the same way `_load_watchlist`/`router.health_check` already
+        are — see tests/test_hq_evolution.py's `_make_orchestrator()`."""
+        try:
+            return dependency_releases.discover(self.evolution_config, self.repo_root, max_total=max_total)
+        except Exception as exc:  # noqa: BLE001 - same fail-open posture as the enrichment call below: a new, less battle-tested source must never take discovery down with it
+            log.error(f"Dependency-release discovery failed entirely — continuing without it: {exc}")
+            return []
+
     def _load_watchlist(self) -> list[dict[str, Any]]:
         if not self.watchlist_path.exists():
             log.warning(f"No watchlist at {self.watchlist_path} — external discovery skipped this cycle")
@@ -143,17 +160,20 @@ class EvolutionOrchestrator:
         try:
             with open(self.watchlist_path) as f:
                 return json.load(f).get("topics", [])
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError) as exc:
             log.error(f"Failed to load watchlist: {exc}")
             return []
 
-    def _load_latest_classified_findings(self) -> list[dict[str, Any]]:
+    def _load_latest_classified_findings(self) -> tuple[list[dict[str, Any]], str | None]:
         """Reuse the existing daily cycle's most recent classified findings,
         if any exist — never re-runs model analysis itself. Same mtime-sort
-        fix as auto_remediation.py's load_latest_findings()."""
+        fix as auto_remediation.py's load_latest_findings(). Returns
+        (findings, run_id) — the run_id is needed by the staleness-check
+        phase below, since finding_id (e.g. 'FND-001') is recycled every
+        run and is only unique paired with the run that produced it."""
         runs_dir = self.data_root / "runs"
         if not runs_dir.exists():
-            return []
+            return [], None
         run_dirs = sorted(
             (d for d in runs_dir.iterdir() if d.is_dir()),
             key=lambda d: d.stat().st_mtime, reverse=True,
@@ -163,11 +183,49 @@ class EvolutionOrchestrator:
             if findings_file.exists():
                 try:
                     with open(findings_file) as f:
-                        return json.load(f).get("findings", [])
-                except Exception as exc:
+                        return json.load(f).get("findings", []), run_dir.name
+                except (OSError, json.JSONDecodeError) as exc:
                     log.warning(f"Failed to read {findings_file}: {exc}")
                     continue
-        return []
+        return [], None
+
+    def _check_finding_staleness(self, classified_findings: list[dict[str, Any]], run_id: str | None, dry_run: bool) -> int:
+        """Section: reconciliation. A finding fixed entirely outside this
+        pipeline (a human-authored PR, not an approved opportunity or a
+        dispatched Mission) has no automated signal that tells the system
+        it's done — it just sits "proposed"/undecided forever until a
+        human happens to notice and re-derive that by hand. This re-checks
+        every UNDECIDED finding's own evidence against current repo state
+        every cycle and records the result — it never changes a decision
+        or a lifecycle_state itself (see staleness_check.py's own
+        never-guess contract for what "unclear" means and why it exists).
+        Returns the number of findings checked (0 in dry_run — this writes
+        an append-only log, same side-effect rule as everything else)."""
+        if dry_run or not classified_findings or not run_id:
+            return 0
+
+        decisions_by_finding = DecisionProcessor(self.data_root).aggregate_decisions(
+            DecisionProcessor(self.data_root).load_decisions()
+        ).get("by_finding", {})
+        undecided = [f for f in classified_findings if f.get("finding_id") not in decisions_by_finding]
+        if not undecided:
+            return 0
+
+        staleness_path = self.data_root / "review" / "finding_staleness.jsonl"
+        staleness_path.parent.mkdir(parents=True, exist_ok=True)
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with open(staleness_path, "a") as f:
+            for finding in undecided:
+                result = staleness_check.check_finding_staleness(finding, self.repo_root)
+                record = {
+                    "timestamp": now_iso,
+                    "run_id": run_id,
+                    "finding_id": finding.get("finding_id"),
+                    "title": finding.get("title"),
+                    **result,
+                }
+                f.write(json.dumps(record) + "\n")
+        return len(undecided)
 
     def _count_cycles_since(self, since_iso: str) -> int:
         """V2 section 9: an honest cycle count for observation_window types
@@ -231,15 +289,15 @@ class EvolutionOrchestrator:
         # against, and that's not an error, just silently out of scope.
         candidates = [
             opp for opp in self.store.all_current()
-            if opp.get("lifecycle_state") in ("approved", "implementing", "verifying")
+            if lifecycle.detail_of(opp) in ("approved", "implementing", "verifying")
             and opp.get("outcome_contract")
         ]
 
         implementations_confirmed = 0
         outcomes_evaluated = 0
         regressions = 0
-        latest_material_learning: Optional[dict[str, Any]] = None
-        latest_material_learning_ts: Optional[str] = None
+        latest_material_learning: dict[str, Any] | None = None
+        latest_material_learning_ts: str | None = None
 
         for opp in candidates[:max_evaluations]:
             if time.monotonic() - t0 > budget_s:
@@ -248,7 +306,7 @@ class EvolutionOrchestrator:
 
             opportunity_id = opp.get("opportunity_id")
             try:
-                lifecycle_state = opp.get("lifecycle_state")
+                lifecycle_state = lifecycle.detail_of(opp)
                 contract = opp.get("outcome_contract") or {}
                 evaluate_now = False
 
@@ -395,17 +453,18 @@ class EvolutionOrchestrator:
                 if outcome_result == "regressed":
                     regressions += 1
 
-                if outcome_result in ("improved", "regressed"):
-                    if latest_material_learning_ts is None or evaluated_at > latest_material_learning_ts:
-                        latest_material_learning = {
-                            "opportunity_id": opportunity_id,
-                            "title": opp.get("title"),
-                            "outcome_result": outcome_result,
-                            "future_implication": result.get("future_implication"),
-                        }
-                        latest_material_learning_ts = evaluated_at
+                if outcome_result in ("improved", "regressed") and (
+                    latest_material_learning_ts is None or evaluated_at > latest_material_learning_ts
+                ):
+                    latest_material_learning = {
+                        "opportunity_id": opportunity_id,
+                        "title": opp.get("title"),
+                        "outcome_result": outcome_result,
+                        "future_implication": result.get("future_implication"),
+                    }
+                    latest_material_learning_ts = evaluated_at
 
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-opportunity outcome evaluation loop; one opportunity's unpredictable evaluation failure must not abort evaluation of the rest, already logged and skipped via continue
                 log.warning(f"Outcome evaluation failed for {opportunity_id}: {exc}")
                 continue
 
@@ -444,7 +503,7 @@ class EvolutionOrchestrator:
                     inv["related_experience"] = related
                     inv["related_experience_summary"] = related_summary
                     return inv
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - model/LLM investigation call has an unpredictable exception surface; already logged, and the code deliberately falls back to a deterministic template on any failure
                 log.warning(f"Model investigation failed, falling back to template: {exc}")
 
         fallback = honest_fallback_investigation(candidate)
@@ -480,7 +539,11 @@ class EvolutionOrchestrator:
         log.info("=" * 80)
 
         evidence = self.collector.collect_all()
-        classified_findings = self._load_latest_classified_findings()
+        classified_findings, findings_run_id = self._load_latest_classified_findings()
+        findings_staleness_checked = self._check_finding_staleness(classified_findings, findings_run_id, dry_run)
+        if findings_staleness_checked:
+            log.info(f"Re-checked {findings_staleness_checked} undecided finding(s) from {findings_run_id} "
+                      f"against current repo state — see data/self-improvement/review/finding_staleness.jsonl")
 
         # ONE Model Router health check per cycle — health_check() is a
         # real network call, shared between this phase and the
@@ -507,14 +570,14 @@ class EvolutionOrchestrator:
             outcome_eval_summary = self._evaluate_due_outcomes(run_id) if not dry_run else {
                 "implementations_confirmed": 0, "outcomes_evaluated": 0, "regressions": 0, "latest_material_learning": None,
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - explicitly documented above: this newer V2 outcome-evaluation phase must never be able to take the whole (load-bearing) cycle down; already logged
             log.error(f"Outcome evaluation phase failed entirely — continuing to discovery unaffected: {exc}")
             outcome_eval_summary = {
                 "implementations_confirmed": 0, "outcomes_evaluated": 0, "regressions": 0, "latest_material_learning": None,
             }
 
         max_internal = self.evolution_config.get("max_internal_candidates_per_cycle", 20)
-        internal_candidates = internal_discovery.discover(classified_findings, evidence, max_internal)
+        internal_candidates = internal_discovery.discover(classified_findings, evidence, max_internal, repo_root=self.repo_root)
 
         # Section 17 RESEARCH ORDER: INTERNAL VALIDATION happens before
         # EXTERNAL DISCOVERY — never "watchlist -> search internet -> then
@@ -524,7 +587,49 @@ class EvolutionOrchestrator:
         if not dry_run:
             active_topics = self._resolve_watchlist(run_id, dry_run)
             if active_topics:
-                external_candidates = external_discovery.discover(active_topics, self.evolution_config)
+                rotation_state = watchlist_rotation.load_rotation_state(self.rotation_state_path)
+                external_candidates = external_discovery.discover(active_topics, self.evolution_config, rotation_state=rotation_state)
+                watchlist_rotation.save_rotation_state(self.rotation_state_path, rotation_state)
+
+            # Tier 1 dependency-release source (docs/self-improvement/
+            # HQ-EVOLUTION-SOURCE-EXPANSION.md): shares the same
+            # max_external_candidates_per_cycle budget as the watchlist
+            # searches above rather than a separate uncapped total.
+            max_external_total = self.evolution_config.get("max_external_candidates_per_cycle", 20)
+            remaining_budget = max_external_total - len(external_candidates)
+            if remaining_budget > 0:
+                external_candidates += self._collect_dependency_releases(remaining_budget)
+
+            # Tier 2 supply-chain evidence (deps.dev/Scorecard complexity,
+            # Semantic Scholar citation-based value) — deterministic, no
+            # Model Router involved, so it runs regardless of
+            # router_reachable and BEFORE the LLM ranking below, so
+            # ranking itself sees the sharpened fields.
+            if external_candidates:
+                try:
+                    external_candidates = external_enrichment.apply_supply_chain_evidence(
+                        external_candidates, self.evolution_config,
+                    )
+                except Exception as exc:  # noqa: BLE001 - supply-chain evidence is optional upside, never load-bearing; a failure here must not affect discovery/relevance/scoring; already logged
+                    log.error(f"Supply-chain evidence enrichment failed entirely — continuing with metadata-only complexity/value: {exc}")
+
+            # Upgrades a bounded few candidates' fit/evidence_strength
+            # from discover()'s hardcoded metadata-only defaults to a
+            # real README-grounded assessment (see external_enrichment.py's
+            # own module docstring for why that matters) — LLM judgment
+            # only, RelevanceGate below remains the sole permission gate.
+            # Same belt-and-suspenders posture as the outcome-evaluation
+            # phase above: this is newer and less battle-tested than
+            # discovery itself, so a failure here must never take
+            # discovery/relevance/scoring down with it.
+            if external_candidates and router_reachable:
+                try:
+                    external_candidates = external_enrichment.enrich(
+                        external_candidates, self.evolution_config, self.router,
+                        score_fn=self.gate.score_candidate,
+                    )
+                except Exception as exc:  # noqa: BLE001 - external enrichment is optional upside, never load-bearing; a failure here must not affect discovery/relevance/scoring; already logged
+                    log.error(f"External candidate enrichment failed entirely — continuing with metadata-only fit/evidence_strength: {exc}")
 
         all_candidates = internal_candidates + external_candidates
         for c in all_candidates:
@@ -539,7 +644,41 @@ class EvolutionOrchestrator:
         evaluated = [(c, self.gate.evaluate(c)) for c in all_candidates]
         duplicates = [(c, v) for c, v in evaluated if v.is_duplicate]
         passed = [(c, v) for c, v in evaluated if v.passes_investigate and not v.is_duplicate]
-        log.info(f"{len(duplicates)} duplicate/already-considered, {len(passed)} clear the relevance gate")
+        failed_gate = [(c, v) for c, v in evaluated if not v.passes_investigate and not v.is_duplicate]
+        log.info(f"{len(duplicates)} duplicate/already-considered, {len(passed)} clear the relevance gate, "
+                 f"{len(failed_gate)} rejected at the gate")
+
+        def _base_fields(candidate: dict[str, Any], verdict, lifecycle_state: str) -> dict[str, Any]:
+            return {
+                "title": candidate["title"],
+                "change_class": candidate["change_class"],
+                "discovery_source": candidate["discovery_source"],
+                "lifecycle_state": lifecycle_state,
+                "fingerprint": candidate["fingerprint"],
+                "summary": candidate.get("summary", ""),
+                "why_relevant": candidate.get("why_relevant", ""),
+                "value": candidate.get("value"),
+                "cost_impact": candidate.get("cost_impact"),
+                "complexity": candidate.get("complexity"),
+                "fit": candidate.get("fit"),
+                "relevance_score": verdict.score,
+                "confidence": candidate.get("confidence", 0.0),
+                "evidence_strength": candidate.get("evidence_strength", "weak"),
+                "provenance": candidate.get("provenance", []),
+                "source_finding_id": candidate.get("source_finding_id"),
+                "validation_result": candidate.get("validation_result"),
+                "validation_evidence": candidate.get("validation_evidence", []),
+                "validated_at": candidate.get("validated_at"),
+                "measurement_hint": candidate.get("measurement_hint"),
+                "run_id": run_id,
+            }
+
+        def _persist(candidate: dict[str, Any], verdict, fields: dict[str, Any]):
+            if dry_run:
+                return None
+            if verdict.reconsider_of:
+                return self.store.update(verdict.reconsider_of, **fields)
+            return self.store.create_new(**fields)
 
         # Persist every gate-cleared candidate as a lightweight DISCOVERED
         # record (so future cycles can dedup against it) before spending
@@ -554,36 +693,27 @@ class EvolutionOrchestrator:
         # "discovered"/"investigating" from being permanently frozen).
         discovered_opps = []
         for candidate, verdict in passed:
-            fields = dict(
-                title=candidate["title"],
-                change_class=candidate["change_class"],
-                discovery_source=candidate["discovery_source"],
-                lifecycle_state="discovered",
-                fingerprint=candidate["fingerprint"],
-                summary=candidate.get("summary", ""),
-                why_relevant=candidate.get("why_relevant", ""),
-                value=candidate.get("value"),
-                cost_impact=candidate.get("cost_impact"),
-                complexity=candidate.get("complexity"),
-                fit=candidate.get("fit"),
-                relevance_score=verdict.score,
-                confidence=candidate.get("confidence", 0.0),
-                evidence_strength=candidate.get("evidence_strength", "weak"),
-                provenance=candidate.get("provenance", []),
-                source_finding_id=candidate.get("source_finding_id"),
-                validation_result=candidate.get("validation_result"),
-                validation_evidence=candidate.get("validation_evidence", []),
-                validated_at=candidate.get("validated_at"),
-                measurement_hint=candidate.get("measurement_hint"),
-                run_id=run_id,
-            )
-            if dry_run:
-                opp = None
-            elif verdict.reconsider_of:
-                opp = self.store.update(verdict.reconsider_of, **fields)
-            else:
-                opp = self.store.create_new(**fields)
+            fields = _base_fields(candidate, verdict, "discovered")
+            opp = _persist(candidate, verdict, fields)
             discovered_opps.append((candidate, verdict, opp))
+
+        # 2026-09-10: candidates that fail the relevance gate used to be
+        # discarded after only a bare count (investigated_count minus
+        # cleared_relevance_gate_count) — no title, no reason, nowhere,
+        # for either this run or any future one. Persisting them as real
+        # 'rejected' opportunities (with the gate's own reasons as
+        # rejection_reason) makes them reviewable through the same
+        # Learned-tab historical list every other decision goes through,
+        # so a human can catch a wrongly-filtered candidate instead of it
+        # vanishing silently every night. Same reconsider_of/create_new
+        # pattern as the gate-cleared branch above, so a fingerprint that
+        # keeps failing doesn't pile up a fresh record every cycle —
+        # check_duplicate() in relevance.py already dedupes an unchanged
+        # 'rejected' fingerprint before it ever reaches failed_gate.
+        for candidate, verdict in failed_gate:
+            fields = _base_fields(candidate, verdict, "rejected")
+            fields["rejection_reason"] = "Auto-rejected at relevance gate: " + "; ".join(verdict.reasons)
+            _persist(candidate, verdict, fields)
 
         # SHORTLIST -> INVESTIGATE (the expensive step; bounded)
         log.info("\nSHORTLIST / INVESTIGATE")
@@ -653,13 +783,13 @@ class EvolutionOrchestrator:
         # Captain's Chair's signal reads pending_decisions_count; the
         # Discover tab's morning-compression line reads worth_considering_count.
         pending_decisions_count = sum(
-            1 for rec in self.store.all_current() if rec.get("lifecycle_state") == "proposed"
+            1 for rec in self.store.all_current() if lifecycle.detail_of(rec) == "proposed"
         ) if not dry_run else len(surfaced)
 
         model_synthesis_count = sum(1 for i in investigated if i["investigation"].get("method") == "model_synthesis")
         resolved_before_research_count = sum(
             1 for rec in self.store.all_current()
-            if rec.get("run_id") == run_id and rec.get("lifecycle_state") == "resolved_before_research"
+            if rec.get("run_id") == run_id and lifecycle.detail_of(rec) == "resolved_before_research"
         ) if not dry_run else 0
 
         cycle_timestamp = datetime.now(timezone.utc).isoformat()
@@ -670,6 +800,7 @@ class EvolutionOrchestrator:
             "dry_run": dry_run,
             "investigated_count": len(all_candidates),
             "cleared_relevance_gate_count": len(passed),
+            "rejected_at_gate_count": len(failed_gate),
             "duplicate_count": len(duplicates),
             "shortlisted_count": len(shortlisted),
             "deep_investigated_count": len(investigated),

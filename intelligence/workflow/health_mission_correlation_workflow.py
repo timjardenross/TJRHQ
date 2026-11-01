@@ -14,15 +14,14 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
 
 def persist_health_mission_correlations(
-    results: dict, synthesis: Optional[dict] = None, store=None,
-    supabase_url: Optional[str] = None, supabase_key: Optional[str] = None,
+    results: dict, synthesis: dict | None = None, store=None,
+    supabase_url: str | None = None, supabase_key: str | None = None,
 ) -> bool:
     """
     Persist health-mission correlation results to a new table
@@ -40,8 +39,8 @@ def persist_health_mission_correlations(
         True if persisted, False on error (non-blocking)
     """
     import os
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     if not supabase_url:
         supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -60,7 +59,7 @@ def persist_health_mission_correlations(
         }
 
     payload = {
-        "computed_at": datetime.utcnow().isoformat() + "Z",
+        "computed_at": datetime.now(timezone.utc).isoformat(),
         "status": results.get("status"),
         "n_health_entries": results.get("n_health_entries"),
         "n_mission_days": results.get("n_mission_days"),
@@ -76,9 +75,9 @@ def persist_health_mission_correlations(
         headers["Prefer"] = "return=minimal"
         body = json.dumps(payload).encode()
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return resp.status == 201
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase persist wrapper — caller sees False and handles it; already logged
         log.error(f"Failed to persist health-mission correlations: {exc}")
         return False
 
@@ -90,7 +89,9 @@ def run_health_mission_correlation_job() -> dict:
     Called by scheduler daily (after health data is collected).
     Returns job status + computed results.
     """
-    from core.intelligence.health_mission_correlation import compute_health_mission_correlations
+    from core.intelligence.health_mission_correlation import (
+        compute_health_mission_correlations,
+    )
 
     log.info("Running Issue 17 health-mission correlation job...")
     try:
@@ -103,10 +104,12 @@ def run_health_mission_correlation_job() -> dict:
         # unconditionally rather than duplicating that guard here.
         synthesis = None
         try:
-            from intelligence.brief.correlation_synthesis import synthesize_correlation_insights
+            from intelligence.brief.correlation_synthesis import (
+                synthesize_correlation_insights,
+            )
             synthesis = synthesize_correlation_insights(results)
             log.info(f"Correlation synthesis: status={synthesis.get('status')}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort synthesis, explicitly logged as non-blocking
             log.warning(f"Correlation synthesis failed (non-blocking): {exc}")
 
         # Persist results (+ synthesis if it ran)
@@ -123,7 +126,7 @@ def run_health_mission_correlation_job() -> dict:
             "synthesis": synthesis,
             "persisted": persisted,
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level job boundary, already logged; caller gets a structured failed-status dict
         log.error(f"Health-mission correlation job failed: {exc}")
         return {
             "status": "failed",
@@ -132,7 +135,7 @@ def run_health_mission_correlation_job() -> dict:
         }
 
 
-def get_latest_correlations(supabase_url: Optional[str] = None, supabase_key: Optional[str] = None) -> Optional[dict]:
+def get_latest_correlations(supabase_url: str | None = None, supabase_key: str | None = None) -> dict | None:
     """Fetch the latest persisted health-mission correlations."""
     import os
     import urllib.request
@@ -156,9 +159,9 @@ def get_latest_correlations(supabase_url: Optional[str] = None, supabase_key: Op
         # Fetch the most recent correlation result
         url = f"{supabase_url}/rest/v1/intelligence_health_correlations?order=computed_at.desc&limit=1"
         req = urllib.request.Request(url, headers=_headers())
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             data = json.loads(resp.read())
             return data[0] if data else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort latest-correlations lookup — caller treats None as 'nothing computed yet'; already logged
         log.debug(f"Failed to fetch latest correlations: {exc}")
         return None

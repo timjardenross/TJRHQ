@@ -1,0 +1,835 @@
+name: Python CI
+
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+
+# USS-TJR-MSN-0365 Stream F. This repo had no Python pytest/lint CI at all
+# before this file — lcars-portal-ci.yml is Node/npm-focused (plus a few
+# standalone `python3 tools/check_*.py` gate jobs unrelated to pytest).
+#
+# Design notes (from actually inspecting the tree, not assuming a layout):
+#
+# - Python code and tests are scattered, not uniform: some dirs have their
+#   own requirements.txt, some don't; some have real pytest tests, some have
+#   zero (or have a file *named* test_*.py that's actually a demo/CLI script
+#   with no `def test_*` — see intelligence/analysis/test_shadow_mode_scoring.py
+#   and services/transcription/test_transcribe.py, both confirmed locally to
+#   collect 0 pytest items). Every `run pytest` step below tolerates pytest's
+#   "no tests collected" exit code (5) as a pass rather than a failure, so
+#   directories with nothing to gate yet don't break CI, and start gating
+#   automatically the moment someone adds a real `def test_*` there.
+#
+# - core/infrastructure/{mac-collector,vm-processing,vm-transfer} each ship
+#   their own requirements.txt AND their own same-named sibling modules
+#   (each has its own config.py). core/infrastructure/mac-collector/tests/
+#   conftest.py documents, in its own words, that running these as one
+#   combined `pytest core/` process lets whichever subsystem's config.py
+#   imports first silently win for the rest of the run for every other
+#   subsystem's `from config import ...`. Confirmed by reading that
+#   conftest's _force_local_module() docstring. So each of the three infra
+#   subsystems gets its own matrix entry / own process / own requirements
+#   install, and the main `core` entry explicitly --ignores all three —
+#   never combined into one pytest invocation.
+#
+# - intelligence/ has no requirements.txt of its own; its (only, non-test)
+#   import surface overlaps with platform-runtime's declared deps (openai,
+#   pydantic, feedparser, beautifulsoup4, etc.), so it installs
+#   platform-runtime/requirements.txt as a fallback rather than going
+#   uninstalled.
+#
+# - services/revs-content-agents ships its own pytest.ini (pythonpath = .,
+#   for its `from src...` imports) — invoked as
+#   `services/revs-content-agents/tests` so pytest's own ini-discovery
+#   (walking up from the given test path) finds it regardless of the
+#   workflow's cwd.
+#
+# - telegram-bots/recovery_officer and telegram-bots/wellness_officer have
+#   neither a requirements.txt nor any tests today; telegram-bots/revs has
+#   a requirements.txt but no tests; services/transcription has a
+#   script-style test file but no requirements.txt. All four still get a
+#   `changes` filter (so the paths-filter output is accurate) and a matrix
+#   entry (so future tests there are picked up for free), they just have
+#   nothing to install / nothing to fail on today.
+#
+# Verified locally before this file was ever pushed: `python -m pytest
+# telegram-bots/xo -q` (14 passed) and `python -m pytest
+# core/health/test_capacity_score.py -q` (18 passed) both against real,
+# installed dependencies; a deliberately-introduced bug in
+# core/health/capacity_score.py's Green threshold produced a genuine
+# `1 failed, 17 passed` / exit 1 before being reverted. See the PR
+# description for the full transcript.
+
+permissions:
+  contents: read
+
+# CI/CD friction mission 2026-09-19: same concurrency gap as
+# lcars-portal-ci.yml (see its comment) — no group here meant a
+# superseded push's full pytest matrix + advisory scans (vulture,
+# pip-audit, semgrep, promptfoo, pre-commit, actionlint) kept running to
+# completion instead of being cancelled, burning runner slots that
+# queued behind them for no reason. Only the latest ref's run matters.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            platform_runtime:
+              - 'platform-runtime/**'
+            core:
+              - 'core/**'
+              - '!core/infrastructure/mac-collector/**'
+              - '!core/infrastructure/vm-processing/**'
+              - '!core/infrastructure/vm-transfer/**'
+            core_infra_mac_collector:
+              - 'core/infrastructure/mac-collector/**'
+            core_infra_vm_processing:
+              - 'core/infrastructure/vm-processing/**'
+            core_infra_vm_transfer:
+              - 'core/infrastructure/vm-transfer/**'
+            intelligence:
+              - 'intelligence/**'
+            telegram_capacitybot:
+              - 'telegram-bots/capacitybot/**'
+            telegram_recovery_officer:
+              - 'telegram-bots/recovery_officer/**'
+            telegram_resiliencebot:
+              - 'telegram-bots/resiliencebot/**'
+              - 'platform-runtime/lib/resilience/**'
+              - 'knowledge/regulatory-corpus/**'
+            telegram_revs:
+              - 'telegram-bots/revs/**'
+            telegram_wellness_officer:
+              - 'telegram-bots/wellness_officer/**'
+            telegram_xo:
+              - 'telegram-bots/xo/**'
+            services_revs_content_agents:
+              - 'services/revs-content-agents/**'
+            services_transcription:
+              - 'services/transcription/**'
+
+      # Turns the list of changed filter-names into a pytest matrix
+      # (name/dir/req per entry). Directories with no changes are simply
+      # absent from `changes` and never enter the matrix — this is the
+      # "skip directories with no changes" mechanism, not a separate `if:`
+      # per matrix job.
+      - name: Build test matrix
+        id: build-matrix
+        env:
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          changed = json.loads(os.environ["CHANGED"])
+
+          # filter name -> {name, dir (pytest args), req (requirements.txt
+          # path, or "" if the directory has none)}
+          entries = {
+              "platform_runtime": {
+                  "name": "platform-runtime",
+                  "dir": "platform-runtime",
+                  "req": "platform-runtime/requirements.txt",
+              },
+              "core": {
+                  "name": "core",
+                  "dir": (
+                      "core "
+                      "--ignore=core/infrastructure/mac-collector "
+                      "--ignore=core/infrastructure/vm-processing "
+                      "--ignore=core/infrastructure/vm-transfer"
+                  ),
+                  "req": "platform-runtime/requirements.txt",
+              },
+              "core_infra_mac_collector": {
+                  "name": "core-infrastructure-mac-collector",
+                  "dir": "core/infrastructure/mac-collector",
+                  "req": "core/infrastructure/mac-collector/requirements.txt",
+              },
+              "core_infra_vm_processing": {
+                  "name": "core-infrastructure-vm-processing",
+                  "dir": "core/infrastructure/vm-processing",
+                  "req": "core/infrastructure/vm-processing/requirements.txt",
+              },
+              "core_infra_vm_transfer": {
+                  "name": "core-infrastructure-vm-transfer",
+                  "dir": "core/infrastructure/vm-transfer",
+                  "req": "core/infrastructure/vm-transfer/requirements.txt",
+              },
+              "intelligence": {
+                  "name": "intelligence",
+                  "dir": "intelligence",
+                  # No requirements.txt of its own — falls back to
+                  # platform-runtime's (see header comment).
+                  "req": "platform-runtime/requirements.txt",
+              },
+              "telegram_capacitybot": {
+                  "name": "telegram-bots-capacitybot",
+                  "dir": "telegram-bots/capacitybot",
+                  "req": "telegram-bots/capacitybot/requirements.txt",
+              },
+              "telegram_recovery_officer": {
+                  "name": "telegram-bots-recovery_officer",
+                  "dir": "telegram-bots/recovery_officer",
+                  "req": "",
+              },
+              "telegram_resiliencebot": {
+                  "name": "telegram-bots-resiliencebot",
+                  "dir": "telegram-bots/resiliencebot",
+                  "req": "telegram-bots/resiliencebot/requirements.txt",
+              },
+              "telegram_revs": {
+                  "name": "telegram-bots-revs",
+                  "dir": "telegram-bots/revs",
+                  "req": "telegram-bots/revs/requirements.txt",
+              },
+              "telegram_wellness_officer": {
+                  "name": "telegram-bots-wellness_officer",
+                  "dir": "telegram-bots/wellness_officer",
+                  "req": "",
+              },
+              "telegram_xo": {
+                  "name": "telegram-bots-xo",
+                  "dir": "telegram-bots/xo",
+                  "req": "telegram-bots/xo/requirements.txt",
+              },
+              "services_revs_content_agents": {
+                  "name": "services-revs-content-agents",
+                  "dir": "services/revs-content-agents/tests",
+                  "req": "services/revs-content-agents/requirements.txt",
+              },
+              "services_transcription": {
+                  "name": "services-transcription",
+                  "dir": "services/transcription",
+                  "req": "",
+              },
+          }
+
+          include = [entries[name] for name in changed if name in entries]
+          matrix = {"include": include}
+
+          print(f"Changed filters: {changed}")
+          print(f"Matrix: {json.dumps(matrix, indent=2)}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"matrix={json.dumps(matrix)}\n")
+          PY
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.matrix != '' && fromJSON(needs.changes.outputs.matrix).include[0] != null
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        id: setup-python
+        with:
+          python-version: "3.11"
+
+      # Cached per-directory: the key is this entry's own requirements.txt
+      # hash (or a shared/fallback file's hash where the directory has none
+      # of its own — see header comment), so one directory's dependency
+      # install never invalidates another's cache.
+      - name: Cache pip
+        if: matrix.req != ''
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.name }}-${{ hashFiles(matrix.req) }}
+          restore-keys: |
+            pip-${{ matrix.name }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # pytest.ini's addopts (root, applies to every matrix job since
+          # pytest resolves it from repo root regardless of matrix.dir)
+          # requires the pytest-timeout plugin (2026-09-15, arize-phoenix
+          # collection-hang fix). platform-runtime/requirements.txt happens
+          # to already declare it as an app dependency, which is why those
+          # matrix jobs never surfaced this gap; jobs whose requirements.txt
+          # doesn't (e.g. telegram-bots/xo) silently passed only because
+          # they had zero real tests to run pytest.ini's addopts against —
+          # confirmed broken (`unrecognized arguments: --timeout=30`) the
+          # moment Mission 1 (USS-TJR-MSN-1) added telegram-bots/xo's first
+          # real test file. Installing it here, once, for every job, is the
+          # actual fix — not adding it to telegram-bots/xo/requirements.txt,
+          # which would leak a test-only dependency into that bot's
+          # production venv.
+          pip install pytest pytest-timeout
+          if [ -n "${{ matrix.req }}" ]; then
+            pip install -r "${{ matrix.req }}"
+          fi
+
+      # USS-TJR-MSN-0366 Stream 5 follow-up (flagged by review on PR #180):
+      # all 9 tests in core/security/test_llm_guardrails.py — the platform's
+      # highest-strategic-value new control — were skipping in this job,
+      # not passing, because platform-runtime/.venv-llmsec (Presidio +
+      # NeMo Guardrails, deliberately isolated from this job's own
+      # dependencies per requirements-llmsec.txt's header) was never
+      # provisioned here. None of those 9 tests need a live model (the
+      # injection/output-rail cases use NeMo's own FakeLLMModel via
+      # fake_responses — see that test file's module docstring), so
+      # provisioning this venv is sufficient to run the WHOLE suite for
+      # real in CI, not just the model-free subset. Gated to the `core`
+      # matrix entry only — no other entry imports core/security/.
+      - name: Cache llmsec venv
+        if: matrix.name == 'core'
+        uses: actions/cache@v6
+        with:
+          path: platform-runtime/.venv-llmsec
+          # python-version in the key (2026-10-08): "3.11" floats to the
+          # runner's newest patch release, and a venv's bin/python3 is a
+          # symlink into that exact hostedtoolcache path. When the runner
+          # moved to 3.11.17 the restored venv's interpreter link dangled and
+          # the provision step below died before any test ran.
+          key: llmsec-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('core/security/requirements-llmsec.txt') }}
+
+      - name: Provision llmsec venv (Presidio + NeMo Guardrails)
+        if: matrix.name == 'core'
+        run: |
+          # Rebuild if the interpreter can't actually run, not just if the
+          # file is missing - a dangling symlink from a stale cache fails -x
+          # but still blocks `python3 -m venv` from recreating it in place.
+          if ! platform-runtime/.venv-llmsec/bin/python3 -c '' 2>/dev/null; then
+            rm -rf platform-runtime/.venv-llmsec
+            python3 -m venv platform-runtime/.venv-llmsec
+            platform-runtime/.venv-llmsec/bin/pip install --upgrade pip
+            platform-runtime/.venv-llmsec/bin/pip install -r core/security/requirements-llmsec.txt
+            # Presidio's default NLP engine would otherwise download the
+            # 400MB en_core_web_lg on first use; _llmsec_worker.py is
+            # configured for the small model instead (see its NlpEngineProvider
+            # config) — installed explicitly so first-use never hits the
+            # network mid-test.
+            platform-runtime/.venv-llmsec/bin/pip install \
+              https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+          else
+            echo "platform-runtime/.venv-llmsec restored from cache, skipping install."
+          fi
+
+      - name: Run pytest (${{ matrix.name }})
+        run: |
+          set +e
+          python -m pytest ${{ matrix.dir }} -q
+          code=$?
+          set -e
+          if [ "$code" -eq 5 ]; then
+            echo "No tests collected under ${{ matrix.dir }} — not yet covered, not a failure."
+            exit 0
+          fi
+          exit "$code"
+
+  # USS-TJR-MSN-0366 Stream 8. Advisory only (continue-on-error) — this repo
+  # already has a hand-rolled dead-code checker (tools/verify_dead_code.py,
+  # a per-path evidence report a human/agent runs on demand) but nothing
+  # that runs automatically on every PR and scans the whole tree at once.
+  # Vulture catches a materially different — and narrower — class of thing
+  # than verify_dead_code.py: unused imports/functions/classes/variables it
+  # can see by static analysis of the Python it's given, not "is this path
+  # referenced anywhere" (verify_dead_code.py's job) and not "is this whole
+  # module unreachable from a real entry point" (neither tool does that —
+  # see reports/vulture/README.md's writeup of the commander_runtime.py/
+  # router.py cluster for why: Vulture only saw the one true external entry
+  # point as unused, not the mutually-referencing modules beneath it).
+  # Always runs (not gated by the paths-filter matrix above) since dead-code
+  # scanning benefits from seeing the whole tree, not just this PR's diff.
+  # `continue-on-error: true` so a finding never blocks merge; read the job
+  # output to see what it found. Real findings from the first run are
+  # triaged in reports/vulture/.
+  vulture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install vulture
+        run: pip install vulture
+
+      # `continue-on-error: true` on the JOB (as this used to be set) only
+      # keeps a failure here from failing the overall workflow RUN — the
+      # job's own check-run conclusion still reports "failure" on the PR
+      # (confirmed: PR #180's first real CI run showed this job red despite
+      # the job-level flag, because vulture's real findings exit non-zero).
+      # `continue-on-error: true` on the STEP itself is what actually makes
+      # the step's outcome (and therefore this job's conclusion) "success"
+      # while still surfacing the findings in the log. Advisory means
+      # green-with-a-log, not red.
+      - name: Run vulture (advisory — findings do not fail the build)
+        continue-on-error: true
+        run: |
+          vulture core/ intelligence/ platform-runtime/ .vulture_whitelist.py --min-confidence 60
+
+  # USS-TJR-MSN-0374 Stream 2. Net-new: nothing in this repo ran pip-audit
+  # before this job — `grep -n "pip-audit\|pip_audit" .pre-commit-config.yaml`
+  # found nothing prior to this change. Runs directly with `pip-audit -r`
+  # against every tracked requirements*.txt (found via `find . -name
+  # "requirements*.txt"`), not through `pre-commit run` — pip-audit has no
+  # "report but don't fail" flag, so a real finding always exits non-zero;
+  # `continue-on-error: true` on each step (not just the job) is what
+  # actually shows green-with-a-log instead of red on a finding, matching
+  # the confirmed-in-practice behavior documented on the vulture/semgrep
+  # jobs above (job-level continue-on-error alone still reports the job's
+  # own check-run as failed).
+  #
+  # Advisory only, deliberately, on this first landing: a real, previously
+  # unmeasured pre-existing CVE count across this repo's ~15
+  # requirements*.txt files is not this mission's job to remediate (see
+  # knowledge/missions/USS-TJR-MSN-0374-stream2-pip-audit-knowledge-record.md
+  # for the actual captured finding count from running this for real).
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: pip install pip-audit==2.10.1
+
+      - name: Find tracked requirements files
+        id: find-reqs
+        run: |
+          files=$(find . -name "requirements*.txt" -not -path "*/node_modules/*" | sort)
+          echo "Found:"
+          echo "$files"
+          {
+            echo "files<<PIPAUDIT_EOF"
+            echo "$files"
+            echo "PIPAUDIT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run pip-audit (advisory — findings do not fail the build)
+        continue-on-error: true
+        run: |
+          status=0
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            echo "=== pip-audit: $f ==="
+            pip-audit -r "$f" || status=1
+          done <<< "${{ steps.find-reqs.outputs.files }}"
+          exit "$status"
+
+  # USS-TJR-MSN-0379. Advisory only (same pattern as vulture/pip-audit
+  # above, continue-on-error at job AND step level — job-level alone still
+  # reports the job's own check-run as failed, confirmed on PR #180 per
+  # the vulture job's comment above). Net-new: `grep -rli "promptfoo" .`
+  # before this change found nothing but this mission's own docs — garak
+  # (core/quality/garak_gate.py) and deepteam (core/quality/deepteam_scan.py)
+  # already probe this same Model Router, but neither runs in CI (both need
+  # the live local Model Router at http://127.0.0.1:8891, which only exists
+  # on the self-hosted VM, not a GitHub-hosted ubuntu-latest runner — same
+  # constraint this job hits below).
+  #
+  # Config: core/quality/promptfooconfig.yaml. Targets the Model Router's
+  # xo-response route (same route garak_gate.py gates) with prompt-injection
+  # prompts reused byte-for-byte from garak's own promptinject.HijackHateHumans
+  # probe, and PII-leakage prompts reused (decoded to plaintext) from
+  # deepteam's own real scan output (reports/deepteam/20260913_104113.json).
+  # See that config's header comment for the full provenance.
+  #
+  # HONEST CONSTRAINT (confirmed, not assumed): this job's runner
+  # (ubuntu-latest) cannot reach 127.0.0.1:8891 — that's the self-hosted
+  # VM's own loopback, not this runner's. The preflight step below checks
+  # reachability and skips the eval with a clear message when the router
+  # isn't there, rather than letting promptfoo fail noisily with a
+  # connection-refused trace on every PR. The mission's required "real run
+  # against the live Model Router" was captured manually on the VM where
+  # the router actually lives — see
+  # knowledge/missions/USS-TJR-MSN-0379-knowledge-record.md for that
+  # transcript. This job exists so the eval is version-controlled and
+  # ready to run for real the moment a self-hosted runner (or a router
+  # reachable from ubuntu-latest) is wired up — not to fake a green result
+  # today.
+  promptfoo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+
+      - name: Check Model Router reachability
+        id: router-check
+        run: |
+          if curl -sf -m 5 http://127.0.0.1:8891/health >/dev/null 2>&1; then
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            echo "Model Router not reachable at 127.0.0.1:8891 from this runner (expected on ubuntu-latest — the router only runs on the self-hosted VM). Skipping the live eval; see the knowledge record for a real run's captured output."
+          fi
+
+      - name: Run promptfoo eval (advisory — findings do not fail the build)
+        if: steps.router-check.outputs.reachable == 'true'
+        continue-on-error: true
+        working-directory: core/quality
+        run: npx --yes promptfoo@0.123.0 eval --no-cache --max-concurrency 1 -c promptfooconfig.yaml
+
+  # CI performance mission (2026-09-19): this used to be one `pre-commit`
+  # job running gitleaks -> detect-secrets -> bandit -> ruff-check as
+  # SERIAL STEPS. Measured on a real, uncontaminated PR run (not a
+  # Dependabot-storm-contaminated one): gitleaks 33s, detect-secrets
+  # 23m24s, bandit 28s, ruff-check 7s -- total job 24m42s, 95% of it spent
+  # on an *advisory* (`continue-on-error: true`) step sitting serially in
+  # front of two real blocking gates. Splitting into independent jobs
+  # (all restoring the same `~/.cache/pre-commit` cache key, so this costs
+  # nothing extra in cache-build time) means gitleaks/bandit/ruff-check
+  # finish in parallel, in the ~1min range each, and detect-secrets'
+  # long tail no longer blocks anything behind it. Same commands/args/
+  # rules as before in every job -- no security coverage change, only job
+  # placement.
+  precommit-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Cache pre-commit envs
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - run: pip install pre-commit
+      # `pre-commit run` only accepts a single optional hookid positional
+      # argument, not several -- `pre-commit run --all-files gitleaks
+      # detect-secrets` errors out before running any hook ("unrecognized
+      # arguments: detect-secrets"), so each hook needs its own invocation
+      # (kept from the original single-job design, USS-TJR-MSN-0368
+      # Stream 8).
+      - name: pre-commit (secrets scan — blocking)
+        run: pre-commit run --all-files gitleaks
+
+  precommit-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Cache pre-commit envs
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - run: pip install pre-commit
+      # Bandit: blocking (USS-TJR-MSN-0369). Was informational pending
+      # triage -- 180 Medium findings fixed/suppressed with dated reasons,
+      # fresh `bandit -ll` now shows 0 unaddressed Medium findings
+      # repo-wide. Safe to actually gate merges instead of only reporting.
+      - name: pre-commit (security — blocking)
+        run: pre-commit run --all-files bandit
+
+  precommit-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Cache pre-commit envs
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - run: pip install pre-commit
+      # Ruff: blocking (USS-TJR-MSN-0370). The remaining ~3,395 manual-
+      # judgment findings left after Stream 2's autofix PR were triaged to
+      # zero: split by top-level directory across 4 parallel passes
+      # (core/, platform-runtime/, intelligence/+tools/, telegram-bots/+misc),
+      # each narrowing real production blind-excepts, fixing timezone-naive
+      # datetime bugs, and suppressing genuine false positives with dated
+      # reasons -- not mechanically globbed. Fresh `ruff check .` now
+      # reports 0 findings repo-wide.
+      - name: pre-commit (lint — blocking)
+        run: pre-commit run --all-files ruff-check
+
+  # detect-secrets run directly via its own CLI, not `pre-commit run`
+  # (#189). `pre-commit run --all-files` on a hook with `files: .*`
+  # (this repo has 930+ files) can split the invocation across
+  # multiple subprocess batches once the combined command-line length
+  # crosses pre-commit's own conservative estimate -- `require_serial:
+  # true` only stops those batches running in *parallel*, it doesn't
+  # stop them being split in the first place. Each batch's
+  # detect-secrets-hook only knows about *that batch's* filenames, and
+  # its should_update_baseline() trims the loaded baseline down to
+  # just those files before comparing, so any batch boundary makes
+  # findings for files outside it look like they "disappeared".
+  #
+  # ROOT CAUSE OF THE 20-45 MINUTE RUNTIME (CI performance mission,
+  # 2026-09-19, confirmed on a live run — not previously diagnosed):
+  # `.pre-commit-config.yaml`'s `exclude:` regex on the detect-secrets
+  # hook (which drops the 611-file/563MB, git-tracked
+  # `data/self-improvement/runs/*/evidence.json` tree, added 2026-09-15
+  # specifically because scanning that volume made a single invocation
+  # run 45+ minutes) ONLY applies when detect-secrets is invoked *through*
+  # `pre-commit run` — pre-commit does the file-list filtering, not the
+  # tool. This step calls the bare `detect-secrets scan` CLI directly
+  # (to dodge the batching bug described above), which has no config-file
+  # exclude of its own and therefore re-scans the exact 563MB the
+  # 2026-09-15 exclude was written to skip, every single run — the
+  # documented "growth of evidence.json" concern was correctly diagnosed
+  # in spirit but the actual fix never reached this invocation. Verified
+  # live: `git ls-files data/self-improvement/runs | wc -l` = 611 files,
+  # `du -ch` = 563M. Fixed here with `--exclude-files`, the CLI's own
+  # equivalent flag, mirroring the same regex. Also added `--no-verify`:
+  # without it, detect-secrets attempts a live network verification call
+  # for every candidate finding (`-n`/`--no-verify`'s own --help text:
+  # "Disables additional verification of secrets via network call") —
+  # unnecessary latency for an advisory scan that only cares whether a
+  # candidate is new vs. baselined, not whether it's a live credential.
+  # Same regex/detection plugins, same baseline comparison, same
+  # new-vs-baselined logic in tools/check_new_secrets.py — only the
+  # excluded-file volume and the per-candidate network round-trip change.
+  #
+  # Separately (unrelated, unfixed here): a plain `detect-secrets scan
+  # --baseline .secrets.baseline` on this tree still occasionally fails to
+  # re-find two already-tracked, already-reviewed (is_verified: false)
+  # "IBM Cloud IAM Key" fixture findings in tools/supabase/
+  # test_decision_intelligence.py and test_decision_operationalisation.py
+  # under a fresh CI checkout -- reproducible in CI, never locally with an
+  # identical command. Root cause undetermined; tracked as a
+  # detect-secrets-side gap in #189, not re-litigated here.
+  #
+  # What actually matters for a "blocking secrets gate" is catching a NEW
+  # leak, not an existing, already-reviewed finding failing to re-detect
+  # for scanner reasons -- so tools/check_new_secrets.py only fails on a
+  # finding (filename + hashed_secret) that is NOT already in the
+  # committed baseline. Kept as a standalone script rather than an inline
+  # `run: |` block: detect-secrets' own YAML transformer treats a long
+  # block scalar as one flattened value, which made the inline version
+  # trip its own Secret Keyword plugin as it grew -- a false positive on
+  # the checking script itself, confirmed while adding this on PR #190.
+  #
+  # Advisory (`continue-on-error: true`), unchanged from 2026-09-19's
+  # Captain's-call decision: this step has been intermittently failing
+  # PRs unrelated to any real new secret (the CI-environment flakiness
+  # noted above). This does NOT touch the LOCAL pre-commit hook
+  # (.pre-commit-config.yaml still hard-blocks a commit on this machine,
+  # per that file's explicit "never skip gitleaks or detect-secrets this
+  # way" instruction) and does NOT disable the scan — findings still run
+  # and are visible in this step's log. Now runs as its own parallel job
+  # instead of a serial step ahead of bandit/ruff-check, so its runtime
+  # (whatever it ends up being after the exclude fix) never blocks them.
+  detect-secrets-advisory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: detect-secrets (secrets scan — advisory, does not block merge)
+        continue-on-error: true
+        run: |
+          pip install "detect-secrets==1.5.0"
+          detect-secrets scan --baseline .secrets.baseline \
+            --no-verify \
+            --exclude-files '(?x)^(
+              .*\.lock|
+              .*package-lock\.json|
+              .*data/mem0_qdrant/.*|
+              .*data/self-improvement/runs/.*/evidence\.json
+            )$'
+          python3 tools/check_new_secrets.py
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Lints every workflow file present, not just this one — covers
+      # Stream E's scorecard.yml too once/if it lands, without hardcoding
+      # a filename here.
+      - name: Install actionlint
+        run: |
+          curl -sSL -o /tmp/actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          mkdir -p /tmp/actionlint-bin
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp/actionlint-bin actionlint
+
+      - name: Run actionlint
+        run: /tmp/actionlint-bin/actionlint .github/workflows/*.yml
+
+  # USS-TJR-MSN-0366 Stream 1. Net-new: nothing in this repo ran Semgrep
+  # before this job. Runs over the WHOLE tree in one pass, like actionlint
+  # above — not per-matrix-directory like the `test` job — because it is
+  # the only SAST coverage lcars-portal/ (Next.js/TypeScript) has at all;
+  # bandit (.pre-commit-config.yaml) only ever covers Python.
+  #
+  # Advisory only, deliberately: `continue-on-error: true` so a finding
+  # never blocks a PR. This is a first-pass adoption of a brand-new tool
+  # against an existing, previously-unscanned monorepo — the point right
+  # now is visibility into what Semgrep finds (including the custom
+  # RLS-adjacent rules in .semgrep.yml, see that file's header), not a new
+  # merge gate. Revisit once findings are triaged; see
+  # reports/semgrep/20260912-060349-findings.md for the first triage pass
+  # and knowledge/missions/SEMGREP-CI-20260912-knowledge-record.md for the
+  # full account of what did and didn't work standing this up.
+  #
+  # OSS CLI only, on purpose: no SEMGREP_APP_TOKEN, no `semgrep ci`, no
+  # login, no results uploaded to semgrep.dev — `semgrep scan` never
+  # touches a secret, matching this stream's "OSS-CLI, not the hosted
+  # product" scope. `permissions: contents: read` (workflow-level, above)
+  # is all this job needs — it only reads the checked-out tree.
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      # Pinned exact version (not "pip install semgrep" unpinned) —
+      # verified locally against this repo at 1.177.0 before this job was
+      # written; an unpinned install could silently change findings out
+      # from under this advisory gate on a later run.
+      - name: Install semgrep
+        run: pip install semgrep==1.177.0
+
+      # Registry rulesets (p/python, p/javascript, p/typescript,
+      # p/security-audit) give general-purpose coverage; .semgrep.yml at
+      # the repo root holds this repo's own custom/ RLS-adjacent rules.
+      # They're combined as separate --config flags on one invocation —
+      # Semgrep's config format has no extends/include key to pull a
+      # registry ruleset into a local YAML file, so this is the actual
+      # supported way to run both together, not a workaround.
+      #
+      # NOTE: the registry configs (semgrep.dev) were unreachable from the
+      # sandbox this job was authored in (egress policy blocked
+      # semgrep.dev outright — see the knowledge record). They are
+      # expected to work fine from a normal GitHub-hosted runner's
+      # unrestricted egress, but that specific claim was NOT verified
+      # end-to-end before this job shipped — if this step's registry
+      # fetch ever fails in real CI, that's the first thing to check.
+      # Job-level continue-on-error only protects the overall workflow RUN,
+      # not this job's own check-run conclusion (see the vulture job's
+      # comment above for the confirmed real evidence from PR #180). Moved
+      # to the step so a real finding (or the registry-config-unreachable
+      # risk noted above) shows green-with-a-log instead of red.
+      - name: Semgrep scan
+        continue-on-error: true
+        run: |
+          semgrep scan \
+            --config=p/python \
+            --config=p/javascript \
+            --config=p/typescript \
+            --config=p/security-audit \
+            --config=.semgrep.yml \
+            --metrics=off \
+            --disable-version-check \
+            --error \
+            --output=semgrep-results.json \
+            --json
+
+      - name: Upload Semgrep results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: semgrep-results
+          path: semgrep-results.json
+          retention-days: 30
+
+  # CI performance mission (2026-09-19), Section 13: one stable,
+  # non-matrix-dependent required-check context. NOT wired into branch
+  # protection by this mission — that's a deliberately deferred,
+  # Captain-approval-gated step (branch protection stays untouched while
+  # Mission 3 is active; see the mission plan). This job exists so that
+  # step, when approved, has something reliable to point at instead of
+  # `test`'s dynamic matrix-generated job names.
+  #
+  # Fails closed: every required job's result must be `success`, except
+  # `test` (path-aware, matrix-driven) where `skipped` is ALSO acceptable
+  # but only when proven to be a legitimate path-selection outcome (the
+  # `changes` job's own matrix output was actually empty) — never accepted
+  # on faith just because the status string says "skipped". Any
+  # `failure`, `cancelled`, or an unexplained `skipped` fails the gate.
+  # Advisory jobs (detect-secrets-advisory, vulture, pip-audit, semgrep,
+  # promptfoo) are deliberately NOT in `needs` — they never gate the merge
+  # decision, by design (unchanged from before this mission).
+  merge-gate:
+    needs:
+      [changes, actionlint, precommit-secrets, precommit-security, precommit-lint, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all required jobs succeeded (fail-closed)
+        env:
+          R_CHANGES: ${{ needs.changes.result }}
+          R_ACTIONLINT: ${{ needs.actionlint.result }}
+          R_SECRETS: ${{ needs['precommit-secrets'].result }}
+          R_SECURITY: ${{ needs['precommit-security'].result }}
+          R_LINT: ${{ needs['precommit-lint'].result }}
+          R_TEST: ${{ needs.test.result }}
+          MATRIX_JSON: ${{ needs.changes.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          fail=0
+
+          check_required() {
+            name="$1"; result="$2"
+            if [ "$result" != "success" ]; then
+              echo "::error::Required job '$name' did not succeed (result: $result)"
+              fail=1
+            else
+              echo "Required job '$name': success"
+            fi
+          }
+
+          check_required "changes" "$R_CHANGES"
+          check_required "actionlint" "$R_ACTIONLINT"
+          check_required "precommit-secrets" "$R_SECRETS"
+          check_required "precommit-security" "$R_SECURITY"
+          check_required "precommit-lint" "$R_LINT"
+
+          # `test` only runs when `changes`' matrix is non-empty (see the
+          # `test` job's own `if:`). `success` always passes. `skipped`
+          # passes ONLY when the matrix was actually empty — proven here
+          # via the `changes` job's own output, not assumed from the skip
+          # status alone, so a future bug in the `if:` condition can't
+          # silently produce a green gate on a test job that should have
+          # run but didn't.
+          if [ "$R_TEST" = "success" ]; then
+            echo "Required job 'test': success"
+          elif [ "$R_TEST" = "skipped" ]; then
+            include_len=$(echo "$MATRIX_JSON" | jq '(.include // []) | length')
+            if [ "$include_len" = "0" ]; then
+              echo "Required job 'test': skipped, and proven legitimate (path-selection matrix was empty)"
+            else
+              echo "::error::Required job 'test' was skipped but the path-selection matrix was NOT empty ($include_len entries) — unexplained skip, treating as a failure"
+              fail=1
+            fi
+          else
+            echo "::error::Required job 'test' did not succeed (result: $R_TEST)"
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Merge gate FAILED"
+            exit 1
+          fi
+          echo "Merge gate PASSED"

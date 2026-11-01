@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ def check_connectivity() -> tuple[bool, str]:
         return False, "google-generativeai SDK not installed. Run: pip install google-generativeai"
 
 
-def call(prompt: str, model: Optional[str] = None) -> tuple[str, str]:
+def call(prompt: str, model: str | None = None) -> tuple[str, str]:
     """
     Send prompt to Gemini generate_content.
 
@@ -79,11 +78,11 @@ def call(prompt: str, model: Optional[str] = None) -> tuple[str, str]:
     text = ""
     try:
         text = response.text
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort primary text-extraction path; falls through to the parts-based fallback below
         # Fallback: try parts
         try:
             text = "".join(part.text for part in response.parts)
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort fallback path; total failure is caught by the not-text check just below
             pass
 
     if not text or not text.strip():

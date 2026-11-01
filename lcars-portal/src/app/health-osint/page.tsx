@@ -67,32 +67,36 @@ function Workbench() {
     <WorkbenchShell
       title="Health OSINT"
       eyebrow="Your Personal Health Evidence Desk"
-      tagline="USS TJR · What's worth knowing, your evidence position, the full record"
+      tagline="TJR HQ · What's worth knowing, your evidence position, the full record"
       tabs={!showDetails ? (
         <DomainToggle value={tab} onChange={(v) => setTab(v as Tab)} options={TAB_OPTIONS} ariaLabel="Health OSINT sections" />
       ) : undefined}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={
         <Button variant="secondary" size="sm" onClick={() => setShowDetails((v) => !v)}>
-          {showDetails ? '← Back' : 'Details (Technical view)'}
+          {showDetails ? '← Back' : 'Details'}
         </Button>
       }
+      mode="command"
     >
-      {showDetails ? (
-        <LegacyDetails />
-      ) : (
-        <>
-          {tab === 'today' && <TodayView />}
-          {tab === 'my-evidence' && (
-            selectedTopic ? (
-              <TopicDetail topicKey={selectedTopic} onBack={() => setSelectedTopic(null)} />
-            ) : (
-              <MyEvidenceView onOpenTopic={setSelectedTopic} />
-            )
-          )}
-          {tab === 'library' && <LibraryView />}
-        </>
-      )}
+      <div className="risk-reference-surface risk-reference-read">
+        <div className="risk-reference-kicker">Read / evidence · evidence desk, not database grid</div>
+        {showDetails ? (
+          <LegacyDetails />
+        ) : (
+          <>
+            {tab === 'today' && <TodayView />}
+            {tab === 'my-evidence' && (
+              selectedTopic ? (
+                <TopicDetail topicKey={selectedTopic} onBack={() => setSelectedTopic(null)} />
+              ) : (
+                <MyEvidenceView onOpenTopic={setSelectedTopic} />
+              )
+            )}
+            {tab === 'library' && <LibraryView />}
+          </>
+        )}
+      </div>
     </WorkbenchShell>
   );
 }

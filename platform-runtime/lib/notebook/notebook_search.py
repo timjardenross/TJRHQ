@@ -108,7 +108,7 @@ def _search_table(
             col, vals = status_filter
             q = q.not_.in_(col, [v for v in vals])
         return q.limit(limit).execute().data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (failed to query)
         log.warning("[notebook-search] Failed to query %s: %s", table, exc)
         return []
 
@@ -171,7 +171,7 @@ def search(
     # decisions
     results.sources_searched.append("decisions")
     rows = _search_table(
-        "decisions", "id", "statement", "rationale", tokens, supabase_client,
+        "command_memory_records", "id", "statement", "rationale", tokens, supabase_client,
         status_filter=("status", ["Superseded"]),
     )
     results.total_searched += len(rows)
@@ -245,7 +245,7 @@ def search(
     # command_memory (decisions with owner prefix pattern used by command_memory_integration)
     results.sources_searched.append("command_memory")
     try:
-        cm_rows = supabase_client.table("decisions").select(
+        cm_rows = supabase_client.table("command_memory_records").select(
             "id, statement, rationale, owner"
         ).like("owner", "command_memory%").limit(50).execute().data or []
         results.total_searched += len(cm_rows)
@@ -260,7 +260,7 @@ def search(
                     excerpt=_excerpt(row.get("rationale") or "", tokens),
                     relevance=score,
                 ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (failed to query command_memory)
         log.warning("[notebook-search] Failed to query command_memory: %s", exc)
 
     hits.sort(key=lambda h: h.relevance, reverse=True)
@@ -296,8 +296,8 @@ def format_search_results(results: SearchResults) -> str:
 
 
 __all__ = [
-    "SearchResults",
     "SearchHit",
-    "search",
+    "SearchResults",
     "format_search_results",
+    "search",
 ]

@@ -21,13 +21,17 @@ export type { TabItem, TabsProps, BackLinkProps } from './Navigation';
 
 export { RiskPill, riskClass } from './RiskPill';
 
+export { KpiStat, KpiCard } from './KpiStat';
+export type { KpiStatProps, KpiStatTone, KpiCardProps } from './KpiStat';
+
 export { WorkbenchShell } from './WorkbenchShell';
 
 export { Sidebar } from './Sidebar';
-export { ThemeSelector } from './ThemeSelector';
 export { WorkbenchCard } from './WorkbenchCard';
 
 export { DomainToggle } from './DomainToggle';
 export type { DomainToggleOption } from './DomainToggle';
 
 export { QuickCapture } from './QuickCapture';
+
+export { NumberOne } from './NumberOne';

@@ -6,12 +6,49 @@ Registry entry: `lcars-portal/src/lib/workbenches.ts`.
 > HQ works on HQ while you're away. Overnight autonomy = discover, research,
 > investigate, evaluate, prepare. Morning authority = yours.
 
+## Lifecycle: four stages on top, ten states underneath
+
+The workbench shows four stages. An opportunity's `lifecycle_state` is one of:
+
+| Stage | Meaning | Fine states (`stage_detail`) |
+|---|---|---|
+| `to_decide` | waiting for the Captain | `proposed` |
+| `in_progress` | approved; being built or observed | `approved`, `implementing`, `verifying` |
+| `done` | finished, outcome recorded | `learned` |
+| `closed` | rejected, parked, or already resolved | `rejected`, `watching`, `resolved_before_research` |
+| `researching` | HQ is still looking (**hidden** — no tab) | `discovered`, `investigating` |
+
+The fine state is kept as `stage_detail` because the engine depends on the
+distinctions: a parked `watching` idea is reconsidered on a timer while a
+`rejected` one is not (`relevance.py`); `approved`/`implementing`/`verifying`
+drive the observation window and outcome evaluation
+(`evolution_orchestrator.py`, `outcome_evaluation.py`); and `learned`,
+`rejected`, `watching` and `resolved_before_research` are recalled as different
+kinds of memory (`evolution_memory.py`). Engine code that needs them reads
+`lifecycle.detail_of(rec)`; everything the Captain or an API consumer sees uses
+the stage. The mapping lives in one place: `scripts/self_improvement/lifecycle.py`
+(mirrored for the portal in `_components/types.ts`).
+
+**Nothing on disk is rewritten.** `opportunities.jsonl` is append-only; older
+lines carry a fine state in `lifecycle_state`. They are read as
+(stage, detail) (`OpportunityStore.latest_by_id`), and new lines are written as
+(stage, detail). Callers may still pass a fine state to `update()`/`create_new()`
+and it is translated. `GET /api/opportunities?state=` accepts either
+vocabulary (`proposed` or `to_decide`). The portal also accepts either, so it
+can deploy before or after the engine.
+
+**Rolling back** the engine is safe for reading: the store does not validate
+`lifecycle_state`, and the older code reads the new lines without error. But
+the older code would not recognise `to_decide` etc., so opportunities written
+while the new code ran would not appear in its tabs until `stage_detail`-aware
+code is back.
+
 ## What changed
 
 The original pipeline — `EvidenceCollector -> model analysis -> PolicyEngine
 -> Finding -> human decision -> auto-remediation -> git commit -> tests ->
 rollback on failure` — is preserved **unmodified** underneath. It now lives
-inside the "Improve" tab's "Bounded remediation queue" section, using the
+inside the "To decide" tab's "Bounded remediation queue" section, using the
 exact same API routes (`/api/self-improvement/findings`, `/api/self-
 improvement/decide`) it always has.
 
@@ -57,7 +94,7 @@ hypothesis is retained rather than deleted (spec sections 11-17).
 | `scripts/self_improvement/state_validation.py` | Follow-up: deterministic current-state validation of watchlist `gap_hypothesis`es before external research |
 | `scripts/self_improvement/investigation_schema.py` | Follow-up: schema-validates model investigation output; honest template fallback |
 | `config/evolution_watchlist.json` | HQ-aware external discovery topics — `gap_hypothesis` (a hypothesis, not a fact) + `why_relevant` + an optional deterministic `validation` block |
-| `lcars-portal/src/app/self-improvement-findings/page.tsx` | Discover / Investigate / Improve / Learned UI |
+| `lcars-portal/src/app/self-improvement-findings/page.tsx` | Four-stage UI: To decide / In progress / Done / Closed |
 | `deploy/hq-evolution.service` / `.timer` | Follow-up: the actual overnight systemd timer, 03:00 Australia/Melbourne |
 | `core/infrastructure/supabase/migrations/0192_domain_registry_hq_evolution_cycle.sql` | Follow-up: registers `hq_evolution_cycle` so its heartbeats don't 409 |
 
@@ -85,10 +122,12 @@ python3 scripts/self_improvement/migration.py
 Scheduling: `deploy/hq-evolution.timer` runs this daily at 03:00 Australia/
 Melbourne — the quiet window between `brief_qa_agent_nightly` (02:00,
 LLM-heavy) and `downdetector_threshold_recompute` (05:00), well clear of
-the 06:00+ morning-collection jobs and the 07:00 morning-brief /
-`self-improving-system.timer` pair (see the timer file's own comment for
-the full audited timeline from `intelligence/scheduler.py`). Overlapping
-runs are prevented by a non-blocking `flock` inside
+the 06:00+ morning-collection jobs and the 07:00 morning-brief (see the
+timer file's own comment for the full audited timeline from
+`intelligence/scheduler.py`). `self-improving-system.timer` used to also
+fire at 07:00 — a documented, pre-existing collision this timer
+deliberately avoided adding to — until HQ V1 Integration QA §23 moved it
+to 04:30. Overlapping runs are prevented by a non-blocking `flock` inside
 `evolution_orchestrator.py` itself (auto-released if the process crashes —
 no stale-lock cleanup needed), not by systemd.
 

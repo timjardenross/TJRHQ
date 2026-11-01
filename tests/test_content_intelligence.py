@@ -6,19 +6,24 @@ Tests are pure (no network, no DB). Target: <50ms suite.
 All functions under test are deterministic.
 """
 
-import sys
 import os
+import sys
 import time
-from typing import Optional
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from datetime import datetime, timezone, timedelta
-from intelligence.classification.content_classifier import score_for_content, _derive_angle
-from intelligence.ranking.content_ranker import (
-    rank, rank_batch, _type_adjusted_decay, USEFUL_LIFE_DAYS
-)
-from intelligence.classification.content_classifier import ContentScore
+from datetime import datetime, timedelta, timezone
 
+from intelligence.classification.content_classifier import (
+    ContentScore,
+    score_for_content,
+)
+from intelligence.ranking.content_ranker import (
+    USEFUL_LIFE_DAYS,
+    _type_adjusted_decay,
+    rank,
+    rank_batch,
+)
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -29,7 +34,7 @@ def _event(
     rank_score: float = 55.0,
     source_confidence_weight: float = 0.8,
     operational_relevance: float = 0.6,
-    collected_at: Optional[str] = None,
+    collected_at: str | None = None,
     event_id: str = "test-event-001",
     source_id: str = "src-001",
     source_name: str = "Test Source",
@@ -55,7 +60,7 @@ def _score(
     pillar_key: str = "ai_augmented_leadership",
     content_relevance: float = 0.70,
     captain_focus: bool = True,
-    collected_at: Optional[str] = None,
+    collected_at: str | None = None,
     useful_life_days: int = 14,
 ) -> ContentScore:
     if collected_at is None:
@@ -268,16 +273,16 @@ if __name__ == "__main__":
                 getattr(suite, name)()
                 print(f"  ✓ {type(suite).__name__}.{name}")
                 passed += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test-runner harness: must catch any failure from a test method to report it and keep running the rest
                 print(f"  ✗ {type(suite).__name__}.{name}: {exc}")
                 traceback.print_exc()
                 failed += 1
 
     try:
         test_suite_performance()
-        print(f"  ✓ test_suite_performance")
+        print("  ✓ test_suite_performance")
         passed += 1
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - test-runner harness: must catch any failure to report it and continue to the summary
         print(f"  ✗ test_suite_performance: {exc}")
         failed += 1
 

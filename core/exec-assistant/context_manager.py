@@ -5,14 +5,14 @@ This is the "brain" that learns your working style and makes it better over time
 """
 
 import logging
-from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
-from datetime import datetime, timedelta
 
 from .models import (
-    ExecutiveContext,
-    ContextType,
     ContextSource,
+    ContextType,
+    ExecutiveContext,
 )
 
 log = logging.getLogger(__name__)
@@ -46,20 +46,20 @@ class ContextManager:
         """
         self.executive_id = executive_id
         self.db = db
-        self._cache: Dict[str, ExecutiveContext] = {}
+        self._cache: dict[str, ExecutiveContext] = {}
         self._cache_timestamp = None
 
     def set_preference(
         self,
         key: str,
-        value: Dict[str, Any],
+        value: dict[str, Any],
         source: ContextSource = ContextSource.MANUAL,
     ) -> ExecutiveContext:
         """
         Set an executive preference.
 
         Common preferences:
-        - "working_hours": {"start": "09:00", "end": "18:00", "timezone": "Australia/Brisbane"}
+        - "working_hours": {"start": "09:00", "end": "18:00", "timezone": "Australia/Melbourne"}
         - "meeting_preferences": {"max_per_day": 5, "preferred_slots": ["09:30", "14:00"]}
         - "communication_style": {"format": "bullet_points", "brevity": "concise"}
 
@@ -80,7 +80,7 @@ class ContextManager:
             "key": key,
             "value": value,
             "source": source.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Upsert to database
@@ -93,14 +93,14 @@ class ContextManager:
             log.info(f"Set preference: {key}")
             self._invalidate_cache()
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to set preference {key}: {e}")
             return None
 
     def set_priority(
         self,
         priority_area: str,
-        details: Dict[str, Any],
+        details: dict[str, Any],
     ) -> ExecutiveContext:
         """
         Set a strategic priority area.
@@ -128,7 +128,7 @@ class ContextManager:
     def set_relationship_context(
         self,
         person_name: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> ExecutiveContext:
         """
         Store context about a key relationship.
@@ -157,7 +157,7 @@ class ContextManager:
             "key": person_name,
             "value": context,
             "source": ContextSource.MANUAL.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -169,14 +169,14 @@ class ContextManager:
             log.info(f"Updated relationship context: {person_name}")
             self._invalidate_cache()
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to update relationship context for {person_name}: {e}")
             return None
 
     def set_framework(
         self,
         framework_name: str,
-        rules: Dict[str, Any],
+        rules: dict[str, Any],
     ) -> ExecutiveContext:
         """
         Set a decision framework or SOP.
@@ -203,7 +203,7 @@ class ContextManager:
             "key": framework_name,
             "value": rules,
             "source": ContextSource.MANUAL.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -215,7 +215,7 @@ class ContextManager:
             log.info(f"Set framework: {framework_name}")
             self._invalidate_cache()
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to set framework {framework_name}: {e}")
             return None
 
@@ -224,7 +224,7 @@ class ContextManager:
         pattern_name: str,
         value: bool = True,
         strength: float = 0.7,
-        description: str = None
+        description: str | None = None
     ) -> ExecutiveContext:
         """
         Learn a pattern from your feedback.
@@ -259,7 +259,7 @@ class ContextManager:
             },
             "source": ContextSource.LEARNED.value,
             "confidence": strength,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -271,11 +271,11 @@ class ContextManager:
             log.info(f"Learned pattern: {pattern_name} (strength={strength})")
             self._invalidate_cache()
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to learn pattern {pattern_name}: {e}")
             return None
 
-    def get_preference(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_preference(self, key: str) -> dict[str, Any] | None:
         """
         Get a specific preference.
 
@@ -300,11 +300,11 @@ class ContextManager:
             if result.data and len(result.data) > 0:
                 return result.data[0]["value"]
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to get preference {key}: {e}")
             return None
 
-    def get_priorities(self) -> Dict[str, Dict[str, Any]]:
+    def get_priorities(self) -> dict[str, dict[str, Any]]:
         """
         Get all strategic priorities.
 
@@ -326,11 +326,11 @@ class ContextManager:
                 key = row["key"].replace("priority_", "")
                 priorities[key] = row["value"]
             return priorities
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to get priorities: {e}")
             return {}
 
-    def get_relationship_context(self, person_name: str) -> Optional[Dict[str, Any]]:
+    def get_relationship_context(self, person_name: str) -> dict[str, Any] | None:
         """
         Get relationship context for a specific person.
 
@@ -355,11 +355,11 @@ class ContextManager:
             if result.data and len(result.data) > 0:
                 return result.data[0]["value"]
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to get relationship context for {person_name}: {e}")
             return None
 
-    def get_profile(self) -> Dict[str, Any]:
+    def get_profile(self) -> dict[str, Any]:
         """
         Get complete executive profile (all contexts).
 
@@ -408,7 +408,7 @@ class ContextManager:
                     profile["patterns"][key] = value
 
             return profile
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to get profile: {e}")
             return {}
 
@@ -417,7 +417,7 @@ class ContextManager:
         self._cache = {}
         self._cache_timestamp = None
 
-    def suggest_profile_improvements(self) -> List[str]:
+    def suggest_profile_improvements(self) -> list[str]:
         """
         Suggest areas where the profile could be enhanced.
 

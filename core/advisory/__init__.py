@@ -21,16 +21,16 @@ _HERE = _Path(__file__).resolve().parent
 if str(_HERE) not in _sys.path:
     _sys.path.insert(0, str(_HERE))
 
-from schema import (  # noqa: E402,F401
+from _local_import_advisory import import_sibling as _import_sibling
+from schema import (
+    ADVISORY_AUTHORITY_NOTE,
     AdvisoryResponse,
     ConfidenceLevel,
     EvidenceItem,
     LessonRef,
     OfficerPerspective,
     RelatedDecision,
-    ADVISORY_AUTHORITY_NOTE,
 )
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
 
 _service = _import_sibling("service")
 request_advice = _service.request_advice
@@ -45,28 +45,28 @@ _outcomes = _import_sibling("outcomes")
 record_advisory = _outcomes.record_advisory
 record_outcome = _outcomes.record_outcome
 
-from calibration import calibration_report  # noqa: E402,F401
-from metrics import advisory_metrics  # noqa: E402,F401
+from calibration import calibration_report
+from metrics import advisory_metrics
 
 historical_signal = _import_sibling("learning").historical_signal
 
 __all__ = [
+    "ADVISORY_AUTHORITY_NOTE",
     "AdvisoryResponse",
     "ConfidenceLevel",
     "EvidenceItem",
     "LessonRef",
     "OfficerPerspective",
     "RelatedDecision",
-    "ADVISORY_AUTHORITY_NOTE",
-    "request_advice",
-    "request_challenge",
-    "invoke",
+    "advisory_metrics",
     "available_officers",
+    "calibration_report",
     "evidence_brief",
+    "historical_signal",
+    "invoke",
     "lessons_brief",
     "record_advisory",
     "record_outcome",
-    "calibration_report",
-    "advisory_metrics",
-    "historical_signal",
+    "request_advice",
+    "request_challenge",
 ]

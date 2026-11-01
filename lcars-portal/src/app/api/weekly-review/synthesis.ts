@@ -242,7 +242,7 @@ function buildCarryForward(sections: WorkbenchSection[], posture: StrategicPostu
   if (decisions && !decisions.unavailable && decisions.count > 0) {
     items.push({
       key: 'held-decisions',
-      title: "Captain's Chair",
+      title: "Today",
       detail: `${decisions.count} decision(s) remain on hold.`,
       recommendation: 'Resolve or explicitly re-hold.',
       href: '/captains-chair-workbench',

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 MSN-0145: Sync Supabase missions → core/mission-control/registry/mission-index.txt
 
@@ -20,7 +21,7 @@ import argparse
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -81,7 +82,7 @@ def sync(dry_run: bool = False) -> int:
         print("[dry-run] No changes written.")
         return 0
 
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     with _REGISTRY.open("a", encoding="utf-8") as f:
         f.write(f"\n# MSN-0145 SUPABASE SYNC ({ts})\n")
         for m in new_missions:
@@ -94,7 +95,7 @@ def sync(dry_run: bool = False) -> int:
     return 0
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort.
 
     Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
@@ -109,7 +110,7 @@ def _record_heartbeat(status: str, detail: str = None, error_message: str = None
         sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("mission_registry_sync", status=status, detail=detail, error_message=error_message)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 - heartbeat recording is observability-only; must never block the actual sync it's reporting on
         pass
 
 

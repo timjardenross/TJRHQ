@@ -7,7 +7,6 @@ the requested entity is not yet in the hierarchy — no exceptions raised.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
 
 from .graph import HierarchyGraph
 from .index import get_graph
@@ -33,7 +32,7 @@ class HierarchyNavigator:
     Inject a graph for testing; omit to use the module-level singleton.
     """
 
-    def __init__(self, graph: Optional[HierarchyGraph] = None) -> None:
+    def __init__(self, graph: HierarchyGraph | None = None) -> None:
         self._graph = graph or get_graph()
 
     def get_context_chain(self, entity_id: str) -> NavigationPath:
@@ -89,8 +88,8 @@ class HierarchyNavigator:
         Used to answer: "what constraints apply to this entity?"
         """
         node_id = entity_id.upper()
-        adrs: List[HierarchyNode] = []
-        principles: List[HierarchyNode] = []
+        adrs: list[HierarchyNode] = []
+        principles: list[HierarchyNode] = []
         seen: set[str] = set()
 
         def _collect_governance(nid: str) -> None:
@@ -144,7 +143,7 @@ class HierarchyNavigator:
             status_summary=status_summary,
         )
 
-    def get_lessons_from_entity(self, entity_id: str) -> List[HierarchyNode]:
+    def get_lessons_from_entity(self, entity_id: str) -> list[HierarchyNode]:
         """
         All lesson nodes reachable downstream from this entity.
 
@@ -191,7 +190,7 @@ class HierarchyNavigator:
 
         impacted = [n for nid in downstream if (n := self._graph.get_node(nid))]
 
-        by_type: dict[str, List[HierarchyNode]] = {}
+        by_type: dict[str, list[HierarchyNode]] = {}
         for n in impacted:
             by_type.setdefault(n.node_type, []).append(n)
 
@@ -201,14 +200,14 @@ class HierarchyNavigator:
             impacted_by_type=by_type,
         )
 
-    def get_sibling_missions(self, mission_id: str) -> List[HierarchyNode]:
+    def get_sibling_missions(self, mission_id: str) -> list[HierarchyNode]:
         """
         Other missions in the same Initiative.
 
         Used to answer: "what else is happening alongside this mission?"
         """
         node_id = mission_id.upper()
-        siblings: List[HierarchyNode] = []
+        siblings: list[HierarchyNode] = []
         seen: set[str] = {node_id}
 
         for parent_id in self._graph.predecessors(node_id):

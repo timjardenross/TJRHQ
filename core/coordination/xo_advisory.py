@@ -25,7 +25,7 @@ if str(_ADVISORY) not in sys.path:
 
 
 def _service():
-    from _local_import_advisory import import_sibling  # noqa: PLC0415
+    from _local_import_advisory import import_sibling
     return import_sibling("service")
 
 

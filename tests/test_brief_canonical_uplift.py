@@ -16,7 +16,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from intelligence.brief.comparison import compute_comparison
 from intelligence.brief.domain_picture import compute_domain_picture
-from intelligence.brief.render import build_morning_intelligence_view, render_telegram_morning_text
+from intelligence.brief.render import (
+    build_morning_intelligence_view,
+    render_telegram_morning_text,
+)
 
 
 def _event(title, event_type="cyber", risk="AMBER"):

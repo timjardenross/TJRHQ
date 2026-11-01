@@ -31,10 +31,10 @@ import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
-from core.platform.event_bus import poll_events
+from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
+from intelligence.brief.domains_view import _readable_text
 from intelligence.brief.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ def _unwrap_if_json(text: str) -> str:
     backstop so a recurrence degrades to readable text instead of a raw
     JSON dump reaching Captain TJR's Telegram."""
     stripped = text.strip()
-    if not (stripped.startswith("{") or stripped.startswith("```")):
+    if not stripped.startswith(("{", "```")):
         return text
     match = _JSON_BLOCK_RE.search(stripped)
     if not match:
@@ -101,7 +101,15 @@ def _format_domain_events(doc) -> str:
         items = getattr(doc, attr, None) or []
         if not items:
             continue
-        lines = "\n".join(f"- {i.reason}" for i in items[:10])
+        # The event's readable text (recommendation, else description) — never
+        # `_routing_reason`, the Attention Engine's internal scoring/aggregation
+        # trail (see domains_view._readable_text). `CaptainBriefItem.reason` was
+        # renamed `_routing_reason`; this still read `.reason` and raised
+        # AttributeError whenever any domain section had items (TJRHQ#398).
+        texts = [t for t in (_readable_text(i) for i in items[:10]) if t]
+        if not texts:
+            continue
+        lines = "\n".join(f"- {t}" for t in texts)
         blocks.append(f"{label}:\n{lines}")
     return "\n\n".join(blocks)
 
@@ -123,7 +131,7 @@ def _format_signal_events(signals: list[dict]) -> str:
     return "Individual news signals (highest-ranked first):\n" + "\n".join(lines)
 
 
-def build_daily_digest(hours: int = 24, signals: Optional[list[dict]] = None) -> Optional[str]:
+def build_daily_digest(hours: int = 24, signals: list[dict] | None = None) -> str | None:
     """
     signals: optional raw HIGH/MEDIUM intelligence_events (same shape as
     captains_brief.py's _get_recent_signals) to fold into the narrative
@@ -136,8 +144,8 @@ def build_daily_digest(hours: int = 24, signals: Optional[list[dict]] = None) ->
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     try:
-        events = poll_events(since=since, limit=200)
-    except Exception as exc:
+        events = poll_events(since=since, limit=200, columns=CAPTAIN_BRIEF_COLUMNS)
+    except Exception as exc:  # noqa: BLE001 - best-effort events poll, already logged; caller falls back to an empty event list
         log.warning("[daily_digest] poll_events failed: %s", exc)
         events = []
 
@@ -145,7 +153,7 @@ def build_daily_digest(hours: int = 24, signals: Optional[list[dict]] = None) ->
     if events:
         try:
             doc = assemble_captain_brief_document(events)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort document assembly, already logged; caller falls back to empty domain_text
             log.warning("[daily_digest] assemble_captain_brief_document failed: %s", exc)
 
     domain_text = _format_domain_events(doc) if doc else ""
@@ -165,8 +173,9 @@ def build_daily_digest(hours: int = 24, signals: Optional[list[dict]] = None) ->
     )
 
     try:
-        text, provider = _llm.generate(prompt)
-    except Exception as exc:
+        # Local model only: this prompt carries platform-domain event text and must not reach a cloud tier.
+        text, provider = _llm.generate(prompt, local_only=True)
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM synthesis, already logged; caller treats None as 'digest unavailable'
         log.warning("[daily_digest] LLM synthesis failed: %s", exc)
         return None
 

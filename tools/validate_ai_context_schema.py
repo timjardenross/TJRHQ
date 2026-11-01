@@ -13,8 +13,8 @@ Usage: python3 tools/validate_ai_context_schema.py
 
 import os
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -65,7 +65,7 @@ def check_column(table: str, col: str) -> bool:
     url = f"{SUPABASE_URL}/rest/v1/{table}?select={col}&limit=0"
     req = urllib.request.Request(url, headers=HEADERS)
     try:
-        with urllib.request.urlopen(req, timeout=10):
+        with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var and a fixed table name from this file's own DECLARED_QUERIES dict, not user input - reviewed 2026-09-12
             return True
     except urllib.error.HTTPError as e:
         if e.code == 400:
@@ -73,7 +73,7 @@ def check_column(table: str, col: str) -> bool:
         # 401/403 = auth issue, not a schema problem
         print(f"  WARNING: {table}.{col} returned HTTP {e.code} — check auth.")
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - explicitly documented above as 'don't fail on network errors' — already printed as a warning
         print(f"  WARNING: {table}.{col} probe failed ({e})")
         return True  # don't fail on network errors
 

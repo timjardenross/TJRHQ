@@ -15,15 +15,16 @@ from __future__ import annotations
 
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime
+from typing import Any
 
 # Allow importing from context-assembly sibling package
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 
 from models import HealthContextPackage, HealthStatusSnapshot, HealthTrendSummary
+
 
 # Lazy import to avoid circular deps and missing-dep errors at import time
 def _get_captains_log_live():
@@ -32,10 +33,32 @@ def _get_captains_log_live():
         _HEALTH_ROOT = Path(__file__).resolve().parents[2] / "core" / "health"
         if str(_HEALTH_ROOT) not in sys.path:
             sys.path.insert(0, str(_HEALTH_ROOT))
-        from supabase_client import supabase_get, is_configured
         from capacity_score import compute_capacity_score
+        from supabase_client import is_configured, supabase_get
         return supabase_get, is_configured, compute_capacity_score
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional health-module import; (None, None, None) signals unavailability to the caller
+        return None, None, None
+
+
+def _get_capacity_checkin_live():
+    """Mission 2 (USS-TJR-MSN-2) fix: capacity_checkins is the platform's
+    canonical capacity source (MY CAPACITY TODAY, 2026-08-21) -- this
+    adapter was still deriving capacity_score/capacity_status from
+    captains_log_entries via a weighted pain/energy/sleep formula
+    (compute_capacity_score), a second, competing capacity derivation that
+    could disagree with the Captain's own direct capacity_checkins
+    self-report. captains_log_entries stays the source for every OTHER
+    field here (pain/mood/energy/themes/priorities) -- those are a
+    genuinely different domain (a daily journal), not a capacity
+    duplication, and are untouched by this fix."""
+    try:
+        _HEALTH_ROOT = Path(__file__).resolve().parents[2] / "core" / "health"
+        if str(_HEALTH_ROOT) not in sys.path:
+            sys.path.insert(0, str(_HEALTH_ROOT))
+        from capacity_score import capacity_zone_from_checkin
+        from supabase_client import is_configured, supabase_get
+        return supabase_get, is_configured, capacity_zone_from_checkin
+    except Exception:  # noqa: BLE001 - optional health-module import; (None, None, None) signals unavailability to the caller
         return None, None, None
 
 
@@ -43,7 +66,7 @@ def _get_captains_log_live():
 # Section parsing
 # ---------------------------------------------------------------------------
 
-def parse_health_summary(path: Path) -> Dict[str, Any]:
+def parse_health_summary(path: Path) -> dict[str, Any]:
     """
     Read and parse Health Summary markdown into structured dict.
 
@@ -58,7 +81,7 @@ def parse_health_summary(path: Path) -> Dict[str, Any]:
     raw = path.read_text(encoding="utf-8")
     lines = raw.splitlines()
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "source_file": str(path),
         "frontmatter": {},
         "themes": [],
@@ -81,7 +104,7 @@ def parse_health_summary(path: Path) -> Dict[str, Any]:
     return result
 
 
-def extract_trends(summary_dict: Dict[str, Any]) -> HealthTrendSummary:
+def extract_trends(summary_dict: dict[str, Any]) -> HealthTrendSummary:
     """
     Derive trend direction from weekly reflection data.
 
@@ -108,13 +131,13 @@ def extract_trends(summary_dict: Dict[str, Any]) -> HealthTrendSummary:
     )
 
 
-def build_health_context(summary_dict: Dict[str, Any], timestamp: Optional[str] = None) -> HealthContextPackage:
+def build_health_context(summary_dict: dict[str, Any], timestamp: str | None = None) -> HealthContextPackage:
     """
     Assemble HealthContextPackage from parsed summary dict.
 
     Always returns a valid package — missing fields default to None/unknown.
     """
-    assembled_at = timestamp or (datetime.utcnow().isoformat() + "Z")
+    assembled_at = timestamp or (datetime.now(timezone.utc).isoformat())
 
     reflection = summary_dict.get("weekly_reflection", {})
     trend = extract_trends(summary_dict)
@@ -146,7 +169,7 @@ def build_health_context(summary_dict: Dict[str, Any], timestamp: Optional[str] 
     mo_note = f"Recovery focus: {'; '.join(priorities[:3])}" if priorities else None
 
     # Safety flags: none at summary level unless explicitly documented
-    safety_flags: List[str] = []
+    safety_flags: list[str] = []
 
     return HealthContextPackage(
         assembled_at=assembled_at,
@@ -166,7 +189,7 @@ def build_health_context(summary_dict: Dict[str, Any], timestamp: Optional[str] 
 # Private helpers
 # ---------------------------------------------------------------------------
 
-def _empty_summary(path: str) -> Dict[str, Any]:
+def _empty_summary(path: str) -> dict[str, Any]:
     return {
         "source_file": path,
         "frontmatter": {},
@@ -179,10 +202,10 @@ def _empty_summary(path: str) -> Dict[str, Any]:
     }
 
 
-def _parse_frontmatter(lines: List[str]) -> Dict[str, str]:
+def _parse_frontmatter(lines: list[str]) -> dict[str, str]:
     if not lines or lines[0].strip() != "---":
         return {}
-    fm: Dict[str, str] = {}
+    fm: dict[str, str] = {}
     for line in lines[1:]:
         if line.strip() == "---":
             break
@@ -192,11 +215,11 @@ def _parse_frontmatter(lines: List[str]) -> Dict[str, str]:
     return fm
 
 
-def _split_sections(raw: str) -> Dict[str, str]:
+def _split_sections(raw: str) -> dict[str, str]:
     """Split markdown into sections keyed by heading text."""
-    sections: Dict[str, str] = {}
+    sections: dict[str, str] = {}
     current_heading = "_preamble"
-    current_lines: List[str] = []
+    current_lines: list[str] = []
 
     for line in raw.splitlines():
         m = re.match(r"^#{1,3}\s+(.+)$", line)
@@ -211,7 +234,7 @@ def _split_sections(raw: str) -> Dict[str, str]:
     return sections
 
 
-def _parse_themes(sections: Dict[str, str]) -> List[str]:
+def _parse_themes(sections: dict[str, str]) -> list[str]:
     for heading, body in sections.items():
         if "health theme" in heading.lower() or "current health theme" in heading.lower():
             return [
@@ -222,7 +245,7 @@ def _parse_themes(sections: Dict[str, str]) -> List[str]:
     return []
 
 
-def _parse_recovery_priorities(sections: Dict[str, str]) -> List[str]:
+def _parse_recovery_priorities(sections: dict[str, str]) -> list[str]:
     for heading, body in sections.items():
         if "recovery priorit" in heading.lower():
             items = []
@@ -236,7 +259,7 @@ def _parse_recovery_priorities(sections: Dict[str, str]) -> List[str]:
     return []
 
 
-def _parse_weekly_reflection(sections: Dict[str, str]) -> Dict[str, Any]:
+def _parse_weekly_reflection(sections: dict[str, str]) -> dict[str, Any]:
     """
     Extract filled-in data from the Weekly Health Reflection Template.
 
@@ -244,7 +267,7 @@ def _parse_weekly_reflection(sections: Dict[str, str]) -> Dict[str, Any]:
     sub-sections of the Weekly Reflection template appear as top-level keys
     in the sections dict. We look for all reflection-related keys directly.
     """
-    reflection: Dict[str, Any] = {}
+    reflection: dict[str, Any] = {}
 
     for heading, body in sections.items():
         sh = heading.lower()
@@ -322,7 +345,7 @@ def _infer_trend(text: str) -> str:
     return "unknown"
 
 
-def _normalise_pain(value: Optional[str]) -> Optional[str]:
+def _normalise_pain(value: str | None) -> str | None:
     if not value:
         return None
     v = value.lower()
@@ -344,7 +367,7 @@ def _normalise_pain(value: Optional[str]) -> Optional[str]:
     return value[:50]
 
 
-def _normalise_level(value: Optional[str]) -> Optional[str]:
+def _normalise_level(value: str | None) -> str | None:
     if not value:
         return None
     v = value.lower()
@@ -357,7 +380,7 @@ def _normalise_level(value: Optional[str]) -> Optional[str]:
     return None
 
 
-def _normalise_sleep(value: Optional[str]) -> Optional[str]:
+def _normalise_sleep(value: str | None) -> str | None:
     if not value:
         return None
     v = value.lower()
@@ -382,28 +405,28 @@ def _derive_workload_constraint(status: HealthStatusSnapshot) -> str:
 # Live Supabase path (WP1 — primary source)
 # ---------------------------------------------------------------------------
 
-def _normalise_energy(val: Optional[str]) -> Optional[str]:
+def _normalise_energy(val: str | None) -> str | None:
     """Captain's Log uses Title Case; models expect lowercase."""
     if not val:
         return None
     return val.lower()  # Low→low, Moderate→moderate, High→high
 
 
-def _normalise_mood(val: Optional[str]) -> Optional[str]:
+def _normalise_mood(val: str | None) -> str | None:
     """Captain's Log: Low/Stable/Positive → low/stable/positive."""
     if not val:
         return None
     return val.lower()
 
 
-def _normalise_sleep_quality(val: Optional[str]) -> Optional[str]:
+def _normalise_sleep_quality(val: str | None) -> str | None:
     """Captain's Log: Poor/Fair/Good → poor/fair/good."""
     if not val:
         return None
     return val.lower()
 
 
-def _pain_score_to_level(score: Optional[int]) -> Optional[str]:
+def _pain_score_to_level(score: int | None) -> str | None:
     if score is None:
         return None
     if score <= 3:
@@ -414,11 +437,11 @@ def _pain_score_to_level(score: Optional[int]) -> Optional[str]:
 
 
 def build_health_context_from_captains_log(
-    entry: Optional[Dict[str, Any]],
-    trend_direction: Optional[str] = None,
-    capacity_score: Optional[int] = None,
-    assembled_at: Optional[str] = None,
-    energy_trend: Optional[str] = None,
+    entry: dict[str, Any] | None,
+    trend_direction: str | None = None,
+    capacity_score: int | None = None,
+    assembled_at: str | None = None,
+    energy_trend: str | None = None,
 ) -> HealthContextPackage:
     """
     Build a HealthContextPackage from a captains_log_entries row.
@@ -427,13 +450,20 @@ def build_health_context_from_captains_log(
     trend_direction — pre-computed pain trend (improving/stable/worsening)
     capacity_score  — pre-computed capacity score (0–100)
     """
-    assembled = assembled_at or (datetime.utcnow().isoformat() + "Z")
+    assembled = assembled_at or (datetime.now(timezone.utc).isoformat())
 
     if not entry:
+        # Mission 2 (USS-TJR-MSN-2) fix: capacity_score is independent of
+        # captains_log_entries now (it comes from capacity_checkins) -- a
+        # missing/no-today captain's-log row must not also discard a
+        # perfectly valid capacity_checkins reading passed in above.
+        from capacity_score import capacity_status_only
         return HealthContextPackage(
             assembled_at=assembled,
             source_file="supabase:captains_log_entries",
             data_quality="missing",
+            capacity_score=capacity_score,
+            capacity_status=capacity_status_only(capacity_score),
         )
 
     pain_level = _pain_score_to_level(entry.get("pain_score"))
@@ -459,24 +489,29 @@ def build_health_context_from_captains_log(
     workload = _derive_workload_constraint(status)
 
     # Build themes from what_changed and blockers (non-null, non-empty)
-    themes: List[str] = []
+    themes: list[str] = []
     if entry.get("what_changed"):
         themes.append(entry["what_changed"][:120])
     if entry.get("blockers"):
         themes.append(f"Blockers: {entry['blockers'][:80]}")
 
     # Recovery priorities from wins (positive signal)
-    priorities: List[str] = []
+    priorities: list[str] = []
     if entry.get("tomorrows_priority"):
         priorities.append(f"Tomorrow: {entry['tomorrows_priority']}")
     if entry.get("wins"):
         priorities.append(f"Recent win: {entry['wins'][:80]}")
 
-    cap_status: Optional[str] = None
+    # Mission 2 (USS-TJR-MSN-2) fix: capacity_status_only(None) already
+    # returns "Unknown" -- gating this call behind `capacity_score is not
+    # None` left cap_status as a bare None instead, contradicting this
+    # package's own capacity_status field comment ("Green | Amber | Red |
+    # Unknown") and hiding "no signal" from callers that check for the
+    # string rather than None (e.g. equality checks against "Unknown").
+    from capacity_score import capacity_status_only
+    cap_status = capacity_status_only(capacity_score)
     mo_note_parts = []
     if capacity_score is not None:
-        from capacity_score import capacity_status_only
-        cap_status = capacity_status_only(capacity_score)
         mo_note_parts.append(f"Capacity {capacity_score}% ({cap_status})")
     if entry.get("overall_note"):
         mo_note_parts.append(entry["overall_note"][:100])
@@ -504,19 +539,28 @@ def build_health_context_from_captains_log(
     )
 
 
-def build_health_context_live(assembled_at: Optional[str] = None) -> HealthContextPackage:
+def build_health_context_live(assembled_at: str | None = None) -> HealthContextPackage:
     """
     Primary entry point (WP1).
 
     Tries to read live data from captains_log_entries.
     Falls back to legacy Health-Summary.md path if Supabase unavailable.
+
+    Capacity score/status (Mission 2, USS-TJR-MSN-2) come from today's
+    capacity_checkins row via capacity_zone_from_checkin(), not from this
+    function's captains_log_entries read -- see _get_capacity_checkin_live()'s
+    docstring. No today row means Unknown, never a stale prior day silently
+    served as current (mission's explicit "absence must not imply Green"
+    and "must not treat an old state as indefinitely current" requirements).
     """
-    supabase_get, is_configured, compute_cap = _get_captains_log_live()
+    # compute_capacity_score (3rd return) is unused here since Mission 2's
+    # fix below -- kept import for is_configured()/supabase_get, which are
+    # still needed for the captains_log_entries narrative-field read.
+    supabase_get, is_configured, _compute_cap_unused = _get_captains_log_live()
 
     if supabase_get and is_configured and is_configured():
         try:
-            from datetime import date
-            today = date.today().isoformat()
+            today = datetime.now().astimezone().date().isoformat()
             rows = supabase_get(
                 f"captains_log_entries?log_date=eq.{today}&limit=1"
             )
@@ -530,15 +574,19 @@ def build_health_context_live(assembled_at: Optional[str] = None) -> HealthConte
                 entry = rows[0] if rows else None
 
             # Get 7-day trends for pain and energy using canonical trend_utils (WP-4)
-            trend_direction: Optional[str] = None
-            energy_trend_direction: Optional[str] = None
+            trend_direction: str | None = None
+            energy_trend_direction: str | None = None
             try:
                 from datetime import timedelta
                 _HEALTH_ROOT = Path(__file__).resolve().parents[2] / "core" / "health"
                 if str(_HEALTH_ROOT) not in sys.path:
                     sys.path.insert(0, str(_HEALTH_ROOT))
-                from trend_utils import compute_pain_trend, compute_energy_trend, encode_energy
-                since = (date.today() - timedelta(days=6)).isoformat()
+                from trend_utils import (
+                    compute_energy_trend,
+                    compute_pain_trend,
+                    encode_energy,
+                )
+                since = (datetime.now().astimezone().date() - timedelta(days=6)).isoformat()
                 recent = supabase_get(
                     f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit=7"
                 )
@@ -548,19 +596,34 @@ def build_health_context_live(assembled_at: Optional[str] = None) -> HealthConte
                 energy_vals = [encode_energy(r["energy"]) for r in recent if r.get("energy")]
                 result_e = compute_energy_trend(energy_vals)
                 energy_trend_direction = None if result_e == "insufficient_data" else result_e
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - best-effort trend computation; None trend direction is a valid 'insufficient data' outcome
                 pass
 
-            # Compute capacity score
-            cap_score: Optional[int] = None
-            if entry and compute_cap:
-                cap_score, _ = compute_cap(entry)
+            # Capacity score/status: canonical capacity_checkins source
+            # (Mission 2, USS-TJR-MSN-2), not captains_log_entries -- see
+            # _get_capacity_checkin_live()'s docstring. `entry`/`compute_cap`
+            # (captains_log_entries/compute_capacity_score) are no longer
+            # used for capacity; kept only for this function's other
+            # (non-capacity) narrative fields below.
+            cap_score: int | None = None
+            checkin_get, checkin_configured, zone_from_checkin = _get_capacity_checkin_live()
+            if checkin_get and checkin_configured and checkin_configured():
+                try:
+                    checkin_today = datetime.now().astimezone().date().isoformat()
+                    checkin_rows = checkin_get(
+                        "capacity_checkins?log_date=eq."
+                        f"{checkin_today}&checkin_type=eq.capacity&order=captured_at.desc&limit=1"
+                    )
+                    checkin_row = checkin_rows[0] if checkin_rows else None
+                    cap_score, _ = zone_from_checkin(checkin_row)
+                except Exception:  # noqa: BLE001 - no today capacity_checkins row/unreachable -> cap_score stays None (Unknown), never a stale fallback
+                    cap_score = None
 
             return build_health_context_from_captains_log(
                 entry, trend_direction, cap_score, assembled_at,
                 energy_trend=energy_trend_direction,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - already documented: fall through to the legacy Health-Summary.md path
             pass  # fall through to legacy path
 
     # Legacy fallback: read Health-Summary.md

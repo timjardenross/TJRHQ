@@ -32,8 +32,8 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.program.dependencies import get_all_dependencies, build_depends_on_graph, Dependency
-from lib.program.wbs import build_wbs, InitiativeWBS
+from lib.program.dependencies import build_depends_on_graph, get_all_dependencies
+from lib.program.wbs import InitiativeWBS, build_wbs
 
 
 @dataclass
@@ -172,7 +172,7 @@ def format_critical_path(result: CriticalPathResult) -> str:
 __all__ = [
     "CriticalPathResult",
     "compute_critical_path",
-    "longest_chain",
     "find_bottlenecks",
     "format_critical_path",
+    "longest_chain",
 ]

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { SETTINGS_SECTIONS } from '@/lib/settings-sections';
+import { SignOutButton } from '@/components/SignOutButton';
 
 // Mission §23: "Mobile should use a simple settings list." On desktop this
 // is what shows in the right-hand pane before a section is picked from
@@ -10,6 +11,7 @@ import { SETTINGS_SECTIONS } from '@/lib/settings-sections';
 // Settings page.
 export default function SettingsIndexPage() {
   return (
+    <>
     <nav aria-label="Settings sections" className="divide-y divide-wb-line rounded-lg border border-wb-line bg-wb-surface">
       {SETTINGS_SECTIONS.map((section) => {
         const Icon = section.icon;
@@ -21,13 +23,17 @@ export default function SettingsIndexPage() {
           >
             <Icon className="h-4 w-4 shrink-0 text-wb-ink2" aria-hidden />
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-medium">{section.title}</span>
-              <span className="block text-[12px] text-wb-ink2">{section.description}</span>
+              <span className="block text-wb-body font-medium">{section.title}</span>
+              <span className="block text-wb-label text-wb-ink2">{section.description}</span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-wb-ink2" aria-hidden />
           </Link>
         );
       })}
     </nav>
+    <div className="mt-4">
+      <SignOutButton className="-ml-3" />
+    </div>
+    </>
   );
 }

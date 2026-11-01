@@ -162,15 +162,15 @@ export function EvidencePanel({
   if (!hasRecommendations && !investigation && !hasHistorical) return null;
   return (
     <div className="space-y-3 rounded-md border border-wb-line bg-wb-bg p-3">
-      <p className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">
+      <p className="text-wb-label uppercase tracking-[0.15em] text-wb-ink2">
         Evidence — sourced directly from the canonical engines, not an officer&apos;s interpretation
       </p>
       {hasHistorical && (
         <div>
-          <p className="mb-1 text-[10px] uppercase tracking-widest text-wb-sage-deep">Historical Evidence</p>
+          <p className="mb-1 text-wb-label uppercase tracking-widest text-wb-sage-deep">Historical Evidence</p>
           <ul className="space-y-1">
             {historicalEvidence!.map((e, i) => (
-              <li key={i} className="text-xs text-wb-ink/80">
+              <li key={i} className="text-xs text-wb-ink">
                 <span className="text-wb-ink">{e.reference}</span>
                 {typeof e.outcome_score === 'number' && <span className="text-wb-ink2"> ({Math.round(e.outcome_score * 100)}%)</span>}
                 {' '}— {e.detail}
@@ -181,10 +181,10 @@ export function EvidencePanel({
       )}
       {hasRecommendations && (
         <div>
-          <p className="mb-1 text-[10px] uppercase tracking-widest text-wb-sage-deep">Recommendation Engine</p>
+          <p className="mb-1 text-wb-label uppercase tracking-widest text-wb-sage-deep">Recommendation Engine</p>
           <ul className="space-y-1">
             {recommendations!.recommendations.slice(0, 3).map((r) => (
-              <li key={r.mission_id} className="text-xs text-wb-ink/80">
+              <li key={r.mission_id} className="text-xs text-wb-ink">
                 <span className="text-wb-ink">{r.title}</span>{' '}
                 <span className="text-wb-ink2">({r.mission_id})</span> — {r.reason}
               </li>
@@ -194,14 +194,14 @@ export function EvidencePanel({
       )}
       {investigation && (
         <div>
-          <p className="mb-1 text-[10px] uppercase tracking-widest text-wb-sage-deep">
+          <p className="mb-1 text-wb-label uppercase tracking-widest text-wb-sage-deep">
             Investigation Engine — {investigation.label}
           </p>
-          <p className="text-xs text-wb-ink/80">{investigation.triggerDescription}</p>
+          <p className="text-xs text-wb-ink">{investigation.triggerDescription}</p>
           {investigation.decisionOptions.length > 0 && (
             <ul className="mt-1 space-y-1">
               {investigation.decisionOptions.map((opt) => (
-                <li key={opt.id} className="text-xs text-wb-ink/70">{opt.label}</li>
+                <li key={opt.id} className="text-xs text-wb-ink">{opt.label}</li>
               ))}
             </ul>
           )}
@@ -214,8 +214,8 @@ export function EvidencePanel({
 // ── Result section primitive (mission §7 result hierarchy) ───────────────────
 function ResultSection({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={`think-${label}`} className="rounded-md border border-wb-line bg-wb-surface px-4 py-3">
-      <h3 id={`think-${label}`} className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">{label}</h3>
+    <section aria-labelledby={`think-${label}`} className="[overflow-wrap:anywhere] rounded-md border border-wb-line bg-wb-surface px-4 py-3">
+      <h3 id={`think-${label}`} className="mb-1.5 text-wb-label font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">{label}</h3>
       {children}
     </section>
   );
@@ -242,7 +242,7 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
           <span aria-hidden className="mt-0.5 text-xs font-bold text-wb-warn-on">▲</span>
           <div>
             <p className="text-xs font-semibold text-wb-warn-on">Limited advisory</p>
-            <p className="mt-0.5 text-xs text-wb-warn-on/90">
+            <p className="mt-0.5 text-xs text-wb-warn-on">
               Live specialist reasoning was unavailable. This response is based on available historical evidence only.
             </p>
           </div>
@@ -259,13 +259,13 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
         <ResultSection label="Why">
           <ul className="space-y-1.5">
             {evidence.slice(0, 3).map((e, i) => (
-              <li key={`e-${i}`} className="flex gap-2 text-wb-ink/85">
+              <li key={`e-${i}`} className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
                 <span>{e.detail}{typeof e.outcome_score === 'number' ? ` (${Math.round(e.outcome_score * 100)}% historical outcome)` : ''}</span>
               </li>
             ))}
             {lessons.slice(0, 2).map((l, i) => (
-              <li key={`l-${i}`} className="flex gap-2 text-wb-ink/85">
+              <li key={`l-${i}`} className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
                 <span><span className="text-wb-ink">{l.title}</span>{l.guidance ? ` — ${l.guidance}` : ''}</span>
               </li>
@@ -278,13 +278,13 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
         <ResultSection label="What I'd Challenge">
           <ul className="space-y-1.5">
             {data.disagreement && (
-              <li className="flex gap-2 text-wb-ink/85">
+              <li className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-crit" />
                 <span>{data.disagreement}</span>
               </li>
             )}
             {risks.map((r, i) => (
-              <li key={i} className="flex gap-2 text-wb-ink/85">
+              <li key={i} className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
                 {String(r)}
               </li>
@@ -297,7 +297,7 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
         <ResultSection label="What's Uncertain">
           <ul className="space-y-1.5">
             {uncertainties.map((u, i) => (
-              <li key={i} className="flex gap-2 text-wb-ink/85">
+              <li key={i} className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-warn" />
                 {u}
               </li>
@@ -313,14 +313,14 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
       )}
 
       {conf && (
-        <p className="text-[10px] text-wb-ink2">
+        <p className="text-wb-label text-wb-ink2">
           Confidence: {conf.band ?? ''} ({Math.round((conf.value ?? 0) * 100)}%)
           {conf.basis ? ` — ${conf.basis}` : ''}
           {data.learning_note ? ` · ${data.learning_note}` : ''}
         </p>
       )}
 
-      <p className="text-[10px] italic text-wb-ink2">Advisory only. You decide what happens next.</p>
+      <p className="text-wb-label italic text-wb-ink2">Advisory only. You decide what happens next.</p>
     </div>
   );
 }
@@ -358,7 +358,7 @@ export function PullApartReasoning({
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Reasoning groups">
         {tabs.map((g) => (
           <button key={g} role="tab" aria-selected={active === g} onClick={() => onOpenGroup(g)}
-            className={`rounded-md border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${active === g ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
+            className={`rounded-md border px-3 py-1 text-wb-label uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${active === g ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
             {g}
           </button>
         ))}
@@ -376,11 +376,11 @@ export function PullApartReasoning({
             return (
               <div key={i} className="space-y-1.5 rounded-md border border-wb-line bg-wb-bg px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${accentClass}`}>{op.officer}</p>
-                  {stance && <span className={`text-[9px] uppercase tracking-widest ${stanceColor}`}>{stance}</span>}
+                  <p className={`text-wb-label font-semibold uppercase tracking-wider ${accentClass}`}>{op.officer}</p>
+                  {stance && <span className={`text-wb-label uppercase tracking-widest ${stanceColor}`}>{stance}</span>}
                 </div>
-                <p className="text-sm leading-relaxed text-wb-ink/85">{op.recommendation}</p>
-                {op.confidence !== undefined && <p className="text-[9px] text-wb-ink2">Confidence: {op.confidence}%</p>}
+                <p className="text-sm leading-relaxed text-wb-ink">{op.recommendation}</p>
+                {op.confidence !== undefined && <p className="text-wb-label text-wb-ink2">Confidence: {op.confidence}%</p>}
               </div>
             );
           })}

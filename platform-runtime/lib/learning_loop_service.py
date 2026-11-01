@@ -38,10 +38,9 @@ Phase B1F (FUTURE):
 """
 
 import logging
-import os
-from datetime import datetime, timedelta
+import secrets
 from dataclasses import dataclass
-from typing import Optional, Dict, List
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -59,19 +58,19 @@ class DecisionStatus(str, Enum):
 @dataclass
 class ProviderMetadata:
     """Recommendation provider provenance for analysis."""
-    provider_name: Optional[str] = None
+    provider_name: str | None = None
     # Examples: "google", "openrouter", "ollama", "anthropic", "openai"
 
-    model_name: Optional[str] = None
+    model_name: str | None = None
     # Examples: "gemini-3.5-flash-lite", "gemini-3.5-flash-lite", "mistral-small"
 
-    provider_route: Optional[str] = None
+    provider_route: str | None = None
     # Examples: "primary", "fallback", "local_fallback", "consolidation"
 
-    research_execution_id: Optional[str] = None
+    research_execution_id: str | None = None
     # Links decision to specific research execution for full traceability
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to JSON-serializable dict."""
         return {
             "provider_name": self.provider_name,
@@ -93,7 +92,7 @@ class DecisionRecord:
     decision_reason: str
     decision_timestamp: str
     captured_timestamp: str
-    metadata: Optional[Dict] = None
+    metadata: dict | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "DecisionRecord":
@@ -108,8 +107,8 @@ class DecisionOutcome:
     decision_id: str
     outcome_status: str  # "Pending" | "In Progress" | "Completed" | "Failed"
     result_summary: str
-    effectiveness_score: Optional[int]  # 1-5 scale
-    lessons_learned: Optional[str]
+    effectiveness_score: int | None  # 1-5 scale
+    lessons_learned: str | None
     captured_timestamp: str
     outcome_timestamp: str
 
@@ -136,10 +135,10 @@ class LearningLoopService:
         recommendation_text: str,
         human_decision: str,
         decision_maker: str,
-        decision_reason: str = None,
-        decision_timestamp: datetime = None,
-        provider_metadata: Optional[ProviderMetadata] = None,
-    ) -> Optional[DecisionRecord]:
+        decision_reason: str | None = None,
+        decision_timestamp: datetime | None = None,
+        provider_metadata: ProviderMetadata | None = None,
+    ) -> DecisionRecord | None:
         """
         Record a human decision on a research recommendation.
 
@@ -175,7 +174,7 @@ class LearningLoopService:
 
         # Default timestamp to now
         if decision_timestamp is None:
-            decision_timestamp = datetime.utcnow()
+            decision_timestamp = datetime.now(timezone.utc)
         elif isinstance(decision_timestamp, str):
             decision_timestamp = datetime.fromisoformat(decision_timestamp)
 
@@ -198,13 +197,13 @@ class LearningLoopService:
             "decision_maker": decision_maker,
             "decision_reason": decision_reason or "",
             "decision_timestamp": decision_timestamp.isoformat(),
-            "captured_timestamp": datetime.utcnow().isoformat(),
+            "captured_timestamp": datetime.now(timezone.utc).isoformat(),
             "metadata": metadata,
         }
 
         try:
             # Insert via Supabase (SERVICE_ROLE_KEY)
-            response = self.supabase.insert(
+            self.supabase.insert(
                 "decision_records",
                 decision_data,
             )
@@ -214,11 +213,11 @@ class LearningLoopService:
                 log.info(f"  Route: {provider_metadata.provider_route}")
             return DecisionRecord.from_dict(decision_data)
 
-        except Exception as e:
-            log.error(f"Failed to record decision: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to record decision")
             return None
 
-    def get_decision(self, decision_id: str) -> Optional[DecisionRecord]:
+    def get_decision(self, decision_id: str) -> DecisionRecord | None:
         """
         Retrieve a previously recorded decision.
 
@@ -232,19 +231,20 @@ class LearningLoopService:
             return None
 
         try:
-            response = self.supabase.select(
-                "decision_records",
-                filter_="id.eq." + decision_id,
-            )
+            # CommanderSupabaseClient has no select(); .get() is the real
+            # read method (raw REST query path, returns a plain list) —
+            # this previously called a nonexistent method, always hit the
+            # except below, and silently returned None for every lookup.
+            response = self.supabase.get(f"decision_records?id=eq.{decision_id}")
             if response and len(response) > 0:
                 return DecisionRecord.from_dict(response[0])
             return None
 
-        except Exception as e:
-            log.error(f"Failed to retrieve decision {decision_id}: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to retrieve decision %s", decision_id)
             return None
 
-    def get_decisions_for_mission(self, mission_id: str) -> List[DecisionRecord]:
+    def get_decisions_for_mission(self, mission_id: str) -> list[DecisionRecord]:
         """
         Retrieve all decisions made for a specific mission.
 
@@ -260,14 +260,11 @@ class LearningLoopService:
             return []
 
         try:
-            response = self.supabase.select(
-                "decision_records",
-                filter_="mission_id.eq." + mission_id,
-            )
+            response = self.supabase.get(f"decision_records?mission_id=eq.{mission_id}")
             return [DecisionRecord.from_dict(r) for r in (response or [])]
 
-        except Exception as e:
-            log.error(f"Failed to retrieve decisions for mission {mission_id}: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to retrieve decisions for mission %s", mission_id)
             return []
 
     def record_outcome(
@@ -275,10 +272,10 @@ class LearningLoopService:
         decision_id: str,
         outcome_status: str,
         result_summary: str,
-        effectiveness_score: Optional[int] = None,
-        lessons_learned: Optional[str] = None,
-        outcome_timestamp: datetime = None,
-    ) -> Optional[DecisionOutcome]:
+        effectiveness_score: int | None = None,
+        lessons_learned: str | None = None,
+        outcome_timestamp: datetime | None = None,
+    ) -> DecisionOutcome | None:
         """
         Record the outcome of a decision.
 
@@ -306,13 +303,12 @@ class LearningLoopService:
         if outcome_status not in ["Pending", "In Progress", "Completed", "Failed"]:
             raise ValueError(f"Invalid outcome_status: {outcome_status}")
 
-        if effectiveness_score is not None:
-            if not 1 <= effectiveness_score <= 5:
-                raise ValueError("effectiveness_score must be 1-5 or None")
+        if effectiveness_score is not None and not 1 <= effectiveness_score <= 5:
+            raise ValueError("effectiveness_score must be 1-5 or None")
 
         # Default timestamp
         if outcome_timestamp is None:
-            outcome_timestamp = datetime.utcnow()
+            outcome_timestamp = datetime.now(timezone.utc)
         elif isinstance(outcome_timestamp, str):
             outcome_timestamp = datetime.fromisoformat(outcome_timestamp)
 
@@ -323,7 +319,7 @@ class LearningLoopService:
         followup_scheduled = None
         if outcome_status in ["Pending", "In Progress"]:
             # Default: check again in 7 days
-            followup_scheduled = (datetime.utcnow() + timedelta(days=7)).isoformat()
+            followup_scheduled = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
 
         # Build record
         outcome_data = {
@@ -333,7 +329,7 @@ class LearningLoopService:
             "result_summary": result_summary,
             "effectiveness_score": effectiveness_score,
             "lessons_learned": lessons_learned or "",
-            "captured_timestamp": datetime.utcnow().isoformat(),
+            "captured_timestamp": datetime.now(timezone.utc).isoformat(),
             "outcome_timestamp": outcome_timestamp.isoformat(),
             "followup_scheduled_for": followup_scheduled,
             "quality_score": None,  # Will be filled by quality_scoring.py
@@ -343,7 +339,7 @@ class LearningLoopService:
 
         try:
             # Insert via Supabase
-            response = self.supabase.insert(
+            self.supabase.insert(
                 "decision_outcomes",
                 outcome_data,
             )
@@ -355,29 +351,27 @@ class LearningLoopService:
 
             return DecisionOutcome(**outcome_data)
 
-        except Exception as e:
-            log.error(f"Failed to record outcome: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to record outcome")
             return None
 
-    def get_outcome(self, outcome_id: str) -> Optional[DecisionOutcome]:
+    def get_outcome(self, outcome_id: str) -> DecisionOutcome | None:
         """Retrieve a previously recorded outcome."""
         if not self.enabled:
             return None
 
         try:
-            response = self.supabase.select(
-                "decision_outcomes",
-                filter_="id.eq." + outcome_id,
-            )
+            # Same nonexistent-method bug as get_decision() above.
+            response = self.supabase.get(f"decision_outcomes?id=eq.{outcome_id}")
             if response and len(response) > 0:
                 return DecisionOutcome(**response[0])
             return None
 
-        except Exception as e:
-            log.error(f"Failed to retrieve outcome {outcome_id}: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to retrieve outcome %s", outcome_id)
             return None
 
-    def get_pending_decisions(self) -> List[str]:
+    def get_pending_decisions(self) -> list[str]:
         """
         Get all decisions awaiting outcome.
 
@@ -402,19 +396,26 @@ class LearningLoopService:
             response = self.supabase.query(query)
             return [r["id"] for r in (response or [])]
 
-        except Exception as e:
-            log.error(f"Failed to get pending decisions: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to get pending decisions")
             return []
 
     def _generate_decision_id(self) -> str:
-        """Generate canonical decision ID: DEC-REC-YYYYMMDD-HHMMSS"""
-        now = datetime.utcnow()
-        return f"DEC-REC-{now.strftime('%Y%m%d-%H%M%S')}"
+        """Generate canonical decision ID: DEC-REC-YYYYMMDD-HHMMSS-XXXX.
+
+        The 4-hex-char suffix prevents collisions between decisions recorded
+        within the same wall-clock second (e.g. a batch of Slack approvals
+        processed back to back) — without it, two such decisions get an
+        identical id and the second silently overwrites the first's audit
+        record."""
+        now = datetime.now(timezone.utc)
+        return f"DEC-REC-{now.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(2)}"
 
     def _generate_outcome_id(self) -> str:
-        """Generate canonical outcome ID: OUT-YYYYMMDD-HHMMSS"""
-        now = datetime.utcnow()
-        return f"OUT-{now.strftime('%Y%m%d-%H%M%S')}"
+        """Generate canonical outcome ID: OUT-YYYYMMDD-HHMMSS-XXXX (see
+        _generate_decision_id for why the suffix is needed)."""
+        now = datetime.now(timezone.utc)
+        return f"OUT-{now.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(2)}"
 
     def _enqueue_followup(self, decision_id: str, scheduled_for: str) -> bool:
         """
@@ -441,7 +442,7 @@ class LearningLoopService:
             log.info(f"Decision {decision_id} enqueued for followup on {scheduled_for}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - followup enqueue, best-effort, already logged
             log.warning(f"Failed to enqueue followup for {decision_id}: {e}")
             return False
 
@@ -449,11 +450,11 @@ class LearningLoopService:
 # =============================================================================
 # INTEGRATION POINT: Research Command Handler
 # =============================================================================
-# Example usage in slack-bot/commands/research_command.py:
+# Example usage in platform-runtime/commands/research_command.py:
 #
 # def handle_research_response(mission_id, recommendation, user_id):
 #     """After research completes and recommendation is sent to user."""
-#     from slack_bot.lib.learning_loop_service import LearningLoopService
+#     from lib.learning_loop_service import LearningLoopService
 #     from tools.supabase.client import CommanderSupabaseClient
 #
 #     # Initialize service with backend client

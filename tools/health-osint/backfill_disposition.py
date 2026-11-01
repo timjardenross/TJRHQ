@@ -92,7 +92,7 @@ def run(days: int, dry_run: bool, limit: int | None) -> dict:
                         "signal_id", row["signal_id"]
                     ).execute()
                 stats["updated"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-row backfill inside a batch loop — one bad row must not abort the batch; already logged + counted in stats['errors']
                 log.warning("Failed to backfill signal %s: %s", row.get("signal_id"), exc)
                 stats["errors"] += 1
 

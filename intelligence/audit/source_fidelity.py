@@ -10,8 +10,8 @@ Queries Supabase for:
 """
 
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
+import urllib.parse
+from datetime import datetime, timedelta, timezone
 
 from intelligence.persistence import intelligence_store
 
@@ -29,7 +29,9 @@ def source_fidelity_report(days: int = 30) -> dict:
     - degraded_sources: sources with parse errors
     - signal_to_noise: overall ratio (events / items collected)
     """
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    # Percent-encoded for use in query strings: isoformat() ends in "+00:00" and a
+    # raw '+' decodes to a space, which PostgREST rejects with a 400.
+    since = urllib.parse.quote((datetime.now(timezone.utc) - timedelta(days=days)).isoformat(), safe="")
 
     # Query 1: Items collected per source (last 30 days)
     log.info("Fetching source collection stats (last %d days)...", days)
@@ -104,7 +106,7 @@ def source_fidelity_report(days: int = 30) -> dict:
     # Compile report
     report = {
         "period_days": days,
-        "report_generated_at": datetime.utcnow().isoformat(),
+        "report_generated_at": datetime.now(timezone.utc).isoformat(),
         "total_sources": len(source_stats),
         "sources": {},
         "summary": {},
@@ -175,26 +177,26 @@ def print_fidelity_report(report: dict) -> None:
     print(f"Generated: {report['report_generated_at']}")
     print(f"{'='*80}\n")
 
-    print(f"SUMMARY")
+    print("SUMMARY")
     print(f"  Total sources: {report['total_sources']}")
     print(f"  Overall signal rate: {report['summary']['overall_signal_rate']}")
     print(f"  High-value sources (>5 events): {len(report['summary']['high_value_sources'])}")
     print(f"  Low-value sources (<1 event): {len(report['summary']['low_value_sources'])}")
     print(f"  Degraded sources (>20% failure rate): {len(report['summary']['degraded_sources'])}\n")
 
-    print(f"HIGH-VALUE SOURCES (signal generators)")
+    print("HIGH-VALUE SOURCES (signal generators)")
     print(f"  {', '.join(report['summary']['high_value_sources'][:10])}")
     if len(report['summary']['high_value_sources']) > 10:
         print(f"  ... and {len(report['summary']['high_value_sources']) - 10} more\n")
 
-    print(f"LOW-VALUE SOURCES (archive candidates)")
+    print("LOW-VALUE SOURCES (archive candidates)")
     for source_id in report['summary']['low_value_sources'][:5]:
         s = report["sources"][source_id]
         print(f"  {source_id}: {s['items_collected']} items → {s['events_extracted']} events")
     if len(report['summary']['low_value_sources']) > 5:
         print(f"  ... and {len(report['summary']['low_value_sources']) - 5} more\n")
 
-    print(f"DEGRADED SOURCES (check health)")
+    print("DEGRADED SOURCES (check health)")
     for source_id, failure_rate in report['summary']['degraded_sources'][:3]:
         s = report["sources"][source_id]
         print(f"  {source_id}: {failure_rate*100:.0f}% failure rate, last error: {s['last_error'][:60]}")

@@ -13,40 +13,27 @@ not grant automation authority (policy.py remains the sole authority for
 that — see PolicyEngine.classify_finding, reused here unchanged).
 """
 
+import fcntl
 import hashlib
 import json
 import logging
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
+
+import lifecycle
 
 log = logging.getLogger("opportunity_store")
 
 
-# Section 18: opportunity lifecycle states. Deliberately a superset that
-# maps existing finding/decision vocabulary onto it (see migration.py)
-# rather than a second, competing state machine.
-LIFECYCLE_STATES = (
-    "discovered",
-    "investigating",
-    "proposed",
-    "approved",
-    "implementing",
-    "verifying",
-    "learned",
-    "watching",
-    "rejected",
-    # Follow-up mission (current-state validation, spec section 15): a
-    # watchlist gap_hypothesis that no longer holds against current repo
-    # evidence, checked *before* any external research was spent on it.
-    # Distinct from "rejected" (a human decided against it) and "watching"
-    # (premature, not yet worth acting on) — this one HQ itself determined
-    # is no longer applicable, and the record exists so the hypothesis is
-    # never silently re-researched from scratch.
-    "resolved_before_research",
-)
+# Section 18: opportunity lifecycle. The vocabulary lives in lifecycle.py:
+# four stages the Captain sees (plus a hidden "researching"), with the original
+# ten states kept as `stage_detail` for the engine. LIFECYCLE_STATES is the
+# ten fine states, kept under its old name for existing importers.
+LIFECYCLE_STATES = lifecycle.FINE_STATES
+LIFECYCLE_STAGES = lifecycle.STAGES
 
 # Section 24: change classes. "maintenance"/"configuration"/"reliability"/
 # "cost_optimisation" may flow through the existing bounded-remediation path
@@ -93,7 +80,10 @@ class Opportunity:
     title: str
     change_class: str  # one of CHANGE_CLASSES
     discovery_source: str  # "internal" | "external"
-    lifecycle_state: str = "discovered"
+    # A stage (see lifecycle.py). Callers may still pass one of the original
+    # fine states ("verifying"); __post_init__ turns it into stage + stage_detail.
+    lifecycle_state: str = "researching"
+    stage_detail: str | None = None
     fingerprint: str = ""
 
     # What/why (sections 6-10)
@@ -101,12 +91,12 @@ class Opportunity:
     why_relevant: str = ""
 
     # Evaluation (sections 11, 16, 22)
-    value: Optional[str] = None  # "low" | "medium" | "high"
-    cost_impact: Optional[str] = None  # "lower" | "neutral" | "higher" | "unknown"
-    complexity: Optional[str] = None  # "low" | "moderate" | "high"
-    fit: Optional[str] = None  # "weak" | "moderate" | "strong"
-    risk_level: Optional[str] = None  # set by PolicyEngine, not the LLM
-    relevance_score: Optional[float] = None
+    value: str | None = None  # "low" | "medium" | "high"
+    cost_impact: str | None = None  # "lower" | "neutral" | "higher" | "unknown"
+    complexity: str | None = None  # "low" | "moderate" | "high"
+    fit: str | None = None  # "weak" | "moderate" | "strong"
+    risk_level: str | None = None  # set by PolicyEngine, not the LLM
+    relevance_score: float | None = None
     confidence: float = 0.0
     evidence_strength: str = "weak"
 
@@ -117,8 +107,8 @@ class Opportunity:
     provenance: list[dict[str, Any]] = field(default_factory=list)
 
     # Watch / rejection reasoning (sections 32-33)
-    watch_reason: Optional[str] = None
-    rejection_reason: Optional[str] = None
+    watch_reason: str | None = None
+    rejection_reason: str | None = None
     missing_evidence: list[str] = field(default_factory=list)
 
     # Outcome / learning (V1 sections 27-29; V2 sections 5-21).
@@ -163,9 +153,9 @@ class Opportunity:
     # Current-state validation (follow-up mission, sections 11-17): the
     # result of checking a watchlist gap_hypothesis against real repo
     # evidence, before any external research money was spent on it.
-    validation_result: Optional[str] = None  # "confirmed" | "resolved" | "unclear"
+    validation_result: str | None = None  # "confirmed" | "resolved" | "unclear"
     validation_evidence: list[str] = field(default_factory=list)
-    validated_at: Optional[str] = None
+    validated_at: str | None = None
 
     # V2 section 6/8: set by a discovery module (e.g. internal_discovery.py's
     # call-log-rotation candidate) when a concrete, honestly re-checkable
@@ -176,20 +166,23 @@ class Opportunity:
     # apples-to-apples comparison. Must survive from the discovery candidate
     # dict onto the persisted Opportunity — see evolution_orchestrator.py's
     # discovery-persistence step.
-    measurement_hint: Optional[dict[str, Any]] = None
+    measurement_hint: dict[str, Any] | None = None
 
     # Links to the existing engine (section 34 migration) — never re-surfaced
     # as a "new" opportunity once linked.
-    source_finding_id: Optional[str] = None
-    mission_id: Optional[str] = None
+    source_finding_id: str | None = None
+    mission_id: str | None = None
 
     # Policy classification, reusing policy.py's existing output shape
-    automation_eligibility: Optional[str] = None
-    policy_decision_rationale: Optional[str] = None
+    automation_eligibility: str | None = None
+    policy_decision_rationale: str | None = None
 
     created_at: str = ""
     updated_at: str = ""
-    run_id: Optional[str] = None
+    run_id: str | None = None
+
+    def __post_init__(self) -> None:
+        self.lifecycle_state, self.stage_detail = lifecycle.split(self.lifecycle_state, self.stage_detail)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -208,15 +201,26 @@ class OpportunityStore:
         self.counter_path = data_root / "review" / "opportunity_id_counter.txt"
 
     def _next_id(self) -> str:
+        # fcntl-locked read-modify-write, mirroring id_registry.py's
+        # next_id() pattern -- without this, two concurrent cycles (a
+        # manual trigger overlapping the scheduled one, or a restart
+        # racing a still-shutting-down prior run) can both read the same
+        # counter value and mint the same EVO-#### id, silently losing
+        # one opportunity's dedup history to the other (2026-09-15
+        # adversarial review).
         self.counter_path.parent.mkdir(parents=True, exist_ok=True)
-        n = 0
-        if self.counter_path.exists():
-            try:
-                n = int(self.counter_path.read_text().strip() or "0")
-            except ValueError:
-                n = 0
-        n += 1
-        self.counter_path.write_text(str(n))
+        lock_path = self.counter_path.with_suffix(".lock")
+        lock_path.touch(exist_ok=True)
+        with open(lock_path, "w") as lf:
+            fcntl.flock(lf, fcntl.LOCK_EX)  # auto-released on close
+            n = 0
+            if self.counter_path.exists():
+                try:
+                    n = int(self.counter_path.read_text().strip() or "0")
+                except ValueError:
+                    n = 0
+            n += 1
+            self.counter_path.write_text(str(n))
         return f"EVO-{n:04d}"
 
     def all_records(self) -> list[dict[str, Any]]:
@@ -240,16 +244,18 @@ class OpportunityStore:
         for rec in self.all_records():
             oid = rec.get("opportunity_id")
             if oid:
-                latest[oid] = rec
+                # Older lines carry a fine state in lifecycle_state; present every
+                # record as (stage, stage_detail). The log on disk is untouched.
+                latest[oid] = lifecycle.normalise_record(rec)
         return latest
 
     def all_current(self) -> list[dict[str, Any]]:
         return list(self.latest_by_id().values())
 
-    def get(self, opportunity_id: str) -> Optional[dict[str, Any]]:
+    def get(self, opportunity_id: str) -> dict[str, Any] | None:
         return self.latest_by_id().get(opportunity_id)
 
-    def find_by_fingerprint(self, fingerprint: str) -> Optional[dict[str, Any]]:
+    def find_by_fingerprint(self, fingerprint: str) -> dict[str, Any] | None:
         """The most-recently-updated record with this fingerprint.
 
         2026-09-06: was "the first match iteration happens to reach" —
@@ -269,6 +275,69 @@ class OpportunityStore:
         if not matches:
             return None
         return max(matches, key=lambda rec: rec.get("updated_at") or "")
+
+    def find_near_duplicate(
+        self, title: str, discovery_source: str, change_class: str | None,
+        exclude_states: tuple = ("learned", "resolved_before_research"),
+    ) -> dict[str, Any] | None:
+        """Fuzzy fallback for new_fingerprint()'s exact-hash dedup.
+
+        new_fingerprint() only catches byte-identical (whitespace/case-
+        normalized) titles. Three independently re-derived titles for the
+        same underlying finding (e.g. three model-synthesis passes over
+        "glm-5.3:cloud unavailable") hash to three different fingerprints
+        and never collapse — each becomes its own opportunity. This reuses
+        evolution_memory.py's deterministic keyword-overlap + near-
+        duplicate-title-prefix approach (no embeddings, no LLM, no new
+        pattern invented) to catch that case: a record in the same
+        change_class that either shares >= _MIN_SHARED_WORDS significant
+        words with `title` (from title+summary+why_relevant), or shares
+        the same discovery_source and the same first-3-significant-word
+        title prefix.
+
+        Returns the best-scoring existing record to reuse (so the caller
+        can treat this candidate as the same underlying opportunity
+        instead of minting a new fingerprint/opportunity_id for it), or
+        None if nothing qualifies. `learned`/`resolved_before_research`
+        are excluded by default — those are settled historical outcomes,
+        not live duplicates to merge a new candidate into."""
+        # Local import: evolution_memory.py has no dependency on this
+        # module, so this stays one-directional and avoids a cycle.
+        from evolution_memory import (
+            _MIN_SHARED_WORDS,
+            _first_n_words,
+            _significant_words,
+        )
+
+        candidate_words = _significant_words(title)
+        if not candidate_words:
+            return None
+        candidate_prefix = _first_n_words(title, 3)
+
+        best: dict[str, Any] | None = None
+        best_score = -1
+        for rec in self.all_current():
+            if not isinstance(rec, dict):
+                continue
+            if lifecycle.detail_of(rec) in exclude_states:
+                continue
+            if rec.get("change_class") != change_class:
+                continue
+
+            rec_words = _significant_words(rec.get("title") or "", rec.get("summary") or "", rec.get("why_relevant") or "")
+            shared = candidate_words & rec_words
+            score = len(shared)
+            qualifies = score >= _MIN_SHARED_WORDS
+            if not qualifies:
+                same_source = discovery_source is not None and rec.get("discovery_source") == discovery_source
+                rec_prefix = _first_n_words(rec.get("title") or "", 3)
+                qualifies = same_source and bool(candidate_prefix) and candidate_prefix == rec_prefix
+
+            if qualifies and score > best_score:
+                best_score = score
+                best = rec
+
+        return best
 
     def append(self, opportunity: Opportunity) -> Opportunity:
         """Persist a new opportunity or a new state for an existing one.
@@ -291,13 +360,16 @@ class OpportunityStore:
             opp.fingerprint = new_fingerprint(opp.title, kwargs.get("source", ""), opp.discovery_source)
         return self.append(opp)
 
-    def update(self, opportunity_id: str, **changes) -> Optional[Opportunity]:
+    def update(self, opportunity_id: str, **changes) -> Opportunity | None:
         """Append a new record for opportunity_id with `changes` merged over
         its current state. Returns None if opportunity_id is unknown."""
         current = self.get(opportunity_id)
         if current is None:
             return None
         merged = {**current, **changes, "opportunity_id": opportunity_id}
+        if "lifecycle_state" in changes and "stage_detail" not in changes:
+            # The previous record's detail belongs to the previous state.
+            merged.pop("stage_detail", None)
         # Drop any keys Opportunity doesn't know about (forward-compat safety)
         valid_fields = {f for f in Opportunity.__dataclass_fields__}
         merged = {k: v for k, v in merged.items() if k in valid_fields}

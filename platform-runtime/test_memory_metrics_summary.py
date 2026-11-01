@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import sys
 import unittest
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -11,8 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.coordination.memory_metrics import summarize_memory_metrics, fetch_memory_metrics_summary
 from commands.memory_queries import handle_memory_metrics_summary
+
+from core.coordination.memory_metrics import (
+    fetch_memory_metrics_summary,
+    summarize_memory_metrics,
+)
 
 
 class MemoryMetricsSummaryTests(unittest.TestCase):
@@ -55,7 +60,10 @@ class MemoryMetricsSummaryTests(unittest.TestCase):
         self.assertEqual(summary["stale_context_sources"]["missions"], 1)
 
     def test_alert_thresholds_can_be_overridden_with_environment(self):
-        from core.coordination.memory_metrics import build_memory_metrics_alerts, get_memory_metric_thresholds
+        from core.coordination.memory_metrics import (
+            build_memory_metrics_alerts,
+            get_memory_metric_thresholds,
+        )
 
         with patch.dict(os.environ, {
             "MEMORY_METRICS_LOW_HIT_RATE_THRESHOLD": "25",
@@ -203,7 +211,10 @@ class MemoryMetricsSummaryTests(unittest.TestCase):
         self.assertIn("30-day comparison vs prior 30-day window", rendered)
 
     def test_default_thresholds_still_apply_without_env_overrides(self):
-        from core.coordination.memory_metrics import build_memory_metrics_alerts, get_memory_metric_thresholds
+        from core.coordination.memory_metrics import (
+            build_memory_metrics_alerts,
+            get_memory_metric_thresholds,
+        )
 
         with patch.dict(os.environ, {}, clear=True):
             thresholds = get_memory_metric_thresholds()
@@ -219,6 +230,31 @@ class MemoryMetricsSummaryTests(unittest.TestCase):
         self.assertEqual(thresholds["low_hit_rate"], 40.0)
         self.assertEqual(thresholds["high_fallback_rate"], 20.0)
         self.assertIn("Low hit rate", " ".join(alerts))
+
+    def test_log_memory_metric_writes_real_commander_memory_columns(self):
+        from core.coordination import memory_metrics
+
+        with patch("tools.supabase.client.log_memory_event", return_value=MagicMock(ok=True)) as write:
+            self.assertTrue(memory_metrics.log_memory_metric(source="number_one", action="memory_lookup", outcome="hit"))
+        payload = write.call_args.args[0]
+        self.assertEqual(payload["memory_text"], "memory_metric:memory_lookup:hit")
+        self.assertEqual(
+            set(payload) - {"memory_text", "source", "confidence", "tags", "metadata", "created_at"}, set()
+        )
+        self.assertEqual(payload["metadata"]["action"], "memory_lookup")
+
+    def test_summary_reads_metric_fields_from_metadata_rows(self):
+        now = datetime.now(timezone.utc).isoformat()
+        rows = [
+            {"memory_text": "memory_metric:memory_lookup:hit", "created_at": now, "channel_id": None,
+             "metadata": {"event_type": "memory_metric", "action": "memory_lookup", "outcome": "hit"}},
+            {"memory_text": "memory_metric:memory_lookup:miss", "created_at": now,
+             "metadata": {"event_type": "memory_metric", "action": "memory_lookup", "outcome": "miss"}},
+            {"memory_text": "Build request: x", "created_at": now, "metadata": {"title": "x"}},
+        ]
+        summary = summarize_memory_metrics(rows, window_days=7)
+        self.assertTrue(summary["found"])
+        self.assertEqual(summary["hit_rate"], 50.0)
 
 
 if __name__ == "__main__":  # pragma: no cover

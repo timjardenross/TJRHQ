@@ -12,7 +12,7 @@ Produces:
 import json
 import math
 import xml.etree.ElementTree as ET
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from xml.dom import minidom
 
@@ -68,10 +68,10 @@ def write_summary(g):
     lines = [
         "# Starship Endeavour — Engineering Knowledge Graph Summary",
         "",
-        f"**Source:** `graphify-out/merged-graph.json`  ",
+        "**Source:** `graphify-out/merged-graph.json`  ",
         f"**Total nodes:** {len(nodes):,}  ",
         f"**Total edges:** {len(links):,}  ",
-        f"**Generated:** 2026-07-01 (MSN-0205A)",
+        "**Generated:** 2026-07-01 (MSN-0205A)",
         "",
         "---",
         "",
@@ -168,7 +168,7 @@ def _importance(degree_val: int, max_degree: int) -> float:
 
 def _write_gexf(root, path: Path):
     raw = ET.tostring(root, encoding="unicode")
-    pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")
+    pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")  # nosec B318 - parses our own just-generated ET.tostring() output, not external input
     path.write_bytes(pretty)
 
 
@@ -315,11 +315,11 @@ def write_filtered(g, degree):
 # ── 4. gephi-topology.png ─────────────────────────────────────────────────────
 def write_topology(filtered_nodes, filtered_links, id_map):
     try:
-        import networkx as nx
         import matplotlib
+        import networkx as nx
         matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
         import matplotlib.patches as mpatches
+        import matplotlib.pyplot as plt
     except ImportError as e:
         print(f"[4/4] SKIPPED topology PNG — missing dependency: {e}")
         return
@@ -344,7 +344,6 @@ def write_topology(filtered_nodes, filtered_links, id_map):
     }
 
     # Cap at 3000 nodes for layout speed; pick highest-degree nodes
-    id_to_node = {n["id"]: n for n in filtered_nodes}
     degree_f: dict[str, int] = defaultdict(int)
     for lnk in filtered_links:
         degree_f[lnk["source"]] += 1
@@ -366,7 +365,8 @@ def write_topology(filtered_nodes, filtered_links, id_map):
     # kamada_kawai uses pure numpy (no scipy needed); fall back to random if it fails
     try:
         pos = nx.kamada_kawai_layout(G)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - kamada_kawai can fail on disconnected/degenerate graphs; falls back to a seeded random layout so the export still completes
+        print(f"  kamada_kawai layout failed ({exc}), using random layout")
         pos = nx.random_layout(G, seed=42)
 
     node_colours = [

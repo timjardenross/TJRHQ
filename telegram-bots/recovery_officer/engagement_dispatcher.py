@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """D-055 Recovery Officer — Telegram engagement dispatcher.
 
 This module is bot-agnostic. Import it into any of the three existing
@@ -21,7 +22,7 @@ this module's compliance-toned copy duplicated and contradicted
 platform-runtime/human_systems_scheduler.py + lib/human_systems/push.py,
 which the Captain designated the sole automated recovery messenger (calmer,
 caring tone; same recovery_confidence_today-adjacent data, read once).
-run_dispatch_check() is still reachable manually via `/dispatch` in
+run_dispatch_check() was reachable manually via `/dispatch` (no longer registered in
 Telegram (telegram-bots/xo/app.py) — only the unattended interval call
 was removed.
 
@@ -38,15 +39,17 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
-def _brisbane_today() -> str:
-    """Return today's date string in Australia/Brisbane time."""
+
+def _local_today() -> str:
+    """Return today's date string in Australia/Melbourne time."""
     try:
         from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("Australia/Brisbane")).date().isoformat()
-    except Exception:
-        return date.today().isoformat()
+        return datetime.now(ZoneInfo("Australia/Melbourne")).date().isoformat()
+    except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing a reminder-dispatch job
+        log.debug("Melbourne zoneinfo lookup failed, falling back to UTC date: %s", exc)
+        return datetime.now(timezone.utc).date().isoformat()
 from pathlib import Path
 from typing import Any
 
@@ -67,7 +70,7 @@ def _get_supabase_client():
     except ImportError:
         log.error("[recovery-dispatcher] supabase-py not installed. Run: pip install supabase")
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - client init surface (network/auth) is unpredictable, already logged
         log.error("[recovery-dispatcher] Supabase client error: %s", exc)
         return None
 
@@ -97,7 +100,9 @@ class RecoveryStatus:
         wellness_officer/intelligence.py — was one of 3 independent copies
         of this exact logic (MSN-0302 finding).
         """
-        from telegram_bots.wellness_officer.intelligence import escalation_level as _escalation_level
+        from telegram_bots.wellness_officer.intelligence import (
+            escalation_level as _escalation_level,
+        )
         return _escalation_level(self.recovery_confidence, self.pulses_completed)
 
     @property
@@ -171,7 +176,7 @@ def get_recovery_status(supabase_client: Any | None = None) -> RecoveryStatus:
                 latest_readiness=None,
                 last_pulse_at=row.get("last_checkin_at"),
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, falls back to safe defaults
         log.error("[recovery-dispatcher] get_recovery_status failed: %s", exc)
     return _STATUS_DEFAULTS
 
@@ -209,7 +214,7 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
     ])
 
     lines = [
-        f"📡 *Recovery Pulse — {_brisbane_today()}*",
+        f"📡 *Recovery Pulse — {_local_today()}*",
         "",
         f"Confidence: `{_bar(status.recovery_confidence)}` {status.recovery_confidence}%",
         f"Pulses: {done_str}  ({status.pulses_completed}/3 complete)",
@@ -227,7 +232,7 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
 
 def build_escalation_message(status: RecoveryStatus, level: int) -> str:
     """Build a calm, caring check-in for L2/L3 — a nudge, not a warning."""
-    today = _brisbane_today()
+    today = _local_today()
 
     if level == 3:
         header = "🫂 *Recovery Officer — Checking In*"
@@ -258,7 +263,7 @@ def build_escalation_message(status: RecoveryStatus, level: int) -> str:
 
 def build_daily_summary(status: RecoveryStatus) -> str:
     """Build an end-of-day confidence summary message."""
-    today = _brisbane_today()
+    today = _local_today()
     done_str = " ".join([
         "✅" if status.morning_done else "❌",
         "✅" if status.midday_done  else "❌",
@@ -269,7 +274,7 @@ def build_daily_summary(status: RecoveryStatus) -> str:
         "",
         f"Confidence: `{_bar(status.recovery_confidence)}` {status.recovery_confidence}%",
         f"Pulses:  {done_str}",
-        f"         AM · Mid · PM",
+        "         AM · Mid · PM",
         "",
         f"_{status.confidence_label}_",
     ]
@@ -288,7 +293,7 @@ def build_daily_summary(status: RecoveryStatus) -> str:
 #
 # run_dispatch_check() is a pure function of *current* pulse state — nothing
 # below this line changes that. What changes is that every send is now gated
-# on "has this exact (Brisbane day, pulse window, action) already gone out?",
+# on "has this exact (Melbourne day, pulse window, action) already gone out?",
 # persisted to Supabase (wellness_reminder_log, migration 0118) rather than
 # in-memory, so the guarantee survives scheduler restarts. See module
 # docstring: this is what makes it safe to call run_dispatch_check() on a
@@ -297,21 +302,22 @@ def build_daily_summary(status: RecoveryStatus) -> str:
 _REMINDER_LOG_TABLE = "wellness_reminder_log"
 
 
-def _brisbane_now() -> datetime:
-    """Brisbane-local now(), matching pulse_time.py's and
+def _local_now() -> datetime:
+    """Melbourne-local now(), matching pulse_time.py's and
     wellness_officer/intelligence.py::escalation_level()'s own tz handling
     (MSN-0305 fixed escalation_level's naive-local-time drift risk; the hour
     used for this module's own should_remind gating had the identical bug
     and is fixed the same way here)."""
     try:
         from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("Australia/Brisbane"))
-    except Exception:
-        return datetime.now()
+        return datetime.now(ZoneInfo("Australia/Melbourne"))
+    except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing a reminder-dispatch job
+        log.debug("Melbourne zoneinfo lookup failed, falling back to UTC now(): %s", exc)
+        return datetime.now(timezone.utc)
 
 
 def _current_pulse_window(hour: int) -> str:
-    """Canonical morning/midday/evening bucket for the given Brisbane hour —
+    """Canonical morning/midday/evening bucket for the given Melbourne hour —
     reuses telegram_bots.xo.pulse_time.pulse_type_for_hour(), the single
     source of truth for the 3x/day pulse schedule (Captain directive
     2026-08-10), rather than a second, drifting copy of the same split.
@@ -324,7 +330,8 @@ def _current_pulse_window(hour: int) -> str:
             sys.path.insert(0, str(repo_root))
         from telegram_bots.xo.pulse_time import pulse_type_for_hour
         return pulse_type_for_hour(hour)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - import/lookup failure of the shared pulse-window helper is an environment quirk; falls back to an inline equivalent
+        log.debug("pulse_type_for_hour import/lookup failed, using inline fallback: %s", exc)
         if 5 <= hour < 12:
             return "morning"
         if 12 <= hour < 20:
@@ -356,7 +363,7 @@ def _reminder_already_sent(client, window_date: str, pulse_window: str, action: 
             .execute()
         )
         return bool(result.data)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, deliberately fails closed
         log.error("[recovery-dispatcher] dedup check failed, failing closed (no send): %s", exc)
         return True
 
@@ -379,7 +386,7 @@ def _record_reminder_sent(
             "action": action,
             "confidence_at_send": confidence,
         }).execute()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase write surface is unpredictable, already logged, non-critical marker write
         log.warning("[recovery-dispatcher] failed to persist reminder dedup marker: %s", exc)
 
 
@@ -408,7 +415,7 @@ class _StandaloneTelegramBot:
         req = urllib.request.Request(
             url, data=payload, headers={"Content-Type": "application/json"}, method="POST",
         )
-        with urllib.request.urlopen(req, timeout=10):
+        with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url is the fixed Telegram Bot API endpoint, token from env, not user input - reviewed 2026-09-12
             pass
 
 
@@ -444,7 +451,7 @@ def run_dispatch_check(
     client = supabase_client or _get_supabase_client()
     status = get_recovery_status(client)
     level  = status.escalation_level
-    now    = _brisbane_now()
+    now    = _local_now()
     hour   = now.hour
     window_date  = now.date().isoformat()
     pulse_window = _current_pulse_window(hour)
@@ -535,10 +542,10 @@ def _emit_and_return(result: dict) -> dict:
             source="engagement_dispatcher",
             importance=(100 - pulse_completion) if pulse_completion is not None else None,
             linked_entities=[f"recovery_pulse_completion:{pulse_completion}"] if pulse_completion is not None else [],
-            recommended_action=result.get("action"),
+            description=result.get("action"),
         )
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort telemetry publish, must never fail the primary escalation flow
+        log.debug("wellness.escalation.dispatched publish_event failed: %s", exc)
 
     # Chief Engineer 2026-08-09 EOD alert verification: the domain_registry
     # comment (migration 0083) claimed this publish_event() call above
@@ -555,8 +562,8 @@ def _emit_and_return(result: dict) -> dict:
             sys.path.insert(0, str(repo_root))
         from core.platform.heartbeat import record_heartbeat
         record_heartbeat("wellness-coaching", status="ok", detail=f"action={result.get('action')}")
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary escalation flow
+        log.debug("wellness-coaching heartbeat record failed: %s", exc)
     return result
 
 
@@ -564,7 +571,7 @@ def _send(bot: Any, chat_id: str | int, text: str) -> None:
     try:
         bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
         log.info("[recovery-dispatcher] Sent message to chat_id=%s", chat_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - external Telegram API call surface is unpredictable, already logged
         log.error("[recovery-dispatcher] send_message failed: %s", exc)
 
 
@@ -608,5 +615,5 @@ if __name__ == "__main__":
         print(build_daily_summary(status))
         print(f"\nEscalation level: {status.escalation_level}")
         if status.next_suggested_pulse:
-            print(f"\n--- L1 Reminder preview ---")
+            print("\n--- L1 Reminder preview ---")
             print(build_pulse_reminder(status))

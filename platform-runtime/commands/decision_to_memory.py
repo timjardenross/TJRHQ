@@ -46,10 +46,10 @@ def save_decision_after_logging(
             log.info(f"[decision-to-memory] Saved decision {decision_id} to Command Memory")
             return decision_id
         else:
-            log.warning(f"[decision-to-memory] Could not save decision to Command Memory")
+            log.warning("[decision-to-memory] Could not save decision to Command Memory")
             return None
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (error saving decision: {e})
         log.error(f"[decision-to-memory] Error saving decision: {e}")
         # Non-blocking failure
         return None
@@ -84,6 +84,6 @@ def update_mission_status_after_change(
         else:
             log.warning(f"[decision-to-memory] Could not update mission {mission_id} status")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (error updating mission status: {e})
         log.error(f"[decision-to-memory] Error updating mission status: {e}")
         # Non-blocking failure

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MY CAPACITY TODAY Bot — @tjrmindbody_capacitybot
 
 Standalone capacity-tracking companion. Split out of telegram-bots/xo/app.py
@@ -28,7 +29,7 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 
 # ── Env ───────────────────────────────────────────────────────────────────────
 
@@ -55,12 +56,11 @@ log = logging.getLogger("capacitybot")
 # python-telegram-bot's polling/send calls that means the bot token in
 # plaintext on every log line. WARNING still surfaces real failures.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # ── Shared modules ────────────────────────────────────────────────────────────
 
 sys.path.insert(0, str(_REPO_ROOT))
-
-from core.platform.telegram_access import is_allowed as _chat_is_allowed
 
 from telegram import Update
 from telegram.ext import (
@@ -74,11 +74,10 @@ from telegram.ext import (
     filters,
 )
 
+from core.platform.telegram_access import is_allowed as _chat_is_allowed
 from telegram_bots.capacitybot import capacity_today as ct
-from telegram_bots.capacitybot import distract
+from telegram_bots.capacitybot import distract, guide, helpme
 from telegram_bots.capacitybot import experiments as exp
-from telegram_bots.capacitybot import guide
-from telegram_bots.capacitybot import helpme
 from telegram_bots.capacitybot import intervention_engine as ie
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
@@ -97,7 +96,7 @@ def _get_supabase():
             from supabase import create_client
             _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
             log.info("Supabase client initialised")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - client init surface (import/network/auth) is unpredictable, already logged
             log.warning("Supabase client failed: %s", exc)
     return _supabase
 
@@ -324,7 +323,6 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
                             capacity_before=row.get("capacity_state"),
                             stimulation_before=row.get("stimulation_state"),
                             pain_before=row.get("pain_state"),
-                            pain_score_before=row.get("pain_score"),
                             regulation_before=row.get("regulation_state"),
                             executive_before=row.get("executive_function"),
                             compensation_before=row.get("compensation_load"),
@@ -451,6 +449,8 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         return
 
     if f.get("ps") is not None:
+        # Retired 0-10 pain answer from a button on an old, in-flight message:
+        # carry on to the next question; the value is not stored.
         await query.edit_message_text(
             ct.q_regulation(),
             reply_markup=ct.kb_regulation(f),
@@ -458,9 +458,11 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         return
 
     if f.get("p") is not None:
+        # Pain state answered ("compared with your usual baseline") — straight
+        # on to the nervous-system question. No numeric pain question.
         await query.edit_message_text(
-            ct.q_pain_score(),
-            reply_markup=ct.kb_pain_score(f),
+            ct.q_regulation(),
+            reply_markup=ct.kb_regulation(f),
         )
         return
 
@@ -869,10 +871,15 @@ async def cmd_helpme(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await update.message.reply_text(helpme.q_helpme_entry(), reply_markup=helpme.kb_helpme_entry())
 
 
-async def _helpme_offer_next(query, context: ContextTypes.DEFAULT_TYPE, state: str) -> None:
+async def _helpme_offer_next(
+    query, context: ContextTypes.DEFAULT_TYPE, state: str, *, preface: str | None = None,
+) -> None:
     """Ranks candidates for the current flow context and shows the
     highest-scored one not already declined this session (spec §7: offer
-    ONE intervention, not a list)."""
+    ONE intervention, not a list). `preface` optionally prepends a short
+    acknowledgement line (e.g. a just-recorded Captain correction) to
+    whatever this renders, so a correction and the next offer land as one
+    message rather than two."""
     flow_ctx = context.user_data.get("helpme_ctx", {})
     seen = context.user_data.get("helpme_seen", [])
     db = _get_supabase()
@@ -886,12 +893,14 @@ async def _helpme_offer_next(query, context: ContextTypes.DEFAULT_TYPE, state: s
     )
     candidates = [r for r in ranked if r["intervention_id"] not in seen]
     if not candidates:
-        await query.edit_message_text(helpme.render_no_more_options())
+        text = helpme.render_no_more_options()
+        await query.edit_message_text(f"{preface}\n\n{text}" if preface else text)
         return
     top = candidates[0]
     context.user_data["helpme_current"] = top["intervention_id"]
+    text = helpme.render_offer(top)
     await query.edit_message_text(
-        helpme.render_offer(top),
+        f"{preface}\n\n{text}" if preface else text,
         reply_markup=helpme.kb_offer(state, top["intervention_id"]),
     )
 
@@ -963,6 +972,30 @@ async def handle_helpme_offer_callback(update: Update, context: ContextTypes.DEF
     if action == "skip":
         context.user_data.setdefault("helpme_seen", []).append(iid)
         await _helpme_offer_next(query, context, state)
+        return
+
+    if action == "never":
+        # Mission 5 (spec §17/§20/§29) — explicit Captain correction:
+        # durably stop offering this intervention, not just for this
+        # session. Written as 'captain_stated' (the Captain tapped this
+        # button directly on an offer they were just shown) and upserted,
+        # so tapping it twice on the same intervention is a safe no-op,
+        # not a duplicate row.
+        db = _get_supabase()
+        intervention = await ie.get_intervention(db, iid)
+        ok, _row, err = await ie.set_preference(
+            db,
+            domain=ie.DOMAIN,
+            item_code=iid,
+            preference_state="do_not_suggest",
+            source="captain_stated",
+        )
+        if not ok:
+            await query.edit_message_text(f"⚠️ Could not save that: {err}")
+            return
+        context.user_data.setdefault("helpme_seen", []).append(iid)
+        title = intervention["title"] if intervention else iid
+        await _helpme_offer_next(query, context, state, preface=helpme.render_never_suggest_ack(title))
         return
 
     if action == "accept":
@@ -1576,7 +1609,7 @@ _BOT_COMMANDS = [
 ]
 
 
-# ── Proactive cadence — 08:00 / 13:00 / 20:00 Australia/Brisbane ────────────
+# ── Proactive cadence — 08:00 / 13:00 / 20:00 Australia/Melbourne ────────────
 # Prior to this, capacitybot was 100% command-driven (no scheduled push at
 # all) — the Captain had to remember to message it. These three jobs push
 # the same flows /capacity, /midcheck, and /evening already serve on
@@ -1623,7 +1656,7 @@ async def _post_init(app) -> None:
 
     log.info(
         "CapacityBot started version=V02 telegram=connected supabase=%s commands=%d "
-        "proactive_cadence=08:00/13:00/20:00 Australia/Brisbane",
+        "proactive_cadence=08:00/13:00/20:00 Australia/Melbourne",
         "connected" if _get_supabase() else "unavailable", len(_BOT_COMMANDS),
     )
 

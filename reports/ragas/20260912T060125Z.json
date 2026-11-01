@@ -1,0 +1,41 @@
+{
+  "mission": "USS-TJR-MSN-0366",
+  "stream": "Stream 4 \u2014 ragas RAG evaluation",
+  "timestamp_iso": "2026-09-12T06:01:25.006984+00:00",
+  "timestamp_compact": "20260912T060125Z",
+  "retrieval_mode": "fallback-repo-docs",
+  "generation_mode": "fallback-fixture",
+  "judge_mode": "offline-lexical-overlap",
+  "question": "Does retrieve_knowledge.py have a live caller today, and how does its keyword search actually work?",
+  "reference": "retrieve_knowledge.py has no live caller \u2014 the OSS gap analysis (GAP 4) says it is never called and recommended wiring it to Meilisearch. Its keyword search now routes through Meilisearch as the primary path, falling back to the Supabase keyword_search_documents RPC and then to the ilike fallback_search.",
+  "retrieved_contexts": [
+    "Keyword search now routes through Meilisearch (http://localhost:7700) as the primary path. If Meilisearch is unavailable or returns no hits, the call falls back automatically to the Supabase keyword_search_documents RPC and then to the ilike fallback_search \u2014 preserving full backward compatibility.",
+    "GAP 4 \u2014 Search fragmented (6 incompatible implementations). 6 separate search implementations. retrieve_knowledge.py never called. Wave 4 consolidation mission not assigned. Recommendation: Meilisearch for search consolidation \u2014 single binary, hybrid search, replaces all 6 implementations with one client. Assign Wave 4 mission to wire retrieve_knowledge.py to Meilisearch."
+  ],
+  "retrieval_scores": {
+    "context_precision": {
+      "score": 0.99999999995,
+      "error": null
+    },
+    "context_recall": {
+      "score": 1.0,
+      "error": null
+    }
+  },
+  "cases": {
+    "grounded": {
+      "answer": "retrieve_knowledge.py is not called by anything live in production. Its keyword search primarily uses Meilisearch, falling back to the Supabase keyword_search_documents RPC and then an ilike-based fallback_search if that RPC fails. This matches GAP 4's recommendation to wire retrieve_knowledge.py to Meilisearch for search consolidation.",
+      "faithfulness": {
+        "score": 1.0,
+        "error": null
+      }
+    },
+    "hallucinated": {
+      "answer": "retrieve_knowledge.py is not called by anything live in production. Its keyword search primarily uses Meilisearch, falling back to the Supabase keyword_search_documents RPC and then an ilike-based fallback_search if that RPC fails. This matches GAP 4's recommendation to wire retrieve_knowledge.py to Meilisearch for search consolidation. This retrieval pipeline has already been deployed as the live answer-generation path behind the Command Layer chat interface since August 2026.",
+      "faithfulness": {
+        "score": 0.75,
+        "error": null
+      }
+    }
+  }
+}

@@ -16,10 +16,20 @@ import json
 import logging
 import os
 import re
+import urllib.parse
 import urllib.request
 from collections import Counter
-from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from html import escape as _html_escape
+from html import unescape as _html_unescape
+
+# Shared pain vocabulary. Guarded like the other core.* imports here: a problem
+# importing it must degrade the pain wording only, never the whole brief.
+try:
+    from core.health.pain_vocab import describe_pain
+except Exception:  # pragma: no cover — import-time guard  # noqa: BLE001 - guarded import (see comment above)
+    def describe_pain(pain_state, pain_score=None):  # type: ignore[misc]
+        return None
 
 log = logging.getLogger("captains-brief")
 
@@ -28,7 +38,7 @@ log = logging.getLogger("captains-brief")
 # the whole brief.
 try:
     from core.platform.infra_narrative import generate_infra_narrative
-except Exception:  # pragma: no cover — import-time guard, not a runtime path
+except Exception:  # pragma: no cover — import-time guard, not a runtime path  # noqa: BLE001 - guarded import — a problem in the infra-verification module must degrade that one section, never the whole brief (see comment above)
     generate_infra_narrative = None  # type: ignore[assignment]
 
 # 2026-08-22: the daily digest — combines the OSINT/world-news brief above
@@ -39,7 +49,7 @@ except Exception:  # pragma: no cover — import-time guard, not a runtime path
 # a problem here degrades this one section, never the whole brief.
 try:
     from intelligence.brief.daily_digest import build_daily_digest
-except Exception:  # pragma: no cover — import-time guard, not a runtime path
+except Exception:  # pragma: no cover — import-time guard, not a runtime path  # noqa: BLE001 - guarded import — a problem in the daily-digest module must degrade that one section, never the whole brief (see comment above)
     build_daily_digest = None  # type: ignore[assignment]
 
 # Weekly OSINT exec-summary narration (2026-08-10) — reuses the exact same
@@ -49,13 +59,13 @@ except Exception:  # pragma: no cover — import-time guard, not a runtime path
 # (they fall back to the raw severity-count display), never the whole brief.
 try:
     from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
-except Exception:  # pragma: no cover — import-time guard, not a runtime path
+except Exception:  # pragma: no cover — import-time guard, not a runtime path  # noqa: BLE001 - guarded import — a problem in the LLM provider chain must degrade the exec-summary sections only, never the whole brief (see comment above)
     call_gemini = call_mistral = call_ollama = None  # type: ignore[assignment]
 
-# Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent
+# Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent (approximation: ignores daylight saving)
 try:
     from zoneinfo import ZoneInfo
-    _AEST = ZoneInfo("Australia/Brisbane")
+    _AEST = ZoneInfo("Australia/Melbourne")
 except ImportError:
     from datetime import timezone as _tz
     _AEST = _tz(timedelta(hours=10))
@@ -90,7 +100,7 @@ def _sb_request(table: str, query: str = "") -> list[dict]:
         "Accept": "application/json",
     }
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=8) as resp:
+    with urllib.request.urlopen(req, timeout=8) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
         return json.loads(resp.read())
 
 
@@ -100,7 +110,7 @@ def _sb_get(table: str, query: str = "") -> list[dict]:
     Supabase hiccup should degrade that section, not break the whole brief."""
     try:
         return _sb_request(table, query)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort fetch for optional/decorative data, already logged (see docstring above — a Supabase hiccup degrades that section, not the whole brief)
         log.warning("Supabase fetch failed (%s): %s", table, exc)
         return []
 
@@ -121,7 +131,7 @@ def _send_telegram(text: str) -> bool:
         log.warning("Telegram not configured — printing to stdout")
         print(text)
         return False
-    from core.platform.notification_service import notify, Transport
+    from core.platform.notification_service import Transport, notify
 
     result = notify(text, template="raw", transport=Transport.TELEGRAM, chunk=True)
     if not result.ok:
@@ -131,12 +141,12 @@ def _send_telegram(text: str) -> bool:
 
 # ── Data fetchers ─────────────────────────────────────────────────────────────
 
-def _get_latest_ori_brief() -> Optional[dict]:
+def _get_latest_ori_brief() -> dict | None:
     rows = _sb_get("intelligence_briefs", "order=generated_at.desc&limit=1")
     return rows[0] if rows else None
 
 
-def _get_capacity_today() -> Optional[dict]:
+def _get_capacity_today() -> dict | None:
     """MY CAPACITY TODAY (2026-08-22 migration) replaced Recovery Pulse /
     captains_log_entries as the Captain's day-to-day capacity input —
     captains_log_entries stopped being written 2026-06-28, recovery_pulses
@@ -146,10 +156,23 @@ def _get_capacity_today() -> Optional[dict]:
     (that concept doesn't exist under "allow more than one check-in a day,
     never overwrite")."""
     rows = _sb_get("capacity_checkins_today", "limit=1")
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    row = dict(rows[0])
+    # The view exposes only the legacy numeric latest_pain_score. Pain is now
+    # captured as "compared with your usual baseline" (pain_state), so read the
+    # latest pain_state straight from capacity_checkins (no view change needed).
+    today = datetime.now(_AEST).date().isoformat()
+    latest = _sb_get(
+        "capacity_checkins",
+        f"checkin_type=eq.capacity&log_date=eq.{today}&pain_state=not.is.null"
+        f"&order=captured_at.desc&limit=1&select=pain_state",
+    )
+    row["latest_pain_state"] = latest[0].get("pain_state") if latest else None
+    return row
 
 
-def _get_infra_verification() -> Optional[dict]:
+def _get_infra_verification() -> dict | None:
     """ADR-024 fix #5 — RESIL-INFRA narrative synthesis. Returns None (section
     omitted) whenever verification hasn't run or the module isn't available;
     never treated as evidence the platform is healthy."""
@@ -157,18 +180,18 @@ def _get_infra_verification() -> Optional[dict]:
         return None
     try:
         return generate_infra_narrative()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged; infra narrative is optional/degradable per the surrounding contract
         log.warning("Infra verification narrative failed: %s", exc)
         return None
 
 
-def _get_todays_morning_brief_text() -> Optional[str]:
+def _get_todays_morning_brief_text() -> str | None:
     """Part 1 item 2 (2026-08-09 Telegram usefulness design): fetch this
     morning's already-persisted brief text so the EOD summary can detect
     same-day repeats (Content Review / Platform Health) without
     re-deriving state. Best-effort — a lookup failure just means repeats
     render normally, same as pre-fix behaviour, never breaks the brief."""
-    today = date.today().isoformat()
+    today = datetime.now(_AEST).date().isoformat()
     rows = _sb_get(
         "captains_daily_briefs",
         f"brief_date=eq.{today}&brief_type=eq.morning&order=generated_at.desc"
@@ -178,7 +201,7 @@ def _get_todays_morning_brief_text() -> Optional[str]:
 
 
 def _get_recent_debrief_logs(days: int = 7) -> list[dict]:
-    since = (date.today() - timedelta(days=days)).isoformat()
+    since = (datetime.now(_AEST).date() - timedelta(days=days)).isoformat()
     return _sb_get(
         "debrief_logs",
         f"log_date=gte.{since}&order=log_date.desc"
@@ -214,7 +237,30 @@ def _get_knowledge_platform_summary() -> dict:
     }
 
 
-def _persist_brief(brief_type: str, text: str, signals_count: int = 0, health: Optional[dict] = None) -> None:
+def _collection_coverage_caveat(domain_key: str) -> str | None:
+    """HQ V1 Integration QA §21 (Deferred Gap I7): checks the feeding
+    collection job's own heartbeat (same domain_heartbeats_latest row HQ
+    Status already reads) so a brief's persisted coverage metadata can
+    distinguish "collection ran fine" from "collection lagged/failed
+    before this brief generated." Mirrors _health_osint_collector_caveat's
+    shape. Returns None (no caveat) when the job looks healthy or when
+    this check itself can't reach Supabase — never fabricates a claim
+    either way on an unreachable status check."""
+    rows = _sb_get(
+        "domain_heartbeats_latest",
+        f"domain_key=eq.{domain_key}&select=status,checked_at&limit=1",
+    )
+    if not rows:
+        return f"{domain_key} status could not be confirmed as of generation time"
+    if rows[0].get("status") == "failed":
+        return f"{domain_key} reported a failure before this brief generated — evidence may be incomplete"
+    return None
+
+
+def _persist_brief(
+    brief_type: str, text: str, signals_count: int = 0, health: dict | None = None,
+    evidence_window_hours: int | None = None, collection_caveat: str | None = None,
+) -> None:
     """Persist a generated brief to captains_daily_briefs for historical retrieval."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         return
@@ -227,17 +273,19 @@ def _persist_brief(brief_type: str, text: str, signals_count: int = 0, health: O
     }
     payload = json.dumps({
         "brief_type":      brief_type,
-        "brief_date":      date.today().isoformat(),
+        "brief_date":      datetime.now(_AEST).date().isoformat(),
         "brief_text":      text[:8000],
         "signals_count":   signals_count,
         "health_snapshot": health or {},
+        "evidence_window_hours": evidence_window_hours,
+        "collection_caveat":     collection_caveat,
     }).encode()
     try:
         req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=8):
+        with urllib.request.urlopen(req, timeout=8):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             pass
         log.info("[brief-persist] %s brief stored", brief_type)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort brief persistence, already logged as a warning; the brief itself was already generated/sent by this point
         log.warning("[brief-persist] failed to persist %s brief: %s", brief_type, exc)
 
 
@@ -273,7 +321,7 @@ def _get_new_signals_since(since_iso: str) -> list[dict]:
     the same as a query that succeeded and found zero signals."""
     rows = _sb_request(
         "intelligence_events",
-        f"collected_at=gte.{since_iso}&suppressed=eq.false&signal_status=neq.DUPLICATE"
+        f"collected_at=gte.{urllib.parse.quote(since_iso, safe='')}&suppressed=eq.false&signal_status=neq.DUPLICATE"
         f"&rank_score=gte.50"
         f"&raw_title=not.ilike.CVE-*"
         f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
@@ -327,14 +375,14 @@ def _format_signal_title(s: dict) -> str:
     source = ((s.get("intelligence_source_registry") or {}).get("source_name") or "").strip()
     if not source:
         return title
-    label = source[:-len(" Status")] if source.endswith(" Status") else source
+    label = source.removesuffix(" Status")
     words = [w for w in re.split(r"[^A-Za-z0-9]+", label) if len(w) > 2]
     if any(w.lower() in title.lower() for w in words):
         return title
     return f"{label}: {title}"
 
 
-def _format_signal_commentary(s: dict) -> Optional[str]:
+def _format_signal_commentary(s: dict) -> str | None:
     """One-line real commentary from raw_summary — never fabricated. The
     enrichment columns meant to hold analysis (analysis_summary,
     enriched_summary) are unpopulated on live data (checked 2026-08-13:
@@ -382,10 +430,10 @@ def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4
         count_bits.append(f"{len(medium)} MEDIUM")
     lines = [f"<b>{header}</b> <i>({', '.join(count_bits)})</i>"]
     for s in high + medium:
-        lines.append(f"  {_risk_emoji(_bucket_for_display(s))} {_format_signal_title(s)}")
+        lines.append(f"  {_risk_emoji(_bucket_for_display(s))} {_esc(_format_signal_title(s))}")
         commentary = _format_signal_commentary(s)
         if commentary:
-            lines.append(f"     <i>{commentary}</i>")
+            lines.append(f"     <i>{_esc(commentary)}</i>")
     lines.append("")
     return lines
 
@@ -435,6 +483,29 @@ def _get_weekly_health_signals(days: int = 7, limit: int = 1000) -> list[dict]:
     )
 
 
+def _health_osint_collector_caveat() -> str | None:
+    """HQ V1 Integration QA §21/§9 fix: a genuinely quiet health-OSINT week
+    and a week where the Sunday 02:00 health_osint_weekly_fetch collector
+    silently failed for all 7 days previously rendered identically in this
+    report ("No signals collected this week."). Checks the same
+    domain_heartbeats_latest row HQ Status already reads for this job —
+    no new signal source, just a read of one already-canonical row — and
+    returns a short caveat when there's positive evidence of trouble.
+    Returns None (no caveat added) when the collector looks healthy or
+    when this check itself can't reach Supabase — an unreachable status
+    check must not fabricate a claim of failure any more than of health."""
+    rows = _sb_get(
+        "domain_heartbeats_latest",
+        "domain_key=eq.health_osint_weekly_fetch&select=status,checked_at&limit=1",
+    )
+    if not rows:
+        return "collector status could not be confirmed this week — treat an empty section with that in mind"
+    status = rows[0].get("status")
+    if status == "failed":
+        return "the weekly collector reported a failure this week — this may be missing signals, not a genuinely quiet week"
+    return None
+
+
 def _get_weekly_content_activity(days: int = 7, limit: int = 8) -> list[dict]:
     """Content published or moved to review/approval in the last `days` days —
     windows by updated_at (comms_content has no dedicated status-change
@@ -474,16 +545,26 @@ def _get_weekly_capacity(days: int = 7) -> dict:
     still trusted it unconditionally, so the weekly Capacity block silently
     rendered "No capacity logs this week" every week regardless of reality.
     Falls back to recovery_pulses, aggregated across the window instead of a
-    single day. Returns {"source": "log"|"pulse"|"none", "entries": [...]}
+    single day. Returns {"source": "log"|"pulse"|"checkin"|"none", "entries": [...]}
     so the renderer can tell which shape it got.
 
-    2026-08-22 note: both captains_log_entries and recovery_pulses are now
-    permanently frozen (see _get_capacity_today() — Morning/EOD moved to
-    capacity_checkins). This weekly fetcher was NOT part of that migration
-    and will keep degrading toward "source: none" as the 7-day window rolls
-    past 2026-08-21 — a real gap, left open here since only the daily briefs
-    were in scope for the capacity_checkins cutover."""
-    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    2026-09-13 fix (capability-portfolio data-quality pass): both
+    captains_log_entries and recovery_pulses have been permanently frozen
+    since 2026-06-28/2026-08-21 respectively, so by now this fetcher's first
+    two tiers can never return anything real — every week silently rendered
+    "No capacity logs or recovery pulses this week", identical to a
+    genuinely quiet week, when the truth was "the only two sources this
+    function knows how to read stopped being written to months ago." This
+    was flagged as a known open gap in this function's own prior comment
+    (_get_capacity_today() already made the same cutover for the daily
+    briefs back on 2026-08-22; this weekly fetcher just never followed).
+    Third tier now reads capacity_checkins (checkin_type='capacity') — the
+    live replacement — before finally giving up. "none" is now a real,
+    meaningful signal (the Captain logged zero check-ins all week) rather
+    than a masked structural failure, since capacity_checkins is written
+    interactively by the XO bot on every check-in, not by a dead
+    scheduled job."""
+    since = (datetime.now(_AEST).date() - timedelta(days=days - 1)).isoformat()
     log_entries = _sb_get(
         "captains_log_entries",
         f"log_date=gte.{since}&order=log_date.asc"
@@ -499,6 +580,14 @@ def _get_weekly_capacity(days: int = 7) -> dict:
     )
     if pulses:
         return {"source": "pulse", "entries": pulses}
+
+    checkins = _sb_get(
+        "capacity_checkins",
+        f"checkin_type=eq.capacity&log_date=gte.{since}&order=log_date.asc,captured_at.asc"
+        f"&select=log_date,capacity_state,stimulation_state,pain_score,regulation_state",
+    )
+    if checkins:
+        return {"source": "checkin", "entries": checkins}
 
     return {"source": "none", "entries": []}
 
@@ -551,7 +640,7 @@ _HEALTH_OSINT_SUMMARY_SYSTEM_PROMPT = (
 )
 
 
-def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) -> Optional[str]:
+def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) -> str | None:
     """Try the shared provider chain in order — identical fallback pattern to
     core/platform/infra_narrative.py's _generate(). Never raises; returns None
     on total failure (missing import, no signals, or every provider down) so
@@ -559,11 +648,11 @@ def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) 
     if call_gemini is None:
         return None
     providers = [
-        ("gemini-3.5-flash-lite", lambda p: call_gemini(system_prompt, p, api_key=_GEMINI_API_KEY, max_output_tokens=400)),
-        ("mistral-small",    lambda p: call_mistral(system_prompt, p, api_key=_MISTRAL_API_KEY, max_tokens=400)),
+        ("gemini-3.5-flash-lite", lambda p: call_gemini(system_prompt, p, api_key=_GEMINI_API_KEY, max_output_tokens=400).text),
+        ("mistral-small",    lambda p: call_mistral(system_prompt, p, api_key=_MISTRAL_API_KEY, max_tokens=400).text),
         (_OLLAMA_WEEKLY_MODEL, lambda p: call_ollama(
             system_prompt, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_WEEKLY_MODEL, num_predict=350,
-        )),
+        ).text),
     ]
     for name, fn in providers:
         try:
@@ -571,13 +660,13 @@ def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) 
             if result:
                 log.info("[weekly-report] %s exec summary generated via %s", label, name)
                 return result
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider exec-summary attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[weekly-report] %s exec summary provider %s failed: %s", label, name, exc)
     log.warning("[weekly-report] %s exec summary unavailable — all providers failed", label)
     return None
 
 
-def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> Optional[str]:
+def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> str | None:
     """LLM exec summary for the weekly Tech OSINT block, built from real event
     data (title, sector, source, severity) — not just the bucket counts. None
     when there's nothing to summarize or every provider fails; caller falls
@@ -598,7 +687,7 @@ def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> Optional[
     return _truncate_clean(summary, 700) if summary else None
 
 
-def _generate_health_osint_summary(rows: list[dict], limit: int = 40) -> Optional[str]:
+def _generate_health_osint_summary(rows: list[dict], limit: int = 40) -> str | None:
     """LLM exec summary for the weekly Health OSINT block — health-domain
     counterpart to _generate_tech_osint_summary, built from real signal data
     (title, health domain, source, severity)."""
@@ -673,7 +762,19 @@ def _now_aest() -> datetime:
     return datetime.now(_AEST)
 
 
-def _relative_age(timestamp: Optional[str]) -> str:
+def _clock_label(now: datetime) -> str:
+    """"HH:MM ZZZZ" in the zone the brief jobs are scheduled in (OR_INTEL_SCHEDULE_TZ, default
+    Australia/Melbourne), so the header shows AEDT in daylight saving and matches the clock the job
+    fired on. `_AEST` was Brisbane (no DST) until 2026-10, so formatting `now` directly printed 06:00 AEST for a
+    job that ran at 07:00 AEDT. It is now Melbourne, but the label still follows the schedule setting. Dates and day windows still use `_AEST`; only the displayed label changes."""
+    try:
+        local = now.astimezone(ZoneInfo(os.getenv("OR_INTEL_SCHEDULE_TZ", "Australia/Melbourne")))
+        return local.strftime("%H:%M %Z")
+    except Exception:  # noqa: BLE001 - label only: no zoneinfo/tzdata -> the previous fixed label
+        return f"{now.strftime('%H:%M')} AEST"
+
+
+def _relative_age(timestamp: str | None) -> str:
     """Part 1 item 3 (2026-08-09 Telegram usefulness design): a coarse
     relative-age label ("today" / "3 days old" / "4 weeks old") for a
     Content Review item's draft_generated_at, so a draft that has sat for
@@ -697,6 +798,22 @@ def _relative_age(timestamp: Optional[str]) -> str:
     return f"{weeks} week{'s' if weeks != 1 else ''} old"
 
 
+def _esc(value: object) -> str:
+    """Escape database/model text for Telegram's HTML parse_mode. Every brief is sent through
+    notify(template="raw"), which passes the body through untouched, so each builder here must
+    escape its own dynamic text (stored events can carry redaction placeholders such as <NRP>,
+    which Telegram rejects as an unsupported tag, failing the whole message). Escape AFTER
+    truncating (_truncate_clean) so an entity is never cut in half. The literal <b>/<i>/<code>
+    wrappers are never passed through this.
+
+    Feed text can arrive already entity-encoded (an RSS title carrying "&#x5b;Guest Diary&#x5d;"
+    for "[Guest Diary]" because the feed double-encoded it, and rss_adapter stores the title as
+    parsed). Escaping that as-is turns the "&" into "&amp;" and Telegram, the email and the card
+    show the entity text literally. The text is decoded once first, so it reads as plain text, then
+    escaped once for HTML; plain text such as "AT&T" or "<NRP>" is unaffected by the decode."""
+    return _html_escape(_html_unescape(str(value)), quote=False)
+
+
 def _truncate_clean(text: str, limit: int) -> str:
     """Truncate at a word boundary with an ellipsis, never mid-word - a bare
     text[:limit] slice was cutting narratives off mid-sentence (sometimes
@@ -708,7 +825,7 @@ def _truncate_clean(text: str, limit: int) -> str:
     return cut + "…"
 
 
-def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = None) -> list[str]:
+def _format_infra_block(infra: dict | None, morning_text: str | None = None) -> list[str]:
     """Shared Platform Health renderer (Part 1 item 2: de-dupe the block that
     was copy-pasted verbatim between generate_morning_brief() and
     generate_eod_summary()). `morning_text`, when supplied (EOD only), is
@@ -717,7 +834,8 @@ def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = Non
     morning)" instead of silently re-rendering the identical warning."""
     if not infra or infra.get("state") != "unsure":
         return []
-    narrative = _truncate_clean(infra["narrative"], 700)
+    # Escaped before the comparison: this morning's persisted text holds the escaped form.
+    narrative = _esc(_truncate_clean(infra["narrative"], 700))
     unchanged = bool(morning_text) and narrative in morning_text
     suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
     return [
@@ -727,7 +845,7 @@ def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = Non
     ]
 
 
-def _format_capacity_block(cap: Optional[dict], header: str = "⚡ CAPACITY TODAY") -> list[str]:
+def _format_capacity_block(cap: dict | None, header: str = "⚡ CAPACITY TODAY") -> list[str]:
     """Shared MY CAPACITY TODAY renderer for Morning Brief and EOD Summary —
     replaces the old captains_log_entries/recovery_pulses capacity blocks
     (both tables permanently frozen, see _get_capacity_today()). Renders the
@@ -742,24 +860,25 @@ def _format_capacity_block(cap: Optional[dict], header: str = "⚡ CAPACITY TODA
             "",
         ]
     state = cap.get("latest_capacity_state")
-    bits = [f"{_capacity_state_emoji(state)} Capacity <b>{(state or '?').capitalize()}</b>"]
-    if cap.get("latest_pain_score") is not None:
-        bits.append(f"Pain {cap['latest_pain_score']}")
+    bits = [f"{_capacity_state_emoji(state)} Capacity <b>{_esc((state or '?').capitalize())}</b>"]
+    pain_text = describe_pain(cap.get("latest_pain_state"), cap.get("latest_pain_score"))
+    if pain_text:
+        bits.append(_esc(pain_text))
     if cap.get("latest_regulation_state"):
-        bits.append(f"NS {cap['latest_regulation_state'].capitalize()}")
+        bits.append(f"NS {_esc(cap['latest_regulation_state'].capitalize())}")
     if cap.get("latest_executive_function"):
-        bits.append(f"EF {cap['latest_executive_function'].replace('_', ' ').capitalize()}")
+        bits.append(f"EF {_esc(cap['latest_executive_function'].replace('_', ' ').capitalize())}")
     return [
         f"<b>{header}</b>",
         f"  {'  ·  '.join(bits)}",
-        f"  <i>{cap.get('checkin_label', '')}</i>",
+        f"  <i>{_esc(cap.get('checkin_label', ''))}</i>",
         "",
     ]
 
 
 def _format_weekly_osint_block(
     title: str, emoji: str, rows: list[dict], confidence_field: str, title_field: str,
-    summary: Optional[str] = None, top_n: int = 3,
+    summary: str | None = None, top_n: int = 3, empty_caveat: str | None = None,
 ) -> list[str]:
     """Shared weekly OSINT roll-up renderer for generate_weekly_report() —
     same HIGH/MEDIUM/LOW bucketing each workbench's Intelligence Summary tab
@@ -773,9 +892,17 @@ def _format_weekly_osint_block(
     When `summary` is absent (LLM unavailable, or every provider failed),
     this falls back to the original raw severity-count + top-items display,
     which is the graceful-degradation path 2026-08-10's exec-summary change
-    is required to preserve."""
+    is required to preserve.
+
+    `empty_caveat` (HQ V1 Integration QA §21/§9): when supplied, appended
+    as an extra line so a silent collector failure never reads identically
+    to a genuinely quiet week — see _health_osint_collector_caveat()."""
     if not rows:
-        return [f"<b>{emoji} {title} — WEEKLY</b>", "  No signals collected this week.", ""]
+        lines = [f"<b>{emoji} {title} — WEEKLY</b>", "  No signals collected this week."]
+        if empty_caveat:
+            lines.append(f"  <i>⚠ {_esc(empty_caveat)}</i>")
+        lines.append("")
+        return lines
     counts = Counter((r.get(confidence_field) or "UNKNOWN").upper() for r in rows)
     unknown = len(rows) - counts.get("HIGH", 0) - counts.get("MEDIUM", 0) - counts.get("LOW", 0)
     severity_line = (
@@ -788,7 +915,7 @@ def _format_weekly_osint_block(
 
     lines = [f"<b>{emoji} {title} — WEEKLY ({len(rows)})</b>"]
     if summary:
-        lines.append(f"  {summary}")
+        lines.append(f"  {_esc(summary)}")
         lines.append(severity_line)
     else:
         # Fallback: no exec summary available — original raw-counts +
@@ -802,7 +929,7 @@ def _format_weekly_osint_block(
         headline = sorted(headline, key=lambda r: r.get("rank_score") or 0, reverse=True)[:top_n]
         for r in headline:
             text = r.get(title_field) or "—"
-            lines.append(f"  {_risk_emoji(r.get(confidence_field))} {_truncate_clean(text, 110)}")
+            lines.append(f"  {_risk_emoji(r.get(confidence_field))} {_esc(_truncate_clean(text, 110))}")
     lines.append("")
     return lines
 
@@ -812,7 +939,7 @@ def _format_weekly_content_block(items: list[dict]) -> list[str]:
     if not items:
         return ["<b>✍️ CONTENT THIS WEEK</b>", "  Nothing published or moved to review this week.", ""]
     status_counts = Counter(c.get("status", "?") for c in items)
-    summary = "  ·  ".join(f"{v} {k.replace('_', ' ')}" for k, v in status_counts.items())
+    summary = "  ·  ".join(f"{v} {_esc(k.replace('_', ' '))}" for k, v in status_counts.items())
     # 2026-08-10 fix (XO product review): ready_to_publish/approved were
     # reusing 🟢/🟡 — the same glyphs _SEVERITY_EMOJI uses for "low/fine" and
     # "medium/caution" a few lines above in the same weekly message, meaning
@@ -825,7 +952,7 @@ def _format_weekly_content_block(items: list[dict]) -> list[str]:
         pillar = (c.get("pillar") or "").replace("_", " ") or "—"
         emoji = status_emoji.get(c.get("status"), "•")
         lines.append(
-            f"  {emoji} <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
+            f"  {emoji} <b>{_esc(c.get('title') or '(untitled)')}</b>  [{_esc(c.get('status', '?'))} · {_esc(pillar)}]"
         )
     lines.append("")
     return lines
@@ -856,7 +983,7 @@ def _format_weekly_outage_alerts_block(alerts: list[dict]) -> list[str]:
         except (TypeError, ValueError):
             conf = "?"
         icon = "✅" if a.get("outcome") == "sent" else "❌"
-        lines.append(f"  {icon} {_truncate_clean(title, 90)}  [{impact} · conf {conf}]")
+        lines.append(f"  {icon} {_esc(_truncate_clean(title, 90))}  [{_esc(impact)} · conf {conf}]")
     lines.append("")
     return lines
 
@@ -884,7 +1011,7 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         trend = " ".join(_rating_emoji(e.get("captain_capacity_rating")) for e in entries)
         return [
             f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s))</b>",
-            f"  {' · '.join(parts) if parts else 'no ratings logged'}",
+            f"  {_esc(' · '.join(parts)) if parts else 'no ratings logged'}",
             f"  <code>{trend}</code>",
             "",
         ]
@@ -903,20 +1030,34 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         ]
         lines = [
             "<b>⚡ CAPACITY THIS WEEK</b>",
-            f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>"
-            f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})",
+            (f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>"
+             f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})"),
         ]
         if signals_str:
-            lines.append(f"  Latest: {' · '.join(signals_str)}")
+            lines.append(f"  Latest: {_esc(' · '.join(signals_str))}")
         lines.append("")
         return lines
 
-    return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity logs or recovery pulses this week.", ""]
+    if source == "checkin":
+        counts = Counter((e.get("capacity_state") or "unknown") for e in entries)
+        order = ["green", "orange", "red"]
+        parts = [f"{counts[c]} {c.capitalize()}" for c in order if counts.get(c)]
+        parts += [f"{v} {k.capitalize()}" for k, v in counts.items() if k not in order]
+        days_logged = len({e.get("log_date") for e in entries})
+        trend = " ".join(_capacity_state_emoji(e.get("capacity_state")) for e in entries)
+        return [
+            f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} check-in(s) across {days_logged} day(s))</b>",
+            f"  {_esc(' · '.join(parts)) if parts else 'no state recorded'}",
+            f"  <code>{trend}</code>",
+            "",
+        ]
+
+    return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity check-ins, logs, or recovery pulses this week.", ""]
 
 
 # ── Brief generators ──────────────────────────────────────────────────────────
 
-def _format_intelligence_posture_block(brief: Optional[dict]) -> list[str]:
+def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
     """Deterministic rendering of the canonical daily brief
     (intelligence_briefs) — the ONE place this Telegram message decides
     posture / what matters / what changed, built on the exact same
@@ -936,7 +1077,7 @@ def _format_intelligence_posture_block(brief: Optional[dict]) -> list[str]:
 
     lines = [
         "<b>📡 INTELLIGENCE POSTURE</b>",
-        f"  Posture: <b>{RISK_LABEL.get(view['overall_risk'], view['overall_risk'])}</b>",
+        f"  Posture: <b>{_esc(RISK_LABEL.get(view['overall_risk'], view['overall_risk']))}</b>",
     ]
     if view["what_matters"]:
         lines.append("  <b>What matters today</b>")
@@ -944,9 +1085,9 @@ def _format_intelligence_posture_block(brief: Optional[dict]) -> list[str]:
             line = f"  {i}. {item['title']}"
             if item.get("so_what"):
                 line += f" — {item['so_what']}"
-            lines.append(_truncate_clean(line, 260))
+            lines.append(_esc(_truncate_clean(line, 260)))
     elif view["executive_read"]:
-        lines.append(f"  {_truncate_clean(view['executive_read'], 350)}")
+        lines.append(f"  {_esc(_truncate_clean(view['executive_read'], 350))}")
 
     if view["changed"]:
         changed_bits = []
@@ -956,10 +1097,10 @@ def _format_intelligence_posture_block(brief: Optional[dict]) -> list[str]:
         if changed_bits:
             lines.append("  <b>Changed since yesterday</b>")
             for bit in changed_bits[:5]:
-                lines.append(_truncate_clean(f"  - {bit}", 200))
+                lines.append(_esc(_truncate_clean(f"  - {bit}", 200)))
 
     if view["coverage_note"]:
-        lines.append(f"  <i>⚠️ {view['coverage_note']}</i>")
+        lines.append(f"  <i>⚠️ {_esc(view['coverage_note'])}</i>")
 
     lines.append("")
     return lines
@@ -974,7 +1115,7 @@ def generate_morning_brief() -> str:
 
     lines = [
         f"<b>☀️ MORNING BRIEF — {now.strftime('%A %d %B %Y')}</b>",
-        f"<i>Stardate {now.strftime('%Y.%j')} · {now.strftime('%H:%M')} AEST</i>",
+        f"<i>Stardate {now.strftime('%Y.%j')} · {_clock_label(now)}</i>",
         "",
     ]
 
@@ -999,14 +1140,14 @@ def generate_morning_brief() -> str:
     if build_daily_digest is not None:
         try:
             digest_text = build_daily_digest(signals=signals)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort daily-digest synthesis, already logged; caller falls back to the raw signal list
             log.warning("Daily digest synthesis failed: %s", exc)
             digest_text = None
 
     if digest_text:
         lines += [
             "<b>🌐 PLATFORM, TODAY</b>",
-            f"  {digest_text}",
+            f"  {_esc(digest_text)}",
             "",
         ]
     else:
@@ -1027,14 +1168,14 @@ def generate_morning_brief() -> str:
 def generate_midday_update(signals: list[dict]) -> str:
     now = _now_aest()
     lines = [
-        f"<b>🔔 MIDDAY UPDATE — {now.strftime('%H:%M')} AEST</b>",
+        f"<b>🔔 MIDDAY UPDATE — {_clock_label(now)}</b>",
         f"<i>{len(signals)} new signal(s) since morning brief</i>",
         "",
         "<b>📡 NEW SIGNALS</b>",
     ]
     for s in signals[:5]:
         lines.append(
-            f"  {_risk_emoji(s.get('risk_rating'))} {_format_signal_title(s)}"
+            f"  {_risk_emoji(s.get('risk_rating'))} {_esc(_format_signal_title(s))}"
         )
     lines += ["", "🤖 <i>XO · Starship Endeavour</i>"]
     return "\n".join(lines)
@@ -1058,7 +1199,7 @@ def generate_eod_summary() -> str:
 
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
-        f"<i>{now.strftime('%H:%M')} AEST</i>",
+        f"<i>{_clock_label(now)}</i>",
         "",
     ]
 
@@ -1080,7 +1221,7 @@ def generate_knowledge_ops_brief() -> str:
 
     lines = [
         f"<b>📚 KNOWLEDGE PLATFORM — {now.strftime('%A %d %B')}</b>",
-        f"<i>{now.strftime('%H:%M')} AEST</i>",
+        f"<i>{_clock_label(now)}</i>",
         "",
     ]
 
@@ -1166,10 +1307,14 @@ def generate_weekly_report() -> str:
     )
     lines += _format_weekly_osint_block(
         "HEALTH OSINT", "🩺", health_signals, "confidence_level", "title",
-        summary=health_summary,
+        summary=health_summary, empty_caveat=_health_osint_collector_caveat() if not health_signals else None,
     )
     lines += _format_weekly_content_block(content_items)
     lines += _format_weekly_capacity_block(capacity_entries)
+
+    # USS-TJR-MSN-0412 Stream 4: the Free plan goes read-only at 500 MB.
+    from intelligence import db_size
+    lines += [db_size.format_line(db_size.fetch_size_mb()), ""]
 
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
@@ -1232,7 +1377,7 @@ def generate_weekly_debrief_digest() -> str:
         if items:
             lines.append(f"<b>{title}</b>")
             for it in items:
-                lines.append(f"  • {it}")
+                lines.append(f"  • {_esc(it)}")
             lines.append("")
 
     _section("😣 RECURRING STRESSORS", stressors)
@@ -1249,16 +1394,44 @@ def generate_weekly_debrief_digest() -> str:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+# 2026-09-10: morning brief also goes to this ANZ address by explicit
+# request, alongside Telegram — not env-configurable, this is the one
+# named recipient asked for, not a general CC list.
+_MORNING_BRIEF_EMAIL_TO = "tim.jarden-ross@anz.com"
+
+
+def _email_morning_brief(text: str) -> None:
+    """Best-effort email copy of the morning brief. Never raises and never
+    affects the return value of send_brief() — Telegram is still the
+    brief's real delivery/failure signal (see resend_email.send_email's own
+    fail-open contract)."""
+    from core.notifications.resend_email import send_email
+
+    html = text.replace("\n", "<br>\n")
+    subject = f"USS TJR — Morning Brief — {datetime.now(_AEST).date().isoformat()}"
+    ok = send_email(_MORNING_BRIEF_EMAIL_TO, subject, html)
+    if not ok:
+        log.warning("Morning brief email to %s failed (non-blocking)", _MORNING_BRIEF_EMAIL_TO)
+
+
 def send_brief(brief_type: str, **kwargs) -> bool:
     """Generate and deliver a brief. Returns True if Telegram delivery succeeded."""
     signals: list[dict] = []
+    evidence_window_hours: int | None = None
+    collection_caveat: str | None = None
     if brief_type == "morning":
         text = generate_morning_brief()
         # USS-TJR-MSN-0339 WP4: generate_morning_brief() does its own internal
         # signal fetch for display but doesn't return the count — re-fetch here
         # so the persisted signals_count reflects reality instead of always 0
         # (MSN-0338 §8 Gap #1).
-        signals = _get_recent_signals(hours=24)
+        evidence_window_hours = 24
+        signals = _get_recent_signals(hours=evidence_window_hours)
+        # HQ V1 Integration QA §21 (Deferred Gap I7): the morning brief is the
+        # artifact TJR actually reads first each day and the one flagged in
+        # that audit — check whether its feeding 06:00 collection job
+        # actually completed before this 07:00 generation.
+        collection_caveat = _collection_coverage_caveat("intelligence_collection")
     elif brief_type == "midday":
         signals = kwargs.get("signals", [])
         if not signals:
@@ -1267,10 +1440,12 @@ def send_brief(brief_type: str, **kwargs) -> bool:
         text = generate_midday_update(signals)
     elif brief_type == "eod":
         text = generate_eod_summary()
-        signals = _get_recent_signals(hours=24)
+        evidence_window_hours = 24
+        signals = _get_recent_signals(hours=evidence_window_hours)
     elif brief_type == "weekly":
         text = generate_weekly_report()
-        signals = _get_recent_signals(hours=24 * 7)
+        evidence_window_hours = 24 * 7
+        signals = _get_recent_signals(hours=evidence_window_hours)
     elif brief_type == "knowledge_ops":
         text = generate_knowledge_ops_brief()
     elif brief_type == "weekly_debrief":
@@ -1278,7 +1453,19 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     else:
         log.error("Unknown brief type: %s", brief_type)
         return False
-    _persist_brief(brief_type, text, signals_count=len(signals), health=_get_capacity_today())
+    _persist_brief(
+        brief_type, text, signals_count=len(signals), health=_get_capacity_today(),
+        evidence_window_hours=evidence_window_hours, collection_caveat=collection_caveat,
+    )
+    if brief_type == "morning":
+        # USS-TJR-MSN-0412 Stream 4: once-a-day database size guard (warns at
+        # >= 450 MB, at most once per 24h; best-effort, never raises).
+        from intelligence import db_size
+        db_size.check_and_warn()
+        try:
+            _email_morning_brief(text)
+        except Exception as exc:  # noqa: BLE001 - best-effort email delivery, already logged as non-blocking; Telegram is the real delivery/failure signal per this function's contract
+            log.warning("Morning brief email failed (non-blocking): %s", exc)
     return _send_telegram(text)
 
 

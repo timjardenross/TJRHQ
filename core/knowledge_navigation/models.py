@@ -6,7 +6,6 @@ All models are plain dataclasses — no external dependencies.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 # Canonical level numbers for each entity type
 NODE_LEVELS: dict[str, int] = {
@@ -45,7 +44,7 @@ class HierarchyNode:
     summary: str = ""
     status: str = "active"
     source_file: str = ""
-    metadata: Dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
     def short_label(self) -> str:
         """One-line label suitable for LLM context injection."""
@@ -69,7 +68,7 @@ class HierarchyEdge:
 class NavigationPath:
     """Ancestry chain from an entity back to its root Principle."""
     entity_id: str
-    chain: List[HierarchyNode] = field(default_factory=list)
+    chain: list[HierarchyNode] = field(default_factory=list)
     found: bool = False
 
     def as_text(self) -> str:
@@ -83,8 +82,8 @@ class NavigationPath:
 class GovernanceContext:
     """ADRs and Principles that govern an entity (direct + inherited)."""
     entity_id: str
-    governing_adrs: List[HierarchyNode] = field(default_factory=list)
-    governing_principles: List[HierarchyNode] = field(default_factory=list)
+    governing_adrs: list[HierarchyNode] = field(default_factory=list)
+    governing_principles: list[HierarchyNode] = field(default_factory=list)
 
     def as_text(self) -> str:
         lines = []
@@ -102,8 +101,8 @@ class ImplementationView:
     """All missions implementing an Objective or Initiative, with status breakdown."""
     entity_id: str
     title: str = ""
-    child_nodes: List[HierarchyNode] = field(default_factory=list)
-    status_summary: Dict[str, int] = field(default_factory=dict)
+    child_nodes: list[HierarchyNode] = field(default_factory=list)
+    status_summary: dict[str, int] = field(default_factory=dict)
 
     def as_text(self) -> str:
         if not self.child_nodes:
@@ -121,8 +120,8 @@ class ImplementationView:
 class ImpactAnalysis:
     """All nodes downstream of an entity — used for change-impact assessment."""
     entity_id: str
-    impacted_nodes: List[HierarchyNode] = field(default_factory=list)
-    impacted_by_type: Dict[str, List[HierarchyNode]] = field(default_factory=dict)
+    impacted_nodes: list[HierarchyNode] = field(default_factory=list)
+    impacted_by_type: dict[str, list[HierarchyNode]] = field(default_factory=dict)
 
     def as_text(self) -> str:
         if not self.impacted_nodes:
@@ -140,7 +139,7 @@ class ReasoningPath:
     """Shortest path between any two nodes in the graph."""
     from_id: str
     to_id: str
-    path: List[HierarchyNode] = field(default_factory=list)
+    path: list[HierarchyNode] = field(default_factory=list)
     found: bool = False
 
     def as_text(self) -> str:

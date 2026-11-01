@@ -13,13 +13,15 @@ Endpoints:
     POST /api/model/intelligence-brief  gemini-flash-latest  (cloud, GEMINI_API_KEY — moved 2026-08-23, local mistral-small3.2:24b too slow on this CPU-only box)
     POST /api/model/xo-response         mistral-small  keep_alive 15m
     POST /api/model/embed               nomic-embed    keep_alive 1m
-    POST /api/model/escalate            mistral-small  keep_alive 15m
+    POST /api/model/escalate            glm-5.3:cloud -> glm-5.2:cloud -> gemma3:4b (FND-001)
     POST /api/model/billing-report       gemini-flash-latest  (cloud, GEMINI_BILLING_API_KEY)
     POST /api/model/self-improvement-analyse   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/self-improvement-critique  gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/self-improvement-mission   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-investigate   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-evaluate-outcome  gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/hq-evolution-external-fit  gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/health-signal-curation     gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/adhd-decompose      gemma3:4b      keep_alive 2m   (Ready Room workbench)
     GET  /api/model/status              Ollama status + loaded models
     GET  /api/model/recent-calls        Last N calls from log
@@ -52,15 +54,44 @@ logging.basicConfig(
 )
 log = logging.getLogger("model-router")
 
+# LLM application security baseline (USS-TJR-MSN-0366 Stream 5): every
+# cloud-API dispatch in this file (the Gemini branch in _run_task) goes
+# through core.security.llm_guardrails first — Presidio PII/PHI redaction
+# (OWASP LLM02) and a NeMo Guardrails input rail (OWASP LLM01 prompt
+# injection) before the prompt leaves this process, plus an output rail on
+# the response. That module is stdlib-only, same constraint as this file
+# ("No external dependencies — stdlib only." above) — the actual Presidio/
+# NeMo Guardrails packages live in an isolated venv
+# (platform-runtime/.venv-llmsec) and are invoked via subprocess, never
+# imported in-process here. This import is therefore NOT optional/best-
+# effort like the OTel tracing import below: an unavailable guardrails venv
+# fails the cloud dispatch closed (see llm_guardrails.py's _FAIL_OPEN) rather
+# than silently sending an unredacted, unchecked prompt to Google/Mistral.
+# See docs/decisions/ADR-llm-application-security-baseline.md for the full
+# picture. glm-*:cloud (Ollama Cloud) is covered too since USS-TJR-MSN-0412
+# Stream 5: _run_task guards any model whose tag ends in ":cloud".
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from core.security.llm_guardrails import (
+    check_output_rail,
+    secure_outbound_prompt,
+)
+
 # Optional OTel tracing — stdlib-only fallback when platform-runtime venv is
 # not available (model-router runs under system Python with no external deps).
 try:
-    sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
-    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
+    # append, not insert(0): don't shadow model-router's own site-packages
+    # for any package name platform-runtime's venv also happens to have
+    # (see core/llm/provider_chain.py for the tg-revs crash-loop this
+    # caused elsewhere, 2026-09-15). This path is a fallback for names
+    # absent locally (opentelemetry, platform_runtime.lib), not a priority
+    # override.
+    sys.path.append('/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
     from opentelemetry import trace as _otel_trace
+
+    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("model-router")
     _ROUTER_TRACING_AVAILABLE = True
-except Exception:
+except Exception:  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     _ROUTER_TRACING_AVAILABLE = False
 
 
@@ -92,19 +123,23 @@ def _emit_router_span(task_type: str, model: str, duration_ms: int, success: boo
             },
         ):
             pass  # span closes immediately; timing is recorded in attributes
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - tracing is best-effort observability; must never break the router it's instrumenting
         pass
 
-_PORT = int(os.environ.get("MODEL_ROUTER_PORT", 8891))
+_PORT = int(os.environ.get("MODEL_ROUTER_PORT", "8891"))
 _HOST = os.environ.get("MODEL_ROUTER_HOST", "127.0.0.1")
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 _LOG_FILE = Path(__file__).parent / "call_log.jsonl"
-_LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", 200))
+_LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", "200"))
 
 # ── Model catalogue ──────────────────────────────────────────────────────────
 
 MODEL_MID   = "gemma3:4b"          # fast classifier / XO chat / summariser
-MODEL_LARGE = "mistral-small3.2:24b" # intelligence briefs / synthesis
+MODEL_LARGE = "mistral-small3.2:24b" # HEAVY / DELIBERATE local capability for scheduled,
+                                       # cost-budgeted task types (e.g. intelligence-signals) that
+                                       # explicitly accept its multi-minute CPU-only latency. MUST NOT
+                                       # be used as an automatic cloud-unavailability fallback (FND-001,
+                                       # 2026-09-12) — see MODEL_ESCALATION_SAFE_LOCAL.
 MODEL_EMBED = "nomic-embed-text:latest"  # embeddings — matches Ollama's own canonical tag
                                           # (self-improvement audit FND-002, 2026-08-29:
                                           # bare "nomic-embed-text" never actually broke
@@ -115,7 +150,33 @@ MODEL_EMBED = "nomic-embed-text:latest"  # embeddings — matches Ollama's own c
                                           # it every cycle. Cosmetic fix, verified via
                                           # call_log.jsonl: embed calls were 0-failure
                                           # before this change too.
-MODEL_CLOUD = "glm-5.2:cloud"         # cloud fallback (no keep_alive)
+MODEL_CLOUD = "glm-5.3:cloud"         # preferred cloud escalation target (no keep_alive)
+                                       # FND-001 root cause (2026-09-08 - 2026-09-12): bumped from
+                                       # glm-5.2:cloud on GLM 5.3's release, but `ollama pull
+                                       # glm-5.3:cloud` was never actually run on this host — the tag
+                                       # was configured here without ever being registered, so
+                                       # _available_model_names() correctly reported it absent on
+                                       # EVERY call and correctly fell through to its only fallback,
+                                       # MODEL_LARGE — a 24B CPU-only model this host cannot serve
+                                       # within any real timeout (see MODEL_ESCALATION_SAFE_LOCAL
+                                       # below). Confirmed live via call_log.jsonl (repeated 300s
+                                       # "escalate" timeouts) and independently confirmed the tag
+                                       # itself is genuine and fast once pulled (`ollama pull
+                                       # glm-5.3:cloud` succeeds; a real generate call completed in
+                                       # ~1.8s). This was a registration/naming-drift defect, not a
+                                       # liveness gap in the model itself — see _resolve_cloud_escalation()
+                                       # for the fix (a real degrade chain instead of one all-or-nothing
+                                       # local fallback).
+MODEL_CLOUD_ALT = "glm-5.2:cloud"     # approved alternate cloud target for escalate/fallback-complex,
+                                       # used only when MODEL_CLOUD isn't registered on this host.
+                                       # Confirmed live 2026-09-12 (PR #113's real Dual Commander run).
+MODEL_ESCALATION_SAFE_LOCAL = "gemma3:4b"  # the ONLY local model an automatic cloud-degrade path may
+                                       # select. Deliberately MODEL_MID, not MODEL_LARGE: this host has
+                                       # no GPU, 8 CPU cores, and Ollama runs with -np 1 (no parallel
+                                       # request slots), so MODEL_LARGE (mistral-small3.2:24b) routinely
+                                       # takes minutes under real load — safe for a deliberate, scheduled
+                                       # task that budgets for it (e.g. intelligence-signals), never safe
+                                       # as something an availability check reaches for automatically.
 MODEL_CODE  = "qwen2.5-coder:7b"      # engineering review
 MODEL_GEMINI = "gemini-flash-latest"  # billing reports (Gemini API, not Ollama)
 
@@ -142,7 +203,12 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # room to actually finish the JSON object; watch for the same truncation
     # symptom if a doc still overruns this.
     "summarise-document":    {"model": MODEL_MID,   "keep_alive": "15m", "timeout": 300, "num_predict": 700},
-    "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 300},
+    # xo-response: its only caller (telegram_bots/llm.py) gives up after 20 s, but a 300 s server-side
+    # timeout kept the CPU-only local model generating for up to 5 minutes after the client left
+    # (2026-10-11: ~5 min at 400-770% CPU for a reply nobody was waiting for). 25 s = the client's
+    # 20 s plus a small margin; the Ollama request is closed at that point, which stops generation.
+    # num_predict bounds a chat reply so a slow decode cannot run on unchecked.
+    "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 25, "num_predict": 400},
     # 2026-08-23: moved from local MODEL_LARGE (mistral-small3.2:24b) to
     # Gemini — same reasoning as captain-insight-synthesis/
     # captain-reasoning-synthesis below, which were fixed for this exact
@@ -159,7 +225,7 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # `esc_policy` in _run_task() below for classify-capture's escalation
     # path, deliberately decoupled from this entry rather than reused now
     # that the two have different provider shapes.
-    "intelligence-brief":    {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "intelligence-brief":    {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
     # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine.
     # Same tier as intelligence-brief: infrequent, quality-sensitive, not
@@ -185,42 +251,99 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # tier every pipeline on this platform tries before anything else.
     # Uses the shared GEMINI_API_KEY (not the billing-report key -- these
     # aren't billing/cost-report calls).
-    "captain-insight-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "captain-insight-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     # MSN-0329 Phase 2 Step 4: Reasoning Engine. Separate task_type from
     # captain-insight-synthesis (different prompt/purpose) so the call
     # log stays distinguishable, matching this file's own established
     # convention (see classify-document vs summarise-note's comment).
     # Consumes a Step 3 Insight, never the raw event stream directly.
     # Moved to Gemini 2026-08-22 for the same reason as the entry above.
-    "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
-    "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    # 2026-09-08: moved from local MODEL_LARGE (mistral-small3.2:24b) to GLM 5.3
+    # cloud, same reasoning as intelligence-brief/captain-insight-synthesis/
+    # captain-reasoning-synthesis above (identical tier: "large model", CPU-only
+    # local Ollama, quality-sensitive not latency-sensitive — see those entries'
+    # comments for the 168-238s local-latency evidence this migration class is
+    # based on). Caller is _router_endpoint_for_specialists() in
+    # platform-runtime/llm.py, which routes Research-Officer-style
+    # discovery/deep-analysis/trade-off prompts here — the same "infrequent,
+    # not latency-sensitive" shape as the other Gemini migrations, just routed
+    # to GLM cloud instead since this task doesn't need the Gemini-specific
+    # provider branch. keep_alive "0" matches the MODEL_CLOUD convention used
+    # by fallback-complex below (no local model stays resident for a cloud call).
+    # escalate/fallback-complex both route through _resolve_cloud_escalation()'s
+    # shared degrade chain: MODEL_CLOUD -> MODEL_CLOUD_ALT -> MODEL_ESCALATION_SAFE_LOCAL
+    # (never MODEL_LARGE automatically — see FND-001, resolved 2026-09-12).
+    "escalate":              {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
-    "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
+    # keep_alive raised to 20m (from 10m, MSN-1788771576677): mission-engineering-dispatch.timer
+    # fires every 15m, so 10m keep_alive meant the model unloaded between ticks,
+    # forcing a cold Ollama load almost every call (24.64s avg, 4.26-59.29s range
+    # across 15 sampled calls). 20m comfortably outlasts the 15m dispatch interval.
+    "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "20m", "timeout": 300},
     # Gemini API (not Ollama) — separate provider branch in _run_task.
     # Uses GEMINI_BILLING_API_KEY, a dedicated key so billing-report cost
     # tracking stays isolated from the shared GEMINI_API_KEY used elsewhere.
-    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_BILLING_API_KEY", "timeout": 120},
+    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_BILLING_API_KEY", "timeout": 120, "thinking_level": "low"},
     # Self-improvement system (MSN-0099): moved from local MODEL_MID
     # (gemma3:4b) to Gemini — evidence-analysis quality needs a stronger
     # model than the CPU-only VM can serve locally in reasonable time.
     # Uses the shared GEMINI_API_KEY (not the billing-report key — this
     # isn't a billing/cost-report call, so it doesn't belong on that
     # isolated key).
-    "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
-    "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
-    "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
+    "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
+    "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
+    "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
     # HQ Evolution (follow-up to MSN-0099's self-improvement system):
     # per-opportunity investigation synthesis. Smaller, bounded input than
     # self-improvement-analyse (one opportunity's evidence bundle, not the
     # whole repo evidence payload) — shorter timeout accordingly. Same
     # shared GEMINI_API_KEY as the rest of this family.
-    "hq-evolution-investigate":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    "hq-evolution-investigate":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
     # HQ Evolution V2: post-observation-window outcome evaluation. Input is
     # a bounded evidence bundle (outcome_contract + baseline + collected
     # evidence), not a re-run of the original investigation — same timeout
     # class as hq-evolution-investigate.
-    "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
+    # HQ Evolution (follow-up to MSN-0099): README-grounded fit assessment
+    # for a bounded top-N of external-discovery candidates per cycle (see
+    # scripts/self_improvement/external_enrichment.py and router_client.py's
+    # assess_external_candidate). This entry was missing entirely — the
+    # client called POST /api/model/hq-evolution-external-fit against a
+    # route that didn't exist here, so every enrichment call 404'd and was
+    # silently swallowed by enrich()'s fail-open per-candidate handling.
+    # Net effect: every external candidate kept external_discovery.py's
+    # metadata-only fit="moderate"/evidence_strength="moderate" defaults
+    # forever, which relevance.py's score_candidate() can never raise
+    # above ~0.42 — under min_relevance_score_to_investigate (0.5) — so no
+    # external candidate could ever clear the relevance gate. Same bounded
+    # input shape (one candidate + a truncated README excerpt) as
+    # hq-evolution-investigate — same timeout class.
+    #
+    # timeout here only budgets the Gemini leg itself (_gemini_generate's
+    # own urlopen) — the caller (router_client.py) separately budgets the
+    # WHOLE round trip including the input/output guardrail checks around
+    # it. Raised 300->400 alongside router_client.py's own timeout
+    # (2026-09-22): the guardrail model swap + Ollama serialization lock
+    # made genuine round trips land at 302-323s under load, past the old
+    # 300s on both sides — router_client gave up seconds before the router
+    # actually finished successfully (confirmed via call_log.jsonl).
+    "hq-evolution-external-fit": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 400, "thinking_level": "low"},
+    # 2026-09-26: the XO engineering-review gate (core/engineering/
+    # xo_review.py) for auto-generated version-bump PRs — an independent
+    # review pass, never the same model that generated the patch. Ports
+    # .claude/skills/xo/SKILL.md's Gatekeeper-mode rubric into a real
+    # model call so it runs unattended (a Claude Code Skill only runs
+    # inside an interactive session). Same timeout class as the other
+    # single-diff review call above.
+    "xo-engineering-review": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
+    # HQ V1 Integration QA §28 fix: tools/health-osint/health_signal_curation.py
+    # previously called core/llm/provider_chain.py directly, bypassing this
+    # router entirely (the one confirmed Model Router bypass found in that
+    # audit). Single-signal classification prompt, same bounded shape as
+    # hq-evolution-investigate — same timeout class.
+    "health-signal-curation": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 60, "thinking_level": "low"},
     # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
     # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
     # Do NOT have this route call decompose_task() itself — that function
@@ -236,7 +359,7 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # an interactive UI/Telegram call, not a background synthesis job) —
     # so it belongs on the fast, uncontended cloud tier instead of fighting
     # local jobs for the one CPU inference slot.
-    "adhd-decompose":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 30},
+    "adhd-decompose":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 30, "thinking_level": "low"},
 }
 
 # System prompt for adhd-decompose — intentionally duplicated from (not
@@ -256,6 +379,25 @@ _ADHD_DECOMPOSE_SYSTEM_PROMPT = (
     "Respond with ONLY the micro-action, nothing else. No preamble, no explanation."
 )
 
+# Mission 4: opt-in only (appended when the caller sent a `posture` field at
+# all — see _handle_adhd_decompose) so this never changes behaviour for
+# intelligence/adhd/task_decomposition.py's TaskDecomposer._model_router,
+# which calls this same endpoint with a bare {"task": ...} body and treats
+# whatever string comes back as a literal micro-action — a "CLARIFY: ..."
+# response would silently corrupt that caller's output with no way for it
+# to recognise the prefix. Ready Room's route always sends `posture`
+# (getReadyRoomContext never returns undefined), so this only ever fires
+# for Ready Room's own UI, which knows how to render the prefix.
+_ADHD_DECOMPOSE_CLARIFY_SUFFIX = (
+    "\n\nIf the task description is too vague or ambiguous to identify any "
+    "concrete action (e.g. \"sort out the specialist thing\") — not merely "
+    "big, but genuinely unclear what it refers to — respond with exactly "
+    "\"CLARIFY: \" followed by ONE short, specific question that would "
+    "unblock you. Only use this for genuine ambiguity, not for tasks that "
+    "are simply large or vague-but-actionable. Otherwise respond with ONLY "
+    "the micro-action as above."
+)
+
 _ADHD_DECOMPOSE_SMALLER_SUFFIX = (
     "\n\nThe person tried the first action above and it still feels too big. "
     "Propose an even smaller sub-step of that SAME action — something "
@@ -269,6 +411,63 @@ _ADHD_DECOMPOSE_ANOTHER_SUFFIX = (
     "goal — not a bigger plan, not the same action reworded. Respond with "
     "ONLY the alternative action, nothing else."
 )
+
+# Mission 4 (Executive Function & Regulation): appended only for
+# PROTECT/RECOVER posture (Ready Room's own ReadyRoomPosture, read
+# server-side and passed through untouched — this endpoint never derives
+# or validates it, matching this router's existing thin-proxy contracts
+# elsewhere). Gives the model permission to suggest regulation/rest as a
+# legitimate answer instead of always forcing an executable step, per
+# mission spec §7/§14 ("regulation/recovery may be more useful than
+# execution"). Still respects Captain choice — the UI always offers "I'd
+# still like to try something small" alongside it.
+_ADHD_DECOMPOSE_LOW_CAPACITY_SUFFIX = (
+    "\n\nImportant context: the person's current capacity/regulation state "
+    "is constrained right now (posture: {posture}). If, given that, doing "
+    "literally anything on this task right now doesn't seem like the right "
+    "call — e.g. it needs energy or focus they may not have — you may "
+    "instead respond with exactly \"REGULATE: \" followed by one short, "
+    "warm, non-clinical sentence suggesting rest or a pause is a reasonable "
+    "choice right now. Only use this when it's genuinely a better answer "
+    "than a tiny action would be — most tasks still have SOME 5-15 minute "
+    "step that's fine even on a constrained day, so don't reach for this by "
+    "default."
+)
+
+_LOW_CAPACITY_POSTURES = {"PROTECT", "RECOVER", "RESET"}
+
+# do_POST's generic dispatch table: POST path -> TASK_POLICY key. Every
+# TASK_POLICY entry except "adhd-decompose" (its own handler, different
+# request/response shape — see _handle_adhd_decompose) must have a route
+# here, or a client calling that task_type 404s silently forever (see
+# "hq-evolution-external-fit"'s own TASK_POLICY comment for the real
+# incident this caused). tests/test_model_router_route_contract.py
+# enforces this invariant against router_client.py's actual call sites —
+# update both together.
+TASK_ROUTES: dict[str, str] = {
+    "/api/model/classify-capture":     "classify-capture",
+    "/api/model/summarise-note":       "summarise-note",
+    "/api/model/classify-document":    "classify-document",
+    "/api/model/summarise-document":   "summarise-document",
+    "/api/model/intelligence-brief":   "intelligence-brief",
+    "/api/model/intelligence-signals": "intelligence-signals",
+    "/api/model/xo-response":          "xo-response",
+    "/api/model/embed":                "embed",
+    "/api/model/escalate":             "escalate",
+    "/api/model/fallback-complex":     "fallback-complex",
+    "/api/model/engineering-review":   "engineering-review",
+    "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
+    "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
+    "/api/model/billing-report":        "billing-report",
+    "/api/model/self-improvement-analyse": "self-improvement-analyse",
+    "/api/model/self-improvement-critique": "self-improvement-critique",
+    "/api/model/self-improvement-mission": "self-improvement-mission",
+    "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
+    "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
+    "/api/model/hq-evolution-external-fit": "hq-evolution-external-fit",
+    "/api/model/health-signal-curation": "health-signal-curation",
+    "/api/model/xo-engineering-review": "xo-engineering-review",
+}
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
 # Narrow and intent-based: matches things the Captain is actually asking to do,
@@ -306,7 +505,7 @@ def _ollama_generate(model: str, prompt: str, keep_alive: str, timeout: int, num
         "options": options,
     }).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
         return json.loads(resp.read().decode())
 
 
@@ -319,41 +518,57 @@ def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) ->
         "keep_alive": keep_alive,
     }).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
         return json.loads(resp.read().decode())
 
 
-def _gemini_generate(model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY") -> dict[str, Any]:
-    """POST /v1beta/models/{model}:generateContent. Returns parsed response dict."""
+def _gemini_generate(
+    model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY", thinking_level: str | None = None,
+) -> dict[str, Any]:
+    """POST /v1beta/models/{model}:generateContent. Returns parsed response dict.
+
+    2026-09-26: every Gemini-routed task_type left `generationConfig`
+    unset, so `gemini-flash-latest` (currently resolving to Gemini 3.8
+    Flash) applied its default `thinking_level: "medium"` to every call.
+    Confirmed live via call_log.jsonl: hq-evolution-external-fit calls
+    with ~1400 prompt tokens and ~80 output tokens (candidatesTokenCount)
+    were taking 220-300s each — a ratio only explained by large amounts
+    of invisible thinking-token generation the router never asked for or
+    logged. `thinking_level` is `TASK_POLICY`'s per-task lever for this;
+    None (the default) omits `generationConfig` entirely, preserving
+    exact prior behaviour for any Gemini task_type that doesn't set it."""
     api_key = os.environ.get(api_key_env, "").strip()
     if not api_key:
         raise RuntimeError(f"{api_key_env} is not set. Add it to .env before using this Gemini-backed route.")
     url = f"{_GEMINI_BASE}/models/{model}:generateContent"
-    payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
+    body: dict[str, Any] = {"contents": [{"parts": [{"text": prompt}]}]}
+    if thinking_level:
+        body["generationConfig"] = {"thinkingConfig": {"thinking_level": thinking_level}}
+    payload = json.dumps(body).encode()
     req = urllib.request.Request(
         url, data=payload,
         headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is fixed _GEMINI_BASE literal prefix + model name in path, scheme hardcoded regardless of model value - reviewed 2026-09-12
         return json.loads(resp.read().decode())
 
 
 def _ollama_status() -> dict[str, Any]:
     """GET /api/ps — loaded models. Returns dict."""
     try:
-        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/ps", timeout=5) as resp:
+        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/ps", timeout=5) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
             return json.loads(resp.read().decode())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - status probe; error is returned to the caller in the response dict, not swallowed
         return {"error": str(exc)}
 
 
 def _ollama_tags() -> dict[str, Any]:
     """GET /api/tags — available models."""
     try:
-        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/tags", timeout=5) as resp:
+        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/tags", timeout=5) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
             return json.loads(resp.read().decode())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - status probe; error is returned to the caller in the response dict, not swallowed
         return {"error": str(exc)}
 
 
@@ -363,25 +578,48 @@ def _ollama_tags() -> dict[str, Any]:
 # writes from different threads could corrupt a JSON line.
 _LOG_LOCK = threading.Lock()
 
+# Serializes every local-Ollama-bound call this process makes — both the
+# direct _ollama_generate()/_ollama_embed() dispatch AND the llmsec worker
+# subprocess the guardrails gate spawns (core/security/llm_guardrails.py,
+# secure_outbound_prompt/check_output_rail — itself a separate process
+# hitting Ollama's /v1 endpoint, not routed through _ollama_generate).
+# ThreadingHTTPServer means two concurrent requests can otherwise both
+# start CPU-only Ollama inference at once on this GPU-less VM; 2026-09-22
+# investigation measured two such jobs fighting for the same cores
+# (498%/437% CPU each) and pushing guardrail check latency past 240s.
+# Holding this only around the actual Ollama-bound call (not the whole
+# request) still lets unrelated work — e.g. a Gemini network round-trip —
+# proceed concurrently; it just stops two LOCAL inferences overlapping.
+_OLLAMA_LOCK = threading.Lock()
+
 
 def _log_call(entry: dict[str, Any]) -> None:
     try:
         with _LOG_LOCK, _LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("call log write failed: %s", exc)
 
 
-def _recent_calls(n: int = 20) -> list[dict[str, Any]]:
+def _recent_calls(n: int = 20, include_direct: bool = True) -> list[dict[str, Any]]:
+    """Newest-first call log entries.
+
+    Entries with "source": "direct" are local Ollama calls made by other programs
+    (core/llm/call_log.py, USS-TJR-MSN-0412 Stream 6). They are listed for visibility but
+    must not feed the router's own health numbers, so /health passes include_direct=False.
+    """
     if not _LOG_FILE.exists():
         return []
     lines = _LOG_FILE.read_text(encoding="utf-8").splitlines()
     out = []
     for ln in reversed(lines[-_LOG_LIMIT:]):
         try:
-            out.append(json.loads(ln))
+            entry = json.loads(ln)
         except json.JSONDecodeError:
-            pass
+            continue
+        if not include_direct and entry.get("source") == "direct":
+            continue
+        out.append(entry)
         if len(out) >= n:
             break
     return out
@@ -410,18 +648,82 @@ def _available_model_names() -> set[str]:
     return names
 
 
+_CLOUD_ESCALATION_TASK_TYPES = ("escalate", "fallback-complex")
+
+
+def _resolve_cloud_escalation(task_type: str, policy: dict[str, Any]) -> tuple[dict[str, Any], str, str]:
+    """Shared degrade chain for cloud-first task types (escalate, fallback-complex):
+
+        preferred cloud (MODEL_CLOUD)
+            -> approved alternate cloud (MODEL_CLOUD_ALT)
+            -> host-safe local fallback (MODEL_ESCALATION_SAFE_LOCAL)
+
+    FND-001 (introduced 2026-09-08, detected by self-improvement on
+    2026-09-10 and 2026-09-11, root-caused and fixed 2026-09-12): the
+    previous version of this guard had exactly one fallback step — straight
+    to MODEL_LARGE (mistral-small3.2:24b) — and it fired on every single
+    call, because MODEL_CLOUD (glm-5.3:cloud) had been configured here
+    without ever being pulled/registered on this host. The guard never
+    failed at its actual job: _available_model_names() correctly reported
+    the tag absent every time. The defect was that its only fallback
+    destination was itself unsafe to select automatically — a 24B CPU-only
+    model on a no-GPU, 8-core host running Ollama with -np 1, which
+    call_log.jsonl shows repeatedly hit the full 300s timeout under real
+    load. MODEL_LARGE stays available for OTHER, deliberate task types that
+    budget for its latency explicitly; this path must never reach for it
+    automatically again.
+
+    Returns (possibly-modified policy, route_tier, route_reason) so the
+    caller can log which tier actually served the request. route_tier is
+    one of "cloud_primary", "cloud_alt", "local_safe_degraded".
+    """
+    available = _available_model_names()
+
+    def _is_available(name: str) -> bool:
+        return name in available or name.split(":")[0] in available
+
+    if _is_available(MODEL_CLOUD):
+        return policy, "cloud_primary", ""
+
+    if _is_available(MODEL_CLOUD_ALT):
+        log.info("%s: %s not available, falling back to alternate cloud %s", task_type, MODEL_CLOUD, MODEL_CLOUD_ALT)
+        return {**policy, "model": MODEL_CLOUD_ALT}, "cloud_alt", f"{MODEL_CLOUD} unavailable"
+
+    log.info(
+        "%s: neither %s nor %s available, degrading to host-safe local %s (NOT %s - see FND-001)",
+        task_type, MODEL_CLOUD, MODEL_CLOUD_ALT, MODEL_ESCALATION_SAFE_LOCAL, MODEL_LARGE,
+    )
+    return (
+        {**policy, "model": MODEL_ESCALATION_SAFE_LOCAL, "keep_alive": "5m"},
+        "local_safe_degraded",
+        f"{MODEL_CLOUD} and {MODEL_CLOUD_ALT} both unavailable",
+    )
+
+
+def _is_cloud_model(model: str) -> bool:
+    """True for Ollama Cloud tags (e.g. glm-5.3:cloud), which are served off-host."""
+    return model.endswith(":cloud")
+
+
 def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, Any]:
     """Execute routing policy and return result dict."""
     policy = TASK_POLICY.get(task_type)
     if not policy:
         return {"success": False, "error": f"unknown task_type: {task_type}"}
 
-    # engineering-review: prefer qwen3-coder:30b, fall back to glm-5.2:cloud
+    # engineering-review: prefer qwen3-coder:30b, fall back to MODEL_CLOUD (glm-5.3:cloud)
     if task_type == "engineering-review":
         available = _available_model_names()
         if MODEL_CODE not in available and MODEL_CODE.split(":")[0] not in available:
             log.info("engineering-review: %s not installed, falling back to %s", MODEL_CODE, MODEL_CLOUD)
             policy = {**policy, "model": MODEL_CLOUD, "keep_alive": "0"}
+
+    # escalate / fallback-complex: shared cloud-first degrade chain — see
+    # _resolve_cloud_escalation()'s docstring for FND-001's full history.
+    route_tier = "n/a"
+    route_reason = ""
+    if task_type in _CLOUD_ESCALATION_TASK_TYPES:
+        policy, route_tier, route_reason = _resolve_cloud_escalation(task_type, policy)
 
     model = policy["model"]
     keep_alive = policy.get("keep_alive", "n/a")
@@ -432,24 +734,54 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     t0 = time.time()
     try:
         if policy.get("provider") == "gemini":
-            raw = _gemini_generate(model, prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"))
+            # Guardrails gate (see the module-level comment above): raises
+            # BlockedByGuardrailsError/GuardrailsUnavailableError, both
+            # RuntimeError subclasses caught by this function's own
+            # `except Exception` below, on a blocked prompt or an
+            # unreachable guardrails venv — either way, nothing reaches
+            # Gemini until the prompt has been checked and redacted.
+            with _OLLAMA_LOCK:
+                safe_prompt, _redaction = secure_outbound_prompt(prompt)
+            raw = _gemini_generate(
+                model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"),
+                policy.get("thinking_level"),
+            )
             candidates = raw.get("candidates", [])
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
             response_text = "".join(p.get("text", "") for p in parts).strip()
+            with _OLLAMA_LOCK:
+                check_output_rail(response_text)
             embeddings = None
             usage = raw.get("usageMetadata", {})
             token_info = {
                 "prompt_eval_count": usage.get("promptTokenCount"),
                 "eval_count": usage.get("candidatesTokenCount"),
+                # 2026-09-26: thinking tokens are billed/timed but were
+                # previously invisible in this log — see
+                # _gemini_generate()'s own docstring for why that mattered.
+                "thoughts_token_count": usage.get("thoughtsTokenCount"),
             }
         elif task_type == "embed":
-            raw = _ollama_embed(model, prompt, keep_alive, timeout)
+            with _OLLAMA_LOCK:
+                raw = _ollama_embed(model, prompt, keep_alive, timeout)
             response_text = ""
             embeddings = raw.get("embeddings", raw.get("embedding", []))
             token_info = {"prompt_eval_count": raw.get("prompt_eval_count")}
         else:
-            raw = _ollama_generate(model, prompt, keep_alive, timeout, policy.get("num_predict"))
+            # Ollama Cloud models (glm-*:cloud) leave the host through the local
+            # Ollama daemon, so they get the same gate as the Gemini branch:
+            # nothing goes to any cloud model unredacted (USS-TJR-MSN-0412
+            # Stream 5). Local models are unchanged.
+            outbound = prompt
+            if _is_cloud_model(model):
+                with _OLLAMA_LOCK:
+                    outbound, _redaction = secure_outbound_prompt(prompt)
+            with _OLLAMA_LOCK:
+                raw = _ollama_generate(model, outbound, keep_alive, timeout, policy.get("num_predict"))
             response_text = raw.get("response", "").strip()
+            if _is_cloud_model(model):
+                with _OLLAMA_LOCK:
+                    check_output_rail(response_text)
             embeddings = None
             token_info = {
                 "prompt_eval_count": raw.get("prompt_eval_count"),
@@ -471,7 +803,8 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                 needs_esc, reason = _check_escalation_needed(prompt, response_text)
                 if needs_esc:
                     esc_model, esc_keep_alive, esc_timeout = MODEL_LARGE, "15m", 300
-                    esc_raw = _ollama_generate(esc_model, prompt, esc_keep_alive, esc_timeout)
+                    with _OLLAMA_LOCK:
+                        esc_raw = _ollama_generate(esc_model, prompt, esc_keep_alive, esc_timeout)
                     response_text = esc_raw.get("response", "").strip()
                     model = esc_model
                     keep_alive = esc_keep_alive
@@ -491,6 +824,8 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             "duration_ms": duration_ms,
             "escalated": escalated,
             "escalation_reason": escalation_reason,
+            "route_tier": route_tier,
+            "route_reason": route_reason,
             "token_info": token_info,
             "prompt_len": len(prompt),
             "response_len": len(response_text),
@@ -498,7 +833,10 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
         }
         _log_call(entry)
         _emit_router_span(task_type, model, duration_ms, True)
-        log.info("task=%s model=%s duration_ms=%d escalated=%s", task_type, model, duration_ms, escalated)
+        log.info(
+            "task=%s model=%s duration_ms=%d escalated=%s route_tier=%s",
+            task_type, model, duration_ms, escalated, route_tier,
+        )
 
         result = {
             "success": True,
@@ -508,6 +846,8 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             "response": response_text,
             "duration_ms": duration_ms,
             "escalated": escalated,
+            "route_tier": route_tier,
+            "route_reason": route_reason if route_reason else None,
             "escalation_reason": escalation_reason if escalation_reason else None,
             "token_info": token_info,
         }
@@ -518,15 +858,19 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     except urllib.error.URLError as exc:
         duration_ms = int((time.time() - t0) * 1000)
         _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
-                   "duration_ms": duration_ms, "success": False, "error": str(exc)})
-        log.error("task=%s model=%s error=%s", task_type, model, exc)
-        return {"success": False, "task_type": task_type, "model": model, "error": str(exc), "duration_ms": duration_ms}
-    except Exception as exc:
+                   "duration_ms": duration_ms, "success": False, "error": str(exc),
+                   "route_tier": route_tier, "route_reason": route_reason})
+        log.error("task=%s model=%s route_tier=%s error=%s", task_type, model, route_tier, exc)
+        return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
+                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
+    except Exception as exc:  # noqa: BLE001 - top-level dispatch boundary; catches anything the specific urllib.error branch above doesn't, already logged via log.error() and returned in the response
         duration_ms = int((time.time() - t0) * 1000)
         _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
-                   "duration_ms": duration_ms, "success": False, "error": str(exc)})
-        log.error("task=%s model=%s unexpected=%s", task_type, model, exc)
-        return {"success": False, "task_type": task_type, "model": model, "error": str(exc), "duration_ms": duration_ms}
+                   "duration_ms": duration_ms, "success": False, "error": str(exc),
+                   "route_tier": route_tier, "route_reason": route_reason})
+        log.error("task=%s model=%s route_tier=%s unexpected=%s", task_type, model, route_tier, exc)
+        return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
+                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
 
 
 # ── HTTP handler ──────────────────────────────────────────────────────────────
@@ -580,14 +924,14 @@ class RouterHandler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             return {}
 
-    def do_OPTIONS(self) -> None:  # noqa: N802
+    def do_OPTIONS(self) -> None:
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path == "/api/model/status":
             self._handle_status()
         elif self.path.startswith("/api/model/recent-calls"):
@@ -597,35 +941,14 @@ class RouterHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {"error": "not found"})
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         path = self.path.rstrip("/")
 
         if path == "/api/model/adhd-decompose":
             self._handle_adhd_decompose()
             return
 
-        route_map = {
-            "/api/model/classify-capture":     "classify-capture",
-            "/api/model/summarise-note":       "summarise-note",
-            "/api/model/classify-document":    "classify-document",
-            "/api/model/summarise-document":   "summarise-document",
-            "/api/model/intelligence-brief":   "intelligence-brief",
-            "/api/model/intelligence-signals": "intelligence-signals",
-            "/api/model/xo-response":          "xo-response",
-            "/api/model/embed":                "embed",
-            "/api/model/escalate":             "escalate",
-            "/api/model/fallback-complex":     "fallback-complex",
-            "/api/model/engineering-review":   "engineering-review",
-            "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
-            "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
-            "/api/model/billing-report":        "billing-report",
-            "/api/model/self-improvement-analyse": "self-improvement-analyse",
-            "/api/model/self-improvement-critique": "self-improvement-critique",
-            "/api/model/self-improvement-mission": "self-improvement-mission",
-            "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
-            "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
-        }
-        task_type = route_map.get(path)
+        task_type = TASK_ROUTES.get(path)
         if task_type is None:
             self._send_json(404, {"error": f"unknown route: {path}"})
             return
@@ -645,6 +968,14 @@ class RouterHandler(BaseHTTPRequestHandler):
         this mirrors TaskDecomposer._model_router's existing contract
         (task_decomposition.py) rather than the {"prompt"}/{"response"}
         convention used everywhere else in this router.
+
+        Mission 4: optional `posture` (Ready Room's ReadyRoomPosture)
+        conditions the prompt only — the response stays the same single
+        string field. It may come back prefixed "CLARIFY: " (ambiguous
+        task — model wants one clarifying question) or "REGULATE: "
+        (PROTECT/RECOVER/RESET only — model judges rest is a better answer
+        than an action). Callers that don't check for these prefixes just
+        treat them as the micro-action text, which degrades acceptably.
         """
         body = self._read_body()
         task_text = (body.get("task") or "").strip()[:2000]
@@ -653,11 +984,22 @@ class RouterHandler(BaseHTTPRequestHandler):
             return
         mode = body.get("mode") or "first"
         previous_action = (body.get("previous_action") or "").strip()[:500]
+        # Mission 4: Ready Room's own ReadyRoomPosture, passed through
+        # as-is (this endpoint doesn't re-derive it, same boundary as the
+        # rest of this router's proxy handlers). Presence of the key (not
+        # just its value) is also the opt-in signal for CLARIFY — see
+        # _ADHD_DECOMPOSE_CLARIFY_SUFFIX.
+        is_ready_room_caller = "posture" in body
+        posture = (body.get("posture") or "").strip().upper()[:20]
         prompt = f"{_ADHD_DECOMPOSE_SYSTEM_PROMPT}\n\nTask: {task_text}"
         if mode == "smaller" and previous_action:
             prompt += f"\n\nFirst action given: {previous_action}{_ADHD_DECOMPOSE_SMALLER_SUFFIX}"
         elif mode == "another" and previous_action:
             prompt += f"\n\nFirst action given: {previous_action}{_ADHD_DECOMPOSE_ANOTHER_SUFFIX}"
+        if is_ready_room_caller:
+            prompt += _ADHD_DECOMPOSE_CLARIFY_SUFFIX
+        if posture in _LOW_CAPACITY_POSTURES:
+            prompt += _ADHD_DECOMPOSE_LOW_CAPACITY_SUFFIX.format(posture=posture)
         result = _run_task("adhd-decompose", prompt, body)
         if not result.get("success"):
             self._send_json(502, {"action": None, "error": result.get("error")})
@@ -675,7 +1017,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                 "expires_at": m.get("expires_at"),
             })
         available = [m.get("name") for m in tags.get("models", [])]
-        calls = _recent_calls(5)
+        calls = _recent_calls(5, include_direct=False)
         avg_ms = None
         if calls:
             times = [c.get("duration_ms", 0) for c in calls if c.get("success")]

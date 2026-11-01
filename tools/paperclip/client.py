@@ -34,7 +34,6 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Defaults (from MSN-0014A discovery)
 # ---------------------------------------------------------------------------
@@ -234,7 +233,7 @@ class PaperclipClient:
 
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310 - url built from self.base_url, an env var/fixed local default, not user input - reviewed 2026-09-12
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
             try:
@@ -255,5 +254,5 @@ def _warn(msg: str) -> None:
     """Print a non-blocking warning — never raises."""
     try:
         print(f"[paperclip] Warning: {msg}")
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110 - printing a warning must never itself raise/crash the caller
         pass

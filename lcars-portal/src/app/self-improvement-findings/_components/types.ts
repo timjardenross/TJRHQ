@@ -15,6 +15,68 @@ export type LifecycleState =
   | 'rejected'
   | 'resolved_before_research';
 
+/**
+ * The simplified stages the workbench shows: To decide, In progress, Done,
+ * Closed. 'researching' (discovered + investigating) is internal — HQ is still
+ * looking and there is nothing for the Captain to do, so it has no tab.
+ *
+ * LifecycleState above is the FINE state the engine acts on; it survives as
+ * `stage_detail` because dedup/reconsideration, the observation window and
+ * outcome memory all depend on the distinctions (watching vs rejected,
+ * implementing vs verifying, ...).
+ */
+export type LifecycleStage = 'researching' | 'to_decide' | 'in_progress' | 'done' | 'closed';
+
+const STAGE_OF_STATE: Record<LifecycleState, LifecycleStage> = {
+  discovered: 'researching',
+  investigating: 'researching',
+  proposed: 'to_decide',
+  approved: 'in_progress',
+  implementing: 'in_progress',
+  verifying: 'in_progress',
+  learned: 'done',
+  watching: 'closed',
+  rejected: 'closed',
+  resolved_before_research: 'closed',
+};
+
+const DEFAULT_STATE_OF_STAGE: Record<LifecycleStage, LifecycleState> = {
+  researching: 'discovered',
+  to_decide: 'proposed',
+  in_progress: 'approved',
+  done: 'learned',
+  closed: 'rejected',
+};
+
+function isLifecycleState(v: unknown): v is LifecycleState {
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(STAGE_OF_STATE, v);
+}
+
+function isLifecycleStage(v: unknown): v is LifecycleStage {
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(DEFAULT_STATE_OF_STAGE, v);
+}
+
+/**
+ * The fine state of a record, whichever vocabulary the backend speaks:
+ * old API: lifecycle_state is already fine ('verifying');
+ * new API: lifecycle_state is a stage ('in_progress') and stage_detail is fine.
+ * Lets the portal deploy before or after the engine change.
+ */
+function lifecycleDetail(raw: { lifecycle_state?: string | null; stage_detail?: string | null }): LifecycleState {
+  if (isLifecycleState(raw.stage_detail)) return raw.stage_detail;
+  if (isLifecycleState(raw.lifecycle_state)) return raw.lifecycle_state;
+  if (isLifecycleStage(raw.lifecycle_state)) return DEFAULT_STATE_OF_STAGE[raw.lifecycle_state];
+  return 'discovered';
+}
+
+/** Attach `stage` and make `lifecycle_state`/`stage_detail` the fine state. */
+export function normaliseOpportunity<T extends { lifecycle_state: string; stage_detail?: string | null }>(
+  o: T,
+): Omit<T, 'lifecycle_state' | 'stage_detail'> & { lifecycle_state: LifecycleState; stage_detail: LifecycleState; stage: LifecycleStage } {
+  const detail = lifecycleDetail(o);
+  return { ...o, lifecycle_state: detail, stage_detail: detail, stage: STAGE_OF_STATE[detail] };
+}
+
 export type ChangeClass =
   | 'maintenance'
   | 'configuration'
@@ -107,7 +169,10 @@ export interface Opportunity {
   title: string;
   change_class: ChangeClass;
   discovery_source: 'internal' | 'external';
+  /** After normaliseOpportunity(): always the fine state, never a stage. */
   lifecycle_state: LifecycleState;
+  stage_detail?: LifecycleState;
+  stage?: LifecycleStage;
   fingerprint: string;
   summary: string;
   why_relevant: string;
@@ -160,6 +225,7 @@ export interface EvolutionSummary {
   run_id: string | null;
   timestamp: string | null;
   investigated_count: number;
+  rejected_at_gate_count: number;
   worth_considering_count: number;
   nothing_worth_changing: boolean;
   highest_value_opportunity: { opportunity_id: string | null; title: string; change_class: string; summary: string } | null;
@@ -187,6 +253,16 @@ export interface LegacyFinding {
   proposed_action: { type: string; description: string };
   decision?: 'approved' | 'rejected' | 'more_evidence';
   decision_reasoning?: string;
+  // scripts/self_improvement/staleness_check.py, run fresh every HQ
+  // Evolution cycle for every still-undecided finding — never changes the
+  // decision itself, only flags whether this finding's own evidence still
+  // holds against the CURRENT repo (e.g. a human-authored PR fixed it
+  // outside this pipeline entirely, so nothing else would ever notice).
+  staleness?: {
+    status: 'confirmed' | 'resolved' | 'unclear';
+    items: Array<{ status: 'confirmed' | 'resolved' | 'unclear'; detail: string; location: string | null }>;
+    timestamp: string;
+  } | null;
 }
 
 export const CHANGE_CLASS_LABEL: Record<ChangeClass, string> = {

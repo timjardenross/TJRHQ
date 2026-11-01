@@ -10,11 +10,13 @@ Test Coverage:
 - Quality-based provider selection
 """
 
-import sys
 import os
+import sys
+
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from datetime import datetime
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -83,8 +85,6 @@ def test_priority_2b_fallback_chain():
         log.info(f"  {rank}. {provider}: {quality:.1f}/5.0")
 
     # Simulate routing with fallback
-    request = "test request"
-
     try:
         # Try primary
         log.info(f"\nAttempting: {fallback_chain[0][0]}")
@@ -145,7 +145,7 @@ def test_priority_2b_quality_change_affects_routing():
         log.info(f"  {rank}. {provider}: {quality:.1f}")
 
     primary_v2 = routing_v2[0][0]
-    log.info(f"\n✓ Routing automatically adjusted")
+    log.info("\n✓ Routing automatically adjusted")
     log.info(f"  Was: {primary_v1}")
     log.info(f"  Now: {primary_v2}")
 
@@ -166,7 +166,7 @@ def test_priority_2b_logging_audit_trail():
     ]
 
     log.info("Routing Decision Log:")
-    log.info(f"  Decision: 'test request'")
+    log.info("  Decision: 'test request'")
     log.info(f"  Routing order ({len(provider_quality)} providers ranked by quality):")
 
     for rank, (provider, quality) in enumerate(provider_quality, 1):
@@ -179,9 +179,9 @@ def test_priority_2b_logging_audit_trail():
     gap = primary_score - fallback_score
 
     log.info(f"  Reasoning: {provider_quality[0][0]} leads by {gap:.1f} points")
-    log.info(f"  Status: READY")
+    log.info("  Status: READY")
 
-    assert gap == 0.6
+    assert gap == pytest.approx(0.6)  # 4.4 - 3.8 has float imprecision
 
     log.info("\n✅ AUDIT TRAIL TEST PASSED")
     return True
@@ -259,8 +259,8 @@ def test_priority_2b_complete_loop():
 
     # Step 6: Next cycle: update quality and re-rank
     log.info("\nStep 6: Feedback Loop (for next routing)")
-    log.info(f"  ✓ Provider quality will update from outcome")
-    log.info(f"  ✓ Next routing decision will use updated data")
+    log.info("  ✓ Provider quality will update from outcome")
+    log.info("  ✓ Next routing decision will use updated data")
 
     assert primary == 'Google'
     assert fallback == 'OpenRouter'
@@ -300,12 +300,12 @@ if __name__ == '__main__':
 
         if passed == total:
             log.info("\n🎯 PRIORITY 2B INTEGRATION: COMPLETE")
-            exit(0)
+            sys.exit(0)
         else:
-            exit(1)
+            sys.exit(1)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level test-script wrapper: catch any error to log it and exit non-zero rather than crash with a raw traceback
         log.error(f"❌ Test error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

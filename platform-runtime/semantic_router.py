@@ -16,9 +16,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-import re
-
-
 # ============================================================================
 # Intent Categories
 # ============================================================================
@@ -474,8 +471,8 @@ def _build_rationale(
 
     if escalate:
         return (
-            f"Request lacks sufficient context to identify specialist domain. "
-            f"Escalating to Executive Officer for clarification or triage."
+            "Request lacks sufficient context to identify specialist domain. "
+            "Escalating to Executive Officer for clarification or triage."
         )
 
     signal_str = ", ".join(f"'{s}'" for s in signals[:3])
@@ -505,7 +502,7 @@ def enhance_router_with_semantic(legacy_routing: dict[str, Any]) -> dict[str, An
     enhanced = dict(legacy_routing)
 
     # Add semantic analysis
-    primary = enhanced.get("assigned_specialists", ["Executive Officer (XO)"])[0]
+    enhanced.get("assigned_specialists", ["Executive Officer (XO)"])[0]
     text = enhanced.get("_original_text", "")
 
     if text:

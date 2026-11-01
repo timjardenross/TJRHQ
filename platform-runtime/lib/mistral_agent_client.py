@@ -19,19 +19,25 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Optional
+
+log = logging.getLogger(__name__)
 
 try:
     import sys as _sys
-    _sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
-    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
+    # append, not insert(0): don't shadow this caller's own site-packages
+    # for any package name platform-runtime's venv also has (see
+    # core/llm/provider_chain.py for the tg-revs crash-loop this caused
+    # elsewhere, 2026-09-15). Fallback for names absent locally, not a
+    # priority override.
+    _sys.path.append('/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
     from opentelemetry import trace as _trace
+
+    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("mistral-agent-client")
     _TRACING_AVAILABLE = True
-except Exception:
+except Exception as _tracing_exc:  # noqa: BLE001 - best-effort tracing setup, optional capability
+    log.debug("[mistral_agent_client] tracing setup unavailable: %s", _tracing_exc)
     _TRACING_AVAILABLE = False
-
-log = logging.getLogger(__name__)
 
 # Canonical agent names used throughout the pipeline
 AGENT_RESEARCH     = "research"
@@ -70,13 +76,22 @@ def check_startup_health() -> dict:
     else:
         log.info("[mistral-health] MISTRAL_API_KEY configured")
 
+    # Several agent names are deliberate aliases sharing one env var
+    # (decomposition/challenge -> MISTRAL_RESEARCH_AGENT_ID, summary ->
+    # MISTRAL_BRIEFING_AGENT_ID — see _ENV_MAP above), so they always read
+    # the same agent id by design. Duplicate detection must compare across
+    # distinct env vars, not every alias name, or a correctly-configured
+    # setup always self-flags as "duplicated".
+    seen_env_vars: set[str] = set()
     seen: dict[str, str] = {}
     for agent_name, (id_var, ver_var, ver_default) in _ENV_MAP.items():
         agent_id = os.getenv(id_var, "").strip()
         if agent_id:
             report["agents"][agent_name] = {"status": "configured", "id": agent_id[:12] + "..."}
             log.info("[mistral-health] agent=%-16s status=configured id=%s...", agent_name, agent_id[:12])
-            if agent_id in seen:
+            if id_var in seen_env_vars:
+                pass  # known alias of an already-processed env var, not a duplicate
+            elif agent_id in seen:
                 log.warning(
                     "[mistral-health] DUPLICATE agent ID: %s and %s share the same agent ID %s...",
                     seen[agent_id], agent_name, agent_id[:12],
@@ -84,6 +99,7 @@ def check_startup_health() -> dict:
                 report["duplicated"].append((seen[agent_id], agent_name, agent_id))
             else:
                 seen[agent_id] = agent_name
+            seen_env_vars.add(id_var)
         else:
             report["agents"][agent_name] = {"status": "missing"}
             report["missing"].append(agent_name)
@@ -101,9 +117,9 @@ def call_agent(
     stage: str,
     agent_name: str,
     prompt: str,
-    mission_id: Optional[str] = None,
+    mission_id: str | None = None,
     timeout_ms: int = 60_000,
-) -> Optional[str]:
+) -> str | None:
     """
     Call a named Mistral agent and return the assistant's text response.
 
@@ -188,8 +204,8 @@ def call_agent(
                     try:
                         span.set_attribute("mistral.duration_ms", elapsed)
                         span.set_attribute("mistral.success", bool(text))
-                    except Exception:
-                        pass
+                    except Exception as _exc:  # noqa: BLE001 - best-effort span attribute set, already logged
+                        log.debug("[lib.mistral_agent_client] best-effort step failed, continuing: %s", _exc)
 
                 if text:
                     log.info(
@@ -208,7 +224,7 @@ def call_agent(
                 )
                 return None
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort agent call, already logged below
             elapsed = int((time.monotonic() - start) * 1000)
             exc_str = str(exc)
             retryable = any(c in exc_str for c in ("429", "503", "502", "500", "timeout"))
@@ -298,5 +314,6 @@ def _debug_outputs(response) -> str:
             else:
                 summary.append(f"[{i}]role={role} content={type(content).__name__}:{repr(content)[:60]}")
         return " | ".join(summary)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort diagnostic summary, never blocks logging
+        log.debug("[mistral_agent_client] _debug_outputs failed: %s", exc)
         return "debug_error"

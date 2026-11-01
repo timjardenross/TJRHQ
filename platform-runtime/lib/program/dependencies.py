@@ -37,7 +37,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -87,7 +87,8 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort optional Supabase client init
+        log.debug("[program.dependencies] Supabase client init failed: %s", exc)
         return None
 
 
@@ -160,7 +161,7 @@ def add_dependency(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .eq("owner", owner)
                 .ilike("statement", f"%{dt.value} {to_id}%")
@@ -174,13 +175,13 @@ def add_dependency(
             statement=f"{_DEPENDENCY_STATEMENT} {from_id} {dt.value} {to_id}",
             rationale=(
                 f"FROM: {from_id} | TYPE: {dt.value} | TO: {to_id} | "
-                f"KIND: {kind} | NOTE: {note[:100]} | CREATED: {datetime.utcnow().isoformat()}"
+                f"KIND: {kind} | NOTE: {note[:100]} | CREATED: {datetime.now(timezone.utc).isoformat()}"
             ),
             owner=owner,
         )
         log.info("[program.dependencies] Added: %s %s %s", from_id, dt.value, to_id)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (add_dependency failed)
         log.debug("[program.dependencies] add_dependency failed: %s", exc)
         return False
 
@@ -192,14 +193,14 @@ def get_dependencies(node_id: str) -> list[Dependency]:
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{DEPENDENCY_OWNER_PREFIX}{node_id}")
             .execute()
         )
         out = [_row_to_dependency(r) for r in (res.data or [])]
         return [d for d in out if d]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_dependencies failed)
         log.debug("[program.dependencies] get_dependencies failed: %s", exc)
         return []
 
@@ -210,7 +211,7 @@ def get_all_dependencies() -> list[Dependency]:
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .like("owner", f"{DEPENDENCY_OWNER_PREFIX}%")
             .limit(500)
@@ -218,7 +219,7 @@ def get_all_dependencies() -> list[Dependency]:
         )
         out = [_row_to_dependency(r) for r in (res.data or [])]
         return [d for d in out if d]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_all_dependencies failed)
         log.debug("[program.dependencies] get_all_dependencies failed: %s", exc)
         return []
 
@@ -276,15 +277,15 @@ def detect_cycles(deps: list[Dependency]) -> list[list[str]]:
 
 
 __all__ = [
-    "DependencyType",
+    "DEPENDENCY_OWNER_PREFIX",
     "Dependency",
+    "DependencyType",
     "add_dependency",
-    "get_dependencies",
-    "get_dependents",
-    "get_all_dependencies",
-    "normalise_edges",
     "build_depends_on_graph",
     "detect_cycles",
+    "get_all_dependencies",
+    "get_dependencies",
+    "get_dependents",
+    "normalise_edges",
     "validate_dependency",
-    "DEPENDENCY_OWNER_PREFIX",
 ]

@@ -21,11 +21,17 @@ export async function POST(req: NextRequest) {
   let task = '';
   let mode: 'first' | 'smaller' | 'another' = 'first';
   let previousAction: string | undefined;
+  let posture: string | undefined;
   try {
     const body = await req.json();
     task = typeof body?.task === 'string' ? body.task.trim() : '';
     if (body?.mode === 'smaller' || body?.mode === 'another') mode = body.mode;
     if (typeof body?.previous_action === 'string') previousAction = body.previous_action;
+    // Mission 4: forwarded as-is — this route trusts the client's already-
+    // canonical ReadyRoomPosture read (getReadyRoomContext), it never
+    // re-derives or validates posture itself, matching this proxy's
+    // existing "thin proxy" contract.
+    if (typeof body?.posture === 'string') posture = body.posture;
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
@@ -37,7 +43,7 @@ export async function POST(req: NextRequest) {
     fetch(`${ROUTER_BASE}/api/model/adhd-decompose`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task, mode, previous_action: previousAction }),
+      body: JSON.stringify({ task, mode, previous_action: previousAction, posture }),
       // Model Router's own adhd-decompose timeout is 30s — it runs on
       // Gemini cloud, not local Ollama, since 2026-08-23 (app.py
       // TASK_POLICY). Give some headroom above that for network/JSON
@@ -65,7 +71,22 @@ export async function POST(req: NextRequest) {
     if (!res.ok) {
       console.error('Model Router returned an error (ready-room/decompose):', data?.error);
     }
-    return NextResponse.json({ action: data?.action ?? null }, { status: 200 });
+    // Malformed response guard (spec §16/§27) — a non-string `action` (bad
+    // JSON shape from an unexpected provider response) must degrade the
+    // same way an empty one does, not throw into the outer catch, which
+    // would misreport a reached-but-malformed response as "unreachable".
+    const action = typeof data?.action === 'string' ? data.action : null;
+    // Mission 4 observability (spec §28) — decision metadata only, never
+    // task/action text (that's the Captain's personal task content, not
+    // diagnostic data). Server-side log only, no normal-UX exposure.
+    const kind = action?.startsWith('REGULATE:') ? 'regulate'
+      : action?.startsWith('CLARIFY:') ? 'clarify'
+      : action ? 'action' : 'none';
+    if (data?.action != null && action === null) {
+      console.error('Model Router returned a malformed action (ready-room/decompose):', typeof data.action);
+    }
+    console.info('ready-room/decompose', { mode, posture: posture ?? 'UNKNOWN', result: kind });
+    return NextResponse.json({ action }, { status: 200 });
   } catch (err) {
     // Model Router still unreachable after retry — degrade gracefully,
     // don't block the user. Log the real cause server-side but never

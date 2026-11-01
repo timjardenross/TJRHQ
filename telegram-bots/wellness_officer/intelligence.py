@@ -18,16 +18,16 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
 try:
     from zoneinfo import ZoneInfo as _ZI
-    def _today_brisbane() -> str:
-        return datetime.now(_ZI("Australia/Brisbane")).date().isoformat()
-except Exception:
-    from datetime import timezone, timedelta
-    def _today_brisbane() -> str:  # type: ignore[misc]
+    def _today_local() -> str:
+        return datetime.now(_ZI("Australia/Melbourne")).date().isoformat()
+except ImportError:
+    from datetime import timedelta, timezone
+    def _today_local() -> str:  # type: ignore[misc]
         return datetime.now(timezone(timedelta(hours=10))).date().isoformat()
 
 log = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
     0=none, 1=friendly reminder, 2=RO notification, 3=critical. Previously
     reimplemented 3 times independently (this module, recovery_officer's
     engagement_dispatcher.py, platform-runtime's recovery_scheduler.py) — the
-    Slack copy used naive local system time instead of Brisbane time,
+    Slack copy used naive local system time instead of Melbourne time,
     a real silent-drift risk (MSN-0302 finding) since "afternoon" would
     resolve differently depending on which copy ran and where.
 
@@ -54,9 +54,10 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
     """
     try:
         from zoneinfo import ZoneInfo
-        hour = datetime.now(ZoneInfo("Australia/Brisbane")).hour
-    except Exception:
-        hour = datetime.now().hour
+        hour = datetime.now(ZoneInfo("Australia/Melbourne")).hour
+    except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing escalation-level gating
+        log.debug("Melbourne zoneinfo lookup failed, falling back to UTC hour: %s", exc)
+        hour = datetime.now(timezone.utc).hour
 
     if confidence == 0 and pulses_completed == 0:
         if hour >= 14:
@@ -148,7 +149,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
         return WellnessSnapshot()
 
     snap = WellnessSnapshot()
-    today = _today_brisbane()
+    today = _today_local()
 
     # ── 1. Recovery confidence ────────────────────────────────────────────────
     # recovery_confidence_today (a view over the retired recovery_pulses
@@ -183,7 +184,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
             snap.latest_nervous_system = r.get("latest_regulation_state")
             snap.latest_body_signals   = None
             snap.escalation_level    = esc
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, snapshot field stays at its default
         log.error("[wellness] capacity_checkins_today query failed: %s", exc)
 
     # ── 2. Today's health daily log ───────────────────────────────────────────
@@ -210,7 +211,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
             snap.mood_log                  = r.get("mood")
             snap.energy_log                = r.get("energy")
             snap.has_daily_log             = True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, snapshot field stays at its default
         log.error("[wellness] health_daily_logs query failed: %s", exc)
 
     # ── 3. Today's activity logs ─────────────────────────────────────────────
@@ -226,7 +227,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
             snap.activities_today       = res.data
             snap.activity_minutes_today = sum(r.get("duration_minutes") or 0 for r in res.data)
             snap.has_activity_today     = True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, snapshot field stays at its default
         log.error("[wellness] activity_logs query failed: %s", exc)
 
     # ── 4. Weight logs ────────────────────────────────────────────────────────
@@ -253,7 +254,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
                 snap.weight_30d_change_kg = round(
                     float(rows[0]["weight_kg"]) - float(rows[-1]["weight_kg"]), 2
                 )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, snapshot field stays at its default
         log.error("[wellness] weight_logs query failed: %s", exc)
 
     # ── 5. 7-day pulse history (pattern analysis) ────────────────────────────
@@ -270,7 +271,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
     # arbitrary pain-score cutoff.
     try:
         from datetime import timedelta
-        seven_days_ago = (date.fromisoformat(_today_brisbane()) - timedelta(days=7)).isoformat()
+        seven_days_ago = (date.fromisoformat(_today_local()) - timedelta(days=7)).isoformat()
         res = (
             supabase_client.table("capacity_checkins")
             .select("log_date,checkin_type,capacity_state,regulation_state,pain_score")
@@ -293,13 +294,13 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
             snap.ns_activated_days_7d = sum(1 for v in ns_by_date.values() if v == "activated")
             snap.ns_calm_days_7d = sum(1 for v in ns_by_date.values() if v == "calm")
             snap.body_significant_days_7d = 0
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, snapshot field stays at its default
         log.error("[wellness] capacity_checkins 7d history query failed: %s", exc)
 
     # ── 6. 7-day confidence trend (from health_daily_logs) ───────────────────
     try:
         from datetime import timedelta
-        seven_days_ago = (date.fromisoformat(_today_brisbane()) - timedelta(days=7)).isoformat()
+        seven_days_ago = (date.fromisoformat(_today_local()) - timedelta(days=7)).isoformat()
         res = (
             supabase_client.table("health_daily_logs")
             .select("log_date,energy")
@@ -319,7 +320,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
                     snap.confidence_trend = "declining"
                 else:
                     snap.confidence_trend = "stable"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, snapshot field stays at its default
         log.error("[wellness] confidence_trend query failed: %s", exc)
 
     # ── 7. Latest health insights ─────────────────────────────────────────────
@@ -345,7 +346,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
             snap.dow_pain_pattern     = str(r.get("dow_pain_pattern")) if r.get("dow_pain_pattern") else None
             snap.insight_date         = r.get("week_start")
             snap.has_insights         = True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, snapshot field stays at its default
         log.error("[wellness] health_insights query failed: %s", exc)
 
     return snap

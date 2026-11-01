@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
-from datetime import datetime, date
-from typing import Optional
-import urllib.request
 import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -32,14 +31,14 @@ class CostCheckResult:
     task_type: str                  # The task_type we checked
     daily_calls_so_far: int = 0
     daily_cost_so_far: float = 0.0
-    daily_limit: Optional[int] = None
-    cost_limit: Optional[float] = None
+    daily_limit: int | None = None
+    cost_limit: float | None = None
 
 
 class LLMCostGovernance:
     """Non-blocking cost governance controller."""
 
-    def __init__(self, supabase_url: Optional[str] = None, supabase_key: Optional[str] = None):
+    def __init__(self, supabase_url: str | None = None, supabase_key: str | None = None):
         # Issue 21: default to the shared service-role config so any caller
         # (not just ones that remember to pass creds explicitly) gets a
         # working governor instead of a silent permissive no-op.
@@ -50,7 +49,7 @@ class LLMCostGovernance:
         self.supabase_url = supabase_url or ""
         self.supabase_key = supabase_key or ""
         self._config_cache: dict = {}
-        self._last_config_load: Optional[datetime] = None
+        self._last_config_load: datetime | None = None
 
     def _headers(self) -> dict:
         return {
@@ -60,29 +59,28 @@ class LLMCostGovernance:
             "Accept": "application/json",
         }
 
-    def _get_config(self, task_type: str, force_refresh: bool = False) -> Optional[dict]:
+    def _get_config(self, task_type: str, force_refresh: bool = False) -> dict | None:
         """Fetch cost governance config for a task_type from Supabase (cached for 5m)."""
         if not self.supabase_url or not self.supabase_key:
             return None
 
         # Use in-memory cache to avoid hammering Supabase on every call
-        if not force_refresh and task_type in self._config_cache:
-            if self._last_config_load and \
-               (datetime.utcnow() - self._last_config_load).total_seconds() < 300:
-                return self._config_cache.get(task_type)
+        if (not force_refresh and task_type in self._config_cache and self._last_config_load
+                and (datetime.now(timezone.utc) - self._last_config_load).total_seconds() < 300):
+            return self._config_cache.get(task_type)
 
         try:
             url = (f"{self.supabase_url}/rest/v1/llm_cost_governance"
                    f"?task_type=eq.{task_type}&select=*")
             req = urllib.request.Request(url, headers=self._headers())
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - self.supabase_url is always the SUPABASE_URL env var / config constant passed by internal callers, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
                 config = data[0] if data else None
                 if config:
                     self._config_cache[task_type] = config
-                    self._last_config_load = datetime.utcnow()
+                    self._last_config_load = datetime.now(timezone.utc)
                 return config
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort config fetch, already logged; caller treats None as 'no governance config, proceed ungoverned'
             log.warning(f"Failed to fetch cost governance config: {exc}")
             return None
 
@@ -92,17 +90,20 @@ class LLMCostGovernance:
             return 0, 0.0
 
         try:
-            today = date.today().isoformat()
+            # Matches llm_daily_costs' cost_date, computed by the DB as
+            # current_date (server/DB timezone, effectively UTC) — use the
+            # same UTC calendar day here rather than host-local.
+            today = datetime.now(timezone.utc).date().isoformat()
             url = (f"{self.supabase_url}/rest/v1/llm_daily_costs"
                    f"?cost_date=eq.{today}&task_type=eq.{task_type}")
             req = urllib.request.Request(url, headers=self._headers())
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - self.supabase_url is always the SUPABASE_URL env var / config constant passed by internal callers, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
                 if data:
                     row = data[0]
                     return int(row.get("call_count", 0)), float(row.get("total_cost_usd", 0.0))
                 return 0, 0.0
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort daily-cost fetch, already logged; caller treats (0, 0.0) as 'no spend recorded yet'
             log.warning(f"Failed to fetch daily costs: {exc}")
             return 0, 0.0
 
@@ -203,14 +204,14 @@ class LLMCostGovernance:
         self,
         task_type: str,
         provider: str,
-        model_name: Optional[str] = None,
-        input_tokens: Optional[int] = None,
-        output_tokens: Optional[int] = None,
-        latency_ms: Optional[int] = None,
+        model_name: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        latency_ms: int | None = None,
         success: bool = True,
-        failure_reason: Optional[str] = None,
-        event_id: Optional[str] = None,
-        estimated_cost_usd: Optional[float] = None,
+        failure_reason: str | None = None,
+        event_id: str | None = None,
+        estimated_cost_usd: float | None = None,
     ) -> bool:
         """
         Log an LLM call to llm_call_metrics. Non-blocking (never raises).
@@ -245,18 +246,18 @@ class LLMCostGovernance:
             headers["Prefer"] = "return=minimal"
             body = json.dumps(payload).encode()
             req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - self.supabase_url is always the SUPABASE_URL env var / config constant passed by internal callers, not user input - reviewed 2026-09-12
                 return resp.status == 201
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort call-logging write, already logged; a logging failure must not block the real LLM call it's recording
             log.warning(f"Failed to log LLM call: {exc}")
             return False
 
     @staticmethod
     def _estimate_cost(
-        input_tokens: Optional[int],
-        output_tokens: Optional[int],
+        input_tokens: int | None,
+        output_tokens: int | None,
         provider: str,
-        model_name: Optional[str] = None,
+        model_name: str | None = None,
     ) -> float:
         """Estimate USD cost for an LLM call. Rough estimates; real pricing varies."""
         if not input_tokens or not output_tokens:

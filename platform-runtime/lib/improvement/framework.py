@@ -234,7 +234,7 @@ def d057_check(
                 f"consider systemic improvement to prevent repetition"
             )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (command memory unavailable, returning all-clear)
         log.debug("[d057-check] Command Memory unavailable, returning all-clear: %s", exc)
         notes.append("D-057 check run without Command Memory — manual verification recommended")
 
@@ -262,18 +262,18 @@ def _log_d057_check(officer: str, title: str, result: D057CheckResult) -> None:
             ),
             owner=f"d057:{officer}",
         )
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+        log.debug("[lib.improvement.framework] best-effort step failed, continuing: %s", _exc)
 
 
 __all__ = [
-    "ImprovementCategory",
-    "ImprovementBand",
-    "ImprovementScore",
-    "ImprovementOpportunity",
-    "D057CheckResult",
-    "d057_check",
-    "_SCORE_WEIGHTS",
     "_HIGH_THRESHOLD",
     "_MEDIUM_THRESHOLD",
+    "_SCORE_WEIGHTS",
+    "D057CheckResult",
+    "ImprovementBand",
+    "ImprovementCategory",
+    "ImprovementOpportunity",
+    "ImprovementScore",
+    "d057_check",
 ]

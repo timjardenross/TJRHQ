@@ -13,9 +13,10 @@
 // true — never fabricated, never inferred from a handful of outcomes.
 // Recording an outcome grants no authority; it only feeds calibration.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Panel } from './shared';
 import { stateToneClasses } from '@/lib/departments';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface Loop {
   advisory_id: string;
@@ -68,10 +69,10 @@ function WhatHqHasLearned() {
   const [report, setReport] = useState<CalibrationReport | null>(null);
   const [showEvidence, setShowEvidence] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/advisory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'calibration' }) })
+  useAbortEffect((signal, alive) => {
+    fetch('/api/advisory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'calibration' }), signal })
       .then((r) => r.json())
-      .then((d: { result?: CalibrationReport }) => setReport(d.result ?? (d as unknown as CalibrationReport)))
+      .then((d: { result?: CalibrationReport }) => { if (alive()) setReport(d.result ?? (d as unknown as CalibrationReport)); })
       .catch(() => { /* calibration is best-effort */ });
   }, []);
 
@@ -81,24 +82,24 @@ function WhatHqHasLearned() {
 
   return (
     <div className="space-y-2 rounded-md border border-wb-sage-deep/30 bg-wb-sage-deep/5 px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">What HQ has learned</p>
+      <p className="text-wb-label font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">What HQ has learned</p>
       <p className="text-sm text-wb-ink">
         {top.officer} has tracked well across recorded outcomes ({Math.round((top.accuracy ?? 0) * 100)}% success).
       </p>
-      <p className="text-[11px] text-wb-ink2">{top.samples} recorded outcomes support this pattern — treat it as a useful pattern, not a rule.</p>
+      <p className="text-wb-label text-wb-ink2">{top.samples} recorded outcomes support this pattern — treat it as a useful pattern, not a rule.</p>
       <button onClick={() => setShowEvidence((v) => !v)}
-        className="text-[10px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+        className="text-wb-label uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
         {showEvidence ? '▲ Hide evidence' : '▼ See evidence'}
       </button>
       {showEvidence && (
         <ul className="space-y-1 border-t border-wb-sage-deep/20 pt-2">
           {report.officer_ranking.filter((o) => o.samples >= 1).slice(0, 8).map((o) => (
-            <li key={o.officer} className="flex justify-between text-[11px] text-wb-ink/80">
+            <li key={o.officer} className="flex justify-between text-wb-label text-wb-ink">
               <span>{o.officer}</span>
               <span className="text-wb-ink2">{o.accuracy !== null ? `${Math.round(o.accuracy * 100)}%` : '—'} ({o.samples})</span>
             </li>
           ))}
-          <li className="pt-1 text-[10px] text-wb-ink2">Overall accuracy: {report.overall_accuracy !== null ? `${Math.round((report.overall_accuracy ?? 0) * 100)}%` : '—'} across {report.total_outcomes} recorded outcomes.</li>
+          <li className="pt-1 text-wb-label text-wb-ink2">Overall accuracy: {report.overall_accuracy !== null ? `${Math.round((report.overall_accuracy ?? 0) * 100)}%` : '—'} across {report.total_outcomes} recorded outcomes.</li>
         </ul>
       )}
     </div>
@@ -114,15 +115,16 @@ export function OutcomesView() {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetch('/api/advisory/loops')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/advisory/loops', { signal })
       .then((r) => r.json())
       .then((d: { loops?: Loop[]; error?: string }) => {
+        if (!alive()) return;
         if (d.error) setApiError(d.error);
         setLoops(d.loops ?? []);
         setLoading(false);
       })
-      .catch((e: Error) => { setApiError(e.message); setLoading(false); });
+      .catch((e: Error) => { if (alive() && e.name !== 'AbortError') { setApiError(e.message); setLoading(false); } });
   }, []);
 
   const close = useCallback(async (id: string, outcome: OutcomeValue) => {
@@ -180,7 +182,7 @@ export function OutcomesView() {
           </div>
         )}
 
-        <p className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Advice awaiting an outcome</p>
+        <p className="text-wb-label uppercase tracking-[0.15em] text-wb-ink2">Advice awaiting an outcome</p>
 
         {visible.length === 0 && (
           <div className="rounded-md border border-wb-line bg-wb-bg px-4 py-10 text-center">
@@ -196,25 +198,26 @@ export function OutcomesView() {
             <div key={loop.advisory_id} className="rounded-md border border-wb-line bg-wb-surface">
               <div className="border-b border-wb-line px-4 py-2.5">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-mono text-[10px] text-wb-ink2">{loop.advisory_id}</p>
-                  <p className="text-[10px] text-wb-ink2">{fmt(loop.recorded_at)}</p>
+                  <p className="font-mono text-wb-label text-wb-ink2">{loop.advisory_id}</p>
+                  <p className="text-wb-label text-wb-ink2">{fmt(loop.recorded_at)}</p>
                 </div>
               </div>
               <div className="space-y-3 px-4 py-3">
                 <div>
-                  <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Question asked</p>
+                  <p className="mb-1 text-wb-label uppercase tracking-[0.15em] text-wb-ink2">Question asked</p>
                   <p className="text-sm text-wb-ink">{loop.question}</p>
                 </div>
                 {loop.recommendation && (
                   <div>
-                    <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Recommendation given</p>
-                    <p className="line-clamp-3 text-sm text-wb-ink/80">{loop.recommendation}</p>
+                    <p className="mb-1 text-wb-label uppercase tracking-[0.15em] text-wb-ink2">Recommendation given</p>
+                    <p className="line-clamp-3 text-sm text-wb-ink">{loop.recommendation}</p>
                   </div>
                 )}
                 <div>
-                  <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">What did HQ miss? (optional)</p>
+                  <p className="mb-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-ink2">What did HQ miss? (optional)</p>
                   <input
                     type="text"
+                    aria-label="What did HQ miss? (optional)"
                     value={notes[loop.advisory_id] ?? ''}
                     onChange={(e) => setNotes((prev) => ({ ...prev, [loop.advisory_id]: e.target.value }))}
                     placeholder="What actually happened?"
@@ -245,7 +248,7 @@ export function OutcomesView() {
           );
         })}
 
-        <p className="text-[10px] text-wb-ink2">
+        <p className="text-wb-label text-wb-ink2">
           {visible.length} awaiting an outcome · Recording improves advisory calibration. This grants no authority — you decide what happens next.
         </p>
       </div>

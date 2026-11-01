@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """EDO execution runner (MSN-EDO-002 WP2 / EDO-006).
 
 The bridge invoked by the EDO execution workflow: takes an approved mission,
@@ -28,7 +29,7 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.delivery import execution, data  # noqa: E402
+from lib.delivery import data, execution
 
 
 def _find_mission(mission_id: str) -> dict | None:

@@ -1,0 +1,312 @@
+{
+  "collection_timestamp": "2026-09-13T10:21:32.551083+00:00",
+  "repository_state": {
+    "branch": "msn-0384-tremor-kpi-consolidation",
+    "commit": "96d31fd9a3122132c004c307686185d00efedb17",
+    "commit_message": "feat(lcars-portal): consolidate KPI stat-tile dupes onto shared wb primitive (USS-TJR-MSN-0384)\n\nThree independent KpiDashboard.tsx implementations (captains-brief,\ncapture, human-systems workbenches) each hand-rolled the same\nnumber+label stat-cell pattern. Extracted to src/components/ui/KpiStat.tsx\n(KpiStat + KpiCard), all three call sites migrated.\n\nTremor rejected at pre-flight: its Card/Metric primitives theme via a\nfixed internal color palette (needs a tailwind color-key remap, not a\nstraight re-theme) and give zero net value over the app's existing\nCard \u2014 every bespoke need (click-to-jump, tone coloring, chip\nbreakdowns, badges, loading/error states) would be rebuilt inside its\nwrapper anyway. Confirmed with user before proceeding without it.\n\nLibraryKpis.tsx and CommandStatus.tsx/NowView.tsx verified and\nexcluded: former is on the legacy LCARS token system (separate\nmigration), latter two are not KPI/stat-tile patterns at all despite\ngrep matching on file name.\n\ntsc --noEmit and next build both clean.\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01GUFShZbXVTbmDDYpU8ng4q",
+    "dirty": true,
+    "uncommitted_files": [
+      ".github/workflows/python-ci.yml",
+      "core/quality/promptfooconfig.yaml",
+      "data/self-improvement/runs/2026-09-13-033603/",
+      "data/self-improvement/runs/2026-09-13-034128/",
+      "data/self-improvement/runs/2026-09-13-034654/",
+      "data/self-improvement/runs/2026-09-13-035220/",
+      "data/self-improvement/runs/2026-09-13-035749/",
+      "data/self-improvement/runs/2026-09-13-040316/",
+      "data/self-improvement/runs/2026-09-13-040844/",
+      "data/self-improvement/runs/2026-09-13-041413/",
+      "data/self-improvement/runs/2026-09-13-041940/",
+      "data/self-improvement/runs/2026-09-13-042636/",
+      "data/self-improvement/runs/2026-09-13-043218/",
+      "data/self-improvement/runs/2026-09-13-043744/",
+      "data/self-improvement/runs/2026-09-13-044312/",
+      "data/self-improvement/runs/2026-09-13-044839/",
+      "data/self-improvement/runs/2026-09-13-045406/",
+      "data/self-improvement/runs/2026-09-13-045934/",
+      "data/self-improvement/runs/2026-09-13-050502/",
+      "data/self-improvement/runs/2026-09-13-051032/",
+      "data/self-improvement/runs/2026-09-13-051559/",
+      "data/self-improvement/runs/2026-09-13-052127/",
+      "data/self-improvement/runs/2026-09-13-052821/",
+      "data/self-improvement/runs/2026-09-13-053408/",
+      "data/self-improvement/runs/2026-09-13-053935/",
+      "data/self-improvement/runs/2026-09-13-054502/",
+      "data/self-improvement/runs/2026-09-13-055034/",
+      "data/self-improvement/runs/2026-09-13-055603/",
+      "data/self-improvement/runs/2026-09-13-060133/",
+      "data/self-improvement/runs/2026-09-13-060701/",
+      "data/self-improvement/runs/2026-09-13-061230/",
+      "data/self-improvement/runs/2026-09-13-061758/",
+      "data/self-improvement/runs/2026-09-13-062509/",
+      "data/self-improvement/runs/2026-09-13-063111/",
+      "data/self-improvement/runs/2026-09-13-063639/",
+      "data/self-improvement/runs/2026-09-13-064206/",
+      "data/self-improvement/runs/2026-09-13-064733/",
+      "data/self-improvement/runs/2026-09-13-065301/",
+      "data/self-improvement/runs/2026-09-13-065828/",
+      "data/self-improvement/runs/2026-09-13-070357/",
+      "data/self-improvement/runs/2026-09-13-070925/",
+      "data/self-improvement/runs/2026-09-13-071454/",
+      "data/self-improvement/runs/2026-09-13-072025/",
+      "data/self-improvement/runs/2026-09-13-072717/",
+      "data/self-improvement/runs/2026-09-13-073302/",
+      "data/self-improvement/runs/2026-09-13-073831/",
+      "data/self-improvement/runs/2026-09-13-074400/",
+      "data/self-improvement/runs/2026-09-13-074929/",
+      "data/self-improvement/runs/2026-09-13-075457/",
+      "data/self-improvement/runs/2026-09-13-080028/",
+      "data/self-improvement/runs/2026-09-13-080555/",
+      "data/self-improvement/runs/2026-09-13-081124/",
+      "data/self-improvement/runs/2026-09-13-081652/",
+      "data/self-improvement/runs/2026-09-13-082328/",
+      "data/self-improvement/runs/2026-09-13-082935/",
+      "data/self-improvement/runs/2026-09-13-083506/",
+      "data/self-improvement/runs/2026-09-13-084034/",
+      "data/self-improvement/runs/2026-09-13-084602/",
+      "data/self-improvement/runs/2026-09-13-085131/",
+      "data/self-improvement/runs/2026-09-13-085701/",
+      "data/self-improvement/runs/2026-09-13-090231/",
+      "data/self-improvement/runs/2026-09-13-090800/",
+      "data/self-improvement/runs/2026-09-13-091331/",
+      "data/self-improvement/runs/2026-09-13-091902/",
+      "data/self-improvement/runs/2026-09-13-092606/",
+      "data/self-improvement/runs/2026-09-13-093202/",
+      "data/self-improvement/runs/2026-09-13-093731/",
+      "data/self-improvement/runs/2026-09-13-094430/",
+      "data/self-improvement/runs/2026-09-13-095112/",
+      "data/self-improvement/runs/2026-09-13-095754/",
+      "data/self-improvement/runs/2026-09-13-100422/",
+      "data/self-improvement/runs/2026-09-13-101027/",
+      "data/self-improvement/runs/2026-09-13-101559/"
+    ],
+    "repo_root": "/opt/starship-endeavour"
+  },
+  "filesystem_audit": {
+    "python_files": 0,
+    "test_files": [],
+    "doc_files": {
+      "count": 2406,
+      "most_recent": [
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-component-testing/references/vue.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/references/video-recording.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-component-testing/references/typing.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/references/tracing.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/references/test-generation.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/references/storage-state.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-trace/SKILL.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-component-testing/SKILL.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/SKILL.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/references/session-management.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/references/running-code.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/references/request-mocking.md",
+        "lcars-portal/node_modules/playwright-core/README.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-component-testing/references/react.md",
+        "lcars-portal/node_modules/playwright-core/lib/tools/skills/playwright-cli/references/playwright-tests.md"
+      ]
+    },
+    "config_files": [
+      "config/osint_intelligence_missions.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/config.yaml",
+      "core/infrastructure/vm-transfer/config.example.yaml",
+      "package-lock.json",
+      "core/infrastructure/vm-processing/config.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/autograd/deprecated.yaml",
+      "config/evolution_watchlist.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/autograd/derivatives.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/inference_engine/pytorch/networks/arch_config.yaml",
+      "config/self_improvement_policy.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/default_models.yaml",
+      "core/infrastructure/mac-collector/config.example.yaml",
+      "audit_results.json",
+      "week2_full_audit.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/markdown_it/port.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/ATen/native/native_functions.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torch/_export/serde/schema.yaml",
+      "core/infrastructure/vm-processing/config.example.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/ATen/native/tags.yaml",
+      "package.json"
+    ],
+    "schema_files": [
+      "self_improvement_run.schema.json",
+      "self_improvement_finding.schema.json",
+      "self_improvement_decision.schema.json"
+    ],
+    "missing_directories": []
+  },
+  "model_router_audit": {
+    "configured_routes": {
+      "task_types": [
+        "classify-capture",
+        "summarise-note",
+        "classify-document",
+        "summarise-document",
+        "xo-response",
+        "intelligence-brief",
+        "intelligence-signals",
+        "captain-insight-synthesis",
+        "captain-reasoning-synthesis",
+        "embed",
+        "escalate",
+        "fallback-complex",
+        "engineering-review",
+        "billing-report",
+        "self-improvement-analyse",
+        "self-improvement-critique",
+        "self-improvement-mission",
+        "hq-evolution-investigate",
+        "hq-evolution-evaluate-outcome",
+        "health-signal-curation",
+        "adhd-decompose"
+      ],
+      "count": 21
+    },
+    "router_reachable": true,
+    "router_status": {
+      "ollama_url": "http://localhost:11434",
+      "ollama_reachable": true,
+      "loaded_models": [
+        {
+          "name": "gemma3:4b",
+          "size_vram": 0,
+          "expires_at": "2026-09-13T20:31:03.067893623+10:00"
+        }
+      ],
+      "available_models": [
+        "glm-5.3:cloud",
+        "qwen3.5:9b",
+        "qwen3.5:4b",
+        "qwen3.5:2b",
+        "qwen2.5-coder:7b",
+        "gemma3:4b",
+        "gemma4:12b",
+        "nomic-embed-text:latest",
+        "mistral-small3.2:24b",
+        "glm-5.2:cloud"
+      ],
+      "router_port": 8891,
+      "log_file": "/opt/starship-endeavour/core/model-router/call_log.jsonl",
+      "recent_avg_ms": null,
+      "recent_failed": 5,
+      "routing_policy": [
+        {
+          "task_type": "classify-capture",
+          "model": "gemma3:4b",
+          "keep_alive": "5m"
+        },
+        {
+          "task_type": "summarise-note",
+          "model": "gemma3:4b",
+          "keep_alive": "5m"
+        },
+        {
+          "task_type": "classify-document",
+          "model": "gemma3:4b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "summarise-document",
+          "model": "gemma3:4b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "xo-response",
+          "model": "gemma3:4b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "intelligence-brief",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "intelligence-signals",
+          "model": "mistral-small3.2:24b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "captain-insight-synthesis",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "captain-reasoning-synthesis",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "embed",
+          "model": "nomic-embed-text:latest",
+          "keep_alive": "1m"
+        },
+        {
+          "task_type": "escalate",
+          "model": "glm-5.3:cloud",
+          "keep_alive": "0"
+        },
+        {
+          "task_type": "fallback-complex",
+          "model": "glm-5.3:cloud",
+          "keep_alive": "0"
+        },
+        {
+          "task_type": "engineering-review",
+          "model": "qwen2.5-coder:7b",
+          "keep_alive": "20m"
+        },
+        {
+          "task_type": "billing-report",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-analyse",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-critique",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-mission",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "hq-evolution-investigate",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "hq-evolution-evaluate-outcome",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "health-signal-curation",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "adhd-decompose",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        }
+      ]
+    },
+    "call_log_exists": true,
+    "call_log_size_mb": 0.844700813293457
+  },
+  "code_analysis": {
+    "todos_and_fixmes": {},
+    "dead_imports": [],
+    "hardcoded_values": []
+  },
+  "evidence_window": {
+    "since_commit": null,
+    "collection_timestamp": "2026-09-13T10:21:32.551083+00:00"
+  },
+  "collection_duration_ms": 124231
+}

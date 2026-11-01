@@ -8,10 +8,9 @@ Run with:
     SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... python log_supabase_access_decision.py
 """
 
-import os
-import sys
 import json
-from datetime import datetime
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Fleet Engineering Review 2026-08-11: ROOT here is tools/ (this file's own
@@ -42,7 +41,7 @@ def main():
         return False
 
     # Generate decision ID
-    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     decision_id = f"DEC-{ts}"
 
     # Decision record
@@ -81,7 +80,7 @@ def main():
     print(f"📝 Logging decision: {decision_id}")
     print(f"   Statement: {decision_payload['statement'][:80]}...")
 
-    result = client.insert("decisions", decision_payload)
+    result = client.insert("command_memory_records", decision_payload)
 
     if result.ok:
         print(f"✅ Decision logged successfully: {decision_id}")
@@ -89,7 +88,7 @@ def main():
         print(f"   Status: {result.ok}")
         return True
     else:
-        print(f"❌ Failed to log decision")
+        print("❌ Failed to log decision")
         print(f"   Error: {result.error}")
         print(f"   Enabled: {result.enabled}")
         return False

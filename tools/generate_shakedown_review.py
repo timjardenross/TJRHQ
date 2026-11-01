@@ -21,11 +21,9 @@ whether to proceed to the next feature phase.
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import sys
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[1]
@@ -37,8 +35,7 @@ try:
 except ImportError:
     pass
 
-from shakedown_logger import SHAKEDOWN_START, read_events, get_day_summary
-
+from shakedown_logger import SHAKEDOWN_START, read_events
 
 # ---------------------------------------------------------------------------
 # Known jobs and their expected cadence
@@ -141,9 +138,9 @@ def assess_notification_value(analysis: dict) -> list[dict]:
 
         # Noise assessment: daily alert jobs that never skip are potentially noisy
         noise = "low"
-        if meta["cadence"] == "daily" and job_id in {"stale_missions", "decision_review"}:
-            if skipped == 0 and delivered > 3:
-                noise = "potentially high — fires every day without skip"
+        if (meta["cadence"] == "daily" and job_id in {"stale_missions", "decision_review"}
+                and skipped == 0 and delivered > 3):
+            noise = "potentially high — fires every day without skip"
 
         assessments.append({
             "job_id": job_id,
@@ -166,7 +163,6 @@ def generate_recommendations(analysis: dict, days: int) -> list[str]:
     coverage = analysis["morning_brief_coverage_pct"]
     failures = analysis["failure_count"]
     duplicates = analysis["duplicates"]
-    alerts = analysis["alerts_fired"]
 
     if coverage < 100:
         missed = days - analysis["days_with_morning_brief"]
@@ -176,14 +172,14 @@ def generate_recommendations(analysis: dict, days: int) -> list[str]:
         )
 
     if failures > 0:
-        failed_jobs = set(f["job_id"] for f in analysis["failures_detail"])
+        failed_jobs = {f["job_id"] for f in analysis["failures_detail"]}
         recs.append(
             f"Remediate {failures} job failure(s) in: {', '.join(sorted(failed_jobs))}. "
             "Check Supabase connectivity, Slack token permissions, and import paths."
         )
 
     if duplicates:
-        dup_jobs = set(d["job_id"] for d in duplicates)
+        dup_jobs = {d["job_id"] for d in duplicates}
         recs.append(
             f"Duplicate firings detected for: {', '.join(sorted(dup_jobs))}. "
             "Verify APScheduler replace_existing=True is effective after bot restarts."
@@ -230,21 +226,21 @@ def generate_recommendations(analysis: dict, days: int) -> list[str]:
 
 def write_report(analysis: dict, assessments: list, recommendations: list, days: int, since: date) -> Path:
     until = since + timedelta(days=days - 1)
-    report_date = date.today().isoformat()
+    report_date = datetime.now().astimezone().date().isoformat()
 
     lines = [
-        f"# Operational Shakedown Review — M-20260615",
-        f"",
+        "# Operational Shakedown Review — M-20260615",
+        "",
         f"**Period:** {since.isoformat()} → {until.isoformat()} ({days} days)",
         f"**Generated:** {report_date}",
-        f"**Channel:** C0BA85URYFP (#xo-daily-brief)",
-        f"",
-        f"---",
-        f"",
-        f"## 1. Reliability Metrics",
-        f"",
-        f"| Metric | Value |",
-        f"|---|---|",
+        "**Channel:** C0BA85URYFP (#xo-daily-brief)",
+        "",
+        "---",
+        "",
+        "## 1. Reliability Metrics",
+        "",
+        "| Metric | Value |",
+        "|---|---|",
         f"| Total scheduler events | {analysis['total_events']} |",
         f"| Successful deliveries | {analysis['success_count']} |",
         f"| Failures | {analysis['failure_count']} |",
@@ -253,13 +249,13 @@ def write_report(analysis: dict, assessments: list, recommendations: list, days:
         f"| Morning brief coverage | {analysis['morning_brief_coverage_pct']}% ({analysis['days_with_morning_brief']}/{days} days) |",
         f"| Alerts fired | {analysis['alerts_fired']} |",
         f"| Duplicate notifications | {len(analysis['duplicates'])} |",
-        f"",
-        f"---",
-        f"",
-        f"## 2. Per-Job Reliability",
-        f"",
-        f"| Job | Cadence | Fired | Delivered | Skipped | Failed | Reliability |",
-        f"|---|---|---|---|---|---|---|",
+        "",
+        "---",
+        "",
+        "## 2. Per-Job Reliability",
+        "",
+        "| Job | Cadence | Fired | Delivered | Skipped | Failed | Reliability |",
+        "|---|---|---|---|---|---|---|",
     ]
 
     for job_id, stats in sorted(analysis["by_job"].items()):
@@ -270,13 +266,13 @@ def write_report(analysis: dict, assessments: list, recommendations: list, days:
         )
 
     lines += [
-        f"",
-        f"---",
-        f"",
-        f"## 3. Notification Volume Assessment",
-        f"",
-        f"| Job | Value | Cadence | Delivered | Noise | Notes |",
-        f"|---|---|---|---|---|---|",
+        "",
+        "---",
+        "",
+        "## 3. Notification Volume Assessment",
+        "",
+        "| Job | Value | Cadence | Delivered | Noise | Notes |",
+        "|---|---|---|---|---|---|",
     ]
     for a in assessments:
         lines.append(
@@ -284,11 +280,11 @@ def write_report(analysis: dict, assessments: list, recommendations: list, days:
         )
 
     lines += [
-        f"",
-        f"---",
-        f"",
-        f"## 4. False Positive Analysis",
-        f"",
+        "",
+        "---",
+        "",
+        "## 4. False Positive Analysis",
+        "",
     ]
     if analysis["duplicates"]:
         lines.append("**Duplicate notifications detected:**")
@@ -309,12 +305,12 @@ def write_report(analysis: dict, assessments: list, recommendations: list, days:
         lines.append("")
 
     lines += [
-        f"---",
-        f"",
-        f"## 5. User Value Assessment",
-        f"",
-        f"Based on observed event data:",
-        f"",
+        "---",
+        "",
+        "## 5. User Value Assessment",
+        "",
+        "Based on observed event data:",
+        "",
     ]
     high_value = [a for a in assessments if a["value"] == "high" and a["delivered"] > 0]
     zero_delivery = [a for a in assessments if a["value"] != "meta" and a["delivered"] == 0 and a["fired"] > 0]
@@ -332,22 +328,22 @@ def write_report(analysis: dict, assessments: list, recommendations: list, days:
         lines.append("")
 
     lines += [
-        f"---",
-        f"",
-        f"## 6. Recommendations",
-        f"",
+        "---",
+        "",
+        "## 6. Recommendations",
+        "",
     ]
     for i, rec in enumerate(recommendations, 1):
         lines.append(f"{i}. {rec}")
         lines.append("")
 
     lines += [
-        f"---",
-        f"",
-        f"## 7. Next Phase Decision",
-        f"",
-        f"**Acceptance criteria:** 7 consecutive days of successful automated operation with no critical failures.",
-        f"",
+        "---",
+        "",
+        "## 7. Next Phase Decision",
+        "",
+        "**Acceptance criteria:** 7 consecutive days of successful automated operation with no critical failures.",
+        "",
     ]
     critical_failures = analysis["failure_count"]
     coverage_ok = analysis["morning_brief_coverage_pct"] >= 90
@@ -382,7 +378,7 @@ def main():
     since = date.fromisoformat(args.since) if args.since else SHAKEDOWN_START
     until = since + timedelta(days=args.days - 1)
 
-    print(f"Shakedown Review Generator — M-20260615")
+    print("Shakedown Review Generator — M-20260615")
     print(f"Period: {since.isoformat()} → {until.isoformat()} ({args.days} days)")
     print()
 
@@ -396,7 +392,7 @@ def main():
     report_path = write_report(analysis, assessments, recommendations, args.days, since)
     print(f"Report written: {report_path.relative_to(_REPO)}")
     print()
-    print(f"Summary:")
+    print("Summary:")
     print(f"  Coverage:   {analysis['morning_brief_coverage_pct']}%")
     print(f"  Successes:  {analysis['success_count']}")
     print(f"  Failures:   {analysis['failure_count']}")

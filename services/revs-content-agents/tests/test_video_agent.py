@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-
 from src.agents.video_agent import VideoAgent
 
 

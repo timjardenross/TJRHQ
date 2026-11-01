@@ -45,8 +45,8 @@ for p in (str(_BOT), str(_REPO_ROOT)):
 try:
     from platform_runtime.lib.telemetry import configure_tracing
     configure_tracing("daily-operations-cycle")
-except Exception:
-    pass
+except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+    log.debug("[lib.officers.daily_operations_cycle] best-effort step failed, continuing: %s", _exc)
 
 
 # ── Output data class ─────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ def _step_research_scan(ctx: Any, result: OfficerCycleResult) -> None:
                     len(episodic_memories),
                     ori_risk,
                 )
-        except Exception as ep_exc:
+        except Exception as ep_exc:  # noqa: BLE001 - best-effort step, already logged (episodic memory recall failed (non-blocking))
             log.debug("[officer_cycle] Episodic memory recall failed (non-blocking): %s", ep_exc)
 
         from core.platform.unified_memory import MemoryType, recall
@@ -147,7 +147,7 @@ def _step_research_scan(ctx: Any, result: OfficerCycleResult) -> None:
                 ori_risk,
                 len(episodic_memories),
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (research scan failed)
         log.debug("[officer_cycle] Research scan failed: %s", exc)
 
 
@@ -171,7 +171,7 @@ def _step_knowledge_capture(ctx: Any, result: OfficerCycleResult) -> None:
             result.officer_signals.append(signal)
             log.info("[officer_cycle] Knowledge capture: %d candidates, %d patterns",
                      lesson_candidates, len(patterns))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (knowledge capture failed)
         log.debug("[officer_cycle] Knowledge capture failed: %s", exc)
 
 
@@ -198,7 +198,7 @@ def _step_operational_review(ctx: Any, missions: list[dict[str, Any]], result: O
             result.officer_signals.append(signal)
             log.info("[officer_cycle] Operational review: idle=%d, blocked=%d, risks=%d",
                      len(idle), blocked, delivery_risks)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (operational review failed)
         log.debug("[officer_cycle] Operational review failed: %s", exc)
 
 
@@ -221,7 +221,7 @@ def _step_readiness_assessment(ctx: Any, result: OfficerCycleResult) -> None:
         result.officer_signals.append(signal)
         log.info("[officer_cycle] Readiness: status=%s, score=%s, actions=%d",
                  capacity_status, capacity_score, len(actions))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (readiness assessment failed)
         log.debug("[officer_cycle] Readiness assessment failed: %s", exc)
 
 
@@ -262,13 +262,13 @@ def _step_engineering_assessment(ctx: Any, result: OfficerCycleResult) -> None:
                     "[officer_cycle] Engineering assessment: %d validation pattern(s) surfaced",
                     len(patterns),
                 )
-        except Exception as pat_exc:
+        except Exception as pat_exc:  # noqa: BLE001 - best-effort step, already logged (pattern library fetch failed (non-blocking))
             log.debug("[officer_cycle] Pattern library fetch failed (non-blocking): %s", pat_exc)
 
         result.officer_signals.append(signal)
         log.info("[officer_cycle] Engineering: blocked=%d, in_progress=%d, debt=%d, gaps=%d",
                  blocked, in_progress, tech_debt, cap_gaps)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (engineering assessment failed)
         log.debug("[officer_cycle] Engineering assessment failed: %s", exc)
 
 
@@ -277,7 +277,22 @@ def _step_engineering_assessment(ctx: Any, result: OfficerCycleResult) -> None:
 def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result: OfficerCycleResult) -> None:
     """Number One: process idle missions that require assignment or re-assignment."""
     try:
-        from lib.officers.officer_assignment import assign_mission, get_available_assignees
+        from lib.officers.officer_assignment import (
+            assign_mission,
+            get_available_assignees,
+        )
+
+        # 2026-09-26 (USS-TJR-MSN-0210L/M convergence): this write path had
+        # no authority-gate call at all — core/coordination/execution_engine.py's
+        # equivalent on_mission_approved() already wraps its assign_mission-
+        # shaped write in AuthorityContext (SUOC Wave 2/3), this one didn't.
+        # Same pattern: ManifestGapError blocks (fail-closed, Wave 3/4), not
+        # just an ordinary AuthorityError denial. No functional change today
+        # (every governance/authority/*.yaml manifest is still the
+        # deliberately-permissive placeholder), but this path is now covered
+        # once real policy is written.
+        from core.governance.authority_enforcement import AuthorityContext
+        from core.governance.authority_validator import AuthorityError, ManifestGapError
 
         assigned = 0
         for m in missions[:5]:  # cap to 5 per cycle to bound latency
@@ -287,8 +302,23 @@ def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result
                 candidates = get_available_assignees(m.get("type", ""))
                 if candidates:
                     target = candidates[0]
+                    mission_id = m.get("id") or m.get("mission_id", "unknown")
+                    try:
+                        with AuthorityContext(
+                            officer="number_one",
+                            action="assign_mission_owner",
+                            mission_id=mission_id,
+                        ):
+                            pass
+                    except AuthorityError as auth_exc:
+                        log.warning("[officer_cycle] Assignment of %s blocked by authority gate: %s", mission_id, auth_exc.reason)
+                        continue
+                    except ManifestGapError as gap_exc:
+                        log.warning("[officer_cycle] Assignment of %s blocked — manifest gap: %s", mission_id, gap_exc.reason)
+                        continue
+
                     assign_mission(
-                        mission_id=m.get("id") or m.get("mission_id", "unknown"),
+                        mission_id=mission_id,
                         mission_title=m.get("title", ""),
                         target_officer=target,
                         assigning_officer="number_one",
@@ -300,7 +330,7 @@ def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result
         result.assignments_made = assigned
         if assigned:
             log.info("[officer_cycle] Assignment resolution: %d mission(s) assigned", assigned)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (assignment resolution failed)
         log.debug("[officer_cycle] Assignment resolution failed: %s", exc)
 
 
@@ -309,7 +339,18 @@ def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result
 def _step_escalation_processing(ctx: Any, result: OfficerCycleResult) -> None:
     """All officers: advance overdue escalations and surface L5 items to Captain."""
     try:
-        from lib.officers.officer_escalations import get_overdue_escalations, advance_escalation, EscalationLevel
+        from lib.officers.officer_escalations import (
+            EscalationLevel,
+            advance_escalation,
+            get_overdue_escalations,
+        )
+
+        # 2026-09-26 (USS-TJR-MSN-0210L/M convergence): same authority-gate
+        # gap fix as _step_assignment_resolution above — advance_escalation
+        # is a mutating write with no authority check before this. See that
+        # function's own comment for the full rationale.
+        from core.governance.authority_enforcement import AuthorityContext
+        from core.governance.authority_validator import AuthorityError, ManifestGapError
 
         overdue = get_overdue_escalations()
         result.overdue_followups = len(overdue)
@@ -317,6 +358,24 @@ def _step_escalation_processing(ctx: Any, result: OfficerCycleResult) -> None:
         captain_items = 0
 
         for esc in overdue[:10]:  # cap to 10 per cycle
+            try:
+                # AuthorityContext has no dedicated escalation-id field (only
+                # mission_id, purely for audit-log correlation) — reusing it
+                # here for the same purpose rather than adding a new
+                # parameter to a shared governance primitive for one caller.
+                with AuthorityContext(
+                    officer=esc.officer,
+                    action="advance_escalation",
+                    mission_id=esc.esc_id,
+                ):
+                    pass
+            except AuthorityError as auth_exc:
+                log.warning("[officer_cycle] Escalation advance %s blocked by authority gate: %s", esc.esc_id, auth_exc.reason)
+                continue
+            except ManifestGapError as gap_exc:
+                log.warning("[officer_cycle] Escalation advance %s blocked — manifest gap: %s", esc.esc_id, gap_exc.reason)
+                continue
+
             updated = advance_escalation(esc.esc_id)
             if updated:
                 advanced += 1
@@ -335,7 +394,7 @@ def _step_escalation_processing(ctx: Any, result: OfficerCycleResult) -> None:
         if advanced:
             log.info("[officer_cycle] Escalation processing: %d advanced, %d to Captain",
                      advanced, captain_items)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (escalation processing failed)
         log.debug("[officer_cycle] Escalation processing failed: %s", exc)
 
 
@@ -344,13 +403,16 @@ def _step_escalation_processing(ctx: Any, result: OfficerCycleResult) -> None:
 def _step_xo_synthesis(ctx: Any, result: OfficerCycleResult) -> None:
     """XO: synthesise all officer signals for injection into the Captain brief."""
     try:
-        from lib.officers.xo_orchestrator import synthesise_officer_outputs, format_xo_synthesis
+        from lib.officers.xo_orchestrator import (
+            format_xo_synthesis,
+            synthesise_officer_outputs,
+        )
         synthesis = synthesise_officer_outputs(result.officer_signals, ctx)
         summary = format_xo_synthesis(synthesis)
         result.xo_synthesis_available = bool(summary)
         result.cycle_summary = summary
         log.info("[officer_cycle] XO synthesis complete: risk_level=%s", synthesis.risk_level)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (xo synthesis failed)
         log.debug("[officer_cycle] XO synthesis failed: %s", exc)
         if result.officer_signals:
             result.cycle_summary = _format_fallback_summary(result)
@@ -371,9 +433,9 @@ def _format_fallback_summary(result: OfficerCycleResult) -> str:
 def _evaluate_triggers_and_act(ctx: Any, result: OfficerCycleResult) -> None:
     """Evaluate all officer triggers and convert fired triggers to actions."""
     try:
-        from lib.officers.officer_triggers import evaluate_all_triggers
         from lib.officers.officer_actions import execute_triggered_actions
         from lib.officers.officer_handoffs import process_handoffs
+        from lib.officers.officer_triggers import evaluate_all_triggers
 
         trigger_results = evaluate_all_triggers(ctx)
         result.triggers_fired = sum(len(v) for v in trigger_results.values())
@@ -399,7 +461,7 @@ def _evaluate_triggers_and_act(ctx: Any, result: OfficerCycleResult) -> None:
         handoffs = process_handoffs(trigger_results, ctx)
         result.handoffs_created = len(handoffs)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (trigger evaluation failed)
         log.debug("[officer_cycle] Trigger evaluation failed: %s", exc)
 
 
@@ -408,7 +470,10 @@ def _evaluate_triggers_and_act(ctx: Any, result: OfficerCycleResult) -> None:
 def _run_due_scheduled_activities(ctx: Any, result: OfficerCycleResult) -> None:
     """Check for due scheduled activities and record them as run."""
     try:
-        from lib.officers.officer_schedules import get_due_activities, record_activity_run
+        from lib.officers.officer_schedules import (
+            get_due_activities,
+            record_activity_run,
+        )
 
         due = get_due_activities(ctx)
         result.due_activities = len(due)
@@ -417,13 +482,13 @@ def _run_due_scheduled_activities(ctx: Any, result: OfficerCycleResult) -> None:
             try:
                 record_activity_run(activity.schedule.activity_id)
                 result.activities_run += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (activity run record failed)
                 log.debug("[officer_cycle] Activity run record failed %s: %s",
                           activity.schedule.activity_id, exc)
 
         if due:
             log.info("[officer_cycle] %d/%d scheduled activities run", result.activities_run, len(due))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (scheduled activities check failed)
         log.debug("[officer_cycle] Scheduled activities check failed: %s", exc)
 
 
@@ -506,6 +571,6 @@ def format_officer_cycle_summary(result: OfficerCycleResult) -> str:
 
 __all__ = [
     "OfficerCycleResult",
-    "run_officer_cycle",
     "format_officer_cycle_summary",
+    "run_officer_cycle",
 ]

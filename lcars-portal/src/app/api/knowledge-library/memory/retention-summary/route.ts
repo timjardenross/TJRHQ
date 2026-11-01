@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type { RetentionSummary } from '@/lib/types';
+import { errorDetail } from '@/lib/errorDetail';
 
 // USS-TJR-MSN-0206D/J-2: reporting surface for Command Memory — counts by
 // retention_policy, archive_status, and category (MSN-0206J-2), plus how
@@ -39,7 +40,7 @@ export async function GET() {
 
     return NextResponse.json(summary);
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to load retention summary', detail }, { status: 500 });
   }
 }

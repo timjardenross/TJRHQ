@@ -18,7 +18,7 @@ export default function LogActivityPage() {
     <WorkbenchShell
       title="Log Activity"
       eyebrow="Health Tracking"
-      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
+      tagline="TJR HQ · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <Card title="Manual activity logging retired">

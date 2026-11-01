@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(items);
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to load home data', detail }, { status: 500 });
   }
 }

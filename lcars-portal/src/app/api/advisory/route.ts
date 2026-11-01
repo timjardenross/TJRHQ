@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import https from 'node:https';
-import path from 'node:path';
 import { requireSession } from '@/lib/supabase-server';
+import { resolveAdvisoryRepoRoot, runAdvisoryCli, tryAdvisoryHttpBackend } from '@/lib/advisoryRuntime';
+import { logActionHistory } from '@/lib/actionHistoryServer';
 
 /**
  * Advisory Runtime endpoint — USS-TJR-MSN-0092 / MSN-0093 (Advisor Hub).
@@ -22,100 +20,13 @@ import { requireSession } from '@/lib/supabase-server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const PY = process.env.PYTHON_BIN ?? 'python3';
-const TIMEOUT_MS = 30_000;
-const COMMAND_CENTRE_API_URL = process.env.COMMAND_CENTRE_API_URL ?? 'http://localhost:5000/api/v1';
-const COMMAND_CENTRE_API_KEY = process.env.COMMAND_CENTRE_API_KEY ?? '';
 const QUESTION_ACTIONS = new Set(['advice', 'challenge', 'lessons', 'evidence', 'temporal', 'episodic']);
 const NULLARY_ACTIONS = new Set([
   'metrics', 'calibration', 'advisory-health', 'patterns', 'signals', 'timeline', 'proactive',
   'operating-picture', 'wellness', 'strategic', 'forecast', 'daily-brief', 'data-quality',
   'awareness', 'resilience-watch', 'wellness-insights', 'strategic-outlook',
-  'opportunity-review', 'captains-picture', 'products',
+  'opportunity-review', 'captains-picture', 'products', 'loops',
 ]);
-
-function tryHttpBackend(body: object): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const target = new URL(`${COMMAND_CENTRE_API_URL}/advisory`);
-    const payload = JSON.stringify(body);
-    const isHttps = target.protocol === 'https:';
-    const options: https.RequestOptions = {
-      hostname: target.hostname,
-      port: target.port || (isHttps ? 443 : 80),
-      path: target.pathname + target.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-        ...(COMMAND_CENTRE_API_KEY ? { 'X-Api-Key': COMMAND_CENTRE_API_KEY } : {}),
-      },
-      // Allow self-signed certs on the VM's own bare-IP Caddy TLS only - if
-      // COMMAND_CENTRE_API_URL is ever pointed at a real external HTTPS
-      // endpoint, cert validation must stay on (WORKBENCH-REVIEW.md H6,
-      // 2026-07-18: this used to disable verification for any HTTPS target).
-      ...(isHttps && (target.hostname === 'localhost' || target.hostname === '127.0.0.1')
-        ? { agent: new https.Agent({ rejectUnauthorized: false }) }
-        : {}),
-      timeout: 10_000,
-    };
-    const transport = isHttps ? https : require('node:http');
-    const req = (transport.request as typeof https.request)(options, (res) => {
-      if (res.statusCode && res.statusCode >= 400) {
-        reject(new Error(`HTTP backend returned ${res.statusCode}`));
-        return;
-      }
-      let raw = '';
-      res.on('data', (chunk: Buffer) => { raw += chunk; });
-      res.on('end', () => {
-        try {
-          const data = JSON.parse(raw) as Record<string, unknown>;
-          resolve(data.result ?? data);
-        } catch {
-          reject(new Error('Advisory backend returned non-JSON.'));
-        }
-      });
-    });
-    req.on('timeout', () => { req.destroy(); reject(new Error('Advisory backend timeout.')); });
-    req.on('error', reject);
-    req.write(payload);
-    req.end();
-  });
-}
-
-function resolveRepoRoot(): string | null {
-  const candidates = [
-    process.env.USSTJROS_ROOT,
-    path.resolve(process.cwd(), '..'),
-    process.cwd(),
-    path.resolve(process.cwd(), '../..'),
-  ].filter(Boolean) as string[];
-  for (const root of candidates) {
-    if (existsSync(path.join(root, 'core', 'advisory', 'cli.py'))) return root;
-  }
-  return null;
-}
-
-function runCli(root: string, args: string[]): Promise<unknown> {
-  const cli = path.join(root, 'core', 'advisory', 'cli.py');
-  return new Promise((resolve, reject) => {
-    execFile(
-      PY,
-      [cli, ...args],
-      { cwd: root, timeout: TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 },
-      (err, stdout, stderr) => {
-        if (err) {
-          reject(new Error(stderr?.trim() || err.message));
-          return;
-        }
-        try {
-          resolve(JSON.parse(stdout));
-        } catch {
-          reject(new Error('Advisory runtime returned non-JSON output.'));
-        }
-      },
-    );
-  });
-}
 
 export async function POST(req: NextRequest) {
   const session = await requireSession();
@@ -152,6 +63,7 @@ export async function POST(req: NextRequest) {
     const advisoryId = (body.advisoryId ?? '').trim();
     const outcome = (body.outcome ?? '').trim();
     if (!advisoryId || !['success', 'failure', 'partial', 'unknown'].includes(outcome)) {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'failed', workbench: 'advisory', details: { reason: 'invalid_input' } });
       return NextResponse.json(
         { error: 'outcome requires advisoryId and outcome in {success,failure,partial}.' },
         { status: 400 },
@@ -165,15 +77,21 @@ export async function POST(req: NextRequest) {
 
   // 1. Try HTTP backend first.
   try {
-    const result = await tryHttpBackend(body);
+    const result = await tryAdvisoryHttpBackend(body);
+    if (action === 'outcome') {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'success', workbench: 'advisory', recordId: body.advisoryId ?? null, details: { loop_outcome: body.outcome } });
+    }
     return NextResponse.json({ action, result });
   } catch (err) {
     console.debug('[advisory] HTTP backend unavailable, falling back to CLI:', err instanceof Error ? err.message : err);
   }
 
   // 2. Fall back to Python CLI subprocess.
-  const root = resolveRepoRoot();
+  const root = resolveAdvisoryRepoRoot();
   if (!root) {
+    if (action === 'outcome') {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'failed', workbench: 'advisory', recordId: body.advisoryId ?? null, details: { reason: 'backend_unavailable' } });
+    }
     return NextResponse.json(
       { error: 'Advisory backend unavailable. Start the Command Centre or set COMMAND_CENTRE_API_URL.' },
       { status: 503 },
@@ -181,10 +99,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await runCli(root, args);
+    const result = await runAdvisoryCli(root, args);
+    if (action === 'outcome') {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'success', workbench: 'advisory', recordId: body.advisoryId ?? null, details: { loop_outcome: body.outcome } });
+    }
     return NextResponse.json({ action, result });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Advisory runtime failed.';
+    if (action === 'outcome') {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'failed', workbench: 'advisory', recordId: body.advisoryId ?? null, details: { reason: 'cli_error' } });
+    }
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

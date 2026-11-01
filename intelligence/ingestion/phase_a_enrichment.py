@@ -26,12 +26,12 @@ plain save if anything here fails. Design notes:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 
-def source_tier_for(event: Any) -> Optional[int]:
+def source_tier_for(event: Any) -> int | None:
     from intelligence.classification.source_tier import classify_source_tier
     url = getattr(event, "canonical_url", None)
     return classify_source_tier(url) if url else 4
@@ -214,7 +214,7 @@ def enrich_and_save(
         "canonical": 0, "duplicate": 0, "failed": 0,
         "shadow_mode": shadow_mode, "selective_augmentation": selective_augmentation,
     }
-    idx_to_event_id: dict[int, Optional[str]] = {}
+    idx_to_event_id: dict[int, str | None] = {}
 
     # 1) canonicals first
     for cluster in clusters:
@@ -225,12 +225,12 @@ def enrich_and_save(
             pa.update(_score_fields(
                 ev, analyst, shadow_mode=shadow_mode, selective_augmentation=selective_augmentation,
             ))
-        except Exception as exc:  # scoring must never block persistence
+        except Exception as exc:  # scoring must never block persistence  # noqa: BLE001 - explicitly documented above as 'scoring must never block persistence', already logged
             log.warning("Phase A scoring failed for %s: %s", getattr(ev, "raw_title", "")[:60], exc)
         pa.update(_relevance_and_disposition_fields(ev, pa, is_duplicate=False))
         try:
             eid = store.save_event(ev, phase_a=pa)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-event save inside a batch loop — one bad event must not abort the batch; already logged
             log.warning("save_event (canonical) failed: %s", exc)
             eid = None
         idx_to_event_id[ci] = eid
@@ -257,7 +257,7 @@ def enrich_and_save(
                     stats["duplicate"] += 1
                 else:
                     stats["failed"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-event duplicate-save inside a batch loop — one bad event must not abort the batch; already logged + counted in stats['failed']
                 log.warning("save_event (duplicate) failed: %s", exc)
                 stats["failed"] += 1
 

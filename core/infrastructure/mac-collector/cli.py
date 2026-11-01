@@ -29,11 +29,12 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from config import load_config  # noqa: E402
-from db import TrackingDB  # noqa: E402
-from collector import Collector  # noqa: E402
-from path_filters import PathFilter  # noqa: E402
-from manifest_guards import ExtensionFilter, check_hard_stops  # noqa: E402
+from collector import Collector
+from db import TrackingDB
+from manifest_guards import ExtensionFilter, check_hard_stops
+from path_filters import PathFilter
+
+from config import load_config
 
 DEFAULT_CONFIG = _HERE / "config.yaml"
 

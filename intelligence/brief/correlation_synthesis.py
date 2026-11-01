@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Optional, Any
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ def _build_prompt(correlation_data: dict) -> str:
 
 
 def synthesize_correlation_insights(
-    correlation_data: dict, llm_provider: Optional[Any] = None
+    correlation_data: dict, llm_provider: Any | None = None
 ) -> dict:
     """
     Issue 18: Synthesize health-mission correlation numbers into narrative insights.
@@ -105,7 +105,7 @@ def synthesize_correlation_insights(
         try:
             from intelligence.brief.llm_provider import LLMProvider
             llm_provider = LLMProvider()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logged; caller returns a structured error-status dict
             log.error(f"Failed to load LLMProvider: {exc}")
             return {
                 "status": "error",
@@ -132,7 +132,7 @@ def synthesize_correlation_insights(
 
     try:
         raw_response, provider = llm_provider.generate(prompt)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged; caller returns a structured error-status dict
         log.error(f"LLM generation failed: {exc}")
         return {
             "status": "error",
@@ -210,7 +210,11 @@ def display_correlation_brief(synthesis_result: dict) -> str:
             conf = insight.get("confidence", "unknown").upper()
             r = insight.get("r_value", "?")
             n = insight.get("sample_size", "?")
-            lines.append(f"- **{insight.get('dimension')}** [{conf}]: {insight.get('finding')}")
+            # r/n were computed but previously dropped on the floor before
+            # ever reaching the rendered line (ruff F841 caught the dead
+            # assignment) — they belong in the reader-facing evidence for a
+            # correlation finding, so surface them rather than discard them.
+            lines.append(f"- **{insight.get('dimension')}** [{conf}, r={r}, n={n}]: {insight.get('finding')}")
 
     if synthesis_result.get("operational_implications"):
         lines.append("\n### Operational Implications")

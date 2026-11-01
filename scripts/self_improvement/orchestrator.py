@@ -14,15 +14,15 @@ import json
 import logging
 import sys
 import time
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
-from collector import EvidenceCollector
-from router_client import ModelRouterClient
-from policy import PolicyEngine
-from decision_processor import DecisionProcessor
 from auto_remediation import AutoRemediationExecutor
+from collector import EvidenceCollector
+from decision_processor import DecisionProcessor
 from internal_discovery import confidence_to_evidence_strength
+from policy import PolicyEngine
+from router_client import ModelRouterClient
 
 # 3-workbench council follow-up 2026-08-29 (self-improvement-findings):
 # this daily systemd timer (self-improving-system.timer, running since
@@ -33,7 +33,8 @@ from internal_discovery import confidence_to_evidence_strength
 # self-contained (loads its own .env, no dependency on this script's own
 # config), matching every other scheduled job's heartbeat convention.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
-from heartbeat import record_heartbeat  # noqa: E402
+from heartbeat import record_heartbeat
+from notification_service import Severity, notify
 
 log = logging.getLogger("orchestrator")
 _HEARTBEAT_DOMAIN = "self_improvement_cycle"
@@ -127,7 +128,7 @@ class SelfImprovementOrchestrator:
             finding.setdefault("evidence_strength", confidence_to_evidence_strength(finding.get("confidence", 0.0)))
             try:
                 classified_findings.append(self.policy.classify_finding(finding))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-finding classification loop; classify_finding()'s exception surface is unpredictable (policy.py rule evaluation), one bad finding must not abort classifying the rest, already collected into the errors list
                 errors.append({"finding_id": finding.get("finding_id"), "error": str(exc)})
         log.info(f"Classified: {len(classified_findings)} valid, {len(errors)} errors")
         with open(run_dir / "findings_classified.json", "w") as f:
@@ -186,12 +187,64 @@ class SelfImprovementOrchestrator:
         # code-fix commits used git_commit), so every cycle left the tree
         # dirty and FND-001 ("Uncommitted Self-Improvement Cycle Artifacts")
         # kept re-firing and getting skipped rather than actually fixed.
-        commit_sha = self.executor.git_commit(
-            f"self-improvement: cycle {run_id} artifacts"
+        # Scoped to this cycle's own artifact directory — not `-A` — so a
+        # dirty unrelated in-progress edit sitting elsewhere in the tree at
+        # cycle time never gets swept into this commit (confirmed
+        # 2026-09-10: it had been).
+        try:
+            artifacts_path = str(self.data_root.relative_to(self.repo_root))
+        except ValueError:
+            # data_root isn't under repo_root — a legitimate configuration
+            # (e.g. tests deliberately point it at a scratch tmpdir so a
+            # cycle run never touches the real data/self-improvement/ tree).
+            # git_commit's paths= is meant to scope `git add` to this
+            # cycle's own artifacts within the repo working tree; when
+            # there's no such relative path, there's nothing in the repo
+            # for this cycle to commit.
+            artifacts_path = None
+
+        commit_sha = (
+            self.executor.git_commit(
+                f"self-improvement: cycle {run_id} artifacts",
+                paths=[artifacts_path],
+            )
+            if artifacts_path is not None
+            else None
         )
         summary["artifacts_commit_sha"] = commit_sha
         if commit_sha is None:
             log.warning("Cycle artifacts commit failed or had nothing to commit")
+            # USS-TJR-MSN-0377: this refusal was previously silent past a
+            # single log line nobody read -- LL-149's fail-closed
+            # branch-mismatch check (auto_remediation.py's git_commit())
+            # fired on essentially every cycle for ~24h+ with zero
+            # operator-visible signal until a human noticed 64 uncommitted
+            # run directories by hand. A real notification here is the
+            # actual fix for that visibility gap; the branch-mismatch
+            # itself is fixed separately by giving this service its own
+            # dedicated worktree (see run_daily_cycle.sh).
+            try:
+                import subprocess
+                current_branch = subprocess.run(
+                    ["git", "-C", str(self.repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+                    check=True, capture_output=True, text=True,
+                ).stdout.strip()
+                notify(
+                    body=(
+                        f"self-improvement cycle {run_id} did not commit its "
+                        f"artifacts (git_commit() returned None). Checked-out "
+                        f"branch: {current_branch!r} (expected "
+                        f"{self.executor.expected_branch!r}). See "
+                        f"orchestrator.py's run_full_cycle() log for the exact "
+                        f"reason (branch mismatch vs. nothing-to-commit vs. "
+                        f"commit failure)."
+                    ),
+                    title="Self-improvement cycle: artifacts not committed",
+                    severity=Severity.WARNING,
+                    template="alert",
+                )
+            except Exception:
+                log.exception("Failed to send commit-failure notification")
 
         return summary
 

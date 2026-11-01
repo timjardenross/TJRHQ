@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Focused unit tests for the Phase A workflow service + watchlist tracker
 (complements the end-to-end tests/test_telstra_poc.py).

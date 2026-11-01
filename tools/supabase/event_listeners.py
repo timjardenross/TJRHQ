@@ -6,11 +6,10 @@ Date: 2026-06-08
 Purpose: Listen for events (Slack messages, GitHub PRs, Notion updates) and surface relevant context
 """
 
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Callable
-from datetime import datetime
 from abc import ABC, abstractmethod
-import json
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -28,9 +27,9 @@ class Event:
 class ContextSurface:
     """Context surfaced by event."""
     event: Event
-    relevant_documents: List[dict]  # [{'id': '...', 'relevance': 0.85}, ...]
-    recommendations: List[str]
-    action_items: List[str]
+    relevant_documents: list[dict]  # [{'id': '...', 'relevance': 0.85}, ...]
+    recommendations: list[str]
+    action_items: list[str]
     summary: str
 
 
@@ -39,17 +38,15 @@ class EventListener(ABC):
 
     def __init__(self, name: str):
         self.name = name
-        self.handlers: List[Callable] = []
+        self.handlers: list[Callable] = []
 
     @abstractmethod
     def listen(self):
         """Start listening for events."""
-        pass
 
     @abstractmethod
-    def handle_event(self, event: Event) -> Optional[ContextSurface]:
+    def handle_event(self, event: Event) -> ContextSurface | None:
         """Handle incoming event and surface context."""
-        pass
 
     def register_handler(self, handler: Callable):
         """Register callback handler for events."""
@@ -60,7 +57,7 @@ class EventListener(ABC):
         for handler in self.handlers:
             try:
                 handler(event, context)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-handler dispatch inside a notify loop — one bad handler must not block other registered handlers from running; already printed
                 print(f"❌ Handler error: {e}")
 
 
@@ -75,7 +72,7 @@ class SlackEventListener(EventListener):
         """Start listening for Slack events."""
         print(f"🎧 {self.name} started. Listening for Slack messages...")
 
-    def handle_event(self, event: Event) -> Optional[ContextSurface]:
+    def handle_event(self, event: Event) -> ContextSurface | None:
         """Handle Slack message and surface relevant context."""
         if event.source != "slack" or event.event_type != "message_posted":
             return None
@@ -101,7 +98,7 @@ class SlackEventListener(EventListener):
                 "Note: Kafka upgrade deferred to Q4 per DEC-015"
             ],
             action_items=["Tag @Chief-Engineer for infrastructure questions"],
-            summary=f"Relevant to infrastructure planning. 2 related decisions found."
+            summary="Relevant to infrastructure planning. 2 related decisions found."
         )
 
         return context
@@ -118,7 +115,7 @@ class GitHubEventListener(EventListener):
         """Start listening for GitHub events."""
         print(f"🎧 {self.name} started. Listening for GitHub PRs and issues...")
 
-    def handle_event(self, event: Event) -> Optional[ContextSurface]:
+    def handle_event(self, event: Event) -> ContextSurface | None:
         """Handle GitHub event and surface context."""
         if event.source != "github" or event.event_type not in ["pr_opened", "issue_opened"]:
             return None
@@ -156,7 +153,7 @@ class NotionEventListener(EventListener):
         """Start listening for Notion events."""
         print(f"🎧 {self.name} started. Listening for Notion page updates...")
 
-    def handle_event(self, event: Event) -> Optional[ContextSurface]:
+    def handle_event(self, event: Event) -> ContextSurface | None:
         """Handle Notion event and surface context."""
         if event.source != "notion" or event.event_type != "page_updated":
             return None
@@ -183,14 +180,14 @@ class EventDispatcher:
     """Coordinate multiple event listeners."""
 
     def __init__(self):
-        self.listeners: List[EventListener] = []
+        self.listeners: list[EventListener] = []
 
     def register_listener(self, listener: EventListener):
         """Register event listener."""
         self.listeners.append(listener)
         listener.listen()
 
-    def dispatch_event(self, event: Event) -> List[ContextSurface]:
+    def dispatch_event(self, event: Event) -> list[ContextSurface]:
         """Dispatch event to all listeners and collect context."""
         surfaces = []
 
@@ -215,7 +212,7 @@ if __name__ == "__main__":
         source="slack",
         event_type="message_posted",
         event_id="evt_001",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
         actor="captain-tjr",
         payload={"text": "Should we defer the Kafka migration?"}
     )

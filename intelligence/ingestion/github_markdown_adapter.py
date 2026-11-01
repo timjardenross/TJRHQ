@@ -24,10 +24,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
@@ -58,7 +57,7 @@ def _blob_url(path: str) -> str:
 
 def _http_get(url: str, headers: dict, timeout: int) -> tuple[int, bytes]:
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - generic fetch helper; callers only pass this module's own fixed github.com/raw.githubusercontent.com URLs built from hardcoded REPO_OWNER/REPO_NAME constants, not user input - reviewed 2026-09-12
         return resp.status, resp.read()
 
 
@@ -79,7 +78,7 @@ def list_brief_files(lookback_days: int = DEFAULT_LOOKBACK_DAYS,
     """
     api = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/git/trees/main?recursive=1"
     try:
-        status, body = _http_get(api, _UA, timeout)
+        _status, body = _http_get(api, _UA, timeout)
         tree = json.loads(body).get("tree", [])
         prefix = (BRIEF_ROOT + "/") if BRIEF_ROOT else ""
         files = [
@@ -94,7 +93,7 @@ def list_brief_files(lookback_days: int = DEFAULT_LOOKBACK_DAYS,
             log.info("[ORI-GitHub] listed %d briefs under '%s/' via git-tree API",
                      len(files), BRIEF_ROOT)
             return files
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort git-tree API attempt with an explicit date-probing fallback right below, already logged
         log.warning("[ORI-GitHub] git-tree API unavailable (%s) — using date fallback", exc)
 
     # Deterministic-date fallback: probe the last N days at the canonical path.
@@ -107,7 +106,7 @@ def list_brief_files(lookback_days: int = DEFAULT_LOOKBACK_DAYS,
     return files
 
 
-def fetch_brief(path: str, timeout: int = HTTP_TIMEOUT_SECONDS) -> Optional[str]:
+def fetch_brief(path: str, timeout: int = HTTP_TIMEOUT_SECONDS) -> str | None:
     """Return raw markdown for a brief path, or None if not found."""
     try:
         status, body = _http_get(_raw_url(path),
@@ -118,7 +117,7 @@ def fetch_brief(path: str, timeout: int = HTTP_TIMEOUT_SECONDS) -> Optional[str]
         if exc.code == 404:
             return None
         log.warning("[ORI-GitHub] fetch %s -> HTTP %s", path, exc.code)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic GitHub content fetch — caller treats None as 'not found/unavailable'; already logged
         log.warning("[ORI-GitHub] fetch %s failed: %s", path, exc)
     return None
 

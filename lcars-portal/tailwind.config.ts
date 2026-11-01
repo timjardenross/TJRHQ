@@ -1,6 +1,32 @@
 import type { Config } from 'tailwindcss';
 
 /**
+ * Opacity modifiers on token colours (design uplift Stage A2b).
+ *
+ * Every `var(--x)` colour below is rewritten to
+ * `color-mix(in srgb, var(--x) calc(<alpha-value> * 100%), transparent)`.
+ * Tailwind substitutes `<alpha-value>` with the modifier (`bg-wb-crit/10` ->
+ * 0.1) or 1 when there is none, so unmodified classes keep the exact same
+ * colour. Before this, plain `var(--x)` colours could not take a modifier, so
+ * about 437 classes in 104 files (`bg-wb-crit/10`, `border-wb-sage-deep/40`,
+ * `text-wb-ink2/70`, ...) silently generated no CSS. color-mix is already used
+ * by globals.css, so this adds no browser requirement.
+ */
+type ColorTree = { [key: string]: string | ColorTree };
+function withAlpha(tree: ColorTree): ColorTree {
+  const out: ColorTree = {};
+  for (const [key, value] of Object.entries(tree)) {
+    if (typeof value === 'string') {
+      const m = value.match(/^var\((--[a-z0-9-]+)\)$/);
+      out[key] = m ? `color-mix(in srgb, var(${m[1]}) calc(<alpha-value> * 100%), transparent)` : value;
+    } else {
+      out[key] = withAlpha(value);
+    }
+  }
+  return out;
+}
+
+/**
  * LCARS / Starfleet palette.
  *
  * Department colours are the mission-mandated set. Hex values are aligned
@@ -40,7 +66,24 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
+      // Shared text scale (Stage B). Sizes only - no line-height, so each element keeps
+      // the line height it inherits. label 12 (floor), body 14, lead 16, title 18.
+      fontSize: {
+        'wb-label': '12px',
+        'wb-body': '14px',
+        'wb-lead': '16px',
+        'wb-title': '18px',
+      },
+      colors: withAlpha({
+        // TJR family brand palette — fixed values, additive (Stage 0).
+        brand: {
+          navy: 'var(--brand-navy)',
+          slate: 'var(--brand-slate)',
+          sky: 'var(--brand-sky)',
+          sand: 'var(--brand-sand)',
+          mist: 'var(--brand-mist)',
+          deep: 'var(--brand-deep)',
+        },
         // ── Phase B Intelligence Workbench — warm brand palette ────────
         // 2026-08-09: re-pulled from the live TJR Mind & Body site
         // (tjrmindbody.com/about's actual compiled CSS, not guessed) —
@@ -76,6 +119,11 @@ const config: Config = {
           'sage-deep': 'var(--wb-sage-deep)',
           navy:     'var(--wb-navy)',
           gold:     'var(--wb-gold)',
+          // Endeavour 27 (USS-TJR-MSN-0394) — Sand Warm Accent, fills/
+          // borders/decorative only (same rule as gold above); '-deep' is
+          // the text-safe variant on the read-mode light surface.
+          sand:     'var(--wb-sand)',
+          'sand-deep': 'var(--wb-sand-deep)',
           ok:       'var(--wb-ok)',
           warn:     'var(--wb-warn)',
           crit:     'var(--wb-crit)',
@@ -87,6 +135,9 @@ const config: Config = {
           'ok-on':   'var(--wb-ok-on)',
           'warn-on': 'var(--wb-warn-on)',
           'crit-on': 'var(--wb-crit-on)',
+          'ok-fill':   'var(--wb-ok-fill)',
+          'warn-fill': 'var(--wb-warn-fill)',
+          'crit-fill': 'var(--wb-crit-fill)',
           // Gradient endpoint for the escalation "critical incident" banner
           // (white text on top — high contrast preserved at both ends).
           'crit-deep': 'var(--wb-crit-deep)',
@@ -94,12 +145,14 @@ const config: Config = {
         // ── Department colours (mission spec) ──────────────────────────
         // DEFAULT/soft: vivid, for bg fills (bars, icons, pills)
         // on: darker shade, readable as text on the light #dce8f4 background
-        command:     { DEFAULT: '#FFB81C', soft: '#FFD700', on: '#7A4D00' }, // Command Gold
-        engineering: { DEFAULT: '#FF9800', soft: '#FFA726', on: '#8A3C00' }, // Engineering Orange
-        operations:  { DEFAULT: '#F44336', soft: '#FF6E63', on: '#B71C1C' }, // Operations Red
-        medical:     { DEFAULT: '#0099FF', soft: '#4FC3F7', on: '#005299' }, // Medical Blue
-        science:     { DEFAULT: '#CC88FF', soft: '#D9A6FF', on: '#5B2AAA' }, // Science Purple
-        status:      { DEFAULT: '#1B5E20', soft: '#81C784', on: '#1B5E20' }, // Status Green (legacy — see `state` below). DEFAULT re-shaded Phase 1F (was #4CAF50, failed both 3:1 UI-component and 4.5:1 text contrast — reused the already-validated `on` value since `text-status` is used directly as body text throughout the app, not just via `-on`)
+        // Compatibility names retained for old consumers. They now point at
+        // Endeavour semantics instead of restoring rainbow workbench identity.
+        command:     { DEFAULT: 'var(--wb-sand)', soft: 'var(--wb-sand)', on: 'var(--wb-sand-deep)' },
+        engineering: { DEFAULT: 'var(--wb-sage)', soft: 'var(--wb-sage)', on: 'var(--wb-sage-deep)' },
+        operations:  { DEFAULT: 'var(--wb-crit)', soft: 'var(--wb-crit)', on: 'var(--wb-crit-on)' },
+        medical:     { DEFAULT: 'var(--wb-sage)', soft: 'var(--wb-sage)', on: 'var(--wb-sage-deep)' },
+        science:     { DEFAULT: 'var(--wb-sage)', soft: 'var(--wb-sage)', on: 'var(--wb-sage-deep)' },
+        status:      { DEFAULT: 'var(--wb-ok)', soft: 'var(--wb-ok)', on: 'var(--wb-ok-on)' },
 
         // ── Operational state colours (MSN-0315 Phase 1A) ──────────────
         // Independent of department identity colour — per the ratified rule
@@ -110,49 +163,53 @@ const config: Config = {
         // Values below are contrast-validated (>=3:1 DEFAULT, >=4.5:1 "on")
         // against all three live backgrounds; see
         // lcars-portal/docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md.
+        // That validation predates the 5-theme adaptive system (2026-09-05)
+        // and doesn't hold against it: these values are deliberately
+        // theme-invariant (same architecture as wb-ok/wb-warn/wb-crit in
+        // globals.css — status colour communicates status, not atmosphere),
+        // and "on" fails badly as bare text against the midnight theme
+        // specifically (Mission 7 §3.9: 1.4-2.3:1) — no single flat colour
+        // can pass 4.5:1 against both a near-white and a near-black theme
+        // background at once, so this isn't fixable by picking a better
+        // hex. "on" is >=3:1-safe (the DEFAULT/non-text-UI bar) in every
+        // theme, never guaranteed >=4.5:1 as bare text in every theme — see
+        // stateToneClasses()'s own doc comment (lib/departments.ts) for the
+        // mandatory pairing rule this requires of every consumer.
+        // Values live in globals.css (--state-*), so the `on` text shade can
+        // differ per surface (light set vs dark scope) while DEFAULT/soft stay
+        // theme-invariant fills. See the status block in globals.css.
         state: {
-          ok:      { DEFAULT: '#278A44', soft: '#cfe8d5', on: '#1B5E20' }, // Healthy / Operational
-          warn:    { DEFAULT: '#9C5D10', soft: '#f0ddc4', on: '#7A4610' }, // Warning / Attention Required
-          crit:    { DEFAULT: '#C43030', soft: '#f8dcdc', on: '#7A1616' }, // Critical / Action Required
-          unknown: { DEFAULT: '#5A6690', soft: '#dfe2ee', on: '#33395C' }, // Unknown / No Data
-          // Added 2026-08-29 (docs/Severity-Vocab-Canonicalization-Plan-
-          // 2026-08-29.md), merging in Badge's independent 'info' status.
-          // Reuses the exact hex values already shipped as wb-sage/
-          // wb-sage-deep (Badge's current info tone) rather than inventing
-          // a new hue, so this doesn't visually change anything already
-          // rendering — just gives the value a canonical home. DEFAULT
-          // computes to ~4.05:1 against white (passes the >=3:1 bar); on
-          // computes to ~7.85:1 against white (passes the >=4.5:1 bar) —
-          // computed here, not re-run through
-          // docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md's actual
-          // measurement method; re-verify there before treating as final.
-          info:    { DEFAULT: '#2E8B8B', soft: '#d6ebeb', on: '#0F5B5D' }, // Informational / Benign
+          ok:      { DEFAULT: 'var(--state-ok)',      soft: 'var(--state-ok-soft)',      on: 'var(--state-ok-on)' },      // Healthy / Operational
+          warn:    { DEFAULT: 'var(--state-warn)',    soft: 'var(--state-warn-soft)',    on: 'var(--state-warn-on)' },    // Warning / Attention Required
+          crit:    { DEFAULT: 'var(--state-crit)',    soft: 'var(--state-crit-soft)',    on: 'var(--state-crit-on)' },    // Critical / Action Required
+          unknown: { DEFAULT: 'var(--state-unknown)', soft: 'var(--state-unknown-soft)', on: 'var(--state-unknown-on)' }, // Unknown / No Data
+          info:    { DEFAULT: 'var(--state-info)',    soft: 'var(--state-info-soft)',    on: 'var(--state-info-on)' },    // Informational / Benign
         },
 
         // ── LCARS chrome / backgrounds — LCARS light palette ──────────
-        space: '#dce8f4',      // light blue-grey (body)
-        panel: '#eaf1f8',      // lighter panel / card surface
-        'panel-2': '#ccd8ec',  // slightly deeper panel variant
-        edge: '#8aadc4',       // border / separator
+        space: 'var(--legacy-space)',
+        panel: 'var(--legacy-panel)',
+        'panel-2': 'var(--legacy-panel-2)',
+        edge: 'var(--legacy-edge)',
         lcars: {
-          amber: '#FF9966',
-          peach: '#FFCC99',
-          lilac: '#6644CC',    // darkened lilac — readable on light bg
-          ice: '#1A6EA8',      // darkened ice — readable on light bg
-          text: '#0d1f33',     // dark navy text
-          muted: '#3a5a78',    // strengthened blue-grey muted
+          amber: 'var(--wb-sand)',
+          peach: 'var(--wb-sand)',
+          lilac: 'var(--wb-sage-deep)',
+          ice: 'var(--wb-sage)',
+          text: 'var(--legacy-text)',
+          muted: 'var(--legacy-muted)',
           // Chrome tokens for LCARSPanel + departments.ts toneClasses() —
           // promoted from inline hexes (design-audit finding, gate 48).
-          'chrome-border': '#d9e1f0',
-          'chrome-border-soft': '#eef1f8',
-          'chrome-muted': '#61718c',
-          'chrome-text': '#18223a',
-          'chrome-accent': '#243b7a',
+          'chrome-border': 'var(--legacy-edge)',
+          'chrome-border-soft': 'var(--wb-line)',
+          'chrome-muted': 'var(--legacy-muted)',
+          'chrome-text': 'var(--legacy-text)',
+          'chrome-accent': 'var(--legacy-accent)',
         }
-      },
+            }),
       fontFamily: {
-        sans:  ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        mono:  ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        sans:  ['var(--font-sans)', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        mono:  ['var(--font-mono)', 'ui-monospace', 'monospace'],
         // TJR Design System — locked serif for wb.* headings (Card/Shell titles).
         // Loaded via next/font/google in src/app/layout.tsx as --font-serif.
         serif: ['var(--font-serif)', 'ui-serif', 'Georgia', 'serif'],

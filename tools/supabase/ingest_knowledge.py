@@ -7,8 +7,8 @@ import argparse
 import hashlib
 import re
 import sys as _sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 if str(Path(__file__).resolve().parent) not in _sys.path:
     _sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -27,7 +27,7 @@ try:
     if str(ROOT) not in _sys.path:
         _sys.path.insert(0, str(ROOT))
     from core.knowledge.docling_processor import extract_document as _docling_extract
-except Exception:
+except Exception:  # noqa: BLE001 - optional docling extraction import — module docstring above documents the raw-read_text fallback used when this is None
     _docling_extract = None  # type: ignore[assignment]
 DEFAULT_PATHS = [
     "core/governance/architecture-decision-records",
@@ -61,9 +61,9 @@ def document_type(path: Path) -> str:
         return "ADR"
     if "/architecture/" in f"/{relative}" or relative.startswith("core/architecture"):
         return "Architecture"
-    if relative.startswith("specialists/") or relative.startswith("core/crew"):
+    if relative.startswith(("specialists/", "core/crew")):
         return "Crew"
-    if relative.startswith("Missions/") or relative.startswith("missions/"):
+    if relative.startswith(("Missions/", "missions/")):
         return "Mission"
     if "capabilit" in relative.lower():
         return "Capability"
@@ -204,10 +204,10 @@ def ingest(paths: list[str], dry_run: bool) -> None:
             publish_event(
                 "knowledge.document_ingested", domain="knowledge",
                 source="ingest-knowledge", linked_documents=[document["id"]],
-                recommended_action=relative,
+                description=relative,
             )
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block a successful ingest
+            print(f"[ingest_knowledge] Failed to publish document_ingested event: {exc}", file=_sys.stderr)
 
 
 def main() -> None:

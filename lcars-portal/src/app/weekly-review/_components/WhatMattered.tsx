@@ -13,13 +13,13 @@ const DOT_CLASS: Record<MatteredItem['tone'], string> = {
 export function WhatMattered({ items }: { items: MatteredItem[] }) {
   return (
     <Card>
-      <h2 className="mb-3 font-serif text-[15px] uppercase tracking-[0.1em] text-wb-ink">What Mattered</h2>
+      <h2 className="mb-3 font-serif text-wb-lead uppercase tracking-[0.1em] text-wb-ink">What Mattered</h2>
       {items.length === 0 ? (
-        <p className="text-[13px] text-wb-ink2">Nothing crossed the bar this week.</p>
+        <p className="text-wb-body text-wb-ink2">Nothing crossed the bar this week.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
-            <li key={item.key} className="flex items-start gap-2 text-[13px]">
+            <li key={item.key} className="flex items-start gap-2 text-wb-body">
               <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${DOT_CLASS[item.tone]}`} />
               <span>
                 <span className="font-medium text-wb-ink">

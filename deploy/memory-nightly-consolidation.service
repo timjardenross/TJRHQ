@@ -1,0 +1,16 @@
+[Unit]
+# Reflection/consolidation pattern (Generative-Agents-style write-back):
+# reads recent conversation_turns (Stream 2) + Command Memory (`decisions`),
+# distils each into standalone facts via an LLM, and writes them into
+# Graphiti through core/platform/unified_memory.py's remember() — the
+# RELATIONSHIPS write path added alongside this job (memory_graph.add_fact()).
+# See scripts/memory/nightly_consolidation.py's own docstring for the
+# no-dedup limitation on the Command Memory side.
+Description=Nightly memory consolidation into Graphiti (USS-TJR-MSN-0378 Stream 5)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m scripts.memory.nightly_consolidation >> /opt/starship-endeavour/outputs/memory_nightly_consolidation.log 2>&1'

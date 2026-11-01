@@ -76,14 +76,14 @@ def assemble_learning_brief(ctx: Any = None) -> LearningBrief:
         candidates = get_lesson_candidates(limit=50, pending_only=True)
         brief.lesson_candidates_pending = len(candidates)
         brief.lessons_generated = len([c for c in candidates if c.confidence >= 0.6])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - lesson-candidates section, best-effort brief assembly, already logged
         log.debug("[learning.brief] Lessons section failed: %s", exc)
 
     # Patterns
     try:
         from lib.learning.patterns import detect_patterns
         brief.patterns = detect_patterns(lookback_days=30)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - patterns section, best-effort brief assembly, already logged
         log.debug("[learning.brief] Patterns section failed: %s", exc)
 
     # Cross-domain opportunities
@@ -91,14 +91,14 @@ def assemble_learning_brief(ctx: Any = None) -> LearningBrief:
         if ctx is not None:
             from lib.learning.cross_domain import detect_cross_domain_opportunities
             brief.cross_domain_opportunities = detect_cross_domain_opportunities(ctx)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - cross-domain section, best-effort brief assembly, already logged
         log.debug("[learning.brief] Cross-domain section failed: %s", exc)
 
     # Knowledge quality
     try:
         from lib.learning.knowledge_quality import compute_knowledge_quality
         brief.knowledge_quality = compute_knowledge_quality()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - knowledge-quality section, best-effort brief assembly, already logged
         log.debug("[learning.brief] Knowledge quality section failed: %s", exc)
 
     # Collaboration + decision-quality signals from ctx
@@ -106,8 +106,8 @@ def assemble_learning_brief(ctx: Any = None) -> LearningBrief:
         if ctx is not None:
             brief.collaborative_investigations = int(getattr(ctx, "collaborative_investigations", 0) or 0)
             brief.high_confidence_findings = len(getattr(ctx, "high_confidence_findings", []) or [])
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - collaboration signals section, best-effort brief assembly, already logged
+        log.debug("[lib.learning.learning_brief] best-effort step failed, continuing: %s", _exc)
 
     # Decision-quality insight
     brief.decision_quality_note = _decision_quality_note(brief)

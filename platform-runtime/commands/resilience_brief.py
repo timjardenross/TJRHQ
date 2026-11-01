@@ -21,10 +21,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ _RISK_EMOJI = {"RED": "🔴", "AMBER": "🟡", "GREEN": "🟢", "UNKNOWN": "⚪"
 _STATUS_EMOJI = {"LIVE": "🟢", "CACHED": "🟡", "STALE": "🟠", "PARTIAL": "🟡", "FAILED": "🔴"}
 
 
-def _auth_headers(extra: dict = None) -> dict:
+def _auth_headers(extra: dict | None = None) -> dict:
     """Base headers + backend API key (Mission 7 — backend requires X-Api-Key)."""
     headers = {"Accept": "application/json", "User-Agent": "USS-TJR-Slack-Bot/1.0"}
     if extra:
@@ -53,7 +52,7 @@ def _get(path: str) -> dict:
         headers=_auth_headers(),
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # nosec B310 - url is API_BASE (COMMAND_CENTRE_API env var, internal router) plus a fixed literal path from this file's own call sites, not user input - reviewed 2026-09-12
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"API HTTP {exc.code}: {exc.reason}") from exc
@@ -61,7 +60,7 @@ def _get(path: str) -> dict:
         raise RuntimeError(f"API unavailable ({exc})") from exc
 
 
-def _post(path: str, payload: dict = None) -> dict:
+def _post(path: str, payload: dict | None = None) -> dict:
     url = f"{API_BASE}{path}"
     body = json.dumps(payload or {}).encode()
     req = urllib.request.Request(
@@ -70,7 +69,7 @@ def _post(path: str, payload: dict = None) -> dict:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # nosec B310 - url is API_BASE (COMMAND_CENTRE_API env var, internal router) plus a fixed literal path from this file's own call sites, not user input - reviewed 2026-09-12
             return json.loads(resp.read())
     except Exception as exc:
         raise RuntimeError(f"API call failed ({exc})") from exc
@@ -98,7 +97,7 @@ def _fmtdate(iso: str) -> str:
     try:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
         return dt.strftime("%-d %b %Y, %H:%M AEST")
-    except Exception:
+    except ValueError:
         return iso[:16]
 
 
@@ -223,7 +222,7 @@ def format_brief(data: dict) -> list[dict]:
 
     blocks.append(_context(
         "OR Intelligence Agent · Starship Endeavour NCC-170230",
-        f"View full brief: <http://localhost:8080/or-intelligence.html|OR Intelligence Cockpit>",
+        "View full brief: <http://localhost:8080/or-intelligence.html|OR Intelligence Cockpit>",
     ))
 
     return blocks
@@ -314,6 +313,6 @@ def handle_resilience_brief(text: str, respond) -> None:
                 "View full cockpit: http://localhost:8080/or-intelligence.html"
             )
         )
-    except Exception as exc:
-        log.error("[resilience-brief] Unexpected error: %s", exc, exc_info=True)
-        respond(text=f":warning: OR Intelligence Brief — unexpected error. Check runtime logs.")
+    except Exception:
+        log.exception("[resilience-brief] Unexpected error")
+        respond(text=":warning: OR Intelligence Brief — unexpected error. Check runtime logs.")

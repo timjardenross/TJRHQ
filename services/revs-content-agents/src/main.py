@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import json
 import time
@@ -71,7 +72,7 @@ def generate(brief_path: str, output_dir: Path, formats: list[str] | None = None
             result = agent.generate(brief, version_dir)
             result["status"] = "success"
             log.info(f"{brief.concept_id}: {name} done in {round(time.time() - agent_started, 2)}s")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-agent generate() call; each content-format agent (article/video/podcast/etc.) has its own unpredictable exception surface, one agent's failure must not abort the others, recorded as a structured failed result
             result = {"format": agent.format_name, "status": "failed", "error": str(exc)}
             log.error(f"{brief.concept_id}: {name} failed: {exc}")
         result["duration_seconds"] = round(time.time() - agent_started, 2)
@@ -133,7 +134,7 @@ def main() -> None:
                 path = futures[future]
                 try:
                     results.append(future.result())
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - future.result() re-raises whatever the per-brief generate() call raised, an unpredictable surface across brief-level pipelines; already logged, one brief's failure must not abort the batch
                     log.error(f"{path}: brief-level failure: {exc}")
 
     for manifest in results:

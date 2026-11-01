@@ -37,7 +37,7 @@ Public API:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Thresholds — named constants so each rule below reads as a sentence and a
@@ -237,13 +237,13 @@ def _split_halves(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     return ordered[:mid], ordered[mid:]
 
 
-def _rate(rows: list[dict], predicate) -> Optional[float]:
+def _rate(rows: list[dict], predicate) -> float | None:
     if not rows:
         return None
     return sum(1 for r in rows if predicate(r)) / len(rows)
 
 
-def _ef_ordinal_avg(rows: list[dict]) -> Optional[float]:
+def _ef_ordinal_avg(rows: list[dict]) -> float | None:
     vals = [EF_ORDINAL[r["executive_function"]] for r in rows if r.get("executive_function") in EF_ORDINAL]
     if not vals:
         return None
@@ -261,7 +261,7 @@ def _is_elevated_recovery_duration(value: Any) -> bool:
 def compute_burnout_trajectory(
     checkins: list[dict],
     window_days: int = 21,
-    today_posture: Optional[str] = None,
+    today_posture: str | None = None,
 ) -> dict:
     """Derive a `burnout_profile` row from a window of `capacity_checkins`
     rows.

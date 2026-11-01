@@ -8,6 +8,6 @@ produced and persisted, and hand it to the brief composer.
 
 from __future__ import annotations
 
-from . import ori, knowledge
+from . import knowledge, ori
 
-__all__ = ["ori", "knowledge"]
+__all__ = ["knowledge", "ori"]

@@ -7,17 +7,22 @@ the platform (mirrors tools/supabase/client.py conventions).
 import json
 import logging
 import os
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from intelligence.config import SUPABASE_URL, SUPABASE_KEY
-from intelligence.models import (
-    ClassifiedEvent, RankedEvent, ResilienceBrief,
-    SourceRecord, SourceHealth
-)
 from core.platform.priority_engine import PriorityInputs, PriorityScore, score_event
+
+if TYPE_CHECKING:
+    from core.llm.provider_chain import LLMCallResult
+from intelligence.config import SUPABASE_KEY, SUPABASE_URL
+from intelligence.models import (
+    RankedEvent,
+    ResilienceBrief,
+    SourceHealth,
+    SourceRecord,
+)
 
 # Mirrors AttentionThresholds.delayed_importance_floor (default 40). Events
 # below this land in NEVER_INTERRUPT or SHOULD_SIMPLY_BE_REMEMBERED and carry
@@ -38,7 +43,7 @@ def _headers() -> dict:
     }
 
 
-def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optional[dict]:
+def _post(table: str, payload: dict, on_conflict: str | None = None) -> dict | None:
     if not SUPABASE_URL or not SUPABASE_KEY:
         log.warning("Supabase not configured — skipping persist for %s", table)
         return None
@@ -53,7 +58,7 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             result = json.loads(resp.read())
             return result[0] if isinstance(result, list) else result
     except urllib.error.HTTPError as exc:
@@ -64,7 +69,7 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
         detail = exc.read().decode("utf-8", errors="replace")
         log.error("Supabase insert failed (%s): HTTP %s: %s", table, exc.code, detail)
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase insert wrapper — caller sees None and handles it; every failure mode (network, timeout, bad payload) is already logged
         log.error("Supabase insert failed (%s): %s", table, exc)
         return None
 
@@ -84,10 +89,10 @@ def patch_row(table: str, match: str, payload: dict) -> dict:
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="PATCH")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             result = json.loads(resp.read())
             return result[0] if isinstance(result, list) and result else (result or {})
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase patch wrapper — caller sees {} and handles it; already logged
         log.error("Supabase patch failed (%s): %s", table, exc)
         return {}
 
@@ -106,8 +111,8 @@ def _publish_core_event(event_type: str, **kwargs) -> None:
             sys.path.insert(0, str(repo_root))
         from core.platform.event_bus import publish_event
         publish_event(event_type, domain="operational-resilience-intelligence", source="intelligence_store", **kwargs)
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block the underlying persistence operation
+        log.debug("[intelligence_store] Failed to publish %s event: %s", event_type, exc)
 
 
 # Part 2 of the 2026-08-09 Telegram usefulness + outage-alerts design
@@ -383,7 +388,7 @@ def _blast_radius_llm_prompt(event: RankedEvent) -> str:
     )
 
 
-def _parse_blast_radius_answer(raw: Optional[str]) -> Optional[bool]:
+def _parse_blast_radius_answer(raw: str | None) -> bool | None:
     """Strict parse of the required 'ANSWER: yes|no' line. Returns None
     (treated as a provider failure by the caller, same as a transport error)
     if the model didn't follow the format."""
@@ -402,11 +407,12 @@ def _parse_blast_radius_answer(raw: Optional[str]) -> Optional[bool]:
 
 def _call_blast_radius_llm(
     event: RankedEvent,
-) -> tuple[Optional[bool], Optional[str], Optional[str]]:
+) -> tuple[bool | None, str | None, str | None, "LLMCallResult | None"]:
     """Try the shared provider chain in order -- same fail-through pattern as
     core/platform/infra_narrative.py's _generate(). Returns
-    (is_broad_or_None, provider_name_or_None, raw_response_or_None). Never
-    raises; a total failure returns (None, None, None)."""
+    (is_broad_or_None, provider_name_or_None, raw_response_or_None,
+    usage_or_None). Never raises; a total failure returns
+    (None, None, None, None)."""
     from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
     prompt = _blast_radius_llm_prompt(event)
@@ -425,20 +431,20 @@ def _call_blast_radius_llm(
     ]
     for name, fn in providers:
         try:
-            raw = fn(prompt)
-            answer = _parse_blast_radius_answer(raw)
+            result = fn(prompt)
+            answer = _parse_blast_radius_answer(result.text)
             if answer is not None:
-                return answer, name, raw
+                return answer, name, result.text, result
             log.warning(
                 "[outage-alert] blast-radius LLM (%s) returned unparseable output: %r",
-                name, raw,
+                name, result.text,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider blast-radius LLM attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[outage-alert] blast-radius LLM provider %s failed: %s", name, exc)
-    return None, None, None
+    return None, None, None, None
 
 
-def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> bool:
+def _passes_blast_radius_check(event: RankedEvent, event_id: str | None) -> bool:
     """5th and final push-alert guard. See the dated comment above
     _BLAST_RADIUS_TASK_TYPE for full rationale, including why total LLM
     failure fails OPEN (allows the push through) rather than suppressing.
@@ -457,7 +463,7 @@ def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> b
     try:
         from intelligence.governance.llm_cost_governance import LLMCostGovernance
         cost_governor = LLMCostGovernance()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort cost-governor init, explicitly logged as 'proceeding ungoverned' — a governance-optional degrade path, not a silent swallow
         log.warning("[outage-alert] cost governor unavailable, proceeding ungoverned: %s", exc)
 
     if cost_governor is not None:
@@ -471,13 +477,16 @@ def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> b
             return True
 
     start = _time.monotonic()
-    is_broad, provider, raw = _call_blast_radius_llm(event)
+    is_broad, provider, raw, usage = _call_blast_radius_llm(event)
     latency_ms = int((_time.monotonic() - start) * 1000)
 
     if cost_governor is not None:
         cost_governor.log_call(
             task_type=_BLAST_RADIUS_TASK_TYPE,
             provider=provider or "unknown",
+            model_name=usage.model if usage else None,
+            input_tokens=usage.input_tokens if usage else None,
+            output_tokens=usage.output_tokens if usage else None,
             latency_ms=latency_ms,
             success=is_broad is not None,
             failure_reason=None if is_broad is not None else "all_providers_failed_or_unparseable",
@@ -502,7 +511,7 @@ def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> b
     return is_broad
 
 
-def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> None:
+def _maybe_push_outage_alert(event: RankedEvent, event_id: str | None) -> None:
     """Push a Telegram alert for a newly-saved event that crosses the
     outage-severity threshold above.
 
@@ -569,7 +578,7 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
         repo_root = Path(__file__).resolve().parents[2]
         if str(repo_root) not in sys.path:
             sys.path.insert(0, str(repo_root))
-        from core.platform.notification_service import notify, Severity, Transport
+        from core.platform.notification_service import Severity, Transport, notify
 
         ref = event.canonical_url or (f"event_id={event_id}" if event_id else "no reference available")
         body = (
@@ -585,11 +594,11 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
             transport=Transport.TELEGRAM,
         )
         _log_outage_alert_fired(event, event_id, result)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort outage-alert push check, already logged with the event id
         log.warning("[outage-alert] push check failed for event %s: %s", event_id, exc)
 
 
-def _log_outage_alert_fired(event: RankedEvent, event_id: Optional[str], result) -> None:
+def _log_outage_alert_fired(event: RankedEvent, event_id: str | None, result) -> None:
     """Durable record of this push firing (2026-08-10 fix, XO product review
     of this feature's first night, finding #5): notification_service.notify()'s
     only bookkeeping is an in-process `_CALL_LOG` list (core/platform/
@@ -634,7 +643,7 @@ def _log_outage_alert_fired(event: RankedEvent, event_id: Optional[str], result)
                 "error": result.error,
             },
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort audit log write, explicitly logged as non-blocking
         log.warning(
             "[outage-alert] audit log write failed (non-blocking) for event %s: %s",
             event_id, exc,
@@ -647,9 +656,9 @@ def _get(path: str) -> list:
     url = f"{SUPABASE_URL}/rest/v1/{path}"
     req = urllib.request.Request(url, headers=_headers(), method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase query wrapper — caller sees [] and handles it; already logged
         log.error("Supabase query failed (%s): %s", path, exc)
         return []
 
@@ -664,7 +673,7 @@ def _get_strict(path: str, timeout: int = 10) -> list:
         raise RuntimeError("Supabase not configured (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY unset)")
     url = f"{SUPABASE_URL}/rest/v1/{path}"
     req = urllib.request.Request(url, headers=_headers(), method="GET")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
         return json.loads(resp.read())
 
 
@@ -750,8 +759,8 @@ def get_source_reliability_scores() -> list[dict]:
 
 # ─── Source Health ────────────────────────────────────────────────────────────
 
-def save_source_health(health: SourceHealth) -> None:
-    _post("intelligence_source_health", {
+def _source_health_row(health: SourceHealth) -> dict:
+    return {
         "source_id": health.source_id,
         "checked_at": health.checked_at.isoformat(),
         "status": health.status,
@@ -761,12 +770,55 @@ def save_source_health(health: SourceHealth) -> None:
         "http_status": health.http_status,
         "content_valid": health.content_valid,
         "content_validity_reason": health.content_validity_reason,
-    })
+    }
+
+
+def save_source_health_batch(healths: list[SourceHealth]) -> None:
+    """save_source_health() for a whole collection run: one array insert
+    (return=minimal) instead of one POST per source that also downloaded the
+    inserted row (~770 requests/day, usage review 2026-09-27). Failed sources
+    still each publish their intelligence.source.failed core event."""
+    if not healths:
+        return
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        log.warning("Supabase not configured — skipping persist for intelligence_source_health")
+    else:
+        headers = _headers()
+        headers["Prefer"] = "return=minimal"
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/intelligence_source_health",
+            data=json.dumps([_source_health_row(h) for h in healths]).encode(),
+            headers=headers, method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
+                pass
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            log.error("Supabase insert failed (intelligence_source_health x%d): HTTP %s: %s", len(healths), exc.code, detail)
+        except Exception as exc:  # noqa: BLE001 - generic Supabase insert wrapper — failure is logged; source-health persistence is non-blocking for collection
+            log.error("Supabase insert failed (intelligence_source_health x%d): %s", len(healths), exc)
+    for health in healths:
+        _publish_source_failure(health)
+
+
+def save_source_health(health: SourceHealth) -> None:
+    _post("intelligence_source_health", _source_health_row(health))
+    _publish_source_failure(health)
+
+
+def _publish_source_failure(health: SourceHealth) -> None:
     if health.status == "failed":
         _publish_core_event(
             "intelligence.source.failed",
             linked_entities=[health.source_id],
-            recommended_action=health.error_message,
+            # Signal-leakage fix: a collection failure's raw exception
+            # message is an observation of what happened, not a recommended
+            # action — it goes in `description`, not `recommended_action`
+            # (see migration 0218). Fabricating a "recommendation" out of a
+            # scraper error is exactly the leakage the Briefs/Captain's Brief
+            # consolidation mission calls out.
+            description=health.error_message,
         )
 
 
@@ -797,6 +849,65 @@ def event_canonical_url_exists(canonical_url: str) -> bool:
     encoded = urllib.parse.quote(canonical_url, safe="")
     rows = _get(f"intelligence_events?canonical_url=eq.{encoded}&limit=1")
     return len(rows) > 0
+
+
+def _in_filter_value(values: list[str]) -> str:
+    """PostgREST `in.(...)` operand: each value double-quoted (so commas/
+    parens in URLs are literal), then the whole thing URL-encoded."""
+    import urllib.parse
+    quoted = ",".join('"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"' for v in values)
+    return urllib.parse.quote(f"({quoted})", safe="")
+
+
+def _existing_values(column: str, values: list[str], max_query_chars: int = 6000) -> set[str]:
+    """Which of `values` already exist in intelligence_events.<column>, in as
+    few GETs as fit under a safe URL length. A failed chunk counts as "none
+    exist" — the same fail-open the per-item checks had (and save_event's
+    on_conflict=dedup_hash upsert still backstops hash duplicates)."""
+    found: set[str] = set()
+    chunk: list[str] = []
+    for value in dict.fromkeys(values):
+        chunk.append(value)
+        if len(_in_filter_value(chunk)) > max_query_chars and len(chunk) > 1:
+            chunk.pop()
+            found.update(_existing_chunk(column, chunk))
+            chunk = [value]
+    if chunk:
+        found.update(_existing_chunk(column, chunk))
+    return found
+
+
+def _existing_chunk(column: str, chunk: list[str]) -> set[str]:
+    rows = _get(f"intelligence_events?select={column}&{column}=in.{_in_filter_value(chunk)}")
+    return {r[column] for r in rows if r.get(column)}
+
+
+def filter_unpersisted_events(events: list) -> list:
+    """Drop events already persisted by a previous run (same dedup_hash, or
+    same canonical_url from another source; title+date when there's no URL).
+
+    Replaces calling event_hash_exists()/event_canonical_url_exists() per
+    event — 1-2 GETs per collected item, ~10k requests/day and the largest
+    remaining source of Supabase API/log volume (usage review 2026-09-27) —
+    with batched `in.(...)` lookups that select only the key column.
+    Callers still do their own in-run dedup first; order is preserved."""
+    if not events:
+        return events
+    known_hashes = _existing_values("dedup_hash", [e.dedup_hash for e in events if e.dedup_hash])
+    known_urls = _existing_values("canonical_url", [e.canonical_url for e in events if e.canonical_url])
+    fresh = []
+    for event in events:
+        if event.dedup_hash in known_hashes:
+            continue
+        if event.canonical_url and event.canonical_url in known_urls:
+            continue
+        if not event.canonical_url and event.published_at:
+            from intelligence.classification.deduplicator import _normalise
+            date_str = event.published_at.strftime("%Y-%m-%d")
+            if event_title_date_exists(_normalise(event.raw_title), date_str):
+                continue
+        fresh.append(event)
+    return fresh
 
 
 def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
@@ -919,7 +1030,7 @@ def _derive_attention_importance(event: RankedEvent) -> int:
     return 15
 
 
-def _priority_score_for_event(event: RankedEvent, attention_importance: int) -> Optional[PriorityScore]:
+def _priority_score_for_event(event: RankedEvent, attention_importance: int) -> PriorityScore | None:
     """Score one ranked event through the Priority Engine if it clears the
     CAN_BE_DELAYED attention floor.
 
@@ -954,8 +1065,8 @@ def _priority_score_for_event(event: RankedEvent, attention_importance: int) -> 
     return score_event(inputs)
 
 
-def save_event(event: RankedEvent, ori: Optional[dict] = None,
-               phase_a: Optional[dict] = None) -> Optional[str]:
+def save_event(event: RankedEvent, ori: dict | None = None,
+               phase_a: dict | None = None) -> str | None:
     """Persist a ranked event. Returns event_id or None on failure.
 
     `ori` optionally supplies the WP4 enrichment columns for digest-sourced
@@ -1036,7 +1147,7 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
         # orchestrator, LCARS, Telegram dispatch) can read it without a
         # separate query. Non-blocking: a scoring failure never affects
         # intelligence_events persistence.
-        priority_score: Optional[PriorityScore] = None
+        priority_score: PriorityScore | None = None
         try:
             priority_score = _priority_score_for_event(event, attention_importance)
             if priority_score is not None:
@@ -1047,7 +1158,7 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
                     priority_score.total_score,
                     priority_score.explanation,
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort priority scoring, explicitly logged as non-blocking
             log.warning(
                 "[priority-engine] scoring failed for event_type=%s (non-blocking): %s",
                 event.event_type,
@@ -1080,13 +1191,17 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
             confidence=round(row["confidence"] * 100),
             relevance=round(row["operational_relevance"] * 100),
             linked_entities=[event_id] if event_id else [],
-            # USS-TJR-MSN-0339 WP2: without this, a dispatched INTERRUPT_NOW
-            # push had no readable content — the Attention Engine's own
-            # `reason` field is a scoring formula ("importance=X >= Y AND
-            # confidence=Z >= W"), not what actually happened. This is the
-            # same real title WP1 already validated as genuine content, not
-            # new judgment about the signal's meaning.
-            recommended_action=row["raw_title"],
+            # USS-TJR-MSN-0339 WP2 / Briefs consolidation signal-leakage fix:
+            # without this, a dispatched INTERRUPT_NOW push had no readable
+            # content — the Attention Engine's own `reason` field is a
+            # scoring formula ("importance=X >= Y AND confidence=Z >= W"),
+            # not what actually happened. The real title is genuine content,
+            # not new judgment about the signal's meaning — but it is an
+            # observation (a headline), not a recommended action, so it goes
+            # in `description`; `recommended_action` stays unset here rather
+            # than being fabricated from raw signal text (interrupt_dispatcher.py
+            # falls back to `description` when no real recommendation exists).
+            description=row["raw_title"],
             metrics=metrics or None,
         )
         _maybe_push_outage_alert(event, event_id)
@@ -1107,7 +1222,7 @@ def document_version_exists(file_path: str, content_sha: str) -> bool:
     return len(rows) > 0
 
 
-def save_source_document(doc: dict) -> Optional[str]:
+def save_source_document(doc: dict) -> str | None:
     """Persist a raw brief document. Returns document_id or None on failure.
 
     Expects keys: source_id, file_name, file_path, blob_url, brief_date,
@@ -1134,9 +1249,9 @@ def link_events_to_brief(event_ids: list[str], brief_id: str) -> None:
         body = json.dumps({"brief_id": brief_id}).encode()
         req = urllib.request.Request(url, data=body, headers=headers, method="PATCH")
         try:
-            with urllib.request.urlopen(req, timeout=10):
+            with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
                 pass
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort event-to-brief linking, already logged with both ids
             log.warning("Could not link event %s to brief %s: %s", eid, brief_id, exc)
 
 
@@ -1148,7 +1263,7 @@ def load_recent_events(days: int = 14, limit: int = 200) -> list[dict]:
     score decayed with a 3-day half-life, so genuinely fresh events can
     outrank older-but-higher-scored ones without discarding real severity —
     a 0.98 from yesterday still beats a 0.50 from an hour ago."""
-    from datetime import timezone, timedelta
+    from datetime import timedelta, timezone
     from math import exp
 
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
@@ -1185,7 +1300,7 @@ def load_recent_events(days: int = 14, limit: int = 200) -> list[dict]:
 
 # ─── Briefs ───────────────────────────────────────────────────────────────────
 
-def save_brief(brief: ResilienceBrief) -> Optional[str]:
+def save_brief(brief: ResilienceBrief) -> str | None:
     """Persist a ResilienceBrief. Returns brief_id or None on failure."""
     import dataclasses
 
@@ -1280,7 +1395,7 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
     return None
 
 
-def load_latest_brief() -> Optional[dict]:
+def load_latest_brief() -> dict | None:
     rows = _get("intelligence_briefs?order=generated_at.desc&limit=1")
     return rows[0] if rows else None
 
@@ -1308,7 +1423,7 @@ def load_brief_archive(limit: int = 20, offset: int = 0) -> list[dict]:
 # (reads history, writes the recomputed per-source threshold nightly).
 
 def save_downdetector_observation(
-    source_name: str, sector: str, status: str, report_count: Optional[int],
+    source_name: str, sector: str, status: str, report_count: int | None,
 ) -> None:
     """Log one real Downdetector fetch's parsed (status, report_count) —
     called from DowndetectorAdapter.collect() on EVERY real fetch, not just
@@ -1349,9 +1464,9 @@ def save_downdetector_threshold(
     sector: str,
     threshold_value: int,
     threshold_source: str,
-    reasoning: Optional[str],
+    reasoning: str | None,
     history_days_used: int,
-    llm_provider: Optional[str] = None,
+    llm_provider: str | None = None,
 ) -> None:
     """Upsert the current threshold in force for one source. threshold_source
     always records HOW this value was reached (bootstrap vs. LLM-learned vs.

@@ -12,7 +12,7 @@ Red-flag escalation always overrides a routine push.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime, timezone
 from statistics import mean
 
 from . import framework, safety
@@ -20,7 +20,7 @@ from . import framework, safety
 
 def _pick(*variants: str) -> str:
     """Return a variant deterministically by day — cycles through all, no repeat within len(variants) days."""
-    return variants[date.today().toordinal() % len(variants)]
+    return variants[datetime.now(timezone.utc).date().toordinal() % len(variants)]
 
 
 @dataclass
@@ -74,7 +74,7 @@ def morning_readiness_pulse(today_row: dict | None, *, recommendation: str | Non
     domain_line = " · ".join(f"{d.label} {d.band}" for d in snap.domains)
     if not snap.data_available:
         body = (
-            "No check-in logged yet. A quick `/health-check` would let the system "
+            "No check-in logged yet. A quick `/capacity` would let the system "
             "calibrate today's plan. In the meantime, consider an easy start."
         )
         oclass = "information"
@@ -175,13 +175,13 @@ def midday_capacity_check(today_row: dict | None) -> PushMessage:
     snap = framework.interpret_capacity(today_row)
     if not snap.data_available:
         body = _pick(
-            "No morning check-in logged. A `/health-check` now would give the "
+            "No morning check-in logged. A `/capacity` now would give the "
             "afternoon a calibrated baseline — even a rough one is useful.",
-            "No baseline logged yet. A quick `/health-check` takes under a minute "
+            "No baseline logged yet. A quick `/capacity` takes under a minute "
             "and helps the system understand how today is tracking.",
             "Without a morning pulse, the afternoon runs on instinct rather than data. "
             "A check-in now is still worth doing.",
-            "Midday checkpoint. No telemetry logged today — a `/health-check` now "
+            "Midday checkpoint. No telemetry logged today — a `/capacity` now "
             "would at least anchor the second half.",
             "The midpoint of the day is a useful recalibration window even without data. "
             "How does your energy feel compared to this morning?",

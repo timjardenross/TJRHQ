@@ -21,12 +21,28 @@ emitter per MSN-0210 §21, not part of this build.
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 _VALID_STATUSES = {"new", "acknowledged", "acted_on", "dismissed", "superseded"}
+
+# Narrow column list for callers that feed assemble_captain_brief_document()
+# (attention_engine/priority/interrupt_dispatcher — verified to read only
+# these fields, never the linked_entities/linked_missions/linked_documents
+# jsonb arrays). Shared here, rather than each call site inlining its own
+# copy, so the one list that's actually been verified against those readers
+# doesn't drift into N slightly-different guesses. Do NOT reuse this for a
+# caller that feeds assemble_evolved_captain_brief() / build_understanding()
+# — that path reads the jsonb linked_* columns this list omits and needs
+# columns="*" (Supabase usage investigation, 2026-09-20: this omission was
+# the single largest identified source of the org's egress overage).
+CAPTAIN_BRIEF_COLUMNS = (
+    "event_id,domain,event_type,importance,confidence,relevance,"
+    "time_sensitivity,metrics,status,recommended_action"
+)
 
 
 def _record_bus_heartbeat(success: bool) -> None:
@@ -38,7 +54,7 @@ def _record_bus_heartbeat(success: bool) -> None:
             status="ok" if success else "failed",
             error_message=None if success else "publish_event failed",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.debug("[event-bus] heartbeat recording failed (non-critical): %s", exc)
 
 
@@ -47,16 +63,17 @@ def publish_event(
     domain: str,
     source: str,
     *,
-    importance: Optional[int] = None,
-    confidence: Optional[int] = None,
-    relevance: Optional[int] = None,
-    time_sensitivity: Optional[int] = None,
-    linked_entities: Optional[list[str]] = None,
-    linked_missions: Optional[list[str]] = None,
-    linked_documents: Optional[list[str]] = None,
-    recommended_action: Optional[str] = None,
-    metrics: Optional[dict[str, Any]] = None,
-) -> Optional[str]:
+    importance: int | None = None,
+    confidence: int | None = None,
+    relevance: int | None = None,
+    time_sensitivity: int | None = None,
+    linked_entities: list[str] | None = None,
+    linked_missions: list[str] | None = None,
+    linked_documents: list[str] | None = None,
+    recommended_action: str | None = None,
+    description: str | None = None,
+    metrics: dict[str, Any] | None = None,
+) -> str | None:
     """Publish one event. Non-blocking — never raises.
 
     Args:
@@ -67,7 +84,19 @@ def publish_event(
             time_sensitivity added MSN-0308 — how time-critical this event is,
             independent of importance; absent means no signal, not zero.
         linked_entities/missions/documents: lists of reference strings
-        recommended_action: optional free-text or structured-action reference
+        recommended_action: optional free-text or structured-action a Captain
+            could take. Reserved for a genuine reasoned proposition — do NOT
+            pass a raw signal (a scraped headline, an exception message, a
+            bare state transition) here; that is observational content, not
+            a recommendation, and downstream consumers (Captain Brief,
+            interrupt dispatch) treat a populated `recommended_action` as
+            "the platform is proposing something." Use `description` instead.
+        description: optional free-text, human-readable account of what this
+            event *is* (e.g. "Reuters: <headline>", "nginx: failed",
+            "Source X unreachable: <error>") — distinct from
+            `recommended_action`. Downstream consumers fall back to this
+            (never to a fabricated recommendation) when they need readable
+            content and no genuine recommended action exists.
         metrics: MSN-0328 Wave 2 — optional structured detail (counts,
             scores, bands) a presentation layer can render without
             parsing prose, e.g. {"high_risk_count": 3, "open_count": 12}.
@@ -100,6 +129,7 @@ def publish_event(
                 "linked_missions": linked_missions or [],
                 "linked_documents": linked_documents or [],
                 "recommended_action": recommended_action,
+                "description": description,
                 "metrics": metrics or {},
             },
             returning=True,
@@ -109,7 +139,7 @@ def publish_event(
             return None
         event_id = result.data[0].get("event_id")
         return event_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[event-bus] publish_event failed (non-blocking): %s", exc)
         return None
     finally:
@@ -118,10 +148,10 @@ def publish_event(
 
 def poll_events(
     *,
-    since: Optional[datetime] = None,
-    event_type: Optional[str] = None,
-    domain: Optional[str] = None,
-    status: Optional[str] = None,
+    since: datetime | None = None,
+    event_type: str | None = None,
+    domain: str | None = None,
+    status: str | None = None,
     limit: int = 100,
     exclude_cves: bool = True,
     columns: str = "*",
@@ -176,16 +206,31 @@ def poll_events(
         result = query.execute()
         _record_bus_heartbeat(True)
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[event-bus] poll_events failed (non-blocking): %s", exc)
         _record_bus_heartbeat(False)
         return []
+
+
+def _is_persisted_event_id(event_id: object) -> bool:
+    """core_events.event_id is a uuid. Anything else — e.g. the synthetic
+    `drill-…` ids core/platform/attention_drill.py hands to the dispatcher —
+    was never written there, so an UPDATE by that id can only fail the uuid
+    cast with a 400. Skip the request instead of sending one that can't match."""
+    try:
+        uuid.UUID(str(event_id))
+    except ValueError:
+        return False
+    return True
 
 
 def mark_event_status(event_id: str, status: str) -> bool:
     """Advance an event's status (new -> acknowledged -> acted_on/dismissed/superseded)."""
     if status not in _VALID_STATUSES:
         log.warning("[event-bus] mark_event_status: invalid status %r", status)
+        return False
+    if not _is_persisted_event_id(event_id):
+        log.debug("[event-bus] mark_event_status: %r is not a persisted event id; skipped", event_id)
         return False
     try:
         from tools.supabase.client import CommanderSupabaseClient
@@ -197,10 +242,31 @@ def mark_event_status(event_id: str, status: str) -> bool:
         raw.table("core_events").update({"status": status}).eq("event_id", event_id).execute()
         _record_bus_heartbeat(True)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[event-bus] mark_event_status failed (non-blocking): %s", exc)
         _record_bus_heartbeat(False)
         return False
 
 
-__all__ = ["publish_event", "poll_events", "mark_event_status"]
+def record_dispatch_message_id(event_id: str, message_id: int) -> bool:
+    """Persist the Telegram message_id a dispatch produced, so a bad or
+    duplicate push can be deleted/edited later instead of only ever being
+    superseded by a resend."""
+    if not _is_persisted_event_id(event_id):
+        log.debug("[event-bus] record_dispatch_message_id: %r is not a persisted event id; skipped", event_id)
+        return False
+    try:
+        from tools.supabase.client import CommanderSupabaseClient
+
+        client = CommanderSupabaseClient()
+        raw = client.raw_client
+        if raw is None:
+            return False
+        raw.table("core_events").update({"dispatch_message_id": message_id}).eq("event_id", event_id).execute()
+        return True
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+        log.warning("[event-bus] record_dispatch_message_id failed (non-blocking): %s", exc)
+        return False
+
+
+__all__ = ["mark_event_status", "poll_events", "publish_event", "record_dispatch_message_id"]

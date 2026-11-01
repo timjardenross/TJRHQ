@@ -27,6 +27,7 @@ const SENSITIVITY_OPTIONS: DocumentSensitivity[] = ['standard', 'sensitive', 're
 const STATUS_OPTIONS: ProcessingStatus[] = [
   'received', 'extracted', 'ocr_required', 'ocr_complete',
   'classified', 'summarised', 'embedded', 'failed', 'awaiting_review', 'excluded',
+  'retry_pending', 'retrying', 'permanently_failed',
 ];
 
 // MSN-0334: useSearchParams() requires a Suspense boundary in the App Router
@@ -304,10 +305,10 @@ function LibraryViewInner() {
 
       <Card className="mb-4 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-serif text-[14px] uppercase tracking-wide text-wb-ink">Filters</h3>
+          <h3 className="font-serif text-wb-body uppercase tracking-wide text-wb-ink">Filters</h3>
           <button
             onClick={clearFilters}
-            className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-sage-deep transition-colors"
+            className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-sage-deep transition-colors"
           >
             Clear
           </button>
@@ -318,7 +319,7 @@ function LibraryViewInner() {
             placeholder="Search filename, summary, source…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="min-w-[220px] flex-1 rounded-lg border border-wb-line bg-wb-surface/40 px-3 py-1.5 text-xs text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep/60 focus:outline-none"
+            className="min-w-[220px] flex-1 rounded-lg border border-wb-line bg-wb-surface/40 px-3 py-1.5 text-xs text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           />
           <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectClass}>
             <option value="">All categories</option>
@@ -354,14 +355,14 @@ function LibraryViewInner() {
         </div>
       </Card>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-4 xl:flex-row">
         <Card className="flex-1 p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-serif text-[14px] uppercase tracking-wide text-wb-ink">
+            <h3 className="font-serif text-wb-body uppercase tracking-wide text-wb-ink">
               Documents ({total})
             </h3>
             {total > PAGE_SIZE && (
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-wb-ink2">
+              <div className="flex items-center gap-2 text-wb-label uppercase tracking-wider text-wb-ink2">
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
@@ -388,7 +389,7 @@ function LibraryViewInner() {
             <p className="text-xs text-wb-ink2">No documents match these filters.</p>
           ) : (
             <>
-              <label className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-wider text-wb-ink2">
+              <label className="mb-2 flex items-center gap-2 text-wb-label uppercase tracking-wider text-wb-ink2">
                 <input type="checkbox" checked={allVisibleChecked} onChange={toggleAllVisible} />
                 Select all visible ({documents.length})
               </label>
@@ -405,13 +406,13 @@ function LibraryViewInner() {
                     <button
                       onClick={() => setSelectedId(doc.id)}
                       className={`w-full rounded border p-3 text-left transition-colors ${
-                        selectedId === doc.id ? 'border-wb-sage-deep bg-wb-sage/10' : 'border-wb-line bg-wb-surface-2/60 hover:border-wb-sage-deep/40'
+                        selectedId === doc.id ? 'border-wb-sage-deep bg-wb-sage/10' : 'border-wb-line bg-wb-surface-raised/60 hover:border-wb-sage-deep/40'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-xs font-medium text-wb-ink">{doc.filename}</p>
-                          <p className="mt-0.5 text-[10px] text-wb-ink2">
+                          <p className="mt-0.5 text-wb-label text-wb-ink2">
                             {doc.source_name} · {formatBytes(doc.size_bytes)}
                           </p>
                         </div>
@@ -422,7 +423,7 @@ function LibraryViewInner() {
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {doc.category && (
-                          <span className="rounded-full border border-wb-line px-2 py-0.5 text-[10px] text-wb-ink2">{doc.category}</span>
+                          <span className="rounded-full border border-wb-line px-2 py-0.5 text-wb-label text-wb-ink2">{doc.category}</span>
                         )}
                         {doc.review_decision && (
                           <WorkbenchBadge

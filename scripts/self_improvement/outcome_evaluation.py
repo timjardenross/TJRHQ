@@ -26,9 +26,10 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import evidence_sources
+import lifecycle
 import outcome_schema
 
 log = logging.getLogger("outcome_evaluation")
@@ -62,7 +63,7 @@ def check_implementation_status(opportunity: dict[str, Any], repo_root: Path, da
     if mission_id:
         try:
             status = evidence_sources.mission_status(mission_id)
-        except Exception as exc:  # pragma: no cover - evidence_sources never raises, but stay defensive
+        except Exception as exc:  # noqa: BLE001 - pragma: no cover - evidence_sources never raises, but stay defensive
             return {"implemented": False, "source": None, "verified_at": None,
                      "detail": f"Mission status check failed: {exc}"}
         if status.get("available") and status.get("status") in evidence_sources.MISSION_IMPLEMENTED_STATUSES:
@@ -126,7 +127,7 @@ def check_implementation_status(opportunity: dict[str, Any], repo_root: Path, da
              "detail": "No implementation signal yet (no mission_id, no source_finding_id, not manually marked)."}
 
 
-def is_observation_window_satisfied(opportunity: dict[str, Any], cycles_elapsed: Optional[int] = None) -> tuple[bool, str]:
+def is_observation_window_satisfied(opportunity: dict[str, Any], cycles_elapsed: int | None = None) -> tuple[bool, str]:
     """Section 9: is the observation window (set once, at contract-build
     time) satisfied yet? Never raises. `cycles_elapsed` is supplied by the
     caller (evolution_orchestrator.py), which is the only place that knows
@@ -166,7 +167,7 @@ def is_observation_window_satisfied(opportunity: dict[str, Any], cycles_elapsed:
     return False, f"Unknown observation_window type: {window_type!r}"
 
 
-def detect_concurrent_changes(opportunity: dict[str, Any], store: Any, window_start_iso: str) -> Optional[str]:
+def detect_concurrent_changes(opportunity: dict[str, Any], store: Any, window_start_iso: str) -> str | None:
     """Section 33: attribution risk. If another opportunity of the SAME
     change_class was implementing/verifying/landed ("learned") during this
     opportunity's observation window, any measured change could be theirs,
@@ -190,7 +191,7 @@ def detect_concurrent_changes(opportunity: dict[str, Any], store: Any, window_st
                 continue
             if rec.get("change_class") != this_class:
                 continue
-            if rec.get("lifecycle_state") not in _CONCURRENT_LIFECYCLE_STATES:
+            if lifecycle.detail_of(rec) not in _CONCURRENT_LIFECYCLE_STATES:
                 continue
             updated_at = rec.get("updated_at")
             if not updated_at:
@@ -218,7 +219,7 @@ def detect_concurrent_changes(opportunity: dict[str, Any], store: Any, window_st
         ids = ", ".join(others)
         return (f"{len(others)} other {this_class!r} change(s) landed during this observation "
                 f"window ({ids}) — attribution is uncertain.")
-    except Exception as exc:  # never let attribution-risk detection crash evaluation
+    except Exception as exc:  # noqa: BLE001 - never let attribution-risk detection crash evaluation
         log.warning(f"detect_concurrent_changes failed, treating as no known risk: {exc}")
         return None
 
@@ -241,7 +242,7 @@ def collect_outcome_evidence(opportunity: dict[str, Any], repo_root: Path) -> di
 
     try:
         reading = evidence_sources.read_measurement(hint, repo_root)
-    except Exception as exc:  # evidence_sources never raises, but stay defensive
+    except Exception as exc:  # noqa: BLE001 - evidence_sources never raises, but stay defensive
         reading = {"available": False, "reason": f"read_measurement raised: {exc}"}
 
     return {
@@ -255,7 +256,7 @@ def evaluate_deterministic(
     contract: dict[str, Any],
     current_evidence: dict[str, Any],
     material_change_threshold: float = 0.20,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Section 8/10: numeric baseline vs. numeric current measurement.
     Returns None (never a fabricated verdict) whenever the comparison
     can't honestly be made — the caller falls through to model synthesis
@@ -315,7 +316,7 @@ def evaluate_deterministic(
         return None
 
 
-def _safe_fallback(reason: str, impl: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def _safe_fallback(reason: str, impl: dict[str, Any] | None = None) -> dict[str, Any]:
     result = outcome_schema.honest_fallback_outcome_evaluation(reason)
     result["attribution_risk"] = None
     result["evaluated_at"] = datetime.now(timezone.utc).isoformat()
@@ -330,8 +331,8 @@ def evaluate_outcome(
     repo_root: Path,
     data_root: Path,
     store: Any,
-    router: Optional[Any] = None,
-    cycles_elapsed: Optional[int] = None,
+    router: Any | None = None,
+    cycles_elapsed: int | None = None,
 ) -> dict[str, Any]:
     """The main entry point (sections 10-37). Orchestrates implementation
     verification, observation-window gating, concurrent-change detection,
@@ -476,7 +477,7 @@ def evaluate_outcome(
                             if router_result.get("success") and router_result.get("evaluation"):
                                 result = outcome_schema.validate_outcome_evaluation(router_result["evaluation"])
                                 result["method"] = "model_synthesis"
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - model/LLM synthesis call has an unpredictable exception surface; already logged, falls back to honest template
                         log.warning(f"Model outcome synthesis failed, falling back to honest template: {exc}")
                         result = None
                 if result is None:
@@ -493,7 +494,7 @@ def evaluate_outcome(
         result["implementation_status"] = impl
         return result
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level guard so one opportunity's evaluation failure degrades to an honest "inconclusive" result instead of crashing the caller; already logged
         log.error(f"evaluate_outcome failed unexpectedly, degrading to inconclusive: {exc}")
         return {
             "outcome_result": "inconclusive",

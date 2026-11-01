@@ -43,6 +43,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 const RESEARCH_RESET_FIELDS = { qa_status: null, qa_checklist: null, reviewed_by: null, reviewed_at: null };
 
@@ -115,7 +116,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, from: row.status, to: next });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: detail }, { status: 500 });
   }
 }

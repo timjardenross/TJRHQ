@@ -1,7 +1,6 @@
 import re
 from pathlib import Path
 
-from weasyprint import HTML
 from PyPDF2 import PdfReader, PdfWriter
 from PyPDF2.generic import (
     ArrayObject,
@@ -12,6 +11,7 @@ from PyPDF2.generic import (
     RectangleObject,
     TextStringObject,
 )
+from weasyprint import HTML
 
 from src.parsing.schemas import DesignBrief
 from src.utils.logging import get_logger
@@ -50,7 +50,7 @@ def _extract_checklist_items(brief: DesignBrief) -> list[str]:
     to the first section with a bullet list, then to section titles."""
     ranked = sorted(
         brief.sections,
-        key=lambda s: 0 if re.search(r"use|framework|steps|apply", s.title, re.I) else 1,
+        key=lambda s: 0 if re.search(r"use|framework|steps|apply", s.title, re.IGNORECASE) else 1,
     )
     for section in ranked:
         items = _first_bullet_run(section.body)

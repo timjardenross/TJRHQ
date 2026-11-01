@@ -33,7 +33,7 @@ import logging
 import sys
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -139,7 +139,8 @@ def _row_to_handoff(row: dict[str, Any]) -> HandoffRecord | None:
             context=parts.get("CONTEXT", ""),
             item_type=stmt,
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - row parsing, best-effort, skips malformed rows
+        log.debug("[officer_handoffs] Row parse failed: %s", exc)
         return None
 
 
@@ -170,7 +171,7 @@ def create_handoff(
         if c.is_enabled() and c.raw_client:
             owner = f"{_HANDOFF_OWNER_PREFIX}{handoff_id}"
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .ilike("rationale", f"%FROM: {from_officer}%TO: {to_officer}%")
                 .ilike("owner", f"{_HANDOFF_OWNER_PREFIX}%")
@@ -179,7 +180,7 @@ def create_handoff(
                 .execute()
             )
             if not list(existing.data or []):
-                c.raw_client.table("decisions").insert({
+                c.raw_client.table("command_memory_records").insert({
                     "owner": owner,
                     "statement": f"[OFFICER HANDOFF] {from_officer} → {to_officer}: {hr.item_type[:60]}",
                     "rationale": _build_rationale(hr),
@@ -188,7 +189,7 @@ def create_handoff(
                 }).execute()
         log.info("[officer_handoffs] Created handoff %s: %s → %s (%d items)",
                  handoff_id, from_officer, to_officer, len(items))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - handoff persistence, best-effort, already logged
         log.debug("[officer_handoffs] Create failed: %s", exc)
     return hr
 
@@ -202,20 +203,20 @@ def accept_handoff(handoff_id: str, accepting_officer: str) -> bool:
             return False
 
         owner = f"{_HANDOFF_OWNER_PREFIX}{handoff_id}"
-        res = c.raw_client.table("decisions").select("rationale").eq("owner", owner).limit(1).execute()
+        res = c.raw_client.table("command_memory_records").select("rationale").eq("owner", owner).limit(1).execute()
         rows = list(res.data or [])
         if not rows:
             return False
 
         rat = rows[0].get("rationale", "")
         new_rat = rat.replace(f"STATUS: {HandoffStatus.PENDING.value}", f"STATUS: {HandoffStatus.ACCEPTED.value}")
-        c.raw_client.table("decisions").update({
+        c.raw_client.table("command_memory_records").update({
             "rationale": new_rat,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("owner", owner).execute()
         log.info("[officer_handoffs] Accepted %s by %s", handoff_id, accepting_officer)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - accept-handoff update, best-effort, already logged
         log.debug("[officer_handoffs] Accept failed %s: %s", handoff_id, exc)
         return False
 
@@ -229,13 +230,13 @@ def complete_handoff(handoff_id: str) -> bool:
             return False
 
         owner = f"{_HANDOFF_OWNER_PREFIX}{handoff_id}"
-        c.raw_client.table("decisions").update({
+        c.raw_client.table("command_memory_records").update({
             "status": "resolved",
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("owner", owner).execute()
         log.info("[officer_handoffs] Completed %s", handoff_id)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - complete-handoff update, best-effort, already logged
         log.debug("[officer_handoffs] Complete failed %s: %s", handoff_id, exc)
         return False
 
@@ -250,7 +251,7 @@ def get_pending_handoffs(officer: str) -> list[HandoffRecord]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,statement,rationale,status")
             .ilike("owner", f"{_HANDOFF_OWNER_PREFIX}%")
             .ilike("rationale", f"%TO: {officer}%")
@@ -262,7 +263,7 @@ def get_pending_handoffs(officer: str) -> list[HandoffRecord]:
             hr = _row_to_handoff(row)
             if hr:
                 result.append(hr)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - pending-handoffs fetch, best-effort, already logged
         log.debug("[officer_handoffs] Get pending failed %s: %s", officer, exc)
     return result
 
@@ -329,13 +330,13 @@ def process_handoffs(
 
 
 __all__ = [
-    "HandoffType",
-    "HandoffStatus",
-    "HandoffRecord",
     "STANDARD_HANDOFFS",
-    "create_handoff",
+    "HandoffRecord",
+    "HandoffStatus",
+    "HandoffType",
     "accept_handoff",
     "complete_handoff",
+    "create_handoff",
     "get_pending_handoffs",
     "process_handoffs",
 ]

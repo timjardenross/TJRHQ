@@ -12,8 +12,8 @@ from typing import Any
 
 if str(Path(__file__).resolve().parent) not in _sys.path:
     _sys.path.insert(0, str(Path(__file__).resolve().parent))
-from retrieve_knowledge import keyword_results, semantic_results
 from _local_import_supabase import import_sibling
+from retrieve_knowledge import keyword_results, semantic_results
 
 SupabaseClient = import_sibling("supabase_client").SupabaseClient
 
@@ -64,7 +64,7 @@ def print_quality_observations(client: SupabaseClient, semantic_runs: list[dict[
 
     try:
         candidates = client.rpc("poor_semantic_retrieval_candidates", {"max_length": 1800}) or []
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort diagnostic RPC call in a validation script; caller treats [] as 'no candidates to report'
         candidates = []
     if candidates:
         print("\nPotential retrieval candidates to improve:")

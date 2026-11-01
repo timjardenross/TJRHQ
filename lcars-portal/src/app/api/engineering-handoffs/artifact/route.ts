@@ -22,7 +22,24 @@ export async function GET(request: NextRequest) {
       `${selfImprovementApiUrl()}/api/engineering-handoffs/artifact?path=${encodeURIComponent(path)}`,
       { headers: selfImprovementHeaders(), cache: 'no-store' }
     );
-    const body = await res.json().catch(() => ({ error: 'bad upstream response' }));
+    const raw = await res.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      // dashboard.py's route returns jsonify(...) on every single path
+      // (200/400/404/503) — a non-JSON body here means something in front
+      // of it intercepted the request instead: this endpoint is Caddy-
+      // fronted on the VM (see selfImprovementApi.ts), so a plain-text/HTML
+      // 502/504 page from Caddy itself (backend down, restarting, timed
+      // out) is the likely real cause. A bare "bad upstream response" hid
+      // that distinction entirely — confirmed live: the Captain saw exactly
+      // that generic text with no way to tell what actually failed.
+      body = {
+        error: `Self-improvement service returned a non-JSON response (status ${res.status})`,
+        detail: raw.slice(0, 500),
+      };
+    }
     return NextResponse.json(body, { status: res.status });
   } catch (err: any) {
     return NextResponse.json({ error: 'self_improvement_unreachable', detail: String(err) }, { status: 502 });

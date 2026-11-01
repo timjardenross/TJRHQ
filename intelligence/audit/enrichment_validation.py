@@ -11,8 +11,7 @@ Samples recent events across risk levels and validates:
 
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 
 from intelligence.persistence import intelligence_store
 
@@ -35,11 +34,11 @@ def enrichment_sample(days: int = 14, sample_per_level: int = SAMPLE_SIZE_PER_LE
     - event_id, raw_title, source_tier, score_breakdown, risk_rating, signal_status
     - dedup_hash, canonical_signal_id (for dedup analysis)
     """
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     samples = {
         "period_days": days,
-        "sampled_at": datetime.utcnow().isoformat(),
+        "sampled_at": datetime.now(timezone.utc).isoformat(),
         "sample_size_per_level": sample_per_level,
         "events": {},
     }
@@ -65,7 +64,7 @@ def enrichment_sample(days: int = 14, sample_per_level: int = SAMPLE_SIZE_PER_LE
             if isinstance(sb, str):
                 try:
                     sb = json.loads(sb)
-                except:
+                except (json.JSONDecodeError, ValueError):
                     sb = None
 
             event_sample = {
@@ -87,7 +86,7 @@ def enrichment_sample(days: int = 14, sample_per_level: int = SAMPLE_SIZE_PER_LE
 
 def enrichment_stats(days: int = 14) -> dict:
     """Compute enrichment quality statistics."""
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     log.info("Computing enrichment statistics...")
 
@@ -165,7 +164,7 @@ def enrichment_stats(days: int = 14) -> dict:
 def print_enrichment_validation_template(samples: dict) -> None:
     """Print a template for manual enrichment validation."""
     print(f"\n{'='*100}")
-    print(f"ENRICHMENT VALIDATION TEMPLATE — Manual Review Checklist")
+    print("ENRICHMENT VALIDATION TEMPLATE — Manual Review Checklist")
     print(f"{'='*100}\n")
 
     print("INSTRUCTIONS:")
@@ -183,18 +182,18 @@ def print_enrichment_validation_template(samples: dict) -> None:
             print(f"    Rank Score: {event['rank_score']:.2f} | Confidence: {event['confidence']:.2f}")
 
             if event["score_breakdown"]:
-                print(f"    Score Breakdown (10 dimensions):")
+                print("    Score Breakdown (10 dimensions):")
                 for dim, score in sorted(event["score_breakdown"].items()):
                     print(f"      • {dim}: {score}")
             else:
-                print(f"    Score Breakdown: NOT POPULATED")
+                print("    Score Breakdown: NOT POPULATED")
 
-            print(f"\n    Manual Review:")
-            print(f"      [ ] Tier classification accurate?")
-            print(f"      [ ] Risk rating justified by scores?")
-            print(f"      [ ] Scores reflect signal quality?")
-            print(f"      [ ] Dedup status correct? (canonical vs duplicate)")
-            print(f"      Notes: _________________________________________________________")
+            print("\n    Manual Review:")
+            print("      [ ] Tier classification accurate?")
+            print("      [ ] Risk rating justified by scores?")
+            print("      [ ] Scores reflect signal quality?")
+            print("      [ ] Dedup status correct? (canonical vs duplicate)")
+            print("      Notes: _________________________________________________________")
 
     print(f"\n{'='*100}\n")
 
@@ -205,30 +204,30 @@ def print_enrichment_stats(stats: dict) -> None:
     print(f"ENRICHMENT QUALITY STATISTICS ({stats['period_days']}-day window)")
     print(f"{'='*80}\n")
 
-    print(f"COVERAGE")
+    print("COVERAGE")
     print(f"  Total events: {stats['total_events']}")
     print(f"  Score breakdown population: {stats['score_breakdown_population_rate']*100:.1f}%\n")
 
-    print(f"TIER DISTRIBUTION (should be Tier 1-2 for HIGH, Tier 3-4 for LOW)")
+    print("TIER DISTRIBUTION (should be Tier 1-2 for HIGH, Tier 3-4 for LOW)")
     for tier in sorted(stats["tier_distribution"].keys()):
         count = stats["tier_distribution"][tier]
         pct = count / stats["total_events"] * 100
         print(f"  Tier {tier}: {count:4d} ({pct:5.1f}%)")
 
-    print(f"\nRISK DISTRIBUTION")
+    print("\nRISK DISTRIBUTION")
     for risk in ["HIGH", "MEDIUM", "LOW"]:
         count = stats["risk_distribution"].get(risk, 0)
         pct = count / stats["total_events"] * 100 if stats["total_events"] > 0 else 0
         print(f"  {risk:6s}: {count:4d} ({pct:5.1f}%)")
 
-    print(f"\nSTATUS DISTRIBUTION")
+    print("\nSTATUS DISTRIBUTION")
     for status in sorted(stats["status_distribution"].keys()):
         count = stats["status_distribution"][status]
         pct = count / stats["total_events"] * 100
         print(f"  {status}: {count:4d} ({pct:5.1f}%)")
 
     if stats["misclassification_patterns"]:
-        print(f"\nPOTENTIAL MISCLASSIFICATIONS")
+        print("\nPOTENTIAL MISCLASSIFICATIONS")
         for pattern in stats["misclassification_patterns"]:
             print(f"  ⚠ {pattern}")
 

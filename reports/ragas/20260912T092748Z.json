@@ -1,0 +1,40 @@
+{
+  "mission": "USS-TJR-MSN-0366",
+  "stream": "Stream 4 \u2014 ragas RAG evaluation",
+  "timestamp_iso": "2026-09-12T09:27:48.842390+00:00",
+  "timestamp_compact": "20260912T092748Z",
+  "retrieval_mode": "live-supabase-semantic",
+  "generation_mode": "live-model-router",
+  "judge_mode": "live-model-router",
+  "question": "Does retrieve_knowledge.py have a live caller today, and how does its keyword search actually work?",
+  "reference": "retrieve_knowledge.py has no live caller \u2014 the OSS gap analysis (GAP 4) says it is never called and recommended wiring it to Meilisearch. Its keyword search now routes through Meilisearch as the primary path, falling back to the Supabase keyword_search_documents RPC and then to the ilike fallback_search.",
+  "retrieved_contexts": [
+    "Starship Endeavour unified search smoke test"
+  ],
+  "retrieval_scores": {
+    "context_precision": {
+      "score": 0.0,
+      "error": null
+    },
+    "context_recall": {
+      "score": 0.0,
+      "error": null
+    }
+  },
+  "cases": {
+    "grounded": {
+      "answer": "The provided context does not answer this question. The context only contains a reference titled \"Starship Endeavour unified search smoke test,\" which provides no information about whether retrieve_knowledge.py has a live caller or how its keyword search works.",
+      "faithfulness": {
+        "score": 1.0,
+        "error": null
+      }
+    },
+    "hallucinated": {
+      "answer": "The provided context does not answer this question. The context only contains a reference titled \"Starship Endeavour unified search smoke test,\" which provides no information about whether retrieve_knowledge.py has a live caller or how its keyword search works. This retrieval pipeline has already been deployed as the live answer-generation path behind the Command Layer chat interface since August 2026.",
+      "faithfulness": {
+        "score": 0.8,
+        "error": null
+      }
+    }
+  }
+}

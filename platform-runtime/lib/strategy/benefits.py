@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -83,7 +83,7 @@ class Benefit:
         if not self.review_date:
             return False
         try:
-            return date.fromisoformat(self.review_date[:10]) < date.today()
+            return date.fromisoformat(self.review_date[:10]) < datetime.now(timezone.utc).date()
         except ValueError:
             return False
 
@@ -122,7 +122,7 @@ def _row_to_benefit(row: dict[str, Any]) -> Benefit | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_BENEFIT_STATEMENT} {benefit_id}: "
-    title = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    title = stmt.removeprefix(prefix)
 
     try:
         btype = BenefitType(p.get("TYPE", "operational"))
@@ -156,7 +156,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.debug("[strategy.benefits] Supabase unavailable: %s", exc)
         return None
 
@@ -188,7 +188,7 @@ def register_benefit(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", f"{BENEFIT_OWNER_PREFIX}%")
                 .ilike("statement", f"%{title[:40]}%")
@@ -200,7 +200,7 @@ def register_benefit(
                 return None
 
         benefit_id = f"ben-{uuid4().hex[:8]}"
-        review_date = (date.today() + timedelta(days=review_days)).isoformat()
+        review_date = (datetime.now(timezone.utc).date() + timedelta(days=review_days)).isoformat()
 
         b = Benefit(
             benefit_id=benefit_id,
@@ -225,7 +225,7 @@ def register_benefit(
         log.info("[strategy.benefits] Registered %s — %s (initiative %s)", benefit_id, title[:60], initiative_id)
         return benefit_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort benefit registration, already logged
         log.warning("[strategy.benefits] register_benefit failed: %s", exc)
         return None
 
@@ -240,7 +240,7 @@ def update_benefit(benefit_id: str, **fields: Any) -> bool:
 
         owner_key = f"{BENEFIT_OWNER_PREFIX}{benefit_id}"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale")
             .eq("owner", owner_key)
             .limit(1)
@@ -261,10 +261,10 @@ def update_benefit(benefit_id: str, **fields: Any) -> bool:
                 v = v if isinstance(v, BenefitType) else BenefitType(str(v))
             setattr(b, k, v)
 
-        c.raw_client.table("decisions").update({"rationale": _build_rationale(b)}).eq("id", rows[0]["id"]).execute()
+        c.raw_client.table("command_memory_records").update({"rationale": _build_rationale(b)}).eq("id", rows[0]["id"]).execute()
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort benefit update, already logged
         log.debug("[strategy.benefits] update_benefit failed: %s", exc)
         return False
 
@@ -275,7 +275,7 @@ def get_benefit(benefit_id: str) -> Benefit | None:
         if c is None:
             return None
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{BENEFIT_OWNER_PREFIX}{benefit_id}")
             .limit(1)
@@ -283,7 +283,7 @@ def get_benefit(benefit_id: str) -> Benefit | None:
         )
         rows = list(res.data or [])
         return _row_to_benefit(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort benefit lookup, already logged
         log.debug("[strategy.benefits] get_benefit failed: %s", exc)
         return None
 
@@ -295,7 +295,7 @@ def list_benefits(initiative_id: str | None = None, limit: int = 100) -> list[Be
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{BENEFIT_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -311,7 +311,7 @@ def list_benefits(initiative_id: str | None = None, limit: int = 100) -> list[Be
                 continue
             out.append(b)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort benefit listing, already logged
         log.debug("[strategy.benefits] list_benefits failed: %s", exc)
         return []
 
@@ -340,12 +340,12 @@ def get_benefit_summary(initiative_id: str) -> dict:
 
 
 __all__ = [
-    "BenefitType",
+    "BENEFIT_OWNER_PREFIX",
     "Benefit",
+    "BenefitType",
+    "get_benefit",
+    "get_benefit_summary",
+    "list_benefits",
     "register_benefit",
     "update_benefit",
-    "get_benefit",
-    "list_benefits",
-    "get_benefit_summary",
-    "BENEFIT_OWNER_PREFIX",
 ]

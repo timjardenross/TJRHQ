@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the MSN-0093 advisory learning loop (outcomes, calibration,
 learning, metrics, and the XO/Number One consumption adapters).
 
@@ -20,7 +21,7 @@ for _p in (str(_ADVISORY), str(_COORD)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from _local_import_advisory import reload_sibling  # noqa: E402
+from _local_import_advisory import reload_sibling
 
 # Fleet Engineering Review 2026-08-11: outcomes, learning, service collide
 # with same-named files elsewhere in the repo — see core/advisory/
@@ -138,7 +139,7 @@ def test_officer_accuracy_keys(fresh):
     _seed(svc, oc, "Officer accuracy test mission?", "success")
     acc = cal.officer_accuracy()
     for stats in acc.values():
-        assert set(["samples", "accuracy", "sufficient"]).issubset(stats.keys())
+        assert {"samples", "accuracy", "sufficient"}.issubset(stats.keys())
 
 
 # ---------------------------------------------------------------------------

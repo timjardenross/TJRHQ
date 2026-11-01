@@ -49,11 +49,12 @@ from __future__ import annotations
 
 import logging
 import re
-import xml.etree.ElementTree as ET
 from datetime import timedelta, timezone
 from email.utils import parsedate_to_datetime
 
-from .base import CanonicalAlert, http_get, stable_event_key
+import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
+
+from .base import CanonicalAlert, stable_event_key
 
 log = logging.getLogger(__name__)
 
@@ -95,14 +96,14 @@ def _http_get_bom(url: str) -> bytes:
     # its own browser-shaped one rather than the shared default.
     import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": _BROWSER_UA, "Accept": "*/*"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
+    with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - url is this adapter's own fixed BOM feed constant, not user input
         return resp.read()
 
 
-_CONTENT_RE = re.compile(r'<div id="content">(.*?)<!-- End: Content -->', re.S)
-_ISSUED_RE = re.compile(r"Issued at\s+(.+?)\s*</p>", re.S)
-_TAG_BREAK_RE = re.compile(r"</(p|h1|h2|h3|h4|li|tr)>", re.I)
-_TABLE_RE = re.compile(r"<table.*?</table>", re.S | re.I)
+_CONTENT_RE = re.compile(r'<div id="content">(.*?)<!-- End: Content -->', re.DOTALL)
+_ISSUED_RE = re.compile(r"Issued at\s+(.+?)\s*</p>", re.DOTALL)
+_TAG_BREAK_RE = re.compile(r"</(p|h1|h2|h3|h4|li|tr)>", re.IGNORECASE)
+_TABLE_RE = re.compile(r"<table.*?</table>", re.DOTALL | re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
 
@@ -144,7 +145,7 @@ def _parse_bom_issued_at(text: str) -> str | None:
     cleaned = raw.replace(f" {tz_match.group(1)}", "")
     try:
         from datetime import datetime
-        naive = datetime.strptime(cleaned, "%I:%M %p on %A %d %B %Y")
+        naive = datetime.strptime(cleaned, "%I:%M %p on %A %d %B %Y")  # noqa: DTZ007 - offset applied explicitly on the next line from the parsed abbreviation
         return naive.replace(tzinfo=timezone(offset)).isoformat()
     except ValueError:
         return None
@@ -172,7 +173,7 @@ def _fetch_detail(link: str, pubdate_raw: str) -> dict:
                         .replace("&lt;", "<").replace("&gt;", ">"))
             text = _BLANK_LINES_RE.sub("\n\n", text).strip()
             result = {"issued_at": issued_at, "body": text or None}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort detail-page fetch, already logged; caller falls back to the documented {issued_at: None, body: None} shape
         log.warning("[bom_warnings] detail fetch failed for %s: %s", link, exc)
         result = {"issued_at": None, "body": None}
 

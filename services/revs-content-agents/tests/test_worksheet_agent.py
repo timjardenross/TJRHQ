@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from PyPDF2 import PdfReader
-
 from src.agents.worksheet_agent import WorksheetAgent, _extract_checklist_items
 
 

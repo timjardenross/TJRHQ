@@ -1,0 +1,295 @@
+{
+  "collection_timestamp": "2026-09-13T02:17:45.369917+00:00",
+  "repository_state": {
+    "branch": "msn-0368-stage-2b-existing-capability-fixes",
+    "commit": "cfbd493c80537dddc3bfc773e9f9114f945ce6cf",
+    "commit_message": "fix(quality): garak_gate.py fixes from live 2026-09-13 VM run (USS-TJR-MSN-0374 follow-up)\n\nLive run against the Model Router post-outage-fix surfaced real defects\nthe sandbox couldn't: \"hallucination\" was never a valid garak 0.17.0 probe\nfamily (every prior gate run silently failed with \"Unknown run.spec:\nprobes.hallucination\" and produced no report); the 120s request timeout\nwas shorter than the router's own 300s per-task budget; and garak's\ndefault generations/prompt-cap made a run against this serialized router\ntake over an hour. Fixes: correct probe name (packagehallucination),\n340s timeout, and gate-appropriate --generations/--prompt-cap defaults\nwith CLI overrides for a fuller periodic sweep.\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01M5CxbeqXGEpbTcepT1Gh1W",
+    "dirty": true,
+    "uncommitted_files": [
+      "data/self-improvement/review/evolution_summary.json",
+      "data/self-improvement/review/finding_staleness.jsonl",
+      "data/self-improvement/review/opportunity_id_counter.txt",
+      "data/self-improvement/runs/2026-09-12-210432/evidence.json",
+      "data/self-improvement/runs/2026-09-12-211139/evidence.json",
+      "data/self-improvement/runs/2026-09-12-211710/evidence.json",
+      "data/self-improvement/runs/2026-09-12-212355/evidence.json",
+      "data/self-improvement/runs/2026-09-12-212917/evidence.json",
+      "data/self-improvement/runs/2026-09-12-213439/evidence.json",
+      "data/self-improvement/runs/2026-09-12-214000/evidence.json",
+      "data/self-improvement/runs/2026-09-12-214524/evidence.json",
+      "data/self-improvement/runs/2026-09-12-215045/evidence.json",
+      "data/self-improvement/runs/2026-09-12-215608/evidence.json",
+      "data/self-improvement/runs/2026-09-12-220130/evidence.json",
+      "data/self-improvement/runs/2026-09-12-220654/evidence.json",
+      "data/self-improvement/runs/2026-09-12-221218/evidence.json",
+      "data/self-improvement/runs/2026-09-12-221739/evidence.json",
+      "data/self-improvement/runs/2026-09-12-222436/evidence.json",
+      "data/self-improvement/runs/2026-09-12-222958/evidence.json",
+      "data/self-improvement/runs/2026-09-12-223523/evidence.json",
+      "data/self-improvement/runs/2026-09-12-224048/evidence.json",
+      "data/self-improvement/runs/2026-09-12-224732/evidence.json",
+      "data/self-improvement/runs/2026-09-12-225300/evidence.json",
+      "data/self-improvement/runs/2026-09-12-225827/evidence.json",
+      "data/self-improvement/runs/2026-09-12-230355/evidence.json",
+      "data/self-improvement/runs/2026-09-12-230924/evidence.json",
+      "data/self-improvement/runs/2026-09-12-231450/evidence.json",
+      "data/self-improvement/runs/2026-09-12-232021/evidence.json",
+      "data/self-improvement/runs/2026-09-12-232710/evidence.json",
+      "data/self-improvement/runs/2026-09-12-233245/evidence.json",
+      "data/self-improvement/runs/2026-09-12-233816/evidence.json",
+      "data/self-improvement/runs/2026-09-12-234343/evidence.json",
+      "data/self-improvement/runs/2026-09-12-234914/evidence.json",
+      "data/self-improvement/runs/2026-09-12-235445/evidence.json",
+      "data/self-improvement/runs/2026-09-13-000016/evidence.json",
+      "data/self-improvement/runs/2026-09-13-000551/evidence.json",
+      "data/self-improvement/runs/2026-09-13-001120/evidence.json",
+      "data/self-improvement/runs/2026-09-13-001653/evidence.json",
+      "data/self-improvement/runs/2026-09-13-002421/evidence.json",
+      "data/self-improvement/runs/2026-09-13-003030/evidence.json",
+      "data/self-improvement/runs/2026-09-13-003613/evidence.json",
+      "data/self-improvement/runs/2026-09-13-004144/evidence.json",
+      "data/self-improvement/runs/2026-09-13-004751/evidence.json",
+      "data/self-improvement/runs/2026-09-13-005328/evidence.json",
+      "data/self-improvement/runs/2026-09-13-005918/evidence.json",
+      "data/self-improvement/runs/2026-09-13-010454/evidence.json",
+      "data/self-improvement/runs/2026-09-13-011025/evidence.json",
+      "data/self-improvement/runs/2026-09-13-011550/evidence.json",
+      "data/self-improvement/runs/2026-09-13-012117/evidence.json",
+      "data/self-improvement/runs/2026-09-13-012817/evidence.json",
+      "data/self-improvement/runs/2026-09-13-013407/evidence.json",
+      "data/self-improvement/runs/2026-09-13-013932/evidence.json",
+      "data/self-improvement/runs/2026-09-13-014458/evidence.json",
+      "data/self-improvement/runs/2026-09-13-015027/evidence.json",
+      "data/self-improvement/runs/2026-09-13-015553/evidence.json",
+      "data/self-improvement/runs/2026-09-13-020120/evidence.json",
+      "data/self-improvement/runs/2026-09-13-020647/evidence.json",
+      "data/self-improvement/runs/2026-09-13-021217/"
+    ],
+    "repo_root": "/opt/starship-endeavour"
+  },
+  "filesystem_audit": {
+    "python_files": 0,
+    "test_files": [],
+    "doc_files": {
+      "count": 2312,
+      "most_recent": [
+        "lcars-portal/docs/design-tokens/STYLE-DICTIONARY-LEONARDO-DECISION.md",
+        "knowledge/missions/USS-TJR-MSN-0373-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0371-stream1-pilot-runbook.md",
+        "knowledge/missions/USS-TJR-MSN-0371-streams2-6-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0372-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0375-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0370-ruff-platformruntime-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0370-supabase-investigation-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0370-ruff-intel-tools-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0371-stream0-secrets-audit-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0370-ruff-core-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0370-ruff-bots-misc-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0370-closing-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0370-adr030-fix-knowledge-record.md",
+        "knowledge/missions/USS-TJR-MSN-0369-stream3-adr-knowledge-record.md"
+      ]
+    },
+    "config_files": [
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/autograd/derivatives.yaml",
+      "week2_full_audit.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/inference_engine/pytorch/networks/arch_config.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/markdown_it/port.yaml",
+      "audit_results.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/config.yaml",
+      "config/osint_intelligence_missions.json",
+      "core/infrastructure/mac-collector/config.example.yaml",
+      "core/infrastructure/vm-processing/config.example.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/autograd/deprecated.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/ATen/native/native_functions.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torch/_export/serde/schema.yaml",
+      "core/infrastructure/vm-processing/config.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/ATen/native/tags.yaml",
+      "core/infrastructure/vm-transfer/config.example.yaml",
+      "config/evolution_watchlist.json",
+      "config/self_improvement_policy.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/default_models.yaml"
+    ],
+    "schema_files": [
+      "self_improvement_run.schema.json",
+      "self_improvement_finding.schema.json",
+      "self_improvement_decision.schema.json"
+    ],
+    "missing_directories": []
+  },
+  "model_router_audit": {
+    "configured_routes": {
+      "task_types": [
+        "classify-capture",
+        "summarise-note",
+        "classify-document",
+        "summarise-document",
+        "xo-response",
+        "intelligence-brief",
+        "intelligence-signals",
+        "captain-insight-synthesis",
+        "captain-reasoning-synthesis",
+        "embed",
+        "escalate",
+        "fallback-complex",
+        "engineering-review",
+        "billing-report",
+        "self-improvement-analyse",
+        "self-improvement-critique",
+        "self-improvement-mission",
+        "hq-evolution-investigate",
+        "hq-evolution-evaluate-outcome",
+        "health-signal-curation",
+        "adhd-decompose"
+      ],
+      "count": 21
+    },
+    "router_reachable": true,
+    "router_status": {
+      "ollama_url": "http://localhost:11434",
+      "ollama_reachable": true,
+      "loaded_models": [
+        {
+          "name": "gemma3:4b",
+          "size_vram": 0,
+          "expires_at": "2026-09-13T12:27:04.634745645+10:00"
+        }
+      ],
+      "available_models": [
+        "glm-5.3:cloud",
+        "qwen3.5:9b",
+        "qwen3.5:4b",
+        "qwen3.5:2b",
+        "qwen2.5-coder:7b",
+        "gemma3:4b",
+        "gemma4:12b",
+        "nomic-embed-text:latest",
+        "mistral-small3.2:24b",
+        "glm-5.2:cloud"
+      ],
+      "router_port": 8891,
+      "log_file": "/opt/starship-endeavour/core/model-router/call_log.jsonl",
+      "recent_avg_ms": null,
+      "recent_failed": 5,
+      "routing_policy": [
+        {
+          "task_type": "classify-capture",
+          "model": "gemma3:4b",
+          "keep_alive": "5m"
+        },
+        {
+          "task_type": "summarise-note",
+          "model": "gemma3:4b",
+          "keep_alive": "5m"
+        },
+        {
+          "task_type": "classify-document",
+          "model": "gemma3:4b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "summarise-document",
+          "model": "gemma3:4b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "xo-response",
+          "model": "gemma3:4b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "intelligence-brief",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "intelligence-signals",
+          "model": "mistral-small3.2:24b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "captain-insight-synthesis",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "captain-reasoning-synthesis",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "embed",
+          "model": "nomic-embed-text:latest",
+          "keep_alive": "1m"
+        },
+        {
+          "task_type": "escalate",
+          "model": "glm-5.3:cloud",
+          "keep_alive": "0"
+        },
+        {
+          "task_type": "fallback-complex",
+          "model": "glm-5.3:cloud",
+          "keep_alive": "0"
+        },
+        {
+          "task_type": "engineering-review",
+          "model": "qwen2.5-coder:7b",
+          "keep_alive": "20m"
+        },
+        {
+          "task_type": "billing-report",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-analyse",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-critique",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-mission",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "hq-evolution-investigate",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "hq-evolution-evaluate-outcome",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "health-signal-curation",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "adhd-decompose",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        }
+      ]
+    },
+    "call_log_exists": true,
+    "call_log_size_mb": 0.7753229141235352
+  },
+  "code_analysis": {
+    "todos_and_fixmes": {},
+    "dead_imports": [],
+    "hardcoded_values": []
+  },
+  "evidence_window": {
+    "since_commit": null,
+    "collection_timestamp": "2026-09-13T02:17:45.369917+00:00"
+  },
+  "collection_duration_ms": 158216
+}

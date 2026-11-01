@@ -14,13 +14,9 @@ Design: Minimal MVP
 - Enables adaptive routing
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-from dataclasses import dataclass
-from datetime import datetime
 import logging
+import sys
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -537,7 +533,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 
@@ -550,7 +546,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 

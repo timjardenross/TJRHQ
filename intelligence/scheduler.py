@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 OR Intelligence Scheduler.
 
@@ -30,6 +31,7 @@ core/platform/heartbeat.record_heartbeat('intelligence_collection', 'ok').
 """
 
 import argparse
+import html
 import json
 import logging
 import os
@@ -37,7 +39,10 @@ import sys
 
 from intelligence.brief.brief_generator import BriefGenerator
 from intelligence.config import (
-    SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, DAILY_BRIEF_AFTER_SYNC,
+    DAILY_BRIEF_AFTER_SYNC,
+    GITHUB_SYNC_CRON,
+    SCHEDULE_CRON,
+    SCHEDULE_TZ,
 )
 from intelligence.models import ResilienceBrief
 
@@ -49,16 +54,32 @@ log = logging.getLogger("or-intelligence-scheduler")
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# 2026-09-19: Issue 14 shadow-mode scoring (phase_a_enrichment.enrich_and_save)
+# was hardcoded True at all 4 scheduled collection call sites below, firing a
+# real LLM call (model-router intelligence-brief task) per ingested event on
+# every job run — daily + intraday-status (every 180min) + intraday-media
+# (every 90min) + priority-tiered (every 120min, 07-19 AEST) — ~300-430 calls/
+# day (core/model-router/call_log.jsonl). Issue 15's own evaluation harness
+# (intelligence/analysis/evaluate_shadow_mode_data.py) that this data exists
+# for has never been run against it (no report.json / decision record found).
+# That volume saturated the single-slot CPU-only Ollama guardrails rail
+# (core/security/llm_guardrails.py) added ~2026-09-12, pushing intelligence-
+# brief's failure rate to ~100% and starving other model-router tasks
+# (including self-improving-system's own analysis call) of guardrail
+# capacity. Defaulting OFF; set SHADOW_MODE_SCORING_ENABLED=1 to resume
+# collecting comparison data once Issue 15 is actually going to consume it.
+_SHADOW_MODE_SCORING = os.environ.get("SHADOW_MODE_SCORING_ENABLED", "").strip().lower() in ("1", "true", "yes")
+
 # ── Telemetry ─────────────────────────────────────────────────────────────────
 try:
     sys.path.insert(0, _REPO_ROOT)
     from platform_runtime.lib.telemetry import configure_tracing
     configure_tracing("intelligence-scheduler")
-except Exception:
-    pass
+except Exception as exc:  # noqa: BLE001 - tracing is observability-only; must never block scheduler startup, but a break here is worth knowing about (see MSN-0109's silent-import-break history)
+    log.warning("[scheduler] Telemetry tracing setup failed (non-fatal): %s", exc)
 
 
-def _record_heartbeat(domain_key: str, status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(domain_key: str, status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort —
     a heartbeat write must never break the job it's attached to — but a
     silent failure here is exactly how a job can run correctly for weeks
@@ -70,7 +91,7 @@ def _record_heartbeat(domain_key: str, status: str, detail: str = None, error_me
         from heartbeat import record_heartbeat
         if not record_heartbeat(domain_key, status=status, detail=detail, error_message=error_message):
             log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", domain_key)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - heartbeat recording is observability-only and must never crash the caller it's reporting on
         log.warning("[heartbeat] record_heartbeat(%s) raised: %s", domain_key, exc)
 
 
@@ -89,7 +110,7 @@ def _brief_to_stdout(brief: ResilienceBrief) -> None:
     print(json.dumps(dataclasses.asdict(brief), default=_default, indent=2))
 
 
-def run_once(period_days: int = None, trigger: str = "on_demand") -> ResilienceBrief:
+def run_once(period_days: int | None = None, trigger: str = "on_demand") -> ResilienceBrief:
     from intelligence.config import BRIEF_PERIOD_DAYS
     days = period_days or BRIEF_PERIOD_DAYS
     log.info("Running single brief generation: %d-day period", days)
@@ -104,11 +125,11 @@ def _resolve_tz(name: str):
     try:
         import pytz
         return pytz.timezone(name)
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort tz-library probe (pytz) — falls through to the zoneinfo fallback below on any failure
         try:
             from zoneinfo import ZoneInfo
             return ZoneInfo(name)
-        except Exception:
+        except Exception:  # noqa: BLE001 - final tz-resolution fallback; already logged and returns None so callers use the scheduler default
             log.warning("Could not resolve timezone %s — using scheduler default", name)
             return None
 
@@ -118,8 +139,8 @@ def run_github_sync() -> dict:
 
     Idempotent (dedup Gate 1 file_path+sha, Gate 2 dedup_hash); safe to re-run.
     """
-    from tools.intelligence.github_brief_sync import run as _sync_run
     from intelligence.ingestion.github_markdown_adapter import DEFAULT_LOOKBACK_DAYS
+    from tools.intelligence.github_brief_sync import run as _sync_run
     log.info("Daily ORI GitHub brief sync starting")
     stats = _sync_run(days=DEFAULT_LOOKBACK_DAYS, dry_run=False, backfill=False)
     log.info("Daily ORI GitHub sync complete: imported=%s events_saved=%s skipped=%s",
@@ -139,7 +160,7 @@ def _seed_operational_patterns() -> None:
         from operational_pattern_library import seed_initial_patterns
         count = seed_initial_patterns()
         log.info("[pattern-library] Startup seed complete: %d pattern(s) written", count)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort startup seed, already logged as non-blocking
         log.warning("[pattern-library] Startup seed failed (non-blocking): %s", exc)
 
 
@@ -180,7 +201,7 @@ def _start_scheduler() -> None:
         try:
             if _store.brief_exists_for_cycle(status.cycle_id):
                 return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort existing-brief poll check, already logged; a check failure just skips this poll cycle
             log.warning("[morning-cycle %s] could not check for an existing brief this poll: %s",
                         status.cycle_id, exc)
             return
@@ -193,7 +214,7 @@ def _start_scheduler() -> None:
         try:
             brief = run_once(trigger="scheduled")
             log.info("ORI brief complete: %s risk=%s", brief.brief_id[:8], brief.overall_risk)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
             log.error("ORI brief generation failed: %s", exc)
 
     scheduler.add_job(
@@ -218,7 +239,7 @@ def _start_scheduler() -> None:
             if DAILY_BRIEF_AFTER_SYNC:
                 brief = run_once(trigger="scheduled")
                 log.info("Post-sync brief: %s risk=%s", brief.brief_id[:8], brief.overall_risk)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
             log.error("ORI GitHub sync failed: %s", exc)
 
     scheduler.add_job(_github_job, github_trigger, id="ori_github_sync", replace_existing=True)
@@ -561,9 +582,9 @@ def _start_scheduler() -> None:
     # human_systems_scheduler.py's push.py pulses (same recovery_confidence_today
     # data, independently read by two live schedulers). Captain designated
     # human_systems_scheduler.py + push.py the sole automated recovery
-    # messenger. Manual `/dispatch` in Telegram (telegram-bots/xo/app.py)
-    # still works via engagement_dispatcher.py directly — only this
-    # automatic timer is removed.
+    # messenger. The former manual `/dispatch` Telegram command is no longer registered in
+    # telegram-bots/xo/app.py (see DEPLOY.md); this
+    # automatic timer is also removed.
 
     # ── Episodic Memory Decay (migration 0162) ────────────────────────────────
     # Prune zero-reuse research memories older than 90 days. Runs weekly on
@@ -583,7 +604,7 @@ def _start_scheduler() -> None:
     try:
         from intelligence.proactive_cadences import register_jobs as _register_proactive
         _register_proactive(scheduler, tz)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort sub-registrar call, already logged as non-blocking
         log.warning("Proactive cadences failed to register (non-blocking): %s", exc)
 
     log.info(
@@ -593,7 +614,7 @@ def _start_scheduler() -> None:
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
         "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min | "
-        "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Brisbane) | "
+        "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Melbourne) | "
         "Downdetector threshold recompute: 05:00 (%s) | "
         "Episodic memory decay: Sunday 03:00 (%s)",
         SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
@@ -613,15 +634,29 @@ _morning_brief_sent_at: str | None = None
 
 
 def _pregenerate_brief_audio(brief_type: str) -> None:
-    """Fire-and-forget: pre-generate + cache the just-sent brief's audio via
-    the Chatterbox TTS service (core/voice/tts_chatterbox.py, cache_key
-    support added 2026-09-05), so the Hub/Captain's Chair "read brief
-    aloud" button plays instantly instead of the ~35s cold-generation
-    latency measured live on this VM. Best-effort — brief delivery has
-    already succeeded by the time this runs; a TTS failure here must never
-    surface as a brief-delivery failure."""
+    """Fire-and-forget: pre-generate + cache the just-sent brief's audio, so
+    the Hub/Captain's Chair "read brief aloud" button plays instantly
+    instead of paying cold-generation latency live. Best-effort — brief
+    delivery has already succeeded by the time this runs; a TTS failure
+    here must never surface as a brief-delivery failure.
+
+    2026-09-12 (USS-TJR-MSN-0366 Stream 7): routed to the Kokoro TTS
+    service (core/voice/tts_kokoro.py) instead of Chatterbox
+    (core/voice/tts_chatterbox.py). This call has never set `voice_ref` —
+    it is plain narration of brief text, exactly the niche Chatterbox
+    measured 0.08x realtime on (~35s for one ~90-char sentence) and
+    Kokoro measured 2.63x realtime on in the same sandbox. Chatterbox is
+    kept running for voice-cloning requests only; this caller was never
+    one of those, so nothing here loses capability by moving. Falls back
+    to KOKORO_SERVICE_URL/KOKORO_SERVICE_SECRET, then to the old
+    TTS_SERVICE_URL/TTS_SERVICE_SECRET names (Chatterbox's) if the
+    Kokoro-specific ones aren't set, so an existing deployment that only
+    ever configured the old env vars keeps working without a deploy-time
+    env change — it will just be pointed at whichever service those URLs
+    resolve to."""
     try:
         import re
+
         import requests
         sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
         from heartbeat import supabase_get
@@ -633,12 +668,15 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
             return
         row = rows[0]
         clean_text = re.sub(r"<[^>]+>", " ", row["brief_text"])
+        # captains_brief escapes dynamic text (&lt; &amp; ...); the tags are gone, so restore the
+        # characters before the text is spoken.
+        clean_text = html.unescape(clean_text)
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
 
-        tts_url = os.environ.get("TTS_SERVICE_URL", "")
-        tts_secret = os.environ.get("TTS_SERVICE_SECRET", "")
+        tts_url = os.environ.get("KOKORO_SERVICE_URL") or os.environ.get("TTS_SERVICE_URL", "")
+        tts_secret = os.environ.get("KOKORO_SERVICE_SECRET") or os.environ.get("TTS_SERVICE_SECRET", "")
         if not tts_url or not tts_secret:
-            log.info("Brief audio pre-generation skipped — TTS_SERVICE_URL/TTS_SERVICE_SECRET not configured")
+            log.info("Brief audio pre-generation skipped — KOKORO_SERVICE_URL/KOKORO_SERVICE_SECRET (or TTS_SERVICE_URL/TTS_SERVICE_SECRET) not configured")
             return
 
         resp = requests.post(
@@ -649,13 +687,14 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
         )
         resp.raise_for_status()
         log.info("Brief audio pre-generated and cached: brief_type=%s id=%s", brief_type, row["id"])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort audio pre-generation, already logged as non-blocking
         log.warning("Brief audio pre-generation failed (non-blocking): %s", exc)
 
 
 def _morning_brief_job() -> None:
     global _morning_brief_sent_at
     from datetime import datetime, timezone
+
     from intelligence.captains_brief import send_brief
 
     log.info("Captain's morning brief job triggered")
@@ -677,7 +716,7 @@ def _morning_brief_job() -> None:
             log.warning("Morning brief delivery failed")
             _record_heartbeat("captains_daily_briefs", "failed", error_message="morning brief delivery failed")
             _record_heartbeat("morning_brief", "failed", error_message="morning brief delivery failed")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Morning brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
         _record_heartbeat("morning_brief", "failed", error_message=str(exc))
@@ -701,7 +740,7 @@ def _midday_check_job() -> None:
             _pregenerate_brief_audio("midday")
         else:
             log.info("Midday check: no new significant signals — suppressing brief")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Midday check job failed: %s", exc)
 
 
@@ -717,7 +756,7 @@ def _eod_brief_job() -> None:
                            error_message=None if ok else "eod brief delivery failed")
         if ok:
             _pregenerate_brief_audio("eod")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("EOD brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
 
@@ -732,7 +771,7 @@ def _weekly_brief_job() -> None:
         _record_heartbeat("captains_daily_briefs", "ok" if ok else "failed",
                            detail="weekly brief" if ok else None,
                            error_message=None if ok else "weekly brief delivery failed")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Weekly brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
 
@@ -747,7 +786,7 @@ def _knowledge_ops_brief_job() -> None:
     try:
         ok = send_brief("knowledge_ops")
         log.info("Knowledge Platform brief %s", "delivered" if ok else "delivery failed")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Knowledge Platform brief job failed: %s", exc)
 
 
@@ -766,8 +805,8 @@ def _daily_collection_job() -> None:
     """
     log.info("Daily source collection triggered")
     from datetime import datetime, timedelta, timezone
+
     from intelligence.classification.classifier import classify
-    from intelligence.classification.deduplicator import _normalise
     from intelligence.classification.filter import apply_filter
     from intelligence.ingestion.collection_engine import collect_all
     from intelligence.persistence import intelligence_store as store
@@ -775,7 +814,7 @@ def _daily_collection_job() -> None:
 
     try:
         items, health_records = collect_all()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Daily collection job failed: %s", exc)
         _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
         return
@@ -808,17 +847,10 @@ def _daily_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
@@ -829,17 +861,17 @@ def _daily_collection_job() -> None:
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            _stats = enrich_and_save(ranked, store, shadow_mode=_SHADOW_MODE_SCORING)
             saved = _stats["canonical"] + _stats["duplicate"]
             log.info("Phase A enrichment: canonical=%d duplicate=%d failed=%d",
                      _stats["canonical"], _stats["duplicate"], _stats["failed"])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed; plain-save fallback: %s", exc)
             for event in ranked:
                 try:
                     if store.save_event(event):
                         saved += 1
-                except Exception as exc2:
+                except Exception as exc2:  # noqa: BLE001 - per-event save failure inside a fallback loop — one bad event must not abort the batch; already logged
                     log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
@@ -847,7 +879,7 @@ def _daily_collection_job() -> None:
             "events_classified=%d events_saved=%d",
             len(health_records), len(items), len(classified), saved,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - post-processing stage catch, collection heartbeat already recorded above (see comment); already logged
         # Collection heartbeat already recorded above — this stage is
         # classify/dedup/save, logged but not deadman's-switch-gated.
         log.error("Daily collection post-processing failed: %s", exc)
@@ -881,7 +913,7 @@ def _health_osint_weekly_fetch_job() -> None:
         ingest_script = os.path.join(health_osint_dir, "health_signal_ingestion.py")
         result = subprocess.run(
             [sys.executable, ingest_script],
-            capture_output=True, text=True, timeout=600,
+            capture_output=True, text=True, check=False, timeout=600,
         )
         if result.returncode != 0:
             log.error("Health OSINT weekly fetch failed (exit %d): %s", result.returncode, result.stderr[-2000:])
@@ -902,17 +934,31 @@ def _health_osint_weekly_fetch_job() -> None:
         # it. Oldest-first ordering (health_signal_curation.py fix, same
         # commit) means this drains the backlog gradually across subsequent
         # weekly runs rather than starving it behind new arrivals.
-        curation_result = subprocess.run(
-            [sys.executable, curation_script, "--limit", "100"],
-            capture_output=True, text=True, timeout=900,
-        )
-        if curation_result.returncode != 0:
-            log.error("Health OSINT auto-curation failed (exit %d): %s", curation_result.returncode, curation_result.stderr[-2000:])
-            _record_heartbeat("health_osint_auto_curation", "failed", error_message=curation_result.stderr[-500:])
-        else:
-            log.info("Health OSINT auto-curation: %s", curation_result.stdout[-2000:])
-            _record_heartbeat("health_osint_auto_curation", "ok", detail=curation_result.stdout[-500:])
-    except Exception as exc:
+        #
+        # 2026-10-08: the 09-19 and 09-26 runs hit this 900s timeout, and the
+        # TimeoutExpired fell through to the outer except below, which wrote
+        # it as a health_osint_weekly_fetch failure — the fetch had already
+        # succeeded and heartbeated ok. HQ Status maps that key to the Health
+        # Discovery stage, so a supporting-job overrun read as Health
+        # Intelligence "unavailable". Curation now has its own try and only
+        # ever heartbeats its own key. --time-budget makes the script stop
+        # cleanly (exit 0, partial counts) before this hard timeout; the hard
+        # timeout stays as a backstop for a hung provider call.
+        try:
+            curation_result = subprocess.run(
+                [sys.executable, curation_script, "--limit", "100", "--time-budget", "780"],
+                capture_output=True, text=True, check=False, timeout=900,
+            )
+            if curation_result.returncode != 0:
+                log.error("Health OSINT auto-curation failed (exit %d): %s", curation_result.returncode, curation_result.stderr[-2000:])
+                _record_heartbeat("health_osint_auto_curation", "failed", error_message=curation_result.stderr[-500:])
+            else:
+                log.info("Health OSINT auto-curation: %s", curation_result.stdout[-2000:])
+                _record_heartbeat("health_osint_auto_curation", "ok", detail=curation_result.stdout[-500:])
+        except Exception as exc:  # noqa: BLE001 - curation is a supporting step after a fetch that already heartbeated ok; record against its own key only; already logged
+            log.error("Health OSINT auto-curation failed: %s", exc)
+            _record_heartbeat("health_osint_auto_curation", "failed", error_message=str(exc)[-500:])
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Health OSINT weekly fetch job failed: %s", exc)
         _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=str(exc))
 
@@ -955,7 +1001,7 @@ def _suppression_audit_job() -> None:
         )
         result = subprocess.run(
             [sys.executable, script, "--days", "1"],
-            capture_output=True, text=True, timeout=900,
+            capture_output=True, text=True, check=False, timeout=900,
         )
         if result.returncode != 0:
             log.error("Suppression audit failed (exit %d): %s", result.returncode, result.stderr[-2000:])
@@ -963,7 +1009,7 @@ def _suppression_audit_job() -> None:
             return
         log.info("Suppression audit: %s", result.stdout[-2000:])
         _record_heartbeat("intelligence_suppression_audit", "ok", detail=result.stdout[-500:])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Suppression audit job failed: %s", exc)
         _record_heartbeat("intelligence_suppression_audit", "failed", error_message=str(exc))
 
@@ -1024,17 +1070,17 @@ _PRIORITY_TIERED_SOURCE_NAMES = frozenset({
 # leaves genuine headroom on both providers' budgets — this constant is the
 # real, math-checked interval, not a placeholder.
 _PRIORITY_TIERED_INTERVAL_MINUTES = 120
-_PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, AEST (Australia/Brisbane, no DST)
-_PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, AEST
+_PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, Melbourne local time (Australia/Melbourne, DST-aware)
+_PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, Melbourne local time
 
 
 def _within_priority_tiered_window(hour: int) -> bool:
     """Pure, directly-testable time-gate — see
-    tests/test_downdetector_priority_cadence.py. 07:00-19:00 AEST
-    (Australia/Brisbane — this platform's standard timezone, no DST, same
-    tz pulse_time.py already uses;
-    deliberately NOT SCHEDULE_TZ/Australia-Melbourne, which shifts with
-    DST)."""
+    tests/test_downdetector_priority_cadence.py. 07:00-19:00 Melbourne local
+    time (Australia/Melbourne — this platform's standard timezone since
+    2026-10, DST-aware, same tz pulse_time.py uses). The window is the same
+    12 hours as before, so the call budget is unchanged; it shifts by an
+    hour in UTC terms when daylight saving starts or ends."""
     return _PRIORITY_TIERED_WINDOW_START_HOUR <= hour < _PRIORITY_TIERED_WINDOW_END_HOUR
 
 
@@ -1056,12 +1102,16 @@ def _priority_tiered_collection_job() -> None:
     from datetime import datetime as _datetime
     try:
         from zoneinfo import ZoneInfo
-        hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
-    except Exception:
-        hour = _datetime.now().hour
+        hour = _datetime.now(ZoneInfo("Australia/Melbourne")).hour
+    except Exception:  # noqa: BLE001 - defensive-only fallback, see comment above; already handled by falling back to host-local time
+        # Defensive only — ZoneInfo("Australia/Melbourne") should never fail on a
+        # supported Python; if it somehow does, fall back to host local time
+        # rather than guessing UTC (this host is deployed/configured for
+        # Melbourne time, so host-local is the closer approximation).
+        hour = _datetime.now().hour  # noqa: DTZ005 - deliberate host-local-time fallback, see comment above
     if not _within_priority_tiered_window(hour):
         log.info(
-            "Priority tiered collection skipped (outside 07:00-19:00 Brisbane, hour=%d)",
+            "Priority tiered collection skipped (outside 07:00-19:00 Melbourne, hour=%d)",
             hour,
         )
         return
@@ -1069,8 +1119,8 @@ def _priority_tiered_collection_job() -> None:
     log.info("Priority tiered Downdetector collection triggered (hour=%d)", hour)
     try:
         from datetime import datetime, timedelta, timezone
+
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1102,32 +1152,25 @@ def _priority_tiered_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            _stats = enrich_and_save(ranked, store, shadow_mode=_SHADOW_MODE_SCORING)
             saved = _stats["canonical"] + _stats["duplicate"]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on priority-tiered run; plain-save fallback: %s", exc)
             for event in ranked:
                 try:
                     if store.save_event(event):
                         saved += 1
-                except Exception as exc2:
+                except Exception as exc2:  # noqa: BLE001 - per-event save failure inside a fallback loop — one bad event must not abort the batch; already logged
                     log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
@@ -1139,7 +1182,7 @@ def _priority_tiered_collection_job() -> None:
             "downdetector_priority_tiered_collection", "ok",
             detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Priority tiered collection job failed: %s", exc)
         _record_heartbeat("downdetector_priority_tiered_collection", "failed", error_message=str(exc))
 
@@ -1169,7 +1212,7 @@ def _downdetector_threshold_recompute_job() -> None:
             "downdetector_threshold_recompute", "ok",
             detail=f"sources={len(results)} learned={learned} bootstrap={bootstrap}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Downdetector threshold recompute job failed: %s", exc)
         _record_heartbeat("downdetector_threshold_recompute", "failed", error_message=str(exc))
 
@@ -1186,8 +1229,8 @@ def _emergency_alert_hub_job() -> None:
         from intelligence.emergency_alerts import run_all
         results = run_all()
         log.info("Emergency Alert Hub collection complete: %s", results)
-    except Exception as exc:
-        log.error("Emergency Alert Hub collection failed: %s", exc, exc_info=True)
+    except Exception:
+        log.exception("Emergency Alert Hub collection failed")
 
 
 def _emergency_alert_summary_job() -> None:
@@ -1201,8 +1244,8 @@ def _emergency_alert_summary_job() -> None:
         from intelligence.emergency_alert_summary import run
         result = run()
         log.info("Emergency Alert Hub summary check complete: %s", result)
-    except Exception as exc:
-        log.error("Emergency Alert Hub summary job failed: %s", exc, exc_info=True)
+    except Exception:
+        log.exception("Emergency Alert Hub summary job failed")
 
 
 def _intraday_status_collection_job() -> None:
@@ -1219,8 +1262,8 @@ def _intraday_status_collection_job() -> None:
     log.info("Intraday status collection triggered")
     try:
         from datetime import datetime, timedelta, timezone
+
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1259,32 +1302,25 @@ def _intraday_status_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            _stats = enrich_and_save(ranked, store, shadow_mode=_SHADOW_MODE_SCORING)
             saved = _stats["canonical"] + _stats["duplicate"]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on intraday run; plain-save fallback: %s", exc)
             for event in ranked:
                 try:
                     if store.save_event(event):
                         saved += 1
-                except Exception as exc2:
+                except Exception as exc2:  # noqa: BLE001 - per-event save failure inside a fallback loop — one bad event must not abort the batch; already logged
                     log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
@@ -1296,7 +1332,7 @@ def _intraday_status_collection_job() -> None:
             "intraday_status_collection", "ok",
             detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Intraday status collection job failed: %s", exc)
         _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
 
@@ -1315,8 +1351,8 @@ def _intraday_media_collection_job() -> None:
     log.info("Intraday media collection triggered")
     try:
         from datetime import datetime, timedelta, timezone
+
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1345,32 +1381,25 @@ def _intraday_media_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            _stats = enrich_and_save(ranked, store, shadow_mode=_SHADOW_MODE_SCORING)
             saved = _stats["canonical"] + _stats["duplicate"]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on intraday media run; plain-save fallback: %s", exc)
             for event in ranked:
                 try:
                     if store.save_event(event):
                         saved += 1
-                except Exception as exc2:
+                except Exception as exc2:  # noqa: BLE001 - per-event save failure inside a fallback loop — one bad event must not abort the batch; already logged
                     log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
@@ -1382,7 +1411,7 @@ def _intraday_media_collection_job() -> None:
             "intraday_media_collection", "ok",
             detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Intraday media collection job failed: %s", exc)
         _record_heartbeat("intraday_media_collection", "failed", error_message=str(exc))
 
@@ -1396,12 +1425,14 @@ def _health_mission_correlation_job() -> None:
     """
     log.info("Health-mission correlation job triggered")
     try:
-        from intelligence.workflow.health_mission_correlation_workflow import run_health_mission_correlation_job
+        from intelligence.workflow.health_mission_correlation_workflow import (
+            run_health_mission_correlation_job,
+        )
         result = run_health_mission_correlation_job()
         log.info("Health-mission correlation complete: status=%s n_health=%d n_missions=%d",
                  result.get('status'), result.get('n_health_entries', 0), result.get('n_mission_days', 0))
         _record_heartbeat("health_mission_correlation", "ok", detail=result.get('status'))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Health-mission correlation job failed: %s", exc)
         _record_heartbeat("health_mission_correlation", "failed", error_message=str(exc))
 
@@ -1421,7 +1452,7 @@ def _adhd_nudge_job() -> None:
                  result.get('checked', 0), result.get('nudged', 0), len(result.get('errors', [])))
         _record_heartbeat("adhd_task_nudge", "ok", detail=f"nudged={result.get('nudged', 0)}")
         _record_heartbeat("follow_through_engine", "ok", detail=f"nudged={result.get('nudged', 0)}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("ADHD task nudge job failed: %s", exc)
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
         _record_heartbeat("follow_through_engine", "failed", error_message=str(exc))
@@ -1467,7 +1498,7 @@ def _google_tasks_sync_job() -> None:
             "google_tasks_sync", "ok",
             detail=f"pushed={body.get('pushed', 0)} pulled={body.get('pulled', 0)}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Google Tasks sync job failed: %s", exc)
         _record_heartbeat("google_tasks_sync", "failed", error_message=str(exc))
 
@@ -1485,7 +1516,7 @@ def _content_scoring_job() -> None:
         svc = ContentIntelligenceService()
         written = svc.score_and_persist(days=7)
         log.info("Content intelligence scoring complete: %d signals written", written)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Content intelligence scoring failed: %s", exc)
 
 
@@ -1513,8 +1544,8 @@ def _evolved_insight_generation_job() -> None:
     """
     log.info("Evolved Captain Intelligence insight generation triggered")
     try:
-        from core.platform.event_bus import poll_events
         from core.platform.captain_brief_evolution import assemble_evolved_captain_brief
+        from core.platform.event_bus import poll_events
 
         events = poll_events(limit=200)
         doc = assemble_evolved_captain_brief(events)
@@ -1527,7 +1558,7 @@ def _evolved_insight_generation_job() -> None:
             "evolved_captain_insight_generation", "ok",
             detail=f"{insight_count} insight(s) from {len(events)} events",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Evolved insight generation job failed: %s", exc)
         _record_heartbeat("evolved_captain_insight_generation", "failed", error_message=str(exc))
 
@@ -1564,8 +1595,10 @@ def _attention_evaluation_job() -> None:
     """
     log.info("Autonomous Attention Engine evaluation triggered")
     try:
-        from core.platform.event_bus import poll_events
-        from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
+        from core.platform.captain_brief_orchestrator import (
+            assemble_captain_brief_document,
+        )
+        from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
         from core.platform.interrupt_dispatcher import dispatch_interrupt_now
 
         # Runs every ATTENTION_EVAL_INTERVAL_MINUTES (default 10 = 144x/day).
@@ -1575,10 +1608,20 @@ def _attention_evaluation_job() -> None:
         # (those only matter to the evolved-brief path below, which reuses
         # understanding_engine). At this cadence, select("*") re-transfers
         # those arrays on every one of 144 runs/day for zero benefit.
-        events = poll_events(
-            limit=200,
-            columns="event_id,domain,event_type,importance,confidence,relevance,time_sensitivity,metrics,status",
-        )
+        #
+        # `recommended_action` MUST stay in this list: it's how
+        # captain_brief_contract.recommendation_from_event() gives every
+        # INTERRUPT_NOW item real content. Omitting it (as this list
+        # previously did) doesn't just drop a nice-to-have — it silently
+        # breaks interrupt_dispatcher.py's own `item.recommendation.description
+        # if item.recommendation else item.reason` fallback, so every push
+        # this job sends falls through to `item.reason`, the Attention
+        # Engine's bare threshold formula ("importance=90 >= 75 AND
+        # confidence=80 >= 70") — a real Telegram symptom this job alone
+        # produces every ATTENTION_EVAL_INTERVAL_MINUTES, since commands/
+        # brief.py's manual '/brief' path polls with columns="*" and never
+        # hit this gap.
+        events = poll_events(limit=200, columns=CAPTAIN_BRIEF_COLUMNS)
         doc = assemble_captain_brief_document(events)
         if not doc.interrupt_now:
             log.info("Attention evaluation: %d event(s) evaluated, 0 interrupt_now", len(events))
@@ -1589,7 +1632,7 @@ def _attention_evaluation_job() -> None:
             "Attention evaluation: %d event(s) evaluated, %d interrupt_now, %d dispatched",
             len(events), len(doc.interrupt_now), dispatched,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Attention evaluation job failed: %s", exc)
 
 
@@ -1619,7 +1662,7 @@ def _attention_drill_job() -> None:
             "ok" if dispatched_ok else "failed",
             detail=f"category={result['category']}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Attention drill job failed: %s", exc)
         _record_heartbeat("attention_engine_drill", "failed", error_message=str(exc))
 
@@ -1634,8 +1677,8 @@ def _validation_suite_job() -> None:
     """
     log.info("Operational Intelligence Validation Suite triggered")
     try:
+        from core.platform.notification_service import Severity, Transport, notify
         from intelligence.validation_suite import run_suite
-        from core.platform.notification_service import notify, Severity, Transport
 
         report = run_suite()
         passed = sum(r.passed for r in report.results)
@@ -1651,7 +1694,7 @@ def _validation_suite_job() -> None:
             template="alert",
             transport=Transport.TELEGRAM,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Validation suite job failed: %s", exc)
 
 
@@ -1677,7 +1720,7 @@ def _brief_qa_nightly_job() -> None:
         log.info("Brief QA nightly: %d passed, %d failed, %d errors", passed, failed, errors)
         _record_heartbeat("brief_qa_agent_nightly", "ok",
                          detail=f"passed={passed} failed={failed} errors={errors}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Brief QA nightly job failed: %s", exc)
         _record_heartbeat("brief_qa_agent_nightly", "failed", error_message=str(exc))
 
@@ -1710,7 +1753,7 @@ def _source_fidelity_audit_job() -> None:
             "source_fidelity_audit", "ok",
             detail=f"sources={total_sources} high={high_value} low={low_value} degraded={degraded}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Source fidelity audit job failed: %s", exc)
         _record_heartbeat("source_fidelity_audit", "failed", error_message=str(exc))
 
@@ -1744,7 +1787,8 @@ def _episodic_memory_decay_job() -> None:
         # PostgREST filter: created_at < now() - interval '90 days', reuse_count = 0,
         # execution_status = 'success'. lt() with an ISO timestamp achieves the
         # interval comparison; PostgreSQL coerces the string to timestamptz.
-        from datetime import datetime, timedelta, timezone as _tz
+        from datetime import datetime, timedelta
+        from datetime import timezone as _tz
 
         cutoff = (datetime.now(_tz.utc) - timedelta(days=90)).isoformat()
         delete_result = (
@@ -1761,7 +1805,7 @@ def _episodic_memory_decay_job() -> None:
             "episodic_memory_decay", "ok",
             detail=f"deleted={deleted_count} cutoff={cutoff[:10]}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Episodic memory decay job failed: %s", exc)
         _record_heartbeat("episodic_memory_decay", "failed", error_message=str(exc))
 

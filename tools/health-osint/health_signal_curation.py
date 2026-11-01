@@ -35,6 +35,7 @@ Usage:
     python3 tools/health-osint/health_signal_curation.py
     python3 tools/health-osint/health_signal_curation.py --dry-run
     python3 tools/health-osint/health_signal_curation.py --limit 20
+    python3 tools/health-osint/health_signal_curation.py --limit 100 --time-budget 780
 """
 
 from __future__ import annotations
@@ -45,8 +46,10 @@ import logging
 import os
 import re
 import sys
+import threading
+import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
@@ -66,6 +69,14 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+# HQ V1 Integration QA §28 fix: this module previously called
+# core/llm/provider_chain.py directly, bypassing Model Router entirely (the
+# one confirmed bypass found in that audit). Model Router is now tried
+# first (tier-0, matches intelligence/adhd/task_decomposition.py's own
+# "model-router, then direct providers" ordering); the pre-existing direct
+# provider_chain loop is unchanged as the fallback when Model Router itself
+# is unreachable.
+MODEL_ROUTER_URL = os.environ.get("MODEL_ROUTER_URL", "http://localhost:8891")
 
 _SYSTEM_PROMPT = """You are curating auto-ingested health OSINT signals for Captain TJR aboard
 USS Starship Endeavour, before they reach his main health dashboard.
@@ -127,6 +138,18 @@ Respond with ONLY a JSON object:
  "safety_relevance": true|false}
 """
 
+# Worst case for one _classify() is every provider timing out in turn:
+# model-router 20s + gemini 30s + mistral 30s + ollama 60s = 140s. Anything
+# past that means a call is hung beyond its own socket timeout — stop the
+# run rather than let one signal eat the scheduler's whole 900s window
+# (2026-09-19 and 2026-09-26 both timed out with zero signals applied).
+_CLASSIFY_DEADLINE_S = 150
+
+
+class ClassifyHung(RuntimeError):
+    pass
+
+
 _VALID_MISSION_RELEVANCE = {"RELEVANT", "LOW_CONFIDENCE", "NOT_RELEVANT"}
 _VALID_EVIDENCE_CONTRIBUTION = {
     "CONFIRMS", "CHALLENGES", "EXTENDS", "REPLICATION", "SAFETY", "BACKGROUND", "UNRESOLVED",
@@ -140,16 +163,79 @@ def _client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+def _fallback_classification(reason: str) -> dict[str, Any]:
+    return {
+        "decision": "ESCALATE", "reason": reason,
+        "mission_relevance": None, "evidence_contribution": None,
+        "population_fit": None, "safety_relevance": False,
+    }
+
+
+def _parse_classification(raw: str, name: str) -> dict[str, Any] | None:
+    """Parses one provider's raw text response into the classification
+    shape, or returns None (caller falls through to the next provider) if
+    the response is empty/unparseable/an unrecognised decision. Shared by
+    the Model Router path and the direct-provider-chain fallback so the two
+    can't drift on validation rules."""
+    if not raw:
+        return None
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    data = json.loads(match.group() if match else raw)
+    decision = str(data.get("decision", "")).upper().strip()
+    reason = str(data.get("reason", "")).strip()
+    if decision not in ("PUBLISH", "REJECT", "ESCALATE"):
+        log.warning("[curation] %s returned unrecognised decision %r — escalating", name, decision)
+        return _fallback_classification(f"unrecognised model output via {name}")
+
+    mission_relevance = str(data.get("mission_relevance", "")).upper().strip()
+    if mission_relevance not in _VALID_MISSION_RELEVANCE:
+        mission_relevance = None
+
+    evidence_contribution = str(data.get("evidence_contribution", "")).upper().strip()
+    if evidence_contribution not in _VALID_EVIDENCE_CONTRIBUTION:
+        evidence_contribution = None
+
+    return {
+        "decision": decision,
+        "reason": reason or f"(no reason given, via {name})",
+        "mission_relevance": mission_relevance,
+        "evidence_contribution": evidence_contribution,
+        "population_fit": (str(data.get("population_fit", "")).strip() or None),
+        "safety_relevance": bool(data.get("safety_relevance", False)),
+    }
+
+
+def _call_model_router(prompt: str) -> str | None:
+    """Tier-0 (local, preferred) call — matches intelligence/adhd/
+    task_decomposition.py's TaskDecomposer._model_router ordering. Raises on
+    any failure so the caller's try/except falls through to the direct
+    provider_chain loop; never raises out to _classify's own caller."""
+    import urllib.request
+
+    url = f"{MODEL_ROUTER_URL.rstrip('/')}/api/model/health-signal-curation"
+    body = json.dumps({"prompt": f"{_SYSTEM_PROMPT}\n\n{prompt}"}).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body, headers={"Content-Type": "application/json"}, method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var with fixed default, not user input - reviewed 2026-09-12
+        data = json.loads(resp.read())
+    if not data.get("success"):
+        raise RuntimeError(data.get("error") or "Model Router returned success=false")
+    return data.get("response") or None
+
+
 def _classify(signal: dict[str, Any]) -> dict[str, Any]:
-    """Runs one signal through the shared LLM provider chain. Returns a dict
-    with decision/reason plus the additive mission_relevance/
+    """Runs one signal through Model Router (tier-0), falling back to the
+    direct LLM provider chain if Model Router itself is unreachable.
+    Returns a dict with decision/reason plus the additive mission_relevance/
     evidence_contribution/population_fit/safety_relevance fields (mission
     Phase 4/7 — see module docstring). Never raises — any provider failure
     or unparseable response degrades to ESCALATE with the additive fields
     left None/False, the same safe default as low confidence, not a crash
     and not a silent guess."""
-    from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
     from priority_domains import is_priority_domain
+
+    from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
     priority_tag = "PRIORITY AREA" if is_priority_domain(signal.get("health_domain")) else "not a priority area"
 
@@ -167,62 +253,47 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
         f"URL: {signal.get('canonical_url') or '(none)'}\n"
     )
 
-    def _fallback(reason: str) -> dict[str, Any]:
-        return {
-            "decision": "ESCALATE", "reason": reason,
-            "mission_relevance": None, "evidence_contribution": None,
-            "population_fit": None, "safety_relevance": False,
-        }
-
     providers = [
+        ("model-router", lambda: _call_model_router(prompt)),
         ("gemini", lambda: call_gemini(_SYSTEM_PROMPT, prompt, api_key=GEMINI_API_KEY,
-                                        max_output_tokens=300, temperature=0.1, timeout=30)),
+                                        max_output_tokens=300, temperature=0.1, timeout=30).text),
         ("mistral", lambda: call_mistral(_SYSTEM_PROMPT, prompt, api_key=MISTRAL_API_KEY,
-                                          max_tokens=300, temperature=0.1, timeout=30)),
+                                          max_tokens=300, temperature=0.1, timeout=30).text),
         ("ollama", lambda: call_ollama(_SYSTEM_PROMPT, prompt, base_url=OLLAMA_BASE_URL,
-                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=300, timeout=60)),
+                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=300, timeout=60).text),
     ]
 
     for name, fn in providers:
         try:
             raw = fn()
-            if not raw:
-                continue
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            data = json.loads(match.group() if match else raw)
-            decision = str(data.get("decision", "")).upper().strip()
-            reason = str(data.get("reason", "")).strip()
-            if decision not in ("PUBLISH", "REJECT", "ESCALATE"):
-                log.warning("[curation] %s returned unrecognised decision %r — escalating", name, decision)
-                return _fallback(f"unrecognised model output via {name}")
-
-            mission_relevance = str(data.get("mission_relevance", "")).upper().strip()
-            if mission_relevance not in _VALID_MISSION_RELEVANCE:
-                mission_relevance = None
-
-            evidence_contribution = str(data.get("evidence_contribution", "")).upper().strip()
-            if evidence_contribution not in _VALID_EVIDENCE_CONTRIBUTION:
-                evidence_contribution = None
-
-            return {
-                "decision": decision,
-                "reason": reason or f"(no reason given, via {name})",
-                "mission_relevance": mission_relevance,
-                "evidence_contribution": evidence_contribution,
-                "population_fit": (str(data.get("population_fit", "")).strip() or None),
-                "safety_relevance": bool(data.get("safety_relevance", False)),
-            }
-        except Exception as exc:
+            result = _parse_classification(raw, name)
+            if result is not None:
+                return result
+        except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[curation] provider %s failed for signal %s: %s", name, signal.get("signal_id"), exc)
             continue
 
-    return _fallback("all LLM providers unavailable")
+    return _fallback_classification("all LLM providers unavailable")
+
+
+def _classify_with_deadline(signal: dict[str, Any], deadline_s: float) -> dict[str, Any]:
+    """_classify() in a daemon thread so a hung provider call can't block
+    past deadline_s. A daemon thread left running doesn't keep the process
+    alive at exit, so raising here lets main() finish and report."""
+    box: dict[str, Any] = {}
+    t = threading.Thread(target=lambda: box.setdefault("r", _classify(signal)), daemon=True)
+    t.start()
+    t.join(deadline_s)
+    if "r" not in box:
+        raise ClassifyHung(f"classification of signal {signal.get('signal_id')} exceeded {deadline_s:.0f}s")
+    return box["r"]
 
 
 class HealthSignalCurator:
-    def __init__(self, dry_run: bool = False, limit: Optional[int] = None):
+    def __init__(self, dry_run: bool = False, limit: int | None = None, time_budget: float | None = None):
         self.dry_run = dry_run
         self.limit = limit
+        self.time_budget = time_budget
         self.supabase = None if dry_run else _client()
 
     @staticmethod
@@ -256,6 +327,14 @@ class HealthSignalCurator:
             )
             .eq("auto_ingested", True)
             .eq("auto_ingest_reviewed", False)
+            # Skip signals the model already ESCALATEd (mission_relevance is
+            # written on every real model answer). They're waiting on a
+            # human at /health-osint-curation; re-asking every week only
+            # re-escalates them, and with oldest-first ordering they'd
+            # gradually fill every --limit slot and starve new arrivals.
+            # The "all LLM providers unavailable" fallback leaves
+            # mission_relevance NULL, so those still get retried.
+            .is_("mission_relevance", "null")
             # Oldest-first — --limit's own help text ("the rest next run")
             # only holds if older pending rows aren't perpetually pushed
             # behind newer arrivals.
@@ -304,7 +383,7 @@ class HealthSignalCurator:
     def run(self) -> dict[str, Any]:
         if self.dry_run:
             log.info("[dry-run] would query health_signals for the pending auto-ingest queue")
-            return {"total": 0, "published": 0, "rejected": 0, "escalated": 0, "details": []}
+            return {"total": 0, "fetched": 0, "stopped_reason": None, "published": 0, "rejected": 0, "escalated": 0, "details": []}
 
         pending = self._pending()
         log.info("Curating %d pending signal(s)", len(pending))
@@ -317,9 +396,21 @@ class HealthSignalCurator:
 
         counts = {"PUBLISH": 0, "REJECT": 0, "ESCALATE": 0}
         details = []
-        for group in groups.values():
+        started = time.monotonic()
+        stopped_reason = None
+        for gi, group in enumerate(groups.values()):
+            elapsed = time.monotonic() - started
+            if self.time_budget is not None and elapsed + _CLASSIFY_DEADLINE_S > self.time_budget:
+                stopped_reason = (
+                    f"time budget {self.time_budget:.0f}s reached after {gi}/{len(groups)} group(s) "
+                    f"({elapsed:.0f}s elapsed) — rest stay pending for next run"
+                )
+                log.warning(stopped_reason)
+                break
             representative = group[0]
-            classification = _classify(representative)
+            t0 = time.monotonic()
+            classification = _classify_with_deadline(representative, _CLASSIFY_DEADLINE_S)
+            classify_s = time.monotonic() - t0
             decision = classification["decision"]
             reason = classification["reason"]
             if len(group) > 1:
@@ -339,10 +430,12 @@ class HealthSignalCurator:
                 })
 
             dup_note = f" (dup x{len(group)})" if len(group) > 1 else ""
-            log.info("[%s]%s %s — %s", decision, dup_note, (representative.get("title") or "")[:80], reason)
+            log.info("[%s]%s (%.1fs) %s — %s", decision, dup_note, classify_s, (representative.get("title") or "")[:80], reason)
 
         return {
-            "total": len(pending),
+            "total": len(details),
+            "fetched": len(pending),
+            "stopped_reason": stopped_reason,
             "published": counts["PUBLISH"],
             "rejected": counts["REJECT"],
             "escalated": counts["ESCALATE"],
@@ -354,14 +447,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Health OSINT auto-curation — LLM-judged publish/reject/escalate")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int, default=None, help="Only process this many pending signals (oldest-first review still applies to the rest next run)")
+    parser.add_argument("--time-budget", type=float, default=None, help="Stop starting new classifications once this many seconds have elapsed; exits 0 with partial counts")
     args = parser.parse_args()
 
-    curator = HealthSignalCurator(dry_run=args.dry_run, limit=args.limit)
-    result = curator.run()
-    log.info(
-        "Done: %d total — %d published, %d rejected, %d escalated to human review",
-        result["total"], result["published"], result["rejected"], result["escalated"],
+    curator = HealthSignalCurator(dry_run=args.dry_run, limit=args.limit, time_budget=args.time_budget)
+    try:
+        result = curator.run()
+    except ClassifyHung as exc:
+        log.error("Stopping: %s — LLM provider chain is hung; signals already applied this run are kept", exc)
+        sys.exit(2)
+    summary = (
+        f"Done: {result['total']} of {result['fetched']} curated — {result['published']} published, "
+        f"{result['rejected']} rejected, {result['escalated']} escalated to human review"
+        + (f" ({result['stopped_reason']})" if result["stopped_reason"] else "")
     )
+    log.info(summary)
+    # stdout too: the scheduler stores stdout[-500:] as the heartbeat detail.
+    print(summary)
 
 
 if __name__ == "__main__":

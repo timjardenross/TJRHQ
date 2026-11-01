@@ -25,12 +25,12 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
-from datetime import date, datetime
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class Investment:
         if not self.review_date:
             return False
         try:
-            return date.fromisoformat(self.review_date) <= date.today()
+            return date.fromisoformat(self.review_date) <= datetime.now(timezone.utc).date()
         except ValueError:
             return False
 
@@ -91,7 +91,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (supabase unavailable)
         log.debug("[investment_governance] Supabase unavailable: %s", exc)
         return None
 
@@ -126,7 +126,7 @@ def _row_to_investment(row: dict[str, Any]) -> Investment | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_INVESTMENT_STATEMENT} {inv_id}: "
-    name = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    name = stmt.removeprefix(prefix)
 
     def _en(cls, val, default):
         try:
@@ -175,7 +175,7 @@ def register_investment(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", f"{INVESTMENT_OWNER_PREFIX}%")
                 .ilike("statement", f"%{name[:40]}%")
@@ -206,7 +206,7 @@ def register_investment(
         )
         log.info("[investment_governance] Registered %s — %s (%s)", inv_id, name[:60], approval_status.value)
         return inv_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (register_investment failed)
         log.warning("[investment_governance] register_investment failed: %s", exc)
         return None
 
@@ -219,7 +219,7 @@ def update_investment(investment_id: str, **fields: Any) -> bool:
             return False
         owner_key = f"{INVESTMENT_OWNER_PREFIX}{investment_id}"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale")
             .eq("owner", owner_key)
             .limit(1)
@@ -234,9 +234,9 @@ def update_investment(investment_id: str, **fields: Any) -> bool:
         for k, v in fields.items():
             if hasattr(inv, k):
                 setattr(inv, k, v)
-        c.raw_client.table("decisions").update({"rationale": _build_rationale(inv)}).eq("id", rows[0]["id"]).execute()
+        c.raw_client.table("command_memory_records").update({"rationale": _build_rationale(inv)}).eq("id", rows[0]["id"]).execute()
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (update_investment failed)
         log.debug("[investment_governance] update_investment failed: %s", exc)
         return False
 
@@ -247,7 +247,7 @@ def get_investment(investment_id: str) -> Investment | None:
         if c is None:
             return None
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{INVESTMENT_OWNER_PREFIX}{investment_id}")
             .limit(1)
@@ -255,7 +255,7 @@ def get_investment(investment_id: str) -> Investment | None:
         )
         rows = list(res.data or [])
         return _row_to_investment(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_investment failed)
         log.debug("[investment_governance] get_investment failed: %s", exc)
         return None
 
@@ -278,7 +278,7 @@ def list_investments(
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{INVESTMENT_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -294,18 +294,18 @@ def list_investments(
                 continue
             out.append(inv)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (list_investments failed)
         log.debug("[investment_governance] list_investments failed: %s", exc)
         return []
 
 
 __all__ = [
+    "INVESTMENT_OWNER_PREFIX",
     "ApprovalStatus",
     "Investment",
-    "register_investment",
-    "update_investment",
     "get_investment",
     "get_investment_for_initiative",
     "list_investments",
-    "INVESTMENT_OWNER_PREFIX",
+    "register_investment",
+    "update_investment",
 ]

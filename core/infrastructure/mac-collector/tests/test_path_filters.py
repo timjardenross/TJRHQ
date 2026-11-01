@@ -1,6 +1,5 @@
 from path_filters import PathFilter, path_matches
 
-
 # -- path_matches --------------------------------------------------------
 
 def test_path_matches_folder_prefix():

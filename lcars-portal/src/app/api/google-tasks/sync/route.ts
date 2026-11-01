@@ -20,11 +20,13 @@
 // timestamp, no merge — the simplest thing that won't corrupt data for a
 // single-user app.
 
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
 import { listGoogleTasks, createGoogleTask, updateGoogleTask, type GoogleTask } from '@/lib/google-tasks';
 import { GoogleCalendarDisconnectedError } from '@/lib/google-calendar';
+import { errorDetail } from '@/lib/errorDetail';
 
 const DEFAULT_TASK_LIST = '@default';
 
@@ -42,7 +44,14 @@ interface PersonalTaskRow {
 
 function isAuthorized(request: Request): boolean {
   const botSecret = request.headers.get('x-bot-secret');
-  return !!botSecret && !!process.env.BOT_API_SECRET && botSecret === process.env.BOT_API_SECRET;
+  const expected = process.env.BOT_API_SECRET;
+  if (!botSecret || !expected) return false;
+  const a = Buffer.from(botSecret);
+  const b = Buffer.from(expected);
+  // 2026-09-15 adversarial review: `===` on a secret comparison is the
+  // wrong pattern regardless of practical exploitability at this secret
+  // length -- switched to a constant-time comparison.
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export async function POST(request: Request) {
@@ -51,7 +60,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
 
-  const supabase = createSupabaseServiceRoleClient();
   const now = new Date().toISOString();
   let pushed = 0;
   let pulled = 0;
@@ -59,6 +67,17 @@ export async function POST(request: Request) {
   const errors: string[] = [];
 
   try {
+    // Inside the try (not hoisted above it): a missing SUPABASE_SERVICE_
+    // ROLE_KEY/NEXT_PUBLIC_SUPABASE_URL in this deployment's env used to
+    // throw before the try block, escaping this route's own error handling
+    // entirely and surfacing as a bare, undecorated platform 500 — the
+    // scheduler's heartbeat then just logs "500 Server Error: Internal
+    // Server Error" with none of this route's own diagnostic detail (see
+    // the 502 branch below). Catching it here turns that into the same
+    // logged, informative error response every other failure in this route
+    // already gets.
+    const supabase = createSupabaseServiceRoleClient();
+
     // ── Push: local -> Google ──────────────────────────────────────────
     const { data: toPush, error: pushSelectError } = await supabase
       .from('personal_tasks')
@@ -97,7 +116,7 @@ export async function POST(request: Request) {
         }
         pushed++;
       } catch (err) {
-        errors.push(`push ${row.id}: ${err instanceof Error ? err.message : String(err)}`);
+        errors.push(`push ${row.id}: ${errorDetail(err)}`);
       }
     }
 
@@ -141,7 +160,7 @@ export async function POST(request: Request) {
             .eq('id', row.id);
           deleted++;
         } catch (err) {
-          errors.push(`deleted-detect ${row.id}: ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`deleted-detect ${row.id}: ${errorDetail(err)}`);
         }
       }
     }
@@ -173,7 +192,7 @@ export async function POST(request: Request) {
           });
           pulled++;
         } catch (err) {
-          errors.push(`pull ${gtask.id}: ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`pull ${gtask.id}: ${errorDetail(err)}`);
         }
         continue;
       }
@@ -197,7 +216,7 @@ export async function POST(request: Request) {
             .eq('id', linked.id);
           completionsSynced++;
         } catch (err) {
-          errors.push(`sync-completion ${linked.id}: ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`sync-completion ${linked.id}: ${errorDetail(err)}`);
         }
       }
     }

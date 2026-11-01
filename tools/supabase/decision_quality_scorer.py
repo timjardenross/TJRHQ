@@ -7,9 +7,8 @@ Purpose: Score decisions on clarity, timeliness, accuracy, actionability (0-4 sc
 """
 
 from dataclasses import dataclass
-from typing import Optional
-import re
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import ClassVar
 
 
 @dataclass
@@ -27,8 +26,8 @@ class DecisionQualityScore:
     total_score: float  # 0-4 (sum of above)
     reasoning: str  # Human-readable explanation
 
-    specialist_feedback: Optional[str] = None
-    captain_notes: Optional[str] = None
+    specialist_feedback: str | None = None
+    captain_notes: str | None = None
     evaluation_timestamp: datetime = None
 
 
@@ -36,7 +35,7 @@ class DecisionQualityScorer:
     """Score decisions based on clarity, timeliness, accuracy, actionability."""
 
     # Bonus/penalty keywords (for tuning)
-    TIMELINESS_PENALTIES = {
+    TIMELINESS_PENALTIES: ClassVar[dict] = {
         "hasty": -0.25,
         "rushed": -0.25,
         "premature": -0.25,
@@ -44,14 +43,14 @@ class DecisionQualityScorer:
         "too late": -0.25,
     }
 
-    TIMELINESS_BONUSES = {
+    TIMELINESS_BONUSES: ClassVar[dict] = {
         "perfect timing": 0.25,
         "well-timed": 0.25,
         "timely": 0.15,
         "opportune": 0.25,
     }
 
-    ACTIONABILITY_PENALTIES = {
+    ACTIONABILITY_PENALTIES: ClassVar[dict] = {
         "ambiguous": -0.25,
         "unclear": -0.25,
         "hard to execute": -0.25,
@@ -59,7 +58,7 @@ class DecisionQualityScorer:
         "vague": -0.15,
     }
 
-    ACTIONABILITY_BONUSES = {
+    ACTIONABILITY_BONUSES: ClassVar[dict] = {
         "clear steps": 0.25,
         "explicit owner": 0.25,
         "easy to execute": 0.25,
@@ -71,8 +70,8 @@ class DecisionQualityScorer:
         decision_id: int,
         decision_text: str,
         outcome_status: str,
-        specialist_feedback: Optional[str] = None,
-        captain_notes: Optional[str] = None,
+        specialist_feedback: str | None = None,
+        captain_notes: str | None = None,
     ) -> DecisionQualityScore:
         """
         Score a decision on 0-4 scale.
@@ -120,7 +119,7 @@ class DecisionQualityScorer:
             reasoning=reasoning,
             specialist_feedback=specialist_feedback,
             captain_notes=captain_notes,
-            evaluation_timestamp=datetime.now(),
+            evaluation_timestamp=datetime.now(timezone.utc),
         )
 
     def _score_clarity(self, decision_text: str) -> float:
@@ -301,8 +300,8 @@ def score_decision_from_db(
     decision_id: int,
     decision_text: str,
     outcome_status: str,
-    specialist_feedback: Optional[str] = None,
-    captain_notes: Optional[str] = None,
+    specialist_feedback: str | None = None,
+    captain_notes: str | None = None,
 ) -> DecisionQualityScore:
     """
     Convenience function to score a decision.

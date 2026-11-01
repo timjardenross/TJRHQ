@@ -12,7 +12,6 @@ import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ class HierarchyMemoryAdapter:
     """
 
     def __init__(self) -> None:
-        self._available: Optional[bool] = None
+        self._available: bool | None = None
 
     def _check_available(self) -> bool:
         if self._available is None:
@@ -53,7 +52,7 @@ class HierarchyMemoryAdapter:
                 from core.knowledge_navigation.index import get_graph
                 g = get_graph()
                 self._available = g.node_count() > 0
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.debug("[hierarchy-adapter] Navigation module not available: %s", exc)
                 self._available = False
         return self._available
@@ -72,7 +71,10 @@ class HierarchyMemoryAdapter:
             return HierarchyContext()
 
         try:
-            from core.knowledge_navigation.context_bridge import build_hierarchy_context, _extract_ids
+            from core.knowledge_navigation.context_bridge import (
+                _extract_ids,
+                build_hierarchy_context,
+            )
             entity_ids = _extract_ids(text, limit=5)
             if not entity_ids:
                 return HierarchyContext()
@@ -87,7 +89,7 @@ class HierarchyMemoryAdapter:
                 context_block=f"\n\n{block}",
                 entity_ids_found=entity_ids,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[hierarchy-adapter] build_hierarchy_note failed: %s", exc)
             return HierarchyContext()
 

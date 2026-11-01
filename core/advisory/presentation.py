@@ -16,7 +16,8 @@ plain words, never numbers; ranks/scores/thresholds are stripped.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 # Machinery the Captain should never see (WP7 — hide internal mechanics).
 HIDDEN_KEYS = {

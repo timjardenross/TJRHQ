@@ -151,7 +151,7 @@ def model_scenario(
         if init.objective_id:
             all_objectives.add(init.objective_id)
         try:
-            from lib.program.forecasting import forecast_initiative, DeliveryForecast
+            from lib.program.forecasting import DeliveryForecast, forecast_initiative
             from lib.strategy.value_realisation import assess_initiative_value
 
             modified_inputs = {**inputs, "capacity_status": effective_cap}
@@ -200,7 +200,7 @@ def model_scenario(
                 total_benefit += adjusted
                 benefit_count += 1
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-initiative modelling, already logged
             log.debug("[strategy.scenario] initiative %s failed: %s", init.initiative_id, exc)
             at_risk += 1
 
@@ -254,7 +254,7 @@ def compare_scenarios(inputs: dict[str, Any] | None = None) -> list[ScenarioResu
     for stype in ScenarioType:
         try:
             results.append(model_scenario(stype, inputs))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort scenario type modelling, already logged
             log.debug("[strategy.scenario] %s failed: %s", stype.value, exc)
     return results
 
@@ -285,9 +285,9 @@ def format_scenario(result: ScenarioResult) -> str:
 
 
 __all__ = [
-    "ScenarioType",
     "ScenarioResult",
-    "model_scenario",
+    "ScenarioType",
     "compare_scenarios",
     "format_scenario",
+    "model_scenario",
 ]

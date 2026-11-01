@@ -96,7 +96,7 @@ def _nav_verb(entity_id: str, verb: str) -> str:
     try:
         from core.knowledge_navigation.context_bridge import format_nav_response
         return format_nav_response(entity_id, verb)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - command handler must not crash, already logged
         log.error("[navigate] %s %s failed: %s", entity_id, verb, exc)
         return f":warning: Navigation error: `{type(exc).__name__}` — check runtime logs."
 
@@ -105,7 +105,7 @@ def _nav_path(from_id: str, to_id: str) -> str:
     try:
         from core.knowledge_navigation.context_bridge import format_path_response
         return format_path_response(from_id, to_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - command handler must not crash, already logged
         log.error("[navigate] path %s→%s failed: %s", from_id, to_id, exc)
         return f":warning: Navigation error: `{type(exc).__name__}` — check runtime logs."
 
@@ -139,6 +139,6 @@ def _graph_status() -> str:
         lines.append(f"  Total edges: {edge_count}")
         return "\n".join(lines)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - command handler must not crash, already logged
         log.error("[navigate] status failed: %s", exc)
         return f":warning: Graph status unavailable: `{type(exc).__name__}`"

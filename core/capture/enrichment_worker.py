@@ -32,6 +32,31 @@ CAPTURE PROMOTION BRIDGE (MSN-0336):
               anywhere in the platform (confirmed zero other callers before
               this mission).
 
+CAPTURE -> PERSONAL TASK BRIDGE (Mission 3):
+  `classification` answers WHAT a capture is; it never implied WHETHER it
+  requires action (a 'personal' capture is a body/health note far more
+  often than a task; a 'reference' capture occasionally IS one -- "buy
+  dog food"). The LLM call now returns a second, independent judgement:
+  actionable in {yes, no, ambiguous} + actionable_confidence.
+            actionable == 'yes' AND actionable_confidence >= 0.6
+            -> routed into personal_tasks (canonical action-truth table,
+               migration 0090), BEFORE the classification-based branches
+               below -- an actionable capture becomes a task regardless
+               of its classification.
+            -> idempotent via a DB-level unique index on
+               personal_tasks.source_capture_id (migration 0217): a
+               retried enrichment pass hits a unique-violation, not a
+               duplicate row. The original capture is retained either
+               way -- task creation never deletes or mutates raw_text.
+            -> captured_items.actionable / actionable_confidence
+               (migration 0217) persist the determination as typed,
+               queryable columns, not just inside the `summary` jsonb.
+            -> 'ambiguous' or 'no' (or actionable_confidence below
+               threshold) falls through unchanged to the existing
+               classification-based routing (auto-route-personal /
+               promote-to-intelligence-note / inbox-only) -- this bridge
+               only ADDS a path, it never removes the pre-Mission-3 ones.
+
 Usage:
     python enrichment_worker.py               # process up to 10 pending items
     python enrichment_worker.py --limit 25    # custom batch size
@@ -53,10 +78,14 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from html import escape as _html_escape
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import dedup  # sibling-directory import, needs the sys.path insert above first (this repo's ruff config doesn't enable E402)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,18 +97,22 @@ log = logging.getLogger("capture-enrichment")
 # ── Config ────────────────────────────────────────────────────────────────────
 
 from dotenv import load_dotenv
+
 load_dotenv(_REPO_ROOT / ".env")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-OLLAMA_BASE  = os.environ.get("OLLAMA_BASE_URL", "https://ollama.com").rstrip("/")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "glm-5.2")
+# Cloud target. Not OLLAMA_BASE_URL / OLLAMA_MODEL: those are the platform-wide LOCAL Ollama settings
+# (localhost, a local model), which silently turned this call into a local CPU generation.
+OLLAMA_BASE  = os.environ.get("OLLAMA_CLOUD_BASE_URL", "https://ollama.com").rstrip("/")
+OLLAMA_MODEL = os.environ.get("OLLAMA_CLOUD_MODEL", "glm-5.2")
 OLLAMA_KEY   = os.environ.get("OLLAMA_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 VALID_CLASSIFICATIONS = {"reference", "mission", "personal", "research", "decision", "unclassified"}
 VALID_IMPORTANCES     = {"low", "medium", "high"}
+VALID_ACTIONABLE      = {"yes", "no", "ambiguous"}
 
 # Hard invariant: only 'unclassified' never gets a path anywhere (MSN-0336
 # narrowed this from the original {mission, decision, research, unclassified}
@@ -99,6 +132,17 @@ AUTO_ROUTE_MIN_CONFIDENCE = 0.85
 PROMOTION_MIN_CONFIDENCE = 0.5
 _PROMOTABLE = {"mission", "decision", "research", "reference"}
 
+# Mission 3: minimum confidence to route an actionable capture into
+# personal_tasks. Deliberately its own threshold, not reused from the
+# classification-confidence bars above -- "what is this" and "does this
+# need action" are independent judgements with independent risk (a wrong
+# task costs the Captain a spurious follow-through nudge; unlike
+# AUTO_ROUTE_MIN_CONFIDENCE/PROMOTION_MIN_CONFIDENCE it doesn't compete
+# with the pre-Mission-3 auto-route/promotion paths since it's checked
+# first, so its bar is set independently rather than made to fit between
+# the other two).
+ACTIONABLE_MIN_CONFIDENCE = 0.6
+
 SYSTEM_PROMPT = """You are a capture classification assistant for USS TJR personal command system.
 The Captain uses this system to log quick thoughts, voice notes, missions, health signals, and decisions.
 
@@ -108,16 +152,30 @@ Classify the provided capture text and return ONLY a valid JSON object:
   "importance": "<low|medium|high>",
   "suggested_route": "<captain_log|missions_inbox|decision_queue|research_inbox|note|none>",
   "confidence": <0.0–1.0>,
+  "actionable": "<yes|no|ambiguous>",
+  "actionable_confidence": <0.0–1.0>,
   "reasoning": "<one concise sentence>"
 }
 
-Classification guide:
+Classification guide (WHAT is this):
 - mission:       something to build, fix, ship, or deliver
 - decision:      an outstanding choice requiring deliberate Captain action
 - personal:      health, body, energy, recovery, sleep, CPAP, fibromyalgia
 - research:      idea, hypothesis, concept, thing to explore or investigate
 - reference:     note, reminder, context, information to remember
 - unclassified:  unclear, ambiguous, or insufficient context
+
+Actionable guide (DOES THIS REQUIRE ACTION — independent of classification above):
+- yes:        a concrete task the Captain needs to DO ("buy dog food",
+              "send the specialist referral Friday", "call the plumber")
+- no:         an observation, feeling, idea, or fact with nothing to do
+              ("felt foggy today", "interesting idea about X", "the sky was nice")
+- ambiguous:  genuinely unclear whether action is implied
+
+A 'personal' classification is NOT automatically actionable (most personal
+captures are health/body observations, not tasks). A 'reference' capture
+occasionally IS actionable. Judge actionability from the text itself, not
+from the classification you chose.
 
 Return ONLY the JSON object. No markdown fences, no explanation."""
 
@@ -140,7 +198,7 @@ def _sb_get(path: str) -> list[dict]:
         f"{SUPABASE_URL}/rest/v1/{path}",
         headers={**_sb_headers(), "Prefer": ""},
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         return json.loads(resp.read())
 
 
@@ -155,7 +213,7 @@ def _sb_patch(table: str, match: dict, update: dict) -> None:
         method="PATCH",
         headers={**_sb_headers(), "Content-Length": str(len(payload)), "Prefer": ""},
     )
-    with urllib.request.urlopen(req, timeout=10):
+    with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         pass
 
 
@@ -172,7 +230,7 @@ def _sb_insert(table: str, record: dict) -> dict:
         method="POST",
         headers={**_sb_headers(), "Content-Length": str(len(payload))},
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         rows = json.loads(resp.read())
     return rows[0] if rows else {}
 
@@ -196,15 +254,14 @@ def _call_llm(text: str) -> dict:
         method="POST",
         headers=headers,
     )
-    with urllib.request.urlopen(req, timeout=25) as resp:
+    with urllib.request.urlopen(req, timeout=25) as resp:  # nosec B310 - url built from OLLAMA_BASE env var, fixed local/internal endpoint - reviewed 2026-09-12
         body = json.loads(resp.read())
 
     content = (body.get("message") or {}).get("content", "").strip()
     # Strip markdown fences if present
     if content.startswith("```"):
         content = content.split("```")[1]
-        if content.startswith("json"):
-            content = content[4:]
+        content = content.removeprefix("json")
     result = json.loads(content.strip())
 
     return {
@@ -212,6 +269,12 @@ def _call_llm(text: str) -> dict:
         "importance":     result["importance"]     if result.get("importance")     in VALID_IMPORTANCES     else "medium",
         "suggested_route": result.get("suggested_route", "none"),
         "confidence":     min(1.0, max(0.0, float(result.get("confidence", 0.5)))),
+        # Mission 3: default to 'ambiguous'/0.0 on anything malformed or
+        # missing -- the safe failure mode is "don't create a task", never
+        # "create one anyway", matching this worker's existing pattern of
+        # defaulting classification to 'unclassified' rather than guessing.
+        "actionable":     result["actionable"] if result.get("actionable") in VALID_ACTIONABLE else "ambiguous",
+        "actionable_confidence": min(1.0, max(0.0, float(result.get("actionable_confidence", 0.0) or 0.0))),
         "reasoning":      str(result.get("reasoning", ""))[:300],
         "model":          OLLAMA_MODEL,
     }
@@ -221,22 +284,184 @@ def _call_llm(text: str) -> dict:
 
 def _send_telegram_confirmation(text: str) -> None:
     """Fire-and-forget Telegram message via the canonical notification
-    service (core/platform/notification_service.py) — never raises."""
+    service (core/platform/notification_service.py) — never raises.
+
+    Mission 3: the docstring's "never raises" promise used to rely
+    entirely on notify()'s own internal contract (it returns a
+    NotificationResult rather than raising) with no defensive guard here.
+    All three of this file's routing functions (_auto_route_personal,
+    _promote_to_intelligence_note, _route_to_personal_task) already
+    perform their captured_items/personal_tasks writes BEFORE calling
+    this — so even an unhandled exception here couldn't roll back that
+    data, but it would incorrectly surface as an item-processing error
+    (run_batch's per-item try/except would count a fully-successful
+    route as a failure). Explicit try/except makes the promise actually
+    true: a notification failure is always just a logged warning, never
+    an exception escaping a routing function that already completed its
+    real work."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         log.info("[auto-route] Telegram not configured — skipping confirmation")
         return
-    from core.platform.notification_service import notify, Transport
-    result = notify(text, template="raw", transport=Transport.TELEGRAM)
-    if result.ok:
-        log.info("[auto-route] Telegram confirmation sent")
-    else:
-        log.warning("[auto-route] Telegram confirmation failed: %s", result.error)
+    try:
+        from core.platform.notification_service import Transport, notify
+        result = notify(text, template="raw", transport=Transport.TELEGRAM)
+        if result.ok:
+            log.info("[auto-route] Telegram confirmation sent")
+        else:
+            log.warning("[auto-route] Telegram confirmation failed: %s", result.error)
+    except Exception as exc:  # noqa: BLE001 - deliberately the widest possible catch: this function's entire contract is "never raises", and the routing work it confirms has already been durably written before this call
+        log.warning("[auto-route] Telegram confirmation raised unexpectedly (routing already completed, not affected): %s", exc)
 
 
 def _sb_get_one(path: str) -> dict | None:
     """Like _sb_get but returns first row or None."""
     rows = _sb_get(path)
     return rows[0] if rows else None
+
+
+_IMPORTANCE_TO_PERSONAL_TASK_IMPORTANCE = {"low": 2, "medium": 3, "high": 4}
+
+
+def _route_to_personal_task(item: dict, suggestion: dict, dry_run: bool = False) -> bool:
+    """Mission 3: route an actionable capture into personal_tasks (the
+    canonical action-truth table, migration 0090). Idempotent — relies on
+    the unique index on personal_tasks.source_capture_id (migration 0217):
+    a retried/duplicate pass hits a unique-violation on insert, which is
+    treated as "already routed" (fetch the existing task, link back to
+    it) rather than an error. The original captured_items row is never
+    mutated except for its own routing columns — provenance runs both
+    ways (personal_tasks.source_capture_id -> captured_items.id, and
+    captured_items.routed_to_id -> personal_tasks.id).
+
+    due_date is populated from the capturing channel's own parsed_due_date
+    summary hint when present (currently only the Telegram NL-capture
+    path sets one — see telegram-bots/xo/app.py's cmd_message); otherwise
+    None, a legitimate "no explicit due-date pressure" state. No urgency
+    signal exists yet at this layer — urgency defaults to 3 (mid-scale of
+    personal_tasks' 1-5 CHECK), not a guess about the specific task."""
+    item_id  = item["id"]
+    raw_text = (item.get("raw_text") or item.get("title") or "").strip()
+    title    = (item.get("title") or raw_text[:120]).strip()
+    existing_summary = _safe_parse_summary(item.get("summary"))
+    # Mission 3: honours the Telegram NL-capture path's parsed_due_date
+    # hint (telegram-bots/xo/app.py's cmd_message) if present — the one
+    # piece of temporal intent already extracted before this item ever
+    # reached captured_items. Voice/portal captures have no such hint
+    # (None), which is fine: no due_date is a legitimate personal_tasks
+    # state, not a missing-data error.
+    parsed_due_date = existing_summary.get("parsed_due_date")
+
+    log.info("[%s] Routing actionable capture -> personal_tasks", item_id[:8])
+
+    if dry_run:
+        print(f"[route-task DRY RUN] Would create personal_tasks row for {item_id}: {raw_text[:80]}")
+        return True
+
+    task_id: str | None = None
+    already_routed = False  # Mission 3: an idempotent-retry match, not a fresh insert — gates the Telegram confirmation below so a reprocessed item never sends a second one.
+    try:
+        task = _sb_insert("personal_tasks", {
+            "title":             title,
+            "context":           raw_text if raw_text != title else None,
+            "urgency":           3,
+            "importance":        _IMPORTANCE_TO_PERSONAL_TASK_IMPORTANCE.get(suggestion.get("importance"), 3),
+            "due_date":          parsed_due_date,
+            "source_capture_id": item_id,
+        })
+        task_id = task.get("id")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(errors="replace")
+        if exc.code in (409, 400) and ("personal_tasks_source_capture_uniq" in body or "duplicate key value violates unique constraint" in body):
+            # Already routed by a previous (possibly crashed-mid-way) pass —
+            # not an error. Find the task that already owns this capture.
+            log.info("[%s] Already routed to a personal_task (idempotent retry)", item_id[:8])
+            existing = _sb_get_one(f"personal_tasks?source_capture_id=eq.{item_id}&select=id&limit=1")
+            task_id = existing["id"] if existing else None
+            already_routed = True
+        else:
+            log.error("[%s] Failed to create personal_tasks row: %s %s", item_id[:8], exc.code, body[:300])
+            return False
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape, and the capture is preserved (processing_status stays 'pending') regardless
+        log.error("[%s] Failed to create personal_tasks row: %s", item_id[:8], exc)
+        return False
+
+    if task_id is None:
+        # Idempotent-retry lookup came up empty — leave the capture pending
+        # rather than guess; the next enrichment pass will retry cleanly.
+        log.warning("[%s] Could not resolve personal_task id after routing — leaving pending for retry", item_id[:8])
+        return False
+
+    try:
+        updated_summary = {
+            **existing_summary,
+            "auto_routed":       True,
+            "auto_route_target": "personal_tasks",
+            "auto_route_at":     _now(),
+        }
+        _sb_patch("captured_items", {"id": item_id}, {
+            "processing_status": "routed",
+            "review_status":     "actioned",
+            "routed_to_table":   "personal_tasks",
+            "routed_to_id":      task_id,
+            "actionable":            suggestion["actionable"],
+            "actionable_confidence": suggestion["actionable_confidence"],
+            "summary":           json.dumps(updated_summary),
+        })
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape. The task exists either way (source_capture_id still links it back) — a failure here only means the next pass re-attempts the (now-idempotent) route, never data loss.
+        log.error("[%s] Failed to mark item as routed to personal_tasks: %s", item_id[:8], exc)
+        return False
+
+    if already_routed:
+        # Mission 3: reprocessing must not duplicate the async confirmation
+        # — the Telegram message was already sent on the original pass
+        # that created the task (or, if that pass crashed before this
+        # patch ran, silence here is still correct: better one missed
+        # confirmation than a confusing duplicate, and the captured_item
+        # is now correctly marked routed either way).
+        log.info("[%s] Idempotent retry — skipping duplicate confirmation", item_id[:8])
+        return True
+
+    preview = _html_escape(raw_text[:120]) + ("…" if len(raw_text) > 120 else "")
+    confidence_pct = int(suggestion.get("actionable_confidence", 0) * 100)
+    _send_telegram_confirmation(
+        f"✅ <b>Capture routed → Personal Task</b>\n"
+        f"<i>{preview}</i>\n"
+        f"Actionable confidence: {confidence_pct}%"
+    )
+    return True
+
+
+# ── Duplicate detection (see dedup.py) ───────────────────────────────────────
+
+def _fetch_recent_window(
+    exclude_id: str | None = None,
+    window_days: int = dedup.DEFAULT_WINDOW_DAYS,
+    limit: int = dedup.DEFAULT_WINDOW_LIMIT,
+) -> list[dict]:
+    """Recent captured_items (any processing_status — an already-routed
+    item from days ago is exactly what a new duplicate should be checked
+    against) for dedup.build_recent_index(). `exclude_id` is a convenience
+    filter (skip indexing an item that's about to be checked against
+    itself) — not load-bearing for correctness, since find_duplicate()
+    already guards against a same-id self-match regardless. Never raises
+    — a fetch failure here means dedup is skipped for this batch, not
+    that enrichment itself fails."""
+    import datetime as _dt
+
+    cutoff = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=window_days)).isoformat()
+    exclude_clause = f"&id=neq.{exclude_id}" if exclude_id else ""
+    try:
+        return _sb_get(
+            f"captured_items"
+            f"?captured_at=gte.{urllib.request.quote(cutoff)}"
+            f"{exclude_clause}"
+            f"&select=id,title,raw_text,captured_at"
+            f"&order=captured_at.desc"
+            f"&limit={limit}"
+        )
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; a dedup-window fetch failure must never block enrichment itself
+        log.warning("Recent-window fetch for dedup failed (continuing without dedup check): %s", exc)
+        return []
 
 
 def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) -> bool:
@@ -248,7 +473,7 @@ def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) ->
     import datetime as _dt
     item_id   = item["id"]
     raw_text  = (item.get("raw_text") or item.get("title") or "").strip()
-    today     = _dt.date.today().isoformat()
+    today     = _dt.datetime.now().astimezone().date().isoformat()
 
     log.info("[%s] Auto-routing personal capture → captains_log_entries", item_id[:8])
 
@@ -269,7 +494,7 @@ def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) ->
         try:
             _sb_patch("captains_log_entries", {"id": log_id}, {"overall_note": new_note})
             log.info("[%s] Appended to captains_log_entries id=%s", item_id[:8], log_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error("[%s] Failed to update captains_log_entries: %s", item_id[:8], exc)
             return False
     else:
@@ -289,14 +514,18 @@ def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) ->
         _sb_patch("captured_items", {"id": item_id}, {
             "processing_status": "routed",
             "review_status":     "actioned",
+            "routed_to_table":   "captains_log_entries",
+            "routed_to_id":      log_entry["id"] if log_entry else None,
+            "actionable":            suggestion.get("actionable"),
+            "actionable_confidence": suggestion.get("actionable_confidence"),
             "summary":           json.dumps(updated_summary),
         })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[%s] Failed to mark item as routed: %s", item_id[:8], exc)
         return False
 
     # Telegram confirmation
-    preview = raw_text[:120] + ("…" if len(raw_text) > 120 else "")
+    preview = _html_escape(raw_text[:120]) + ("…" if len(raw_text) > 120 else "")
     confidence_pct = int(suggestion.get("confidence", 0) * 100)
     _send_telegram_confirmation(
         f"✅ <b>Capture auto-routed → Captain's Log</b>\n"
@@ -347,7 +576,7 @@ def _promote_to_intelligence_note(item: dict, suggestion: dict, dry_run: bool = 
             "confidence_score": suggestion["confidence"],
             "metadata":    provenance,
         })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[%s] Failed to create intelligence_notes row: %s", item_id[:8], exc)
         return False
 
@@ -368,13 +597,17 @@ def _promote_to_intelligence_note(item: dict, suggestion: dict, dry_run: bool = 
         _sb_patch("captured_items", {"id": item_id}, {
             "processing_status": "routed",
             "review_status":     "actioned",
+            "routed_to_table":   "intelligence_notes",
+            "routed_to_id":      note_id,
+            "actionable":            suggestion.get("actionable"),
+            "actionable_confidence": suggestion.get("actionable_confidence"),
             "summary":           json.dumps(updated_summary),
         })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[%s] Failed to mark item as routed: %s", item_id[:8], exc)
         return False
 
-    preview = raw_text[:120] + ("…" if len(raw_text) > 120 else "")
+    preview = _html_escape(raw_text[:120]) + ("…" if len(raw_text) > 120 else "")
     confidence_pct = int(suggestion.get("confidence", 0) * 100)
     _send_telegram_confirmation(
         f"📋 <b>Capture promoted → Officer Triage</b>\n"
@@ -386,13 +619,46 @@ def _promote_to_intelligence_note(item: dict, suggestion: dict, dry_run: bool = 
 
 # ── Core enrichment logic ─────────────────────────────────────────────────────
 
-def enrich_item(item: dict, dry_run: bool = False) -> bool:
-    """Enrich one captured_items row. Returns True on success."""
+def enrich_item(item: dict, dry_run: bool = False, dedup_index: object | None = None) -> bool:
+    """Enrich one captured_items row. Returns True on success.
+
+    `dedup_index` (from dedup.build_recent_index(), built once per batch —
+    see run_batch/run_single) is checked FIRST: a match short-circuits
+    before the LLM call and before any auto-route/promotion, since a
+    flagged duplicate must never trigger either (see dedup.py's module
+    docstring). Passing None skips the check entirely — dedup is optional
+    enrichment, never a required dependency of a healthy run.
+    """
     item_id  = item["id"]
     text     = (item.get("raw_text") or item.get("title") or "").strip()
     if not text:
         log.warning("[%s] No text to enrich — skipping", item_id[:8])
         return False
+
+    duplicate = dedup.find_duplicate(dedup_index, item)
+    if duplicate is not None:
+        log.info(
+            "[%s] Duplicate of %s (similarity=%.2f) — flagged, skipping classification/auto-route",
+            item_id[:8], duplicate.duplicate_of_id[:8], duplicate.similarity,
+        )
+        if dry_run:
+            print(f"[dedup DRY RUN] Would flag {item_id} as duplicate of {duplicate.duplicate_of_id} "
+                  f"(similarity={duplicate.similarity:.2f})")
+            return True
+        existing = _safe_parse_summary(item.get("summary"))
+        _sb_patch("captured_items", {"id": item_id}, {
+            "ai_enrichment_status": "enriched",
+            "duplicate_of_id": duplicate.duplicate_of_id,
+            "duplicate_similarity": round(duplicate.similarity, 3),
+            "duplicate_checked_at": _now(),
+            "summary": json.dumps({
+                **existing,
+                "duplicate_of_id": duplicate.duplicate_of_id,
+                "duplicate_similarity": duplicate.similarity,
+                "enriched_at": _now(),
+            }),
+        })
+        return True
 
     log.info("[%s] Enriching: %s…", item_id[:8], text[:60])
 
@@ -401,7 +667,7 @@ def enrich_item(item: dict, dry_run: bool = False) -> bool:
 
     try:
         suggestion = _call_llm(text)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[%s] LLM call failed: %s", item_id[:8], exc)
         if not dry_run:
             existing = _safe_parse_summary(item.get("summary"))
@@ -433,23 +699,39 @@ def enrich_item(item: dict, dry_run: bool = False) -> bool:
 
     _sb_patch("captured_items", {"id": item_id}, {
         "ai_enrichment_status": "enriched",
+        # Mission 3: persisted unconditionally (not only on the routes
+        # below) so 'no'/'ambiguous'/below-threshold captures are still
+        # queryable by their actionability determination in the inbox.
+        "actionable":            suggestion["actionable"],
+        "actionable_confidence": suggestion["actionable_confidence"],
         "summary": json.dumps(updated_summary),
     })
-    log.info("[%s] ✓ Enriched", item_id[:8])
+    log.info("[%s] ✓ Enriched (actionable=%s conf=%.2f)", item_id[:8], suggestion["actionable"], suggestion["actionable_confidence"])
 
-    # ── Hybrid auto-route (MSN-0200-P2B) + Capture Promotion Bridge (MSN-0336) ──
+    # ── Mission 3 capture->task bridge, then Hybrid auto-route (MSN-0200-P2B)
+    # + Capture Promotion Bridge (MSN-0336) ──
+    #
+    # Actionability is checked FIRST and is independent of classification —
+    # an actionable capture becomes a personal_task regardless of whether
+    # it was classified personal/reference/mission/etc. Only when it is
+    # NOT actionable (or the LLM couldn't tell) does classification-based
+    # routing apply, exactly as it did before this mission.
     classification = suggestion["classification"]
     confidence     = suggestion["confidence"]
+    actionable     = suggestion["actionable"]
+    actionable_confidence = suggestion["actionable_confidence"]
 
     if classification in _NEVER_AUTO_ROUTE:
         log.info("[%s] classification=%s — inbox only (hard invariant)", item_id[:8], classification)
+    elif actionable == "yes" and actionable_confidence >= ACTIONABLE_MIN_CONFIDENCE:
+        _route_to_personal_task(item, suggestion, dry_run=dry_run)
     elif classification == "personal" and confidence >= AUTO_ROUTE_MIN_CONFIDENCE:
         _auto_route_personal(item, suggestion, dry_run=dry_run)
     elif classification in _PROMOTABLE and confidence >= PROMOTION_MIN_CONFIDENCE:
         _promote_to_intelligence_note(item, suggestion, dry_run=dry_run)
     else:
-        log.info("[%s] classification=%s confidence=%.2f — below threshold, inbox only",
-                 item_id[:8], classification, confidence)
+        log.info("[%s] classification=%s confidence=%.2f actionable=%s — below threshold, inbox only",
+                 item_id[:8], classification, confidence, actionable)
 
     return True
 
@@ -461,13 +743,13 @@ def _safe_parse_summary(raw) -> dict:
         return raw
     try:
         return json.loads(raw)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: {} on any parse failure of possibly-malformed stored JSON
         return {}
 
 
 def _now() -> str:
     import datetime
-    return datetime.datetime.utcnow().isoformat() + "Z"
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 # ── Batch runner ──────────────────────────────────────────────────────────────
@@ -495,7 +777,7 @@ def _advance_notebook_pipeline(dry_run: bool = False) -> None:
         lib_dir = _REPO_ROOT / "platform-runtime" / "lib"
         if str(lib_dir) not in sys.path:
             sys.path.insert(0, str(lib_dir))
-        from notebook.notebook_router import run_notebook_pipeline  # noqa: PLC0415
+        from notebook.notebook_router import run_notebook_pipeline
 
         # run_notebook_pipeline() (and the officer/review modules it calls
         # in turn) expect a real supabase-py client (.table().select()
@@ -509,7 +791,7 @@ def _advance_notebook_pipeline(dry_run: bool = False) -> None:
 
         result = run_notebook_pipeline(client)
         log.info("[notebook-pipeline] advanced: %s", result)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[notebook-pipeline] advance failed (non-blocking): %s", exc)
 
 
@@ -527,15 +809,22 @@ def run_batch(limit: int = 10, dry_run: bool = False) -> dict:
         f"&limit={limit}"
     )
     log.info("Batch: %d items to enrich (limit=%d)", len(rows), limit)
+
+    # Built once per batch, not once per item — see dedup.py's module
+    # docstring on why a shared index across the batch is both cheaper
+    # and (since the window query isn't filtered by processing_status)
+    # still catches duplicates landing within the same batch.
+    dedup_index = dedup.build_recent_index(_fetch_recent_window())
+
     ok = err = 0
     for item in rows:
         try:
-            if enrich_item(item, dry_run=dry_run):
+            if enrich_item(item, dry_run=dry_run, dedup_index=dedup_index):
                 ok += 1
             else:
                 err += 1
             time.sleep(0.5)  # avoid hammering Ollama
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error("Unexpected error on item %s: %s", item.get("id", "?")[:8], exc)
             err += 1
     _advance_notebook_pipeline(dry_run=dry_run)
@@ -550,7 +839,8 @@ def run_single(item_id: str, dry_run: bool = False) -> bool:
     if not rows:
         log.error("Item %s not found", item_id)
         return False
-    return enrich_item(rows[0], dry_run=dry_run)
+    dedup_index = dedup.build_recent_index(_fetch_recent_window(exclude_id=item_id))
+    return enrich_item(rows[0], dry_run=dry_run, dedup_index=dedup_index)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

@@ -20,12 +20,11 @@ import argparse
 import json
 import sys
 import time
-import urllib.request
 import urllib.error
+import urllib.request
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from dataclasses import dataclass, asdict
-from datetime import datetime
-from typing import Optional
 
 # Bootstrap .env
 REPO_ROOT = Path(__file__).parent.parent.parent
@@ -53,14 +52,14 @@ class SourceTest:
     category: str
     active: bool
     url: str
-    rss_url: Optional[str]
-    api_endpoint: Optional[str]
+    rss_url: str | None
+    api_endpoint: str | None
     status: str  # "PASS" | "WARN" | "FAIL" | "SKIP"
-    http_code: Optional[int]
-    error: Optional[str]
+    http_code: int | None
+    error: str | None
     latency_ms: float
-    content_preview: Optional[str]  # First 200 chars of response
-    recommendation: Optional[str]  # "activate" | "repair" | "remove" | "monitor"
+    content_preview: str | None  # First 200 chars of response
+    recommendation: str | None  # "activate" | "repair" | "remove" | "monitor"
 
 
 def test_source(source: dict, timeout: int = 15) -> SourceTest:
@@ -75,16 +74,12 @@ def test_source(source: dict, timeout: int = 15) -> SourceTest:
 
     # Determine what to test
     test_url = None
-    test_type = None
     if source_type == "rss" and rss_url:
         test_url = rss_url
-        test_type = "RSS"
     elif source_type == "api" and api_endpoint:
         test_url = api_endpoint
-        test_type = "API"
     elif source_type == "scrape" and url:
         test_url = url
-        test_type = "SCRAPE"
     else:
         return SourceTest(
             source_name=name,
@@ -108,7 +103,7 @@ def test_source(source: dict, timeout: int = 15) -> SourceTest:
         req = urllib.request.Request(test_url, headers={
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         })
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - test_url sourced from this file's imported SOURCES registry (seed_source_registry.py), not user input - reviewed 2026-09-12
             latency_ms = (time.time() - start) * 1000
             body = resp.read(1024).decode("utf-8", errors="ignore")  # First 1KB
 
@@ -225,7 +220,7 @@ def test_source(source: dict, timeout: int = 15) -> SourceTest:
             recommendation=recommendation
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-source test inside an audit loop — one bad source must not abort the audit; returns a structured SourceTest(error=...) result
         latency_ms = (time.time() - start) * 1000
         return SourceTest(
             source_name=name,
@@ -275,7 +270,7 @@ Examples:
 
     # Run tests
     print(f"\n{'='*80}")
-    print(f"Intelligence Source Audit")
+    print("Intelligence Source Audit")
     print(f"{'='*80}")
     print(f"\nTesting {len(sources_to_test)} sources (timeout: {args.timeout}s)...\n")
 
@@ -333,7 +328,7 @@ Examples:
 
     # Detailed report
     print(f"\n{'='*80}")
-    print(f"RECOMMENDATIONS")
+    print("RECOMMENDATIONS")
     print(f"{'='*80}\n")
 
     by_recommendation = {}
@@ -370,7 +365,7 @@ Examples:
     # Save JSON
     if args.output:
         output_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "total_tested": len(results),
             "summary": {
                 "pass": len(passed),

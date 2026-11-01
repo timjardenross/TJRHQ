@@ -11,13 +11,20 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { filterGeneralAccess } from '@/lib/knowledgeSensitivity';
+import { todayLocal } from '@/lib/timezone';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  // Prefer service role key for full read access; fall back to anon key
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // 2026-09-15 adversarial review: this used to fall back to the anon key
+  // when SUPABASE_SERVICE_ROLE_KEY was unset. Several tables this module
+  // reads (e.g. working_memory) have zero RLS policies — anon-key reads
+  // against them silently return empty rows rather than erroring, so a
+  // missing service-role key degraded context quality with no visible
+  // signal (unlike the `!url || !key` branch below, which does surface a
+  // "context unavailable" marker to the caller). Treat a missing
+  // service-role key the same way instead of masking it with a key that
+  // can't actually read the data.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) return null;
   return createClient(url, key);
@@ -52,12 +59,12 @@ async function fetchArchitectureRecords(db: any) {
   return data ?? [];
 }
 
-function todayBrisbane(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+function todayLocalDate(): string {
+  return todayLocal();
 }
 
 async function fetchTodayHealth(db: any) {
-  const today = todayBrisbane();
+  const today = todayLocalDate();
   const { data } = await db
     .from('health_daily_logs')
     .select('log_date, nervous_system_state, energy, mood, sleep_hours, sleep_quality, workload_constraint, daily_capacity_score, pain_score')
@@ -91,7 +98,7 @@ async function fetchKnowledgeSummary(db: any) {
 }
 
 async function fetchTodayCheckins(db: any) {
-  const today = todayBrisbane();
+  const today = todayLocalDate();
   const { data } = await db
     .from('capacity_checkins')
     .select('checkin_type, captured_at, capacity_state, regulation_state, executive_function, compensation_load, pain_score, selected_action, notes, trigger_note')

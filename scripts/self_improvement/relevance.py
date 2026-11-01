@@ -10,9 +10,10 @@ permission."
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Any
 
+import lifecycle
 from opportunity_store import OpportunityStore, new_fingerprint
 
 log = logging.getLogger("relevance")
@@ -30,15 +31,15 @@ class RelevanceVerdict:
     score: float
     reasons: list[str]
     is_duplicate: bool
-    duplicate_of: Optional[str] = None
-    duplicate_disposition: Optional[str] = None  # decision recorded on the prior record
+    duplicate_of: str | None = None
+    duplicate_disposition: str | None = None  # decision recorded on the prior record
     # Set (not is_duplicate) when a prior record for this fingerprint
     # exists and was successfully reconsidered — the caller must UPDATE
     # this opportunity_id rather than create_new() a fresh one, or a
     # candidate rediscovered every cycle without ever being promoted would
     # pile up one "discovered" card per cycle forever instead of one
     # single card that just keeps refreshing.
-    reconsider_of: Optional[str] = None
+    reconsider_of: str | None = None
 
 
 class RelevanceGate:
@@ -59,7 +60,7 @@ class RelevanceGate:
         score = (0.35 * fit) + (0.35 * value) + (0.30 * evidence) - complexity_penalty
         return max(0.0, min(1.0, round(score, 3)))
 
-    def check_duplicate(self, candidate: dict[str, Any]) -> tuple[bool, Optional[dict[str, Any]]]:
+    def check_duplicate(self, candidate: dict[str, Any]) -> tuple[bool, dict[str, Any] | None]:
         """Section 17: don't resurface the same repo/concept/idea unless
         meaningful new evidence changes the assessment (a higher score than
         last time, after the reconsideration window)."""
@@ -68,9 +69,19 @@ class RelevanceGate:
         )
         existing = self.store.find_by_fingerprint(fingerprint)
         if not existing:
+            # Exact-hash dedup only catches byte-identical titles. Three
+            # independently re-derived titles for the same underlying
+            # finding never share a fingerprint, so this falls back to
+            # opportunity_store.find_near_duplicate()'s deterministic
+            # keyword-overlap/near-duplicate-title check before concluding
+            # this is genuinely new.
+            existing = self.store.find_near_duplicate(
+                candidate.get("title", ""), candidate.get("discovery_source", "internal"), candidate.get("change_class"),
+            )
+        if not existing:
             return False, None
 
-        state = existing.get("lifecycle_state")
+        state = lifecycle.detail_of(existing)
         # 2026-09-06: "discovered" and "investigating" used to fall through
         # to the blanket block below, permanently — found live via a real
         # "Get more evidence" click and a real capacity-limited "discovered"
@@ -118,11 +129,11 @@ class RelevanceGate:
                 passes_investigate=False,
                 passes_surface=False,
                 score=existing.get("relevance_score") or 0.0,
-                reasons=[f"Duplicate of {existing.get('opportunity_id')} "
-                         f"(state={existing.get('lifecycle_state')}) — no meaningful new evidence"],
+                reasons=[(f"Duplicate of {existing.get('opportunity_id')} "
+                         f"(state={existing.get('lifecycle_state')}) — no meaningful new evidence")],
                 is_duplicate=True,
                 duplicate_of=existing.get("opportunity_id"),
-                duplicate_disposition=existing.get("lifecycle_state"),
+                duplicate_disposition=lifecycle.detail_of(existing),
             )
 
         score = self.score_candidate(candidate)

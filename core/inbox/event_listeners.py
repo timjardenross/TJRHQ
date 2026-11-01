@@ -21,7 +21,6 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ def _get_client():
     try:
         from supabase import create_client
         return create_client(url, key)
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional Supabase client init; None signals unavailability to the caller
         return None
 
 
@@ -60,7 +59,7 @@ def invalidate_governance_cache_for_artefact(artefact_id: str) -> int:
             .execute()
         )
         rows = result.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[inbox-events] Failed to fetch cached items: %s", exc)
         return 0
 
@@ -70,7 +69,7 @@ def invalidate_governance_cache_for_artefact(artefact_id: str) -> int:
         if isinstance(assessment, str):
             try:
                 assessment = json.loads(assessment)
-            except Exception:
+            except Exception:  # noqa: BLE001,S112 - best-effort per-row scan; one malformed assessment must not lose the rest
                 continue
         # Check all artefact types for this artefact_id
         artefacts = assessment.get("artefacts", {})
@@ -90,7 +89,7 @@ def invalidate_governance_cache_for_artefact(artefact_id: str) -> int:
                 "governance_cache_expires_at": now,
             }).eq("id", item_id).execute()
             invalidated += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[inbox-events] Failed to invalidate cache for %s: %s", item_id, exc)
 
     log.info(
@@ -122,7 +121,7 @@ def sweep_expired_governance_cache(limit: int = 50) -> list[str]:
             .execute()
         )
         rows = result.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[inbox-events] sweep query failed: %s", exc)
         return []
 
@@ -134,10 +133,21 @@ def sweep_expired_governance_cache(limit: int = 50) -> list[str]:
             client.table("captured_items").update({
                 "processing_status": "pending",
             }).eq("id", item_id).execute()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[inbox-events] Failed to re-queue %s: %s", item_id, exc)
 
     if item_ids:
         log.info("[inbox-events] Re-queued %d items with expired governance cache", len(item_ids))
 
     return item_ids
+
+
+if __name__ == "__main__":
+    # 2026-09-15 adversarial review: sweep_expired_governance_cache() had
+    # zero callers anywhere in the repo and no cron entry — expired
+    # governance assessments on captured_items sat un-requeued forever.
+    # `python -m core.inbox.event_listeners` gives it a periodic entrypoint
+    # (see deploy/governance-cache-sweep.service/.timer).
+    logging.basicConfig(level=logging.INFO)
+    requeued = sweep_expired_governance_cache(limit=200)
+    print(f"Re-queued {len(requeued)} item(s) with expired governance cache")

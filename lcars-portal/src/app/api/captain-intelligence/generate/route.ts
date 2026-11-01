@@ -34,6 +34,7 @@
 import { NextResponse } from 'next/server';
 import { contextServiceUrl, contextServiceHeaders } from '@/lib/contextService';
 import { requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 export async function POST() {
   // Unauthenticated access here isn't just a read leak - it's a free trigger
@@ -67,7 +68,7 @@ export async function POST() {
     }
     return NextResponse.json({ insights: doc.insights ?? [], recommendations: doc.recommendations ?? [] });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json(
       { error: 'Failed to reach the Captain Brief service', detail },
       { status: 502 },

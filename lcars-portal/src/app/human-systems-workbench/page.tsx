@@ -41,7 +41,7 @@
 // (this route ignores the param and always renders everything it
 // fetches), so none of them needed touching.
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DomainToggle, WorkbenchShell } from '@/components/ui';
 import { NowView } from './_components/NowView';
@@ -64,35 +64,50 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 const TRENDS_HREF = '/human-systems-workbench/trends';
+const REPORT_HREF = '/human-systems-workbench/report';
+const WEIGHT_HREF = '/human-systems-workbench/weight';
 
 function Workbench() {
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>('now');
   const [data, setData] = useState<Loaded | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [live, setLive] = useState(false);
 
+  const loadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback((withSpinner: boolean) => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     if (withSpinner) setLoading(true);
     return Promise.all([
-      fetch('/api/human-systems?domain=recovery').then((r) => r.json()),
-      fetch('/api/human-systems?domain=medical').then((r) => r.json()),
+      fetch('/api/human-systems?domain=recovery', { signal: controller.signal }).then((r) => r.json()),
+      fetch('/api/human-systems?domain=medical', { signal: controller.signal }).then((r) => r.json()),
     ])
       .then(([recovery, medical]: [unknown, unknown]) => {
+        if (controller.signal.aborted) return;
         const clean = <T,>(p: unknown): T | null =>
           p && typeof p === 'object' && !('error' in (p as Record<string, unknown>)) ? (p as T) : null;
         setData({ recovery: clean<RecoveryPayload>(recovery), medical: clean<MedicalPayload>(medical) });
-        setLoadFailed(!recovery || (typeof recovery === 'object' && recovery !== null && 'error' in recovery));
+        const recoveryErr = recovery && typeof recovery === 'object' && 'error' in recovery
+          ? String((recovery as Record<string, unknown>).error)
+          : null;
+        setLoadError(!recovery ? 'Couldn’t load Human Systems data right now.' : recoveryErr);
         setLastUpdated(new Date());
       })
-      .catch(() => setLoadFailed(true))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+          setLoadError(e instanceof Error ? e.message : 'Couldn’t load Human Systems data right now.');
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, []);
 
   useEffect(() => {
     load(true);
+    return () => loadControllerRef.current?.abort();
   }, [load]);
 
   // Live refresh: every remaining section reads the capacity_checkins signal.
@@ -105,7 +120,7 @@ function Workbench() {
   });
 
   const right = (
-    <span className="hidden text-[11px] text-wb-ink2 sm:inline">
+    <span className="hidden text-wb-label text-wb-ink2 sm:inline">
       {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
     </span>
   );
@@ -121,18 +136,40 @@ function Workbench() {
       <button
         type="button"
         onClick={() => router.push(TRENDS_HREF)}
-        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
       >
         TRENDS →
+      </button>
+      {/* REPORT — same "real navigation, not a tab" treatment as TRENDS
+       *  above, added 2026-09-07 alongside the new 14-day clinician report
+       *  page. It was previously reachable only via the Trends page's
+       *  Download PDF button, with no entry point on this page at all. */}
+      <button
+        type="button"
+        onClick={() => router.push(REPORT_HREF)}
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+      >
+        REPORT →
+      </button>
+      {/* WEIGHT — same "real navigation, not a tab" treatment (Mission 7
+       *  deferred-register item 12, closed): the 30-day weight-trend view
+       *  ported here from the retired (app)/medical/log-weight page. */}
+      <button
+        type="button"
+        onClick={() => router.push(WEIGHT_HREF)}
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+      >
+        WEIGHT →
       </button>
     </div>
   );
 
   return (
     <WorkbenchShell wide title="Human Systems" eyebrow="Capacity, regulation, recovery & sustainability."
-      tagline="USS TJR · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
+      tagline="TJR HQ · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
       right={right}
       tabs={tabsRow}
+      mode="focus"
       back={{ href: '/workbenches', label: 'Workbenches' }}>
       {/* Human Systems redesign Phase 10 (2026-09-06): recovery-brief's real
           content has been consolidated into the NOW/PATTERNS tabs below
@@ -143,21 +180,24 @@ function Workbench() {
           recovery-brief itself is kept as a route (other callers still
           link to it), just not promoted from this page any more. */}
 
-      {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
+      <div className="focus-reference-surface">
+        <div className="focus-reference-kicker">Focus / insight · interpret before measuring</div>
+        {loading && !data && <div className="py-16 text-center text-wb-body text-wb-ink2">Loading Human Systems…</div>}
 
-      {data?.recovery && (
-        <>
-          {tab === 'now' && <NowView recovery={data.recovery} medical={data.medical} />}
-          {tab === 'what-helps' && <WhatHelpsView recovery={data.recovery} medical={data.medical} />}
-          {tab === 'patterns' && <PatternsView recovery={data.recovery} medical={data.medical} />}
-        </>
-      )}
+        {data?.recovery && (
+          <>
+            {tab === 'now' && <NowView recovery={data.recovery} medical={data.medical} />}
+            {tab === 'what-helps' && <WhatHelpsView recovery={data.recovery} medical={data.medical} />}
+            {tab === 'patterns' && <PatternsView recovery={data.recovery} medical={data.medical} />}
+          </>
+        )}
 
-      {loadFailed && !data?.recovery && (
-        <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
-          Couldn&rsquo;t load Human Systems data. The workbench stays read-only and safe; try again shortly.
-        </div>
-      )}
+        {loadError && !data?.recovery && (
+          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-wb-body text-wb-crit-on">
+            {loadError} The workbench stays read-only and safe; try again shortly.
+          </div>
+        )}
+      </div>
     </WorkbenchShell>
   );
 }

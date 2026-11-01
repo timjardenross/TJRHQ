@@ -6,6 +6,7 @@
 // is a pure function with no route-specific plumbing, so it moves verbatim,
 // zero behaviour change. route.ts now imports it instead of defining it
 // locally.
+import { normalizeCapacityCode } from '@/lib/capacity-vocab';
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 
 export interface TodayCheckinInput {
@@ -18,18 +19,18 @@ export interface TodayCheckinInput {
 }
 
 export function deriveSystemPosture(c: TodayCheckinInput | null): { posture: SystemPostureBand; message: string } {
-  if (!c || !c.capacity_state) {
+  // Normalise on read: a stored 'amber'/'Amber' must not fall through to STEADY.
+  const cap = c ? normalizeCapacityCode(c.capacity_state) : null;
+  if (!c || !cap) {
     return { posture: 'UNKNOWN', message: 'No capacity check-in recorded for today yet.' };
   }
-  const cap = c.capacity_state; // green | orange | red
   const reg = c.regulation_state; // settled | manageable | activated | overloaded
   const ef = c.executive_function; // good | strained | difficult | very_difficult
   const comp = c.compensation_load; // low | moderate | high | extreme
   const stim = c.stimulation_state; // low | balanced | high
   const painElevated = c.pain_state === 'elevated' || c.pain_state === 'high';
-  const highPain = c.pain_state === 'high';
 
-  if (cap === 'red' || (reg === 'overloaded' && ef === 'very_difficult') || (highPain && cap === 'red')) {
+  if (cap === 'red' || (reg === 'overloaded' && ef === 'very_difficult')) {
     return { posture: 'RECOVER', message: 'Capacity is depleted or recovery debt is high. Recovery is the primary objective.' };
   }
   if ((stim === 'low' || stim === 'high') && (reg === 'overloaded' || reg === 'activated') && cap !== 'green') {

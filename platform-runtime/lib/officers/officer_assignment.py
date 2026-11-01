@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -142,18 +142,18 @@ def assign_mission(
                 f"RATIONALE: {rationale[:80]}"
             )
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .eq("owner", owner)
                 .limit(1)
                 .execute()
             )
             if list(existing.data or []):
-                c.raw_client.table("decisions").update(
-                    {"statement": statement, "rationale": rat, "updated_at": datetime.utcnow().isoformat()}
+                c.raw_client.table("command_memory_records").update(
+                    {"statement": statement, "rationale": rat, "updated_at": datetime.now(timezone.utc).isoformat()}
                 ).eq("owner", owner).execute()
             else:
-                c.raw_client.table("decisions").insert({
+                c.raw_client.table("command_memory_records").insert({
                     "owner": owner,
                     "statement": statement,
                     "rationale": rat,
@@ -165,7 +165,7 @@ def assign_mission(
             "[officer_assignment] %s assigned %s to %s (by %s)",
             mission_type or "mission", mission_id, target_officer, assigning_officer,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - mission-assignment decision record write, already logged
         log.debug("[officer_assignment] Record failed %s: %s", mission_id, exc)
 
     return AssignmentDecision(
@@ -187,7 +187,7 @@ def get_assignment(mission_id: str) -> AssignmentDecision | None:
             return None
 
         owner = f"{_ASSIGN_OWNER_PREFIX}{mission_id}"
-        res = c.raw_client.table("decisions").select("statement,rationale").eq("owner", owner).limit(1).execute()
+        res = c.raw_client.table("command_memory_records").select("statement,rationale").eq("owner", owner).limit(1).execute()
         rows = list(res.data or [])
         if not rows:
             return None
@@ -207,18 +207,18 @@ def get_assignment(mission_id: str) -> AssignmentDecision | None:
             assigned_by=parts.get("ASSIGNED_BY", ""),
             rationale=parts.get("RATIONALE", ""),
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Get assignment failed, already logged
         log.debug("[officer_assignment] Get assignment failed %s: %s", mission_id, exc)
         return None
 
 
 __all__ = [
-    "AssignmentDecision",
+    "ALL_OFFICERS",
     "ASSIGNMENT_AUTHORITY",
     "OFFICER_DOMAINS",
-    "ALL_OFFICERS",
-    "can_assign",
-    "get_available_assignees",
+    "AssignmentDecision",
     "assign_mission",
+    "can_assign",
     "get_assignment",
+    "get_available_assignees",
 ]

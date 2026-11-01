@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Cognitive Core Regression Harness (MSN-0329 Phase 4, Objective 6).
 
 Representative scenarios, re-run as prompts/thresholds/domain coverage
@@ -159,7 +160,7 @@ def run_all() -> bool:
     for name, fn in SCENARIOS.items():
         try:
             passed = fn()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - test-runner harness: must catch any failure from a scenario fn to report it and keep running the rest
             passed = False
             print(f"  ERROR  {name}: {exc}")
         else:

@@ -1,0 +1,317 @@
+Unused files (31)
+src/app/knowledge-workbench/_components/badges.tsx        
+src/app/knowledge-workbench/_components/BatchTriageBar.tsx
+src/app/knowledge-workbench/_components/DocumentDetail.tsx
+src/app/knowledge-workbench/_components/LibraryKpis.tsx   
+src/app/knowledge-workbench/_components/LibraryView.tsx   
+src/app/knowledge-workbench/_components/types.ts          
+src/components/AlertPanel.tsx                             
+src/components/ApprovalQueue.tsx                          
+src/components/CaptainIntelligencePanel.tsx               
+src/components/ConfidenceIndicator.tsx                    
+src/components/DepartmentCard.tsx                         
+src/components/home/HomeScreen.tsx                        
+src/components/HumanSystemsPanel.tsx                      
+src/components/LearningStatusPanel.tsx                    
+src/components/MissionCard.tsx                            
+src/components/MobileAlertDrawer.tsx                      
+src/components/public/PublicShell.tsx                     
+src/components/public/StructuredData.tsx                  
+src/components/RecommendationCard.tsx                     
+src/components/RecoveryConfidencePanel.tsx                
+src/components/ROSPanels.tsx                              
+src/components/SituationBadge.tsx                         
+src/components/StatTile.tsx                               
+src/lib/commsStudio.ts                                    
+src/lib/decisions.ts                                      
+src/lib/knowledgeLibraryClient.ts                         
+src/lib/preferences.ts                                    
+src/lib/public-schema.ts                                  
+src/lib/sinceLastSession.ts                               
+src/lib/speakAloud.ts                                     
+src/lib/useRecoveryConfidence.ts                          
+Unused devDependencies (1)
+axe-core  package.json:37:6
+Unused exports (104)
+groupForOfficer                       function  src/app/advisory-workbench/_components/shared.tsx:102:17           
+EvidencePanel                         function  src/app/advisory-workbench/_components/shared.tsx:151:17           
+sourceStatusToTone                    function  src/app/agent-status-workbench/_components/shared.ts:59:17         
+stageToneToTone                       function  src/app/agent-status-workbench/_components/shared.ts:91:17         
+TRAJECTORY_WINDOW_DAYS                          src/app/api/human-systems/assessed-context.ts:41:14                
+energyFromCapacityState               function  src/app/api/human-systems/trends/data.ts:19:17                     
+ContentStudio                         function  src/app/content-workbench/_components/ContentStudio.tsx:103:17     
+FORMATS                                         src/app/content-workbench/_components/stageBodies.tsx:26:14        
+trendTone                             function  src/app/health-osint/_components/shared.ts:46:17                   
+CapacityBalanceCard                   function  src/app/human-systems-workbench/_components/RecoveryView.tsx:233:17
+postureStatus                         function  src/app/human-systems-workbench/_components/types.ts:486:17        
+DISPOSITION_LABEL                               src/app/intelligence-workbench/_components/shared.ts:17:14         
+riskToStatus                                    src/components/ui/index.ts:7:17                                    
+Checkbox                                        src/components/ui/index.ts:13:35                                   
+ProgressBar                                     src/components/ui/index.ts:16:10                                   
+BackLink                                        src/components/ui/index.ts:19:16                                   
+riskClass                                       src/components/ui/index.ts:22:20                                   
+riskClass                             function  src/components/ui/RiskPill.tsx:15:17                               
+NON_LIVE_DOMAIN_KEYS                            src/lib/agentStatusJobs.ts:190:14                                  
+buildAgentStatusEntries               function  src/lib/agentStatusJobs.ts:220:17                                  
+AI_ROLES                                        src/lib/ai-roles.ts:8:14                                           
+DEFAULT_ROLE_ID                                 src/lib/ai-roles.ts:558:14                                         
+alertsSignature                       function  src/lib/alerts.ts:373:17                                           
+KNOWN_CHANNELS                                  src/lib/capture.ts:57:14                                           
+sourceBadge                           function  src/lib/capture.ts:75:17                                           
+fetchRecentCaptures                   function  src/lib/capture.ts:299:23                                          
+PILLARS_BY_KEY                                  src/lib/contentScoring.ts:163:14                                   
+fetchDeliveryMetrics                  function  src/lib/delivery.ts:77:23                                          
+deliveryRisk                          function  src/lib/delivery.ts:123:17                                         
+controlTower                          function  src/lib/delivery.ts:143:17                                         
+riskLevelToTone                       function  src/lib/departments.ts:212:17                                      
+healthSeverityToTone                  function  src/lib/departments.ts:256:17                                      
+LIFECYCLE_ORDER                                 src/lib/engineering-queue.ts:27:14                                 
+LIFECYCLE_LABEL                                 src/lib/engineering-queue.ts:35:14                                 
+LIFECYCLE_TONE                                  src/lib/engineering-queue.ts:44:14                                 
+GOOGLE_OAUTH_SCOPES                             src/lib/google-calendar.ts:39:14                                   
+GOOGLE_CALENDAR_SCOPE                           src/lib/google-calendar.ts:46:14                                   
+worsenTone                            function  src/lib/hqStatusInterpreter.ts:84:17                               
+BAND_TONE                                       src/lib/human-systems.ts:74:14                                     
+BAND_LABEL                                      src/lib/human-systems.ts:81:14                                     
+interpretCapacity                     function  src/lib/human-systems.ts:184:17                                    
+recoveryDebt                          function  src/lib/human-systems.ts:284:17                                    
+fetchHumanSystemsRows                 function  src/lib/human-systems.ts:467:23                                    
+fetchOpenMissionCount                 function  src/lib/human-systems.ts:482:23                                    
+decide                                function  src/lib/human-systems.ts:503:17                                    
+DOMAIN_NAMES                                    src/lib/interruptAssembly.ts:453:14                                
+investigationTypeForDomain            function  src/lib/investigate.ts:47:17                                       
+STAGE_ORDER                                     src/lib/investigationEngine.ts:38:14                               
+INVESTIGATION_REGISTRY                          src/lib/investigations/registry.ts:16:14                           
+isVisibleForGeneralAccess             function  src/lib/knowledgeSensitivity.ts:20:17                              
+AWAITING_CAPTAIN_STATUSES                       src/lib/missionStatus.ts:15:14                                     
+REVIEW_PENDING_STATUSES                         src/lib/missionStatus.ts:41:14                                     
+captainBrief                mockData            src/lib/mockData.ts:67:14                                          
+operatingPicture            mockData            src/lib/mockData.ts:83:14                                          
+shipSystemStatus            mockData            src/lib/mockData.ts:91:14                                          
+captainTimeline             mockData            src/lib/mockData.ts:101:14                                         
+decisionsAwaitingApproval   mockData            src/lib/mockData.ts:111:14                                         
+missionBoard                mockData            src/lib/mockData.ts:118:14                                         
+todaysBriefing              mockData            src/lib/mockData.ts:160:14                                         
+engineeringQueueSummary     mockData            src/lib/mockData.ts:169:14                                         
+missions                    mockData            src/lib/mockData.ts:178:14                                         
+missionSummary              mockData            src/lib/mockData.ts:241:14                                         
+departments                 mockData            src/lib/mockData.ts:252:14                                         
+alerts                      mockData            src/lib/mockData.ts:328:14                                         
+crew                        mockData            src/lib/mockData.ts:356:14                                         
+intelligenceBrief           mockData            src/lib/mockData.ts:423:14                                         
+wellness                    mockData            src/lib/mockData.ts:451:14                                         
+services                    mockData            src/lib/mockData.ts:462:14                                         
+knowledgeArticles           mockData            src/lib/mockData.ts:502:14                                         
+commandReadiness            mockData            src/lib/mockData.ts:587:14                                         
+commandCalendar             mockData            src/lib/mockData.ts:594:14                                         
+deptCrewCounts              mockData            src/lib/mockData.ts:603:14                                         
+communications              mockData            src/lib/mockData.ts:611:14                                         
+astrometricsStats           mockData            src/lib/mockData.ts:617:14                                         
+researchCategories          mockData            src/lib/mockData.ts:624:14                                         
+dataStreams                 mockData            src/lib/mockData.ts:632:14                                         
+latestDiscovery             mockData            src/lib/mockData.ts:639:14                                         
+researchQueue               mockData            src/lib/mockData.ts:647:14                                         
+missionLoadGuidance         mockData            src/lib/mockData.ts:687:14                                         
+recoveryBrief               mockData            src/lib/mockData.ts:779:14                                         
+DEFAULT_MOTION                                  src/lib/motion.ts:21:14                                            
+loadMotion                            function  src/lib/motion.ts:28:17                                            
+applyMotion                           function  src/lib/motion.ts:38:17                                            
+saveMotion                            function  src/lib/motion.ts:43:17                                            
+notificationsSupported                function  src/lib/notifications.ts:18:17                                     
+countByBucket                         function  src/lib/personalTasks.ts:164:17                                    
+isSnoozedToday                        function  src/lib/personalTasks.ts:173:17                                    
+updateTaskFields                      function  src/lib/personalTasks.ts:463:23                                    
+PUBLIC_SITE_NAME                                src/lib/public-site.ts:3:14                                        
+PUBLIC_SITE_DESCRIPTION                         src/lib/public-site.ts:4:14                                        
+SUPPORT_EMAIL                                   src/lib/public-site.ts:6:14                                        
+PUBLIC_SOCIAL_IMAGE_PATH                        src/lib/public-site.ts:7:14                                        
+CONTACT_RESPONSE_TIME                           src/lib/public-site.ts:8:14                                        
+PRIMARY_PUBLIC_NAV                              src/lib/public-site.ts:102:14                                      
+FOOTER_PUBLIC_NAV                               src/lib/public-site.ts:110:14                                      
+getPublicPage                         function  src/lib/public-site.ts:175:17                                      
+buildBreadcrumbs                      function  src/lib/public-site.ts:183:17                                      
+buildPublicMetadata                   function  src/lib/public-site.ts:192:17                                      
+DOMAIN_FORMAT_DEFAULT                           src/lib/signalsToOpportunities.ts:31:14                            
+DEFAULT_THEME                                   src/lib/theme.ts:40:14                                             
+loadTheme                             function  src/lib/theme.ts:47:17                                             
+applyTheme                            function  src/lib/theme.ts:57:17                                             
+saveTheme                             function  src/lib/theme.ts:62:17                                             
+vendorFromHostname                    function  src/lib/urlSafety.ts:100:17                                        
+Unused exported types (173)
+EscalationLevel                   type       src/app/captains-brief-workbench/_components/cards.tsx:43:13
+ParsedSummary                     interface  src/app/capture-workbench/_components/badges.tsx:9:18       
+Domain                            type       src/app/human-systems-workbench/_components/types.ts:5:13   
+Disposition                       type       src/app/intelligence-workbench/_components/shared.ts:15:13  
+MissionCardProps                  interface  src/app/mission-workbench/_components/MissionCard.tsx:12:18 
+MeasurementType                   type       src/app/self-improvement-findings/_components/types.ts:52:13
+OutcomeResult                     type       src/app/self-improvement-findings/_components/types.ts:53:13
+DataSourceIndicatorProps          interface  src/components/DataSourceIndicator.tsx:3:18                 
+EscalationLevel                   type       src/components/EscalationBanner.tsx:4:13                    
+EscalationBannerProps             interface  src/components/EscalationBanner.tsx:20:18                   
+LCARSHeaderProps                  interface  src/components/LCARSHeader.tsx:26:18                        
+LCARSPanelProps                   interface  src/components/LCARSPanel.tsx:17:18                         
+StatusBadgeProps                  interface  src/components/StatusBadge.tsx:8:18                         
+BadgeProps                        interface  src/components/ui/Badge.tsx:52:18                           
+ButtonVariant                     type       src/components/ui/Button.tsx:3:13                           
+ButtonSize                        type       src/components/ui/Button.tsx:4:13                           
+ButtonProps                       interface  src/components/ui/Button.tsx:31:18                          
+CardVariant                       type       src/components/ui/Card.tsx:3:13                             
+CardProps                         interface  src/components/ui/Card.tsx:5:18                             
+ButtonProps                       type       src/components/ui/index.ts:2:15                             
+ButtonVariant                     type       src/components/ui/index.ts:2:28                             
+ButtonSize                        type       src/components/ui/index.ts:2:43                             
+CardProps                         type       src/components/ui/index.ts:5:15                             
+CardVariant                       type       src/components/ui/index.ts:5:26                             
+BadgeProps                        type       src/components/ui/index.ts:8:15                             
+ModalProps                        type       src/components/ui/index.ts:11:15                            
+ModalVariant                      type       src/components/ui/index.ts:11:27                            
+TextInputProps                    type       src/components/ui/index.ts:14:15                            
+TextareaProps                     type       src/components/ui/index.ts:14:31                            
+SelectProps                       type       src/components/ui/index.ts:14:46                            
+CheckboxProps                     type       src/components/ui/index.ts:14:59                            
+ProgressBarProps                  type       src/components/ui/index.ts:17:15                            
+ProgressStep                      type       src/components/ui/index.ts:17:33                            
+ProgressStepsProps                type       src/components/ui/index.ts:17:47                            
+TabItem                           type       src/components/ui/index.ts:20:15                            
+TabsProps                         type       src/components/ui/index.ts:20:24                            
+BackLinkProps                     type       src/components/ui/index.ts:20:35                            
+DomainToggleOption                type       src/components/ui/index.ts:31:15                            
+TextInputProps                    interface  src/components/ui/Input.tsx:22:18                           
+TextareaProps                     interface  src/components/ui/Input.tsx:41:18                           
+SelectProps                       interface  src/components/ui/Input.tsx:59:18                           
+CheckboxProps                     interface  src/components/ui/Input.tsx:79:18                           
+ModalVariant                      type       src/components/ui/Modal.tsx:5:13                            
+ModalProps                        interface  src/components/ui/Modal.tsx:7:18                            
+TabItem                           interface  src/components/ui/Navigation.tsx:3:18                       
+TabsProps                         interface  src/components/ui/Navigation.tsx:8:18                       
+BackLinkProps                     interface  src/components/ui/Navigation.tsx:39:18                      
+ProgressBarProps                  interface  src/components/ui/Progress.tsx:3:18                         
+ProgressStep                      interface  src/components/ui/Progress.tsx:33:18                        
+ProgressStepsProps                interface  src/components/ui/Progress.tsx:39:18                        
+WorkbenchBadgeProps               interface  src/components/WorkbenchBadge.tsx:11:18                     
+WorkbenchPanelProps               interface  src/components/WorkbenchPanel.tsx:12:18                     
+ProposableActionType              type       src/lib/ai-actions.ts:149:13                                
+AIContextBlock                    interface  src/lib/ai-context.ts:124:18                                
+AIModel                           interface  src/lib/ai-models.ts:1:18                                   
+AIRole                            interface  src/lib/ai-roles.ts:1:18                                    
+ComputeAlertsResult               interface  src/lib/alerts.ts:347:18                                    
+AskSourceStat                     interface  src/lib/ask.ts:41:18                                        
+AskAnswer                         interface  src/lib/ask.ts:47:18                                        
+MorningIntelligenceView           interface  src/lib/briefsShared.ts:82:18                               
+OperationalRiskData               interface  src/lib/captainsChairData.ts:89:18                          
+EmergencyAlertsSummary            interface  src/lib/captainsChairData.ts:146:18                         
+TodaysBriefingStats               interface  src/lib/captainsChairData.ts:268:18                         
+AttentionCounts                   interface  src/lib/captainsChairData.ts:452:18                         
+CaptureTypeMeta                   interface  src/lib/capture.ts:45:18                                    
+KnownChannel                      type       src/lib/capture.ts:65:13                                    
+CaptureResult                     interface  src/lib/capture.ts:159:18                                   
+RecentCapture                     interface  src/lib/capture.ts:290:18                                   
+ActionResult                      interface  src/lib/capture.ts:318:18                                   
+Pillar                            interface  src/lib/contentScoring.ts:22:18                             
+CaptureScore                      interface  src/lib/contentScoring.ts:243:18                            
+PublishEventResult                interface  src/lib/core-events.ts:33:18                                
+DecideAction                      type       src/lib/decide.ts:44:13                                     
+DecideHistoryEntry                interface  src/lib/decide.ts:233:18                                    
+MissionRisk                       interface  src/lib/delivery.ts:113:18                                  
+DepartmentTheme                   interface  src/lib/departments.ts:7:18                                 
+EngineeringQueueData              interface  src/lib/engineering-queue.ts:112:18                         
+EngineeringRate                   interface  src/lib/engineeringMetrics.ts:29:18                         
+ExecutiveContext                  interface  src/lib/executiveContext.ts:12:18                           
+CreateEventInput                  interface  src/lib/google-calendar.ts:351:18                           
+UpsertGoogleTaskInput             interface  src/lib/google-tasks.ts:72:18                               
+GovernedFetchResult               type       src/lib/governedFetch.ts:14:13                              
+EligibilityCheck                  interface  src/lib/governedFetch.ts:18:18                              
+TopicDef                          interface  src/lib/healthOsintTopics.ts:16:18                          
+Strength                          type       src/lib/healthOsintTopics.ts:62:13                          
+Trend                             type       src/lib/healthOsintTopics.ts:63:13                          
+RecordHeartbeatResult             interface  src/lib/heartbeat.ts:33:18                                  
+HomeCopy                          interface  src/lib/homeCopy.ts:38:18                                   
+NeedsYouState                     type       src/lib/homeCopy.ts:119:13                                  
+CapabilityMeta                    interface  src/lib/hqStatusInterpreter.ts:35:18                        
+CapabilityResult                  interface  src/lib/hqStatusInterpreter.ts:91:18                        
+HQNarrative                       interface  src/lib/hqStatusInterpreter.ts:201:18                       
+HQInterpretation                  interface  src/lib/hqStatusInterpreter.ts:209:18                       
+CaptainChairSummary               interface  src/lib/hqStatusInterpreter.ts:300:18                       
+EnergyBand                        type       src/lib/human-systems.ts:25:13                              
+DomainKey                         type       src/lib/human-systems.ts:26:13                              
+EnergyDomain                      interface  src/lib/human-systems.ts:28:18                              
+CapacitySnapshot                  interface  src/lib/human-systems.ts:36:18                              
+HealthRow                         interface  src/lib/human-systems.ts:51:18                              
+RecoveryDebt                      interface  src/lib/human-systems.ts:279:18                             
+CapacityCheckin                   interface  src/lib/human-systems.ts:314:18                             
+Decision                          interface  src/lib/human-systems.ts:495:18                             
+HumanSystemsData                  interface  src/lib/human-systems.ts:548:18                             
+RiskInputs                        interface  src/lib/intelligenceRisk.ts:14:18                           
+TrendScanPoint                    interface  src/lib/investigations/captainReview.ts:63:18               
+TrendDirection                    type       src/lib/investigations/captainReview.ts:72:13               
+TrendScanEvidence                 interface  src/lib/investigations/captainReview.ts:74:18               
+NoiseTriageFlaggedItem            interface  src/lib/investigations/captainReview.ts:251:18              
+NoiseTriageEvidence               interface  src/lib/investigations/captainReview.ts:260:18              
+DecisionTracebackSource           type       src/lib/investigations/captainReview.ts:480:13              
+DecisionTracebackMatch            interface  src/lib/investigations/captainReview.ts:482:18              
+DecisionTracebackEvidence         interface  src/lib/investigations/captainReview.ts:490:18              
+UpstreamCoverageDecision          type       src/lib/investigations/coverageGaps.ts:63:13                
+VerifiedBuildRequest              interface  src/lib/investigations/coverageGaps.ts:227:18               
+DownstreamVerificationEvidence    interface  src/lib/investigations/coverageGaps.ts:459:18               
+DownstreamDecisionKind            type       src/lib/investigations/coverageGaps.ts:487:13               
+DownstreamVerificationDecision    interface  src/lib/investigations/coverageGaps.ts:492:18               
+IntegrityAuditDiagnoseDecision    type       src/lib/investigations/integrityAudit.ts:125:13             
+IntegrityAuditVerifyDecision      type       src/lib/investigations/integrityAudit.ts:216:13             
+RedundancyCandidatePair           interface  src/lib/investigations/integrityAudit.ts:317:18             
+RedundancyEvidence                interface  src/lib/investigations/integrityAudit.ts:326:18             
+RedundancyReconciliationDecision  type       src/lib/investigations/integrityAudit.ts:351:13             
+JourneyCoverageEntry              interface  src/lib/investigations/journeyCoverage.ts:52:18             
+QueueResolutionRow                interface  src/lib/investigations/queueGovernance.ts:114:18            
+QueueResolutionEvidence           interface  src/lib/investigations/queueGovernance.ts:125:18            
+QueueResolutionDecision           type       src/lib/investigations/queueGovernance.ts:270:13            
+DuplicateCandidatePair            interface  src/lib/investigations/queueGovernance.ts:520:18            
+QueueTriageEvidence               interface  src/lib/investigations/queueGovernance.ts:587:18            
+DecideOutcome                     type       src/lib/knowledgeLibraryDecide.ts:26:13                     
+LinkPreviewDraft                  interface  src/lib/linkPreview.ts:9:18                                 
+MotionName                        type       src/lib/motion.ts:14:13                                     
+NavItem                           interface  src/lib/nav.ts:3:18                                         
+NavSection                        interface  src/lib/nav.ts:48:18                                        
+FireOptions                       interface  src/lib/notifications.ts:48:18                              
+CategoryMeta                      interface  src/lib/personalTasks.ts:29:18                              
+FollowThroughModeMeta             interface  src/lib/personalTasks.ts:53:18                              
+TaskCounts                        interface  src/lib/personalTasks.ts:146:18                             
+TaskResult                        interface  src/lib/personalTasks.ts:359:18                             
+NewTaskInput                      interface  src/lib/personalTasks.ts:365:18                             
+DecomposeResult                   interface  src/lib/personalTasks.ts:479:18                             
+DecomposeMode                     type       src/lib/personalTasks.ts:484:13                             
+PublicPageConfig                  interface  src/lib/public-site.ts:10:18                                
+RealtimeEvent                     type       src/lib/realtime/useRealtimeRefresh.ts:25:13                
+UseRealtimeRefreshOptions         interface  src/lib/realtime/useRealtimeRefresh.ts:27:18                
+RetentionAssignment               interface  src/lib/retentionPolicy.ts:43:18                            
+PostureFetchResult                interface  src/lib/ros-data.ts:69:18                                   
+SettingsSection                   interface  src/lib/settings-sections.ts:10:18                          
+TechnicalIntelligenceSettings     interface  src/lib/settings.ts:40:18                                   
+HealthIntelligenceSettings        interface  src/lib/settings.ts:51:18                                   
+ShoppingListResult                interface  src/lib/shoppingList.ts:58:18                               
+LinkPreviewDraftResult            interface  src/lib/shoppingList.ts:141:18                              
+CurrencySubtotal                  interface  src/lib/shoppingList.ts:171:18                              
+OpportunityRow                    type       src/lib/signalsToOpportunities.ts:19:13                     
+BatchResult                       interface  src/lib/signalsToOpportunities.ts:36:18                     
+SupabaseLike                      interface  src/lib/signalsToOpportunities.ts:86:18                     
+CreateOpportunitiesParams         interface  src/lib/signalsToOpportunities.ts:93:18                     
+SourceOutcome                     interface  src/lib/sourceResults.ts:10:18                              
+CollectedResults                  interface  src/lib/sourceResults.ts:19:18                              
+ThemeName                         type       src/lib/theme.ts:20:13                                      
+PlayTtsOptions                    interface  src/lib/ttsPlayer.ts:14:18                                  
+ProcessingStatus                  type       src/lib/types.ts:365:13                                     
+DocumentSensitivity               type       src/lib/types.ts:397:13                                     
+MemoryRecommendation              type       src/lib/types.ts:399:13                                     
+ExclusionReason                   type       src/lib/types.ts:414:13                                     
+ReviewHistoryEntry                interface  src/lib/types.ts:428:18                                     
+ProcessingLogEntry                interface  src/lib/types.ts:437:18                                     
+ProcessingDocument                interface  src/lib/types.ts:443:18                                     
+ProcessingChunk                   interface  src/lib/types.ts:475:18                                     
+KnowledgeMemoryDocument           interface  src/lib/types.ts:524:18                                     
+UseAlertsResult                   interface  src/lib/useAlerts.ts:19:18                                  
+UseAlertsOptions                  interface  src/lib/useAlerts.ts:31:18                                  
+ROSData                           interface  src/lib/useROSData.ts:41:18                                 
+CompleteResult                    interface  src/lib/weeklyReview.ts:186:18                              
+Duplicate exports (1)
+GOOGLE_OAUTH_SCOPES|GOOGLE_CALENDAR_SCOPE  src/lib/google-calendar.ts
+Configuration hints (1)
+. (root)    knip.json  Add entry and/or refine project files (31 unused files)

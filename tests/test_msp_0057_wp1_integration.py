@@ -14,17 +14,19 @@ Test Scope:
 - Slack message formatting for reused research
 """
 
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
+
+import pytest
 
 # Add parent directory to path for imports
 test_dir = Path(__file__).resolve().parent
 project_dir = test_dir.parent
 if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
+_PLATFORM_RUNTIME = project_dir / "platform-runtime"
+if str(_PLATFORM_RUNTIME) not in sys.path:
+    sys.path.insert(0, str(_PLATFORM_RUNTIME))
 
 
 class TestWP1ResearchMemoryRetrieval:
@@ -33,7 +35,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_retriever_import(self):
         """Verify ResearchMemoryRetriever imports successfully."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             assert ResearchMemoryRetriever is not None
             print("✅ ResearchMemoryRetriever imports successfully")
         except ImportError as e:
@@ -42,28 +44,28 @@ class TestWP1ResearchMemoryRetrieval:
     def test_retriever_initialization(self):
         """Verify ResearchMemoryRetriever initializes without errors."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             retriever = ResearchMemoryRetriever()
             assert retriever is not None
             print("✅ ResearchMemoryRetriever initializes successfully")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Failed to initialize ResearchMemoryRetriever: {e}")
 
     def test_search_prior_research_signature(self):
         """Verify search_prior_research method exists and has correct signature."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             retriever = ResearchMemoryRetriever()
             assert hasattr(retriever, 'search_prior_research')
             assert callable(retriever.search_prior_research)
             print("✅ search_prior_research method exists with correct signature")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"search_prior_research validation failed: {e}")
 
     def test_retrieval_result_structure(self):
         """Verify retrieval result has required fields."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             retriever = ResearchMemoryRetriever()
 
             # Mock a search result
@@ -77,13 +79,13 @@ class TestWP1ResearchMemoryRetrieval:
             assert hasattr(result, 'reason'), "Result missing 'reason' field"
 
             print("✅ Retrieval result has all required fields")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Retrieval result structure validation failed: {e}")
 
     def test_decision_options(self):
         """Verify decision options are valid (REUSE/REUSE_WITH_NOTE/REFRESH/NEW_RESEARCH)."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             valid_decisions = {"REUSE", "REUSE_WITH_NOTE", "REFRESH", "NEW_RESEARCH"}
             retriever = ResearchMemoryRetriever()
@@ -93,13 +95,13 @@ class TestWP1ResearchMemoryRetrieval:
                 f"Invalid recommendation: {result.recommendation}"
 
             print(f"✅ Decision options valid: {result.recommendation}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Decision option validation failed: {e}")
 
     def test_confidence_score_range(self):
         """Verify confidence score is between 0 and 1."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             retriever = ResearchMemoryRetriever()
             result = retriever.search_prior_research("test question")
 
@@ -107,19 +109,20 @@ class TestWP1ResearchMemoryRetrieval:
                 f"Confidence score out of range: {result.match_confidence}"
 
             print(f"✅ Confidence score in valid range: {result.match_confidence:.2f}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Confidence score validation failed: {e}")
 
     def test_execution_speed(self):
         """Verify retrieval execution time is under 100ms target."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
             import time
+
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             retriever = ResearchMemoryRetriever()
 
             start = time.time()
-            result = retriever.search_prior_research("test question")
+            retriever.search_prior_research("test question")
             elapsed_ms = (time.time() - start) * 1000
 
             print(f"⏱️ Execution time: {elapsed_ms:.2f}ms (target: <100ms)")
@@ -127,13 +130,13 @@ class TestWP1ResearchMemoryRetrieval:
                 f"Execution time exceeded target: {elapsed_ms:.2f}ms"
 
             print("✅ Execution speed meets target (<100ms)")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Execution speed validation failed: {e}")
 
     def test_similar_questions_return_reuse(self):
         """Verify similar questions return REUSE or REUSE_WITH_NOTE decisions."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             retriever = ResearchMemoryRetriever()
 
@@ -152,13 +155,13 @@ class TestWP1ResearchMemoryRetrieval:
                 print(f"  Question: '{q[:40]}...' → {result.recommendation}")
 
             print(f"✅ Similar question reuse rate: {reuse_count}/{len(test_questions)}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Similar question validation failed: {e}")
 
     def test_non_blocking_error_handling(self):
         """Verify retrieval errors are non-blocking and logged."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             # Mock database failure to test non-blocking behavior
             retriever = ResearchMemoryRetriever()
@@ -171,7 +174,7 @@ class TestWP1ResearchMemoryRetrieval:
             assert result.recommendation in {"REUSE", "REUSE_WITH_NOTE", "REFRESH", "NEW_RESEARCH"}
 
             print("✅ Error handling is non-blocking")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Error handling validation failed: {e}")
 
     def test_integration_with_research_command(self):
@@ -189,13 +192,13 @@ class TestWP1ResearchMemoryRetrieval:
                     "research_command.py does not check REUSE decision"
 
             print("✅ research_command.py properly integrates ResearchMemoryRetriever")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Integration validation failed: {e}")
 
     def test_retrieval_decision_logging(self):
         """Verify retrieval decisions are logged."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             retriever = ResearchMemoryRetriever()
             result = retriever.search_prior_research("test question")
@@ -205,7 +208,7 @@ class TestWP1ResearchMemoryRetrieval:
                 "Retrieval reason not populated"
 
             print(f"✅ Retrieval decision logged: {result.reason}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Logging validation failed: {e}")
 
 
@@ -214,7 +217,7 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_existing_research_discovered(self):
         """AC: Existing research is automatically discovered."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
 
@@ -229,7 +232,7 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_similarity_scoring(self):
         """AC: Similar questions return prior findings with match confidence."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
 
@@ -240,7 +243,7 @@ class TestWP1AcceptanceCriteria:
         r1 = retriever.search_prior_research(q1)
         r2 = retriever.search_prior_research(q2)
 
-        print(f"AC2: Similarity test")
+        print("AC2: Similarity test")
         print(f"  Q1 confidence: {r1.match_confidence:.2f}")
         print(f"  Q2 confidence: {r2.match_confidence:.2f}")
 
@@ -249,12 +252,12 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_retrieval_decision_logged(self):
         """AC: Retrieval decision is logged."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
         result = retriever.search_prior_research("test question")
 
-        print(f"AC3: Decision logged")
+        print("AC3: Decision logged")
         print(f"  Decision: {result.recommendation}")
         print(f"  Reason: {result.reason}")
         print(f"  Confidence: {result.match_confidence:.2f}")
@@ -264,8 +267,9 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_execution_time(self):
         """AC: Retrieval execution time <100ms target."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
         import time
+
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
 
@@ -279,16 +283,16 @@ class TestWP1AcceptanceCriteria:
         avg_time = sum(times) / len(times)
         max_time = max(times)
 
-        print(f"AC4: Execution time")
+        print("AC4: Execution time")
         print(f"  Average: {avg_time:.2f}ms")
         print(f"  Maximum: {max_time:.2f}ms")
-        print(f"  Target: <100ms")
+        print("  Target: <100ms")
 
         assert max_time < 100, f"Max execution time {max_time:.2f}ms exceeds target"
 
     def test_acceptance_false_positive_rate(self):
         """AC: False positive rate <5%."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
 
@@ -310,7 +314,7 @@ class TestWP1AcceptanceCriteria:
 
         false_positive_rate = (false_positives / len(unrelated_questions)) * 100
 
-        print(f"AC5: False positive rate")
+        print("AC5: False positive rate")
         print(f"  False positives: {false_positives}/{len(unrelated_questions)}")
         print(f"  Rate: {false_positive_rate:.1f}% (target: <5%)")
 

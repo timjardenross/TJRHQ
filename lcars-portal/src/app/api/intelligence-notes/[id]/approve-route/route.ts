@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { nextId, appendToRegistry } from '@/lib/id-registry';
+import { errorDetail } from '@/lib/errorDetail';
 
 // MSN-0334: Captain's Notebook's "Approve Route" previously only updated
 // the note's own status/routed_to_type columns via a direct client-side
@@ -119,7 +120,7 @@ export async function POST(
         : 'Routing decision recorded. No automatic artefact creation exists for this route.',
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Approve route failed', detail }, { status: 500 });
   }
 }

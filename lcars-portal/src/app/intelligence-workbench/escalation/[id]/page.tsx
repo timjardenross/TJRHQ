@@ -1,8 +1,10 @@
 'use client';
 
 // Phase B — Screens 4/5/6: RED Escalation + Stand-Down + Telegram deep-link target.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { ActionOutcome } from '@/components/ActionOutcome';
 import { runAction } from '../../_components/actions';
 
 const DIM_LABEL: Record<string, string> = {
@@ -15,6 +17,7 @@ const DIM_LABEL: Record<string, string> = {
 type Brief = {
   brief_id: string; overall_risk: string | null; executive_snapshot: string | null;
   bottom_line: string | null; signal_ids: string[] | null;
+  period_start: string | null; period_end: string | null;
 };
 type Signal = {
   event_id: string; raw_title: string; risk_rating: string | null; rank_score: number | null;
@@ -37,19 +40,30 @@ export default function Escalation({ params }: { params: { id: string } }) {
   const [fromTelegram, setFromTelegram] = useState(false);
   const [lesson, setLesson] = useState('');
 
+  const loadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback(() => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     setLoading(true);
     setError(null);
-    fetch(`/api/intelligence-workbench/brief?id=${id}`)
+    fetch(`/api/intelligence-workbench/brief?id=${id}`, { signal: controller.signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
-        setBrief(d.brief); setSignals(d.signals ?? []); setAuditTrail(d.audit ?? []);
+        if (!controller.signal.aborted) {
+          setBrief(d.brief); setSignals(d.signals ?? []); setAuditTrail(d.audit ?? []);
+        }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+          setError(e instanceof Error ? e.message : 'Failed to load');
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [id]);
   useEffect(load, [load]);
+  useEffect(() => () => loadControllerRef.current?.abort(), []);
   useEffect(() => {
     setFromTelegram(new URLSearchParams(window.location.search).get('alert_source') === 'telegram');
   }, []);
@@ -70,36 +84,37 @@ export default function Escalation({ params }: { params: { id: string } }) {
 
   return (
     <WorkbenchShell wide title="RED Escalation" eyebrow="Crisis mode"
-           tagline="USS TJR · Operational Resilience Intelligence · Phase B"
+           tagline="TJR HQ · Operational Resilience Intelligence · Phase B"
            back={{ href: `/intelligence-workbench/brief/${id}`, label: 'Brief' }}>
       {fromTelegram && (
-        <p className="mb-4 rounded border-l-[3px] border-wb-sage bg-wb-sage/10 px-3 py-2 text-[12px] text-wb-ink2">
+        <p className="mb-4 rounded border-l-[3px] border-wb-sage bg-wb-sage/10 px-3 py-2 text-wb-label text-wb-ink2">
           Opened from a Telegram alert · incident {id.slice(0, 8)}
         </p>
       )}
       {loading ? (
-        <p className="text-[13px] text-wb-ink2">Loading…</p>
+        <p className="text-wb-body text-wb-ink2">Loading…</p>
       ) : error ? (
         <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>
       ) : !brief ? (
-        <p className="text-[13px] text-wb-ink2">Brief not found.</p>
+        <p className="text-wb-body text-wb-ink2">Brief not found.</p>
       ) : (
         <>
-          <div className="mb-6 flex items-center gap-3.5 rounded-lg bg-gradient-to-r from-wb-crit-on to-wb-crit-deep px-5 py-4 text-white">
+          <div className="mb-6 flex items-center gap-3.5 rounded-lg bg-gradient-to-r from-wb-crit-fill to-wb-crit-deep px-5 py-4 text-white">
             <span className="h-3 w-3 animate-pulse rounded-full bg-white" aria-hidden />
             <div>
               <div className="font-serif text-[20px]" role="status" aria-live="assertive">
                 {brief.overall_risk === 'RED' ? 'CRITICAL INCIDENT' : `Status: ${brief.overall_risk ?? 'UNKNOWN'}`}
               </div>
-              <div className="text-[13px] opacity-90">{(brief.executive_snapshot ?? '').slice(0, 100) || 'Operational resilience incident'}</div>
+              <div className="text-wb-body opacity-90">{(brief.executive_snapshot ?? '').slice(0, 100) || 'Operational resilience incident'}</div>
             </div>
           </div>
+          <EvidenceMeta source="Technical intelligence escalation" observedAt={brief.period_end ?? undefined} confidence={signals.length ? `${signals.length} linked signal${signals.length === 1 ? '' : 's'}` : 'No linked signals'} />
 
           {dims && (
             <Card title={`10-dimension risk breakdown — ${top?.rank_score ?? '?'}/50 ${top?.risk_rating ?? ''}`}>
               <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                 {Object.keys(DIM_LABEL).map((k) => (
-                  <div key={k} className="flex items-center gap-2 text-[12.5px]">
+                  <div key={k} className="flex items-center gap-2 text-wb-label">
                     <span className="w-[130px]">{DIM_LABEL[k]}</span>
                     <span className="h-1.5 flex-1 overflow-hidden rounded bg-wb-line" aria-hidden="true">
                       <span className="block h-full bg-wb-sage" style={{ width: `${((dims[k] ?? 0) / 5) * 100}%` }} />
@@ -114,27 +129,27 @@ export default function Escalation({ params }: { params: { id: string } }) {
           <Card title="Immediate actions">
             <div className="flex flex-wrap gap-2.5">
               <button disabled={!!busy} onClick={() => act('brief.notify_telegram', {}, 'Send Telegram alert')}
-                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
+                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-wb-body text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
                 Send Telegram Alert
               </button>
               <button disabled={!!busy} onClick={() => act('brief.escalate', {}, 'Escalate to Captain')}
-                className="rounded-md border border-wb-warn-on bg-wb-warn-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-warn-on">
+                className="rounded-md border border-wb-warn-fill bg-wb-warn-fill px-3.5 py-2 text-wb-body text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-warn-on">
                 Escalate to Captain
               </button>
             </div>
-            {busy && <p className="mt-3 text-[12px] text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
-            {msg && <p className="mt-3 text-[12px]" aria-live="polite">{msg}</p>}
+            {busy && <p className="mt-3 text-wb-label text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
+            <ActionOutcome message={msg} tone={msg?.startsWith('✓') ? 'success' : 'error'} />
           </Card>
 
           {/* Screen 5 — stand-down */}
           <Card title="Stand-down">
-            <label htmlFor="lesson" className="mb-1 block text-[12.5px] text-wb-ink2">Lesson (optional — what should improve?)</label>
+            <label htmlFor="lesson" className="mb-1 block text-wb-label text-wb-ink2">Lesson (optional — what should improve?)</label>
             <textarea id="lesson" rows={2} value={lesson} onChange={(e) => setLesson(e.target.value)}
               placeholder="e.g. add carrier-dependency forward-watch to telecom briefs"
-              className="w-full rounded-md border border-wb-line p-2.5 text-[13px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep" />
+              className="w-full rounded-md border border-wb-line p-2.5 text-wb-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep" />
             <button disabled={!!busy}
               onClick={() => act('brief.stand_down', lesson ? { lesson_text: lesson, category: 'methodology_change' } : {}, 'Stand-down')}
-              className="mt-3 rounded-md border border-wb-ink bg-wb-ink px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
+              className="mt-3 rounded-md border border-wb-ink bg-wb-ink px-3.5 py-2 text-wb-body text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
               Record lesson &amp; close
             </button>
           </Card>
@@ -145,8 +160,8 @@ export default function Escalation({ params }: { params: { id: string } }) {
             <Card title="Audit trail">
               <div className="flex flex-col gap-2.5">
                 {auditTrail.map((a) => (
-                  <div key={a.id} className="flex items-start gap-3 border-b border-wb-line py-2 text-[12.5px] last:border-0">
-                    <span className="w-[140px] shrink-0 text-wb-ink2">
+                  <div key={a.id} className="flex flex-col gap-0.5 border-b border-wb-line py-2 text-wb-label last:border-0 sm:flex-row sm:items-start sm:gap-3">
+                    <span className="shrink-0 text-wb-ink2 sm:w-[140px]">
                       {new Date(a.created_at).toLocaleString()}
                     </span>
                     <span className="flex-1">

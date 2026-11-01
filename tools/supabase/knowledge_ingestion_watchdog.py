@@ -16,14 +16,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[2]
 STATE_FILE = Path(__file__).resolve().parent / ".watchdog-state.json"
@@ -51,7 +48,8 @@ def load_state() -> dict[str, str]:
     if STATE_FILE.exists():
         try:
             return json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - corrupt/unreadable state file; caller treats {} as "no prior state, everything looks new" (safe, just re-ingests)
+            print(f"⚠️  Could not load watchdog state ({exc}); treating all files as new", file=sys.stderr)
             return {}
     return {}
 
@@ -130,7 +128,7 @@ def ingest_files(paths: list[Path], dry_run: bool) -> bool:
     try:
         ingest(rel_paths, dry_run=False)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level ingestion boundary, already printed; caller treats False as "this scan cycle failed, retry next cycle"
         print(f"❌  Ingestion failed: {exc}")
         return False
 
@@ -138,7 +136,7 @@ def ingest_files(paths: list[Path], dry_run: bool) -> bool:
 def scan_once(state: dict[str, str], dry_run: bool, verbose: bool) -> dict[str, str]:
     """Run one scan cycle. Returns updated state."""
     new_or_modified, deleted = detect_changes(state)
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     if not new_or_modified and not deleted:
         if verbose:
@@ -176,13 +174,13 @@ def scan_once(state: dict[str, str], dry_run: bool, verbose: bool) -> dict[str, 
 
 
 def run_continuous(interval: int, dry_run: bool) -> None:
-    print(f"Knowledge ingestion watchdog started.")
+    print("Knowledge ingestion watchdog started.")
     print(f"  Root:     {ROOT}")
     print(f"  Watching: {', '.join(WATCH_PATHS)}")
     print(f"  Interval: {interval}s")
     print(f"  State:    {STATE_FILE}")
     if dry_run:
-        print(f"  Mode:     DRY RUN (no writes)")
+        print("  Mode:     DRY RUN (no writes)")
     print()
 
     state = load_state()

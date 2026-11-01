@@ -8,21 +8,24 @@
 // dispatched. "Think it through" only prefills Think's input — the user
 // still has to ask.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { AdvisoryResult } from './types';
 
 export function ProactiveBanner({ onThinkItThrough }: { onThinkItThrough: (text: string) => void }) {
   const [signals, setSignals] = useState<{ headline?: string; triggers?: unknown[]; attention_required?: boolean } | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     fetch('/api/advisory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'proactive' }),
+      signal,
     })
       .then((r) => r.json())
       .then((data: { result?: AdvisoryResult }) => {
+        if (!alive()) return;
         const r = data.result ?? (data as unknown as AdvisoryResult);
         const triggers = (r?.triggers ?? []) as unknown[];
         if (triggers.length > 0 || r?.attention_required) setSignals(r as typeof signals);
@@ -46,19 +49,19 @@ export function ProactiveBanner({ onThinkItThrough }: { onThinkItThrough: (text:
         {isUrgent ? '▲' : '●'}
       </span>
       <div className="min-w-0 flex-1">
-        <p className={`text-[10px] font-semibold uppercase tracking-[0.15em] ${isUrgent ? 'text-wb-warn-on' : 'text-wb-sage-deep'}`}>Something worth considering</p>
-        <p className="mt-0.5 text-[13px] text-wb-ink">{observation}</p>
+        <p className={`text-wb-label font-semibold uppercase tracking-[0.15em] ${isUrgent ? 'text-wb-warn-on' : 'text-wb-sage-deep'}`}>Something worth considering</p>
+        <p className="mt-0.5 text-wb-body text-wb-ink">{observation}</p>
         {triggerList.length > 1 && (
-          <p className="mt-0.5 text-[11px] text-wb-ink2">{triggerList.slice(1, 3).join(' · ')}{triggerList.length > 3 ? ` +${triggerList.length - 3} more` : ''}</p>
+          <p className="mt-0.5 text-wb-label text-wb-ink2">{triggerList.slice(1, 3).join(' · ')}{triggerList.length > 3 ? ` +${triggerList.length - 3} more` : ''}</p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <button onClick={() => { onThinkItThrough(observation); setDismissed(true); }}
-          className="text-[10px] font-semibold uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+          className="text-wb-label font-semibold uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
           Think it through
         </button>
         <button onClick={() => setDismissed(true)}
-          className="text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+          className="text-wb-label uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
           Not useful
         </button>
       </div>

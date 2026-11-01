@@ -10,8 +10,9 @@
 // doesn't split health/operational, Portfolio here is just "everything
 // published."
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge, Button, Input, Select } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { PILLAR_LABEL, toMarkdown, toPlainText, download, type PublishedItem } from './shared';
 
 function ExportMenu({ item }: { item: PublishedItem }) {
@@ -41,7 +42,7 @@ function ExportMenu({ item }: { item: PublishedItem }) {
       <Button size="sm" variant="secondary" onClick={() => copy('markdown')}>Copy markdown</Button>
       <Button size="sm" variant="secondary" onClick={() => exportFile('text')}>⬇ .txt</Button>
       <Button size="sm" variant="secondary" onClick={() => exportFile('markdown')}>⬇ .md</Button>
-      <span className="min-h-[1lh] text-[11px] text-wb-ok-on" role="status">{copied && `Copied ${copied}`}</span>
+      <span className="min-h-[1lh] text-wb-label text-wb-ok-on" role="status">{copied && `Copied ${copied}`}</span>
     </div>
   );
 }
@@ -79,7 +80,7 @@ function ReuseIdeaButton({ item }: { item: PublishedItem }) {
       <Button size="sm" variant="secondary" onClick={reuse} disabled={busy}>
         {busy ? 'Creating…' : 'Reuse Idea'}
       </Button>
-      {msg && <span className="text-[11px] text-wb-ink2">{msg}</span>}
+      {msg && <span className="text-wb-label text-wb-ink2">{msg}</span>}
     </div>
   );
 }
@@ -97,22 +98,22 @@ function PortfolioCard({ item }: { item: PublishedItem }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge status="success">✓ Published</Badge>
           {item.pillar && (
-            <span className="rounded-full bg-wb-line px-2 py-0.5 text-[10.5px] font-medium text-wb-ink2">
+            <span className="rounded-full bg-wb-line px-2 py-0.5 text-wb-label font-medium text-wb-ink2">
               {PILLAR_LABEL[item.pillar] ?? item.pillar}
             </span>
           )}
-          <span className="text-[11px] text-wb-ink2">{item.updated_at.slice(0, 10)}</span>
-          <span className="ml-auto text-[10px] text-wb-ink2">{open ? '▲' : '▼'}</span>
+          <span className="text-wb-label text-wb-ink2">{item.updated_at.slice(0, 10)}</span>
+          <span className="ml-auto text-wb-label text-wb-ink2">{open ? '▲' : '▼'}</span>
         </div>
-        <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
+        <p className="text-wb-body font-medium leading-snug text-wb-ink">{item.title}</p>
       </button>
 
       {open && item.body && (
-        <div className="whitespace-pre-wrap rounded-md border border-wb-line bg-wb-bg p-3 text-[13px] leading-relaxed text-wb-ink">
+        <div className="whitespace-pre-wrap rounded-md border border-wb-line bg-wb-bg p-3 text-wb-body leading-relaxed text-wb-ink">
           {item.body}
         </div>
       )}
-      {open && !item.body && <p className="text-[12px] text-wb-ink2">No stored body for this item.</p>}
+      {open && !item.body && <p className="text-wb-label text-wb-ink2">No stored body for this item.</p>}
 
       <div className="flex flex-wrap items-center gap-2">
         <ExportMenu item={item} />
@@ -125,23 +126,25 @@ function PortfolioCard({ item }: { item: PublishedItem }) {
 export function PortfolioTab() {
   const [items, setItems] = useState<PublishedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [pillarFilter, setPillarFilter] = useState('all');
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     async function load() {
       setLoading(true);
-      setError(null);
+      setLoadError(null);
       try {
-        const res = await fetch('/api/comms?status=published');
+        const res = await fetch('/api/comms?status=published', { signal });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Failed to load portfolio');
-        setItems(data.items ?? []);
+        if (alive()) setItems(data.items ?? []);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load portfolio');
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load portfolio');
+        }
       } finally {
-        setLoading(false);
+        if (alive()) setLoading(false);
       }
     }
     load();
@@ -167,8 +170,8 @@ export function PortfolioTab() {
       </div>
 
       {loading && <p className="text-sm text-wb-ink2">Loading portfolio…</p>}
-      {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>}
-      {!loading && !error && filtered.length === 0 && <p className="text-sm text-wb-ink2">No published content yet.</p>}
+      {loadError && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{loadError}</p>}
+      {!loading && !loadError && filtered.length === 0 && <p className="text-sm text-wb-ink2">No published content yet.</p>}
 
       <div className="flex flex-col gap-2">
         {filtered.map((item) => (

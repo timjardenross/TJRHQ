@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for ADR-006 Phase 2A: Number One memory-aware oversight."""
 
 from __future__ import annotations
@@ -5,14 +6,17 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.coordination.number_one import NumberOne, MissionStatus, Priority, Mission
-from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter, MemoryContext
+from core.coordination.number_one import NumberOne
+from core.coordination.number_one_memory_adapter import (
+    MemoryContext,
+    NumberOneMemoryAdapter,
+)
 
 
 class TestNumberOneMemoryAdapter(unittest.TestCase):

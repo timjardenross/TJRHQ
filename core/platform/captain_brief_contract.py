@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from core.platform.attention_engine import AttentionCategory, AttentionDecision
 from core.platform.priority_engine import PriorityScore
@@ -44,19 +44,19 @@ class Recommendation:
     """
 
     description: str
-    action_type: Optional[str] = None  # e.g. "review", "approve", "acknowledge", "investigate"
-    confidence: Optional[int] = None  # 0-100 — how sure the emitting domain is this is the right action
+    action_type: str | None = None  # e.g. "review", "approve", "acknowledge", "investigate"
+    confidence: int | None = None  # 0-100 — how sure the emitting domain is this is the right action
     evidence: list[str] = field(default_factory=list)  # file:line / row / event_id references
     requires_approval: bool = False  # maps to the Permissions capability's authority-gating concept
-    supporting_context: Optional[str] = None
+    supporting_context: str | None = None
     # MSN-0329 Phase 2 Step 4 (Reasoning Engine): extends this existing
     # contract rather than a new parallel type — "no duplicate
     # intelligence logic" applies to data shapes too, not just scoring
     # logic. All optional; a Recommendation with none of these populated
     # is identical to the pre-Step-4 shape.
     alternatives: list[str] = field(default_factory=list)  # other real options considered, not just the chosen one
-    trade_offs: Optional[str] = None  # what's given up by choosing `description` over an alternative
-    expected_outcome: Optional[str] = None  # what should be observably true if this action is taken
+    trade_offs: str | None = None  # what's given up by choosing `description` over an alternative
+    expected_outcome: str | None = None  # what should be observably true if this action is taken
 
     def as_text(self) -> str:
         """Flatten to the free-text shape `core_events.recommended_action`
@@ -70,18 +70,28 @@ class CaptainBriefItem:
     """One line of the Captain Brief — an Attention decision, optionally
     enriched with a Priority rank and a structured Recommendation."""
 
-    event_id: Optional[str]
+    event_id: str | None
     domain: str
     event_type: str
     category: AttentionCategory
-    reason: str
-    priority_score: Optional[float] = None
-    priority_explanation: Optional[str] = None
-    risk_score: Optional[float] = None
-    recommendation: Optional[Recommendation] = None
+    # Renamed from `reason` (consolidation mission follow-up) — see
+    # AttentionDecision._routing_reason's comment for why. Carried straight
+    # from AttentionDecision._routing_reason; still never Captain-facing.
+    _routing_reason: str
+    priority_score: float | None = None
+    priority_explanation: str | None = None
+    risk_score: float | None = None
+    recommendation: Recommendation | None = None
     related_event_ids: list[str] = field(default_factory=list)
-    aggregation_key: Optional[str] = None
+    aggregation_key: str | None = None
     metrics: dict[str, Any] = field(default_factory=dict)  # MSN-0328 Wave 2 — structured per-domain detail, see core_events.metrics
+    # Briefs/Captain's Brief consolidation signal-leakage fix: the event's
+    # own readable `description` (a headline, a state transition), carried
+    # from `AttentionDecision.description`. A consumer needing readable
+    # content when there is no `recommendation` should fall back to this,
+    # never to `reason` (a scoring formula) and never by fabricating a
+    # Recommendation out of it.
+    description: str | None = None
 
 
 @dataclass
@@ -103,7 +113,7 @@ class CaptainBrief:
     never_interrupt_count: int = 0  # count only, for completeness/audit — never shown to the Captain
 
 
-def recommendation_from_event(event: dict[str, Any]) -> Optional[Recommendation]:
+def recommendation_from_event(event: dict[str, Any]) -> Recommendation | None:
     """MSN-0308: adapter from `core_events.recommended_action` (free text,
     written by every domain today per MSN-0302 §8) to a `Recommendation`
     object, so `assemble_captain_brief()` can surface something even
@@ -139,8 +149,8 @@ def recommendations_from_events(events: list[dict[str, Any]]) -> dict[str, Recom
 def assemble_captain_brief(
     decisions: list[AttentionDecision],
     *,
-    priority_scores: Optional[dict[str, PriorityScore]] = None,
-    recommendations: Optional[dict[str, Recommendation]] = None,
+    priority_scores: dict[str, PriorityScore] | None = None,
+    recommendations: dict[str, Recommendation] | None = None,
 ) -> CaptainBrief:
     """Pure function: combine Attention Engine output (required) with
     optional Priority Engine scores and Recommendations, keyed by
@@ -159,7 +169,7 @@ def assemble_captain_brief(
             domain=decision.domain,
             event_type=decision.event_type,
             category=decision.category,
-            reason=decision.reason,
+            _routing_reason=decision._routing_reason,
             priority_score=score.total_score if score else None,
             priority_explanation=score.explanation if score else None,
             risk_score=score.risk_score if score else None,
@@ -167,6 +177,7 @@ def assemble_captain_brief(
             related_event_ids=decision.related_event_ids,
             aggregation_key=decision.aggregation_key,
             metrics=decision.metrics,
+            description=decision.description,
         )
 
         if decision.category == AttentionCategory.INTERRUPT_NOW:
@@ -189,9 +200,9 @@ def assemble_captain_brief(
 
 
 __all__ = [
-    "Recommendation",
-    "CaptainBriefItem",
     "CaptainBrief",
+    "CaptainBriefItem",
+    "Recommendation",
     "assemble_captain_brief",
     "recommendation_from_event",
     "recommendations_from_events",

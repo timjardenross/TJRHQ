@@ -17,10 +17,9 @@ Usage:
     python3 tools/health/recompute_health_signal_scores.py [--dry-run]
 """
 
-import os
-import sys
-import logging
 import argparse
+import logging
+import os
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -110,7 +109,7 @@ class HealthSignalRecomputer:
                     self.supabase.table("health_signals").update(
                         {"confidence_level": new_confidence, "rank_score": new_rank}
                     ).eq("signal_id", s["signal_id"]).execute()
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-signal update inside a batch loop — one bad signal must not abort the batch; already logged + counted in self.stats['errors']
                     logger.error(f"Update failed for {s['signal_id']}: {e}")
                     self.stats["errors"] += 1
                     continue

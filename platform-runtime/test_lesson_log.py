@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for /lesson-log command handler.
 
@@ -24,7 +25,6 @@ from commands.lesson_log import (
     _extract_mission_id,
     _not_captured,
     _parse_llm_output,
-    _USAGE,
     handle_lesson_log,
 )
 

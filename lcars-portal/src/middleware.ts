@@ -1,11 +1,113 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
+import {
+  INVALID_REQUEST,
+  MOBILE_BEARER_READ_ROUTES,
+  failureResponse,
+  hasQueryString,
+  mobileReadJson,
+  parseBearerToken,
+  verifyCaptainBearer,
+} from '@/lib/mobileBearerAuth';
+import {
+  MOBILE_BEARER_WRITE_ROUTES,
+  verifyCaptainWriteBearer,
+  writeFailureResponse,
+} from '@/lib/mobileBearerWrite';
+
+// Routes intended for server-to-server calls carrying X-Bot-Secret, not
+// interactive browsing. 2026-09-15 adversarial review: previously any
+// /api/* route accepted the bot secret, which is broader than any actual
+// caller needs -- the only confirmed live caller (intelligence/
+// scheduler.py, for Google Tasks capture) only ever calls this one route.
+// Add a route here only when a real caller needs it.
+const BOT_SECRET_ROUTE_ALLOWLIST = new Set<string>([
+  '/api/google-tasks/sync',
+]);
+
+// Native Health Bridge requests carry a bearer token and cannot use the
+// browser's cookie session. The route handler performs the complete token
+// verification and Captain authorization; this exemption is intentionally
+// limited to this exact path.
+const HEALTH_BRIDGE_ROUTE = '/api/integrations/health-bridge/ping';
+
+// Plain-JS constant-time compare, not Node's crypto.timingSafeEqual: this
+// file runs in the Edge Runtime (Next.js middleware), which doesn't support
+// Node built-ins — importing 'crypto' here type-checks fine but throws
+// "The edge runtime does not support Node.js 'crypto' module" the moment
+// timingSafeEqual is actually called, which only happened for the one
+// bot-secret route below. That broke every scheduler call to
+// /api/google-tasks/sync (this Set's only member) with a bare 500 while
+// every other request — which never reaches this call — kept working,
+// masking the failure. XOR-accumulate over char codes without an early
+// return keeps compare time independent of where a mismatch falls.
+function timingSafeSecretEqual(provided: string, expected: string): boolean {
+  if (provided.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_ROUTE_ALLOWLIST.has(pathname) || pathname.startsWith('/auth')) {
+    return NextResponse.next({ request });
+  }
+
+  if (pathname === HEALTH_BRIDGE_ROUTE) {
+    return NextResponse.next({ request });
+  }
+
+  // TJR Life iOS read path (R3 S2a). Exact-match allowlist, GET only. On
+  // these paths a request without a valid Captain bearer token gets plain
+  // JSON (401/403/405/503), never the /login redirect a native client cannot
+  // follow. A bearer token on ANY other path is ignored here and falls
+  // through to the cookie flow below exactly as before. The route handler
+  // re-verifies via requireCaptainRead() (defence in depth).
+  if (MOBILE_BEARER_READ_ROUTES.has(pathname)) {
+    const token = parseBearerToken(request.headers.get('authorization'));
+    if (!token) {
+      return failureResponse({ ok: false, status: 401, error: 'Unauthorized' });
+    }
+    if (request.method !== 'GET') {
+      return mobileReadJson({ error: 'Method not allowed' }, 405, { Allow: 'GET' });
+    }
+    const verified = await verifyCaptainBearer(token);
+    if (!verified.ok) {
+      return failureResponse(verified);
+    }
+    // After auth: an unauthenticated caller still gets 401/403 first.
+    if (hasQueryString(request.url)) {
+      return failureResponse(INVALID_REQUEST);
+    }
+    return NextResponse.next({ request });
+  }
+
+  // TJR Life iOS write path (R3 Delivery 2, slice D2-1). Exact-match
+  // allowlist, POST only, its own kill switch (MOBILE_WRITE_ENABLED) and its
+  // own Captain id. Same shape as the read path above: plain JSON failures,
+  // never the /login redirect. The route handler re-verifies via
+  // requireCaptainWrite() (defence in depth).
+  if (MOBILE_BEARER_WRITE_ROUTES.has(pathname)) {
+    const token = parseBearerToken(request.headers.get('authorization'));
+    if (!token) {
+      return failureResponse({ ok: false, status: 401, error: 'Unauthorized' });
+    }
+    const verified = await verifyCaptainWriteBearer(token);
+    if (!verified.ok) {
+      return failureResponse(verified);
+    }
+    // After auth: an unauthenticated caller still gets 401/403 first.
+    if (request.method !== 'POST') {
+      return writeFailureResponse({ ok: false, status: 405, error: 'Method not allowed', allow: 'POST' });
+    }
+    if (hasQueryString(request.url)) {
+      return failureResponse(INVALID_REQUEST);
+    }
     return NextResponse.next({ request });
   }
 
@@ -42,17 +144,22 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Allow bot requests carrying the shared secret — API routes only.
-  // SUOC Wave 1 (MSN-0210E): this previously bypassed auth for the entire
-  // app surface (any page, not just API calls) for any request holding a
-  // valid secret. Scoped to /api/* so a leaked/shared bot secret grants
-  // programmatic access only, not full authenticated-UI browsing.
+  // Allow bot requests carrying the shared secret — explicit route
+  // allowlist only. SUOC Wave 1 (MSN-0210E) scoped this from the entire
+  // app surface down to /api/*; 2026-09-15 adversarial review scoped it
+  // further to only the routes a real caller actually uses, since a
+  // leaked bot secret previously granted access to every API route
+  // (missions, wellness, advisory-sessions, etc.), not just the
+  // machine-to-machine ones it was meant for. Also switched to a
+  // timing-safe comparison (the secret is long enough that a timing
+  // attack is impractical, but `===` on a secret comparison is the
+  // wrong pattern regardless).
   const botSecret = request.headers.get('x-bot-secret');
   if (
-    pathname.startsWith('/api/') &&
+    BOT_SECRET_ROUTE_ALLOWLIST.has(pathname) &&
     botSecret &&
     process.env.BOT_API_SECRET &&
-    botSecret === process.env.BOT_API_SECRET
+    timingSafeSecretEqual(botSecret, process.env.BOT_API_SECRET)
   ) {
     return supabaseResponse;
   }

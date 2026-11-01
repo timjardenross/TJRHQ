@@ -25,7 +25,6 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +34,12 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.initiatives import Initiative, get_initiative, get_linked_missions, list_initiatives
+from lib.strategy.initiatives import (
+    Initiative,
+    get_initiative,
+    get_linked_missions,
+    list_initiatives,
+)
 
 # Shared mission-status vocabulary (aligned with core execution_engine)
 _TERMINAL   = {"closed", "archived", "completed", "cancelled", "done", "validated"}
@@ -94,7 +98,8 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init
+        log.debug("[program.wbs] Supabase client unavailable: %s", exc)
         return None
 
 
@@ -111,7 +116,7 @@ def _fetch_missions(mission_ids: list[str]) -> list[dict]:
         for row in res.data or []:
             if str(row.get("id") or "") in wanted:
                 out.append(row)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort mission fetch, already logged
         log.debug("[program.wbs] mission fetch failed: %s", exc)
     return out
 
@@ -158,7 +163,7 @@ def _related_investigations(init: Initiative) -> list[str]:
         return []
     try:
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,rationale")
             .like("owner", "investigation:%")
             .limit(100)
@@ -173,7 +178,8 @@ def _related_investigations(init: Initiative) -> list[str]:
                 owner = str(row.get("owner") or "")
                 out.append(owner.split(":", 1)[1] if ":" in owner else owner)
         return out
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort related-investigation lookup
+        log.debug("[program.wbs] related investigations lookup failed: %s", exc)
         return []
 
 
@@ -190,7 +196,7 @@ def format_wbs(wbs: InitiativeWBS) -> str:
     lines = [f"*WBS — {wbs.title[:60]}* ({wbs.initiative_id})"]
     lines.append(f"  {wbs.workload_summary}")
     if wbs.blocked_missions:
-        lines.append(f"  :no_entry: Blocked: " + ", ".join(m["id"] for m in wbs.blocked_missions[:4]))
+        lines.append("  :no_entry: Blocked: " + ", ".join(m["id"] for m in wbs.blocked_missions[:4]))
     if wbs.related_investigations:
         lines.append(f"  :mag: {len(wbs.related_investigations)} related investigation(s)")
     if wbs.related_improvements:
@@ -199,9 +205,9 @@ def format_wbs(wbs: InitiativeWBS) -> str:
 
 
 __all__ = [
-    "classify_mission_status",
     "InitiativeWBS",
-    "build_wbs",
     "build_all_wbs",
+    "build_wbs",
+    "classify_mission_status",
     "format_wbs",
 ]

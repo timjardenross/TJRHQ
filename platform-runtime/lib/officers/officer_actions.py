@@ -156,7 +156,7 @@ def _record_action(action_id: str, officer: str, category: str, title: str,
             approved=True,  # this module always records the action; requires_approval (below) carries the sign-off distinction, not a denial
             reason=f"officer action category={category}, authority={authority.value}",
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Audit call failed, already logged
         log.debug("[officer_actions] Audit call failed (non-blocking): %s", exc)
 
     try:
@@ -172,9 +172,9 @@ def _record_action(action_id: str, officer: str, category: str, title: str,
             f"CONTEXT: {rationale_context[:80]}"
         )
 
-        existing = c.raw_client.table("decisions").select("id").eq("owner", owner).limit(1).execute()
+        existing = c.raw_client.table("command_memory_records").select("id").eq("owner", owner).limit(1).execute()
         if not list(existing.data or []):
-            c.raw_client.table("decisions").insert({
+            c.raw_client.table("command_memory_records").insert({
                 "owner": owner,
                 "statement": statement,
                 "rationale": rationale,
@@ -182,7 +182,7 @@ def _record_action(action_id: str, officer: str, category: str, title: str,
                 "status": "proposed" if authority != ActionAuthority.OFFICER else "active",
             }).execute()
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - officer-action decision record write, already logged
         log.debug("[officer_actions] Record failed %s/%s: %s", officer, action_id, exc)
         return False
 
@@ -262,16 +262,16 @@ def execute_triggered_actions(
                     ctx=ctx,
                 )
                 results.append(result)
-            except Exception as exc:
+            except Exception as exc: # noqa: BLE001 - Failed to execute trigger action, already logged
                 log.debug("[officer_actions] Failed to execute trigger action %s: %s", tr.trigger_id, exc)
     return results
 
 
 __all__ = [
-    "ActionCategory",
     "ActionAuthority",
+    "ActionCategory",
     "ActionResult",
-    "get_officer_authority",
     "create_officer_action",
     "execute_triggered_actions",
+    "get_officer_authority",
 ]

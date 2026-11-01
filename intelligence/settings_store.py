@@ -2,7 +2,7 @@
 
 Settings Page Redesign mission §14 ("Intelligence Preference Architecture"):
 the Captain's chosen monitoring priorities live in Supabase (user_settings,
-migration 0189), written by the Next.js Settings page
+migration 0196, renumbered from 0189), written by the Next.js Settings page
 (lcars-portal/src/app/api/settings/route.ts). This module is the read side
 for the Python ingestion pipeline — it does NOT define or duplicate the
 taxonomy itself (category keys/labels/keywords stay in
@@ -32,14 +32,13 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Optional
 
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
 
 logger = logging.getLogger(__name__)
 
 
-def _load_enabled_sets() -> Optional[dict]:
+def _load_enabled_sets() -> dict | None:
     """Returns {"technical_categories": frozenset|None, "health_tags": frozenset|None}
     or None entirely on failure. An empty list in the stored settings means
     "every category/tag enabled" (Settings' own default) — represented here
@@ -58,7 +57,7 @@ def _load_enabled_sets() -> Optional[dict]:
         method="GET",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             rows = json.loads(resp.read())
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
         logger.warning("settings_store: user_settings read failed, no filter applied: %s", exc)
@@ -79,14 +78,64 @@ def _load_enabled_sets() -> Optional[dict]:
     }
 
 
+def _load_follow_through() -> dict | None:
+    """Returns the Settings page's `followThrough` block verbatim, or None on
+    any read failure — same never-block discipline as _load_enabled_sets().
+    Callers apply their own hardcoded defaults when this is None or a key is
+    missing (Mission 1, USS-TJR-MSN-1: the settings UI previously persisted
+    this block to user_settings while follow_through_engine.py read only
+    QUIET_HOURS_START/END and FOLLOW_THROUGH_MAX_PER_DAY env vars — this is
+    the read side that closes that gap)."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+    url = f"{SUPABASE_URL}/rest/v1/user_settings?id=eq.hq&select=data"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https
+            rows = json.loads(resp.read())
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
+        logger.warning("settings_store: user_settings read failed, no follow-through overlay applied: %s", exc)
+        return None
+
+    if not rows:
+        return None
+    return (rows[0].get("data") or {}).get("followThrough") or None
+
+
 _ENABLED = _load_enabled_sets()
+_FOLLOW_THROUGH = _load_follow_through()
 
 
-def enabled_technical_categories() -> Optional[frozenset[str]]:
+def enabled_technical_categories() -> frozenset[str] | None:
     """None means "no filter" (every priority_categories key stays eligible)."""
     return _ENABLED["technical_categories"] if _ENABLED else None
 
 
-def enabled_health_tags() -> Optional[frozenset[str]]:
+def enabled_health_tags() -> frozenset[str] | None:
     """None means "no filter" (every domain_tiers tag stays eligible)."""
     return _ENABLED["health_tags"] if _ENABLED else None
+
+
+def follow_through_reminder_style() -> str | None:
+    """'once' | 'normal' | 'persistent', or None if unset/unreachable —
+    caller applies its own hardcoded default (precedence: per-task DB field
+    → this setting → hardcoded default)."""
+    return (_FOLLOW_THROUGH or {}).get("reminderStyle")
+
+
+def follow_through_increase_as_deadline_approaches() -> bool | None:
+    """None if unset/unreachable — caller applies its own hardcoded default."""
+    return (_FOLLOW_THROUGH or {}).get("increaseAsDeadlineApproaches")
+
+
+def follow_through_check_back_on_waiting_items() -> bool | None:
+    """None if unset/unreachable — caller applies its own hardcoded default."""
+    return (_FOLLOW_THROUGH or {}).get("checkBackOnWaitingItems")

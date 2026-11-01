@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import importlib.util
 import json
+import logging
 import os
+import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
+log = logging.getLogger(__name__)
 
 DEFAULT_PROVIDER = "auto"
 DEFAULT_MODEL_ROUTER_URL = "http://127.0.0.1:8891"
@@ -31,10 +36,6 @@ def get_llm_provider() -> str:
 
 def get_model_router_url() -> str:
     return os.getenv("MODEL_ROUTER_URL", DEFAULT_MODEL_ROUTER_URL).rstrip("/")
-
-
-def get_gemini_model() -> str:
-    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
 
 
 def get_ollama_base_url() -> str:
@@ -75,14 +76,11 @@ def is_ollama_available() -> bool:
             f"{get_ollama_base_url()}/api/tags",
             method="GET",
         )
-        with urllib.request.urlopen(request, timeout=60) as response:
+        with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var (internal router base), not user input - reviewed 2026-09-12
             return 200 <= response.status < 300
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - ollama health probe, unreachable is a normal "unavailable" outcome
+        log.debug("[llm] Ollama availability probe failed: %s", exc)
         return False
-
-
-def is_gemini_available() -> bool:
-    return bool(os.getenv("GEMINI_API_KEY"))
 
 
 def is_router_available() -> bool:
@@ -91,9 +89,10 @@ def is_router_available() -> bool:
             f"{get_model_router_url()}/health",
             method="GET",
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var (internal router base), not user input - reviewed 2026-09-12
             return 200 <= resp.status < 300
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - model router health probe, unreachable is a normal "unavailable" outcome
+        log.debug("[llm] Model router availability probe failed: %s", exc)
         return False
 
 
@@ -151,7 +150,7 @@ def generate_with_router(
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=get_timeout_seconds()) as resp:
+        with urllib.request.urlopen(req, timeout=get_timeout_seconds()) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var plus a fixed endpoint name from _router_endpoint_for_specialists's own literal return values, not user input - reviewed 2026-09-12
             body = json.loads(resp.read().decode())
         content = (body.get("response") or body.get("content") or "").strip()
     except Exception as error:
@@ -196,6 +195,29 @@ def ollama_model_fallback_chain(selected_model: str) -> list[str]:
     return deduped
 
 
+_direct_call_logger = None
+
+
+def _log_direct_call(**fields) -> None:
+    """Best-effort: record a direct Ollama request in the router's call_log.jsonl.
+
+    core/llm/call_log.py is loaded by file path so this works whatever sys.path the
+    caller has. Any failure is logged at debug level and dropped: logging must never
+    break an LLM call.
+    """
+    global _direct_call_logger
+    try:
+        if _direct_call_logger is None:
+            path = Path(__file__).resolve().parent.parent / "core" / "llm" / "call_log.py"
+            spec = importlib.util.spec_from_file_location("_starship_call_log", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            _direct_call_logger = module.log_direct_call
+        _direct_call_logger(**fields)
+    except Exception:
+        logging.getLogger(__name__).debug("direct call log unavailable", exc_info=True)
+
+
 def generate_with_ollama(prompt: str, system_prompt: str | None = None, model: str | None = None) -> str:
     messages = []
     if system_prompt:
@@ -214,40 +236,24 @@ def generate_with_ollama(prompt: str, system_prompt: str | None = None, model: s
         headers={"Content-Type": "application/json"},
     )
 
+    started = time.monotonic()
+    prompt_len = sum(len(m["content"]) for m in messages)
     try:
-        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:
+        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var (internal router base), not user input - reviewed 2026-09-12
             body = json.loads(response.read().decode("utf-8"))
-    except urllib.error.URLError as error:
-        raise LLMUnavailableError(f"Ollama unavailable: {type(error).__name__}") from error
     except Exception as error:
+        _log_direct_call(model=payload["model"], duration_ms=int((time.monotonic() - started) * 1000),
+                         success=False, prompt_len=prompt_len, error=type(error).__name__,
+                         task_type="direct-ollama-chat")
         raise LLMUnavailableError(f"Ollama unavailable: {type(error).__name__}") from error
 
     content = (body.get("message") or {}).get("content", "")
+    _log_direct_call(model=payload["model"], duration_ms=int((time.monotonic() - started) * 1000),
+                     success=bool(content.strip()), prompt_len=prompt_len, response_len=len(content.strip()),
+                     prompt_eval_count=body.get("prompt_eval_count"), eval_count=body.get("eval_count"),
+                     error=None if content.strip() else "empty response", task_type="direct-ollama-chat")
     if not content.strip():
         raise LLMUnavailableError("Ollama returned an empty response.")
-    return content.strip()
-
-
-def generate_with_gemini(prompt: str, system_prompt: str | None = None) -> str:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise LLMUnavailableError("Gemini credentials are not configured.")
-
-    try:
-        import google.generativeai as genai
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            get_gemini_model(),
-            system_instruction=system_prompt or None,
-        )
-        response = model.generate_content(prompt)
-        content = (getattr(response, "text", "") or "")
-    except Exception as error:
-        raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
-
-    if not content.strip():
-        raise LLMUnavailableError("Gemini returned an empty response.")
     return content.strip()
 
 
@@ -351,7 +357,8 @@ def ask_commander_safe(system_prompt: str, user_prompt: str) -> tuple[bool, str]
         return True, ask_commander(system_prompt=system_prompt, user_prompt=user_prompt)
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort commander call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_commander_safe failed: %s", error)
         return False, f"{type(error).__name__}"
 
 
@@ -374,7 +381,8 @@ def ask_commander_for_specialists(
         )
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort specialist commander call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_commander_for_specialists failed: %s", error)
         return False, f"{type(error).__name__}"
 
 
@@ -428,7 +436,7 @@ def generate_with_gemini(prompt: str, system_prompt: str | None = None, model: s
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:
+        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:  # nosec B310 - url is the fixed generativelanguage.googleapis.com host with a fixed default model name and the API key, never user input - reviewed 2026-09-12
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.URLError as error:
         raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
@@ -453,5 +461,6 @@ def ask_gemini_safe(system_prompt: str, user_prompt: str) -> tuple[bool, str]:
         return True, generate_with_gemini(prompt=user_prompt, system_prompt=system_prompt)
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort Gemini call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_gemini_safe failed: %s", error)
         return False, f"{type(error).__name__}"

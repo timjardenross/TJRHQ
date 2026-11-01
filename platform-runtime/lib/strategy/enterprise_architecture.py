@@ -26,8 +26,8 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.debug("[enterprise_architecture] Supabase unavailable: %s", exc)
         return None
 
@@ -128,7 +128,7 @@ def _row_to_entity(row: dict[str, Any]) -> ArchEntity | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_ARCH_STATEMENT} {entity_id}: "
-    name = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    name = stmt.removeprefix(prefix)
 
     def _en(cls, val, default):
         try:
@@ -166,7 +166,7 @@ def register_arch_entity(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", f"{ARCH_ENTITY_OWNER_PREFIX}%")
                 .ilike("statement", f"%{name[:40]}%")
@@ -196,7 +196,7 @@ def register_arch_entity(
         )
         log.info("[enterprise_architecture] Registered %s — %s (%s)", entity_id, name[:60], state.value)
         return entity_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort entity registration, already logged
         log.warning("[enterprise_architecture] register_arch_entity failed: %s", exc)
         return None
 
@@ -211,7 +211,7 @@ def list_arch_entities(
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{ARCH_ENTITY_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -227,7 +227,7 @@ def list_arch_entities(
                 continue
             out.append(e)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort entity listing, already logged
         log.debug("[enterprise_architecture] list_arch_entities failed: %s", exc)
         return []
 
@@ -256,7 +256,7 @@ def get_architecture_view() -> ArchitectureView:
             rows = list(res.data or [])
             if rows and rows[0].get("coverage_pct") is not None:
                 av.adr_coverage_pct = float(rows[0]["coverage_pct"])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort ADR metrics read, already logged
         log.debug("[enterprise_architecture] adr read failed: %s", exc)
 
     log.info("[enterprise_architecture] current=%d target=%d transition=%d",
@@ -279,13 +279,13 @@ def format_architecture_view(av: ArchitectureView) -> str:
 
 
 __all__ = [
+    "ARCH_ENTITY_OWNER_PREFIX",
+    "ArchEntity",
     "ArchEntityState",
     "ArchEntityType",
-    "ArchEntity",
     "ArchitectureView",
-    "get_architecture_view",
-    "register_arch_entity",
-    "list_arch_entities",
     "format_architecture_view",
-    "ARCH_ENTITY_OWNER_PREFIX",
+    "get_architecture_view",
+    "list_arch_entities",
+    "register_arch_entity",
 ]

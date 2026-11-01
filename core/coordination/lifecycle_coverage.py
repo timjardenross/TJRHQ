@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 7 — Lifecycle Coverage sweep ("nothing gets lost").
 
 Assigns EVERY open work item — missions, build requests, and engineering
@@ -23,8 +24,8 @@ from __future__ import annotations
 
 import sys
 from collections import Counter
-from datetime import datetime
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Any
 
 from core.coordination import delivery_reconciler as dr
 from core.coordination import lifecycle_advancer as la
@@ -36,7 +37,7 @@ def _key(item: dict) -> tuple:
     return (item.get("kind"), item.get("id"))
 
 
-def build_coverage(ledger: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def build_coverage(ledger: dict[str, Any] | None = None) -> dict[str, Any]:
     """Classify every open item onto the spine; flag anything unplaceable.
 
     Read-only. `ledger` injectable (tests). Returns per-stage assignment (with a
@@ -73,7 +74,7 @@ def build_coverage(ledger: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     }
 
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "total_items": len(all_items),
         "classified": len(all_items) - len(unclassified),
         "stage_counts": stage_counts,
@@ -85,7 +86,7 @@ def build_coverage(ledger: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     }
 
 
-def sweep(ledger: Optional[dict[str, Any]] = None, apply: bool = False,
+def sweep(ledger: dict[str, Any] | None = None, apply: bool = False,
           advancer=la) -> dict[str, Any]:
     """Full coverage: classify everything, then advance enriched Capture items.
 
@@ -107,8 +108,8 @@ def format_coverage(report: dict[str, Any]) -> str:
     """Render a coverage report (accepts either build_coverage or sweep output)."""
     cov = report.get("coverage", report)
     lines = [
-        f"Lifecycle coverage — {cov['classified']}/{cov['total_items']} items assigned a stage"
-        f"  (by kind: {cov['kind_counts']})",
+        (f"Lifecycle coverage — {cov['classified']}/{cov['total_items']} items assigned a stage"
+         f"  (by kind: {cov['kind_counts']})"),
     ]
     for s in LIFECYCLE_SPINE:
         n = cov["stage_counts"][s.value]

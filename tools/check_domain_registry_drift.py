@@ -42,14 +42,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
-from heartbeat import supabase_get  # noqa: E402
+from heartbeat import supabase_get
 
 _REPO_MARKER = "/opt/starship-endeavour"
 _UNIT_DIR = Path("/etc/systemd/system")
 
 
 def _run(cmd: list[str]) -> str:
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     return result.stdout.strip()
 
 
@@ -95,7 +95,7 @@ def main() -> int:
 
     print(f"  {len(units)} repo-owned unit(s) found on host: {', '.join(units) if units else '(none)'}")
     if unmatched_units:
-        print(f"  POSSIBLY UNREGISTERED — no domain_registry row's key/notes mentions these unit names:")
+        print("  POSSIBLY UNREGISTERED — no domain_registry row's key/notes mentions these unit names:")
         for u in unmatched_units:
             print(f"    - {u}")
         print("  (not proof — a unit may legitimately have no domain concept, e.g. a one-shot")

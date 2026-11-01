@@ -45,7 +45,7 @@ def trigger_collection() -> bool:
         _daily_collection_job()
         log.info("Collection job completed.")
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - calls into intelligence.scheduler, an unpredictable external module's exception surface; already logged and returned as a bool result
         log.error("Collection job failed: %s", exc)
         return False
 

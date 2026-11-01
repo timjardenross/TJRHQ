@@ -17,22 +17,27 @@ import type { CouncilAdvisor, Msg } from './types';
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
 
-const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
-const chipBase = 'rounded-md border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
+const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-wb-label uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
+const chipBase = 'rounded-md border px-3 py-1 text-wb-label uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
 const chipOff  = 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink';
 const chipOn   = 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep';
 const voiceOff = 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40';
 const voiceOn  = 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep';
 
-export function ConsultView() {
-  const [activeAdvisor, setActiveAdvisor] = useState<CouncilAdvisor>(COUNCIL[0]);
+export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } = {}) {
+  // Mission 6B Hub closure gap (Number One had zero discoverability
+  // outside this "Advanced" disclosure) — an initial advisor id lets a
+  // deep link (Hub -> /advisory-workbench?advisor=number_one) land
+  // directly on Number One instead of the default first council member.
+  const initialAdvisor = COUNCIL.find((a) => a.id === initialAdvisorId) ?? COUNCIL[0];
+  const [activeAdvisor, setActiveAdvisor] = useState<CouncilAdvisor>(initialAdvisor);
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState('');
   const [offlineAdvisors, setOfflineAdvisors] = useState<Set<string>>(new Set());
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [openGroup, setOpenGroup] = useState<string | null>(initialAdvisor.group);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,7 +68,10 @@ export function ConsultView() {
     const endpoint = activeAdvisor.useXoEndpoint ? '/api/xo' : '/api/ai/chat';
     const body = activeAdvisor.useXoEndpoint
       ? JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })) })
-      : JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })), role: activeAdvisor.id, model: selectedModel, stream: true });
+      // id: threaded through so a dispatched Number One "remember" can use
+      // it as an idempotency key (Mission 6B closure-pass fix) — harmless
+      // for every other role, which ignores it.
+      : JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content, id: m.id })), role: activeAdvisor.id, model: selectedModel, stream: true });
 
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
@@ -138,7 +146,7 @@ export function ConsultView() {
 
         {/* Group selector — horizontal chips, mirrors Perspectives category row */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Group</span>
+          <span className="text-wb-label uppercase tracking-[0.15em] text-wb-ink2">Group</span>
           {Object.entries(groups).map(([group, advisors]) => {
             const isOpen = openGroup === group;
             const hasHistory = groupHasHistory(advisors);
@@ -156,7 +164,7 @@ export function ConsultView() {
         {/* Officer pills within selected group — mirrors Perspectives voice pills */}
         {openGroup && (
           <div>
-            <p className="mb-2 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">
+            <p className="mb-2 text-wb-label uppercase tracking-[0.15em] text-wb-ink2">
               Active: <span className="text-wb-ink">{activeAdvisor.label}</span>
             </p>
             <div className="flex flex-wrap gap-2">
@@ -167,7 +175,7 @@ export function ConsultView() {
                   <button key={a.id} onClick={() => { setActiveAdvisor(a); setStreamBuffer(''); }}
                     className={`rounded-md border px-3 py-1.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${isActive ? accentOn : voiceOff}`}>
                     <p className="text-xs uppercase tracking-wider">{a.label}</p>
-                    <p className="mt-0.5 text-[9px] leading-tight text-wb-ink2">{a.subtitle}</p>
+                    <p className="mt-0.5 text-wb-label leading-tight text-wb-ink2">{a.subtitle}</p>
                   </button>
                 );
               })}
@@ -178,7 +186,7 @@ export function ConsultView() {
         {/* Model selector — only for non-XO advisors */}
         {!activeAdvisor.useXoEndpoint && (
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">Model</span>
+            <span className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2">Model</span>
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}
               className="rounded-md border border-wb-line bg-wb-bg px-2 py-1 text-xs text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
               {AI_MODELS.filter((m) => m.available).map((m) => (
@@ -193,7 +201,7 @@ export function ConsultView() {
           <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} rows={3}
             placeholder={isOffline ? `${activeAdvisor.label} is offline.` : `Message ${activeAdvisor.label}…`}
             disabled={loading || isOffline}
-            className="min-h-[72px] flex-1 resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-50" />
+            className="min-h-[72px] flex-1 resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50" />
           <button onClick={() => send(input)} disabled={loading || !input.trim() || isOffline}
             className="self-stretch rounded-md bg-wb-sage-deep px-4 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
             Send
@@ -217,7 +225,7 @@ export function ConsultView() {
               if (m.role === 'user') {
                 return (
                   <div key={m.id} className="rounded-md border border-wb-line bg-wb-bg px-4 py-3">
-                    <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">You</p>
+                    <p className="mb-1 text-wb-label uppercase tracking-[0.15em] text-wb-ink2">You</p>
                     <p className="whitespace-pre-wrap text-sm text-wb-ink">{m.content}</p>
                   </div>
                 );
@@ -227,7 +235,7 @@ export function ConsultView() {
               return (
                 <div key={m.id} className={`rounded-md border bg-wb-surface ${m.error ? 'border-wb-crit/40' : borderAccent}`}>
                   <div className={`border-b px-4 py-2.5 ${m.error ? 'border-wb-crit/30' : 'border-wb-sage-deep/30'}`}>
-                    <p className={`text-[11px] font-semibold uppercase tracking-widest ${m.error ? 'text-wb-crit-on' : accent}`}>
+                    <p className={`text-wb-label font-semibold uppercase tracking-widest ${m.error ? 'text-wb-crit-on' : accent}`}>
                       {activeAdvisor.label}
                     </p>
                   </div>
@@ -235,7 +243,7 @@ export function ConsultView() {
                     {m.error
                       ? <p className="text-sm text-wb-crit-on">{m.content}</p>
                       : (
-                        <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink">
+                        <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink [overflow-wrap:anywhere]">
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}
@@ -249,7 +257,7 @@ export function ConsultView() {
             {loading && streamBuffer && (
               <div className={`rounded-md border bg-wb-surface ${activeAdvisor.dissent ? 'border-wb-crit/40' : 'border-wb-sage-deep/40'}`}>
                 <div className={`border-b px-4 py-2.5 ${activeAdvisor.dissent ? 'border-wb-crit/30' : 'border-wb-sage-deep/30'}`}>
-                  <p className={`text-[11px] font-semibold uppercase tracking-widest ${activeAdvisor.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep'}`}>
+                  <p className={`text-wb-label font-semibold uppercase tracking-widest ${activeAdvisor.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep'}`}>
                     {activeAdvisor.label}
                   </p>
                 </div>
@@ -268,7 +276,7 @@ export function ConsultView() {
         {isOffline && (
           <div className="rounded-md border border-wb-line bg-wb-bg px-4 py-6 text-center">
             <p className="text-sm text-wb-ink2">{activeAdvisor.label} is offline (AI model not configured).</p>
-            <p className="mt-1 text-xs text-wb-ink/60">Use <span className="font-semibold text-wb-sage-deep">Think</span> for advisory via the intelligence runtime.</p>
+            <p className="mt-1 text-xs text-wb-ink">Use <span className="font-semibold text-wb-sage-deep">Think</span> for advisory via the intelligence runtime.</p>
           </div>
         )}
       </div>

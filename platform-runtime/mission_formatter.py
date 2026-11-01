@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def build_mission_response(
@@ -8,7 +8,7 @@ def build_mission_response(
     priority: str,
     status: str,
 ):
-    mission_id = f"M-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    mission_id = f"M-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
 
     specialists = "\n- ".join(assigned_specialists)
 

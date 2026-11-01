@@ -9,8 +9,8 @@ runs tests to verify, and handles rollback on failure.
 import json
 import logging
 import subprocess
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 log = logging.getLogger("auto_remediation")
@@ -61,8 +61,11 @@ class DeleteFileStrategy(RemediationStrategy):
                     else:
                         file_path.unlink()
                     log.info(f"Deleted: {file_path}")
-                    return {"success": True, "mode": "direct", "message": f"Deleted {file_path}"}
-                except Exception as exc:
+                    return {
+                        "success": True, "mode": "direct", "message": f"Deleted {file_path}",
+                        "files": [str(file_path.relative_to(repo_root))],
+                    }
+                except OSError as exc:
                     return {"success": False, "error": str(exc)}
 
         return {"success": False, "error": "No safe files to delete (code deletions require manual review)"}
@@ -80,7 +83,6 @@ class DocumentStrategy(RemediationStrategy):
         """Update README for version/requirement drift."""
         description = finding.get("description", "").lower()
         title = finding.get("title", "").lower()
-        evidence = finding.get("evidence", [])
 
         # Handle Python version updates
         if "python" in description or "python" in title:
@@ -97,9 +99,10 @@ class DocumentStrategy(RemediationStrategy):
                         return {
                             "success": True,
                             "mode": "direct",
-                            "message": f"Updated README.md: Python version requirement changed to 3.11+"
+                            "message": "Updated README.md: Python version requirement changed to 3.11+",
+                            "files": [str(readme_path.relative_to(repo_root))],
                         }
-                except Exception as exc:
+                except OSError as exc:
                     return {"success": False, "error": f"Failed to update README: {exc}"}
 
         return {
@@ -169,9 +172,10 @@ def set_model_confidence(score: float):
                     return {
                         "success": True,
                         "mode": "direct",
-                        "message": f"Created metrics template at {metrics_file} - integrate with dashboard"
+                        "message": f"Created metrics template at {metrics_file} - integrate with dashboard",
+                        "files": [str(metrics_file.relative_to(repo_root))],
                     }
-                except Exception as exc:
+                except OSError as exc:
                     return {"success": False, "error": f"Failed to create metrics: {exc}"}
 
         return {
@@ -258,8 +262,8 @@ class HandoffPRStrategy(RemediationStrategy):
                 [str(venv_python), "-m", "core.engineering.batch_coding", "sync-one",
                  "--handoff", str(handoff_path)],
                 cwd=repo_root, capture_output=True, text=True, timeout=180,
-            )
-        except Exception as exc:
+            check=False)
+        except (OSError, subprocess.SubprocessError) as exc:
             return {"success": False, "error": f"sync-one subprocess failed: {exc}"}
 
         if result.returncode != 0:
@@ -302,6 +306,15 @@ class AutoRemediationExecutor:
         self.repo_root = repo_root
         self.data_root = data_root
         self.result_file = data_root / "review" / "remediation_results.jsonl"
+        # LL-146 follow-up: the 03:00 hq-evolution.timer -> orchestrator.py
+        # cycle commits with whatever branch happens to be checked out on
+        # the VM, with no assertion and no push - commits landed silently
+        # wherever and never reached origin. Auto-remediation now refuses to
+        # commit unless the VM is on this dedicated branch, kept isolated
+        # from human-authored history on `main` so a human can periodically
+        # review and fast-forward/merge it in on their own schedule, rather
+        # than autonomous cycle-artifact commits mixing directly into main.
+        self.expected_branch = "self-improvement"
         # HandoffPRStrategy is the catch-all (always True) — must stay last,
         # so the narrower/free/direct strategies get first refusal. Also
         # kept as its own named reference (self.pr_strategy) so execute()
@@ -328,10 +341,10 @@ class AutoRemediationExecutor:
         testing the autonomous-remediation changes. Independent copy of the
         same bug; fixed the same way (mtime, not name).
         """
-        run_dir = sorted(
+        run_dir = max(
             (d for d in (self.data_root / "runs").iterdir() if d.is_dir()),
-            key=lambda d: d.stat().st_mtime, reverse=True,
-        )[0]
+            key=lambda d: d.stat().st_mtime,
+        )
         findings_file = run_dir / "findings_classified.json"
 
         with open(findings_file) as f:
@@ -354,7 +367,7 @@ class AutoRemediationExecutor:
                         fid = d.get("finding_id")
                         if fid:
                             decisions[fid] = d
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError, AttributeError) as exc:
             log.error(f"Failed to load decisions: {exc}")
 
         return decisions
@@ -438,11 +451,52 @@ class AutoRemediationExecutor:
 
         return True
 
-    def git_commit(self, message: str) -> str | None:
-        """Create a git commit. Returns the new commit sha, or None on failure."""
+    def git_commit(self, message: str, paths: list[str] | None = None) -> str | None:
+        """Create a git commit. Returns the new commit sha, or None on failure.
+
+        `paths` scopes the `git add` to specific repo-relative paths — pass
+        this whenever the caller knows exactly what it wrote (e.g. the
+        cycle-artifacts commit). Confirmed 2026-09-10: the old unconditional
+        `git add -A` swept up unrelated in-progress edits sitting in the
+        working tree at cycle time into a "self-improvement: cycle ...
+        artifacts"-labelled commit. `paths=None` keeps `-A` for the
+        remediation-fix commit path, where the changed files aren't
+        tracked by the caller.
+
+        LL-146 follow-up: also refuses to commit unless the VM's currently
+        checked-out branch matches self.expected_branch. Without this, the
+        03:00 timer-driven cycle committed to whatever branch happened to be
+        checked out (main included) with no push, so the commits landed
+        silently and never reached origin. Fails closed: on a branch
+        mismatch, nothing is added or committed and None is returned. On a
+        successful commit, this now also pushes to origin so the commit
+        can't dangle locally-only the way LL-146's commits did; a push
+        failure is logged loudly (error level, sha included) but does not
+        undo the local commit or raise past this method.
+        """
         try:
+            current_branch = subprocess.run(
+                ["git", "-C", str(self.repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            log.error(f"Git commit refused: could not determine current branch: {exc}")
+            return None
+
+        if current_branch != self.expected_branch:
+            log.error(
+                f"Git commit refused: expected branch {self.expected_branch!r} "
+                f"but VM is checked out on {current_branch!r}. Skipping add/commit "
+                f"entirely (LL-146: auto-remediation must never commit to an "
+                f"unexpected branch)."
+            )
+            return None
+
+        try:
+            add_cmd = ["git", "-C", str(self.repo_root), "add"]
+            add_cmd += paths if paths else ["-A"]
             subprocess.run(
-                ["git", "-C", str(self.repo_root), "add", "-A"],
+                add_cmd,
                 check=True,
                 capture_output=True,
             )
@@ -456,10 +510,24 @@ class AutoRemediationExecutor:
                 check=True, capture_output=True, text=True,
             ).stdout.strip()
             log.info(f"Git commit: {message} ({sha[:8]})")
-            return sha
         except subprocess.CalledProcessError as exc:
             log.error(f"Git commit failed: {exc}")
             return None
+
+        try:
+            subprocess.run(
+                ["git", "-C", str(self.repo_root), "push", "origin", current_branch],
+                check=True, capture_output=True,
+            )
+            log.info(f"Pushed {sha[:8]} to origin/{current_branch}")
+        except subprocess.CalledProcessError as exc:
+            log.error(
+                f"Git push failed after local commit {sha[:8]} on {current_branch!r}: "
+                f"{exc}. Commit exists LOCALLY ONLY and was NOT pushed to origin - "
+                f"this needs manual attention or it will dangle exactly like LL-146."
+            )
+
+        return sha
 
     def git_revert(self, sha: str) -> bool:
         """Revert one commit by sha (creates a new commit, doesn't rewrite
@@ -485,7 +553,7 @@ class AutoRemediationExecutor:
                 cwd=self.repo_root,
                 capture_output=True,
                 timeout=300,
-            )
+            check=False)
             if result.returncode == 0:
                 log.info("Tests passed")
                 return True
@@ -495,7 +563,7 @@ class AutoRemediationExecutor:
         except subprocess.TimeoutExpired:
             log.error("Tests timed out")
             return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - wraps the whole test-run subprocess call beyond the already-handled TimeoutExpired case; a single unexpected failure here must not crash the overnight remediation cycle, and it is fully logged
             log.error(f"Test run failed: {exc}")
             return False
 
@@ -514,7 +582,7 @@ class AutoRemediationExecutor:
             f.write(json.dumps(result) + "\n")
 
     def _notify(self, results: dict[str, Any]) -> None:
-        """Best-effort cycle summary to Slack/Telegram — an autonomous path
+        """Best-effort cycle summary to Telegram — an autonomous path
         that commits or opens PRs unattended must never do so silently.
         Self-contained import (matches heartbeat.py's own convention) so a
         notify failure can never break remediation itself."""
@@ -523,16 +591,16 @@ class AutoRemediationExecutor:
         try:
             import sys
             sys.path.insert(0, str(self.repo_root / "core" / "platform"))
-            from notification_service import notify, Severity, Transport  # type: ignore
+            from notification_service import Severity, Transport, notify  # type: ignore
 
             lines = [f"Self-improvement auto-remediation cycle ({results['run_id']}):",
-                     f"{results['remediated_count']} remediated, {results['failed_count']} failed, "
-                     f"{results['skipped_count']} skipped."]
+                     (f"{results['remediated_count']} remediated, {results['failed_count']} failed, "
+                      f"{results['skipped_count']} skipped.")]
             for entry in results["remediation_results"]:
                 for fid, msg in entry.items():
                     lines.append(f"• {fid}: {msg}")
-            notify("\n".join(lines), severity=Severity.INFO, transport=Transport.SLACK)
-        except Exception as exc:
+            notify("\n".join(lines), severity=Severity.INFO, transport=Transport.TELEGRAM)
+        except Exception as exc:  # noqa: BLE001 - notify() is explicitly best-effort per this method's own docstring: a notification failure must never break remediation itself; already logged
             log.warning(f"Cycle-summary notify failed (non-fatal): {exc}")
 
     def execute(self, model_confidence: float = 0.8, dry_run: bool = False) -> dict[str, Any]:
@@ -608,7 +676,13 @@ class AutoRemediationExecutor:
             # defeating the whole point of the draft-PR review step.
             if not dry_run and rem_result.get("mode") == "direct":
                 commit_msg = f"[SD] fix: {finding.get('title')}\n\nFinding: {fid}\n{rem_result.get('message', '')}"
-                sha = self.git_commit(commit_msg)
+                files = rem_result.get("files")
+                if not files:
+                    log.warning(
+                        f"{fid}: direct-mode strategy returned no 'files' list — "
+                        "falling back to `git add -A` for this commit"
+                    )
+                sha = self.git_commit(commit_msg, paths=files)
                 if not sha:
                     results["failed_count"] += 1
                     self.record_result(fid, False, "Git commit failed")

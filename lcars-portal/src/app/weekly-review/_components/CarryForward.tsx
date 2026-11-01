@@ -12,14 +12,14 @@ import { ItemRow } from './SignalRow';
 export function CarryForward({ items }: { items: CarryForwardItem[] }) {
   return (
     <Card>
-      <h2 className="mb-1 font-serif text-[15px] uppercase tracking-[0.1em] text-wb-ink">Carry Forward</h2>
-      <p className="mb-3 text-[12px] text-wb-ink2">{items.length} thing{items.length === 1 ? '' : 's'} deserve next-week attention.</p>
+      <h2 className="mb-1 font-serif text-wb-lead uppercase tracking-[0.1em] text-wb-ink">Carry Forward</h2>
+      <p className="mb-3 text-wb-label text-wb-ink2">{items.length} thing{items.length === 1 ? '' : 's'} deserve next-week attention.</p>
       {items.length === 0 ? (
-        <p className="text-[13px] text-wb-ink2">Nothing needs to carry forward.</p>
+        <p className="text-wb-body text-wb-ink2">Nothing needs to carry forward.</p>
       ) : (
         <ul className="flex flex-col divide-y divide-wb-line/60">
           {items.map((item) => (
-            <li key={item.key} className="py-2 text-[13px]">
+            <li key={item.key} className="py-2 text-wb-body">
               <div className="font-medium text-wb-ink">{item.title}</div>
               <div className="text-wb-ink2">{item.detail}</div>
               <div className="mt-0.5 flex items-center justify-between gap-2 text-wb-ink2">

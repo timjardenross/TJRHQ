@@ -26,12 +26,12 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import logging
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from typing import Optional, Any, List
+import os
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -40,14 +40,74 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 try:
     from deepeval.metrics import HallucinationMetric
+    from deepeval.models.base_model import DeepEvalBaseLLM
     from deepeval.test_case import LLMTestCase
     _DEEPEVAL_AVAILABLE = True
 except ImportError:
     _DEEPEVAL_AVAILABLE = False
+    DeepEvalBaseLLM = object  # type: ignore[assignment,misc]
     log.warning(
         "[quality-scoring] deepeval not available; "
         "score_output() will return None until it is installed"
     )
+
+
+if _DEEPEVAL_AVAILABLE:
+    class _ModelRouterJudge(DeepEvalBaseLLM):
+        """DeepEval judge model backed by this platform's own
+        core/model-router, instead of deepeval's OpenAI default. This
+        platform has no OPENAI_API_KEY set anywhere (confirmed —
+        HallucinationMetric() with no `model=` arg would silently fail
+        every call before this class existed, always returning None from
+        score_output() regardless of the actual response).
+
+        Uses the "escalate" task_type — already availability-guarded
+        (falls back from glm-5.3:cloud to local mistral-small3.2:24b if the
+        cloud model isn't pulled, see core/model-router/app.py) and picks a
+        reasoning-capable model, appropriate for a hallucination judge.
+        Plain-text generate() only (no schema kwarg) — DeepEvalBaseLLM's
+        own generate_with_schema() default already degrades to plain
+        generate() + JSON-extraction for models that don't accept a schema
+        kwarg, which is exactly what HallucinationMetric needs here.
+        """
+
+        def __init__(self, router_url: str | None = None):
+            self._router_url = (router_url or os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:8891")).rstrip("/")
+            super().__init__(model=None)
+
+        def load_model(self):
+            return self
+
+        def _call_router(self, prompt: str) -> str:
+            import json
+            import urllib.error
+            import urllib.request
+
+            body = json.dumps({"prompt": prompt}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self._router_url}/api/model/escalate",
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var (internal router base) plus a fixed literal path, not user input - reviewed 2026-09-12
+                data = json.loads(resp.read())
+            if not data.get("success"):
+                raise RuntimeError(f"model-router escalate call failed: {data}")
+            return data.get("response", "")
+
+        def generate(self, prompt: str) -> str:
+            return self._call_router(prompt)
+
+        async def a_generate(self, prompt: str) -> str:
+            # HallucinationMetric is invoked with async_mode=False in
+            # score_output() below, so this path isn't exercised today —
+            # implemented for interface completeness (DeepEvalBaseLLM is
+            # abstract on this method) using the same sync call.
+            return self._call_router(prompt)
+
+        def get_model_name(self) -> str:
+            return "starship-model-router/escalate"
 
 
 # ============================================================================
@@ -84,17 +144,17 @@ class QualityScore:
     decision_id: str
 
     # Scoring
-    effectiveness_score: Optional[float]  # 1.0 - 5.0
+    effectiveness_score: float | None  # 1.0 - 5.0
     scoring_reason: str
 
     # Attribution
-    provider_name: Optional[str] = None
-    model_name: Optional[str] = None
-    provider_route: Optional[str] = None
+    provider_name: str | None = None
+    model_name: str | None = None
+    provider_route: str | None = None
 
     # Timestamps
-    scored_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    scored_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for Supabase insert."""
@@ -169,8 +229,8 @@ class QualityScoring:
         self,
         prompt: str,
         response: str,
-        context: Optional[List[str]] = None,
-    ) -> Optional[float]:
+        context: list[str] | None = None,
+    ) -> float | None:
         """
         Score an LLM output for hallucination using deepeval's HallucinationMetric.
 
@@ -202,7 +262,7 @@ class QualityScoring:
             )
             return None
 
-        grounding_context: List[str] = context if context is not None else []
+        grounding_context: list[str] = context if context is not None else []
 
         try:
             test_case = LLMTestCase(
@@ -210,7 +270,7 @@ class QualityScoring:
                 actual_output=response,
                 context=grounding_context if grounding_context else None,
             )
-            metric = HallucinationMetric(threshold=0.5, async_mode=False)
+            metric = HallucinationMetric(threshold=0.5, async_mode=False, model=_ModelRouterJudge())
             metric.measure(test_case)
 
             # deepeval returns hallucination *rate* in [0.0, 1.0].
@@ -224,7 +284,7 @@ class QualityScoring:
             )
             return quality_score
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort hallucination scoring, already logged
             log.warning(
                 f"[quality-scoring] score_output() failed, returning None: "
                 f"{type(exc).__name__}: {str(exc)[:120]}"
@@ -236,13 +296,13 @@ class QualityScoring:
         outcome_id: str,
         decision_id: str,
         outcome_status: str,
-        implementation_notes: Optional[str] = None,
-        provider_name: Optional[str] = None,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
-        scored_at: Optional[str] = None,
+        implementation_notes: str | None = None,
+        provider_name: str | None = None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
+        scored_at: str | None = None,
         feedback_loops=None,
-    ) -> Optional[QualityScore]:
+    ) -> QualityScore | None:
         """
         Score outcome for effectiveness.
 
@@ -275,7 +335,7 @@ class QualityScoring:
 
         # Use provided timestamp or current time
         if scored_at is None:
-            scored_at = datetime.utcnow().isoformat()
+            scored_at = datetime.now(timezone.utc).isoformat()
 
         # Create quality score record
         quality_score = QualityScore(
@@ -290,68 +350,46 @@ class QualityScoring:
             scored_at=scored_at,
         )
 
-        # Persist if client available
-        if self.supabase_client:
+        # NOTE: quality_scores table was dropped in migration
+        # 0183_drop_retired_dead_tables.sql (2026-09-01) as part of retiring
+        # the whole B1C/B1D/B1E Learning Loop chain — nothing live calls
+        # score_outcome() (build/research/comms learning loops and
+        # outcome_capture_service are all unreachable from any running
+        # service). This no longer persists; it just computes the score and
+        # runs the in-memory B1D feedback signal, matching the rest of that
+        # retired chain instead of silently failing on every call.
+        log.debug(f"[quality-scoring] Outcome scored (not persisted): {score_id}")
+
+        if feedback_loops and score is not None:
             try:
-                response = (
-                    self.supabase_client.table("quality_scores")
-                    .insert(quality_score.to_dict())
-                    .execute()
+                signal = feedback_loops.generate_feedback(
+                    score_id=score_id,
+                    decision_id=decision_id,
+                    provider_name=provider_name,
+                    effectiveness_score=score,
+                    model_name=model_name,
+                    provider_route=provider_route
                 )
 
-                log.info(
-                    f"[quality-scoring] Outcome scored: score_id={score_id}, "
-                    f"outcome_id={outcome_id}, effectiveness={score}"
-                )
-
-                # ====================================================================
-                # B1D INTEGRATION: Generate feedback signal from quality score
-                # ====================================================================
-                if feedback_loops and score is not None:
-                    try:
-                        signal = feedback_loops.generate_feedback(
-                            score_id=score_id,
-                            decision_id=decision_id,
-                            provider_name=provider_name,
-                            effectiveness_score=score,
-                            model_name=model_name,
-                            provider_route=provider_route
-                        )
-
-                        if signal:
-                            log.info(
-                                f"[quality-scoring→b1d] Feedback signal generated: "
-                                f"signal_id={signal.id}, action={signal.suggested_action}, "
-                                f"delta={signal.effectiveness_delta:+.1f}"
-                            )
-                        else:
-                            log.debug(
-                                f"[quality-scoring→b1d] No feedback signal (no delta or error)"
-                            )
-
-                    except Exception as e:
-                        log.error(
-                            f"[quality-scoring→b1d] Error generating feedback: "
-                            f"{type(e).__name__}: {str(e)[:100]}"
-                        )
-                        # Don't block quality scoring if feedback fails (non-critical)
-
-                elif not feedback_loops and score is not None:
+                if signal:
+                    log.info(
+                        f"[quality-scoring→b1d] Feedback signal generated: "
+                        f"signal_id={signal.id}, action={signal.suggested_action}, "
+                        f"delta={signal.effectiveness_delta:+.1f}"
+                    )
+                else:
                     log.debug(
-                        f"[quality-scoring→b1d] Feedback loops not configured, "
-                        f"skipping B1D integration"
+                        "[quality-scoring→b1d] No feedback signal (no delta or error)"
                     )
 
-                return quality_score
-
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort feedback generation, already logged
                 log.error(
-                    f"[quality-scoring] Failed to score outcome: {type(e).__name__}: {str(e)[:100]}"
+                    f"[quality-scoring→b1d] Error generating feedback: "
+                    f"{type(e).__name__}: {str(e)[:100]}"
                 )
-                return None
-        else:
-            log.debug(f"[quality-scoring] Outcome scored (not persisted): {score_id}")
-            return quality_score
+                # Don't block quality scoring if feedback fails (non-critical)
+
+        return quality_score
 
     def get_provider_quality(self) -> list[ProviderQuality]:
         """
@@ -392,7 +430,7 @@ class QualityScoring:
             )
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort provider quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve provider quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -435,7 +473,7 @@ class QualityScoring:
             log.debug(f"[quality-scoring] Retrieved quality for {len(qualities)} models")
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort model quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve model quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -477,15 +515,15 @@ class QualityScoring:
             log.debug(f"[quality-scoring] Retrieved quality for {len(qualities)} routes")
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort route quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve route quality: {type(e).__name__}: {str(e)[:100]}"
             )
             return []
 
     def _calculate_score(
-        self, outcome_status: str, implementation_notes: Optional[str] = None
-    ) -> Optional[float]:
+        self, outcome_status: str, implementation_notes: str | None = None
+    ) -> float | None:
         """
         Calculate effectiveness score based on outcome status.
 
@@ -543,7 +581,7 @@ class QualityScoring:
             log.warning(f"[quality-scoring] Unknown outcome status: {outcome_status}")
             return None
 
-    def _generate_reason(self, score: Optional[float], outcome_status: str) -> str:
+    def _generate_reason(self, score: float | None, outcome_status: str) -> str:
         """
         Generate explanation for effectiveness score.
 
@@ -589,5 +627,5 @@ class QualityScoring:
         Returns:
             Unique, sortable quality score ID
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("SCO-%Y%m%d-%H%M%S")

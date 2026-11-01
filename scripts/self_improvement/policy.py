@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Deterministic policy engine for self-improvement classification.
 
@@ -6,9 +7,9 @@ Applies configurable rules to determine automation eligibility and risk.
 
 import json
 import logging
-from pathlib import Path
-from typing import Any, Optional
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 log = logging.getLogger("policy")
 
@@ -68,7 +69,20 @@ class PolicyEngine:
     def _determine_automation_eligibility(
         self, finding: dict[str, Any], category_rules: dict[str, Any]
     ) -> AutomationEligibility:
-        """Determine if a finding can be auto-remediated."""
+        """Determine if a finding can be auto-remediated.
+
+        HQ V1 Integration QA §14/§28 (authority firewall): `confidence` and
+        `evidence_strength` are the LLM's own self-reported fields. This
+        function must remain a monotonic DOWNGRADE-ONLY ratchet on those
+        two inputs — the ceiling is always `category_rules`'s deterministic
+        default (config the model has no influence over); a self-reported
+        confidence/evidence_strength value may only ever push the result to
+        a MORE restrictive tier (NEEDS_MORE_EVIDENCE), never to a less
+        restrictive one. There is no code path here that raises eligibility
+        above the category default, by design — an overconfident or
+        prompt-injected model can lower its own authority but can never
+        raise it. See test_policy_confidence_cannot_raise_eligibility.
+        """
 
         # Start with category default
         default_eligibility = category_rules.get("automation_eligibility", "needs_signoff")
@@ -132,9 +146,8 @@ class PolicyEngine:
                     num_files = impact.get("affected_components", [])
                     if len(num_files) < threshold:
                         return False
-            elif key == "reversibility":
-                if finding.get("reversibility") != value:
-                    return False
+            elif key == "reversibility" and finding.get("reversibility") != value:
+                return False
             # Add more matching logic as needed
 
         return True
@@ -205,7 +218,7 @@ class PolicyEngine:
                     config = json.load(f)
                 log.info(f"Loaded policy from {policy_file}")
                 return config
-            except Exception as exc:
+            except (OSError, json.JSONDecodeError) as exc:
                 log.error(f"Failed to load policy: {exc}")
                 return {"categories": {}}
 
@@ -218,7 +231,7 @@ class PolicyEngine:
             return config
         except ImportError:
             log.warning("PyYAML not available; policy loading will use defaults")
-        except Exception as exc:
+        except (OSError, yaml.YAMLError) as exc:
             log.error(f"Failed to load policy: {exc}")
 
         # Return minimal default policy
@@ -241,7 +254,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     # Test policy loading
-    policy_file = Path("config/self_improvement_policy.yaml")
+    policy_file = Path("config/self_improvement_policy.json")
     if policy_file.exists():
         engine = PolicyEngine(policy_file)
         print(f"Loaded {len(engine.category_policy)} policy categories")

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 // Retired 2026-08-11 (Chief Engineer workbench-drift review + Captain
 // direction: "captains-chair-workbench wins"). Before retiring, ported the
@@ -19,17 +19,5 @@ import Link from 'next/link';
 // Kept as an honest "this page moved" notice rather than deleted outright,
 // matching the /home, /captains-brief, and /comms retirement precedent.
 export default function CaptainsChairPage() {
-  return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="font-sans text-lg font-bold uppercase tracking-wider text-lcars-text">
-        Captain&apos;s Chair
-      </h1>
-      <p className="mt-3 text-[13px] leading-relaxed text-wb-ink2">
-        This page moved.{' '}
-        <Link href="/captains-chair-workbench" className="text-wb-sage-deep underline hover:no-underline">
-          Go to Captain&apos;s Chair →
-        </Link>
-      </p>
-    </div>
-  );
+  redirect('/captains-chair-workbench');
 }

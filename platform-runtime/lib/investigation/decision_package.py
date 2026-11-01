@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -35,7 +34,10 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.investigation.framework import (
-    DecisionOption, DecisionPackage, FindingsReport, DECISION_OWNER_PREFIX,
+    DECISION_OWNER_PREFIX,
+    DecisionOption,
+    DecisionPackage,
+    FindingsReport,
 )
 
 _ACTION_REQUIRES_DECISION = {"mission", "improvement", "decision"}
@@ -120,7 +122,7 @@ def _store_decision_package(package: DecisionPackage) -> None:
             ),
             owner=f"{DECISION_OWNER_PREFIX}{package.investigation_id}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decision package store, already logged
         log.debug("[investigation.decision_package] Store failed: %s", exc)
 
 
@@ -203,7 +205,7 @@ def get_decision_package(investigation_id: str) -> DecisionPackage | None:
             return None
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{DECISION_OWNER_PREFIX}{investigation_id}")
             .limit(1)
@@ -241,7 +243,7 @@ def get_decision_package(investigation_id: str) -> DecisionPackage | None:
             required_approvals=parts.get("APPROVALS", "xo").split(", "),
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decision package fetch, already logged
         log.debug("[investigation.decision_package] get_decision_package failed: %s", exc)
         return None
 
@@ -255,7 +257,7 @@ def get_pending_decision_packages(limit: int = 10) -> list[DecisionPackage]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{DECISION_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -273,7 +275,7 @@ def get_pending_decision_packages(limit: int = 10) -> list[DecisionPackage]:
 
         return packages
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort pending packages fetch, already logged
         log.debug("[investigation.decision_package] get_pending failed: %s", exc)
         return []
 
@@ -306,8 +308,8 @@ def format_decision_package(package: DecisionPackage) -> str:
 
 
 __all__ = [
+    "format_decision_package",
     "generate_decision_package",
     "get_decision_package",
     "get_pending_decision_packages",
-    "format_decision_package",
 ]

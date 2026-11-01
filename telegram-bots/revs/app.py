@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """REVS Telegram bot — entrypoint. Standalone service, own token, own
 Supabase role (migration 0147_revs_bot_scoped_role.sql) — deliberately NOT
 merged into telegram-bots/xo/app.py. See README.md for why.
@@ -27,7 +28,19 @@ import sys
 # unit), which puts only the repo root on sys.path. Insert this directory
 # before any sibling import below runs, so both invocation styles work.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Shared helper lives one level up (telegram-bots/log_redaction.py).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import commands
+import crisis_layer2
+import daily
+import db
+import onboarding
+import safety
+import scheduler
+import weekly
+from log_redaction import install_token_redaction
+from scoped_supabase import build_scoped_client
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -36,21 +49,21 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
-    TypeHandler,
     filters,
 )
 
-import commands
 import config
-import daily
-import db
-import onboarding
-import safety
-import scheduler
-import weekly
-from scoped_supabase import build_scoped_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
+
+# httpx logs every request at INFO with the full URL, which for python-telegram-bot
+# means https://api.telegram.org/bot<TOKEN>/... (token in plaintext in syslog/journal).
+# Silence it, and add a belt-and-braces redacting filter on every root handler.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+install_token_redaction()
 log = logging.getLogger("revs-bot")
 
 _CLIENT = None  # set in main(); module-level so handler closures can reach it
@@ -71,29 +84,71 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     to prevent onboarding/tools/weekly/etc. from also processing the same
     message once a crisis is flagged — 'do not counsel, do not ask
     follow-up questions, do not attempt assessment. One message,
-    resources, silence.'"""
+    resources, silence.'
+
+    Two detection layers, in order — Layer 1 (safety.classify_free_text,
+    deliberately high-recall regex) first; only if that misses does Layer 2
+    (crisis_layer2, an LLM disambiguation pass over bare method/acquisition
+    words Layer 1 intentionally excludes) get a look. Either layer matching
+    runs the exact same user-facing response and escalation — the layer
+    that caught it only changes the trigger_type recorded for audit."""
     if not update.message or not update.message.text or update.message.text.startswith("/"):
         return
-    if not safety.classify_free_text(update.message.text):
+    text = update.message.text
+
+    if safety.classify_free_text(text):
+        trigger_type = "language"
+    elif crisis_layer2.should_run_layer2(text):
+        verdict = await crisis_layer2.confirm_crisis_context(text)
+        trigger_type = "layer2" if verdict != "not_crisis" else None
+    else:
+        trigger_type = None
+
+    if trigger_type is None:
         return
 
     client = _get_client()
     user_id = update.effective_user.id
-    row = db.get_user(client, user_id)
-    if row is None:
-        row = db.create_user(client, user_id, update.effective_user.first_name or "there")
+
+    # 2026-10-02: a Supabase outage (quota block, network partition, etc.)
+    # used to leave a user typing crisis language with complete silence —
+    # the resources message and the Captain escalation both ran *after*
+    # db.get_user/insert_crisis_event/update_user, so a DB exception here
+    # raised straight through PTB's handler before either ever fired. This
+    # is the one path in the whole bot that must never go silent, so it's
+    # now: read best-effort (fall back to an unknown user / default
+    # locale), send resources FIRST, then best-effort DB writes, then
+    # escalate — and the escalation's `detail` says explicitly when the DB
+    # step failed, since that also means the 24h re-contact never got
+    # scheduled and a human needs to follow up by hand.
+    try:
+        row = db.get_user(client, user_id)
+        if row is None:
+            row = db.create_user(client, user_id, update.effective_user.first_name or "there")
+        db_ok = True
+    except Exception:
+        log.exception("[crisis_gate] could not read/create user %s — proceeding with defaults", user_id)
+        row = {"first_name": update.effective_user.first_name, "locale": None}
+        db_ok = False
 
     import datetime as dt
+
     from copy_bank import crisis_language_response
     from escalate import notify_captain
 
     now = dt.datetime.now(dt.timezone.utc)
     recontact_due = now + dt.timedelta(hours=24)
-    db.insert_crisis_event(client, user_id, "language", recontact_due)
-    db.update_user(client, user_id, quiet_until=(now + dt.timedelta(hours=48)).isoformat())
 
-    text = crisis_language_response(safety.locale_resources(row.get("locale")))
-    await update.message.reply_text(text)
+    response_text = crisis_language_response(safety.locale_resources(row.get("locale")))
+    await update.message.reply_text(response_text)
+
+    if db_ok:
+        try:
+            db.insert_crisis_event(client, user_id, trigger_type, recontact_due)
+            db.update_user(client, user_id, quiet_until=(now + dt.timedelta(hours=48)).isoformat())
+        except Exception:
+            log.exception("[crisis_gate] DB write failed for user %s after resources message was sent", user_id)
+            db_ok = False
 
     # Escalation runs after the user's own resources message is already
     # sent — never delays it — and a failure here (bad XO credentials,
@@ -102,9 +157,13 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await notify_captain(
         user_id=user_id,
         first_name=row.get("first_name"),
-        trigger_type="language",
+        trigger_type=trigger_type,
         locale=row.get("locale"),
-        triggered_text=update.message.text,
+        triggered_text=text,
+        detail=None if db_ok else (
+            "Supabase unreachable — crisis event was NOT recorded, no 24h "
+            "automatic re-contact scheduled. Follow up by hand."
+        ),
     )
     raise ApplicationHandlerStop
 
@@ -119,9 +178,8 @@ async def _text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         row = db.create_user(client, user_id, update.effective_user.first_name or "there")
     db.touch_last_seen(client, user_id)
 
-    if not row.get("onboarding_complete"):
-        if await onboarding.handle_onboarding_text(update, context, client, row):
-            return
+    if not row.get("onboarding_complete") and await onboarding.handle_onboarding_text(update, context, client, row):
+        return
 
     if await commands.handle_tool_instruction_text(update, context, client, row):
         return
@@ -238,7 +296,14 @@ def main() -> None:
         sys.exit(1)
     _CLIENT = client
 
-    app = Application.builder().token(token).build()
+    async def _post_init(application: Application) -> None:
+        # apscheduler>=3.11 requires a running event loop at
+        # AsyncIOScheduler.start() time; run_polling() only creates that
+        # loop once it starts, so this must run inside PTB's post_init hook
+        # (already inside the loop) rather than synchronously in main().
+        scheduler.start(application, client)
+
+    app = Application.builder().token(token).post_init(_post_init).build()
 
     # §5.4a crisis gate first, before anything else can touch free text.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _crisis_gate), group=-1)
@@ -259,8 +324,6 @@ def main() -> None:
 
     app.add_handler(CallbackQueryHandler(_callback_router))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _text_router))
-
-    scheduler.start(app, client)
 
     log.info("[startup] REVS bot polling…")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

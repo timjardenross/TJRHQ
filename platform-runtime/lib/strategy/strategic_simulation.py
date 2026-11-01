@@ -150,7 +150,7 @@ def run_simulation(
         caps = list_capabilities()
         for cap in caps:
             maturity_map[cap.capability_id] = cap.maturity.value
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - capability data load, best-effort simulation input, already logged
         log.debug("[strategic_simulation] capabilities unavailable: %s", exc)
 
     # Capability coverage under demand pressure
@@ -173,12 +173,12 @@ def run_simulation(
             result.key_risks.append(
                 f"Tech debt amplified {debt_mult:.0f}x under {sim_type.value.replace('_', ' ')}"
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - tech-debt profile load, best-effort simulation input, already logged
         log.debug("[strategic_simulation] debt unavailable: %s", exc)
 
     # Reuse EXEC-008 scenario engine for initiative-level impact
     try:
-        from lib.strategy.scenario_planning import model_scenario, ScenarioType
+        from lib.strategy.scenario_planning import ScenarioType, model_scenario
         # Map simulation type to closest scenario
         _sim_to_scenario = {
             SimulationType.GROWTH: ScenarioType.BEST_CASE,
@@ -195,7 +195,7 @@ def run_simulation(
         result.initiatives_viable_count = sc_result.initiatives_on_track
         if sc_result.key_risks:
             result.key_risks.extend(sc_result.key_risks[:2])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - scenario model reuse, best-effort simulation input, already logged
         log.debug("[strategic_simulation] scenario model unavailable: %s", exc)
 
     # Overall readiness
@@ -229,7 +229,7 @@ def run_all_simulations(inputs: dict[str, Any] | None = None) -> SimulationRepor
         try:
             result = run_simulation(sim_type, inputs)
             report.results.append(result)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate one simulation type's failure, already logged
             log.warning("[strategic_simulation] %s failed: %s", sim_type.value, exc)
 
     if report.results:
@@ -265,10 +265,10 @@ def format_simulation_report(report: SimulationReport) -> str:
 
 
 __all__ = [
-    "SimulationType",
-    "SimulationResult",
     "SimulationReport",
-    "run_simulation",
-    "run_all_simulations",
+    "SimulationResult",
+    "SimulationType",
     "format_simulation_report",
+    "run_all_simulations",
+    "run_simulation",
 ]

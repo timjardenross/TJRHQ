@@ -23,11 +23,13 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 log = logging.getLogger(__name__)
+
+from core.health.capacity_enforcement import enforcing
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
@@ -48,7 +50,7 @@ class CapacityAction:
 
     def __post_init__(self):
         if self.emitted_at is None:
-            self.emitted_at = datetime.utcnow()
+            self.emitted_at = datetime.now(timezone.utc)
 
 
 # ── Gate ──────────────────────────────────────────────────────────────────────
@@ -87,6 +89,18 @@ class CapacityGate:
         """
         actions: list[CapacityAction] = []
 
+        if status in ("Red", "Amber") and not enforcing():
+            # Advisory mode (owner decision 2026-10-18): report the reading, hold nothing back.
+            return [
+                CapacityAction(
+                    action_type="notify",
+                    item_type="stale_mission",
+                    reason=f"{status.upper()} capacity (advisory): nothing deferred or limited. "
+                    "Capacity gating is eased for now.",
+                    captain_override_available=True,
+                )
+            ]
+
         if status == "Red":
             actions.extend(self._red_actions(mission_queue, captain_override))
         elif status == "Amber":
@@ -100,6 +114,11 @@ class CapacityGate:
 
     def get_governance_statement(self, status: str) -> str:
         """Human-readable governance statement for the Captain brief."""
+        if status in ("Red", "Amber") and not enforcing():
+            return (
+                f"Human Systems: {status.upper()} capacity. Advisory only: capacity gating is "
+                "eased for now, so nothing is deferred or limited."
+            )
         statements = {
             "Red": (
                 "Human Systems: RED capacity. D-055 gate active. "
@@ -177,7 +196,7 @@ class CapacityGate:
         actions.append(CapacityAction(
             action_type="flag_for_number_one",
             item_type="stale_mission",
-            reason=f"AMBER capacity — Number One: limit new assignments to P0/P1 only",
+            reason="AMBER capacity — Number One: limit new assignments to P0/P1 only",
             captain_override_available=True,
         ))
 
@@ -205,11 +224,11 @@ class CapacityGate:
                 ),
                 owner="human_systems",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[capacity-gate] Audit log failed (non-blocking): %s", exc)
 
 
 __all__ = [
-    "CapacityGate",
     "CapacityAction",
+    "CapacityGate",
 ]

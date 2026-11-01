@@ -18,7 +18,6 @@ Optional env:
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 from core.engineering.providers import _oai_compat
 
@@ -39,7 +38,7 @@ def _api_key() -> str:
     return ""
 
 
-def _resolved_model(model: Optional[str]) -> str:
+def _resolved_model(model: str | None) -> str:
     return model or os.getenv("KIMI_MODEL", DEFAULT_MODEL)
 
 
@@ -53,7 +52,7 @@ def check_connectivity() -> tuple[bool, str]:
                   f"Endpoint: {_base_url()}. Model: {_resolved_model(None)}.")
 
 
-def call(prompt: str, model: Optional[str] = None, system: Optional[str] = None) -> tuple[str, str]:
+def call(prompt: str, model: str | None = None, system: str | None = None) -> tuple[str, str]:
     """Send prompt to Kimi via Ollama Cloud. Returns (text, model_used)."""
     return _oai_compat.chat(_base_url(), _api_key(), _resolved_model(model),
                             prompt, system=system, label="kimi")

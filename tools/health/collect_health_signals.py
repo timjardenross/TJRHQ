@@ -28,17 +28,18 @@ Usage:
     python3 tools/health/collect_health_signals.py [--dry-run] [--per-domain-limit N]
 """
 
+import argparse
+import hashlib
+import logging
 import os
 import re
 import sys
-import hashlib
-import logging
-import argparse
-import urllib.request
 import urllib.parse
-import xml.etree.ElementTree as ET
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -190,6 +191,18 @@ DEFAULT_NEW_JOURNAL_REPUTATION = 0.45  # conservative — must earn tier via val
 STUDY_DESIGN_QUALITY = {"RCT": 0.85, "meta_analysis": 0.90, "observational": 0.55, "case_study": 0.30, "anecdotal": 0.10}
 
 
+def _dedup_key(item) -> str:
+    if item["source"] == "pubmed":
+        return f"pubmed:{item['pmid']}"
+    if item["source"] == "rss":
+        return f"rss:{item['source_name']}:{item['canonical_url']}"
+    return f"ctgov:{item['nct_id']}"
+
+
+def _dedup_hash(item) -> str:
+    return hashlib.sha256(_dedup_key(item).encode()).hexdigest()
+
+
 def _headers():
     return {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json"}
 
@@ -200,11 +213,17 @@ class HealthCollector:
         self.per_domain_limit = per_domain_limit
         self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         self._source_cache = {}  # source_name -> source_id
+        # Per-run caches (usage review 2026-09-27): each collected item used
+        # to cost a dedup GET, a tier GET and (RSS) a source-name GET — ~3
+        # Supabase requests per item for data that repeats across items.
+        self._rss_source_cache = {}  # source_name -> source_id | None
+        self._tier_cache = {}  # source_id -> reliability_tier
+        self._known_hashes: set | None = None  # dedup_hashes already persisted, prefetched by run()
         self.stats = {"pubmed_fetched": 0, "ctgov_fetched": 0, "rss_fetched": 0, "saved": 0, "duplicates": 0, "sources_auto_registered": 0, "errors": 0}
 
     # ─── Source resolution ──────────────────────────────────────────────
 
-    def _get_or_create_source(self, source_name: str, source_type: str, source_url: str = None) -> str:
+    def _get_or_create_source(self, source_name: str, source_type: str, source_url: str | None = None) -> str:
         if source_name in self._source_cache:
             return self._source_cache[source_name]
 
@@ -251,10 +270,10 @@ class HealthCollector:
         })
         url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?{params}"
         try:
-            with urllib.request.urlopen(url, timeout=15) as resp:
+            with urllib.request.urlopen(url, timeout=15) as resp:  # nosec B310 - hardcoded eutils.ncbi.nlm.nih.gov URL, not user input
                 import json
                 ids = json.loads(resp.read()).get("esearchresult", {}).get("idlist", [])
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-domain PubMed esearch call inside the collection loop — one bad domain must not abort the run; already logged + counted in self.stats['errors']
             logger.error(f"PubMed esearch failed for {health_domain}: {e}")
             self.stats["errors"] += 1
             return []
@@ -264,9 +283,9 @@ class HealthCollector:
 
         efetch_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={','.join(ids)}&retmode=xml"
         try:
-            with urllib.request.urlopen(efetch_url, timeout=20) as resp:
+            with urllib.request.urlopen(efetch_url, timeout=20) as resp:  # nosec B310 - hardcoded eutils.ncbi.nlm.nih.gov URL, not user input
                 xml_data = resp.read()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-domain PubMed efetch call — one bad domain must not abort the run; already logged + counted in self.stats['errors']
             logger.error(f"PubMed efetch failed for {health_domain}: {e}")
             self.stats["errors"] += 1
             return []
@@ -301,11 +320,11 @@ class HealthCollector:
             study_design = "observational"
 
         sample_size = None
-        m = re.search(r'\b(\d{2,6})\s+(?:patients|subjects|participants|women|men|adults|children|individuals)\b', abstract, re.I)
+        m = re.search(r'\b(\d{2,6})\s+(?:patients|subjects|participants|women|men|adults|children|individuals)\b', abstract, re.IGNORECASE)
         if m:
             sample_size = int(m.group(1))
         p_value = None
-        m = re.search(r'p\s*[<=]\s*0?\.(\d+)', abstract, re.I)
+        m = re.search(r'p\s*[<=]\s*0?\.(\d+)', abstract, re.IGNORECASE)
         if m:
             p_value = float(f"0.{m.group(1)}")
 
@@ -327,10 +346,10 @@ class HealthCollector:
         params = urllib.parse.urlencode({"query.term": query, "pageSize": self.per_domain_limit, "sort": "LastUpdatePostDate:desc"})
         url = f"https://clinicaltrials.gov/api/v2/studies?{params}"
         try:
-            with urllib.request.urlopen(url, timeout=15) as resp:
+            with urllib.request.urlopen(url, timeout=15) as resp:  # nosec B310 - hardcoded clinicaltrials.gov URL, not user input
                 import json
                 data = json.loads(resp.read())
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-domain ClinicalTrials.gov call — one bad domain must not abort the run; already logged + counted in self.stats['errors']
             logger.error(f"ClinicalTrials.gov fetch failed for {health_domain}: {e}")
             self.stats["errors"] += 1
             return []
@@ -339,7 +358,7 @@ class HealthCollector:
         for study in data.get("studies", []):
             try:
                 items.append(self._parse_ctgov_study(study, health_domain))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-study parse inside a batch loop — one malformed study must not abort the batch; already logged
                 logger.warning(f"Skipping malformed CTgov study: {e}")
         self.stats["ctgov_fetched"] += len(items)
         return items
@@ -389,9 +408,9 @@ class HealthCollector:
         # curl with no UA / a browser UA did not).
         req = urllib.request.Request(feed["url"], headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - feed["url"] sourced from this file's own fixed feed registry, not user input
                 xml_data = resp.read()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-feed RSS fetch inside the collection loop — one bad feed must not abort the run; already logged + counted in self.stats['errors']
             logger.error(f"RSS fetch failed for {feed['source_name']}: {e}")
             self.stats["errors"] += 1
             return []
@@ -440,9 +459,13 @@ class HealthCollector:
     def _parse_rss_date(self, date_str):
         if not date_str:
             return None
+        # Result is truncated to .date() immediately below — only the
+        # calendar date is kept, not the time-of-day, so an unattached
+        # offset can only matter at the UTC-day boundary (accepted
+        # approximation for RSS-sourced health signal dates).
         for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y %H:%M:%S %z", "%Y-%m-%d"):
             try:
-                return datetime.strptime(date_str, fmt).date().isoformat()
+                return datetime.strptime(date_str, fmt).date().isoformat()  # noqa: DTZ007 - truncated to date-only, see comment above
             except ValueError:
                 continue
         return None
@@ -495,11 +518,13 @@ class HealthCollector:
         elif item["source"] == "rss":
             # These 4 (FDA/WHO/NEJM/Lancet) are already hand-curated rows from
             # the original seed migration — look up by name, don't auto-register.
-            existing = self.supabase.table("health_source_registry").select("source_id").eq("source_name", item["source_name"]).limit(1).execute()
-            if not existing.data:
+            if item["source_name"] not in self._rss_source_cache:
+                existing = self.supabase.table("health_source_registry").select("source_id").eq("source_name", item["source_name"]).limit(1).execute()
+                self._rss_source_cache[item["source_name"]] = existing.data[0]["source_id"] if existing.data else None
+            source_id = self._rss_source_cache[item["source_name"]]
+            if source_id is None:
                 logger.warning(f"RSS source '{item['source_name']}' not found in health_source_registry — skipping item")
                 return
-            source_id = existing.data[0]["source_id"]
             dedup_key = f"rss:{item['source_name']}:{item['canonical_url']}"
             signal_type = item.get("signal_type", "study_result")
         else:
@@ -509,16 +534,22 @@ class HealthCollector:
 
         dedup_hash = hashlib.sha256(dedup_key.encode()).hexdigest()
 
-        existing = self.supabase.table("health_signals").select("signal_id").eq("dedup_hash", dedup_hash).limit(1).execute()
-        if existing.data:
+        if self._known_hashes is not None:
+            is_duplicate = dedup_hash in self._known_hashes
+        else:
+            existing = self.supabase.table("health_signals").select("signal_id").eq("dedup_hash", dedup_hash).limit(1).execute()
+            is_duplicate = bool(existing.data)
+        if is_duplicate:
             self.stats["duplicates"] += 1
             return
 
         if source_id == "dry-run-placeholder":
             tier = "TIER_4"
         else:
-            source_row = self.supabase.table("health_source_registry").select("reliability_tier").eq("source_id", source_id).limit(1).execute()
-            tier = source_row.data[0]["reliability_tier"] if source_row.data else "TIER_4"
+            if source_id not in self._tier_cache:
+                source_row = self.supabase.table("health_source_registry").select("reliability_tier").eq("source_id", source_id).limit(1).execute()
+                self._tier_cache[source_id] = source_row.data[0]["reliability_tier"] if source_row.data else "TIER_4"
+            tier = self._tier_cache[source_id]
 
         quality = self._methodology_quality(item["study_design"], item.get("sample_size"), item.get("p_value"))
         confidence = self._confidence_level(tier, quality)
@@ -555,7 +586,9 @@ class HealthCollector:
         try:
             self.supabase.table("health_signals").insert(row).execute()
             self.stats["saved"] += 1
-        except Exception as e:
+            if self._known_hashes is not None:
+                self._known_hashes.add(dedup_hash)  # same-run repeat is a duplicate, as the per-item GET would have found
+        except Exception as e:  # noqa: BLE001 - per-item save inside a batch loop — one bad item must not abort the batch; already logged + counted in self.stats['errors']
             logger.error(f"Save failed for {item.get('pmid') or item.get('nct_id')}: {e}")
             self.stats["errors"] += 1
 
@@ -564,16 +597,32 @@ class HealthCollector:
 
     # ─── Orchestration ──────────────────────────────────────────────────
 
+    def _existing_hashes(self, hashes: list, chunk_size: int = 100) -> set:
+        """Which of `hashes` are already in health_signals — a few `in`
+        lookups instead of one GET per item."""
+        found: set = set()
+        unique = list(dict.fromkeys(hashes))
+        for i in range(0, len(unique), chunk_size):
+            chunk = unique[i:i + chunk_size]
+            rows = self.supabase.table("health_signals").select("dedup_hash").in_("dedup_hash", chunk).execute().data or []
+            found.update(r["dedup_hash"] for r in rows)
+        return found
+
     def run(self):
         logger.info(f"Starting health signal collection{' (DRY RUN)' if self.dry_run else ''}")
+        items = []
         for domain in PUBMED_QUERIES:
-            for item in self.fetch_pubmed(domain):
-                self.save_item(item)
-            for item in self.fetch_clinicaltrials(domain):
-                self.save_item(item)
+            items.extend(self.fetch_pubmed(domain))
+            items.extend(self.fetch_clinicaltrials(domain))
         for feed in RSS_FEEDS:
-            for item in self.fetch_rss(feed):
-                self.save_item(item)
+            items.extend(self.fetch_rss(feed))
+        try:
+            self._known_hashes = self._existing_hashes([_dedup_hash(item) for item in items])
+        except Exception as e:  # noqa: BLE001 - prefetch is an optimisation; on failure save_item() falls back to its per-item dedup GET
+            logger.warning(f"Dedup prefetch failed, falling back to per-item checks: {e}")
+            self._known_hashes = None
+        for item in items:
+            self.save_item(item)
         logger.info(f"Collection complete: {self.stats}")
 
 

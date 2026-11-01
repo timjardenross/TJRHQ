@@ -14,16 +14,18 @@ This adapter explicitly marks its confidence lower than RSS/API sources.
 
 import logging
 import re
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime, timezone
-from typing import Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 from intelligence.config import (
-    HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE,
-    NO_INCIDENT_SENTINEL_PHRASES, KNOWN_JUNK_TITLE_SUBSTRINGS,
-    STATUS_NARRATIVE_KEYWORDS, AUTH_GATED_SENTINEL_PHRASES,
+    AUTH_GATED_SENTINEL_PHRASES,
+    HTTP_TIMEOUT_SECONDS,
+    KNOWN_JUNK_TITLE_SUBSTRINGS,
+    MAX_ITEMS_PER_SOURCE,
+    NO_INCIDENT_SENTINEL_PHRASES,
+    STATUS_NARRATIVE_KEYWORDS,
 )
 from intelligence.ingestion import firecrawl_client
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
@@ -118,7 +120,7 @@ class ScrapeAdapter(BaseSourceAdapter):
             self._used_fallback = True
         return items[:MAX_ITEMS_PER_SOURCE]
 
-    def _validate_content(self, items: list[IntelligenceItem]) -> tuple[bool, Optional[str]]:
+    def _validate_content(self, items: list[IntelligenceItem]) -> tuple[bool, str | None]:
         if self._used_narrative:
             return True, "Extracted from status-page narrative text (keyword-gated)."
         if self._used_fallback:
@@ -157,7 +159,7 @@ class ScrapeAdapter(BaseSourceAdapter):
                 log.info("[%s] plain fetch 403'd — falling back to Firecrawl", self.source.source_name)
                 return firecrawl_client.fetch_html(url)
             raise RuntimeError(f"HTTP {exc.code} from {url}") from exc
-        except TimeoutError as exc:
+        except TimeoutError:
             retry_timeout = HTTP_TIMEOUT_SECONDS * 2
             log.info(
                 "[%s] plain fetch timed out after %ds — retrying once at %ds",
@@ -172,7 +174,7 @@ class ScrapeAdapter(BaseSourceAdapter):
 
     @staticmethod
     def _do_fetch(req: urllib.request.Request, timeout: int) -> str:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - generic fetch helper; only caller is _fetch_html(self.source.url), sourced from the curated intelligence_sources registry, not user input - reviewed 2026-09-12
             charset = "utf-8"
             content_type = resp.headers.get("Content-Type", "")
             if "charset=" in content_type:
@@ -180,7 +182,6 @@ class ScrapeAdapter(BaseSourceAdapter):
             return resp.read().decode(charset, errors="replace")
 
     def _extract_items(self, soup) -> list[IntelligenceItem]:
-        from bs4 import BeautifulSoup
         items = []
         base = self.source.url
 
@@ -303,7 +304,7 @@ class ScrapeAdapter(BaseSourceAdapter):
                 break
         return items
 
-    def _extract_date(self, el) -> Optional[datetime]:
+    def _extract_date(self, el) -> datetime | None:
         """Try to find a date string near/inside the element."""
         text = el.get_text()
         # Common date patterns
@@ -319,8 +320,8 @@ class ScrapeAdapter(BaseSourceAdapter):
                     from dateutil import parser as dateparser
                     dt = dateparser.parse(m.group(1))
                     return dt.replace(tzinfo=timezone.utc) if dt else None
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort regex-pattern date probe; a non-matching pattern just tries the next one
+                    log.debug("[scrape_adapter] Pattern %r date parse failed: %s", pat, exc)
 
         # Try <time> element
         time_el = el.find("time")
@@ -330,6 +331,6 @@ class ScrapeAdapter(BaseSourceAdapter):
                 from dateutil import parser as dateparser
                 dt = dateparser.parse(dt_str)
                 return dt.replace(tzinfo=timezone.utc) if dt else None
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - best-effort <time> element parse; falls through to None (caller treats as "no date found")
+                log.debug("[scrape_adapter] <time> element date parse failed: %s", exc)
         return None

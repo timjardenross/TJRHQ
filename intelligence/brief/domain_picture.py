@@ -14,8 +14,6 @@ deliberately absent here rather than silently implied.
 
 from __future__ import annotations
 
-from typing import Optional
-
 _RISK_ORDER = {"GREEN": 0, "AMBER": 1, "RED": 2, "UNKNOWN": -1}
 
 _DOMAIN_BUCKETS = {
@@ -46,8 +44,8 @@ def _bucket_for(event_type: str) -> str:
 
 def compute_domain_picture(
     top_events: list[dict],
-    external_signals: Optional[list[dict]] = None,
-) -> Optional[dict]:
+    external_signals: list[dict] | None = None,
+) -> dict | None:
     """
     top_events: list shaped like intelligence_briefs.top_events (title,
     event_type, risk_rating, summary, ...) — bucketed by event_type via
@@ -66,7 +64,7 @@ def compute_domain_picture(
 
     picture: dict[str, dict] = {}
 
-    def _add(bucket: str, title: Optional[str], risk_rating: Optional[str]) -> None:
+    def _add(bucket: str, title: str | None, risk_rating: str | None) -> None:
         entry = picture.setdefault(bucket, {
             "label": _DOMAIN_LABELS.get(bucket, bucket.title()),
             "count": 0, "worst_risk": "GREEN", "events": [],

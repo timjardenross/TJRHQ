@@ -40,7 +40,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ async def _build_graphiti():
     return graphiti
 
 
-def _parse_occurred_at(raw: Optional[str]) -> datetime:
+def _parse_occurred_at(raw: str | None) -> datetime:
     """core_events.occurred_at is a real Postgres timestamptz — this is the
     bi-temporal point that matters to Graphiti (when the fact was true),
     not when this backfill happens to run. Falls back to now() only if the
@@ -107,17 +107,25 @@ def _parse_occurred_at(raw: Optional[str]) -> datetime:
         return datetime.now(timezone.utc)
 
 
-def _episode_body(event: dict[str, Any]) -> str:
+def _episode_body(event: dict[str, Any], workbench: str | None = None) -> str:
     """Plain-text episode content for Graphiti's extraction pass. Prefers
     recommended_action (the human-readable narrative already synthesized
     upstream, e.g. "Akamai Status: Edge Delivery Issues in India
     (investigating)") over dumping the raw row — richer text gives the
-    extraction more to work with than a bag of field:value pairs."""
+    extraction more to work with than a bag of field:value pairs.
+
+    workbench (USS-TJR-MSN-0378 Stream 4) is included as a line of the
+    episode body itself, not just source_description — Graphiti's own
+    fact/entity extraction only ever sees episode_body, so this is what
+    makes "originating Workbench" an attributable, extractable fact rather
+    than opaque out-of-band metadata."""
     parts = [
         f"event_type: {event.get('event_type')}",
         f"domain: {event.get('domain')}",
         f"status: {event.get('status')}",
     ]
+    if workbench:
+        parts.append(f"workbench: {workbench}")
     if event.get("recommended_action"):
         parts.append(event["recommended_action"])
     if event.get("importance") is not None:
@@ -128,12 +136,87 @@ def _episode_body(event: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
-async def backfill_from_core_events(hours: int = 48, limit: int = 100) -> dict[str, Any]:
+async def add_fact(
+    text: str,
+    *,
+    name: str | None = None,
+    group_id: str = "general",
+    workbench: str | None = None,
+    reference_time: datetime | None = None,
+) -> bool:
+    """Write one arbitrary fact/episode into Graphiti — the generic write
+    path core_events-specific backfill_from_core_events() doesn't provide.
+
+    USS-TJR-MSN-0378 Stream 5 needed this: unified_memory.py's remember()
+    had NO write path for MemoryType.RELATIONSHIPS at all before this
+    function existed (checked live — remember() only ever wrote to mem0,
+    for SEMANTIC/FACTUAL; every other type, RELATIONSHIPS included, was
+    silently a no-op). This is what remember()'s RELATIONSHIPS branch
+    calls into.
+
+    Args:
+        text: The fact/episode content, already-composed plain text.
+        name: Episode name; auto-generated from a hash-free timestamp if
+            omitted (Graphiti requires a name but doesn't need it unique
+            across calls the way core_events' event_id-based names are).
+        group_id: Which FalkorDB graph this lands in — same "multi-tenant
+            by group_id" caveat as search()/backfill_from_core_events.
+        workbench: Same tagging convention as backfill_from_core_events —
+            written into both episode_body and source_description so
+            search()'s workbench resolution finds it.
+        reference_time: When the fact was true; defaults to now().
+
+    Returns:
+        True on success, False on any failure (logged, never raised —
+        matches this module's existing per-call error-isolation pattern).
+    """
+    from graphiti_core.nodes import EpisodeType
+
+    if not text or not text.strip():
+        log.warning("[memory-graph] add_fact called with empty text; skipping")
+        return False
+
+    ref_time = reference_time or datetime.now(timezone.utc)
+    episode_name = name or f"fact:{ref_time.isoformat()}"
+    body = f"workbench: {workbench}\n{text}" if workbench else text
+    description = f"workbench={workbench}; " if workbench else ""
+    description += "unified_memory.remember() write"
+
+    try:
+        graphiti = await _build_graphiti()
+        await graphiti.add_episode(
+            name=episode_name,
+            episode_body=body,
+            source_description=description,
+            reference_time=ref_time,
+            source=EpisodeType.text,
+            group_id=group_id,
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+        log.warning("[memory-graph] add_fact failed (non-blocking): %s", exc)
+        return False
+
+
+async def backfill_from_core_events(
+    hours: int = 48,
+    limit: int = 100,
+    workbench: str | None = None,
+) -> dict[str, Any]:
     """Slice 1: pull a recent window of real core_events and add each as a
     Graphiti episode. Small window/limit by design — this is a proof pass,
     not a full historical migration (the research recommendation was
     explicit: validate with a handful of real search() queries before
-    building further, not backfill everything up front)."""
+    building further, not backfill everything up front).
+
+    workbench (USS-TJR-MSN-0378 Stream 4): explicit override for which
+    Workbench originated these events. core_events has no workbench column
+    (checked live against the schema — it does have `source`, which is
+    closer to "which ingestion pipeline" than "which Workbench a Captain
+    was using"), so this defaults to each row's own `source` field rather
+    than guessing a Workbench name that isn't actually recorded anywhere.
+    Callers that DO know the originating Workbench (e.g. a future
+    Workbench-scoped consolidation job) should pass it explicitly."""
     from graphiti_core.nodes import EpisodeType
 
     from core.platform.event_bus import poll_events
@@ -148,17 +231,18 @@ async def backfill_from_core_events(hours: int = 48, limit: int = 100) -> dict[s
     added = 0
     failed = 0
     for event in events:
+        event_workbench = workbench or event.get("source") or "unknown"
         try:
             await graphiti.add_episode(
                 name=f"core_event:{event.get('event_id')}",
-                episode_body=_episode_body(event),
-                source_description=f"core_events row, source={event.get('source')}",
+                episode_body=_episode_body(event, workbench=event_workbench),
+                source_description=f"workbench={event_workbench}; core_events row, source={event.get('source')}",
                 reference_time=_parse_occurred_at(event.get("occurred_at")),
                 source=EpisodeType.text,
                 group_id=event.get("domain") or "unknown",
             )
             added += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-event isolation for a backfill loop; already logged and counted in `failed`, one bad event must not stop the rest
             failed += 1
             log.warning("[memory-graph] add_episode failed for event_id=%s: %s", event.get("event_id"), exc)
 
@@ -166,7 +250,22 @@ async def backfill_from_core_events(hours: int = 48, limit: int = 100) -> dict[s
     return {"total": len(events), "added": added, "failed": failed}
 
 
-async def search(query: str, num_results: int = 10, group_ids: Optional[list[str]] = None) -> list[dict[str, Any]]:
+def _parse_workbench_tag(source_description: str | None) -> str | None:
+    """Pulls the `workbench=<value>` prefix written by backfill_from_core_events
+    (USS-TJR-MSN-0378 Stream 4) back out of an edge's source_description.
+    Returns None for edges written before this field existed, or by any
+    other caller that doesn't tag its episodes."""
+    if not source_description or not source_description.startswith("workbench="):
+        return None
+    return source_description.split(";", 1)[0].removeprefix("workbench=").strip() or None
+
+
+async def search(
+    query: str,
+    num_results: int = 10,
+    group_ids: list[str] | None = None,
+    workbench: str | None = None,
+) -> list[dict[str, Any]]:
     """Hybrid search over whatever's been backfilled so far. Returns plain
     dicts (fact text + temporal bounds), not Graphiti's internal
     EntityEdge objects — this is meant to be easy to print/inspect while
@@ -179,16 +278,45 @@ async def search(query: str, num_results: int = 10, group_ids: Optional[list[str
     "health-intelligence", not one shared graph), so an unscoped search()
     call only ever sees whatever's in the default empty graph. Defaults to
     every domain backfill_from_core_events() has actually populated so
-    far — extend this list as more domains get backfilled."""
+    far — extend this list as more domains get backfilled.
+
+    workbench (USS-TJR-MSN-0378 Stream 4): optional client-side filter —
+    Graphiti/FalkorDB has no server-side per-edge property filter exposed
+    through this wrapper, so this filters the already-returned edges by
+    their parsed workbench tag. None (default) returns everything,
+    matching the pre-Stream-4 behaviour exactly."""
+    from graphiti_core.nodes import EpisodicNode
+
     graphiti = await _build_graphiti()
     if group_ids is None:
         group_ids = ["health-intelligence", "operational-resilience-intelligence"]
     edges = await graphiti.search(query, num_results=num_results, group_ids=group_ids)
-    return [
-        {
+
+    # workbench lives on the episode (EpisodicNode.source_description), not
+    # the edge itself — EntityEdge only carries `episodes` (a list of
+    # originating episode uuids), so attributing/filtering by workbench
+    # needs one batched lookup against those episode nodes.
+    episode_workbench: dict[str, str | None] = {}
+    episode_uuids = sorted({uuid for edge in edges for uuid in (edge.episodes or [])})
+    if episode_uuids:
+        episodes = await EpisodicNode.get_by_uuids(graphiti.driver, episode_uuids)
+        episode_workbench = {
+            ep.uuid: _parse_workbench_tag(ep.source_description) for ep in episodes
+        }
+
+    results = []
+    for edge in edges:
+        edge_workbench = None
+        for episode_uuid in edge.episodes or []:
+            edge_workbench = episode_workbench.get(episode_uuid)
+            if edge_workbench is not None:
+                break
+        if workbench is not None and edge_workbench != workbench:
+            continue
+        results.append({
             "fact": edge.fact,
             "valid_at": str(edge.valid_at) if edge.valid_at else None,
             "invalid_at": str(edge.invalid_at) if edge.invalid_at else None,
-        }
-        for edge in edges
-    ]
+            "workbench": edge_workbench,
+        })
+    return results

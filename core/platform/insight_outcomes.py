@@ -17,17 +17,17 @@ to a no-op when Supabase is unavailable.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from core.platform.insight_engine import Insight
 from core.platform.captain_brief_contract import Recommendation
+from core.platform.insight_engine import Insight
 
 log = logging.getLogger(__name__)
 
 _VALID_OUTCOMES = {"useful", "not_useful", "incorrect", "pending"}
 
 
-def record_insight(insight: Insight, recommendation: Optional[Recommendation] = None) -> Optional[str]:
+def record_insight(insight: Insight, recommendation: Recommendation | None = None) -> str | None:
     """Persist a generated Insight (and its Recommendation, if the
     Reasoning Engine produced one) to `insight_outcomes`, outcome
     defaulting to 'pending'. Returns the new row's id if persisted,
@@ -71,15 +71,15 @@ def record_insight(insight: Insight, recommendation: Optional[Recommendation] = 
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("insight_outcomes", status="ok", detail=f"source_kind={insight.source_kind}")
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort telemetry heartbeat; must not fail the insight-recording call it's reporting on
             pass
         return result.data[0].get("id")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[insight-outcomes] record_insight failed (non-blocking): %s", exc)
         return None
 
 
-def record_outcome(insight_id: str, outcome: str, note: Optional[str] = None) -> bool:
+def record_outcome(insight_id: str, outcome: str, note: str | None = None) -> bool:
     """Records what actually happened to a previously-persisted insight
     — 'useful', 'not_useful', or 'incorrect'. This is the field every
     Phase 4 measurement objective is built on; without real calls to
@@ -90,6 +90,7 @@ def record_outcome(insight_id: str, outcome: str, note: Optional[str] = None) ->
         return False
     try:
         from datetime import datetime, timezone
+
         from tools.supabase.client import CommanderSupabaseClient
 
         client = CommanderSupabaseClient()
@@ -102,7 +103,7 @@ def record_outcome(insight_id: str, outcome: str, note: Optional[str] = None) ->
             "outcome_recorded_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", insight_id).execute()
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[insight-outcomes] record_outcome failed (non-blocking): %s", exc)
         return False
 
@@ -120,9 +121,46 @@ def fetch_outcome_history(limit: int = 100) -> list[dict[str, Any]]:
             return []
         result = raw.table("insight_outcomes").select("*").order("generated_at", desc=True).limit(limit).execute()
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[insight-outcomes] fetch_outcome_history failed (non-blocking): %s", exc)
         return []
 
 
-__all__ = ["record_insight", "record_outcome", "fetch_outcome_history"]
+def fetch_similar_outcomes(
+    source_kind: str,
+    source_domains: list[str],
+    *,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Mission 5 (Evidence & Adaptive Support): the read this table has
+    lacked since MSN-0329 Phase 4 — every other caller of
+    `fetch_outcome_history()` is zero until this one. A thin filter over
+    it, not a second query shape or a second evidence engine: rows with
+    a real recorded `outcome` ('useful'/'not_useful'/'incorrect' —
+    'pending' rows carry no evidence yet and are excluded) whose
+    `source_kind` matches and whose `source_domains` overlaps this
+    insight's own. This is deliberately a correlational, "associated
+    with"/"was previously useful in similar contexts" match on kind +
+    domain, the same causality-guarded framing
+    `capacitybot/intervention_engine.py`'s own evidence surfacing uses
+    ("was followed by improvement in N of M") — never a claim that a
+    past outcome *caused* anything about this new insight.
+
+    Degrades exactly like `fetch_outcome_history()`: [] on any error,
+    Supabase disabled, or no domains given — an empty result is an
+    honest "no evidence yet", not an error.
+    """
+    domains = set(source_domains)
+    if not domains:
+        return []
+    history = fetch_outcome_history(limit=limit)
+    return [
+        row
+        for row in history
+        if row.get("source_kind") == source_kind
+        and row.get("outcome") in ("useful", "not_useful", "incorrect")
+        and domains & set(row.get("source_domains") or [])
+    ]
+
+
+__all__ = ["fetch_outcome_history", "fetch_similar_outcomes", "record_insight", "record_outcome"]

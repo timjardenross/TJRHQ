@@ -14,10 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-try:
-    from lib.comms import pillars
-except Exception:  # pragma: no cover
-    from slack_bot.lib.comms import pillars  # type: ignore
+from lib.comms import pillars
 
 
 @dataclass(frozen=True)
@@ -43,7 +40,7 @@ FORMATS: tuple[Format, ...] = (
 FORMATS_BY_KEY = {f.key: f for f in FORMATS}
 
 
-def _pillar(opp) -> "pillars.Pillar":
+def _pillar(opp) -> pillars.Pillar:
     return pillars.PILLARS_BY_KEY.get(getattr(opp, "pillar_key", ""), pillars.DEFAULT_PILLAR)
 
 

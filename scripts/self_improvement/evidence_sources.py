@@ -21,10 +21,10 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
-from heartbeat import supabase_get  # noqa: E402
+from heartbeat import supabase_get
 
 log = logging.getLogger("evidence_sources")
 
@@ -43,7 +43,7 @@ def file_size_mb(path: Path) -> dict[str, Any]:
         return {"available": False, "reason": f"Could not stat {path}: {exc}"}
 
 
-def model_router_call_stats(repo_root: Path, task_type: Optional[str] = None) -> dict[str, Any]:
+def model_router_call_stats(repo_root: Path, task_type: str | None = None) -> dict[str, Any]:
     """Bounded tail-read of core/model-router/call_log.jsonl. Returns
     aggregate call count / success rate / avg duration, optionally filtered
     to one task_type. Never loads the whole file into memory unbounded —

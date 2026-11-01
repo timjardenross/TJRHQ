@@ -23,9 +23,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from collaborative_specialist_runtime import run
-from decision_alerter import ALERT_DIR, emit_decision_alert, load_alerts, _format_alert
+from decision_alerter import ALERT_DIR, _format_alert, emit_decision_alert
+from decision_context_builder import build_decision_context
+from decision_mode_classifier import classify_decision_mode
 from decision_register import (
-    DECISION_DIR,
     DECISION_STATUSES,
     get_decisions_awaiting_review,
     get_decisions_by_date_range,
@@ -35,20 +36,15 @@ from decision_register import (
     update_decision_outcome,
     write_decision_record,
 )
-from decision_mode_classifier import classify_decision_mode
-from decision_context_builder import build_decision_context
-from github_issue_builder import GitHubIssue, build_github_issue, _issue_labels
+from github_issue_builder import GitHubIssue, _issue_labels, build_github_issue
 from mission_candidate import (
     MISSION_DIR,
+    _extract_risks,
     create_mission_candidate,
     load_mission_candidates,
     update_mission_status,
-    _extract_risks,
-    _generate_success_criteria,
-    _generate_title,
 )
-from specialist_assignment import CREW, MissionAssignment, assign_specialists
-
+from specialist_assignment import CREW, assign_specialists
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -115,7 +111,7 @@ def test_alert_emitted_for_strategic_decision() -> None:
     after = set(ALERT_DIR.glob("*.json"))
     created = after - before
     assert created, "No alert file was written for a strategic decision"
-    alert = json.loads(Path(list(created)[0]).read_text(encoding="utf-8"))
+    alert = json.loads(Path(next(iter(created))).read_text(encoding="utf-8"))
     assert alert["decision_id"] == "DEC-TEST-000001-abcdef"
     assert alert["decision_mode"] == "strategic"
     print("  PASS test_alert_emitted_for_strategic_decision")
@@ -160,7 +156,7 @@ def test_alert_failure_does_not_crash_runtime() -> None:
     """emit_decision_alert with a bad record must not raise."""
     try:
         emit_decision_alert({"decision_mode": "strategic"}, None)  # missing most fields
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - test assertion — explicitly re-raises as AssertionError with the caught exception's detail, not swallowed
         raise AssertionError(f"emit_decision_alert raised unexpectedly: {e}")
     print("  PASS test_alert_failure_does_not_crash_runtime")
 
@@ -346,7 +342,7 @@ def test_build_github_issue_from_mission_candidate() -> None:
 
 def test_github_issue_never_calls_api() -> None:
     """build_github_issue must be pure — no network calls."""
-    import unittest.mock as mock
+    from unittest import mock
     candidate = create_mission_candidate(_SAMPLE_DECISION_RECORD)
     with mock.patch("urllib.request.urlopen") as mocked:
         build_github_issue(candidate)
@@ -574,7 +570,7 @@ def main() -> int:
     for test in tests:
         try:
             test()
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - test-runner harness — one failing test must not abort the rest of the suite; already printed + counted in failures
             print(f"  FAIL {test.__name__}: {error}")
             failures += 1
     print()

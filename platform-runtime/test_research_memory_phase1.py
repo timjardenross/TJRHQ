@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Phase 1 tests for ADR-006 research memory activation."""
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-import commands.research_command as research_command
+from commands import research_command
 
 
 class TestResearchMemoryPhase1(unittest.TestCase):

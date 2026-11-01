@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the EDO delivery engine (MSN-EDO-001 → EDO-002/004/008).
 
 Covers: lifecycle mapping + transition validation + hygiene normalisation;
@@ -16,8 +17,8 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.delivery import lifecycle, analysis  # noqa: E402
-import commands.delivery as dlv  # noqa: E402
+import commands.delivery as dlv
+from lib.delivery import analysis, lifecycle
 
 
 def _row(title, status, age, **kw):

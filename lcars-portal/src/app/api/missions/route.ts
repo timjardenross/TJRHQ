@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { nextId, appendToRegistry } from '@/lib/id-registry';
 import { recordHeartbeatServerSide } from '@/lib/heartbeat';
+import { errorDetail } from '@/lib/errorDetail';
 
 // Valid Supabase status values (CHECK constraint on missions.status)
 const VALID_STATUSES = [
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ missions: data ?? [], count: data?.length ?? 0 });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json(
       { error: 'Failed to fetch missions', detail },
       { status: 500 },
@@ -90,6 +91,12 @@ export async function POST(request: NextRequest) {
         mission_id,
         title,
         status,
+        // missions.repo is NOT NULL with no column default (confirmed against
+        // the live schema) — single-repo platform, so there's only one
+        // correct value. Every other in-repo mission-insert example targets
+        // an older, different missions schema (no repo column at all) and
+        // isn't a valid reference for this table's current shape.
+        repo: 'timjardenross/TJRHQ',
         ...(priority    !== null && { priority }),
         ...(created_by  !== null && { created_by }),
         ...(description !== null && { description }),
@@ -117,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ mission: data }, { status: 201 });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json(
       { error: 'Failed to create mission', detail },
       { status: 500 },

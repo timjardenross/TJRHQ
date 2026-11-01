@@ -37,12 +37,15 @@
  * only shows an interpreted coverage state + a link out.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { emergencyAlertTierToTone } from '@/lib/departments';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
+import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/route';
 
 const ACTIVE_HOURS_START = 7;  // 07:00 local
 const ACTIVE_HOURS_END = 19;   // 19:00 local
@@ -68,6 +71,19 @@ function msUntilNextRefresh(now: Date): number {
 }
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
+// alerts.alert_type CHECK constraint (migration 0174).
+const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'other'] as const;
+const ALERT_TYPE_LABELS: Record<string, string> = {
+  bushfire: 'Bushfire', flood: 'Flood', storm: 'Storm', cyclone: 'Cyclone', heatwave: 'Heatwave',
+  hazard_reduction: 'Hazard Reduction Burn', structure_fire: 'Structure Fire', other: 'Other',
+};
+// alert_sources.source_key (migration 0174/0176).
+const SOURCE_KEY_LABELS: Record<string, string> = {
+  nsw_rfs: 'NSW RFS', vic_emergency: 'VicEmergency', qld_fire: 'QLD Fire', sa_cfs: 'SA CFS',
+  act_esa: 'ACT ESA', wa_dfes: 'WA DFES', tas_fire: 'TAS Fire', nt_securent: 'NT SecureNT',
+  bom_nsw: 'BOM NSW', bom_nt: 'BOM NT', bom_qld: 'BOM QLD', bom_sa: 'BOM SA',
+  bom_tas: 'BOM TAS', bom_vic: 'BOM VIC', bom_wa: 'BOM WA', bom_act: 'BOM ACT',
+};
 
 const SEVERITY_LABELS: Record<string, string> = {
   emergency_warning: 'Emergency Warning',
@@ -75,6 +91,28 @@ const SEVERITY_LABELS: Record<string, string> = {
   advice: 'Advice',
   unknown: 'Severity Not Supplied',
 };
+
+/** Mirrors core/platform/alert_silences.py's _matches() /
+ * api/emergency-alerts/silences/route.ts's silenceMatchesAlert() — every
+ * non-null match_* field on the silence must equal the alert's
+ * corresponding field. Used client-side only to badge alerts already in
+ * hand; the API route is the source of truth for matchingActiveAlertCount. */
+function silenceCoversAlert(silence: AlertSilenceEntry, alert: EmergencyAlertEntry): boolean {
+  if (silence.matchJurisdiction !== null && silence.matchJurisdiction !== alert.jurisdiction) return false;
+  if (silence.matchAlertType !== null && silence.matchAlertType !== alert.alertType) return false;
+  if (silence.matchSeverity !== null && silence.matchSeverity !== alert.severity) return false;
+  if (silence.matchSourceKey !== null && silence.matchSourceKey !== alert.sourceKey) return false;
+  return true;
+}
+
+function describeSilenceScope(silence: AlertSilenceEntry): string {
+  const parts: string[] = [];
+  if (silence.matchJurisdiction) parts.push(silence.matchJurisdiction);
+  if (silence.matchAlertType) parts.push(ALERT_TYPE_LABELS[silence.matchAlertType] ?? silence.matchAlertType);
+  if (silence.matchSeverity) parts.push(SEVERITY_LABELS[silence.matchSeverity] ?? silence.matchSeverity);
+  if (silence.matchSourceKey) parts.push(SOURCE_KEY_LABELS[silence.matchSourceKey] ?? silence.matchSourceKey);
+  return parts.length > 0 ? parts.join(' · ') : 'Everything';
+}
 
 // BOM's RSS feeds carry no AWS-tier (Advice/Watch and Act/Emergency
 // Warning) data at all - severity is stored as 'unknown' rather than
@@ -96,7 +134,7 @@ function SeverityBadge({ alert }: { alert: EmergencyAlertEntry }) {
       <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{severityLabel(alert)}</Badge>
       {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
         <span
-          className="text-[10px] uppercase tracking-wide text-wb-ink2"
+          className="text-wb-label uppercase tracking-wide text-wb-ink2"
           title="BOM does not provide an Advice / Watch and Act / Emergency Warning tier for this feed."
         >
           BOM
@@ -127,7 +165,22 @@ function relativeTime(isoTimestamp: string | null): string {
   return `${diffDays}d ago`;
 }
 
-function AlertRow({ alert, isSelected, onSelect }: { alert: EmergencyAlertEntry; isSelected: boolean; onSelect: () => void }) {
+/** A small "muted" cue for an alert currently covered by an active
+ * silence — the alert stays fully visible either way (silencing suppresses
+ * notifications, never the record itself), this just explains why no
+ * email fired for it. */
+function MutedBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-wb-label uppercase tracking-wide text-wb-ink2"
+      title="An active silence is currently suppressing notifications for this alert."
+    >
+      🔇 Muted
+    </span>
+  );
+}
+
+function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAlertEntry; isSelected: boolean; isMuted: boolean; onSelect: () => void }) {
   return (
     <tr
       className={`cursor-pointer border-b border-wb-line last:border-0 hover:bg-wb-bg/60 ${isSelected ? 'bg-wb-bg' : ''}`}
@@ -137,32 +190,52 @@ function AlertRow({ alert, isSelected, onSelect }: { alert: EmergencyAlertEntry;
         <Badge status="neutral">{alert.jurisdiction}</Badge>
       </td>
       <td className="py-3 pr-4"><SeverityBadge alert={alert} /></td>
-      <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink">{alert.headline}</td>
-      <td className="py-3 pr-4 text-[12px] text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
-      <td className="py-3 text-[12px] tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</td>
+      <td className="py-3 pr-4 text-wb-body font-medium text-wb-ink">
+        <div className="flex items-center gap-2">
+          <span>{alert.headline}</span>
+          {isMuted && <MutedBadge />}
+        </div>
+      </td>
+      <td className="py-3 pr-4 text-wb-label text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
+      <td className="py-3 text-wb-label tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</td>
     </tr>
   );
 }
 
 /** Compact card for a high-severity (Emergency Warning / Watch and Act)
  * alert — readable without opening the dense Browse table. */
-function HighSeverityCard({ alert, onSelect }: { alert: EmergencyAlertEntry; onSelect: () => void }) {
+function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; onSelect: () => void }) {
   const isEmergency = alert.severity === 'emergency_warning';
   return (
     <div
       className={`rounded-md border p-4 ${isEmergency ? 'border-state-crit/50 bg-state-crit/10' : 'border-state-warn/50 bg-state-warn/10'}`}
     >
-      <div className="mb-2 flex items-center gap-2">
+      {/* WP3 defect #4 sweep (200% zoom, live-verified: this row's own
+          offsetWidth 45 vs its badges' combined scrollWidth 146 at the
+          zoomed-equivalent width) — no flex-wrap, so the severity/
+          jurisdiction/muted badge trio pushed past the card at a narrow
+          effective width, which was the real source of this page's overall
+          horizontal page overflow (traced up through risk-reference-surface
+          to document.documentElement.scrollWidth). */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <SeverityBadge alert={alert} />
         <Badge status="neutral">{alert.jurisdiction}</Badge>
+        {isMuted && <MutedBadge />}
       </div>
-      <h3 className="font-serif text-base text-wb-ink">{alert.headline}</h3>
-      {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
-      <p className="mt-1 text-[11px] text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
+      {/* WP3 defect #4 sweep: real headline text (e.g. "Fire Weather Warning
+          for Greater Hunter fire weather district") has no soft-wrap point
+          long enough at a narrow effective width — overflow-wrap defaults
+          to `normal`, which never breaks inside a word, so the single
+          longest word in the headline set this card's (and therefore the
+          whole page's) min-content width and forced horizontal page
+          scroll. `break-words` lets it wrap mid-word as a last resort. */}
+      <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
+      {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
+      <p className="mt-1 text-wb-label text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
       <div className="mt-3 flex flex-wrap gap-3">
         <button
           onClick={onSelect}
-          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           View details
         </button>
@@ -171,7 +244,7 @@ function HighSeverityCard({ alert, onSelect }: { alert: EmergencyAlertEntry; onS
             href={alert.canonicalUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-md px-3 py-1.5 text-[12px] font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="rounded-md px-3 py-1.5 text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             View official warning →
           </a>
@@ -186,32 +259,32 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
     <Card>
       <div className="mb-3 flex items-start justify-between gap-4 border-b border-wb-line pb-3">
         <div>
-          <div className="mb-1 flex items-center gap-2">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <Badge status="neutral">{alert.jurisdiction}</Badge>
             <SeverityBadge alert={alert} />
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
-          <h2 className="font-serif text-lg text-wb-ink">{alert.headline}</h2>
-          {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
+          <h2 className="break-words font-serif text-lg text-wb-ink">{alert.headline}</h2>
+          {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
           {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
-            <p className="mt-1 text-[11px] italic text-wb-ink2">
+            <p className="mt-1 text-wb-label italic text-wb-ink2">
               BOM does not provide an Advice / Watch and Act / Emergency Warning tier for this feed.
             </p>
           )}
         </div>
-        <button onClick={onClose} className="rounded-md px-3 py-2 text-[12px] text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
+        <button onClick={onClose} className="rounded-md px-3 py-2 text-wb-label text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
       </div>
-      <div className="grid grid-cols-2 gap-3 text-[12px] text-wb-ink2 sm:grid-cols-4">
-        <div><span className="uppercase tracking-wide text-[10px]">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Source updated</span><div className="text-wb-ink">{alert.updatedAtSrc ? new Date(alert.updatedAtSrc).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
+      <div className="grid grid-cols-2 gap-3 text-wb-label text-wb-ink2 sm:grid-cols-4">
+        <div><span className="uppercase tracking-wide text-wb-label">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Source updated</span><div className="text-wb-ink">{alert.updatedAtSrc ? new Date(alert.updatedAtSrc).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
       </div>
       {alert.rawText && (
-        <p className="mt-4 whitespace-pre-wrap text-[13px] text-wb-ink2">{alert.rawText}</p>
+        <p className="mt-4 whitespace-pre-wrap text-wb-body text-wb-ink2">{alert.rawText}</p>
       )}
       {alert.canonicalUrl && (
-        <a href={alert.canonicalUrl} target="_blank" rel="noreferrer" className="mt-4 inline-block text-[12px] font-semibold text-wb-sage-deep underline">
+        <a href={alert.canonicalUrl} target="_blank" rel="noreferrer" className="mt-4 inline-block text-wb-label font-semibold text-wb-sage-deep underline">
           Open official source →
         </a>
       )}
@@ -236,45 +309,257 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
   else state = 'good';
 
   return (
+    <section aria-label={`Alert coverage: ${state}`} data-alert-state={state === 'degraded' ? 'unavailable' : state}>
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-serif text-base text-wb-ink">Coverage</h2>
           {state === 'good' && (
-            <p className="text-[12px] text-wb-ink2">Official-source coverage is currently good.</p>
+            <p className="text-wb-label text-wb-ink2">Official-source coverage is currently good.</p>
           )}
           {state === 'degraded' && (
-            <p className="text-[12px] text-state-warn-on">
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
               {failedSources.length} official source{failedSources.length === 1 ? '' : 's'} currently unavailable. Alert coverage may be incomplete.
             </p>
           )}
           {state === 'stale' && (
-            <p className="text-[12px] text-state-warn-on">Alerts have not been refreshed recently. Coverage may be stale.</p>
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">Alerts have not been refreshed recently. Coverage may be stale.</p>
           )}
           {state === 'unknown' && (
-            <p className="text-[12px] text-wb-ink2">Source health could not be determined.</p>
+            <p className="text-wb-label text-wb-ink2">Source health could not be determined.</p>
           )}
-          <p className="mt-1 text-[11px] text-wb-ink2">
+          <p className="mt-1 text-wb-label text-wb-ink2">
             {latestCheckedAt ? `Last checked ${relativeTime(latestCheckedAt)}.` : 'No collection recorded yet.'}
           </p>
+          <EvidenceMeta
+            source={`${sources.length} official alert source${sources.length === 1 ? '' : 's'} (domain_heartbeats)`}
+            observedAt={latestCheckedAt}
+            state={state === 'unknown' ? 'unavailable' : state === 'degraded' ? 'unavailable' : state === 'stale' ? 'stale' : undefined}
+          />
         </div>
         <Link
           href="/agent-status-workbench"
-          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           View system status →
         </Link>
       </div>
     </Card>
+    </section>
+  );
+}
+
+const DURATION_PRESETS: { label: string; hours: number }[] = [
+  { label: '1 hour', hours: 1 },
+  { label: '4 hours', hours: 4 },
+  { label: '12 hours', hours: 12 },
+  { label: '24 hours', hours: 24 },
+  { label: '3 days', hours: 72 },
+];
+
+function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
+  const [reason, setReason] = useState('');
+  const [durationHours, setDurationHours] = useState(DURATION_PRESETS[3].hours); // default 24h
+  const [jurisdiction, setJurisdiction] = useState('');
+  const [alertType, setAlertType] = useState('');
+  const [severity, setSeverity] = useState('');
+  const [sourceKey, setSourceKey] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!reason.trim()) {
+      setSubmitError('Reason is required.');
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const endsAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+      const res = await fetch('/api/emergency-alerts/silences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim(), endsAt, jurisdiction, alertType, severity, sourceKey }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      setReason('');
+      setJurisdiction('');
+      setAlertType('');
+      setSeverity('');
+      setSourceKey('');
+      onCreated();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create silence');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <h2 className="font-serif text-base text-wb-ink">Create a silence</h2>
+      <p className="mt-1 text-wb-label text-wb-ink2">
+        Mute matching alert notifications for a bounded window — e.g. a planned hazard-reduction burn. The alert
+        record itself always stays visible; only outbound notifications (email) are suppressed while a silence is active.
+      </p>
+      <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
+        <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
+          Reason (required)
+          <input
+            type="text"
+            className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Planned RFS hazard-reduction burn, western Sydney"
+          />
+        </label>
+        <div className="flex flex-wrap gap-3">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
+            Duration
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
+              value={durationHours}
+              onChange={(e) => setDurationHours(Number(e.target.value))}
+            >
+              {DURATION_PRESETS.map((p) => (
+                <option key={p.hours} value={p.hours}>{p.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
+            Jurisdiction
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
+              value={jurisdiction}
+              onChange={(e) => setJurisdiction(e.target.value)}
+            >
+              <option value="">Any</option>
+              {JURISDICTIONS.map((j) => (<option key={j} value={j}>{j}</option>))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
+            Alert type
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
+              value={alertType}
+              onChange={(e) => setAlertType(e.target.value)}
+            >
+              <option value="">Any</option>
+              {ALERT_TYPES.map((t) => (<option key={t} value={t}>{ALERT_TYPE_LABELS[t]}</option>))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
+            Severity
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value)}
+            >
+              <option value="">Any</option>
+              {Object.entries(SEVERITY_LABELS).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
+            Source
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
+              value={sourceKey}
+              onChange={(e) => setSourceKey(e.target.value)}
+            >
+              <option value="">Any</option>
+              {Object.entries(SOURCE_KEY_LABELS).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
+            </select>
+          </label>
+        </div>
+        {submitError && <p className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-wb-label text-state-crit-on">{submitError}</p>}
+        <div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-md bg-wb-ink px-3 py-1.5 text-wb-label font-semibold text-wb-bg hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          >
+            {isSubmitting ? 'Creating…' : 'Create silence'}
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function SilenceRow({ silence, onExpired }: { silence: AlertSilenceEntry; onExpired: () => void }) {
+  const [isExpiring, setIsExpiring] = useState(false);
+  const isUpcoming = new Date(silence.startsAt).getTime() > Date.now();
+
+  async function handleExpire() {
+    setIsExpiring(true);
+    try {
+      const res = await fetch(`/api/emergency-alerts/silences/${silence.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      onExpired();
+    } catch {
+      setIsExpiring(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-wb-line py-3 last:border-0">
+      <div>
+        <div className="flex items-center gap-2">
+          <Badge status={silence.isActive ? 'success' : isUpcoming ? 'neutral' : 'error'}>
+            {silence.isActive ? 'Active' : isUpcoming ? 'Upcoming' : 'Expired'}
+          </Badge>
+          <span className="text-wb-body font-medium text-wb-ink">{silence.reason}</span>
+        </div>
+        <p className="mt-1 text-wb-label text-wb-ink2">
+          Scope: {describeSilenceScope(silence)} · {silence.isActive ? `Ends ${relativeTime(silence.endsAt)}` : isUpcoming ? `Starts ${relativeTime(silence.startsAt)}` : `Ended ${relativeTime(silence.endsAt)}`}
+          {silence.isActive && ` · Currently matching ${silence.matchingActiveAlertCount} active alert${silence.matchingActiveAlertCount === 1 ? '' : 's'}`}
+        </p>
+      </div>
+      {(silence.isActive || isUpcoming) && (
+        <button
+          onClick={handleExpire}
+          disabled={isExpiring}
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+        >
+          {isExpiring ? 'Ending…' : 'End now'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SilencesPanel({ silences, onRefresh }: { silences: AlertSilenceEntry[]; onRefresh: () => void }) {
+  return (
+    <>
+      <CreateSilenceForm onCreated={onRefresh} />
+      <Card>
+        <h2 className="font-serif text-base text-wb-ink">Silences</h2>
+        {silences.length === 0 ? (
+          <p className="mt-2 text-wb-label italic text-wb-ink2">No silences created yet.</p>
+        ) : (
+          <div className="mt-2">
+            {silences.map((s) => (
+              <SilenceRow key={s.id} silence={s} onExpired={onRefresh} />
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
   );
 }
 
 export default function EmergencyAlertsWorkbench() {
   const [allAlerts, setAllAlerts] = useState<EmergencyAlertEntry[]>([]);
   const [sources, setSources] = useState<EmergencyAlertSourceEntry[]>([]);
+  const [silences, setSilences] = useState<AlertSilenceEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [view, setView] = useState<'overview' | 'browse'>('overview');
+  const [silencesError, setSilencesError] = useState<string | null>(null);
+  const [view, setView] = useState<'overview' | 'browse' | 'silences'>('overview');
   const [jurisdictionFilter, setJurisdictionFilter] = useState<string>('');
   const [severityFilter, setSeverityFilter] = useState<string>('');
   const [showInactive, setShowInactive] = useState(false);
@@ -283,12 +568,31 @@ export default function EmergencyAlertsWorkbench() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailPanelRef = useRef<HTMLDivElement | null>(null);
 
+  /** Silences are a supplementary management feature layered on top of the
+   * core alert feed (see module docstring — this page's job is "is there an
+   * alert I should know about", not silence bookkeeping). A silences-only
+   * outage must not take down the Overview/Browse views that answer that
+   * question, so it's fetched and error-handled independently of
+   * alerts/sources rather than failing the whole page load. */
+  async function fetchSilences() {
+    try {
+      const res = await fetch('/api/emergency-alerts/silences', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Silences HTTP ${res.status}`);
+      const data = await res.json();
+      setSilences(data.silences ?? []);
+      setSilencesError(null);
+    } catch (err) {
+      setSilencesError(err instanceof Error ? err.message : 'Failed to load silences');
+    }
+  }
+
   async function fetchData(withSpinner: boolean) {
     if (withSpinner) setIsLoading(true);
     try {
       const [alertsRes, sourcesRes] = await Promise.all([
         fetch('/api/emergency-alerts?activeOnly=false', { cache: 'no-store' }),
         fetch('/api/emergency-alerts/sources', { cache: 'no-store' }),
+        fetchSilences(),
       ]);
       if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
       if (!sourcesRes.ok) throw new Error(`Sources HTTP ${sourcesRes.status}`);
@@ -303,6 +607,12 @@ export default function EmergencyAlertsWorkbench() {
     } finally {
       if (withSpinner) setIsLoading(false);
     }
+  }
+
+  /** Refresh just the silences panel after a create/expire action — avoids
+   * a full-page spinner for what's a small, local state change. */
+  async function refreshSilences() {
+    await fetchSilences();
   }
 
   useEffect(() => {
@@ -328,9 +638,19 @@ export default function EmergencyAlertsWorkbench() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const activeSilences = useMemo(() => silences.filter((s) => s.isActive), [silences]);
+  const mutedAlertIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const alert of allAlerts) {
+      if (activeSilences.some((s) => silenceCoversAlert(s, alert))) ids.add(alert.id);
+    }
+    return ids;
+  }, [allAlerts, activeSilences]);
+
   const activeAlerts = useMemo(() => allAlerts.filter((a) => a.isActive), [allAlerts]);
   const emergencyAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'emergency_warning'), [activeAlerts]);
   const watchAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'watch_and_act'), [activeAlerts]);
+  const informationalAlerts = useMemo(() => activeAlerts.filter((a) => a.severity !== 'emergency_warning' && a.severity !== 'watch_and_act'), [activeAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
   const unknownCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'unknown').length, [activeAlerts]);
 
@@ -370,33 +690,59 @@ export default function EmergencyAlertsWorkbench() {
       eyebrow="Public Safety"
       tagline="Official Australian emergency information, prioritised by what may require attention now."
       wide
+      mode="command"
     >
-      <div className="flex flex-col gap-4">
+      <div className="risk-reference-surface risk-reference-command flex flex-col gap-4">
+        <div className="risk-reference-kicker">Command / intelligence · immediate state first</div>
         {isLoading ? (
-          <Card><p className="text-[13px] italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
+          <Card><p className="text-wb-body italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (
           <Card>
+            <DataAvailabilityNotice state="unavailable" sources={[`Emergency Alerts: ${loadError}`]} />
             <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
-              <p className="text-[13px] font-semibold text-state-crit-on">Emergency alert data could not be loaded</p>
-              <p className="mt-1 text-[12px] text-wb-ink2">{loadError}</p>
+              <p className="text-wb-body font-semibold text-state-crit-on">Emergency alert data could not be loaded</p>
+              <p className="mt-1 text-wb-label text-wb-ink2">{loadError}</p>
             </div>
           </Card>
         ) : (
           <>
-            <div className="flex gap-2">
+            {/* Endeavour 27 Stream E: 3 buttons ("Browse all alerts" is the
+                long one) with no wrap fallback overflowed at 375px -- same
+                class of defect as Briefs' TabBar, fixed the same way
+                (DomainToggle.tsx's established flex-nowrap + overflow-x-auto
+                scroll pattern rather than a new one).
+                WP3 defect #4 sweep (200% zoom, live-verified: htmlScrollWidth
+                248 vs 195 innerWidth at the zoomed-equivalent width): this
+                row is a flex item inside the surrounding `flex flex-col`
+                wrapper above. Without `min-w-0`, a flex item's default
+                automatic minimum size is its content's min-content width —
+                here the sum of 3 unwrapped buttons — so the scroll container
+                meant to contain that overflow (`overflow-x-auto`) was itself
+                being stretched past the viewport by its flex parent instead
+                of clipping to it, pushing the whole page into horizontal
+                scroll rather than just this row. `min-w-0` lets it shrink to
+                the parent's actual width so overflow-x-auto does its job. */}
+            <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
               <button
                 onClick={() => setView('overview')}
-                className={`rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'overview'}
               >
                 Current
               </button>
               <button
                 onClick={() => setView('browse')}
-                className={`rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'browse'}
               >
                 Browse all alerts
+              </button>
+              <button
+                onClick={() => setView('silences')}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                aria-pressed={view === 'silences'}
+              >
+                Silences{activeSilences.length > 0 ? ` (${activeSilences.length})` : ''}
               </button>
             </div>
 
@@ -404,79 +750,98 @@ export default function EmergencyAlertsWorkbench() {
               <>
                 {emergencyAlerts.length === 0 && watchAlerts.length === 0 && (
                   <Card>
-                    <p className="text-[15px] font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
-                    <p className="text-[15px] font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
+                    <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
+                    <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
                     {(adviceCount + unknownCount) > 0 ? (
-                      <p className="mt-2 text-[12px] text-wb-ink2">
+                      <p className="mt-2 text-wb-label text-wb-ink2">
                         {adviceCount + unknownCount} lower-severity or unclassified official alert{adviceCount + unknownCount === 1 ? '' : 's'} {adviceCount + unknownCount === 1 ? 'is' : 'are'} active nationally.
                       </p>
                     ) : (
-                      <p className="mt-2 text-[12px] text-wb-ink2">No active official alerts detected.</p>
+                      <p className="mt-2 text-wb-label text-wb-ink2">No active official alerts detected.</p>
                     )}
                   </Card>
                 )}
 
                 {emergencyAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-action-required" data-alert-state="action-required">
                   <Card>
-                    <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-state-crit-on">
+                    <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-crit-on">
+                      <span id="alerts-action-required">Action required · </span>
                       {emergencyAlerts.length} Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}
                     </h2>
                     <div className="flex flex-col gap-3">
                       {emergencyAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>
+                  </section>
                 )}
 
                 {watchAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-watch" data-alert-state="watch">
                   <Card>
-                    <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-state-warn-on">
+                    <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
+                      <span id="alerts-watch">Watch · </span>
                       Watch and Act — {watchAlerts.length} active
                     </h2>
                     <div className="flex flex-col gap-3">
                       {watchAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>
+                  </section>
                 )}
 
-                <Card>
-                  <h2 className="font-serif text-base text-wb-ink">Relevant to you</h2>
-                  <p className="mt-1 text-[12px] text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
-                  <button
-                    onClick={() => setShowRelevanceInfo((v) => !v)}
-                    className="mt-2 text-[11px] font-semibold text-wb-sage-deep underline"
-                  >
-                    {showRelevanceInfo ? 'Hide' : 'How relevance works'}
-                  </button>
-                  {showRelevanceInfo && (
-                    <p className="mt-2 text-[11px] italic text-wb-ink2">
-                      HQ does not yet have a configured location or area of interest to match against alert
-                      locations. Without a reliable match, alerts are shown nationally rather than guessing
-                      at relevance.
-                    </p>
-                  )}
-                </Card>
-
-                {(adviceCount > 0 || unknownCount > 0) && (
+                {informationalAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-informational" data-alert-state="informational">
                   <Card>
-                    <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
-                    <div className="mt-2 flex flex-col gap-1 text-[12px] text-wb-ink2">
-                      {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
-                      {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
+                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
+                    <div className="flex flex-col gap-3">
+                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
                     </div>
-                    <button
-                      onClick={() => setView('browse')}
-                      className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
-                    >
-                      Browse all alerts →
-                    </button>
                   </Card>
+                  </section>
                 )}
 
-                <CoveragePanel sources={sources} latestCheckedAt={latestCheckedAt} />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <Card>
+                    <h2 className="font-serif text-base text-wb-ink">Relevant to you</h2>
+                    <p className="mt-1 text-wb-label text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
+                    <button
+                      onClick={() => setShowRelevanceInfo((v) => !v)}
+                      className="mt-2 text-wb-label font-semibold text-wb-sage-deep underline"
+                    >
+                      {showRelevanceInfo ? 'Hide' : 'How relevance works'}
+                    </button>
+                    {showRelevanceInfo && (
+                      <p className="mt-2 text-wb-label italic text-wb-ink2">
+                        HQ does not yet have a configured location or area of interest to match against alert
+                        locations. Without a reliable match, alerts are shown nationally rather than guessing
+                        at relevance.
+                      </p>
+                    )}
+                  </Card>
+
+                  {(adviceCount > 0 || unknownCount > 0) && (
+                    <Card>
+                      <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
+                      <div className="mt-2 flex flex-col gap-1 text-wb-label text-wb-ink2">
+                        {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
+                        {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
+                      </div>
+                      <button
+                        onClick={() => setView('browse')}
+                        className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                      >
+                        Browse all alerts →
+                      </button>
+                    </Card>
+                  )}
+
+                  <CoveragePanel sources={sources} latestCheckedAt={latestCheckedAt} />
+                </div>
               </>
             )}
 
@@ -484,10 +849,10 @@ export default function EmergencyAlertsWorkbench() {
               <>
                 <Card>
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 text-wb-label text-wb-ink2">
                       Jurisdiction
                       <select
-                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
                         value={jurisdictionFilter}
                         onChange={(e) => setJurisdictionFilter(e.target.value)}
                       >
@@ -497,10 +862,10 @@ export default function EmergencyAlertsWorkbench() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 text-wb-label text-wb-ink2">
                       Severity
                       <select
-                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
                         value={severityFilter}
                         onChange={(e) => setSeverityFilter(e.target.value)}
                       >
@@ -510,7 +875,7 @@ export default function EmergencyAlertsWorkbench() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex items-center gap-2 rounded-md px-1 py-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 rounded-md px-1 py-2 text-wb-label text-wb-ink2">
                       <input type="checkbox" className="h-4 w-4" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                       Include expired/inactive
                     </label>
@@ -522,11 +887,11 @@ export default function EmergencyAlertsWorkbench() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-wb-line">
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Jurisdiction</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Severity</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Headline</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Location</th>
-                          <th className="pb-2 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Last Seen</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Jurisdiction</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Severity</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Headline</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Location</th>
+                          <th className="pb-2 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Last Seen</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -535,16 +900,31 @@ export default function EmergencyAlertsWorkbench() {
                             key={alert.id}
                             alert={alert}
                             isSelected={alert.id === selectedAlertId}
+                            isMuted={mutedAlertIds.has(alert.id)}
                             onSelect={() => selectAndMaybeSwitch(alert.id)}
                           />
                         ))}
                         {browseAlerts.length === 0 && (
-                          <tr><td colSpan={5} className="py-6 text-center text-[13px] italic text-wb-ink2">No alerts matching these filters.</td></tr>
+                          <tr><td colSpan={5} className="py-6 text-center text-wb-body italic text-wb-ink2">No alerts matching these filters.</td></tr>
                         )}
                       </tbody>
                     </table>
                   </div>
                 </Card>
+              </>
+            )}
+
+            {view === 'silences' && (
+              <>
+                {silencesError && (
+                  <Card>
+                    <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
+                      <p className="text-wb-body font-semibold text-state-crit-on">Silences could not be loaded</p>
+                      <p className="mt-1 text-wb-label text-wb-ink2">{silencesError}</p>
+                    </div>
+                  </Card>
+                )}
+                <SilencesPanel silences={silences} onRefresh={refreshSilences} />
               </>
             )}
 

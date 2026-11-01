@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-XO-003 — Unified Intelligence Consumption Layer.
 
 WP2 ORI surfacing · WP3 Knowledge surfacing · WP1 composer integration ·
@@ -9,17 +10,18 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib import daily_brief  # noqa: E402
-from lib.intel import ori, knowledge  # noqa: E402
-from lib.human_systems import framework, decision, safety  # noqa: E402
-from lib.human_systems.mission_load import MissionLoad, Priority  # noqa: E402
-import commands.brief as brief  # noqa: E402
+from commands import brief
+from lib import daily_brief
+from lib.human_systems import decision, framework, safety
+from lib.human_systems.mission_load import MissionLoad, Priority
+from lib.intel import knowledge, ori
 
 GOOD = {"energy": "high", "mood": "positive", "nervous_system_state": "calm",
         "sleep_hours": 8, "sleep_quality": "good", "captain_capacity_rating": "Green"}
@@ -30,7 +32,7 @@ LOAD = MissionLoad(open_count=2, open_titles=["X"],
 # ── WP2 ORI ───────────────────────────────────────────────────────────────────
 
 class TestORI(unittest.TestCase):
-    BRIEF = {"overall_risk": "AMBER",
+    BRIEF: ClassVar[dict] = {"overall_risk": "AMBER",
              "top_events": [{"title": "Major cloud provider outage in APAC"}],
              "bottom_line": "Watch dependency on the affected provider this week.",
              "forward_watch": ["Regulator guidance expected"], "confidence": 0.7}

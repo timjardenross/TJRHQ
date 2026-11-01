@@ -26,6 +26,19 @@ type LessonRecord = {
 
 type TabId = 'decisions' | 'lessons' | 'architecture' | 'all';
 
+// Stream B (USS-TJR-MSN-0395): sessionStorage, not URL sync -- a search
+// query and which tab was open here is per-visit, not worth bookmarking or
+// sharing (unlike e.g. content-workbench's `tab`), and sidesteps Stream A's
+// router.replace() race entirely since it never touches the URL. Same
+// try/catch guard the advisory-workbench views already use for browser
+// storage access.
+const SS_QUERY = 'kw-memory-search-query';
+const SS_TAB = 'kw-memory-active-tab';
+
+function isTabId(v: string | null): v is TabId {
+  return v === 'decisions' || v === 'lessons' || v === 'architecture' || v === 'all';
+}
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -53,14 +66,37 @@ type AllRecord =
   | ({ _source: 'decision' } & DecisionRecord)
   | ({ _source: 'lesson' } & LessonRecord);
 
+function readSession(key: string): string | null {
+  try { return sessionStorage.getItem(key); } catch { return null; }
+}
+
+function writeSession(key: string, value: string) {
+  try { sessionStorage.setItem(key, value); } catch { /* ignore */ }
+}
+
 export function MemoryView() {
-  const [activeTab, setActiveTab] = useState<TabId>('all');
+  const [activeTab, setActiveTabState] = useState<TabId>('all');
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
   const [lessons, setLessons] = useState<LessonRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQueryState] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  const setActiveTab = (t: TabId) => { setActiveTabState(t); writeSession(SS_TAB, t); };
+  const setSearchQuery = (q: string) => { setSearchQueryState(q); writeSession(SS_QUERY, q); };
+
+  // Restored from sessionStorage on mount, not a useState lazy initializer --
+  // that ran on the server too (no sessionStorage there), producing a
+  // server/client hydration mismatch that silently lost the restored value
+  // (repo precedent: advisory-workbench's localStorage reads follow the same
+  // mount-effect shape, not a lazy initializer).
+  useEffect(() => {
+    const savedTab = readSession(SS_TAB);
+    if (isTabId(savedTab)) setActiveTabState(savedTab);
+    const savedQuery = readSession(SS_QUERY);
+    if (savedQuery) { setSearchQueryState(savedQuery); setDebouncedQuery(savedQuery); }
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery), 200);
@@ -125,7 +161,7 @@ export function MemoryView() {
           placeholder="Search records…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-lg border border-wb-line bg-transparent px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus:border-wb-ink focus:outline-none"
+          className="w-full rounded-lg border border-wb-line bg-transparent px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         />
         <p className="text-xs text-wb-ink2">
           {loading ? 'Loading…' : loadError ? 'Records unavailable' : `${totalRecords} records`}
@@ -168,16 +204,16 @@ export function MemoryView() {
                   <Card key={r.id} className="border-wb-line bg-wb-bg/30 p-3 flex flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-sm font-serif text-wb-ink">{r.decision_title}</span>
-                      <span className="text-[11px] text-wb-ink2 shrink-0">{relativeTime(r.created_at)}</span>
+                      <span className="text-wb-label text-wb-ink2 shrink-0">{relativeTime(r.created_at)}</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
                       {r.route && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           {r.route}
                         </span>
                       )}
                       {r.source && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           {r.source}
                         </span>
                       )}
@@ -201,16 +237,16 @@ export function MemoryView() {
                   <Card key={r.id} className="border-wb-line bg-wb-bg/30 p-3 flex flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-sm font-serif text-wb-ink">{r.title}</span>
-                      <span className="text-[11px] text-wb-ink2 shrink-0">{relativeTime(r.created_at)}</span>
+                      <span className="text-wb-label text-wb-ink2 shrink-0">{relativeTime(r.created_at)}</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
                       {r.source && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           {r.source}
                         </span>
                       )}
                       {r.mission_id && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           {r.mission_id}
                         </span>
                       )}
@@ -240,19 +276,19 @@ export function MemoryView() {
                       <Card key={`d-${rec.id}`} className="border-wb-line bg-wb-bg/30 p-3 flex flex-col gap-1">
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-serif text-wb-ink">{rec.decision_title}</span>
-                          <span className="text-[11px] text-wb-ink2 shrink-0">{relativeTime(rec.created_at)}</span>
+                          <span className="text-wb-label text-wb-ink2 shrink-0">{relativeTime(rec.created_at)}</span>
                         </div>
                         <div className="flex gap-1.5 flex-wrap">
-                          <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                          <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                             Decision
                           </span>
                           {rec.route && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                            <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                               {rec.route}
                             </span>
                           )}
                           {rec.source && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                            <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                               {rec.source}
                             </span>
                           )}
@@ -269,19 +305,19 @@ export function MemoryView() {
                     <Card key={`l-${rec.id}`} className="border-wb-line bg-wb-bg/30 p-3 flex flex-col gap-1">
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-sm font-serif text-wb-ink">{rec.title}</span>
-                        <span className="text-[11px] text-wb-ink2 shrink-0">{relativeTime(rec.created_at)}</span>
+                        <span className="text-wb-label text-wb-ink2 shrink-0">{relativeTime(rec.created_at)}</span>
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           Lesson
                         </span>
                         {rec.source && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                          <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                             {rec.source}
                           </span>
                         )}
                         {rec.mission_id && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                          <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                             {rec.mission_id}
                           </span>
                         )}

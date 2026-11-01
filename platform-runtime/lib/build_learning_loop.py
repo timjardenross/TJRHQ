@@ -8,25 +8,62 @@ that downstream learning-loop consumers can query and understand.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from uuid import uuid4
+import os
+import threading
+from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
-from tools.supabase.client import CommanderSupabaseClient, log_commander_event, log_decision, log_memory_event
 from lib.feedback_loops_service import FeedbackLoops
 from lib.quality_scoring_service import QualityScoring
 
+from tools.supabase.client import (
+    CommanderSupabaseClient,
+    log_commander_event,
+    log_decision,
+    log_memory_event,
+)
+
 log = logging.getLogger(__name__)
+
+# GAP 1 follow-up (2026-09-12): QualityScoring.score_output() (deepeval's
+# HallucinationMetric, now judge-model-backed via core/model-router — see
+# quality_scoring_service.py's _ModelRouterJudge) had zero callers anywhere
+# in the platform. This wires the first one, deliberately shadow-mode only
+# (compute + log, never persisted, never gates anything) — same convention
+# as intelligence/scheduler.py's enrich_and_save(..., shadow_mode=True).
+# Default OFF: a real LLM judge call can take up to ~300s (escalate's own
+# timeout), which is not acceptable inline latency for every mission build
+# event by default — this is for a monitored opt-in observation window, run
+# in a background thread so it can never slow down or block the actual
+# decision/outcome write path above it.
+_SHADOW_SCORE_OUTPUT_ENABLED = os.environ.get("QUALITY_SCORE_OUTPUT_SHADOW_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _shadow_score_output(mission_title: str, event_type: str, memory_text: str, notes: str | None) -> None:
+    """Fire-and-log: compute a deepeval hallucination-based quality score for
+    the synthesized outcome narrative against whatever grounding text
+    (mission title, notes) is available, and log it. Never raises into the
+    caller, never persisted — see module docstring above."""
+    try:
+        shadow_score = QualityScoring().score_output(
+            prompt=f"Mission: {mission_title}\nEvent: {event_type}",
+            response=memory_text,
+            context=[notes] if notes else None,
+        )
+        log.info("[build-learning-loop] shadow score_output (observational, not persisted): %s", shadow_score)
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (shadow score_output failed (non-blocking))
+        log.warning("[build-learning-loop] shadow score_output failed (non-blocking): %s", exc)
 
 
 def generate_build_decision_id() -> str:
     """Generate a canonical decision id for build handoff lifecycle events."""
-    return f"DEC-REC-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
+    return f"DEC-REC-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 def generate_build_outcome_id() -> str:
     """Generate a canonical outcome id for build handoff lifecycle events."""
-    return f"OUT-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
+    return f"OUT-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 def record_build_lifecycle_event(
@@ -49,7 +86,7 @@ def record_build_lifecycle_event(
     user_id: str | None = None,
 ) -> None:
     """Emit a structured lifecycle record for the build/learning loop."""
-    captured_at = datetime.utcnow().isoformat()
+    captured_at = datetime.now(timezone.utc).isoformat()
     payload: dict[str, Any] = {
         "source": "slack-build",
         "channel_id": channel_id,
@@ -93,7 +130,7 @@ def record_build_lifecycle_event(
 
     try:
         log_commander_event(payload | {"message_text": memory_text})
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (commander_event write failed)
         log.warning("[build-learning-loop] commander_event write failed: %s", exc)
 
     try:
@@ -110,7 +147,7 @@ def record_build_lifecycle_event(
                 "metadata": payload["metadata"],
             }
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (commander_decision write failed)
         log.warning("[build-learning-loop] commander_decision write failed: %s", exc)
 
     try:
@@ -127,7 +164,7 @@ def record_build_lifecycle_event(
                 "metadata": payload["metadata"],
             }
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (commander_memory write failed)
         log.warning("[build-learning-loop] commander_memory write failed: %s", exc)
 
     try:
@@ -159,8 +196,8 @@ def record_build_lifecycle_event(
             try:
                 from core.platform.heartbeat import record_heartbeat
                 record_heartbeat("decisions", status="ok", detail=f"source=build-learning-loop event_type={event_type}")
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+                log.debug("[lib.build_learning_loop] best-effort step failed, continuing: %s", _exc)
         else:
             log.warning("[build-learning-loop] decision_records write failed: %s", dr_result.error)
 
@@ -221,7 +258,7 @@ def record_build_lifecycle_event(
                 "mission_id": source_record,
                 "outcome_status": decision_outcomes_status,
                 "outcome_notes": notes or memory_text,
-                "evaluation_date": datetime.utcnow().isoformat(),
+                "evaluation_date": datetime.now(timezone.utc).isoformat(),
                 "evaluator": user_id or approver_user_id or "unknown",
             }
             outcome_result = client.insert("decision_outcomes", outcome_payload, returning=True)
@@ -242,9 +279,16 @@ def record_build_lifecycle_event(
                             provider_route="/build",
                             feedback_loops=feedback_loops,
                         )
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (scoring/feedback skipped)
                         log.warning("[build-learning-loop] scoring/feedback skipped: %s", exc)
+
+                    if _SHADOW_SCORE_OUTPUT_ENABLED:
+                        threading.Thread(
+                            target=_shadow_score_output,
+                            args=(mission_title, event_type, memory_text, notes),
+                            daemon=True,
+                        ).start()
             else:
                 log.warning("[build-learning-loop] decision_outcomes write failed: %s", outcome_result.error)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (decision/outcome chain write failed)
         log.warning("[build-learning-loop] decision/outcome chain write failed: %s", exc)

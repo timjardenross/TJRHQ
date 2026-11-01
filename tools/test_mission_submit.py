@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0178 — Tests for /mission_submit Telegram command.
 
 Seven tests covering:
@@ -17,7 +18,6 @@ import sys
 import types
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
-
 
 # ── Dependency stubs (must precede bot import) ────────────────────────────────
 
@@ -106,6 +106,7 @@ for _name, _attrs in _tb_modules.items():
 # ── Load bot module ───────────────────────────────────────────────────────────
 
 import importlib.util
+
 _spec = importlib.util.spec_from_file_location(
     "xo_app",
     os.path.join(os.path.dirname(__file__), "..", "telegram-bots", "xo", "app.py"),

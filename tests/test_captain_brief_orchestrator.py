@@ -36,3 +36,66 @@ def test_interrupt_now_field_empty_for_non_interrupt_event():
 def test_interrupt_now_field_matches_metadata_count_on_full_corpus():
     doc = assemble_captain_brief_document(FULL_MULTI_DOMAIN_CORPUS)
     assert len(doc.interrupt_now) == doc.metadata["attention_category_counts"]["interrupt_now"]
+
+
+def test_already_acknowledged_event_defaults_out_of_interrupt_now():
+    """Phase 4 (attention-semantics rework, consolidation mission §7):
+    `assemble_captain_brief_document()` defaults `recent_surfaced` to the
+    polled batch itself, so an event whose own `core_events.status` is
+    already acknowledged/dismissed/superseded stops showing up as a fresh
+    INTERRUPT_NOW on the very next call — the "recurring event
+    re-interrupts every cycle" gap `poll_events()`'s lack of a `since`
+    cursor otherwise causes."""
+    already_seen = dict(INTERRUPT_NOW_EVENT, status="acknowledged")
+    doc = assemble_captain_brief_document([already_seen])
+    assert doc.interrupt_now == []
+
+
+def test_recent_surfaced_can_be_opted_out_of_explicitly():
+    already_seen = dict(INTERRUPT_NOW_EVENT, status="acknowledged")
+    doc = assemble_captain_brief_document([already_seen], recent_surfaced=[])
+    assert len(doc.interrupt_now) == 1
+
+
+def test_unscored_aggregated_events_never_become_warnings():
+    """Regression for the priority_engine.py fabricated-0.0-risk bug.
+
+    `intelligence_store.py::save_source_health()` publishes
+    `intelligence.source.failed` with no importance/confidence at all
+    (`_publish_core_event(..., description=health.error_message)`).
+    A single such event is SHOULD_SIMPLY_BE_REMEMBERED (importance is
+    None) and never reaches `warnings`/domain sections — but 3+ sharing
+    (domain, event_type) in one batch get promoted to SHOULD_BE_AGGREGATED
+    by `evaluate_batch()`'s own grouping rule, which DOES surface them.
+    Before the fix, `_risk_from_importance_confidence` defaulted both
+    absent inputs to 0, producing a fabricated risk_score of 0.0 — safe
+    only because nobody ever compared it against a "not scored" state.
+    After the fix, risk_score is None, and `score.risk_score >=
+    _WARNING_RISK_THRESHOLD` must not raise (`None >= float`) and must
+    not count these as warnings either — unscored is its own state, not a
+    green light."""
+    unscored_failures = [
+        {
+            "event_id": f"evt-unscored-fail-{i}",
+            "event_type": "intelligence.source.failed",
+            "domain": "operational-resilience-intelligence",
+            "source": "intelligence_store",
+            "description": "scraper timed out",
+            "status": "new",
+        }
+        for i in range(1, 4)
+    ]
+
+    doc = assemble_captain_brief_document(unscored_failures)
+
+    surfaced_ids = {
+        item.event_id
+        for item in doc.priorities + doc.operational_intelligence + doc.interrupt_now
+    }
+    assert {e["event_id"] for e in unscored_failures} <= surfaced_ids
+
+    for item in doc.priorities:
+        if item.event_id in {e["event_id"] for e in unscored_failures}:
+            assert item.risk_score is None
+
+    assert doc.warnings == []

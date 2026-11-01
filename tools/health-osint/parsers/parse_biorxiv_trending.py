@@ -103,7 +103,6 @@ signal_type as fixed for this source.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 # Section-3 subcode <- keyword match over title + abstract + category,
 # checked in this order (first match wins). Same technique/discipline as

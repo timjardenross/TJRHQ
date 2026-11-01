@@ -52,6 +52,11 @@ export interface CommandStatusInputs {
   interruptNow: number | null;
   emergencyCount: number;
   emergencyWorstTier: 'emergency_warning' | 'watch_and_act' | null;
+  /** HQ V1 Integration QA §24: 'stale' means the last successful Emergency
+   *  Alert Hub collection cycle is older than the Hub's own staleness
+   *  threshold — surfaced so "Stable" is never confused with "we stopped
+   *  checking a while ago." */
+  emergencyFreshness: 'fresh' | 'stale';
   /** Canonical HQ Status posture (hqStatusInterpreter.ts), not a raw job
    *  count — see module header. */
   hqPosture: HQPosture;
@@ -126,12 +131,17 @@ function environmentLineFor(inputs: CommandStatusInputs): string {
   if ((inputs.interruptNow ?? 0) > 0) parts.push(`${inputs.interruptNow} item${inputs.interruptNow === 1 ? '' : 's'} flagged to interrupt now`);
   if (inputs.hqPosture === 'attention') parts.push(inputs.hqSummary ?? 'HQ needs your attention');
 
+  const staleCaveat = inputs.emergencyFreshness === 'stale'
+    ? ' Emergency alert check is overdue — may not reflect the latest alerts.'
+    : '';
+
   if (parts.length === 0) {
-    return inputs.hqUnavailable || inputs.hqPosture === 'unknown' || inputs.operationalRiskUnknown
+    const base = inputs.hqUnavailable || inputs.hqPosture === 'unknown' || inputs.operationalRiskUnknown
       ? 'Mostly stable — some sources unavailable, see Situation for detail.'
       : 'Stable — no emergency alerts, no elevated risk, systems nominal.';
+    return base + staleCaveat;
   }
-  return `Not clear: ${parts.join('; ')}.`;
+  return `Not clear: ${parts.join('; ')}.${staleCaveat}`;
 }
 
 /** The one sentence the redesign hinges on. Deterministic 2x2 matrix over
@@ -207,6 +217,15 @@ export interface NeedsYouItem {
   detail: string;
   href: string;
   actionLabel: string;
+  /** Mission 7 deferred-register item 2 (closed): a second, optional path
+   * straight into Ready Room's Unstick Me decompose flow for this same
+   * task — only set for personal-task execution items. Lets the Captain
+   * choose "Help me start" right from the Needs You item itself instead of
+   * needing the ambient widget or a manual Ready Room mode switch. Not a
+   * new classification of "which tasks are stuck" (no such signal exists
+   * upstream, and mission §4 rules out building one) — every personal-task
+   * item gets both options; the Captain picks. */
+  helpMeStartHref?: string;
 }
 
 export function sortNeedsYou(items: NeedsYouItem[]): NeedsYouItem[] {

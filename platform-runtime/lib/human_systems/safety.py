@@ -19,7 +19,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-
 # ── Red-flag escalation (doctrine §3) ─────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -182,8 +181,8 @@ def escalation_banner(hits: list[RedFlagHit]) -> str | None:
         lines.append(f"• {hit.escalation}")
     lines += [
         "",
-        "_This is a prompt to involve a real clinician — not a diagnosis. "
-        "You remain the decision-maker._",
+        ("_This is a prompt to involve a real clinician — not a diagnosis. "
+        "You remain the decision-maker._"),
     ]
     return "\n".join(lines)
 

@@ -36,7 +36,7 @@ def _env(**kv):
                 os.environ[k] = v
 
 
-_KEY_VARS = dict(KIMI_API_KEY=None, QWEN_API_KEY=None, OLLAMA_API_KEY=None, GLM_API_KEY=None)
+_KEY_VARS = {"KIMI_API_KEY": None, "QWEN_API_KEY": None, "OLLAMA_API_KEY": None, "GLM_API_KEY": None}
 
 
 def test_backend_enum_has_kimi_and_qwen():

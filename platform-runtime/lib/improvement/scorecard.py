@@ -34,11 +34,10 @@ Public API:
 
 from __future__ import annotations
 
-import json
 import logging
 import sys
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -170,7 +169,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.debug("[improvement.scorecard] Supabase unavailable: %s", exc)
         return None
 
@@ -180,7 +179,7 @@ def _log_decision(statement: str, rationale: str, owner: str) -> bool:
         sys.path.insert(0, str(_BOT))
         from command_memory_integration import log_decision_to_command_memory
         return bool(log_decision_to_command_memory(statement=statement, rationale=rationale, owner=owner))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decision log to Command Memory, already logged
         log.warning("[improvement.scorecard] Decision log failed: %s", exc)
         return False
 
@@ -280,7 +279,7 @@ def complete_scorecard(
         should_expand=should_expand,
         should_reverse=should_reverse,
         metrics=metrics or ImprovementMetrics(),
-        validated_at=datetime.utcnow(),
+        validated_at=datetime.now(timezone.utc),
     )
 
     success = _log_decision(
@@ -310,7 +309,7 @@ def get_scorecard(mission_id: str) -> ImprovementScorecard | None:
         return None
 
     try:
-        res = c.raw_client.table("decisions").select(
+        res = c.raw_client.table("command_memory_records").select(
             "statement,rationale,created_at"
         ).like("owner", f"{_OWNER_PREFIX}{mission_id}").execute()
 
@@ -327,7 +326,7 @@ def get_scorecard(mission_id: str) -> ImprovementScorecard | None:
         scorecard = _parse_rationale(mission_id, created_row["rationale"])
         scorecard.created_at = datetime.fromisoformat(
             created_row["created_at"].rstrip("Z")
-        ) if created_row.get("created_at") else datetime.utcnow()
+        ) if created_row.get("created_at") else datetime.now(timezone.utc)
 
         if completed_row:
             completed = _parse_rationale(mission_id, completed_row["rationale"])
@@ -346,7 +345,7 @@ def get_scorecard(mission_id: str) -> ImprovementScorecard | None:
                 )
 
         return scorecard
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort scorecard retrieval, already logged
         log.warning("[improvement.scorecard] Retrieval failed for %s: %s", mission_id, exc)
         return None
 
@@ -396,14 +395,14 @@ def get_outcomes_report(limit: int = 20) -> list[dict[str, Any]]:
     if c is None:
         return []
     try:
-        res = c.raw_client.table("decisions").select(
+        res = c.raw_client.table("command_memory_records").select(
             "statement,rationale,owner,created_at"
         ).like("statement", f"{_COMPLETED_PREFIX}%").order(
             "created_at", desc=True
         ).limit(limit).execute()
 
         return list(res.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort outcomes report fetch, already logged
         log.warning("[improvement.scorecard] Outcomes report failed: %s", exc)
         return []
 
@@ -440,12 +439,12 @@ def format_scorecard_summary(scorecard: ImprovementScorecard) -> str:
 
 
 __all__ = [
-    "ValidationOutcome",
     "ImprovementMetrics",
     "ImprovementScorecard",
-    "create_scorecard",
+    "ValidationOutcome",
     "complete_scorecard",
-    "get_scorecard",
-    "get_outcomes_report",
+    "create_scorecard",
     "format_scorecard_summary",
+    "get_outcomes_report",
+    "get_scorecard",
 ]

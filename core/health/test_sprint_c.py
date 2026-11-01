@@ -288,8 +288,9 @@ class TestNarrativeIntelligence(unittest.TestCase):
 
     @patch("narrative_intelligence.HealthLLMProvider")
     def test_uses_llm_when_available(self, mock_cls):
-        from narrative_intelligence import extract_narrative_intelligence
         import json
+
+        from narrative_intelligence import extract_narrative_intelligence
         mock_instance = MagicMock()
         mock_instance.generate.return_value = (
             json.dumps({
@@ -298,6 +299,9 @@ class TestNarrativeIntelligence(unittest.TestCase):
                 "concerns": [],
                 "positive_improvements": ["progress"],
                 "summary": "Test summary",
+                "pain_trigger_patterns": [],
+                "pain_reliever_patterns": [],
+                "effective_coping_strategies": [],
             }),
             "gemini-2.5-flash",
         )

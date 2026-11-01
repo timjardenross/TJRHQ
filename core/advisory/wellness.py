@@ -30,7 +30,7 @@ _HEALTH_SUMMARY = _REPO_ROOT / "memory" / "Health-Summary.md"
 
 def _adapter():
     try:
-        import health_context_adapter as h  # noqa: PLC0415
+        import health_context_adapter as h
         return h
     except Exception:  # noqa: BLE001
         return None

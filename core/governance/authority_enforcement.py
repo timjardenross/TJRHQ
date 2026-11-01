@@ -31,14 +31,15 @@ from __future__ import annotations
 import functools
 import logging
 import os
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Callable
+from typing import Any
 
 from core.governance.authority_validator import (
+    AuthorityError,
+    audit_authority_action,
     can_officer,
     requires_approval,
-    audit_authority_action,
-    AuthorityError,
 )
 
 log = logging.getLogger(__name__)
@@ -207,6 +208,6 @@ def AuthorityContext(
 
 
 __all__ = [
-    "enforce_authority",
     "AuthorityContext",
+    "enforce_authority",
 ]

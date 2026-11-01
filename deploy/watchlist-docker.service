@@ -1,0 +1,31 @@
+[Unit]
+# USS-TJR-MSN-0366 Stream 6 — brings up the two third-party OSS containers
+# behind intelligence/watchlist/'s execution engine: changedetection.io
+# (persistent diff-watching) and Uptime Kuma (first-party direct probe).
+# See deploy/docker-compose.watchlist.yml for the full service definitions
+# and the TLS/egress-gateway notes, and
+# knowledge/missions/CHANGEDETECTION-UPTIME-KUMA-20260912-knowledge-record.md
+# for what this was verified against.
+#
+# Both containers are single-process, SQLite-backed, and durable across
+# restarts via bind-mounted volumes (deploy/watchlist-data/) — this unit
+# only needs to run `docker compose up`/`down` once per boot/shutdown, not
+# supervise a foreground process, hence Type=oneshot + RemainAfterExit.
+Description=USS TJR Watchlist — changedetection.io + Uptime Kuma (Docker Compose)
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/starship-endeavour/deploy
+ExecStart=/usr/bin/docker compose -f docker-compose.watchlist.yml up -d
+ExecStop=/usr/bin/docker compose -f docker-compose.watchlist.yml down
+TimeoutStartSec=120
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=watchlist-docker
+
+[Install]
+WantedBy=multi-user.target

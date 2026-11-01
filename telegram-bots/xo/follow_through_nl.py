@@ -14,7 +14,7 @@ Two entry points:
 from __future__ import annotations
 
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 # ── Capture intent ────────────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ def _next_weekday(from_date: date, weekday_name: str, allow_today: bool = False)
 
 def _extract_due_date(text: str, today: date | None = None) -> str | None:
     """Match date phrases in priority order, return ISO date string or None."""
-    today = today or date.today()
+    today = today or datetime.now(timezone.utc).date()
     lower = text.lower()
 
     if re.search(r"\btomorrow\b", lower):

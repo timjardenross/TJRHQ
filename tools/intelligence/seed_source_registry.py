@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 WP-ORI-2: Source Registry Seed Script (CANONICAL — 160 sources)
 Generated from tools/intelligence/sources_live.csv
@@ -18,8 +19,8 @@ The registry is treated as a governed platform capability.
 import argparse
 import json
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
 
 # ── Bootstrap .env ─────────────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ except ImportError:
     pass
 
 import os
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
@@ -1002,11 +1004,11 @@ SOURCES = [
         "url":                "https://www.nema.gov.au/",
         "rss_url":            None,
         "api_endpoint":       None,
-        "source_type":        "scrape",
+        "source_type":        "browser",
         "jurisdiction":       "AU",
         "confidence_weight":  0.82,
         "active":             False,
-        "notes":              "No RSS feed. Site timed out on all fetch attempts. Requires headless browser. Activate when scrape adapter built.",
+        "notes":              "No RSS feed. source_type set to browser (browser_adapter.py built 2026-09-12) but left inactive: nema.gov.au is unreachable from this VM entirely (curl also times out, not just plain fetch -- ERR_HTTP2_PROTOCOL_ERROR / connection timeout confirmed via direct headless Chrome test too). Likely a network/IP-block issue specific to this host, not fixable by a better fetch method -- adapter itself proven end-to-end against a different, reachable JS-rendered site (quotes.toscrape.com/js/). Re-check NEMA reachability before flipping active=True.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -1631,7 +1633,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.85,
         "active":             True,
-        "notes":              "MIT open access RSS. Covers management, leadership, AI strategy. Signal discovery only — title/summary/url.",
+        "notes":              "MIT open access RSS. Covers management, leadership, AI strategy. Signal discovery only — title/summary/url. Also covers leadership, organisational performance, and human capability — rigorous and practitioner-focused (merged from a duplicate entry found under USS-TJR-MSN-0368's watchlist activation — the same source_name/url/source_type had been added twice, under 'thought_leadership' and 'wellness' respectively, which broke seed_source_registry.py's batch upsert for all 163 sources, not just these two; see _upsert()'s dedupe guard below).",
         "content_expectation": "continuous",
         "useful_life_days": 365,
         "terms_reviewed": True,
@@ -1733,7 +1735,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.80,
         "active":             True,
-        "notes":              "SSIR public RSS. Open-access journal. Sustainable performance, human-centred leadership.",
+        "notes":              "SSIR public RSS. Open-access journal. Sustainable performance, human-centred leadership. Also covers evidence-based research on human potential, wellbeing at scale, and purposeful high-impact leadership (merged from a duplicate entry, same root cause as the MIT Sloan Management Review merge above — see USS-TJR-MSN-0368's watchlist activation notes there).",
         "content_expectation": "continuous",
         "useful_life_days": 180,
         "terms_reviewed": True,
@@ -1935,23 +1937,9 @@ SOURCES = [
         "terms_reviewed": True,
         "content_source": True,
     },
-    {
-        "source_name":        "MIT Sloan Management Review",
-        "category":           "wellness",
-        "priority_rank":      56,
-        "url":                "https://sloanreview.mit.edu",
-        "rss_url":            "https://sloanreview.mit.edu/feed/",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.85,
-        "active":             True,
-        "notes":              "Leadership, organisational performance, and human capability — rigorous and practitioner-focused",
-        "content_expectation": "continuous",
-        "useful_life_days": 28,
-        "terms_reviewed": True,
-        "content_source": True,
-    },
+    # Duplicate "MIT Sloan Management Review" entry (same source_name/url/
+    # source_type, category="wellness") removed here -- merged into the
+    # surviving "thought_leadership" entry above. See that entry's notes.
     {
         "source_name":        "Positive Psychology",
         "category":           "wellness",
@@ -2105,23 +2093,10 @@ SOURCES = [
         "terms_reviewed": True,
         "content_source": True,
     },
-    {
-        "source_name":        "Stanford Social Innovation Review",
-        "category":           "wellness",
-        "priority_rank":      73,
-        "url":                "https://ssir.org",
-        "rss_url":            "https://ssir.org/site/rss_2.0",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.78,
-        "active":             True,
-        "notes":              "Evidence-based research on human potential, wellbeing at scale, and purposeful high-impact leadership",
-        "content_expectation": "continuous",
-        "useful_life_days": 28,
-        "terms_reviewed": True,
-        "content_source": True,
-    },
+    # Duplicate "Stanford Social Innovation Review" entry (same
+    # source_name/url/source_type, category="wellness") removed here --
+    # merged into the surviving "thought_leadership" entry above. See that
+    # entry's notes.
     {
         "source_name":        "Cambridge Wellbeing Institute",
         "category":           "wellness",
@@ -2620,6 +2595,141 @@ SOURCES = [
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
+    {
+        "source_name":        "ACCC (changedetection.io watchlist)",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.accc.gov.au",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "changedetection",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. Real regulator target (the sandbox's own candidates -- accc.gov.au, apra.gov.au, asic.gov.au, cyber.gov.au -- were all rejected by that environment's egress allowlist; confirmed reachable for real from this production host, 2026-09-12). cyber.gov.au dropped from this activation after repeated real connection timeouts (WAF/bot-block, confirmed via browser UA and forced HTTP/1.1, not a transient blip). Persistent diff-watch via the real, self-hosted changedetection.io container (deploy/docker-compose.watchlist.yml, host port 5050 -- remapped from the container's default 5000, which collides with this VM's live Command Centre backend). collect() drains intelligence/watchlist/webhook_queue.py, populated by intelligence/watchlist/changedetection_webhook.py from changedetection.io's own real Apprise json:// webhook notification, wired per-watch to http://host.docker.internal:8765/webhook/changedetection. Also required migration 0201 -- source_type 'changedetection' was rejected by the live intelligence_source_registry_source_type_check constraint until then.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "APRA (changedetection.io watchlist)",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.apra.gov.au",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "changedetection",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. See the ACCC changedetection source (same batch) for the full activation context -- same container, same webhook wiring, same reason this specific set of 3 AU regulator pages was chosen over the sandbox's pypi.org proof-of-concept.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "ASIC (changedetection.io watchlist)",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://asic.gov.au",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "changedetection",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. See the ACCC changedetection source (same batch) for the full activation context.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "Supabase Status (Uptime Kuma direct probe)",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://status.supabase.com",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "uptime_kuma",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. Vendor-status target chosen because this platform's own Supabase project is a real operational dependency -- an outage here directly affects this codebase, unlike the sandbox's pypi.org proof-of-concept which had no such operational tie. First-party direct up/down probe via the real, self-hosted Uptime Kuma container (deploy/docker-compose.watchlist.yml, host port 3001). Live-verified 2026-09-12: real 200-OK beats confirmed via get_monitor_beats() after explicit resume_monitor() (a fresh monitor's active=true alone did not start it ticking, matching the sandbox's own finding). collect() drains intelligence/watchlist/webhook_queue.py, populated by intelligence/watchlist/uptime_kuma_webhook.py from Uptime Kuma's own real Webhook notification, wired to http://host.docker.internal:8766/webhook/uptime-kuma and applied to every monitor in this batch. Also required migration 0201 -- source_type 'uptime_kuma' was rejected by the live intelligence_source_registry_source_type_check constraint until then.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "OpenAI Status (Uptime Kuma direct probe)",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://status.openai.com",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "uptime_kuma",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. See the Supabase Status Uptime Kuma source (same batch) for the full activation context -- chosen because this platform's Model Router escalates to LLM calls that ultimately depend on providers like this.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "GitHub Status (Uptime Kuma direct probe)",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://www.githubstatus.com",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "uptime_kuma",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. See the Supabase Status Uptime Kuma source (same batch) for the full activation context -- chosen because this platform's CI/CD and deploy flow run through GitHub.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "Cloudflare Status (Uptime Kuma direct probe)",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://www.cloudflarestatus.com",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "uptime_kuma",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. See the Supabase Status Uptime Kuma source (same batch) for the full activation context.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "Vercel Status (Uptime Kuma direct probe)",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://www.vercel-status.com",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "uptime_kuma",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. See the Supabase Status Uptime Kuma source (same batch) for the full activation context -- chosen because lcars-portal is Vercel-hosted.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "AWS Status (Uptime Kuma direct probe)",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://status.aws.amazon.com",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "uptime_kuma",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "USS-TJR-MSN-0368 activation of USS-TJR-MSN-0366 Stream 6's watchlist execution engine. See the Supabase Status Uptime Kuma source (same batch) for the full activation context.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
 ]
 
 # ─── Seed logic ───────────────────────────────────────────────────────────────
@@ -2638,7 +2748,7 @@ def _fetch_existing_ids() -> dict:
     url = f"{SUPABASE_URL}/rest/v1/intelligence_source_registry?select=source_id,source_name"
     req = urllib.request.Request(url, headers=_headers())
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, not user input - reviewed 2026-09-12
             rows = json.loads(resp.read())
             # Keep only the first occurrence per name (oldest record)
             seen = {}
@@ -2646,7 +2756,8 @@ def _fetch_existing_ids() -> dict:
                 if r["source_name"] not in seen:
                     seen[r["source_name"]] = r["source_id"]
             return seen
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase lookup; caller treats {} as "no existing sources found"
+        print(f"  ⚠️  Could not fetch existing source registry: {exc}", file=sys.stderr)
         return {}
 
 
@@ -2663,8 +2774,27 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
 
     new_rows    = []
     update_rows = []
+    seen_names: set[str] = set()
     for row in rows:
         r = dict(row)
+        # 2026-09-12 fix (USS-TJR-MSN-0368 watchlist activation): two exact
+        # source_name/url/source_type duplicates in SOURCES (MIT Sloan
+        # Management Review, Stanford Social Innovation Review -- both
+        # merged above) mapped to the same existing source_id and landed in
+        # the same update_rows batch. PostgREST turns one batch into a
+        # single `INSERT ... ON CONFLICT (source_id) DO UPDATE` statement,
+        # and Postgres refuses to apply DO UPDATE to the same conflict
+        # target twice within one statement -- so that single duplicate
+        # failed the entire 163-row update batch, not just the 2 duplicate
+        # rows. Dedupe by source_name before batching so a third mission
+        # re-adding an existing feed degrades to a loud warning instead of
+        # silently failing every other source's update in the same run.
+        if r["source_name"] in seen_names:
+            print(f"  ⚠️  Duplicate source_name in SOURCES, dropping: {r['source_name']!r} "
+                  f"(url={r.get('url')!r}) -- would have broken the whole batch upsert",
+                  file=sys.stderr)
+            continue
+        seen_names.add(r["source_name"])
         # PostgREST batch POSTs require every object in the array to have the
         # same key set (PGRST102) — normalise optional fields not every SOURCES
         # entry sets explicitly.
@@ -2696,14 +2826,14 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
         body = json.dumps(batch).encode()
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, not user input - reviewed 2026-09-12
                 result = json.loads(resp.read())
                 return len(result) if isinstance(result, list) else 1, 0
         except urllib.error.HTTPError as exc:
             body_err = exc.read().decode()
             print(f"  ✗ Supabase HTTP {exc.code}: {body_err[:300]}", file=sys.stderr)
             return 0, len(batch)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-batch upsert inside a CLI seeding loop — already printed to stderr with the batch failure count returned to the caller
             print(f"  ✗ Error: {exc}", file=sys.stderr)
             return 0, len(batch)
 
@@ -2720,7 +2850,7 @@ def _delete_all() -> None:
     url = f"{SUPABASE_URL}/rest/v1/intelligence_source_registry?source_id=neq.00000000-0000-0000-0000-000000000000"
     headers = {**_headers(), "Prefer": "return=minimal"}
     req = urllib.request.Request(url, headers=headers, method="DELETE")
-    with urllib.request.urlopen(req, timeout=10):
+    with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var, not user input - reviewed 2026-09-12
         pass
 
 
@@ -2733,7 +2863,7 @@ def seed(dry_run: bool = False, wipe: bool = False) -> None:
     inactive = [s for s in SOURCES if not s["active"]]
     total    = len(SOURCES)
 
-    print(f"OR Intelligence — Source Registry Seed (CANONICAL)")
+    print("OR Intelligence — Source Registry Seed (CANONICAL)")
     print(f"  Total sources:   {total}")
     print(f"  Active:          {len(active)}")
     print(f"  Inactive:        {len(inactive)}")
@@ -2750,7 +2880,7 @@ def seed(dry_run: bool = False, wipe: bool = False) -> None:
         try:
             _delete_all()
             print("  Registry cleared")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort registry wipe with an explicit documented fallback (proceeds with upsert instead), already printed
             print(f"  ⚠️  Wipe failed (likely FK constraints): {e}", file=sys.stderr)
             print("  Proceeding with upsert instead (no data loss)")
 

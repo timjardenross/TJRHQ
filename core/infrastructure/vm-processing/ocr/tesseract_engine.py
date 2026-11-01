@@ -44,6 +44,7 @@ def run(pdf_path, dpi: int = 300, timeout_per_page: int = 120, language: str = "
                     proc = subprocess.run(
                         ["tesseract", str(img_path), "stdout", "-l", language],
                         capture_output=True, text=True, timeout=timeout_per_page,
+                        check=False,
                     )
                 except subprocess.TimeoutExpired as exc:
                     raise OCREngineError(f"tesseract timed out on page {i}") from exc

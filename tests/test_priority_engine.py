@@ -15,18 +15,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 
 from core.platform.priority_engine import (
-    PriorityWeights,
     PriorityInputs,
-    score_event,
+    PriorityWeights,
     rank_events,
+    score_event,
 )
 from tests.fixtures.synthetic_core_events import (
-    INTERRUPT_NOW_EVENT,
     CAN_BE_DELAYED_LOW_CONFIDENCE_EVENT,
     CAN_BE_DELAYED_MIDRANGE_EVENT,
+    INTERRUPT_NOW_EVENT,
     SUMMARISATION_PAIR,
-    SYNTHETIC_VALUE_DIMENSIONS,
     SYNTHETIC_OPPORTUNITY_VALUES,
+    SYNTHETIC_VALUE_DIMENSIONS,
 )
 
 
@@ -78,6 +78,40 @@ def test_missing_confidence_treated_as_maximally_uncertain():
     score = score_event(inputs)
     # confidence absent -> treated as 0 -> risk = (80/100)*(1-0)*100 = 80.0
     assert score.risk_score == pytest.approx(80.0, abs=0.01)
+
+
+def test_missing_both_importance_and_confidence_is_unscored_not_zero_risk():
+    """The regression this test guards: an event published with neither
+    importance nor confidence (e.g. intelligence_store.py's
+    `intelligence.source.failed`, which calls `_publish_core_event` with no
+    importance/confidence kwarg) must read as "never scored", not as a
+    fabricated 0.0 "genuinely low risk" — 0.0 is indistinguishable from a
+    real low-risk verdict to every downstream consumer (warnings threshold,
+    domain posture rollup), so it would silently look safe."""
+    inputs = PriorityInputs(event_id="evt-unscored", domain="d", event_type="t", importance=None, confidence=None)
+    score = score_event(inputs)
+    assert score.risk_score is None
+    # total_score must still be a real, comparable float — this dataclass's
+    # ranking job is unaffected by risk being unscored.
+    assert isinstance(score.total_score, float)
+
+
+def test_missing_both_importance_and_confidence_explanation_says_unscored():
+    inputs = PriorityInputs(event_id="evt-unscored", domain="d", event_type="t", importance=None, confidence=None)
+    score = score_event(inputs)
+    assert "risk=unscored" in score.explanation
+
+
+def test_missing_importance_only_still_scores_real_risk():
+    """Confidence-absent-with-importance-present keeps its pre-existing
+    "maximally uncertain" semantics (test_missing_confidence_treated_as_
+    maximally_uncertain above) — this proves the inverse pairing
+    (importance absent, confidence present) is scored too, not swept into
+    the both-absent unscored branch."""
+    inputs = PriorityInputs(event_id="evt-x", domain="d", event_type="t", importance=None, confidence=90)
+    score = score_event(inputs)
+    assert score.risk_score is not None
+    assert score.risk_score == pytest.approx(0.0, abs=0.01)
 
 
 def test_dominant_value_dimension_is_the_highest_scored_one():
@@ -137,8 +171,6 @@ def test_custom_weights_change_ranking_outcome():
     dataclass."""
     events = [CAN_BE_DELAYED_LOW_CONFIDENCE_EVENT, CAN_BE_DELAYED_MIDRANGE_EVENT]
     inputs_list = [_inputs_from_event(e) for e in events]
-
-    default_ranked = rank_events(inputs_list)
 
     # Weight entirely toward risk: the low-confidence/high-importance event
     # (evt-003, high risk) should now clearly outrank the mid-range one.

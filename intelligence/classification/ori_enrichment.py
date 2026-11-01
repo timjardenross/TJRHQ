@@ -17,7 +17,6 @@ on top by the caller and is never required for a correct result.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from intelligence.models import ClassifiedEvent
 
@@ -124,7 +123,7 @@ def map_themes(text: str, event_type: str) -> list[str]:
     return themes
 
 
-def map_regulatory_topic(text: str) -> Optional[str]:
+def map_regulatory_topic(text: str) -> str | None:
     t = text.lower()
     for topic, kws in _REG_TOPIC_RULES:
         if any(kw in t for kw in kws):
@@ -132,7 +131,7 @@ def map_regulatory_topic(text: str) -> Optional[str]:
     return None
 
 
-def extract_organisation(text: str) -> Optional[str]:
+def extract_organisation(text: str) -> str | None:
     for org in _KNOWN_ORGS:
         if org.lower() in text.lower():
             return org

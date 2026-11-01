@@ -9,11 +9,10 @@ Defines schemas for:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, date, time
+from datetime import date, datetime, time
 from enum import Enum
-from typing import Optional, Dict, Any, List
+from typing import Any
 from uuid import UUID
-
 
 # ──────────────────────────────────────────────────────────────────────────
 # Enums
@@ -97,9 +96,9 @@ class ExecutiveContext:
     executive_id: UUID
     context_type: ContextType
     key: str
-    value: Dict[str, Any]
+    value: dict[str, Any]
     source: ContextSource = ContextSource.MANUAL
-    confidence: Optional[float] = None  # 0-1 for learned/inferred
+    confidence: float | None = None  # 0-1 for learned/inferred
     updated_at: datetime = field(default_factory=datetime.now)
     created_at: datetime = field(default_factory=datetime.now)
 
@@ -111,19 +110,19 @@ class Commitment:
     executive_id: UUID
     commitment_type: CommitmentType
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     source: str = "manual"  # telegram, email, calendar, manual, slack
-    source_id: Optional[str] = None
+    source_id: str | None = None
     status: CommitmentStatus = CommitmentStatus.OPEN
-    due_date: Optional[date] = None
-    due_time: Optional[time] = None
-    reminded_at: Optional[datetime] = None
-    assigned_to: Optional[str] = None  # 'self' or specialist name
-    assigned_at: Optional[datetime] = None
-    priority: Optional[int] = None  # 1=highest, 5=lowest
-    context: Dict[str, Any] = field(default_factory=dict)
-    completed_at: Optional[datetime] = None
-    completion_notes: Optional[str] = None
+    due_date: date | None = None
+    due_time: time | None = None
+    reminded_at: datetime | None = None
+    assigned_to: str | None = None  # 'self' or specialist name
+    assigned_at: datetime | None = None
+    priority: int | None = None  # 1=highest, 5=lowest
+    context: dict[str, Any] = field(default_factory=dict)
+    completed_at: datetime | None = None
+    completion_notes: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -135,15 +134,15 @@ class SchedulingSuggestion:
     executive_id: UUID
     calendar_event_id: str
     event_title: str
-    current_time: Optional[datetime] = None
-    proposed_time: Optional[datetime] = None
+    current_time: datetime | None = None
+    proposed_time: datetime | None = None
     reason_for_change: str = ""
-    change_type: Optional[str] = None  # consolidation, conflict_resolution, focus_time_protection
-    confidence: Optional[float] = None  # 0-1
+    change_type: str | None = None  # consolidation, conflict_resolution, focus_time_protection
+    confidence: float | None = None  # 0-1
     status: str = "pending_approval"  # pending_approval, approved, rejected, applied
-    approval_reason: Optional[str] = None
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
+    approval_reason: str | None = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
     suggested_at: datetime = field(default_factory=datetime.now)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
@@ -157,12 +156,12 @@ class Alert:
     alert_type: AlertType
     severity: AlertSeverity
     title: str
-    description: Optional[str] = None
-    recommendation: Optional[str] = None
-    action_items: List[str] = field(default_factory=list)
+    description: str | None = None
+    recommendation: str | None = None
+    action_items: list[str] = field(default_factory=list)
     status: AlertStatus = AlertStatus.ACTIVE
-    acknowledged_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -174,14 +173,14 @@ class Brief:
     executive_id: UUID
     brief_type: BriefType
     title: str
-    subject_matter: Optional[str] = None
-    content: Dict[str, Any] = field(default_factory=dict)
-    sections: List[Dict[str, str]] = field(default_factory=list)
+    subject_matter: str | None = None
+    content: dict[str, Any] = field(default_factory=dict)
+    sections: list[dict[str, str]] = field(default_factory=list)
     generated_at: datetime = field(default_factory=datetime.now)
-    sent_at: Optional[datetime] = None
-    delivery_channel: Optional[str] = None  # telegram, email, dashboard
-    rating: Optional[int] = None  # 1-5
-    feedback: Optional[str] = None
+    sent_at: datetime | None = None
+    delivery_channel: str | None = None  # telegram, email, dashboard
+    rating: int | None = None  # 1-5
+    feedback: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -192,12 +191,12 @@ class SyncStatus:
     id: UUID
     executive_id: UUID
     integration_type: str  # google_calendar, gmail, telegram, slack, supabase
-    last_sync_at: Optional[datetime] = None
-    last_sync_status: Optional[str] = None  # success, failed, partial
-    last_sync_error: Optional[str] = None
-    sync_cursor: Optional[str] = None  # For incremental syncs
+    last_sync_at: datetime | None = None
+    last_sync_status: str | None = None  # success, failed, partial
+    last_sync_error: str | None = None
+    sync_cursor: str | None = None  # For incremental syncs
     enabled: bool = True
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -209,10 +208,10 @@ class SyncStatus:
 @dataclass
 class PriorityMatrix:
     """Eisenhower Matrix: Urgent/Important quadrants"""
-    critical: List[Commitment] = field(default_factory=list)   # Urgent + Important
-    strategic: List[Commitment] = field(default_factory=list)  # Not Urgent + Important
-    routine: List[Commitment] = field(default_factory=list)    # Urgent + Not Important
-    delegate: List[Commitment] = field(default_factory=list)   # Not Urgent + Not Important
+    critical: list[Commitment] = field(default_factory=list)   # Urgent + Important
+    strategic: list[Commitment] = field(default_factory=list)  # Not Urgent + Important
+    routine: list[Commitment] = field(default_factory=list)    # Urgent + Not Important
+    delegate: list[Commitment] = field(default_factory=list)   # Not Urgent + Not Important
 
 
 @dataclass
@@ -224,7 +223,7 @@ class PriorityAnalysis:
     strategic_count: int
     routine_count: int
     delegate_count: int
-    recommended_focus: List[str] = field(default_factory=list)
+    recommended_focus: list[str] = field(default_factory=list)
     workload_assessment: str = "balanced"  # balanced, overload, underutilized
 
 
@@ -238,7 +237,7 @@ class DelegationDecision:
     specialist: str  # Name of specialist or 'self'
     confidence: float  # 0-1
     rationale: str
-    alternative_specialists: List[tuple] = field(default_factory=list)  # [(name, confidence)]
+    alternative_specialists: list[tuple] = field(default_factory=list)  # [(name, confidence)]
     action_level: str = "handle"  # handle, propose, escalate
     urgency: str = "normal"  # low, normal, high
     complexity: str = "medium"  # simple, medium, complex

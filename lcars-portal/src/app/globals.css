@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -8,88 +7,110 @@
   color-scheme: light;
 }
 
-/* ── Adaptive themes (mission: Adaptive Themes + Home/Workbench Redesign,
-   2026-09-05) ────────────────────────────────────────────────────────────
-   5 selectable visual environments, all feeding the same `wb-*` Tailwind
-   tokens (tailwind.config.ts now reads these as var(--wb-*) instead of
-   literal hex) — structure/routes/workbench positions never change between
-   themes, only these values do. Selected via src/lib/theme.ts's
-   useTheme()/[data-theme] on <html>, set before hydration by the inline
-   script in layout.tsx to avoid a flash of the wrong theme.
-
-   Status colours (ok/warn/crit/-on, gold, navy, crit-deep) are
-   DELIBERATELY IDENTICAL across every theme — "colour should communicate
-   atmosphere, not status" (mission brief §2) — only background/surface/
-   text/accent/border shift per theme. All text/accent pairings below are
-   contrast-validated (see conversation) against both --wb-bg and
-   --wb-surface: text-primary >=11:1, text-secondary/sage-deep >=4.5:1
-   (AA body text), sage (fills/borders/large-text only, same two-tier
-   pattern the existing Archive palette already used for sage/sage-deep)
-   >=3:1.
-
-   --wb-surface-raised is new (existing bg-wb-surface call sites are
-   unaffected — they read --wb-surface, unchanged) — for new components
-   (Sidebar, ThemeSelector, WorkbenchCard) that want a second, brighter
-   surface tier on top of the base card surface. */
-:root,
-:root[data-theme='archive'] {
-  --wb-bg: #F5F1EA;
-  --wb-surface: #FCFBF8;
-  --wb-surface-raised: #FFFFFF;
-  --wb-line: #DDD8CF;
-  --wb-ink: #273248;
-  --wb-ink2: #657080;
-  --wb-sage: #176D70;
-  --wb-sage-deep: #125759;
+/* TJR family brand palette (brand identity Stage 0). Additive only: no
+   --wb-* value is derived from or changed by these. Each blue is
+   surface-specific (see public/brand/README.md); mapping into --wb-* belongs
+   to the separate light-default re-theme. */
+:root {
+  --brand-navy: #102B46;
+  --brand-slate: #416B8C;
+  --brand-sky: #76A9C8;
+  --brand-sand: #D7C5AE;
+  --brand-mist: #F5F7FA;
+  --brand-deep: #0B1E2E;
 }
 
-:root[data-theme='command'] {
-  --wb-bg: #F3F5F6;
+/* ── HQ visual system: light by default, dark navy chrome (design uplift
+   Stage A, 2026-10-18) ──────────────────────────────────────────────────
+   Supersedes the Endeavour 27 "one fixed dark default" (USS-TJR-MSN-0394)
+   by owner decision: the default surface is now light (brand family mist
+   and white), with dark navy chrome. Every `--wb-*` NAME is unchanged, so no
+   call site needed to change; only values moved.
+
+   Two token sets:
+   - :root (light, the default): mist page, white cards, navy ink, slate
+     interactive blue. Used by every page's reading and working surface.
+   - [data-wb-chrome='dark'] / [data-wb-mode='dark'] (dark navy): the sidebar
+     and the mobile bottom bar carry `data-wb-chrome="dark"`; a page may opt
+     its whole surface into dark with WorkbenchShell mode="dark" (no page
+     does today). `data-wb-mode='read'` keeps its reading typography (see
+     `.wb-mode-read` below) but no longer swaps colours: the default is
+     already light.
+
+   Blue family: the old saturated interactive blue (#3B82F6, 3.96:1 on dark
+   cards, below the 4.5:1 text minimum) is replaced by the brand slate on
+   light and sky on dark. `--wb-sage` is the text/link colour, `--wb-sage-deep`
+   the fill-with-white-text and pressed colour; both pass 4.5:1 as text on
+   their own set's bg and surface and white-on-fill passes 4.5:1.
+
+   Every pairing is contrast-computed in `src/__tests__/tokenContrast.test.ts`
+   (WCAG relative luminance, parsed from this file, so values cannot drift
+   unnoticed). `--wb-gold` stays fills/borders only (fails AA as text).
+
+   Supported text pairings (all guarded): ink, ink2, sage and sand-deep on
+   bg, surface and surface-raised in BOTH sets; sage-deep as text on the
+   light set only; the status `-on` text shades on their pills' tints in both
+   sets. Not a text colour, by design: `--wb-sage-deep` in the dark set
+   (fill-only on dark, with white text on top). Opacity modifiers on token
+   classes (`bg-wb-crit/10`) work (tailwind.config.ts `withAlpha`).
+   `--wb-ok/--wb-warn/--wb-crit` and state-* stay theme-invariant, with
+   mandatory bg/border-paired `-on` usage per `stateToneClasses()`
+   (lib/departments.ts). */
+:root {
+  --wb-bg: #F5F7FA;
   --wb-surface: #FFFFFF;
-  --wb-surface-raised: #FFFFFF;
-  --wb-line: #D9E0E3;
-  --wb-ink: #17263A;
-  --wb-ink2: #607080;
-  --wb-sage: #006C70;
-  --wb-sage-deep: #005154;
+  --wb-surface-raised: #EAEFF5;
+  --wb-line: #D3DCE6;
+  --wb-ink: #102B46;
+  --wb-ink2: #4A5F75;
+  /* Interactive blue: brand slate. `-deep` is the fill-with-white-text and
+     pressed shade. */
+  --wb-sage: #416B8C;
+  --wb-sage-deep: #35607F;
+  /* Sand warm accent: decorative fills and highlights only; `-deep` is the
+     text-safe shade. */
+  --wb-sand: #D7C5AE;
+  --wb-sand-deep: #7D5F37;
 }
 
-:root[data-theme='midnight'] {
+/* Dark navy set: sidebar and mobile bottom bar (data-wb-chrome) and an
+   optional whole-surface dark mode (data-wb-mode='dark'). */
+[data-wb-chrome='dark'],
+[data-wb-mode='dark'] {
   color-scheme: dark;
-  --wb-bg: #111820;
-  --wb-surface: #19232D;
-  --wb-surface-raised: #202C37;
-  --wb-line: #2C3A46;
-  --wb-ink: #E7EDF2;
-  --wb-ink2: #A4B2BE;
-  --wb-sage: #66B8BA;
-  --wb-sage-deep: #66B8BA;
+  /* Text inside a dark scope must not inherit the page's (light-set) ink. */
+  color: var(--wb-ink);
+  --wb-bg: #0B1E2E;
+  --wb-surface: #102B46;
+  --wb-surface-raised: #1B3A5C;
+  --wb-line: #2B4A68;
+  --wb-ink: #F5F7FA;
+  --wb-ink2: #B7C6D4;
+  --wb-sage: #76A9C8;
+  --wb-sage-deep: #416B8C;
+  --wb-sand: #D7C5AE;
+  --wb-sand-deep: #D7C5AE;
+  /* Status text shades for dark surfaces (each passes 4.5:1 on the pill's
+     10 to 15% tint over bg, surface and raised; see tokenContrast.test.ts). */
+  --wb-ok-on: #8FD19E;
+  --wb-warn-on: #F0C27A;
+  --wb-crit-on: #F5A3A3;
+  --state-ok-on: #8FD19E;
+  --state-warn-on: #F0C27A;
+  --state-crit-on: #F5A3A3;
+  --state-unknown-on: #BCC5EA;
+  --state-info-on: #8FD6D6;
 }
 
-:root[data-theme='horizon'] {
-  --wb-bg: #EEF4F5;
-  --wb-surface: #F8FBFB;
-  --wb-surface-raised: #FFFFFF;
-  --wb-line: #D6E4E7;
-  --wb-ink: #203342;
-  --wb-ink2: #5A6B74;
-  --wb-sage: #3B7F8C;
-  --wb-sage-deep: #2C5F69;
+/* Read mode: reading typography only (see `.wb-mode-read` rules); colours
+   come from the default light set. */
+[data-wb-mode='read'] {
+  color-scheme: light;
 }
 
-:root[data-theme='sanctuary'] {
-  --wb-bg: #F4F0E8;
-  --wb-surface: #FAF8F3;
-  --wb-surface-raised: #FFFFFF;
-  --wb-line: #DDD8CE;
-  --wb-ink: #293240;
-  --wb-ink2: #6D726E;
-  --wb-sage: #667C78;
-  --wb-sage-deep: #4C5D5A;
-}
-
-/* Status/constant tokens — same across all 5 themes, defined once on
-   :root so no theme block above needs to repeat them. */
+/* Status/constant tokens — theme/mode-invariant, defined once on :root.
+   Unchanged by the Endeavour 27 token replacement above (see header
+   comment) — status communicates status, not atmosphere or reading mode. */
 :root {
   --wb-navy: #1B365D;
   --wb-gold: #C9A84C;
@@ -99,7 +120,33 @@
   --wb-ok-on: #3F633F;
   --wb-warn-on: #8A5A1B;
   --wb-crit-on: #A23A34;
+  /* Fill-safe (white text on top) in BOTH sets; deliberately not overridden in the dark scope,
+     where the -on shades are light text colours. */
+  --wb-ok-fill: #3F633F;
+  --wb-warn-fill: #8A5A1B;
+  --wb-crit-fill: #A23A34;
   --wb-crit-deep: #8a2f2a;
+
+  /* Operational state colours (state-* in tailwind.config.ts). DEFAULT and
+     soft are theme-invariant fills; the `on` text shade is overridden in the
+     dark scope below so status pills stay legible on dark surfaces. */
+  --state-ok: #278A44;      --state-ok-soft: #cfe8d5;      --state-ok-on: #1B5E20;
+  --state-warn: #9C5D10;    --state-warn-soft: #f0ddc4;    --state-warn-on: #7A4610;
+  --state-crit: #C43030;    --state-crit-soft: #f8dcdc;    --state-crit-on: #7A1616;
+  --state-unknown: #5A6690; --state-unknown-soft: #dfe2ee; --state-unknown-on: #33395C;
+  --state-info: #2E8B8B;    --state-info-soft: #d6ebeb;    --state-info-on: #0F5B5D;
+
+  /* Compatibility aliases for the remaining pre-Endeavour primitives.
+     Consumers can migrate incrementally without reintroducing a second
+     visual language. These aliases intentionally resolve to Endeavour
+     surfaces/statuses rather than the former rainbow LCARS palette. */
+  --legacy-space: var(--wb-bg);
+  --legacy-panel: var(--wb-surface);
+  --legacy-panel-2: var(--wb-surface-raised);
+  --legacy-edge: var(--wb-line);
+  --legacy-text: var(--wb-ink);
+  --legacy-muted: var(--wb-ink2);
+  --legacy-accent: var(--wb-sage);
 }
 
 @layer base {
@@ -112,19 +159,141 @@
      overscroll on *-workbench routes despite neither route group actually
      depending on it (design-audit finding, advisory-workbench). */
   body {
-    @apply bg-white text-wb-ink font-sans antialiased;
+    /* The default surface is light (see the token block above); this is
+       what the overscroll gutter shows. */
+    @apply bg-wb-bg text-wb-ink font-sans antialiased;
     min-height: 100dvh; /* dvh tracks mobile browser chrome correctly */
-    /* Gentle theme-switch cross-fade (mission §15: ~150-200ms only) —
-       prefers-reduced-motion below already zeroes all transition-duration
-       globally, so this degrades to an instant swap for anyone who wants
-       that. */
     transition: background-color 180ms ease, color 180ms ease;
+    overflow-x: hidden;
+  }
+
+  html {
+    scroll-padding-top: 1rem;
+    scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--wb-sage) 35%, transparent);
+    color: var(--wb-ink);
   }
 
   h1,
   h2,
   h3 {
     @apply font-sans font-semibold uppercase tracking-[0.12em];
+  }
+}
+
+@layer components {
+  .endeavour-command-hero {
+    @apply relative overflow-hidden rounded-2xl border border-wb-line bg-wb-surface px-5 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] sm:px-7 sm:py-8;
+    background-image:
+      radial-gradient(ellipse at 88% 0%, color-mix(in srgb, var(--wb-sage) 24%, transparent), transparent 42%),
+      linear-gradient(135deg, color-mix(in srgb, var(--wb-surface) 88%, var(--wb-bg)), var(--wb-bg));
+  }
+
+  .endeavour-command-hero::after {
+    content: '';
+    @apply pointer-events-none absolute -right-24 -top-20 h-56 w-2/3 rounded-full border-b border-wb-sand opacity-70;
+    transform: rotate(-12deg);
+  }
+
+  .endeavour-status-tile {
+    @apply rounded-xl border border-wb-line bg-wb-surface p-3 transition-colors hover:border-wb-sage-deep sm:p-4;
+  }
+
+  .endeavour-mobile-action {
+    @apply grid h-12 w-12 place-items-center rounded-2xl border border-wb-line bg-wb-surface text-wb-ink shadow-lg transition hover:border-wb-sand hover:bg-wb-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep;
+  }
+
+  /* Reference-mode composition. Focus pages get a clearer action runway;
+     Read pages use editorial rhythm instead of making every paragraph feel
+     like another dashboard object. These are intentionally shell-level
+     defaults so Ready Room/Human Systems and Briefs/Technical OSINT converge
+     without duplicating page-local layout rules. */
+  .wb-mode-focus #wb-main > :first-child {
+    @apply rounded-2xl border border-wb-line bg-wb-bg p-3 sm:p-5;
+  }
+
+  .wb-mode-read #wb-main {
+    @apply leading-relaxed;
+  }
+
+  .wb-mode-read #wb-main h2 {
+    @apply tracking-[0.08em];
+  }
+
+  .wb-mode-read #wb-main article p,
+  .wb-mode-read #wb-main section p {
+    @apply max-w-prose;
+  }
+
+  .focus-reference-surface {
+    @apply rounded-2xl border border-wb-line bg-wb-surface p-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)] sm:p-6;
+  }
+
+  .focus-reference-kicker,
+  .read-reference-kicker {
+    @apply mb-4 text-wb-label font-semibold uppercase tracking-[0.22em] text-wb-ink2;
+  }
+
+  .focus-reference-surface > .focus-reference-kicker {
+    @apply text-wb-sage;
+  }
+
+  .read-reference-surface {
+    @apply rounded-2xl border border-wb-line bg-wb-surface-raised px-4 py-5 shadow-[0_16px_40px_rgba(28,39,51,0.08)] sm:px-7 sm:py-7;
+  }
+
+  .read-reference-kicker {
+    @apply border-b border-wb-line pb-3 text-wb-sand-deep;
+  }
+
+  .risk-reference-surface {
+    @apply rounded-2xl border border-wb-line p-4 shadow-[0_16px_40px_rgba(0,0,0,0.1)] sm:p-6;
+  }
+
+  .risk-reference-command,
+  .risk-reference-focus {
+    @apply bg-wb-surface;
+  }
+
+  .risk-reference-read {
+    @apply bg-wb-surface-raised;
+  }
+
+  .risk-reference-kicker {
+    @apply mb-1 text-wb-label font-semibold uppercase tracking-[0.22em] text-wb-ink2;
+  }
+
+  .risk-reference-command > .risk-reference-kicker {
+    @apply text-wb-crit-on;
+  }
+
+  .risk-reference-focus > .risk-reference-kicker {
+    @apply text-wb-sage-deep;
+  }
+
+  .risk-reference-read > .risk-reference-kicker {
+    @apply mb-5 border-b border-wb-line pb-3 text-wb-sand-deep;
+  }
+
+  /* Responsive/accessibility contract for the below-XL command bar. */
+  @media (max-width: 1279px) {
+    #wb-main {
+      padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+    }
+
+    [role='tablist'] {
+      scrollbar-width: thin;
+      scroll-padding-inline: 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -170,6 +339,14 @@
   }
 }
 
+/* Accessibility regression contract: preserve boundaries and focus affordances
+ * when Windows High Contrast/forced-colors removes authored colour tokens. */
+@media (forced-colors: active) {
+  *, *::before, *::after { forced-color-adjust: auto; }
+  :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+  button, a, input, select, textarea { border: 1px solid ButtonText; }
+}
+
 /* Settings → Appearance → Motion: 'Reduced' — a manual override for a
    Captain whose OS-level prefers-reduced-motion isn't set (or can't be,
    e.g. a shared/kiosk device) but who still wants HQ's own motion cut.
@@ -181,4 +358,48 @@
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+}
+
+/* Mobile check, iPhone (2026-09-12, WORKBENCH-MOBILE-COMPAT): every
+   *-workbench page has form controls styled at text-xs/text-[11-13px] for
+   density (LibraryView filters, CaptureRow/TaskRow inline selects, date
+   pickers, etc, dozens of call sites across the app) — desktop-only, since
+   iOS Safari force-zooms the whole page on focusing any input/select/
+   textarea under 16px, with no per-element opt-out. That zoom is exactly
+   what "typing in a workbench filter on my phone doesn't work" looks like:
+   the whole page snaps to a zoomed-in view centred on the tapped control
+   the moment it's focused, and stays that way (manual pinch-to-zoom out
+   required) until the Captain taps away. Scoped to below Tailwind's sm
+   breakpoint only, so the desktop-density type these controls were
+   actually designed at is completely unaffected. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* A2c touch targets: on touch-primary devices every button, select and text-like
+   input is at least 44 x 44 CSS px (WCAG 2.5.5 / Apple HIG), whatever padding the
+   call site chose. Inline links in running text are not affected. Opt out of the
+   height for a deliberately dense control with data-wb-dense. */
+@media (pointer: coarse) {
+  button:not([data-wb-dense]),
+  select:not([data-wb-dense]),
+  summary:not([data-wb-dense]),
+  [role='button']:not([data-wb-dense]),
+  input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='url'], [type='number'], [type='date'], [type='time'], [type='datetime-local'], [type='tel'], :not([type])):not([data-wb-dense]) {
+    min-height: 44px;
+  }
+  /* Width too: icon-only, glyph ("✕") and wrapped-icon buttons have no text to size them. */
+  button:not([data-wb-dense]),
+  [role='button']:not([data-wb-dense]) {
+    min-width: 44px;
+  }
+  input[type='checkbox']:not([data-wb-dense]),
+  input[type='radio']:not([data-wb-dense]) {
+    min-height: 24px;
+    min-width: 24px;
+  }
 }

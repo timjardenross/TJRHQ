@@ -10,8 +10,26 @@
  * §44, §57).
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui';
+import { OperationalStateBadge, type OperationalState } from '@/components/OperationalState';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
+import { OperationalConfidencePanel } from '@/components/OperationalConfidencePanel';
+import type { OperationalConfidence } from '@/lib/operationalConfidence';
+
+// HQ V1 Integration QA §22 (recovery propagation) fix: this tab previously
+// fetched once on mount only — a Captain with the Status tab open during an
+// incident would never see it flip back to NORMAL on recovery without
+// reloading the page. Matches JobsView.tsx's existing polling interval on
+// this same workbench, rather than inventing a different cadence.
+// 2026-09-20 (Supabase egress investigation): this poll, fanning out 6
+// Supabase queries per tick from every open browser tab regardless of
+// whether the tab was actually visible, was the single highest sustained
+// call-volume site found in the codebase. 30s -> 60s halves the volume;
+// pausing while the tab is hidden (see the interval below) removes most of
+// what's left for a tab left open in the background.
+const REFRESH_INTERVAL_MS = 60_000;
 
 type Posture = 'normal' | 'degraded' | 'attention' | 'unknown';
 type CapabilityTone = 'healthy' | 'degraded' | 'unavailable' | 'unknown';
@@ -45,6 +63,7 @@ interface StatusData {
     health: { healthy: number; delayed: number; failing: number };
   };
   jobsSummary: { scheduled: number; healthy: number; attention: number };
+  operationalConfidence: OperationalConfidence;
 }
 
 const POSTURE_GLYPH: Record<Posture, string> = {
@@ -61,6 +80,19 @@ const POSTURE_TEXT_CLASS: Record<Posture, string> = {
   unknown: 'text-wb-ink2',
 };
 
+// Mission 7 deferred-register item 14 (closed): state-*-on fails contrast
+// against the midnight theme — pair each -on text instance with the
+// already-passing border-state-* token (Phase 1A's own prescribed
+// mitigation for exactly this "colour alone" gap) rather than leaving it
+// as bare colour. A full contrast fix (shade revision) is still a Visual
+// Design Officer call, not decided here.
+const POSTURE_BORDER_CLASS: Record<Posture, string> = {
+  normal: 'border-state-ok/50 bg-state-ok/10',
+  degraded: 'border-state-warn/50 bg-state-warn/10',
+  attention: 'border-state-crit/50 bg-state-crit/10',
+  unknown: 'border-wb-line bg-transparent',
+};
+
 const TONE_GLYPH: Record<CapabilityTone, string> = {
   healthy: '✓',
   degraded: '⚠',
@@ -75,18 +107,37 @@ const TONE_DOT_CLASS: Record<CapabilityTone, string> = {
   unknown: 'bg-wb-line text-wb-ink2',
 };
 
+const CAPABILITY_RECOVERY: Record<string, { workbench: string; href: string; action: string }> = {
+  morning_intelligence: { workbench: 'Briefs', href: '/briefs', action: 'Read latest brief' },
+  emergency_monitoring: { workbench: 'Emergency Alerts', href: '/emergency-alert-hub-workbench', action: 'Check active alerts' },
+  technical_intelligence: { workbench: 'Technical OSINT', href: '/intelligence-workbench', action: 'Review intelligence' },
+  health_intelligence: { workbench: 'Health OSINT', href: '/health-osint', action: 'Review health evidence' },
+  hq_evolution: { workbench: 'Improvements', href: '/self-improvement-findings', action: 'Review improvements' },
+  weekly_review: { workbench: 'Weekly Review', href: '/weekly-review', action: 'Start weekly review' },
+  ready_room: { workbench: 'Ready Room', href: '/ready-room', action: 'Choose what to do next' },
+  human_systems: { workbench: 'Human Systems', href: '/human-systems-workbench', action: 'Check current capacity' },
+  platform_core: { workbench: 'HQ Status', href: '/agent-status-workbench', action: 'Review platform status' },
+  content_workbench: { workbench: 'Content Workbench', href: '/content-workbench', action: 'Review content queue' },
+};
+
 function CapabilityRow({ cap }: { cap: CapabilityResult }) {
+  const recovery = CAPABILITY_RECOVERY[cap.key] ?? {
+    workbench: 'HQ Status',
+    href: '/agent-status-workbench',
+    action: 'Review capability status',
+  };
   return (
     <li className="flex items-start gap-2.5 py-2" title={cap.reason}>
-      <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TONE_DOT_CLASS[cap.tone]}`} aria-hidden>
+      <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-wb-label font-bold ${TONE_DOT_CLASS[cap.tone]}`} aria-hidden>
         {TONE_GLYPH[cap.tone]}
       </span>
       <div className="min-w-0">
-        <p className="text-[13px] font-medium text-wb-ink">
+        <p className="text-wb-body font-medium text-wb-ink">
           {cap.label}
           <span className="sr-only"> — {cap.tone}</span>
         </p>
-        {cap.tone !== 'healthy' && <p className="mt-0.5 text-[12px] text-wb-ink2">{cap.reason}</p>}
+        {cap.tone !== 'healthy' && <p className="mt-0.5 text-wb-label text-wb-ink2">{cap.reason}</p>}
+        {cap.tone !== 'healthy' && <p className="mt-1 text-wb-label text-wb-ink2">Affected workbench: <Link href={recovery.href} className="font-semibold text-wb-sage-deep hover:underline">{recovery.workbench}</Link> · <Link href={recovery.href} className="text-wb-sage-deep hover:underline">{recovery.action} →</Link></p>}
       </div>
     </li>
   );
@@ -97,29 +148,41 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
+  useAbortEffect((signal, alive) => {
+    async function load(withSpinner: boolean) {
+      if (withSpinner) setIsLoading(true);
       try {
-        const res = await fetch('/api/agent-status-workbench/overview', { cache: 'no-store' });
+        const res = await fetch('/api/agent-status-workbench/overview', { cache: 'no-store', signal });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.error ?? `HTTP ${res.status}`);
         }
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (alive()) {
+          setData(json);
+          setLoadError(null);
+        }
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load HQ status');
+        if (alive() && !(err instanceof Error && err.name === 'AbortError')) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load HQ status');
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (alive() && withSpinner) setIsLoading(false);
       }
     }
-    load();
-    return () => { cancelled = true; };
+    load(true);
+    // Skip ticks while this tab is hidden/backgrounded — the leading cause
+    // of this endpoint's call volume was a tab left open and forgotten,
+    // not a tab someone is actually watching (2026-09-20 egress fix).
+    const intervalId = setInterval(() => {
+      if (document.hidden) return;
+      load(false);
+    }, REFRESH_INTERVAL_MS);
+    return () => clearInterval(intervalId);
   }, []);
 
   if (isLoading) {
-    return <Card><p className="text-[13px] italic text-wb-ink2">Checking HQ status…</p></Card>;
+    return <Card><p className="text-wb-body italic text-wb-ink2">Checking HQ status…</p></Card>;
   }
 
   if (loadError || !data) {
@@ -127,8 +190,8 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
     return (
       <Card>
         <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-          <p className="text-[13px] font-semibold text-wb-crit-on">⚪ HQ Status is unavailable</p>
-          <p className="mt-1 text-[12px] text-wb-ink2">
+          <p className="text-wb-body font-semibold text-wb-crit-on">⚪ HQ Status is unavailable</p>
+          <p className="mt-1 text-wb-label text-wb-ink2">
             {loadError ?? 'No data returned.'} This is not the same as HQ being healthy — the machinery that would tell us can&rsquo;t currently be reached.
           </p>
         </div>
@@ -137,6 +200,13 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
   }
 
   const { posture, headline, narrative, capabilities } = data;
+  const operationalState: OperationalState = posture === 'normal'
+    ? 'nominal'
+    : posture === 'degraded'
+      ? 'degraded'
+      : posture === 'attention'
+        ? 'attention'
+        : 'unavailable';
   const materialCaps = capabilities.filter((c) => c.criticality === 'critical' || c.criticality === 'important');
   const supportingCaps = capabilities.filter((c) => c.criticality !== 'critical' && c.criticality !== 'important' && c.tone !== 'healthy');
 
@@ -144,37 +214,42 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
     <div className="flex flex-col gap-4">
       {/* Headline verdict */}
       <Card>
-        <p className={`text-[16px] font-semibold ${POSTURE_TEXT_CLASS[posture]}`}>
-          {POSTURE_GLYPH[posture]} {headline}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <OperationalStateBadge state={operationalState} />
+          <p className={`inline-block rounded border px-2 py-1 text-wb-lead font-semibold ${POSTURE_TEXT_CLASS[posture]} ${POSTURE_BORDER_CLASS[posture]}`}>
+            {POSTURE_GLYPH[posture]} {headline}
+          </p>
+        </div>
 
         {narrative.impact && (
-          <p className="mt-2 text-[13px] text-wb-ink">
+          <p className="mt-2 text-wb-body text-wb-ink">
             <span className="font-semibold">Impact: </span>{narrative.impact}
           </p>
         )}
 
         {narrative.stillWorking.length > 0 && posture !== 'normal' && (
-          <p className="mt-1 text-[13px] text-wb-ink2">
+          <p className="mt-1 text-wb-body text-wb-ink2">
             <span className="font-semibold text-wb-ink">Still working: </span>
             {narrative.stillWorking.join(', ')} {narrative.stillWorking.length === 1 ? 'is' : 'are'} operating normally.
           </p>
         )}
 
         {narrative.next && (
-          <p className="mt-1 text-[13px] text-wb-ink2">
+          <p className="mt-1 text-wb-body text-wb-ink2">
             <span className="font-semibold text-wb-ink">Next: </span>{narrative.next}
           </p>
         )}
 
-        <p className={`mt-3 text-[13px] font-medium ${narrative.actionRequired ? 'text-state-crit-on' : 'text-wb-ink2'}`}>
+        <p className={`mt-3 text-wb-body font-medium ${narrative.actionRequired ? 'inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-state-crit-on' : 'text-wb-ink2'}`}>
           {narrative.actionRequired ? '⚠ ' : ''}{narrative.actionNote}
         </p>
 
-        <p className="mt-2 text-[11px] text-wb-ink2">
+        <p className="mt-2 text-wb-label text-wb-ink2">
           Updated {new Date(data.fetchedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })} · covers all monitored capabilities, jobs, and governed sources.
         </p>
       </Card>
+
+      <OperationalConfidencePanel confidence={data.operationalConfidence} />
 
       {/* Capability list — progressive disclosure, calm when healthy */}
       <Card>
@@ -184,7 +259,7 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
         </ul>
         {supportingCaps.length > 0 && (
           <>
-            <h3 className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-wide text-wb-ink2">Supporting (does not affect HQ posture)</h3>
+            <h3 className="mb-1 mt-3 text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Supporting (does not affect HQ posture)</h3>
             <ul className="divide-y divide-wb-line">
               {supportingCaps.map((cap) => <CapabilityRow key={cap.key} cap={cap} />)}
             </ul>
@@ -196,26 +271,26 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <h2 className="mb-1 font-serif text-base text-wb-ink">Automations</h2>
-          <p className="text-[12px] text-wb-ink2">
+          <p className="text-wb-label text-wb-ink2">
             {data.jobsSummary.scheduled} scheduled, {data.jobsSummary.healthy} healthy, {data.jobsSummary.attention} to review.
           </p>
-          <button type="button" onClick={() => onNavigate('automations')} className="mt-2 text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
+          <button type="button" onClick={() => onNavigate('automations')} className="mt-2 text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
             View automations →
           </button>
         </Card>
         <Card>
           <h2 className="mb-1 font-serif text-base text-wb-ink">Sources</h2>
-          <p className="text-[12px] text-wb-ink2">
+          <p className="text-wb-label text-wb-ink2">
             Technical: {data.sourcesSummary.technical.healthy} healthy, {data.sourcesSummary.technical.failing} failing. Health: {data.sourcesSummary.health.healthy} healthy, {data.sourcesSummary.health.failing} failing.
           </p>
-          <button type="button" onClick={() => onNavigate('sources')} className="mt-2 text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
+          <button type="button" onClick={() => onNavigate('sources')} className="mt-2 text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
             View sources →
           </button>
         </Card>
         <Card>
           <h2 className="mb-1 font-serif text-base text-wb-ink">History</h2>
-          <p className="text-[12px] text-wb-ink2">Recent failures, recoveries, and how long they lasted.</p>
-          <button type="button" onClick={() => onNavigate('history')} className="mt-2 text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
+          <p className="text-wb-label text-wb-ink2">Recent failures, recoveries, and how long they lasted.</p>
+          <button type="button" onClick={() => onNavigate('history')} className="mt-2 text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
             View history →
           </button>
         </Card>

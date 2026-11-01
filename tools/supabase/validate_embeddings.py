@@ -29,11 +29,11 @@ without re-embedding. If overlap is ≥70%, re-embedding will restore full quali
 
 from __future__ import annotations
 
-import os
-import sys
+import argparse
 import json
 import math
-import argparse
+import os
+import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -74,7 +74,7 @@ def embed_with_provider(provider: str, text: str) -> list[float] | None:
     except EmbeddingError as exc:
         print(f"  [SKIP] {provider}: {exc}")
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-provider embedding probe in a validation script — already printed with the provider name and error type
         print(f"  [ERROR] {provider}: {type(exc).__name__}: {exc}")
         return None
     finally:
@@ -150,7 +150,7 @@ def main() -> None:
         max_sim = max(sims)
         print(f"Queries evaluated:   {len(sims)}")
         print(f"Dimension mismatches: {dims_mismatches}")
-        print(f"Cross-provider cosine similarity:")
+        print("Cross-provider cosine similarity:")
         print(f"  avg = {avg_sim:.4f}   min = {min_sim:.4f}   max = {max_sim:.4f}")
         print()
 

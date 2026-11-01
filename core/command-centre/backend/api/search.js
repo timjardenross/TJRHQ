@@ -18,7 +18,16 @@ const { supabaseGet } = require('../connectors/supabase-connector');
 const ALL_TYPES = ['missions', 'decisions', 'log', 'captures', 'intelligence'];
 
 function _enc(v) {
-  return encodeURIComponent(v);
+  // 2026-09-15 adversarial review: encodeURIComponent does NOT escape
+  // "(" ")" or "*" — all three are significant inside a PostgREST
+  // or(...) filter string (parens delimit the clause list, "*" is the
+  // ilike wildcard this code itself uses to bracket the query). A `q`
+  // containing ")" could prematurely close the filter group before the
+  // intended clause list finishes; a stray "*" lets a caller inject
+  // extra wildcard behaviour into the pattern. Percent-encode all three
+  // after the normal URI-encoding pass so they reach PostgREST as inert
+  // literal characters, not filter syntax.
+  return encodeURIComponent(v).replace(/[()*]/g, (c) => '%' + c.charCodeAt(0).toString(16));
 }
 
 async function searchMissions(q, limit) {

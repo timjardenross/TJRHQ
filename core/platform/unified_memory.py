@@ -25,9 +25,21 @@ which provides dedup, versioning, and semantic retrieval over a local Qdrant
 vector store. If mem0ai is not installed, those types fall through to their
 existing Supabase-table behaviour without error.
 
-Standalone module. Not yet adopted by any existing caller — each existing
-memory-reading module keeps working exactly as it does today; this is an
-additive convergence point for future code, not a forced migration.
+RELATIONSHIPS is additionally backed by core/platform/memory_graph.py
+(Graphiti's temporal fact graph) when a ``query`` kwarg is given — this is
+memory_graph.py's first real caller (see that module's own docstring:
+"a unified_memory.py route... none of that is built here" — this is that
+route). Falls through to the existing `knowledge_edges` table when no query
+is given, or if Graphiti/GEMINI_API_KEY is unavailable.
+
+One real caller as of USS-TJR-MSN-0378 (2026-09-14):
+platform-runtime/lib/officers/daily_operations_cycle.py imports
+`MemoryType`/`recall` directly. Adoption is still far from platform-wide —
+the other ~14 memory-reading modules identified in the SUOC platform audit
+still bypass this module and read their backing stores directly — so this
+remains an additive convergence point for future code, not a forced
+migration, but "zero callers" is no longer accurate and should not be
+repeated.
 """
 
 from __future__ import annotations
@@ -36,7 +48,7 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -66,7 +78,7 @@ class _Mem0Backend:
 
     def __init__(self) -> None:
         self._memory: Any = None  # mem0.Memory instance, populated on first use
-        self._available: Optional[bool] = None  # None = not yet checked
+        self._available: bool | None = None  # None = not yet checked
 
     def _ensure_ready(self) -> bool:
         """Initialise mem0.Memory on first use. Returns True if ready."""
@@ -132,19 +144,19 @@ class _Mem0Backend:
             )
             self._available = False
             return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[unified-memory/mem0] initialisation failed (non-blocking): %s", exc)
             self._available = False
             return False
 
-    def add(self, text: str, user_id: str, metadata: Optional[dict] = None) -> dict[str, Any]:
+    def add(self, text: str, user_id: str, metadata: dict | None = None) -> dict[str, Any]:
         """Store a memory. Returns mem0's result dict, or {} on failure."""
         if not self._ensure_ready():
             return {}
         try:
             result = self._memory.add(text, user_id=user_id, metadata=metadata or {})
             return result if isinstance(result, dict) else {"results": result}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[unified-memory/mem0] add failed (non-blocking): %s", exc)
             return {}
 
@@ -163,10 +175,10 @@ class _Mem0Backend:
             # Older mem0 version: user_id was a top-level kwarg.
             try:
                 results = self._memory.search(query, user_id=user_id, limit=limit)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning("[unified-memory/mem0] search (v1 fallback) failed (non-blocking): %s", exc)
                 return []
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[unified-memory/mem0] search failed (non-blocking): %s", exc)
             return []
         # mem0 returns either a list or {"results": [...]} depending on version
@@ -205,32 +217,54 @@ def remember(
     memory_type: MemoryType,
     text: str,
     user_id: str,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Store a memory of the given type. Returns the mem0 result dict, or {}.
+    """Store a memory of the given type. Returns a result dict, or {}.
 
-    Currently active for SEMANTIC and FACTUAL memory types, which route through
-    the mem0 backend (dedup + versioning + semantic retrieval). All other types
-    are read-only via recall() — their stores have dedicated write paths
-    elsewhere in the platform and this function returns {} for them without error.
+    Active for SEMANTIC and FACTUAL (route through the mem0 backend — dedup
+    + versioning + semantic retrieval) and, as of USS-TJR-MSN-0378 Stream 5,
+    RELATIONSHIPS (routes through core/platform/memory_graph.py's Graphiti
+    write path). Before Stream 5, RELATIONSHIPS had no write path here at
+    all — recall() could read the graph but nothing could write into it
+    through this interface, only backfill_from_core_events()'s own
+    core_events-specific loop. All other types are read-only via recall() —
+    their stores have dedicated write paths elsewhere in the platform and
+    this function returns {} for them without error.
 
     Args:
-        memory_type: Which memory category to write. Only SEMANTIC and FACTUAL
-            are actively stored; others are silently ignored.
+        memory_type: Which memory category to write.
         text: The natural-language memory to persist.
         user_id: Scoping key (e.g. "captain", an officer name, a mission ID).
-        metadata: Optional key-value bag attached to the memory record.
+            For RELATIONSHIPS, doubles as the Graphiti group_id.
+        metadata: Optional key-value bag. For RELATIONSHIPS, an optional
+            "workbench" key tags the episode per Stream 4's convention.
 
     Returns:
-        mem0 result dict on success, {} if the type is unsupported or mem0
-        is unavailable.
+        mem0 result dict for SEMANTIC/FACTUAL; {"added": True} for a
+        successful RELATIONSHIPS write; {} if the type is unsupported or
+        the backing store is unavailable.
     """
+    if memory_type == MemoryType.RELATIONSHIPS:
+        import asyncio
+
+        from core.platform import memory_graph
+
+        try:
+            added = asyncio.run(memory_graph.add_fact(
+                text,
+                group_id=user_id,
+                workbench=(metadata or {}).get("workbench"),
+            ))
+            return {"added": added} if added else {}
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+            log.warning("[unified-memory] remember (relationships) failed (non-blocking): %s", exc)
+            return {}
     if memory_type not in (MemoryType.SEMANTIC, MemoryType.FACTUAL):
         log.debug("[unified-memory] remember: no write path for %r (read-only type)", memory_type)
         return {}
     try:
         return _mem0.add(text, user_id=user_id, metadata=metadata)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[unified-memory] remember failed (non-blocking): %s", exc)
         return {}
 
@@ -254,7 +288,11 @@ def recall(memory_type: MemoryType, **filters: Any) -> list[dict[str, Any]]:
         if memory_type == MemoryType.WORKING:
             return _recall_working()
         if memory_type == MemoryType.COMMAND:
-            return _recall_table("decisions", filters, order_col="created_at")
+            # public.decisions was dropped and recreated outside the
+            # migration system 2026 (id uuid, mission_id, decision_type,
+            # outcome, timestamp, ...) — order_col must match its real
+            # column name; created_at doesn't exist on this shape.
+            return _recall_table("decisions", filters, order_col="timestamp")
         if memory_type == MemoryType.KNOWLEDGE:
             rows = _recall_table("knowledge_documents", filters, order_col="created_at")
             # MSN-0333: this is a general-listing recall, not a
@@ -280,10 +318,10 @@ def recall(memory_type: MemoryType, **filters: Any) -> list[dict[str, Any]]:
         if memory_type == MemoryType.CONFIDENCE_HISTORY:
             return _recall_table("quality_scores", filters, order_col="scored_at")
         if memory_type == MemoryType.RELATIONSHIPS:
-            return _recall_table("knowledge_edges", filters, order_col="created_at")
+            return _recall_relationships(filters)
         log.warning("[unified-memory] recall: unhandled memory_type %r", memory_type)
         return []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[unified-memory] recall failed (non-blocking): %s", exc)
         return []
 
@@ -309,7 +347,7 @@ def _recall_semantic(filters: dict[str, Any]) -> list[dict[str, Any]]:
         if isinstance(results, dict):
             return results.get("results", [])
         return list(results)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[unified-memory] semantic list failed (non-blocking): %s", exc)
         return []
 
@@ -322,6 +360,33 @@ def _recall_factual(filters: dict[str, Any]) -> list[dict[str, Any]]:
     Accepts the same ``query``, ``user_id``, and ``limit`` kwargs as _recall_semantic.
     """
     return _recall_semantic(filters)
+
+
+def _recall_relationships(filters: dict[str, Any]) -> list[dict[str, Any]]:
+    """RELATIONSHIPS recall: memory_graph.py's temporal fact graph (Graphiti)
+    when a ``query`` kwarg is given — the graph's own hybrid search, scoped
+    to ``group_ids`` if provided (defaults to whatever domains have actually
+    been backfilled so far; see memory_graph.search()'s own docstring).
+    Falls through to the existing `knowledge_edges` table when no query is
+    given, or if Graphiti/GEMINI_API_KEY is unavailable — memory_graph.py's
+    own async _build_graphiti() raises a clear RuntimeError in that case,
+    caught here same as every other non-blocking recall path in this module.
+    """
+    query = filters.get("query", "")
+    if not query:
+        return _recall_table("knowledge_edges", filters, order_col="created_at")
+
+    import asyncio
+
+    from core.platform import memory_graph
+
+    num_results = int(filters.get("limit", 10))
+    group_ids = filters.get("group_ids")
+    try:
+        return asyncio.run(memory_graph.search(query, num_results=num_results, group_ids=group_ids))
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+        log.warning("[unified-memory] relationships graph search failed (non-blocking): %s", exc)
+        return _recall_table("knowledge_edges", filters, order_col="created_at")
 
 
 def _recall_working() -> list[dict[str, Any]]:
@@ -349,7 +414,7 @@ def _recall_table(table: str, filters: dict[str, Any], *, order_col: str, limit:
 def _recall_platform_state(filters: dict[str, Any]) -> list[dict[str, Any]]:
     """Platform State spans both new Wave 3 tables — events and tasks together."""
     from core.platform.event_bus import poll_events
-    from core.platform.task_engine import get_task, get_child_tasks
+    from core.platform.task_engine import get_child_tasks, get_task
 
     if "task_id" in filters:
         task = get_task(filters["task_id"])
@@ -364,7 +429,7 @@ def _recall_platform_state(filters: dict[str, Any]) -> list[dict[str, Any]]:
     )
 
 
-def _recall_officer_context(officer: Optional[str]) -> list[dict[str, Any]]:
+def _recall_officer_context(officer: str | None) -> list[dict[str, Any]]:
     """Returns the full OfficerContext as one dict, wrapped in a single-element
     list for interface consistency with every other recall() route. Every field
     and computed property of OfficerContext is preserved — adopters must not

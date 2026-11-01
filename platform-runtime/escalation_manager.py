@@ -21,12 +21,10 @@ Severity progression by notification count:
 
 from __future__ import annotations
 
-import json
 import logging
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
@@ -37,11 +35,8 @@ _CADENCE_DAYS = [0, 3, 7]
 _REPEAT_INTERVAL_DAYS = 7
 
 from captain_notifications import (
-    SEVERITY_INFO,
-    SEVERITY_WARNING,
     SEVERITY_ALERT,
     SEVERITY_CRITICAL,
-    _SEVERITY_ORDER,
     max_severity,
 )
 
@@ -84,7 +79,7 @@ def _should_notify_now(row: dict, today: date) -> bool:
     first_str = row.get("first_detected", "")
     try:
         first = datetime.fromisoformat(first_str).date()
-    except Exception:
+    except (ValueError, TypeError):
         return True
     age_days = (today - first).days
     count = row.get("notification_count", 0)
@@ -99,8 +94,8 @@ def _should_notify_now(row: dict, today: date) -> bool:
         try:
             last = datetime.fromisoformat(last_notified).date()
             return (today - last).days >= _REPEAT_INTERVAL_DAYS
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort cadence date parse, already logged
+            log.debug("[escalation_manager] best-effort step failed, continuing: %s", _exc)
     return False
 
 
@@ -122,7 +117,7 @@ def process_escalations(
     Returns filtered list of escalation dicts with current_severity and
     notification_count added.
     """
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     now_str = _now_iso()
 
     try:
@@ -221,7 +216,7 @@ def process_escalations(
 
         return to_notify
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort escalation processing, already logged
         log.error("[escalation] process_escalations failed: %s", exc)
         return active_escalations  # fail-open: return all so nothing is silently dropped
 
@@ -274,7 +269,7 @@ def acknowledge_escalation(alert_key: str) -> bool:
             "event_at":      _now_iso(),
         })
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort escalation ack, already logged
         log.error("[escalation] acknowledge_escalation failed: %s", exc)
         return False
 
@@ -301,7 +296,7 @@ def resolve_escalation(alert_key: str) -> bool:
             "event_at":      now_str,
         })
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort escalation resolve, already logged
         log.error("[escalation] resolve_escalation failed: %s", exc)
         return False
 
@@ -320,7 +315,7 @@ def get_open_escalations() -> list[dict]:
             "escalation_history?resolved_at=is.null&order=first_detected.asc&select=*"
         )
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort escalation query, already logged
         log.error("[escalation] get_open_escalations failed: %s", exc)
         return []
 
@@ -335,6 +330,6 @@ def get_escalation_history(limit: int = 50) -> list[dict]:
             f"escalation_history?order=first_detected.desc&limit={limit}&select=*"
         )
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort escalation query, already logged
         log.error("[escalation] get_escalation_history failed: %s", exc)
         return []

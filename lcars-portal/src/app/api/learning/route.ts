@@ -12,8 +12,15 @@ function getSupabase() {
   // outcome_records holds sensitive personal_story / not_for_publication content.
   // This is a SERVER-side route handler, so use the service-role key (never exposed
   // to the browser). Requires session authentication first.
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  //
+  // 2026-09-15 adversarial review: this used to silently fall back to the
+  // anon key if SUPABASE_SERVICE_ROLE_KEY was unset — RLS would then just
+  // return an empty/partial result instead of failing loudly, masking a
+  // misconfiguration as "no data yet". Fail fast instead.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured — refusing anon-key fallback for outcome_records');
+  }
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
 }
 
@@ -49,7 +56,10 @@ export async function GET() {
         .limit(1000),
       supabase.from('lessons_learned').select('lesson_id').limit(1000),
       supabase.from('missions').select('id,mission_id,status,updated_at,created_at').eq('status', 'Closed').limit(500),
-      supabase.from('decisions').select('id,updated_at,created_at').limit(500),
+      // public.decisions was dropped and recreated outside the migration
+      // system (id uuid, ..., timestamp, ...) — no updated_at/created_at
+      // columns on this shape, only timestamp.
+      supabase.from('decisions').select('id,timestamp').limit(500),
     ]);
 
     const outcomes = outRes.data ?? [];
@@ -72,7 +82,7 @@ export async function GET() {
     decisions.forEach((d: any) => {
       const sid = String(d.id ?? '');
       if (sid && !captured.has(`decision:${sid}`)) {
-        pendingAges.push(ageDays(d.updated_at ?? d.created_at) ?? 0);
+        pendingAges.push(ageDays(d.timestamp) ?? 0);
       }
     });
 

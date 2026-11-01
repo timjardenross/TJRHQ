@@ -1,0 +1,18 @@
+{
+  "framework_id": "OCC-2020-94",
+  "title": "Sound Practices to Strengthen Operational Resilience (OCC Bulletin 2020-94 / FRB SR 20-24)",
+  "issuer": "OCC / FRB / FDIC",
+  "jurisdiction": "US",
+  "role": "comparative",
+  "status": "in_force",
+  "effective_date": "2020-10-30",
+  "source_url": "https://www.occ.gov/news-issuances/bulletins/2020/bulletin-2020-94.html",
+  "licence": "US federal government work — public domain",
+  "notes": "",
+  "ingestion": {
+    "method": "pending",
+    "source_sha256": null,
+    "ingested_at": null
+  },
+  "clauses": []
+}

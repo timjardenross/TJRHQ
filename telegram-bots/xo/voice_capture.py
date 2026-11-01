@@ -15,6 +15,7 @@ import json
 import logging
 import re
 import subprocess
+import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -22,39 +23,43 @@ from zoneinfo import ZoneInfo
 
 log = logging.getLogger("xo-bot.voice")
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
 _TRANSCRIPTION_DIR = Path("/opt/starship-endeavour/services/transcription")
 TRANSCRIPTION_PY   = _TRANSCRIPTION_DIR / ".venv/bin/python"
 TRANSCRIPTION_SCRIPT = _TRANSCRIPTION_DIR / "transcribe.py"
-VOICE_TMP_DIR      = Path("/tmp/starship-captures/voice")
+# 2026-09-12 (bandit B108): was a hardcoded "/tmp/..." literal. Uses
+# tempfile.gettempdir() instead (still /tmp by default on this VM, but
+# honours TMPDIR if ever overridden) and app.py now creates it with 0o700
+# so downloaded voice recordings aren't world-readable in a shared /tmp.
+VOICE_TMP_DIR      = Path(tempfile.gettempdir()) / "starship-captures" / "voice"
 
 # ── Classification rules ──────────────────────────────────────────────────────
 # Ordered by specificity — first match wins.
 
 _RULES: list[tuple[str, str, float]] = [
     # Decisions — most explicit markers, highest priority
-    (r"\b(i decided|decision|approved|i'?m going with|we'?re going with|"
-     r"going to go with|i'?ve decided|final answer)\b",
+    ((r"\b(i decided|decision|approved|i'?m going with|we'?re going with|"
+      r"going to go with|i'?ve decided|final answer)\b"),
      "decision", 0.85),
     # Content ideas — check before capacity_signal (e.g. "post about recovery" = content not health)
-    (r"\b(post idea|linkedin|blog post|tweet|newsletter|content idea|"
-     r"episode|podcast|article idea|social media post)\b",
+    ((r"\b(post idea|linkedin|blog post|tweet|newsletter|content idea|"
+      r"episode|podcast|article idea|social media post)\b"),
      "content_idea", 0.80),
     # Capacity signals — body/health language (MY CAPACITY TODAY, 2026-08-21;
     # was "recovery_pulse" before that model retired)
-    (r"\b(pain|fatigue|sleep|medication|recovery pulse|feeling tired|headache|cpap|"
-     r"energy level|my energy|exhausted|body is|i feel|not well|migraine|fibro)\b",
+    ((r"\b(pain|fatigue|sleep|medication|recovery pulse|feeling tired|headache|cpap|"
+      r"energy level|my energy|exhausted|body is|i feel|not well|migraine|fibro)\b"),
      "capacity_signal", 0.80),
     # Things to do — action intent
-    (r"\b(remind me|i need to|to[\s\-]?do|todo|follow up|don'?t forget|"
-     r"remember to|i should|need to|make sure to|schedule)\b",
+    ((r"\b(remind me|i need to|to[\s\-]?do|todo|follow up|don'?t forget|"
+      r"remember to|i should|need to|make sure to|schedule)\b"),
      "thing_to_do", 0.85),
     # Mission ideas
-    (r"\b(idea|we should build|new mission|mission idea|let'?s build|"
-     r"we could build|i want to build|we could create|build a|could we)\b",
+    ((r"\b(idea|we should build|new mission|mission idea|let'?s build|"
+      r"we could build|i want to build|we could create|build a|could we)\b"),
      "mission_idea", 0.78),
 ]
 
@@ -120,7 +125,7 @@ def transcribe_audio(audio_path: str) -> dict:
         result = subprocess.run(
             [str(TRANSCRIPTION_PY), str(TRANSCRIPTION_SCRIPT), audio_path, "--language", "en"],
             capture_output=True, text=True, timeout=90,
-        )
+        check=False)
         if not result.stdout.strip():
             err = result.stderr.strip() or "Empty output from transcription script"
             return {"ok": False, "audio_path": audio_path, "error": err}
@@ -129,7 +134,7 @@ def transcribe_audio(audio_path: str) -> dict:
         return {"ok": False, "audio_path": audio_path, "error": "Transcription timed out after 90s"}
     except json.JSONDecodeError as exc:
         return {"ok": False, "audio_path": audio_path, "error": f"Transcription non-JSON output: {exc}"}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - subprocess transcription call surface (OSError, unexpected crash) is unpredictable; reported back as a structured error, not raised
         return {"ok": False, "audio_path": audio_path, "error": str(exc)}
 
 
@@ -198,8 +203,8 @@ def save_capture(
     try:
         from core.platform.heartbeat import record_heartbeat
         record_heartbeat("captured_items", status="ok", detail=f"voice_type={voice_type}")
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary capture write
+        log.debug("captured_items heartbeat record failed: %s", exc)
     return result.data[0]
 
 
@@ -287,8 +292,8 @@ def promote_capacity_checkin(supabase, capture_id: str, transcript: str, capture
             sys.path.insert(0, str(repo_root))
         from core.platform.heartbeat import record_heartbeat
         record_heartbeat("capacity_checkins", status="ok", detail=f"source=telegram_voice action={action}")
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary check-in promotion
+        log.debug("capacity_checkins heartbeat record failed: %s", exc)
 
     return {"action": action, "capacity_checkin_id": checkin_id, "log_date": log_date}
 
@@ -340,7 +345,7 @@ def handle_capture_from_voice(
     if voice_type == "capacity_signal":
         try:
             promoted = promote_capacity_checkin(supabase, saved["id"], transcript, datetime.now(_TZ))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - promotion business logic + Supabase write surface is unpredictable, already logged, capture itself already saved
             log.error("[voice] capacity_signal promotion failed for capture %s: %s", saved["id"], exc)
             # The capture itself already saved successfully above - a
             # promotion failure degrades to "still sits in captured_items

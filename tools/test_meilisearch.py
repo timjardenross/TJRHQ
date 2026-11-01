@@ -22,9 +22,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from core.search.meilisearch_client import index_document, search
-
 import requests
+
+from core.search.meilisearch_client import index_document, search
 
 _MEILISEARCH_URL = "http://localhost:7700"
 _POLL_DEADLINE_SECONDS = 10
@@ -41,7 +41,7 @@ def _wait_for_meilisearch() -> bool:
             response = requests.get(f"{_MEILISEARCH_URL}/health", timeout=2)
             if response.status_code == 200 and response.json().get("status") == "available":
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - polling loop; connection refused / not-ready is expected until the service comes up, retried below
             pass
         time.sleep(0.5)
     return False

@@ -6,9 +6,13 @@
 // list, and folds the separate curation workbench in as a small
 // high-value-only "Needs Your Review" card.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { Card, Badge } from '@/components/ui';
+import { Card, Badge, Button, Select } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { CollapsibleSection } from '@/app/human-systems-workbench/_components/CollapsibleSection';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { EVIDENCE_CONTRIBUTION_LABEL, IGNORE_REASONS, type EvidenceItem } from './shared';
 
 interface NeedsReviewItem {
@@ -38,17 +42,18 @@ function ChangeCard({ item }: { item: EvidenceItem }) {
     : 'New finding recorded';
   return (
     <div className="space-y-1.5 rounded-xl border border-wb-line bg-wb-surface p-3">
-      <p className="text-[10.5px] font-semibold uppercase tracking-wide text-wb-ink2">{item.topic_label}</p>
-      <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
-      <p className="text-[12px] text-wb-ink2">
+      <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">{item.topic_label}</p>
+      <p className="text-wb-body font-medium leading-snug text-wb-ink">{item.title}</p>
+      <p className="text-wb-label text-wb-ink2">
         <span className="font-medium text-wb-sage-deep">{whatChanged}.</span>{' '}
         {item.summary || 'No summary available yet.'}
       </p>
-      <p className="text-[11.5px] italic text-wb-ink2">
+      <EvidenceMeta source={item.source_name} observedAt={item.collected_at} />
+      <p className="text-wb-label italic text-wb-ink2">
         You need to: {item.actionable_recommendation || 'Nothing — this is informational.'}
       </p>
       {item.source_url && (
-        <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-wb-sage-deep underline decoration-dotted">
+        <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="text-wb-label text-wb-sage-deep underline decoration-dotted">
           {item.source_name}
         </a>
       )}
@@ -63,20 +68,17 @@ export function TodayView() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
 
-  function load() {
+  useAbortEffect((signal, alive) => {
     setLoading(true);
-    fetch('/api/health-osint/today')
+    fetch('/api/health-osint/today', { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        setData(d);
-        setError(null);
+        if (alive()) { setData(d); setError(null); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(() => { load(); }, []);
+      .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
+  }, []);
 
   async function decide(signalId: string, action: 'publish' | 'reject') {
     setBusyId(signalId);
@@ -100,9 +102,7 @@ export function TodayView() {
 
   if (loading && !data) return <p className="text-sm text-wb-ink2">Loading…</p>;
   if (error && !data) return (
-    <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-      {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
-    </p>
+    <DataAvailabilityNotice sources={[`Health OSINT: ${error}`]} />
   );
   if (!data) return null;
 
@@ -111,13 +111,11 @@ export function TodayView() {
   return (
     <div className="space-y-6">
       {error && (
-        <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-          {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
-        </p>
+        <DataAvailabilityNotice sources={[`Health OSINT: ${error}`]} />
       )}
 
       <div>
-        <p className="mb-2 text-[13px] font-semibold text-wb-ink">
+        <p className="mb-2 text-wb-body font-semibold text-wb-ink">
           {worthCount === 0 ? 'Nothing new worth knowing right now.' : `${worthCount} thing${worthCount === 1 ? '' : 's'} worth knowing`}
         </p>
         {worthCount > 0 ? (
@@ -125,7 +123,7 @@ export function TodayView() {
             {data.worth_knowing.map((i) => (<ChangeCard key={i.signal_id} item={i} />))}
           </div>
         ) : (
-          <p className="rounded-xl border border-wb-line bg-wb-surface p-4 text-[13px] text-wb-ink2">
+          <p className="rounded-xl border border-wb-line bg-wb-surface p-4 text-wb-body text-wb-ink2">
             No high-value evidence changes in the last 14 days. Check My Evidence for the full current position on every topic.
           </p>
         )}
@@ -140,11 +138,11 @@ export function TodayView() {
           Safety
         </h2>
         {data.safety.clear ? (
-          <p className="text-[13px] text-wb-ink2">✓ Nothing new requires attention.</p>
+          <p className="text-wb-body text-wb-ink2">✓ Nothing new requires attention.</p>
         ) : (
           <div className="space-y-2">
             {data.safety.items.map((s) => (
-              <div key={s.signal_id} className="border-b border-wb-line pb-2 text-[12.5px] last:border-0">
+              <div key={s.signal_id} className="border-b border-wb-line pb-2 text-wb-label last:border-0">
                 <div className="font-semibold text-wb-crit-on">{s.title}</div>
                 <div className="text-wb-ink2">{s.summary}</div>
                 {s.actionable_recommendation && <div className="italic text-wb-ink2">You need to: {s.actionable_recommendation}</div>}
@@ -155,11 +153,11 @@ export function TodayView() {
       </Card>
 
       {/* EMERGING — count + link only, no raw list per spec. */}
-      <div className="rounded-xl border border-wb-line bg-wb-surface p-3 text-[12.5px] text-wb-ink2">
+      <div className="rounded-xl border border-wb-line bg-wb-surface p-3 text-wb-label text-wb-ink2">
         {data.emerging_count > 0 ? (
           <>
             {data.emerging_count} finding{data.emerging_count === 1 ? ' is' : 's are'} being watched. Evidence not yet strong enough to change what HQ thinks.{' '}
-            <Link href="/health-osint?tab=my-evidence" className="text-wb-sage-deep hover:underline">View emerging →</Link>
+            <Link href="/health-osint?tab=my-evidence" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">View emerging →</Link>
           </>
         ) : (
           <>Nothing currently in the watch list.</>
@@ -168,13 +166,13 @@ export function TodayView() {
 
       {/* NEEDS YOUR REVIEW — curation folded in, ambiguous-only subset. */}
       {data.needs_review.length > 0 && (
-        <Card title="Needs Your Review">
-          <p className="mb-3 text-[11.5px] text-wb-ink2">
+        <CollapsibleSection title={`Needs Your Review · ${data.needs_review.length}`} defaultOpen={false}>
+          <p className="mb-3 text-wb-label text-wb-ink2">
             The system is not confident these are relevant — everything else it already handled automatically.
           </p>
           <div className="space-y-3">
             {data.needs_review.map((item) => (
-              <div key={item.signal_id} className="border-b border-wb-line pb-3 text-[12.5px] last:border-0">
+              <div key={item.signal_id} className="border-b border-wb-line pb-3 text-wb-label last:border-0">
                 <div className="font-semibold text-wb-ink">
                   {item.canonical_url ? (
                     <a href={item.canonical_url} target="_blank" rel="noreferrer" className="hover:underline">{item.title}</a>
@@ -189,41 +187,43 @@ export function TodayView() {
                 </div>
                 {item.reason && <p className="mt-1 italic text-wb-ink2">{item.reason}</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
                     disabled={busyId === item.signal_id}
                     onClick={() => decide(item.signal_id, 'publish')}
-                    className="rounded bg-wb-sage-deep px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
                   >
                     Include
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     disabled={busyId === item.signal_id}
                     onClick={() => decide(item.signal_id, 'reject')}
-                    className="rounded bg-wb-crit/10 px-3 py-1 text-xs font-medium text-wb-crit disabled:opacity-50"
+                    className="border-transparent bg-wb-crit/10 text-wb-crit hover:border-transparent hover:bg-wb-crit/20 active:border-transparent active:bg-wb-crit/20"
                   >
                     Ignore
-                  </button>
-                  <select
+                  </Button>
+                  <Select
                     value={reasonById[item.signal_id] ?? ''}
                     onChange={(e) => setReasonById((prev) => ({ ...prev, [item.signal_id]: e.target.value }))}
-                    className="rounded border border-wb-line bg-transparent px-2 py-1 text-xs text-wb-ink2"
                     aria-label="Ignore reason (optional)"
                   >
                     <option value="">Ignore reason (optional)</option>
                     {IGNORE_REASONS.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
-                  </select>
+                  </Select>
                 </div>
               </div>
             ))}
           </div>
           {data.needs_review_total_pending > data.needs_review.length && (
-            <p className="mt-3 text-[11px] text-wb-ink2">
-              <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline">See the full queue →</Link>
+            <p className="mt-3 text-wb-label text-wb-ink2">
+              <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">See the full queue →</Link>
             </p>
           )}
-        </Card>
+        </CollapsibleSection>
       )}
     </div>
   );

@@ -7,7 +7,7 @@ Adequate for the Starship hierarchy scale (~200-500 nodes, ~1000 edges).
 from __future__ import annotations
 
 from collections import deque
-from typing import Callable, Dict, List, Optional, Set
+from collections.abc import Callable
 
 from .models import HierarchyEdge, HierarchyNode
 
@@ -22,9 +22,9 @@ class HierarchyGraph:
     """
 
     def __init__(self) -> None:
-        self._nodes: Dict[str, HierarchyNode] = {}
-        self._out: Dict[str, List[HierarchyEdge]] = {}   # source_id → outgoing edges
-        self._in: Dict[str, List[HierarchyEdge]] = {}    # target_id → incoming edges
+        self._nodes: dict[str, HierarchyNode] = {}
+        self._out: dict[str, list[HierarchyEdge]] = {}   # source_id → outgoing edges
+        self._in: dict[str, list[HierarchyEdge]] = {}    # target_id → incoming edges
 
     # ------------------------------------------------------------------
     # Mutation
@@ -55,25 +55,25 @@ class HierarchyGraph:
     # Lookup
     # ------------------------------------------------------------------
 
-    def get_node(self, node_id: str) -> Optional[HierarchyNode]:
+    def get_node(self, node_id: str) -> HierarchyNode | None:
         return self._nodes.get(node_id)
 
-    def get_nodes(self, *, node_type: Optional[str] = None) -> List[HierarchyNode]:
+    def get_nodes(self, *, node_type: str | None = None) -> list[HierarchyNode]:
         if node_type:
             return [n for n in self._nodes.values() if n.node_type == node_type]
         return list(self._nodes.values())
 
-    def out_edges(self, node_id: str) -> List[HierarchyEdge]:
+    def out_edges(self, node_id: str) -> list[HierarchyEdge]:
         return list(self._out.get(node_id, []))
 
-    def in_edges(self, node_id: str) -> List[HierarchyEdge]:
+    def in_edges(self, node_id: str) -> list[HierarchyEdge]:
         return list(self._in.get(node_id, []))
 
-    def successors(self, node_id: str) -> List[str]:
+    def successors(self, node_id: str) -> list[str]:
         """Direct children (nodes this node points to)."""
         return [e.target_id for e in self._out.get(node_id, [])]
 
-    def predecessors(self, node_id: str) -> List[str]:
+    def predecessors(self, node_id: str) -> list[str]:
         """Direct parents (nodes pointing to this node)."""
         return [e.source_id for e in self._in.get(node_id, [])]
 
@@ -81,23 +81,23 @@ class HierarchyGraph:
     # Traversal
     # ------------------------------------------------------------------
 
-    def ancestors(self, node_id: str, max_depth: int = 10) -> List[str]:
+    def ancestors(self, node_id: str, max_depth: int = 10) -> list[str]:
         """BFS: all nodes reachable by following edges backward."""
         return self._bfs(node_id, self.predecessors, max_depth)
 
-    def descendants(self, node_id: str, max_depth: int = 10) -> List[str]:
+    def descendants(self, node_id: str, max_depth: int = 10) -> list[str]:
         """BFS: all nodes reachable by following edges forward."""
         return self._bfs(node_id, self.successors, max_depth)
 
     def _bfs(
         self,
         start: str,
-        neighbours_fn: Callable[[str], List[str]],
+        neighbours_fn: Callable[[str], list[str]],
         max_depth: int,
-    ) -> List[str]:
-        visited: Set[str] = set()
+    ) -> list[str]:
+        visited: set[str] = set()
         queue: deque[tuple[str, int]] = deque([(start, 0)])
-        result: List[str] = []
+        result: list[str] = []
         while queue:
             current, depth = queue.popleft()
             if depth >= max_depth:
@@ -109,7 +109,7 @@ class HierarchyGraph:
                     queue.append((nid, depth + 1))
         return result
 
-    def shortest_path(self, from_id: str, to_id: str) -> Optional[List[str]]:
+    def shortest_path(self, from_id: str, to_id: str) -> list[str] | None:
         """
         Bidirectional BFS: shortest path between any two nodes.
         Traverses edges in either direction to find the structural connection.
@@ -120,8 +120,8 @@ class HierarchyGraph:
         if from_id not in self._nodes or to_id not in self._nodes:
             return None
 
-        visited: Set[str] = {from_id}
-        queue: deque[List[str]] = deque([[from_id]])
+        visited: set[str] = {from_id}
+        queue: deque[list[str]] = deque([[from_id]])
 
         while queue:
             path = queue.popleft()

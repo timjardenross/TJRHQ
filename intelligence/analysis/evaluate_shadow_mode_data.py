@@ -23,17 +23,18 @@ import argparse
 import json
 import logging
 import sys
-import urllib.request
 import urllib.error
-from datetime import datetime, date, timedelta
+import urllib.parse
+import urllib.request
+from dataclasses import asdict, dataclass
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from dataclasses import dataclass, asdict
-from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(_REPO_ROOT / ".env")
 
 import os
@@ -62,13 +63,13 @@ class SignalEvaluation:
     event_id: str
     collected_at: str
     heuristic_rating: str
-    llm_rating: Optional[str]
+    llm_rating: str | None
     agree: bool
     heuristic_score: float
-    llm_score: Optional[float]
-    brief_id: Optional[str]
-    qa_approved: Optional[bool]  # True if brief was QA-passed, False if rejected, None if not in brief
-    qa_decision_timestamp: Optional[str]
+    llm_score: float | None
+    brief_id: str | None
+    qa_approved: bool | None  # True if brief was QA-passed, False if rejected, None if not in brief
+    qa_decision_timestamp: str | None
 
 
 @dataclass
@@ -98,7 +99,7 @@ class EvaluationReport:
     heuristic_llm_agreement_pct: float
     confidence_bands: list  # ConfidenceBandAnalysis
     recommendation: str
-    issue_16_threshold: Optional[str]  # e.g. "3.0-3.9" if this band shows LLM value
+    issue_16_threshold: str | None  # e.g. "3.0-3.9" if this band shows LLM value
     findings: list  # [str] key observations
 
 
@@ -135,13 +136,36 @@ class EvaluationHarness:
         url = f"{SUPABASE_URL}/rest/v1/{query}"
         try:
             req = urllib.request.Request(url, headers=_headers())
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
                 signals = json.loads(resp.read())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - generic Supabase fetch wrapper — caller sees [] and handles it; already logged
             log.error(f"Failed to fetch signals: {exc}")
             return []
 
-        # 2. For each signal, fetch its brief's QA decision
+        # 2. Fetch every referenced brief's QA decision in batched `in.()`
+        # queries instead of one request per signal -- up to 10000 signals
+        # previously meant up to 10000 sequential round trips here (2026-09-15
+        # adversarial review). Distinct brief_ids are usually far fewer than
+        # signals (many signals share a brief), and batching keeps each
+        # request's URL a sane length.
+        brief_ids = sorted({sig["brief_id"] for sig in signals if sig.get("brief_id")})
+        briefs_by_id: dict[str, dict] = {}
+        _BATCH_SIZE = 200
+        for i in range(0, len(brief_ids), _BATCH_SIZE):
+            batch = brief_ids[i : i + _BATCH_SIZE]
+            ids_param = ",".join(urllib.parse.quote(str(b), safe="") for b in batch)
+            try:
+                briefs_url = (
+                    f"{SUPABASE_URL}/rest/v1/intelligence_briefs"
+                    f"?brief_id=in.({ids_param})&select=brief_id,approval_audit,updated_at"
+                )
+                briefs_req = urllib.request.Request(briefs_url, headers=_headers())
+                with urllib.request.urlopen(briefs_req, timeout=30) as resp:  # nosec B310 - briefs_url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
+                    for brief in json.loads(resp.read()):
+                        briefs_by_id[brief["brief_id"]] = brief
+            except Exception as exc:  # noqa: BLE001 - one bad batch must not abort the whole evaluation; already logged, leaves those briefs' qa_approved/timestamp as None
+                log.debug(f"Failed to fetch brief batch {i}-{i + len(batch)}: {exc}")
+
         evaluations = []
         for sig in signals:
             event_id = sig["event_id"]
@@ -149,25 +173,13 @@ class EvaluationHarness:
             qa_approved = None
             qa_timestamp = None
 
-            if brief_id:
-                try:
-                    # Fetch brief's approval_audit
-                    brief_url = (
-                        f"{SUPABASE_URL}/rest/v1/intelligence_briefs"
-                        f"?brief_id=eq.{brief_id}&select=approval_audit,updated_at"
-                    )
-                    brief_req = urllib.request.Request(brief_url, headers=_headers())
-                    with urllib.request.urlopen(brief_req, timeout=10) as resp:
-                        briefs = json.loads(resp.read())
-                        if briefs:
-                            brief = briefs[0]
-                            audit = brief.get("approval_audit", {})
-                            qa_entry = audit.get("qa", {})
-                            # QA status: approved/rejected/pending
-                            qa_approved = qa_entry.get("status") == "approved"
-                            qa_timestamp = qa_entry.get("timestamp")
-                except Exception as exc:
-                    log.debug(f"Failed to fetch brief {brief_id}: {exc}")
+            brief = briefs_by_id.get(brief_id) if brief_id else None
+            if brief:
+                audit = brief.get("approval_audit", {})
+                qa_entry = audit.get("qa", {})
+                # QA status: approved/rejected/pending
+                qa_approved = qa_entry.get("status") == "approved"
+                qa_timestamp = qa_entry.get("timestamp")
 
             evaluations.append(
                 SignalEvaluation(
@@ -259,7 +271,7 @@ class EvaluationHarness:
         if not evaluations:
             log.error("No signals with dual scores found")
             return EvaluationReport(
-                report_date=datetime.utcnow().isoformat(),
+                report_date=datetime.now(timezone.utc).isoformat(),
                 period_start=start_date.isoformat(),
                 period_end=end_date.isoformat(),
                 total_signals=0,
@@ -326,7 +338,7 @@ class EvaluationHarness:
                 )
 
         return EvaluationReport(
-            report_date=datetime.utcnow().isoformat(),
+            report_date=datetime.now(timezone.utc).isoformat(),
             period_start=start_date.isoformat(),
             period_end=end_date.isoformat(),
             total_signals=len(evaluations),
@@ -345,8 +357,8 @@ def main():
     )
     parser.add_argument(
         "--start-date",
-        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
-        default=date.today() - timedelta(days=14),
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=timezone.utc).date(),
+        default=datetime.now(timezone.utc).date() - timedelta(days=14),
         help="Start date (YYYY-MM-DD), default 14 days ago",
     )
     parser.add_argument(
@@ -372,10 +384,10 @@ def main():
     print(f"Agreement rate: {report['heuristic_llm_agreement_pct']:.1f}%")
     print(f"\nRecommendation:\n  {report['recommendation']}")
     print(f"\nIssue 16 Routing Threshold: {report['issue_16_threshold'] or 'Not yet recommended'}")
-    print(f"\nFindings:")
+    print("\nFindings:")
     for i, finding in enumerate(report['findings'], 1):
         print(f"  {i}. {finding}")
-    print(f"\nConfidence Band Analysis:")
+    print("\nConfidence Band Analysis:")
     for band in report['confidence_bands']:
         print(
             f"  {band['band_name']}: {band['signal_count']} signals, "

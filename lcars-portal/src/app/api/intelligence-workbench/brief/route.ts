@@ -20,7 +20,11 @@ export async function GET(req: NextRequest) {
     const { data: briefRows } = await sb
       .from('intelligence_briefs')
       .select(
-        'brief_id,generated_at,period_start,period_end,overall_risk,approval_status,approval_audit,executive_snapshot,bottom_line,emerging_themes,forward_watch,signal_ids,published_at',
+        // HQ V1 Integration QA §7 fix: sources_failed/sources_stale were
+        // computed by brief_generator.py but never selected here — the one
+        // screen with a human approval gate had no coverage/freshness
+        // signal at all for the reviewer approving/publishing this brief.
+        'brief_id,generated_at,period_start,period_end,overall_risk,approval_status,approval_audit,executive_snapshot,bottom_line,emerging_themes,forward_watch,signal_ids,published_at,sources_checked,sources_available,sources_failed,sources_stale',
       )
       .eq('brief_id', id)
       .limit(1);

@@ -23,8 +23,9 @@ SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 sys.path.insert(0, str(REPO_ROOT))
 
-import dashboard  # noqa: E402
-import core.coordination.engineering_handoff_reader as ehr  # noqa: E402
+import dashboard
+
+import core.coordination.engineering_handoff_reader as ehr
 
 
 def write_handoff(handoffs_dir: Path, name: str, **overrides) -> Path:

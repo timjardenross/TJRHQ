@@ -22,11 +22,9 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -93,7 +91,7 @@ def _load_mission_dossier(mission_id: str) -> dict:
             if candidate.exists():
                 dossier["mission_file_content"] = candidate.read_text(encoding="utf-8")[:_MAX_REF_CHARS]
                 break
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dossier file read, already logged
         log.debug("[mission_lifecycle] dossier: mission file read failed: %s", exc)
 
     # 3. Read the reference file from the index
@@ -103,7 +101,7 @@ def _load_mission_dossier(mission_id: str) -> dict:
             ref_file = _REPO_ROOT / ref_path
             if ref_file.exists():
                 dossier["reference_content"] = ref_file.read_text(encoding="utf-8")[:_MAX_REF_CHARS]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dossier file read, already logged
         log.debug("[mission_lifecycle] dossier: reference file read failed: %s", exc)
 
     return dossier
@@ -146,7 +144,7 @@ def _format_qa_dossier(dossier: dict, closing_note: str = "") -> str:
     return "\n".join(lines)
 
 
-def _supabase_missions(status_filter: Optional[str] = None, order: str = "created_at.desc") -> list[dict]:
+def _supabase_missions(status_filter: str | None = None, order: str = "created_at.desc") -> list[dict]:
     """Try to read missions from Supabase. Returns empty list on failure."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
@@ -160,12 +158,12 @@ def _supabase_missions(status_filter: Optional[str] = None, order: str = "create
             qs += f"&status=ilike.{status_filter}"
         rows = client.get(qs)
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase fetch, already logged
         log.debug("[mission_lifecycle] Supabase unavailable: %s", exc)
         return []
 
 
-def _supabase_get_mission(mission_id: str) -> Optional[dict]:
+def _supabase_get_mission(mission_id: str) -> dict | None:
     """Direct Supabase lookup by mission_id text column. Returns None on miss or error."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
@@ -179,12 +177,12 @@ def _supabase_get_mission(mission_id: str) -> Optional[dict]:
             if rows:
                 return rows[0]
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase lookup, already logged
         log.debug("[mission_lifecycle] Supabase get_mission failed: %s", exc)
         return None
 
 
-def _time_sensitivity_from_due_date(due_date: Optional[str]) -> Optional[int]:
+def _time_sensitivity_from_due_date(due_date: str | None) -> int | None:
     """0-100 urgency derived from days-until-due, for
     `PriorityInputs.time_sensitivity` (Priority Engine wiring fix — see
     core/platform/priority_engine.py). Mirrors the days-until-due curve
@@ -200,7 +198,7 @@ def _time_sensitivity_from_due_date(due_date: Optional[str]) -> Optional[int]:
     try:
         from datetime import date as _date
         d = _date.fromisoformat(str(due_date)[:10])
-        days_until = (d - _date.today()).days
+        days_until = (d - datetime.now(timezone.utc).date()).days
         if days_until <= 0:
             return 100  # due today or overdue
         if days_until <= 3:
@@ -214,7 +212,7 @@ def _time_sensitivity_from_due_date(due_date: Optional[str]) -> Optional[int]:
         return None
 
 
-def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: Optional[str] = None):
+def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: str | None = None):
     """Update mission status in Supabase. Returns (True, event_id) on success, (False, None) on failure.
 
     `due_date`: the mission's own `due_date` column, if the caller already
@@ -251,10 +249,11 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                         "mission.status_changed", domain="mission-lifecycle",
                         source="slack-bot:mission_lifecycle",
                         time_sensitivity=_time_sensitivity_from_due_date(due_date),
-                        linked_missions=[mid_try], recommended_action=new_status,
+                        linked_missions=[mid_try],
+                        description=f"Mission {mid_try} status changed to {new_status}",
                     )
-                except Exception:
-                    pass
+                except Exception as _exc:  # noqa: BLE001 - best-effort event publish, already logged
+                    log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)
                 # ADR-024 second-pass audit: the 'missions' domain_registry row
                 # (migration 0071) has had zero record_heartbeat() calls anywhere
                 # in the repo since it was registered — verification_state has
@@ -266,11 +265,11 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                         sys.path.insert(0, str(_REPO_ROOT))
                     from core.platform.heartbeat import record_heartbeat
                     record_heartbeat("missions", status="ok", detail=f"status_changed:{new_status}")
-                except Exception:
-                    pass
+                except Exception as _exc:  # noqa: BLE001 - best-effort heartbeat record, already logged
+                    log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)
                 return True, _event_id
         return False, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase status update, already logged
         log.debug("[mission_lifecycle] Supabase status update failed: %s", exc)
         return False, None
 
@@ -282,6 +281,7 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
     # Primary: Supabase mission_state_transitions (MSN-BOT-SOR)
     try:
         import uuid as _uuid
+
         from tools.supabase.client import CommanderSupabaseClient
         client = CommanderSupabaseClient()
         if client.is_enabled():
@@ -298,13 +298,13 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
                 "note":             note or None,
                 "source":           "slack-bot",
             })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort transition audit write, already logged
         log.warning("[mission_lifecycle] Supabase transition record failed: %s", exc)
 
     # Secondary: local JSON backup (non-authoritative)
     try:
         _TRANSITION_LOG_DIR.mkdir(parents=True, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         log_file = _TRANSITION_LOG_DIR / f"TRANSITION-{mission_id}-{ts}.json"
         log_file.write_text(json.dumps({
             "mission_id":      mission_id,
@@ -314,7 +314,7 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
             "transitioned_at": now_iso,
             "note":            note or None,
         }, indent=2))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort local backup write, already logged
         log.warning("[mission_lifecycle] Local transition backup write failed: %s", exc)
 
 
@@ -324,8 +324,8 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
 
 def handle_mission_list(
     text: str,
-    user_id: Optional[str] = None,
-    channel_id: Optional[str] = None,
+    user_id: str | None = None,
+    channel_id: str | None = None,
 ) -> str:
     """
     List missions.
@@ -398,7 +398,7 @@ def _format_mission_list(missions: list[dict], source: str, filter_arg: str) -> 
     if not missions:
         return f":information_source: No missions found (filter: `{filter_arg or 'active'}`, source: {source})."
 
-    label = f"active missions" if not filter_arg or filter_arg == "active" else f"`{filter_arg}` missions"
+    label = "active missions" if not filter_arg or filter_arg == "active" else f"`{filter_arg}` missions"
     lines = [f"*:clipboard: {len(missions)} {label}* _(source: {source})_", ""]
     for m in missions[:20]:
         mid    = m.get("id") or m.get("mission_id", "")
@@ -410,7 +410,7 @@ def _format_mission_list(missions: list[dict], source: str, filter_arg: str) -> 
     if len(missions) > 20:
         lines.append(f"\n_...and {len(missions) - 20} more. Use `/mission-list all` to see everything._")
 
-    lines.append(f"\n_Use `/mission-status <id>` for details._")
+    lines.append("\n_Use `/mission-status <id>` for details._")
     return "\n".join(lines)
 
 
@@ -420,8 +420,8 @@ def _format_mission_list(missions: list[dict], source: str, filter_arg: str) -> 
 
 def handle_mission_status(
     text: str,
-    user_id: Optional[str] = None,
-    channel_id: Optional[str] = None,
+    user_id: str | None = None,
+    channel_id: str | None = None,
 ) -> str:
     """
     Show or update the status of a mission.
@@ -475,17 +475,22 @@ def handle_mission_status(
     if db_row:
         return _format_mission_detail(db_row)
 
-    # Fallback: flat file
-    all_missions = _parse_registry()
+    # Fallback: flat file (Supabase unavailable or mission not found there)
+    try:
+        from mission_registry import load_registry_entries
+        all_missions = load_registry_entries()
+    except Exception as exc:  # noqa: BLE001 - best-effort flat-file fallback, already logged
+        log.warning("[mission_lifecycle] flat-file registry fallback failed: %s", exc)
+        return f":x: Mission `{mission_id}` not found."
     for m in all_missions:
-        mid = m["id"].upper()
+        mid = (m.get("mission_id") or m.get("id") or "").upper()
         if mid in (mission_id, mission_id_full):
             return _format_mission_detail(m)
 
     return f":x: Mission `{mission_id}` not found. Use `/mission-list` to see active missions."
 
 
-def _closure_outcome_prompt(mission_id: str, title: str) -> Optional[str]:
+def _closure_outcome_prompt(mission_id: str, title: str) -> str | None:
     """MSN-0079 WP1: surface an outcome-capture request when a mission closes.
 
     Delegates to outcome_capture.closure_prompt (which never invents a lesson and
@@ -500,7 +505,8 @@ def _closure_outcome_prompt(mission_id: str, title: str) -> Optional[str]:
             sys.path.insert(0, kp)
         from outcome_capture import closure_prompt  # type: ignore
         return closure_prompt("mission", mission_id, title)
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - best-effort closure prompt, never blocks closure  # pragma: no cover
+        log.debug("[mission_lifecycle] closure outcome prompt failed: %s", exc)
         return None
 
 
@@ -508,7 +514,7 @@ def _handle_status_transition(
     mission_id: str,
     mission_id_full: str,
     new_status: str,
-    user_id: Optional[str],
+    user_id: str | None,
     note: str,
 ) -> str:
     """Execute a lifecycle status transition and write audit record."""
@@ -536,7 +542,9 @@ def _handle_status_transition(
 
     # Tiered approval PoC — route status changes through Attention Engine
     try:
-        from core.platform.approval_router import evaluate_and_route_mission_status_change
+        from core.platform.approval_router import (
+            evaluate_and_route_mission_status_change,
+        )
         evaluate_and_route_mission_status_change(
             mission_id=mission_id_full,
             mission_name=mission_title,
@@ -549,7 +557,7 @@ def _handle_status_transition(
 
     if updated:
         lines = [
-            f":arrows_counterclockwise: *Mission Status Updated*",
+            ":arrows_counterclockwise: *Mission Status Updated*",
             f"*Mission:* `{mission_id}`",
             f"*Transition:* `{from_status}` → `{new_status}`",
         ]
@@ -620,8 +628,8 @@ def _format_mission_detail(m: dict) -> str:
 
 def handle_mission_close(
     text: str,
-    user_id: Optional[str] = None,
-    channel_id: Optional[str] = None,
+    user_id: str | None = None,
+    channel_id: str | None = None,
     include_qa_advisory: bool = False,
 ) -> str:
     """
@@ -667,7 +675,7 @@ def handle_mission_close(
                 mission_dossier=dossier_text,
                 closing_note=note,
             )
-        except Exception as _qa_exc:
+        except Exception as _qa_exc:  # noqa: BLE001 - best-effort QA advisory, already logged
             log.warning("[mission_lifecycle] QA Validation Officer block error: %s", _qa_exc)
             qa_block = "\n\n:white_check_mark: *QA Validation Officer Pre-Closure Review*\n_:robot_face: Agent advisory unavailable._"
 
@@ -688,25 +696,24 @@ def handle_mission_close(
                     f"missions?mission_id=eq.{mid_full}",
                     {"closed_at": datetime.now(timezone.utc).isoformat()},
                 )
-        except Exception as _ca_exc:
+        except Exception as _ca_exc:  # noqa: BLE001 - best-effort closed_at stamp, already logged
             log.warning("[mission_lifecycle] closed_at stamp failed: %s", _ca_exc)
 
     # Write closure log
     try:
-        from datetime import datetime
         import json
         log_dir = _REPO_ROOT / "USS-TJR-Control" / "logs" / "missions" / "closed"
         log_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         log_file = log_dir / f"CLOSED-{mission_id}-{ts}.json"
         log_file.write_text(json.dumps({
             "mission_id": mission_id_full,
-            "closed_at": datetime.utcnow().isoformat() + "Z",
+            "closed_at": datetime.now(timezone.utc).isoformat(),
             "closed_by": user_id or "Captain",
             "closing_note": note or None,
         }, indent=2))
         closed_in_file = True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort closure log write, already logged
         log.warning("[mission_lifecycle] Closure log write failed: %s", exc)
 
     if closed_in_db:

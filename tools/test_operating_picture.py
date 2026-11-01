@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0179 — Tests for /operating_picture Telegram command.
 
 Five tests covering:
@@ -14,7 +15,6 @@ import sys
 import types
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
-
 
 # ── Dependency stubs ──────────────────────────────────────────────────────────
 

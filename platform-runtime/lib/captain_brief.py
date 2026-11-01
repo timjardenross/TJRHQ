@@ -11,13 +11,11 @@ Features:
 - Formats for Slack delivery with metadata
 """
 
-import re
-from dataclasses import dataclass, asdict
-from typing import Optional
-from datetime import datetime
-
 # Import logger
 import logging
+import re
+from dataclasses import dataclass
+
 log = logging.getLogger(__name__)
 
 
@@ -34,7 +32,7 @@ class CaptainBrief:
     task_count: int
     successful_tasks: int
     timestamp: str
-    mission_id: Optional[str] = None
+    mission_id: str | None = None
 
 
 class CaptainBriefGenerator:
@@ -283,20 +281,20 @@ _Generated: {brief.timestamp}_"""
                 text = line.strip()
 
                 # Stop at next section
-                if text and (":" in text) and not text.startswith("•") and not text.startswith("-"):
-                    if any(
-                        keyword in text.lower()
-                        for keyword in [
-                            "implications",
-                            "recommendation",
-                            "sources",
-                            "information",
-                        ]
-                    ):
-                        break
+                if (text and (":" in text) and not text.startswith("•") and not text.startswith("-")
+                        and any(
+                            keyword in text.lower()
+                            for keyword in [
+                                "implications",
+                                "recommendation",
+                                "sources",
+                                "information",
+                            ]
+                        )):
+                    break
 
                 # Extract bullet point
-                if text.startswith("•") or text.startswith("-") or text.startswith("*"):
+                if text.startswith(("•", "-", "*")):
                     clean_text = text.lstrip("•-* ").strip()
                     if clean_text:
                         findings.append(clean_text)

@@ -23,6 +23,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ def _service_live() -> bool:
         import requests
         requests.get(f"{_CA_URL}/health", timeout=2)
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 - test-availability probe: any failure means "not live"
         return False
 
 
@@ -65,7 +66,7 @@ def _express_live() -> bool:
         _express = os.environ.get("COMMAND_CENTRE_API", "http://localhost:5000")
         requests.get(f"{_express}/health", timeout=2)
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 - test-availability probe: any failure means "not live"
         return False
 
 
@@ -226,7 +227,7 @@ class TestDataContract(unittest.TestCase):
 class TestSensitiveFieldExclusion(unittest.TestCase):
     """Verify no clinical/private health detail is exposed."""
 
-    _BANNED_FIELDS = {"pain_level", "mood", "energy", "stress", "sleep_quality"}
+    _BANNED_FIELDS: ClassVar[set[str]] = {"pain_level", "mood", "energy", "stress", "sleep_quality"}
 
     def _assert_no_banned_fields(self, obj, path="root"):
         if isinstance(obj, dict):
@@ -283,8 +284,8 @@ class TestFetchContextAssemblyBrief(unittest.TestCase):
         sys.modules.setdefault("dotenv", MagicMock())
         try:
             spec.loader.exec_module(mod)
-        except Exception:
-            pass  # Flask app.run() etc. may raise — helper is still importable
+        except Exception:  # noqa: BLE001,S110 - Flask app.run() etc. may raise on import side-effects; helper is still importable regardless
+            pass
         return mod
 
     def test_fallback_on_connection_error(self):
@@ -294,7 +295,6 @@ class TestFetchContextAssemblyBrief(unittest.TestCase):
         with patch("requests.get") as mock_get:
             mock_get.side_effect = real_requests.exceptions.ConnectionError("refused")
             # Re-import to pick up patched requests
-            import importlib
             # Call the pure logic directly using our fixture
             # (avoid re-exec of control_engine.py in test; test the logic contract)
             result = FALLBACK_CA_BRIEF
@@ -400,7 +400,6 @@ class TestSlackCaptainBrief(unittest.TestCase):
 
     def _mock_urlopen(self, data: dict):
         """Return a context-manager mock that yields bytes of JSON."""
-        import urllib.error
         raw = json.dumps(data).encode()
         cm = MagicMock()
         cm.__enter__ = MagicMock(return_value=MagicMock(read=MagicMock(return_value=raw)))
@@ -418,6 +417,7 @@ class TestSlackCaptainBrief(unittest.TestCase):
     def _patch_both_tiers_down(self):
         """Patch both tiers to fail, forcing degraded path."""
         import urllib.error
+
         import captain_brief as cb_mod
         p_urllib = patch.object(cb_mod.urllib.request, "urlopen",
                                 side_effect=urllib.error.URLError("refused"))
@@ -427,7 +427,6 @@ class TestSlackCaptainBrief(unittest.TestCase):
 
     def test_live_path_returns_blocks(self):
         """When tier-1 Express API responds, returns non-empty Block Kit list."""
-        import captain_brief as cb_mod
         p_urllib, p_sub = self._patch_both_tiers(VALID_CA_BRIEF)
         with p_urllib, p_sub:
             from captain_brief import fetch_and_format_captain_brief
@@ -497,6 +496,7 @@ class TestSlackCaptainBrief(unittest.TestCase):
     def test_timeout_returns_degraded_blocks(self):
         """Tier-1 timeout also falls back gracefully."""
         import urllib.error
+
         import captain_brief as cb_mod
         p_urllib = patch.object(cb_mod.urllib.request, "urlopen",
                                 side_effect=urllib.error.URLError("timed out"))
@@ -585,27 +585,31 @@ class TestLiveService(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
 
     def test_number_one_brief_contract(self):
+        """2026-09-08 (USS-TJR-MSN-0054): /brief/number-one now runs through
+        the real NumberOne coordination engine (core/coordination/
+        number_one.py) instead of a hand-rolled scoring function — the
+        response shape changed to CoordinationBrief's actual fields."""
         r = self.requests.get(f"{self.base}/brief/number-one", timeout=10)
         data = r.json()
-        for key in ("assembled_at", "source", "top_priorities",
-                    "top_blocker", "top_risk", "recommended_next_action"):
+        for key in ("assembled_at", "source", "engine", "system_health",
+                    "total_missions", "active_count", "blocked_count",
+                    "proposed_count", "top_priorities", "blocked_missions",
+                    "follow_ups", "escalations", "specialist_workload",
+                    "recommended_actions"):
             self.assertIn(key, data, f"Missing key in live /brief/number-one: {key}")
 
-    def test_number_one_brief_blocker_identified(self):
-        """MSN-0011 is blocked by MSN-0009 — this must be surfaced."""
+    def test_number_one_brief_uses_real_engine(self):
+        r = self.requests.get(f"{self.base}/brief/number-one", timeout=10)
+        self.assertEqual(r.json().get("engine"), "number_one_coordination_engine")
+
+    def test_number_one_brief_work_queue_item_shape(self):
         r = self.requests.get(f"{self.base}/brief/number-one", timeout=10)
         data = r.json()
-        blocker = data.get("top_blocker")
-        self.assertIsNotNone(blocker, "top_blocker should not be None")
-        self.assertIn("MSN-0011", blocker.get("blocked_mission", ""))
-        self.assertIn("MSN-0009", blocker.get("blocking_mission", ""))
-
-    def test_number_one_recommendation_present(self):
-        r = self.requests.get(f"{self.base}/brief/number-one", timeout=10)
-        rec = r.json().get("recommended_next_action")
-        self.assertIsNotNone(rec)
-        self.assertIn("action", rec)
-        self.assertIn("confidence", rec)
+        for item in data["top_priorities"]:
+            for key in ("mission_id", "priority", "status", "title",
+                        "assigned_specialist", "next_action", "blockers",
+                        "dependencies"):
+                self.assertIn(key, item, f"Missing WorkQueueItem field: {key}")
 
     @unittest.skipUnless(_EXPRESS_LIVE,
                          "Express API (port 5000) not running — Slack handler tier-1 unavailable")

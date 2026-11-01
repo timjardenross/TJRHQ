@@ -28,7 +28,7 @@ import os
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _STATE_FILE = _REPO_ROOT / "outputs" / "deadmans_switch_state.json"
@@ -56,7 +56,7 @@ _SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 _SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 
-def _supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
+def _supabase_get(path: str, timeout: int = 10) -> list[dict[str, Any]]:
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         raise RuntimeError("Supabase credentials not configured")
     url = f"{_SUPABASE_URL.rstrip('/')}/rest/v1/{path}"
@@ -68,12 +68,12 @@ def _supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
             "Accept": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
         parsed = json.loads(resp.read().decode("utf-8"))
     return parsed if isinstance(parsed, list) else [parsed]
 
 
-def _send_telegram(text: str) -> tuple[bool, Optional[str]]:
+def _send_telegram(text: str) -> tuple[bool, str | None]:
     """Copy of core/platform/notification_service.py's _send_telegram(),
     deliberately duplicated rather than imported - see module docstring.
 
@@ -97,28 +97,28 @@ def _send_telegram(text: str) -> tuple[bool, Optional[str]]:
     payload = json.dumps({"chat_id": chat_id, "text": text}).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10):
+        with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url is api.telegram.org with a fixed path template, TELEGRAM_BOT_TOKEN is a trusted env credential - reviewed 2026-09-12
             return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Telegram send failure; error surfaced to caller in the returned tuple, not swallowed
         return False, f"{type(exc).__name__}: {exc}"
 
 
-def _read_state() -> Dict[str, Any]:
+def _read_state() -> dict[str, Any]:
     try:
         return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception:  # noqa: BLE001 - state file read; documented degrade-to-empty-state on any read/parse failure
         return {}
 
 
-def _write_state(state: Dict[str, Any]) -> None:
+def _write_state(state: dict[str, Any]) -> None:
     try:
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - already documented best-effort: a failed debounce write must not crash the dead-man's switch
         pass  # best-effort - a failed debounce write must not crash the switch
 
 
-def check() -> Dict[str, Any]:
+def check() -> dict[str, Any]:
     """Returns a report dict. Never raises - a switch that crashes silently
     defeats its own purpose, so every failure path is an explicit 'blind'
     verdict with a reason, not an exception."""
@@ -134,7 +134,7 @@ def check() -> Dict[str, Any]:
         state_rows = _supabase_get(
             "verification_state?select=computed_at&order=computed_at.desc&limit=1"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase read failure surfaced to caller as a 'blind' verification result, not swallowed
         return {"blind": True, "reason": f"could not read Supabase: {exc}", "alerted": False}
 
     reg = registry[0] if registry else {"expected_cadence_minutes": 5, "grace_period_minutes": 15}
@@ -160,7 +160,7 @@ def check() -> Dict[str, Any]:
             last_alert_dt = datetime.fromisoformat(last_alert)
             cooldown_elapsed = (now - last_alert_dt).total_seconds() > (_COOLDOWN_MINUTES * 60)
         if cooldown_elapsed:
-            ok, err = _send_telegram(
+            ok, _err = _send_telegram(
                 "I can't verify anything right now. "
                 f"{reason}. Treat silence as unknown, not as calm."
             )

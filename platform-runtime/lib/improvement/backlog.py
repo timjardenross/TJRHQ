@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -86,7 +86,7 @@ def _row_to_backlog_item(row: dict[str, Any]) -> BacklogItem | None:
     statement = str(row.get("statement") or "")
     # Strip "[BACKLOG] officer: " prefix to get suggested_action
     prefix = f"{_BACKLOG_PREFIX} {officer}: "
-    suggested_action = statement[len(prefix):] if statement.startswith(prefix) else statement
+    suggested_action = statement.removeprefix(prefix)
 
     parts = _parse_rationale(str(row.get("rationale") or ""))
 
@@ -133,6 +133,7 @@ def add_to_backlog(opp: Any) -> bool:
     """
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         officer = str(getattr(opp, "source_officer", "unknown"))
@@ -144,7 +145,7 @@ def add_to_backlog(opp: Any) -> bool:
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 statement_prefix = f"{_BACKLOG_PREFIX} {officer}: {action[:40]}"
-                res = c.raw_client.table("decisions").select("id").like(
+                res = c.raw_client.table("command_memory_records").select("id").like(
                     "statement", f"{statement_prefix}%"
                 ).like("owner", f"{_OWNER_ACTIVE_PREFIX}%").limit(1).execute()
                 if res.data:
@@ -153,7 +154,7 @@ def add_to_backlog(opp: Any) -> bool:
                         officer, action[:40],
                     )
                     return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (dedup check skipped)
             log.debug("[improvement.backlog] Dedup check skipped: %s", exc)
 
         score  = getattr(opp, "score", None)
@@ -166,7 +167,7 @@ def add_to_backlog(opp: Any) -> bool:
             f"CATEGORY: {cat.value if cat else ''}",
             f"OBSERVATION: {str(getattr(opp, 'observation', ''))[:120]}",
             f"BENEFIT: {str(getattr(opp, 'expected_benefit', ''))[:100]}",
-            f"EFFORT: {str(getattr(opp, 'estimated_effort', ''))}",
+            f"EFFORT: {getattr(opp, 'estimated_effort', '')!s}",
         ])
 
         log_decision_to_command_memory(
@@ -177,7 +178,7 @@ def add_to_backlog(opp: Any) -> bool:
         log.info("[improvement.backlog] Added: %s / %s", officer, action[:60])
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (add_to_backlog failed)
         log.debug("[improvement.backlog] add_to_backlog failed: %s", exc)
         return False
 
@@ -192,7 +193,7 @@ def get_backlog(limit: int = 50) -> list[BacklogItem]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale,owner,created_at")
             .like("owner", f"{_OWNER_ACTIVE_PREFIX}%")
             .order("created_at", desc=False)
@@ -209,7 +210,7 @@ def get_backlog(limit: int = 50) -> list[BacklogItem]:
         items.sort(key=lambda i: i.composite_score, reverse=True)
         return items
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_backlog failed)
         log.debug("[improvement.backlog] get_backlog failed: %s", exc)
         return []
 
@@ -224,14 +225,14 @@ def get_backlog_count() -> int:
             return 0
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id", count="exact")
             .like("owner", f"{_OWNER_ACTIVE_PREFIX}%")
             .execute()
         )
         return int(getattr(res, "count", None) or 0)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_backlog_count failed)
         log.debug("[improvement.backlog] get_backlog_count failed: %s", exc)
         return 0
 
@@ -258,7 +259,7 @@ def mark_backlog_item_processed(decision_id: str, mission_id: str | None = None)
 
         # Fetch current owner to derive done owner
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,owner,rationale")
             .eq("id", decision_id)
             .limit(1)
@@ -279,14 +280,14 @@ def mark_backlog_item_processed(decision_id: str, mission_id: str | None = None)
         if mission_id:
             new_rationale += f" | MISSION: {mission_id}"
 
-        c.raw_client.table("decisions").update(
+        c.raw_client.table("command_memory_records").update(
             {"owner": done_owner, "rationale": new_rationale}
         ).eq("id", decision_id).execute()
 
         log.info("[improvement.backlog] Processed: %s → mission %s", decision_id, mission_id)
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (mark_processed failed)
         log.debug("[improvement.backlog] mark_processed failed: %s", exc)
         return False
 
@@ -317,8 +318,8 @@ def drain_backlog(n: int, budget: Any) -> list[BacklogItem]:
 __all__ = [
     "BacklogItem",
     "add_to_backlog",
+    "drain_backlog",
     "get_backlog",
     "get_backlog_count",
     "mark_backlog_item_processed",
-    "drain_backlog",
 ]

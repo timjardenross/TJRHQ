@@ -18,12 +18,13 @@ decision, the ranker is never modified.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+import logging
+from typing import Any
+
+log = logging.getLogger(__name__)
 
 from intelligence.governance.workflow_gate import (
     ANALYST,
-    EXECUTIVE_APPROVER,
-    INTELLIGENCE_LEAD,
     GovernanceError,
     NotFoundError,
     log_mutation,
@@ -85,7 +86,7 @@ def score_event(repo, analyst, event_id: str, actor_role: str = ANALYST) -> dict
 
 # ─── Stage 7: verify facts (human gate — Intelligence Lead) ──────────────────
 def verify_event(repo, actor_role: str, event_id: str,
-                 confidence_level: str, verified_against: Optional[dict] = None) -> dict:
+                 confidence_level: str, verified_against: dict | None = None) -> dict:
     """Intelligence Lead verifies a SCORED signal -> VERIFIED."""
     require(actor_role, "signal.verify")
     event = repo.get_event(event_id)
@@ -168,7 +169,7 @@ def curate_watchlist(repo, actor_role: str, brief_id: str, items: list[dict]) ->
 # Live data showed the three gates were never meaningfully distinct — the one
 # brief ever published had all three passed by the same actor in one sitting.
 def qa_pass(repo, actor_role: str, brief_id: str,
-            status: str = "passed", details: Optional[dict[str, Any]] = None) -> dict:
+            status: str = "passed", details: dict[str, Any] | None = None) -> dict:
     """Record the QA outcome and advance IN_REVIEW -> QA_PASSED.
 
     Automated (actor_role == 'system', e.g. brief_qa_agent.py) or the
@@ -203,7 +204,7 @@ def qa_pass(repo, actor_role: str, brief_id: str,
 
 
 def publish_brief(repo, actor_role: str, brief_id: str,
-                  published_at: Optional[str] = None) -> dict:
+                  published_at: str | None = None) -> dict:
     """Executive Approver publishes a QA_PASSED brief -> PUBLISHED."""
     require(actor_role, "brief.publish")
     brief = repo.get_brief(brief_id)
@@ -225,11 +226,28 @@ def publish_brief(repo, actor_role: str, brief_id: str,
     # point every publish path goes through and the state machine above
     # already guarantees it fires exactly once per brief — no separate
     # dedupe needed. Never let a notification failure break a real publish.
-    try:
-        from intelligence.brief_published_notifier import notify_published
-        notify_published(brief)
-    except Exception:
-        pass
+    #
+    # 2026-09-19: gated on repo being the real SupabaseRepository. This
+    # function is also exercised by tests/test_intelligence_workflow.py and
+    # tests/test_telstra_poc.py against InMemoryRepository (fixture briefs
+    # like {"period_end": "b"} / {"period_end": "2026-07-11"}) -- ungated,
+    # every one of those test runs sent a real email via Resend (whenever
+    # RESEND_API_KEY was set in the environment, which resend_email.py loads
+    # from .env unconditionally on import, independent of which repo is in
+    # use). Confirmed live: three garbage "Captain's Brief ... has been
+    # published" emails ("for b" x2, "for 2026-07-11" x1) landed in the
+    # Captain's real inbox, matching these exact test fixtures. The workflow
+    # itself is correctly hermetic (InMemoryRepository, no network) -- only
+    # this side-effecting notification call wasn't. A production publish
+    # always goes through SupabaseRepository, so scoping the notification to
+    # it closes this without changing real publish behaviour at all.
+    from intelligence.workflow.repository import SupabaseRepository
+    if isinstance(repo, SupabaseRepository):
+        try:
+            from intelligence.brief_published_notifier import notify_published
+            notify_published(brief)
+        except Exception as exc:  # noqa: BLE001 - notification failure must never break a real publish (see comment above)
+            log.warning("[workflow/service] Publish notification failed for brief %r: %s", getattr(brief, "id", "?"), exc)
 
     return updated
 
@@ -312,13 +330,13 @@ def notify_telegram(repo, actor_role: str, brief_id: str, sender=None) -> dict:
         if sender is not None:
             sent = bool(sender(payload))
         else:
-            from core.platform.notification_service import notify, Severity, Transport
+            from core.platform.notification_service import Severity, Transport, notify
             reply_markup = {"inline_keyboard": [[
                 {"text": payload["button_label"], "url": payload["deep_link"]}]]}
             sent = bool(notify(payload["text"], title="RED — Operational Resilience",
                                severity=Severity.ALERT, transport=Transport.TELEGRAM,
                                reply_markup=reply_markup))
-    except Exception as exc:  # delivery must never break the workflow
+    except Exception as exc:  # delivery must never break the workflow  # noqa: BLE001 - explicitly documented above as 'delivery must never break the workflow' — logged via log_mutation's audit trail with the error captured
         log_mutation("intelligence_briefs", brief_id, "NOTIFY", actor_role,
                      after_state={"telegram_sent": False, "error": str(exc)})
         return {"sent": False, "payload": payload}
@@ -329,7 +347,7 @@ def notify_telegram(repo, actor_role: str, brief_id: str, sender=None) -> dict:
 
 
 def stand_down(repo, actor_role: str, brief_id: str,
-               lesson_text: Optional[str] = None, category: str = "other") -> dict:
+               lesson_text: str | None = None, category: str = "other") -> dict:
     """Intelligence Lead closes a RED escalation (Screen 5). Optionally records a
     lesson, then audits the stand-down. Does not delete anything."""
     require(actor_role, "brief.stand_down")

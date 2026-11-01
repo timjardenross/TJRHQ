@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from .notebook_assessment import assess_strategic_alignment, compute_content_potential
@@ -267,7 +266,7 @@ def batch_triage(supabase_client: Any) -> list[TriageResult]:
         try:
             r = triage_note(row["id"], supabase_client)
             results.append(r)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-note triage, already logged
             log.warning("[notebook-review] Failed to triage note %s: %s", row["id"], exc)
     return results
 
@@ -281,8 +280,8 @@ def get_review_queue(supabase_client: Any) -> list[dict[str, Any]]:
 
 
 __all__ = [
-    "triage_note",
+    "TriageResult",
     "batch_triage",
     "get_review_queue",
-    "TriageResult",
+    "triage_note",
 ]

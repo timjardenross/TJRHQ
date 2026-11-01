@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 const STATUS_ORDER = [
   'opportunity', 'draft', 'review', 'approved', 'ready_to_publish', 'published',
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items, counts, status_order: STATUS_ORDER });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Comms query failed', detail }, { status: 500 });
   }
 }

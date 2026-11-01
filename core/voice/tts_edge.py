@@ -19,6 +19,11 @@ log = logging.getLogger(__name__)
 XO_VOICE = "en-AU-WilliamNeural"
 
 
+def _read_bytes(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
+
+
 async def speak_to_file(text: str) -> str | None:
     """Convert text to MP3 via Microsoft Edge TTS.
 
@@ -27,7 +32,7 @@ async def speak_to_file(text: str) -> str | None:
     """
     try:
         import edge_tts
-        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)  # noqa: SIM115 - path must outlive this function (returned to the caller, closed immediately, reopened by edge_tts/Telegram); delete=False + explicit unlink elsewhere is the documented lifecycle
         tmp.close()
         communicate = edge_tts.Communicate(text, XO_VOICE)
         await communicate.save(tmp.name)
@@ -35,7 +40,7 @@ async def speak_to_file(text: str) -> str | None:
     except ImportError:
         log.warning("edge-tts not installed — voice output disabled")
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("TTS synthesis failed: %s", exc)
         return None
 
@@ -54,14 +59,17 @@ async def send_voice_reply(bot, chat_id: int, text: str) -> bool:
     if not path:
         return False
     try:
-        with open(path, "rb") as f:
-            await bot.send_audio(chat_id=chat_id, audio=f)
+        # Read off the event loop thread: this is an async function and the
+        # file is small, but a blocking read() here would still stall every
+        # other coroutine on the loop for its duration.
+        audio_bytes = await asyncio.to_thread(_read_bytes, path)
+        await bot.send_audio(chat_id=chat_id, audio=audio_bytes)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Telegram audio send failed: %s", exc)
         return False
     finally:
         try:
             os.unlink(path)
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort temp-file cleanup; a leaked temp file is not worth failing the send over
             pass

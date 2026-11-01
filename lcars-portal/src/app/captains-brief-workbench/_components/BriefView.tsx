@@ -32,7 +32,10 @@ function ItemGrid({ items }: { items: CaptainBriefItem[] }) {
 
 function priorityToRec(item: CaptainBriefItem) {
   return {
-    action: item.recommendation?.description ?? item.reason,
+    // Same three-tier fallback as ItemRow: recommendation, then the item's
+    // own readable description, and `reason` (a scoring trace) only as a
+    // last resort — see ItemRow.tsx's comment for why.
+    action: item.recommendation?.description ?? item.description ?? item.reason,
     why: item.priority_explanation ?? undefined,
     source: item.domain,
     confidence: item.recommendation?.confidence != null ? `${item.recommendation.confidence}%` : 'Unscored',
@@ -53,12 +56,12 @@ function recToRec(rec: Recommendation) {
 function InsightCard({ insight }: { insight: Insight }) {
   return (
     <div className="rounded-md border border-wb-line bg-wb-surface p-3">
-      {insight.observation && <p className="text-[13px] font-medium text-wb-ink">{insight.observation}</p>}
-      {insight.why_it_matters && <p className="mt-1 text-[12px] text-wb-ink2">{insight.why_it_matters}</p>}
+      {insight.observation && <p className="text-wb-body font-medium text-wb-ink">{insight.observation}</p>}
+      {insight.why_it_matters && <p className="mt-1 text-wb-label text-wb-ink2">{insight.why_it_matters}</p>}
       {insight.potential_impact && (
-        <p className="mt-1 text-[11px] text-wb-ink2/90">Impact: {insight.potential_impact}</p>
+        <p className="mt-1 text-wb-label text-wb-ink2">Impact: {insight.potential_impact}</p>
       )}
-      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] uppercase tracking-[0.14em] text-wb-sage-deep">
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-wb-label uppercase tracking-[0.14em] text-wb-sage-deep">
         {insight.source_kind && <span>{insight.source_kind}</span>}
         {insight.source_domains && insight.source_domains.length > 0 && (
           <span className="normal-case tracking-normal text-wb-ink2">{insight.source_domains.join(', ')}</span>
@@ -66,7 +69,7 @@ function InsightCard({ insight }: { insight: Insight }) {
         {insight.confidence != null && <span className="text-wb-ink2">{insight.confidence}% confidence</span>}
       </div>
       {insight.evidence_chain && insight.evidence_chain.length > 0 && (
-        <ul className="mt-1.5 list-disc pl-4 text-[11px] text-wb-ink2/90">
+        <ul className="mt-1.5 list-disc pl-4 text-wb-label text-wb-ink2">
           {insight.evidence_chain.map((e, i) => (
             <li key={i}>{e}</li>
           ))}
@@ -92,12 +95,12 @@ export function BriefView({
   return (
     <>
       <Section title="Summary">
-        <p className="text-sm leading-relaxed text-wb-ink/90">{doc.summary}</p>
+        <p className="text-sm leading-relaxed text-wb-ink">{doc.summary}</p>
       </Section>
 
       {doc.interrupt_now.length > 0 && (
         <Section title="Interrupt Now">
-          <p className="mb-2 text-[11px] text-wb-ink2">
+          <p className="mb-2 text-wb-label text-wb-ink2">
             The raw Attention Engine interrupt-now bucket — items judged to warrant immediate attention.
           </p>
           <ItemGrid items={doc.interrupt_now} />
@@ -145,7 +148,7 @@ export function BriefView({
           <Section title="Next Actions">
             <ol className="flex flex-col gap-1.5">
               {doc.next_actions.map((a, i) => (
-                <li key={i} className="flex gap-2 text-sm text-wb-ink/90">
+                <li key={i} className="flex gap-2 text-sm text-wb-ink">
                   <span className="shrink-0 font-serif text-wb-sage-deep">{i + 1}.</span>
                   {a}
                 </li>
@@ -172,7 +175,7 @@ export function BriefView({
         // Report what is actually known, don't affirmatively reassure.
         <Section title="No New Signals">
           <p className="text-sm text-wb-ink2">No priorities, warnings, or interrupts in the latest brief.</p>
-          <p className="mt-1 text-xs text-wb-ink2/80">
+          <p className="mt-1 text-xs text-wb-ink2">
             This reflects the signals received — it can’t on its own confirm every source was reachable. If you
             expected activity, check source health before treating this as all-clear.
           </p>

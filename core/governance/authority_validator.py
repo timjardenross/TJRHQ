@@ -23,9 +23,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +75,7 @@ def _load_yaml(path: Path) -> dict:
         import yaml
         with open(path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[authority] Failed to load %s: %s", path, exc)
         return {}
 
@@ -228,7 +226,7 @@ def audit_authority_action(
         )
         if not result.ok:
             log.warning("[authority] Audit log write failed: %s", result.error)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[authority] Audit log failed (non-blocking): %s", exc)
 
 
@@ -259,13 +257,13 @@ class ManifestGapError(Exception):
 
 
 __all__ = [
-    "load_manifest",
-    "load_all_manifests",
+    "AuthorityError",
+    "ManifestGapError",
+    "audit_authority_action",
     "can_officer",
+    "get_capacity_gate_rules",
+    "load_all_manifests",
+    "load_manifest",
     "requires_approval",
     "validate_or_raise",
-    "get_capacity_gate_rules",
-    "audit_authority_action",
-    "ManifestGapError",
-    "AuthorityError",
 ]

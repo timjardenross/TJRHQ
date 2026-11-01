@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Model Router client for self-improvement analysis.
 
@@ -9,8 +10,8 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Any, Optional
 from datetime import datetime, timezone
+from typing import Any
 
 log = logging.getLogger("router_client")
 
@@ -22,7 +23,7 @@ class ModelRouterClient:
         self.base_url = base_url.rstrip("/")
         self.call_log = []
 
-    def analyse_evidence(self, evidence: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+    def analyse_evidence(self, evidence: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         Send evidence to Model Router for analysis.
 
@@ -63,7 +64,7 @@ class ModelRouterClient:
             return []
         return parsed.get("findings", []) if isinstance(parsed, dict) else []
 
-    def critique_findings(self, findings: list[dict[str, Any]], context: Optional[str] = None) -> dict[str, Any]:
+    def critique_findings(self, findings: list[dict[str, Any]], context: str | None = None) -> dict[str, Any]:
         """
         Send findings to Model Router for adversarial critique.
 
@@ -73,7 +74,7 @@ class ModelRouterClient:
         prompt = self._build_critique_prompt(findings, context)
         return self._call_router("self-improvement-critique", prompt)
 
-    def investigate_opportunity(self, candidate: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+    def investigate_opportunity(self, candidate: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         HQ Evolution (section 22): ask the model to interpret already-
         collected evidence into an investigation narrative. The model may
@@ -105,7 +106,7 @@ class ModelRouterClient:
             return {}
         return parsed if isinstance(parsed, dict) else {}
 
-    def _build_investigation_prompt(self, candidate: dict[str, Any], context: Optional[str] = None) -> str:
+    def _build_investigation_prompt(self, candidate: dict[str, Any], context: str | None = None) -> str:
         prompt = """TASK: Investigate whether this HQ Evolution candidate is genuinely worth pursuing for TJR HQ.
 
 CRITICAL: Use ONLY the evidence provided below. Do NOT invent evidence, metrics, or claims not present in the candidate data. You may interpret the evidence; you may not manufacture it. Output ONLY valid JSON, no markdown, no explanation outside the JSON.
@@ -134,7 +135,70 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
 """
         return prompt
 
-    def evaluate_outcome(self, evidence_bundle: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+    def assess_external_candidate(self, candidate: dict[str, Any], readme_excerpt: str | None,
+                                   gap_hypothesis: str | None = None) -> dict[str, Any]:
+        """
+        external_discovery.py's discover() sets every candidate's `fit` and
+        `evidence_strength` to hardcoded constants ("moderate"/"moderate")
+        — "public metadata only at discovery stage" is honest about why,
+        but it means relevance.py's RelevanceGate.score_candidate() (which
+        reads exactly those two fields, weighted 0.35 and 0.30 of the
+        total score) is, for every external candidate, really only scoring
+        GitHub stars and license/archived status — never whether the repo
+        actually addresses the watchlist topic's gap_hypothesis. This asks
+        the model to read the README against that specific hypothesis and
+        propose real fit/evidence_strength values instead of the
+        constants — same non-negotiable boundary as investigate_opportunity
+        above: relevance.py's deterministic score_candidate()/evaluate()
+        remain the only code that decides pass/fail. This method only
+        proposes better INPUT to that same unchanged formula.
+
+        Bounded by design: called for a small number of top-ranked
+        candidates per cycle (see external_enrichment.py), not every
+        external discovery hit — a README fetch + model call per candidate
+        is far more expensive than the metadata-only search that produced
+        the candidate in the first place.
+
+        Expected route: /api/model/hq-evolution-external-fit
+        Returns: dict with fit/evidence_strength/confidence/rationale, or
+        {} (via _parse_json_object's own empty-dict-on-failure contract)
+        if the model's response wasn't valid JSON.
+        """
+        prompt = self._build_external_fit_prompt(candidate, readme_excerpt, gap_hypothesis)
+        result = self._call_router("hq-evolution-external-fit", prompt)
+        if result.get("success"):
+            result["assessment"] = self._parse_json_object(result.get("response", ""))
+        return result
+
+    def _build_external_fit_prompt(self, candidate: dict[str, Any], readme_excerpt: str | None,
+                                    gap_hypothesis: str | None) -> str:
+        prompt = """TASK: Judge whether this GitHub repository's ACTUAL content (not just its name or popularity) plausibly closes the specific gap described below, for TJR HQ.
+
+CRITICAL: Base your judgment only on the README excerpt provided. If the excerpt doesn't give you enough to judge, say so honestly via low confidence rather than guessing. Do NOT invent features, benchmarks, or claims the README doesn't make. Output ONLY valid JSON, no markdown, no explanation outside the JSON.
+
+REPOSITORY: """
+        prompt += candidate.get("title", "unknown/unknown")
+        prompt += f"\nDESCRIPTION (from GitHub metadata): {candidate.get('summary', '(none)')}\n"
+        if gap_hypothesis:
+            prompt += f"\nGAP HYPOTHESIS THIS WAS SEARCHED FOR: {gap_hypothesis}\n"
+        if candidate.get("why_relevant"):
+            prompt += f"\nWHY THIS TOPIC MATTERS TO HQ: {candidate['why_relevant']}\n"
+        prompt += "\nREADME EXCERPT:\n"
+        prompt += readme_excerpt if readme_excerpt else "(no README could be fetched — judge on the description above only, and reflect that limitation in your confidence)"
+
+        prompt += """
+
+OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
+{
+  "fit": "weak|moderate|strong",
+  "evidence_strength": "weak|moderate|strong|conclusive",
+  "confidence": 0.6,
+  "rationale": "<one or two sentences, grounded in the README excerpt above>"
+}
+"""
+        return prompt
+
+    def evaluate_outcome(self, evidence_bundle: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         HQ Evolution V2 (sections 10, 15): ask the model to interpret
         already-collected outcome evidence — the Outcome Contract, its
@@ -154,7 +218,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
             result["evaluation"] = self._parse_json_object(result.get("response", ""))
         return result
 
-    def _build_outcome_evaluation_prompt(self, evidence_bundle: dict[str, Any], context: Optional[str] = None) -> str:
+    def _build_outcome_evaluation_prompt(self, evidence_bundle: dict[str, Any], context: str | None = None) -> str:
         prompt = """TASK: Evaluate whether an HQ change actually delivered the benefit it was approved for.
 
 CRITICAL: Use ONLY the evidence provided below. Do NOT invent evidence, metrics, or claims not present in the bundle. If the evidence is genuinely insufficient or ambiguous, say so — outcome_result must be "inconclusive" rather than a guess. A technically successful implementation does NOT by itself mean the expected benefit occurred. Output ONLY valid JSON, no markdown, no explanation outside the JSON.
@@ -180,7 +244,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
 """
         return prompt
 
-    def generate_mission(self, finding: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+    def generate_mission(self, finding: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         Convert an approved finding into a mission document.
 
@@ -212,7 +276,14 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=300) as resp:
+            # 600s: matches TASK_POLICY["self-improvement-analyse"]'s own
+            # timeout in core/model-router/app.py (keep both in sync). Was
+            # 300s → bumped to 400s on 2026-09-22 after guardrail model swap +
+            # Ollama lock pushed real completion past 300s. Bumped again to
+            # 600s on 2026-09-26: last successful self-improvement-analyse call
+            # logged at 472,707ms (call_log.jsonl 2026-09-25T21:09:57) — 400s
+            # client timeout fires before the router finishes, same pattern.
+            with urllib.request.urlopen(req, timeout=600) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 response_data = json.loads(resp.read().decode())
 
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
@@ -231,6 +302,37 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
 
             return response_data
 
+        except urllib.error.HTTPError as exc:
+            # HTTPError is a URLError subclass raised whenever the router
+            # responds with a non-2xx status (e.g. the 500 it sends for
+            # `{"success": False, ...}` results - see app.py's do_POST).
+            # str(exc) on it is just "HTTP Error 500: Internal Server
+            # Error" - the generic reason phrase, not the router's actual
+            # "error" field, which is sitting unread in the response body.
+            # Caught separately from URLError below (which never has a
+            # response to read) so the real failure reason - a missing
+            # GEMINI_API_KEY, a guardrails block, an upstream Gemini error,
+            # etc. - reaches the log instead of this one indistinguishable
+            # line for every possible 500.
+            duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+            detail = exc.reason
+            try:
+                body = exc.read().decode()
+                parsed = json.loads(body)
+                if isinstance(parsed, dict) and parsed.get("error"):
+                    detail = parsed["error"]
+                elif body:
+                    detail = body
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                pass
+            log.error(f"{task_type} HTTP {exc.code}: {detail}")
+            self._log_call(task_type, None, duration_ms, error=str(detail))
+            return {
+                "success": False,
+                "error": str(detail),
+                "task_type": task_type,
+                "duration_ms": duration_ms,
+            }
         except urllib.error.URLError as exc:
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
             log.error(f"{task_type} network error: {exc}")
@@ -241,7 +343,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
                 "task_type": task_type,
                 "duration_ms": duration_ms,
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - final catch-all after the specific URLError branch above; the Model Router HTTP call surface beyond network errors is unpredictable, already logged and returned as a structured failure
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
             log.error(f"{task_type} unexpected error: {exc}")
             self._log_call(task_type, None, duration_ms, error=str(exc))
@@ -252,7 +354,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
                 "duration_ms": duration_ms,
             }
 
-    def _build_analysis_prompt(self, evidence: dict[str, Any], context: Optional[str] = None) -> str:
+    def _build_analysis_prompt(self, evidence: dict[str, Any], context: str | None = None) -> str:
         """Build prompt for evidence analysis."""
         prompt = """TASK: Analyze USS TJR repository evidence and produce JSON findings.
 
@@ -295,7 +397,7 @@ RULES:
 """
         return prompt
 
-    def _build_critique_prompt(self, findings: list[dict[str, Any]], context: Optional[str] = None) -> str:
+    def _build_critique_prompt(self, findings: list[dict[str, Any]], context: str | None = None) -> str:
         """Build prompt for finding critique."""
         prompt = """You are a skeptical code reviewer. Review these proposed findings and challenge any that are weak.
 
@@ -331,7 +433,7 @@ Respond with JSON object:
 """
         return prompt
 
-    def _build_mission_prompt(self, finding: dict[str, Any], context: Optional[str] = None) -> str:
+    def _build_mission_prompt(self, finding: dict[str, Any], context: str | None = None) -> str:
         """Build prompt for mission generation."""
         prompt = """Convert this improvement finding into a bounded mission specification.
 
@@ -369,9 +471,9 @@ Output ONLY valid JSON:
     def _log_call(
         self,
         task_type: str,
-        response: Optional[dict[str, Any]],
+        response: dict[str, Any] | None,
         duration_ms: int,
-        error: Optional[str] = None
+        error: str | None = None
     ) -> None:
         """Log a Model Router call."""
         entry = {
@@ -392,18 +494,18 @@ Output ONLY valid JSON:
     def health_check(self) -> bool:
         """Check if Model Router is healthy."""
         try:
-            with urllib.request.urlopen(f"{self.base_url}/health", timeout=2) as resp:
+            with urllib.request.urlopen(f"{self.base_url}/health", timeout=2) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 return resp.status == 200
-        except Exception as exc:
+        except (urllib.error.URLError, OSError, TimeoutError) as exc:
             log.error(f"Health check failed: {exc}")
             return False
 
     def get_router_status(self) -> dict[str, Any]:
         """Get router status (loaded models, routing policy)."""
         try:
-            with urllib.request.urlopen(f"{self.base_url}/api/model/status", timeout=5) as resp:
+            with urllib.request.urlopen(f"{self.base_url}/api/model/status", timeout=5) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 return json.loads(resp.read().decode())
-        except Exception as exc:
+        except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError) as exc:
             log.error(f"Failed to get router status: {exc}")
             return {"error": str(exc)}
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/brief/brief_generator.py
 
@@ -11,18 +12,19 @@ Covers:
 """
 
 import json
-import sys
 import os
+import sys
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from intelligence.brief.external_domains import DomainFetchResult
 from intelligence.models import (
-    ResilienceBrief, RankedEvent, BriefEvent, ClassifiedEvent,
-    IntelligenceItem, SourceRecord,
+    BriefEvent,
+    RankedEvent,
+    ResilienceBrief,
 )
 
 
@@ -60,9 +62,7 @@ class TestLLMFailureDegradation(unittest.TestCase):
     def _patch_store(self):
         """Return a mock that satisfies all store.* calls in brief_generator."""
         mock_store = MagicMock()
-        mock_store.event_hash_exists.return_value = False
-        mock_store.event_canonical_url_exists.return_value = False
-        mock_store.event_title_date_exists.return_value = False
+        mock_store.filter_unpersisted_events.side_effect = lambda events: events
         mock_store.save_event.return_value = "uuid-1"
         mock_store.save_brief.return_value = "brief-uuid-1"
         # Briefs canonical uplift: generate() also asks for the prior brief
@@ -97,6 +97,50 @@ class TestLLMFailureDegradation(unittest.TestCase):
         self.assertIsInstance(brief, ResilienceBrief)
         self.assertFalse(brief.narrative_available)
 
+    def test_narrative_prompt_names_failed_sources_not_just_a_count(self):
+        """2026-09-08: the narrative prompt used to pass only bare
+        sources_failed/sources_available counts, even though brief_generator
+        already computes `missing_sources` (real source_name values) for the
+        coverage dict — so the LLM had nothing concrete to reference and
+        could only write generic reassurance about degradation ("engineering
+        will monitor...") without naming what actually failed. This asserts
+        the failed source's real name reaches the LLM prompt."""
+        from intelligence.brief.brief_generator import BriefGenerator
+        from intelligence.models import SourceHealth
+
+        top = [_make_ranked_event(f"Event {i}", i) for i in range(1, 4)]
+        now = datetime(2026, 6, 12, tzinfo=timezone.utc)
+        health_records = [
+            SourceHealth(source_id="s1", source_name="Fortinet PSIRT", checked_at=now, status="ok"),
+            SourceHealth(source_id="s2", source_name="ACME Threat Feed", checked_at=now, status="failed"),
+        ]
+
+        with patch("intelligence.brief.brief_generator.collect_all", return_value=([], health_records)), \
+             patch("intelligence.brief.brief_generator.store", self._patch_store()), \
+             patch("intelligence.brief.brief_generator.classify", side_effect=lambda x: x), \
+             patch("intelligence.brief.brief_generator.rank", return_value=top), \
+             patch("intelligence.brief.brief_generator.top_events", return_value=top), \
+             patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_health_signals",
+                   return_value=DomainFetchResult(domain="health", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_emergency_alerts",
+                   return_value=DomainFetchResult(domain="emergency", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
+
+            mock_llm = MagicMock()
+            mock_llm.generate.return_value = (None, None)
+            mock_llm_cls.return_value = mock_llm
+
+            BriefGenerator().generate()
+
+            narrative_calls = [
+                call for call in mock_llm.generate.call_args_list
+                if call.args and "Sources available" in call.args[0]
+            ]
+            self.assertTrue(narrative_calls, "expected one LLM call carrying the narrative prompt")
+            prompt = narrative_calls[0].args[0]
+            self.assertIn("ACME Threat Feed", prompt)
+
     def test_narrative_marked_unavailable_on_llm_failure(self):
         """All narrative text fields should be None or [UNAVAILABLE] when LLM fails."""
         from intelligence.brief.brief_generator import BriefGenerator
@@ -130,9 +174,7 @@ class TestCrossDomainIntegration(unittest.TestCase):
 
     def _patch_store(self):
         mock_store = MagicMock()
-        mock_store.event_hash_exists.return_value = False
-        mock_store.event_canonical_url_exists.return_value = False
-        mock_store.event_title_date_exists.return_value = False
+        mock_store.filter_unpersisted_events.side_effect = lambda events: events
         mock_store.save_event.return_value = "uuid-1"
         mock_store.save_brief.return_value = "brief-uuid-1"
         mock_store.load_latest_brief.return_value = None
@@ -174,7 +216,10 @@ class TestCrossDomainIntegration(unittest.TestCase):
         """No OSINT events today, but an active RED emergency alert — the
         brief must not report UNKNOWN and hide it."""
         from intelligence.brief.brief_generator import BriefGenerator
-        from intelligence.brief.external_domains import DomainFetchResult, ExternalDomainSignal
+        from intelligence.brief.external_domains import (
+            DomainFetchResult,
+            ExternalDomainSignal,
+        )
 
         red_alert = ExternalDomainSignal(
             domain="emergency", title="Emergency Warning: Bushfire", summary=None,
@@ -206,7 +251,10 @@ class TestCrossDomainIntegration(unittest.TestCase):
         """The narrative gate must not skip generation just because OSINT's
         top_events list is empty — a single synthesis call still runs."""
         from intelligence.brief.brief_generator import BriefGenerator
-        from intelligence.brief.external_domains import DomainFetchResult, ExternalDomainSignal
+        from intelligence.brief.external_domains import (
+            DomainFetchResult,
+            ExternalDomainSignal,
+        )
 
         signal = ExternalDomainSignal(
             domain="health", title="Adverse event cluster", summary="desc",
@@ -373,8 +421,6 @@ class TestLLMProviderModelRouter(unittest.TestCase):
             mock.__exit__ = MagicMock(return_value=False)
             return mock
 
-        import json as _json
-        import urllib.request
         with patch("urllib.request.urlopen", side_effect=fake_urlopen):
             result = provider._model_router("test prompt")
 
@@ -393,9 +439,8 @@ class TestLLMProviderModelRouter(unittest.TestCase):
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        with patch("urllib.request.urlopen", return_value=mock_resp):
-            with self.assertRaises(RuntimeError):
-                provider._model_router("test prompt")
+        with patch("urllib.request.urlopen", return_value=mock_resp), self.assertRaises(RuntimeError):
+            provider._model_router("test prompt")
 
     def test_all_providers_fail_returns_none_none(self):
         """When router + all cloud + ollama fail, generate() returns (None, None)."""
@@ -411,6 +456,82 @@ class TestLLMProviderModelRouter(unittest.TestCase):
 
         self.assertIsNone(text)
         self.assertIsNone(name)
+
+
+class TestMistralPipelineStages(unittest.TestCase):
+    """Stage 1 (Research Scout) and Stage 1b (Engineering Officer) run in
+    parallel — they both read the same pre-Stage-1 input, not each other's
+    output, so there's no reason to force them sequential. Verifies the
+    concurrency doesn't change the pipeline's observable behavior."""
+
+    def _provider_with_agents_configured(self, *, engineering: bool):
+        from intelligence.brief import llm_provider as lp
+        provider = lp.LLMProvider()
+        patches = [
+            patch.object(lp, "MISTRAL_API_KEY", "fake-key"),
+            patch.object(lp, "MISTRAL_RESEARCH_AGENT_ID", "research-agent"),
+            patch.object(lp, "MISTRAL_RESEARCH_AGENT_VERSION", "1"),
+            patch.object(lp, "MISTRAL_BRIEFING_AGENT_ID", "briefing-agent"),
+            patch.object(lp, "MISTRAL_BRIEFING_AGENT_VERSION", "1"),
+            patch.object(lp, "MISTRAL_DECOMPOSITION_AGENT_ID", ""),
+            patch.object(lp, "MISTRAL_TAO_AGENT_ID", ""),
+            patch.object(lp, "MISTRAL_ENGINEERING_AGENT_ID", "engineering-agent" if engineering else ""),
+            patch.object(lp, "MISTRAL_ENGINEERING_AGENT_VERSION", "1"),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        return provider
+
+    def test_stage1_and_stage1b_both_run_and_merge_when_engineering_present(self):
+        provider = self._provider_with_agents_configured(engineering=True)
+
+        def fake_call_agent(stage, agent_id, agent_version, prompt, client=None):
+            return {
+                "stage1-research": "research findings",
+                "stage1b-engineering": "engineering notes",
+                "stage4-briefing": "final brief",
+            }[stage]
+
+        with patch.object(provider, "_call_agent", side_effect=fake_call_agent) as mock_call:
+            result = provider._mistral_pipeline("Engineering: something broke")
+
+        self.assertEqual(result, "final brief")
+        called_stages = {c.kwargs["stage"] for c in mock_call.call_args_list}
+        self.assertIn("stage1-research", called_stages)
+        self.assertIn("stage1b-engineering", called_stages)
+        # Stage 4's prompt must have received both Stage 1's and Stage 1b's output.
+        stage4_call = next(c for c in mock_call.call_args_list if c.kwargs["stage"] == "stage4-briefing")
+        self.assertIn("research findings", stage4_call.kwargs["prompt"])
+        self.assertIn("engineering notes", stage4_call.kwargs["prompt"])
+
+    def test_stage1b_skipped_without_engineering_content(self):
+        provider = self._provider_with_agents_configured(engineering=True)
+
+        def fake_call_agent(stage, agent_id, agent_version, prompt, client=None):
+            return {"stage1-research": "research findings", "stage4-briefing": "final brief"}[stage]
+
+        with patch.object(provider, "_call_agent", side_effect=fake_call_agent) as mock_call:
+            result = provider._mistral_pipeline("no engineering content here")
+
+        self.assertEqual(result, "final brief")
+        called_stages = {c.kwargs["stage"] for c in mock_call.call_args_list}
+        self.assertNotIn("stage1b-engineering", called_stages)
+
+    def test_stage1b_failure_does_not_block_pipeline(self):
+        provider = self._provider_with_agents_configured(engineering=True)
+
+        def fake_call_agent(stage, agent_id, agent_version, prompt, client=None):
+            return {
+                "stage1-research": "research findings",
+                "stage1b-engineering": None,  # simulates the agent failing
+                "stage4-briefing": "final brief",
+            }[stage]
+
+        with patch.object(provider, "_call_agent", side_effect=fake_call_agent):
+            result = provider._mistral_pipeline("Engineering: something broke")
+
+        self.assertEqual(result, "final brief")
 
 
 if __name__ == "__main__":

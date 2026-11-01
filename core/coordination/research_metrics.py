@@ -14,11 +14,10 @@ Tracks:
 - Execution timing breakdown
 """
 
-from dataclasses import dataclass, asdict, field
-from datetime import datetime
-from typing import Optional
-import os
 import logging
+import os
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -40,9 +39,9 @@ class ResearchMetrics:
     successful_tasks: int = 0
 
     # Provider tracking
-    primary_provider: Optional[str] = None
+    primary_provider: str | None = None
     provider_failures: int = 0
-    provider_path: Optional[str] = None  # "gemini-3.5-flash-lite → ollama"
+    provider_path: str | None = None  # "gemini-3.5-flash-lite → ollama"
 
     # Consolidation method
     consolidation_success: bool = False
@@ -59,7 +58,7 @@ class ResearchMetrics:
     consolidation_ms: int = 0
 
     # Metadata
-    mission_date: str = field(default_factory=lambda: datetime.utcnow().strftime("%Y-%m-%d"))
+    mission_date: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d"))
 
     def __post_init__(self):
         """Validate metrics after initialization."""
@@ -122,7 +121,7 @@ class ResearchMetrics:
                 "[research-metrics] Supabase client not available. "
                 "Metrics not persisted. (Install supabase-py)"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(
                 f"[research-metrics] Failed to store metrics: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -221,7 +220,7 @@ class ResearchMetricsCollector:
 
         return elapsed_ms
 
-    def record_task_completion(self, count: int, successful: int, primary_provider: Optional[str] = None):
+    def record_task_completion(self, count: int, successful: int, primary_provider: str | None = None):
         """Record task completion metrics."""
         self.metrics.task_count = count
         self.metrics.successful_tasks = successful

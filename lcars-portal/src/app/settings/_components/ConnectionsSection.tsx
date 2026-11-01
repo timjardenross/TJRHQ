@@ -5,12 +5,13 @@
 // sync timestamps, retry counts, or token-refresh diagnostics here (those
 // belong to Agent & Job Status) — this section links out to it instead of
 // duplicating it.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Badge, type BadgeStatus } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SectionHeading } from './SectionHeading';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { ConnectionState, ConnectionStatus } from '@/app/api/settings/connections/route';
 
 const STATE_BADGE: Record<ConnectionState, { status: BadgeStatus; label: string }> = {
@@ -37,15 +38,15 @@ function ConnectionCard({
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-wb-ink">{title}</h3>
+          <h3 className="text-wb-body font-semibold uppercase tracking-[0.08em] text-wb-ink">{title}</h3>
           {badge ? (
             <Badge status={badge.status} className="mt-1.5">
               {badge.label}
             </Badge>
           ) : (
-            <span className="mt-1.5 block text-[12px] text-wb-ink2">Checking…</span>
+            <span className="mt-1.5 block text-wb-label text-wb-ink2">Checking…</span>
           )}
-          <p className="mt-2 text-[12px] text-wb-ink2">{usedBy}</p>
+          <p className="mt-2 text-wb-label text-wb-ink2">{usedBy}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           {state === 'connected' && connectHref && (
@@ -62,7 +63,7 @@ function ConnectionCard({
               </Button>
             </a>
           )}
-          {manageHint && <p className="max-w-[180px] text-right text-[11px] text-wb-ink2">{manageHint}</p>}
+          {manageHint && <p className="max-w-[180px] text-right text-wb-label text-wb-ink2">{manageHint}</p>}
         </div>
       </div>
     </Card>
@@ -73,22 +74,18 @@ export function ConnectionsSection() {
   const [connections, setConnections] = useState<ConnectionStatus[] | null>(null);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/settings/connections')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/settings/connections', { signal })
       .then((res) => {
         if (!res.ok) throw new Error('load failed');
         return res.json();
       })
       .then((body: { connections: ConnectionStatus[] }) => {
-        if (!cancelled) setConnections(body.connections);
+        if (alive()) setConnections(body.connections);
       })
-      .catch(() => {
-        if (!cancelled) setError(true);
+      .catch((e) => {
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(true);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const stateFor = (service: ConnectionStatus['service']): ConnectionState | 'loading' =>
@@ -99,7 +96,7 @@ export function ConnectionsSection() {
       <SectionHeading title="Connections" description="Which external services HQ is configured to use." />
 
       {error && (
-        <p role="alert" className="mb-4 text-[12px] font-medium text-wb-crit-on">
+        <p role="alert" className="mb-4 text-wb-label font-medium text-wb-crit-on">
           Could not load connection status. Try reloading this page.
         </p>
       )}
@@ -107,7 +104,7 @@ export function ConnectionsSection() {
       <div className="flex flex-col gap-4">
         <ConnectionCard
           title="Google Calendar"
-          usedBy="Used by the Hub, Captain's Chair, and Content Workbench scheduling."
+          usedBy="Used by the Hub, Today, and Content Workbench scheduling."
           state={stateFor('google_calendar')}
           connectHref="/api/auth/google-calendar/connect"
         />
@@ -125,7 +122,7 @@ export function ConnectionsSection() {
         />
       </div>
 
-      <p className="mt-4 text-[12px] text-wb-ink2">
+      <p className="mt-4 text-wb-label text-wb-ink2">
         <Link href="/agent-status-workbench" className="text-wb-sage-deep hover:underline">
           View technical status →
         </Link>{' '}

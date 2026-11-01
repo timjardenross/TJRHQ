@@ -123,8 +123,9 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     capability: 'recovery-pain-trend',
     label: 'Recovery Pulse — pain trend (EOS interrupt only)',
     canInterrupt: 'yes',
-    conditions: 'Average pain_score over the last 5 capacity_checkins is > 6 (elevated) or > 8 (critical).',
-    evidenceSource: 'capacity_checkins.pain_score, capacity_checkins.captured_at',
+    conditions:
+      'Red flag: the latest capacity_checkin has pain_state "high" (much higher than usual), regardless of capacity. Legacy numeric history: average of the recorded pain_score values over the last 5 capacity_checkins is > 6 (elevated) or > 8 (critical); a missing number is skipped, never counted as 0.',
+    evidenceSource: 'capacity_checkins.pain_state, capacity_checkins.pain_score, capacity_checkins.captured_at',
     evaluationMethod: 'server-on-demand',
     falsePositiveGuard:
       'Real 5-pulse rolling average, the exact same disclosed thresholds already used in lib/alerts.ts (MSN-0335, "folded in from the now-retired duplicate check in /api/proactive-signals") - not a single bad reading, not a new scale.',
@@ -136,7 +137,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
   },
   {
     capability: 'captains-brief',
-    label: "Captain's Brief",
+    label: "Briefs",
     canInterrupt: 'yes',
     conditions: 'warnings[] where risk_score >= 60 (importance x inverse-confidence).',
     evidenceSource: 'core_events via core/platform/event_bus.py, scored by priority_engine.py',
@@ -312,7 +313,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     evidenceSource: 'missions (count), captains_log_entries, capacity_checkins',
     evaluationMethod: 'none',
     falsePositiveGuard: 'N/A - any real alerting should come from the owning capability, not this page.',
-    degradationBehaviour: 'MSN-0351: fetchAll() now has real try/catch/finally (was previously unguarded, could leave tiles at "—" forever on a rejection); reference sections are now explicitly labelled "authored doctrine, not live data" vs. "live" sections.',
+    degradationBehaviour: 'MSN-0351: fetchAll() now has real try/catch/finally (was previously unguarded, could leave tiles at "—" forever on a rejection); reference sections are now explicitly labelled "authored doctrine, not live data" vs. "live" sections. Mission 7 Phase 10: relocated from the orphaned (app)/operating-model page to knowledge-workbench/operating-model (Captain-directed) — same queries, same behaviour, new route only.',
     degradationIsHonest: true,
     knownGap: null,
   },

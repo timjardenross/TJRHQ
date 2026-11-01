@@ -12,18 +12,22 @@ collected, classified, and ranked IntelligenceItems.
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import ClassVar
 
 from intelligence.brief import external_domains, morning_cycle
 from intelligence.brief.comparison import compute_comparison
 from intelligence.brief.domain_picture import compute_domain_picture
 from intelligence.brief.llm_provider import LLMProvider
+from intelligence.brief.render import clean_title
 from intelligence.classification.classifier import classify
 from intelligence.classification.filter import apply_filter
 from intelligence.config import BRIEF_PERIOD_DAYS, TOP_EVENTS_LIMIT
 from intelligence.ingestion.collection_engine import collect_all
 from intelligence.models import (
-    BriefEvent, ClassifiedEvent, RankedEvent, ResilienceBrief, SourceHealth
+    BriefEvent,
+    ClassifiedEvent,
+    RankedEvent,
+    ResilienceBrief,
 )
 from intelligence.persistence import intelligence_store as store
 from intelligence.ranking.ranker import rank, top_events
@@ -66,7 +70,7 @@ class BriefGenerator:
         # honest about its own coverage). Never allowed to break generation.
         try:
             cycle_status = morning_cycle.get_status()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - explicitly documented above as 'never allowed to break generation', already logged as non-fatal
             log.warning("Morning cycle status check failed (non-fatal): %s", exc)
             cycle_status = None
 
@@ -111,22 +115,11 @@ class BriefGenerator:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            # Skip if already persisted by hash (previous run, same source)
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-
-            # Cross-run canonical URL dedup — same article from different source in prior run
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-
-            # Fallback: no canonical URL — dedup by normalised title + publication date
-            if not event.canonical_url and event.published_at:
-                from intelligence.classification.deduplicator import _normalise
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
+
+        # Cross-run dedup (hash, then canonical URL from another source, then
+        # title+date when there's no URL) in batched lookups, not 1-2 GETs per item.
+        classified = store.filter_unpersisted_events(classified)
 
         events_evaluated = len(classified)
         log.info("Classified %d new events", events_evaluated)
@@ -163,7 +156,8 @@ class BriefGenerator:
         (executive_snapshot, emerging_themes, forward_watch,
          cps230_implications, bottom_line, known_unknowns, llm_used, provider_used) = \
             self._generate_narrative(top5, brief_events, period_start, period_end,
-                                     sources_available, sources_failed, external_signals)
+                                     sources_available, sources_failed, external_signals,
+                                     missing_sources)
 
         # ── 8b. QA Validation Officer — non-blocking sanity check ─────────────
         # 2026-08-22: real LLM check for forced/mismatched framing (the bug
@@ -178,13 +172,13 @@ class BriefGenerator:
                 qa_note = self.llm.check_brief_quality(brief_text_for_checks)
                 if qa_note:
                     log.info("[qa-validation] %s", qa_note)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - QA validation is an optional advisory check, already logged; a check erroring must not block the brief
                 log.warning("[qa-validation] check errored: %s", exc)
             try:
                 risk_note = self.llm.check_risk_rating(brief_text_for_checks, overall_risk)
                 if risk_note:
                     log.info("[risk-challenge] %s", risk_note)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - risk-rating challenge is an optional advisory check, already logged; a check erroring must not block the brief
                 log.warning("[risk-challenge] check errored: %s", exc)
 
         # ── 8c. Coverage / comparison / domain picture (Sections 6, 11-13) ─────
@@ -234,20 +228,20 @@ class BriefGenerator:
 
         try:
             prior_brief = store.load_latest_brief()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort prior-brief fetch for the comparison section, already logged as non-fatal
             log.warning("Could not fetch prior brief for comparison (non-fatal): %s", exc)
             prior_brief = None
         comparison = None
         try:
             prior_top_events = (prior_brief or {}).get("top_events")
             comparison = compute_comparison(top_events_dicts, prior_top_events)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort comparison computation, already logged as non-fatal
             log.warning("Prior-brief comparison failed (non-fatal): %s", exc)
 
         domain_picture = None
         try:
             domain_picture = compute_domain_picture(top_events_dicts, external_signal_dicts)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort domain-picture computation, already logged as non-fatal
             log.warning("Domain picture computation failed (non-fatal): %s", exc)
 
         morning_cycle_id = cycle_status.cycle_id if cycle_status is not None else morning_cycle.cycle_id_for()
@@ -304,7 +298,7 @@ class BriefGenerator:
 
     # ─── Private helpers ──────────────────────────────────────────────────────
 
-    _RISK_ORDER = {"GREEN": 0, "AMBER": 1, "RED": 2}
+    _RISK_ORDER: ClassVar[dict] = {"GREEN": 0, "AMBER": 1, "RED": 2}
 
     def _event_risk_rating(self, event: RankedEvent) -> str:
         if event.customer_impact == "high" or event.banking_relevance == "high":
@@ -313,7 +307,7 @@ class BriefGenerator:
             return "AMBER"
         return "GREEN"
 
-    def _compute_risk(self, top: list[RankedEvent], external_signals: Optional[list] = None) -> str:
+    def _compute_risk(self, top: list[RankedEvent], external_signals: list | None = None) -> str:
         external_signals = external_signals or []
         if not top and not external_signals:
             return "UNKNOWN"
@@ -378,7 +372,7 @@ class BriefGenerator:
 
         return BriefEvent(
             event_id=event.event_id,
-            title=event.raw_title,
+            title=clean_title(event.raw_title),
             location=location,
             event_type=event.event_type.replace("_", " ").title(),
             risk_rating=risk,
@@ -449,6 +443,9 @@ class BriefGenerator:
             "- Be specific to the event content — do not use generic phrases\n"
             "- Focus on Australian banking and CPS 230 obligations where relevant\n"
             "- One sentence only per event\n"
+            "- If an event has no plausible operational relevance to a bank, return an empty string "
+            "for it rather than inventing one (do not assume trading desks, margin or settlement "
+            "functions the bank may not have)\n"
             "- Return a JSON array of strings, one per event, in the same order\n\n"
             "EVENTS:\n" + "\n".join(lines) + "\n\n"
             "Return ONLY a JSON array like: [\"sentence 1\", \"sentence 2\", ...]"
@@ -459,7 +456,8 @@ class BriefGenerator:
             if not raw:
                 raise ValueError("empty LLM response")
 
-            import re, json
+            import json
+            import re
             raw_clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
             raw_clean = re.sub(r"\s*```\s*$", "", raw_clean)
             match = re.search(r"\[.*\]", raw_clean, re.DOTALL)
@@ -468,7 +466,7 @@ class BriefGenerator:
                 if isinstance(result, list) and len(result) == len(top):
                     log.info("LLM So What generated for %d events", len(result))
                     return [str(s).strip() for s in result]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort LLM 'So What' generation with an explicit template fallback right below, already logged
             log.warning("LLM So What generation failed (%s) — using templates", exc)
 
         # Fallback: template per event
@@ -482,7 +480,8 @@ class BriefGenerator:
         period_end: datetime,
         sources_available: int,
         sources_failed: int,
-        external_signals: Optional[list] = None,
+        external_signals: list | None = None,
+        missing_sources: list | None = None,
     ) -> tuple:
         """
         Generate LLM narrative sections. Returns 8-tuple:
@@ -527,9 +526,21 @@ class BriefGenerator:
         # a banking angle on every story. cps230_implications stays in the
         # schema (it's a persisted DB column) but is only populated when the
         # events actually warrant it.
+        # 2026-09-08: `sources_failed` alone gave the LLM nothing to name, so
+        # any prose it wrote about degradation was necessarily generic
+        # reassurance ("engineering will monitor to ensure source diversity
+        # remains resilient") with no source actually named — the same
+        # "signal with no detail behind it" problem as the bare Attention
+        # Engine threshold text in interrupt_dispatcher.py's push body.
+        # `missing_sources` (the real failed source_name list, already
+        # computed above) was being collected for the coverage dict but
+        # never reached this prompt. Passing it lets the narrative name the
+        # actual source(s) that failed, or say nothing about degradation at
+        # all rather than manufacture a vague line to fill the gap.
+        failed_sources_text = ", ".join((missing_sources or [])[:10]) or "none named"
         prompt = f"""Generate a daily world-news digest for Captain TJR, in plain educational language.
 Period: {period_start.strftime('%d %b %Y')} to {period_end.strftime('%d %b %Y')}
-Sources available: {sources_available} ({sources_failed} failed)
+Sources available: {sources_available} ({sources_failed} failed: {failed_sources_text})
 
 TOP EVENTS THIS PERIOD:
 {event_summaries}
@@ -562,7 +573,8 @@ as given if you reference it."""
             return None, None, None, None, None, None, False, None
 
         try:
-            import re, json
+            import json
+            import re
             # Strip markdown code fences (```json ... ``` or ``` ... ```)
             raw_clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
             raw_clean = re.sub(r"\s*```\s*$", "", raw_clean)
@@ -583,6 +595,6 @@ as given if you reference it."""
                 True,
                 provider,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - LLM JSON response parsing — malformed/unexpected LLM output is expected and handled by the None-tuple fallback, already logged with the raw response
             log.warning("Failed to parse LLM JSON response: %s\nRaw: %s", exc, raw[:200])
             return None, None, None, None, None, None, True, provider

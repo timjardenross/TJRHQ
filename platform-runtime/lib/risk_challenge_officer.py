@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
-from pathlib import Path
 import sys
+from pathlib import Path
+from typing import Any
 
 _TOOLS_DIR = Path(__file__).resolve().parents[2] / "tools" / "supabase"
 if str(_TOOLS_DIR) not in sys.path:
@@ -24,7 +24,7 @@ def call_risk_challenge_officer(
     confidence: float,
     recommendation: str,
     synthesis: str,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Return a challenge review package or None on failure."""
     try:
         primary = SpecialistOutput(
@@ -50,6 +50,6 @@ def call_risk_challenge_officer(
             "review": review.as_dict(),
             "agent_output": "Risk & Challenge Officer",
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort challenge review, already logged
         log.warning("[risk-challenge-officer] challenge review failed: %s", exc)
         return None

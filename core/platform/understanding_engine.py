@@ -23,9 +23,10 @@ matching this platform's established orchestrator convention
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import itertools
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from core.platform.attention_engine import AttentionDecision
 
@@ -53,7 +54,7 @@ class Relationship:
     # structurally-permanent cluster across runs instead of re-synthesizing
     # it every time. None for shared_mission/temporal_sequence, which have
     # no single (domain, event_type) identity to dedupe on.
-    aggregation_key: Optional[str] = None
+    aggregation_key: str | None = None
 
 
 @dataclass
@@ -108,7 +109,7 @@ def _shared_mission_relationships(events: list[dict[str, Any]]) -> list[Relation
             (e for e in group if e.get("occurred_at")),
             key=lambda e: e["occurred_at"],
         )
-        for a, b in zip(ordered, ordered[1:]):
+        for a, b in itertools.pairwise(ordered):
             if a.get("domain") == b.get("domain"):
                 continue
             relationships.append(Relationship(
@@ -152,7 +153,7 @@ def _aggregation_relationships(decisions: list[AttentionDecision]) -> list[Relat
 # Each rule reads only real metrics already emitted (MSN-0328), never
 # invents a new score.
 
-def _capacity_vs_demand_conflict(state) -> Optional[Conflict]:
+def _capacity_vs_demand_conflict(state) -> Conflict | None:
     delivery = state.domains.get("Engineering")
     missions = state.domains.get("Missions")
     if not delivery or not missions or not delivery.data_available or not missions.data_available:
@@ -178,7 +179,7 @@ def _capacity_vs_demand_conflict(state) -> Optional[Conflict]:
     return None
 
 
-def _strategic_misalignment_conflict(state) -> Optional[Conflict]:
+def _strategic_misalignment_conflict(state) -> Conflict | None:
     strategy = state.domains.get("Strategic Alignment")
     if not strategy or not strategy.data_available:
         return None
@@ -217,8 +218,8 @@ def build_understanding(state, events: list[dict[str, Any]], decisions: list[Att
 
 
 __all__ = [
-    "Relationship",
     "Conflict",
     "OperationalContextGraph",
+    "Relationship",
     "build_understanding",
 ]

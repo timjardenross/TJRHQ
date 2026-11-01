@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 export async function GET() {
   const session = await requireSession();
@@ -23,7 +24,7 @@ export async function GET() {
 
     return NextResponse.json({ insights: data ?? [], count: data?.length ?? 0 });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json(
       { error: 'Failed to fetch Captain Intelligence insights', detail },
       { status: 500 },

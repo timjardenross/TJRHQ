@@ -7,8 +7,9 @@
 // /intelligence-workbench/brief/[id] (see BRIEFS_CANONICAL_UPLIFT.md §3);
 // this page never writes to the brief.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Modal, RiskPill, WorkbenchShell } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import type { BriefDetail } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView } from '@/lib/briefsShared';
 
@@ -37,20 +38,30 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
   const [showEvidence, setShowEvidence] = useState(false);
   const [openSignal, setOpenSignal] = useState<Signal | null>(null);
 
+  const loadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback(() => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     setLoading(true);
     setError(null);
-    fetch(`/api/briefs/${encodeURIComponent(id)}`)
+    fetch(`/api/briefs/${encodeURIComponent(id)}`, { signal: controller.signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
-        setBrief(d.brief);
-        setSignals(d.signals ?? []);
+        if (!controller.signal.aborted) { setBrief(d.brief); setSignals(d.signals ?? []); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+          setError(e instanceof Error ? e.message : 'Failed to load');
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [id]);
-  useEffect(load, [load]);
+  useEffect(() => {
+    load();
+    return () => loadControllerRef.current?.abort();
+  }, [load]);
 
   const view = buildMorningIntelligenceView(brief, 5);
 
@@ -58,25 +69,26 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
     <WorkbenchShell
       title="Daily Intelligence Brief"
       eyebrow="Briefs · Canonical Record"
-      tagline="USS TJR · HQ's canonical daily synthesis of the intelligence picture — an immutable historical record"
+      tagline="TJR HQ · HQ's canonical daily synthesis of the intelligence picture — an immutable historical record"
       back={{ href: '/briefs', label: 'Briefs' }}
       right={brief ? <RiskPill value={brief.overall_risk} /> : ''}
     >
       {loading ? (
-        <p className="text-[13px] text-wb-ink2">Loading…</p>
+        <p className="text-wb-body text-wb-ink2">Loading…</p>
       ) : error ? (
         <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>
       ) : !brief ? (
-        <p className="text-[13px] text-wb-ink2">Brief not found.</p>
+        <p className="text-wb-body text-wb-ink2">Brief not found.</p>
       ) : (
         <div className="space-y-4">
           <Card title={fmt(brief.published_at) !== '—' ? `Published ${fmt(brief.published_at)}` : `Generated ${fmt(brief.generated_at)}`}>
-            <p className="mb-3 text-[13px] text-wb-ink2">
+            <EvidenceMeta source="HQ brief pipeline" observedAt={brief.published_at ?? brief.generated_at} confidence={brief.coverage ? `${brief.coverage.completed ?? 0}/${brief.coverage.expected ?? 0} sources` : undefined} />
+            <p className="mb-3 text-wb-body text-wb-ink2">
               Period {brief.period_start ?? '—'} → {brief.period_end ?? '—'}
               {brief.morning_cycle_id ? ` · Morning cycle ${brief.morning_cycle_id}` : ''}
             </p>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] uppercase tracking-wider text-wb-ink2">Intelligence posture</span>
+              <span className="text-wb-label uppercase tracking-wider text-wb-ink2">Intelligence posture</span>
               <RiskPill value={brief.overall_risk} />
             </div>
           </Card>
@@ -95,7 +107,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
                     <span className="shrink-0 font-serif text-wb-ink2">{String(i + 1).padStart(2, '0')}</span>
                     <div>
                       <p className="font-medium text-wb-ink">{item.title}</p>
-                      {item.soWhat && <p className="mt-0.5 text-[13px] text-wb-ink2">{item.soWhat}</p>}
+                      {item.soWhat && <p className="mt-0.5 text-wb-body text-wb-ink2">{item.soWhat}</p>}
                     </div>
                   </li>
                 ))}
@@ -128,7 +140,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
                       <span className="font-medium text-wb-ink">{bucket.label}</span>
                       <RiskPill value={bucket.worst_risk} />
                     </div>
-                    <ul className="space-y-1 text-[12.5px] text-wb-ink2">
+                    <ul className="space-y-1 text-wb-label text-wb-ink2">
                       {bucket.events.map((e, i) => (
                         <li key={i}>{e.title}</li>
                       ))}
@@ -136,7 +148,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-[11px] text-wb-ink2">
+              <p className="mt-3 text-wb-label text-wb-ink2">
                 Reflects domains actually assessed in this brief&rsquo;s evidence base. Health OSINT and Emergency
                 Alert Hub are separate systems not yet fused into this synthesis — see{' '}
                 <a href="/agent-job-status-workbench" className="underline">Agent &amp; Job Status</a>.
@@ -171,16 +183,16 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
                   <p className="text-wb-crit-on">⚠️ {view.coverageNote}</p>
                 )}
                 {brief.coverage.latest_included_at && (
-                  <p className="text-[12px] text-wb-ink2">
+                  <p className="text-wb-label text-wb-ink2">
                     Latest included intelligence: {fmt(brief.coverage.latest_included_at)}
                   </p>
                 )}
-                <a href="/agent-job-status-workbench" className="inline-block text-[12.5px] text-wb-sage-deep underline">
+                <a href="/agent-job-status-workbench" className="inline-block text-wb-label text-wb-sage-deep underline">
                   View system status →
                 </a>
               </div>
             ) : (
-              <p className="text-[13px] text-wb-ink2">
+              <p className="text-wb-body text-wb-ink2">
                 Coverage detail is not available for this brief (generated before this feature shipped).
               </p>
             )}
@@ -191,12 +203,12 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
               <button
                 type="button"
                 onClick={() => setShowEvidence(true)}
-                className="rounded-md border border-wb-line px-3 py-1.5 text-[12.5px] text-wb-ink2 hover:bg-wb-bg"
+                className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink2 hover:bg-wb-bg"
               >
                 Show {signals.length} linked signal{signals.length === 1 ? '' : 's'}
               </button>
             ) : signals.length === 0 ? (
-              <p className="text-[13px] text-wb-ink2">No linked signals.</p>
+              <p className="text-wb-body text-wb-ink2">No linked signals.</p>
             ) : (
               <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                 {signals.map((s) => (
@@ -206,8 +218,8 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
                     onClick={() => setOpenSignal(s)}
                     className="rounded-lg border border-wb-line p-3.5 text-left transition-colors hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                   >
-                    <h4 className="mb-2 text-[13.5px] font-semibold leading-snug">{s.raw_title}</h4>
-                    <p className="mb-2 text-[11.5px] text-wb-ink2">
+                    <h4 className="mb-2 text-wb-body font-semibold leading-snug">{s.raw_title}</h4>
+                    <p className="mb-2 text-wb-label text-wb-ink2">
                       {s.sector ?? '—'} · {s.geography ?? '—'} · {s.source_tier ? `Tier ${s.source_tier}` : '—'}
                     </p>
                     <RiskPill value={s.risk_rating} />
@@ -219,7 +231,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
 
           <Modal open={!!openSignal} onClose={() => setOpenSignal(null)} title={openSignal?.raw_title ?? 'Signal'} variant="preview">
             {openSignal && (
-              <div className="flex flex-col gap-3 text-[13px]">
+              <div className="flex flex-col gap-3 text-wb-body">
                 <div className="flex flex-wrap items-center gap-2">
                   <RiskPill value={openSignal.risk_rating} />
                   <span className="text-wb-ink2">
@@ -229,10 +241,10 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
                 {openSignal.raw_summary ? (
                   <p className="text-wb-ink">{openSignal.raw_summary}</p>
                 ) : (
-                  <p className="text-[12px] italic text-wb-ink2">Source provides title only — no summary available.</p>
+                  <p className="text-wb-label italic text-wb-ink2">Source provides title only — no summary available.</p>
                 )}
                 {openSignal.canonical_url && (
-                  <a href={openSignal.canonical_url} target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-wb-sage-deep underline">
+                  <a href={openSignal.canonical_url} target="_blank" rel="noopener noreferrer" className="text-wb-label text-wb-sage-deep underline">
                     Open source →
                   </a>
                 )}

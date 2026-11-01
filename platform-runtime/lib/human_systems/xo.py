@@ -17,10 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import framework, safety
+from . import decision, framework, safety
 from .mission_load import MissionLoad
-from . import decision
-
 
 # Registered Commands. `reporting=False` = ready to plug in, not yet emitting.
 REGISTERED_COMMANDS = [

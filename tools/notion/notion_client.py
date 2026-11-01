@@ -3,15 +3,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = ROOT / "logs/notion-sync"
@@ -62,7 +61,7 @@ class NotionClient:
             headers=self._headers(),
         )
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - url is the fixed api.notion.com endpoint, not user input - reviewed 2026-09-12
                 data = response.read().decode("utf-8")
                 return json.loads(data) if data else {}
         except urllib.error.HTTPError as error:
@@ -122,7 +121,7 @@ def url(value: str | None) -> dict[str, Any]:
     return {"url": value or None}
 
 
-def number(value: int | float | None) -> dict[str, Any]:
+def number(value: float | None) -> dict[str, Any]:
     return {"number": value}
 
 
@@ -170,7 +169,7 @@ def sync_records(database_name: str, database_id: str, records: list[dict[str, A
             else:
                 client.create_page(database_id, properties)
                 summary.created += 1
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - per-record sync inside a batch loop — one bad record must not abort the sync; already printed + counted in summary.errors
             summary.errors += 1
             print(f"ERROR {database_name} {source_id}: {error}")
 
@@ -180,7 +179,7 @@ def sync_records(database_name: str, database_id: str, records: list[dict[str, A
         try:
             client.update_page(page["id"], {"Status": select("Archived")})
             summary.archived += 1
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - per-record archive inside a batch loop — one bad record must not abort the sync; already printed + counted in summary.errors
             summary.errors += 1
             print(f"ERROR archive {database_name} {source_id}: {error}")
     write_log(summary)

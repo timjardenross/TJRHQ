@@ -44,8 +44,8 @@ log = logging.getLogger("backfill_relevance_disposition")
 
 from supabase import create_client
 
-from intelligence.classification.relevance_gate import assess_relevance
 from intelligence.classification.disposition import technical_disposition
+from intelligence.classification.relevance_gate import assess_relevance
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -133,7 +133,7 @@ def run(days: int, dry_run: bool, limit: int | None) -> dict:
                         "event_id", row["event_id"]
                     ).execute()
                 stats["updated"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-row backfill inside a batch loop — one bad row must not abort the batch; already logged + counted in stats['errors']
                 log.warning("Failed to backfill event %s: %s", row.get("event_id"), exc)
                 stats["errors"] += 1
 

@@ -6,7 +6,8 @@ Returns a list of Relationship objects with confidence scores.
 """
 
 import re
-from typing import List, Dict, Any, Tuple
+from typing import Any
+
 from models import Relationship
 
 # ID patterns
@@ -20,7 +21,7 @@ _ID_PATTERNS = {
 
 # Keyword → relationship type mapping.
 # Checked against surrounding context window AND YAML-style field labels.
-_RELATIONSHIP_KEYWORDS: List[Tuple[str, str, float]] = [
+_RELATIONSHIP_KEYWORDS: list[tuple[str, str, float]] = [
     # YAML-style field labels (high confidence — explicit declaration)
     (r"triggered[_\s]by\s*:",                                    "triggered_by",  0.35),
     (r"governed[_\s]by\s*:",                                     "governed_by",   0.35),
@@ -52,7 +53,7 @@ def _base_confidence(target_type: str, context: str) -> float:
     return 0.55
 
 
-def _keyword_boost(context: str) -> Tuple[str, float]:
+def _keyword_boost(context: str) -> tuple[str, float]:
     """Return the best-matching relationship type and confidence boost."""
     for pattern, rel_type, boost in _RELATIONSHIP_KEYWORDS:
         if re.search(pattern, context, re.IGNORECASE):
@@ -63,13 +64,13 @@ def _keyword_boost(context: str) -> Tuple[str, float]:
 def extract_relationships(
     source_id: str,
     text: str,
-    corpus: Dict[str, Any],
-) -> List[Relationship]:
+    corpus: dict[str, Any],
+) -> list[Relationship]:
     """
     Extract all relationships from `text` for entity `source_id`.
     Only returns relationships where the target exists in the corpus.
     """
-    relationships: List[Relationship] = []
+    relationships: list[Relationship] = []
     seen: set = set()
 
     # corpus keys: missions, decisions, adrs, capabilities, risks

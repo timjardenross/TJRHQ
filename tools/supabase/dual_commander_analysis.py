@@ -7,9 +7,8 @@ Purpose: Analyze dual commander evaluation runs and generate recommendations
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
-from datetime import datetime, timedelta
-import re
+from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 
 
 @dataclass
@@ -25,13 +24,13 @@ class DualCommanderAnalysis:
     deepseek_win_rate: float  # 0-1
     tie_rate: float  # 0-1
 
-    decision_types: Dict[str, Dict[str, float]]  # {'policy': {'qwen': 0.6, 'deepseek': 0.4}, ...}
+    decision_types: dict[str, dict[str, float]]  # {'policy': {'qwen': 0.6, 'deepseek': 0.4}, ...}
 
     recommendation: str  # 'promote', 'demote', 'keep', 'specialize', 'insufficient_data'
     confidence: float  # 0-1 (how confident in recommendation)
 
     reasoning: str  # Human-readable explanation
-    next_steps: List[str]  # Actionable next steps
+    next_steps: list[str]  # Actionable next steps
 
     analysis_timestamp: datetime = None
 
@@ -40,7 +39,7 @@ class DualCommanderAnalyzer:
     """Analyze dual commander evaluation patterns."""
 
     # Decision type keywords
-    DECISION_TYPES = {
+    DECISION_TYPES: ClassVar[dict] = {
         "policy": [
             "policy",
             "governance",
@@ -78,7 +77,7 @@ class DualCommanderAnalyzer:
 
     def analyze_dual_commander_runs(
         self,
-        runs: List[Dict],  # From collaboration_logs table
+        runs: list[dict],  # From collaboration_logs table
         min_runs: int = 10,
     ) -> DualCommanderAnalysis:
         """
@@ -110,7 +109,7 @@ class DualCommanderAnalyzer:
                     "Ensure varied question types (policy, technical, operational, strategic)",
                     f"Re-analyze after reaching {min_runs} runs",
                 ],
-                analysis_timestamp=datetime.now(),
+                analysis_timestamp=datetime.now(timezone.utc),
             )
 
         # Count wins
@@ -163,13 +162,13 @@ class DualCommanderAnalyzer:
             confidence=confidence,
             reasoning=reasoning,
             next_steps=next_steps,
-            analysis_timestamp=datetime.now(),
+            analysis_timestamp=datetime.now(timezone.utc),
         )
 
-    def _classify_decision_types(self, runs: List[Dict]) -> Dict[str, Dict[str, float]]:
+    def _classify_decision_types(self, runs: list[dict]) -> dict[str, dict[str, float]]:
         """Classify each run's decision by type; calculate win rates per type."""
 
-        classification = {dtype: {"qwen": 0, "deepseek": 0, "tie": 0, "total": 0} for dtype in self.DECISION_TYPES.keys()}
+        classification = {dtype: {"qwen": 0, "deepseek": 0, "tie": 0, "total": 0} for dtype in self.DECISION_TYPES}
 
         for run in runs:
             decision_text = (run.get("decision_text") or "") + " " + (run.get("captain_notes") or "")
@@ -213,7 +212,7 @@ class DualCommanderAnalyzer:
         qwen_rate: float,
         deepseek_rate: float,
         total_runs: int,
-        decision_types: Dict,
+        decision_types: dict,
     ) -> tuple[str, float]:
         """
         Generate recommendation based on win rates and patterns.
@@ -240,11 +239,11 @@ class DualCommanderAnalyzer:
 
         return ("insufficient_data", 0.0)
 
-    def _has_complementary_strengths(self, decision_types: Dict) -> bool:
+    def _has_complementary_strengths(self, decision_types: dict) -> bool:
         """Check if models have complementary strengths (one excels in different areas)."""
 
         # Look for >60% win rate in any single decision type
-        for dtype, rates in decision_types.items():
+        for rates in decision_types.values():
             if rates.get("qwen", 0) > 0.60 or rates.get("deepseek", 0) > 0.60:
                 return True
 
@@ -257,7 +256,7 @@ class DualCommanderAnalyzer:
         deepseek_wins: int,
         ties: int,
         recommendation: str,
-        decision_types: Dict,
+        decision_types: dict,
     ) -> str:
         """Build human-readable reasoning for recommendation."""
 
@@ -306,8 +305,8 @@ class DualCommanderAnalyzer:
         return " ".join(parts)
 
     def _generate_next_steps(
-        self, recommendation: str, total_runs: int, decision_types: Dict
-    ) -> List[str]:
+        self, recommendation: str, total_runs: int, decision_types: dict
+    ) -> list[str]:
         """Generate actionable next steps based on recommendation."""
 
         steps = []
@@ -342,14 +341,14 @@ class DualCommanderAnalyzer:
             steps = [
                 f"Run {20 - total_runs} more evaluations",
                 "Ensure varied question types across policy, technical, operational, strategic",
-                f"Target completion: {(datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')}",
+                f"Target completion: {(datetime.now(timezone.utc) + timedelta(days=14)).strftime('%Y-%m-%d')}",
                 "Re-analyze after reaching 20 runs",
             ]
 
         return steps
 
 
-def analyze_runs_from_db(runs: List[Dict]) -> DualCommanderAnalysis:
+def analyze_runs_from_db(runs: list[dict]) -> DualCommanderAnalysis:
     """Convenience function to analyze dual commander runs."""
     analyzer = DualCommanderAnalyzer()
     return analyzer.analyze_dual_commander_runs(runs)
@@ -396,6 +395,6 @@ if __name__ == "__main__":
     print(f"\nRecommendation: {analysis.recommendation.upper()}")
     print(f"Confidence: {100*analysis.confidence:.0f}%")
     print(f"\nReasoning:\n{analysis.reasoning}")
-    print(f"\nNext Steps:")
+    print("\nNext Steps:")
     for i, step in enumerate(analysis.next_steps, 1):
         print(f"  {i}. {step}")

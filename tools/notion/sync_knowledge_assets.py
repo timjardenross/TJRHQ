@@ -4,12 +4,20 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "supabase"))
 
-from notion_client import date, required_database_id, rich_text, select, sync_records, title, url
+from notion_client import (
+    date,
+    required_database_id,
+    rich_text,
+    select,
+    sync_records,
+    title,
+    url,
+)
 from supabase_client import SupabaseClient
 
 

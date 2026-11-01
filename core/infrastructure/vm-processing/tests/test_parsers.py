@@ -1,9 +1,8 @@
 import docx
 import fitz
 import pandas as pd
-import pytest
-
 import parsers
+import pytest
 
 
 def test_text_parser(tmp_path):

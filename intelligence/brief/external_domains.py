@@ -24,7 +24,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from intelligence.persistence import intelligence_store as store
 
@@ -59,12 +58,12 @@ class ExternalDomainSignal:
     applies to platform core_events)."""
     domain: str                              # "health" | "emergency"
     title: str                                # verbatim from source, never paraphrased
-    summary: Optional[str]
+    summary: str | None
     risk_rating: str                          # GREEN | AMBER | RED
-    source_name: Optional[str]
-    assessed_at: Optional[str]
-    canonical_url: Optional[str] = None
-    official_severity_label: Optional[str] = None  # emergency alerts only
+    source_name: str | None
+    assessed_at: str | None
+    canonical_url: str | None = None
+    official_severity_label: str | None = None  # emergency alerts only
 
     def to_dict(self) -> dict:
         return {
@@ -80,14 +79,14 @@ class DomainFetchResult:
     domain: str
     available: bool                # False = the fetch itself failed
     signals: list                  # list[ExternalDomainSignal]
-    error: Optional[str] = None
+    error: str | None = None
 
 
 def fetch_health_signals(hours: int = 24, limit: int = 10) -> DomainFetchResult:
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         rows = store.load_assessed_health_signals(since, limit=limit)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged as explicitly non-fatal; caller receives a structured DomainFetchResult(available=False)
         log.warning("Health OSINT assessed-signal fetch failed (non-fatal, domain marked unavailable): %s", exc)
         return DomainFetchResult(domain="health", available=False, signals=[], error=str(exc))
 
@@ -114,7 +113,7 @@ def fetch_health_signals(hours: int = 24, limit: int = 10) -> DomainFetchResult:
 def fetch_emergency_alerts(limit: int = 10) -> DomainFetchResult:
     try:
         rows = store.load_active_emergency_alerts(limit=limit)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged as explicitly non-fatal; caller receives a structured DomainFetchResult(available=False)
         log.warning("Emergency Alert Hub assessed-alert fetch failed (non-fatal, domain marked unavailable): %s", exc)
         return DomainFetchResult(domain="emergency", available=False, signals=[], error=str(exc))
 

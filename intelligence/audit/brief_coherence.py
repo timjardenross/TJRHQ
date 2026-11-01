@@ -14,8 +14,7 @@ Checks:
 import json
 import logging
 import re
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 
 from intelligence.persistence import intelligence_store
 
@@ -47,7 +46,7 @@ def brief_sample(limit: int = 5, days: int = 30) -> dict:
     - narrative sections (executive_snapshot, emerging_themes, forward_watch, etc.)
     - CPS230 implications
     """
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     log.info(f"Sampling {limit} briefs from last {days} days...")
     query = (
@@ -63,7 +62,7 @@ def brief_sample(limit: int = 5, days: int = 30) -> dict:
 
     samples = {
         "period_days": days,
-        "sampled_at": datetime.utcnow().isoformat(),
+        "sampled_at": datetime.now(timezone.utc).isoformat(),
         "total_briefs_sampled": len(briefs),
         "briefs": [],
     }
@@ -74,13 +73,11 @@ def brief_sample(limit: int = 5, days: int = 30) -> dict:
         if isinstance(top_events, str):
             try:
                 top_events = json.loads(top_events)
-            except:
+            except (json.JSONDecodeError, ValueError):
                 top_events = []
 
         cps230 = brief.get("cps230_implications", "")
-        if isinstance(cps230, str):
-            cps230 = cps230
-        else:
+        if not isinstance(cps230, str):
             cps230 = json.dumps(cps230) if cps230 else ""
 
         brief_sample = {
@@ -198,7 +195,7 @@ def brief_coherence_checks(brief_sample: dict) -> dict:
 def print_brief_coherence_template(samples: dict) -> None:
     """Print template for manual brief coherence validation."""
     print(f"\n{'='*100}")
-    print(f"BRIEF COHERENCE VALIDATION TEMPLATE — Manual Review")
+    print("BRIEF COHERENCE VALIDATION TEMPLATE — Manual Review")
     print(f"{'='*100}\n")
 
     print("INSTRUCTIONS:")
@@ -212,30 +209,30 @@ def print_brief_coherence_template(samples: dict) -> None:
         print(f"  Overall Risk: {brief['overall_risk']}")
         print(f"  Events: {brief['events_summary']['included']} included, {brief['events_summary']['suppressed']} suppressed\n")
 
-        print(f"  TOP EVENTS (first 3):")
+        print("  TOP EVENTS (first 3):")
         for j, event in enumerate(brief["top_events"], 1):
             print(f"    {j}. {event['title']}")
             print(f"       Risk: {event['risk_rating']} | Source: {event['source_name']}\n")
 
-        print(f"  NARRATIVE SECTIONS:")
-        print(f"    Executive Snapshot:")
+        print("  NARRATIVE SECTIONS:")
+        print("    Executive Snapshot:")
         print(f"      {brief['narrative']['executive_snapshot']}\n")
-        print(f"    Emerging Themes:")
+        print("    Emerging Themes:")
         print(f"      {brief['narrative']['emerging_themes']}\n")
-        print(f"    Forward Watch:")
+        print("    Forward Watch:")
         print(f"      {brief['narrative']['forward_watch']}\n")
-        print(f"    CPS230 Implications:")
+        print("    CPS230 Implications:")
         print(f"      {brief['cps230_implications']}\n")
 
-        print(f"  COHERENCE CHECKLIST:")
-        print(f"    [ ] Snapshot reflects actual top events?")
-        print(f"    [ ] Themes are grounded in signal data (not generic)?")
-        print(f"    [ ] Forward watch is specific & actionable (not boilerplate)?")
-        print(f"    [ ] CPS230 uses operational resilience vocabulary?")
-        print(f"    [ ] Overall risk justified by event composition?")
-        print(f"    [ ] Bottom line is clear recommendation?")
-        print(f"\n  Manual Assessment: ✓ COHERENT | ✗ FRAGMENTED | ? UNCLEAR")
-        print(f"  Notes: __________________________________________________________________\n")
+        print("  COHERENCE CHECKLIST:")
+        print("    [ ] Snapshot reflects actual top events?")
+        print("    [ ] Themes are grounded in signal data (not generic)?")
+        print("    [ ] Forward watch is specific & actionable (not boilerplate)?")
+        print("    [ ] CPS230 uses operational resilience vocabulary?")
+        print("    [ ] Overall risk justified by event composition?")
+        print("    [ ] Bottom line is clear recommendation?")
+        print("\n  Manual Assessment: ✓ COHERENT | ✗ FRAGMENTED | ? UNCLEAR")
+        print("  Notes: __________________________________________________________________\n")
 
         print("-" * 100)
 
@@ -249,14 +246,14 @@ def print_brief_stats(samples: dict) -> None:
     print(f"{'='*80}\n")
 
     if not samples["briefs"]:
-        print(f"No briefs found in the sample period. Coherence audit cannot proceed.")
-        print(f"(This may indicate: no briefs generated, or query filter too strict)\n")
+        print("No briefs found in the sample period. Coherence audit cannot proceed.")
+        print("(This may indicate: no briefs generated, or query filter too strict)\n")
         return
 
     total_events_included = sum(b["events_summary"]["included"] for b in samples["briefs"])
     total_events_suppressed = sum(b["events_summary"]["suppressed"] for b in samples["briefs"])
 
-    print(f"AGGREGATE STATISTICS")
+    print("AGGREGATE STATISTICS")
     print(f"  Total briefs: {len(samples['briefs'])}")
     print(f"  Total events included: {total_events_included}")
     print(f"  Total events suppressed: {total_events_suppressed}")
@@ -265,9 +262,9 @@ def print_brief_stats(samples: dict) -> None:
         inclusion_rate = total_events_included / (total_events_included + total_events_suppressed) * 100
         print(f"  Inclusion rate: {inclusion_rate:.1f}%\n")
     else:
-        print(f"  Inclusion rate: N/A (no events)\n")
+        print("  Inclusion rate: N/A (no events)\n")
 
-    print(f"RISK DISTRIBUTION (overall_risk field)")
+    print("RISK DISTRIBUTION (overall_risk field)")
     risk_counts = {}
     for brief in samples["briefs"]:
         risk = brief["overall_risk"]

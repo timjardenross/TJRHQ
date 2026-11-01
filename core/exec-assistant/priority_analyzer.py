@@ -12,15 +12,14 @@ Quadrants:
 """
 
 import logging
-from typing import List, Optional, Tuple
+from datetime import date, datetime
 from uuid import UUID
-from datetime import datetime, timedelta
 
 from .models import (
     Commitment,
     CommitmentStatus,
-    PriorityMatrix,
     PriorityAnalysis,
+    PriorityMatrix,
 )
 
 log = logging.getLogger(__name__)
@@ -59,7 +58,7 @@ class PriorityAnalyzer:
         self.db = db
         self.context_manager = context_manager
 
-    def analyze_tasks(self, commitments: List[Commitment]) -> PriorityMatrix:
+    def analyze_tasks(self, commitments: list[Commitment]) -> PriorityMatrix:
         """
         Categorize tasks into Eisenhower Matrix quadrants.
 
@@ -95,7 +94,7 @@ class PriorityAnalyzer:
 
         return matrix
 
-    def analyze_workload(self, commitments: List[Commitment]) -> PriorityAnalysis:
+    def analyze_workload(self, commitments: list[Commitment]) -> PriorityAnalysis:
         """
         Analyze overall workload and recommend focus areas.
 
@@ -110,7 +109,7 @@ class PriorityAnalyzer:
         total = len(matrix.critical) + len(matrix.strategic) + len(matrix.routine) + len(matrix.delegate)
 
         # Assess workload
-        critical_ratio = len(matrix.critical) / total if total > 0 else 0
+        len(matrix.critical) / total if total > 0 else 0
         if len(matrix.critical) > 10:
             workload = "overload"
         elif len(matrix.critical) > 5:
@@ -144,9 +143,9 @@ class PriorityAnalyzer:
 
     def get_prioritized_items(
         self,
-        commitments: Optional[List[Commitment]] = None,
+        commitments: list[Commitment] | None = None,
         limit: int = 10,
-    ) -> List[Commitment]:
+    ) -> list[Commitment]:
         """
         Get top priority items to focus on today.
 
@@ -173,7 +172,7 @@ class PriorityAnalyzer:
                 ).order("due_date", desc=False).execute()
 
                 commitments = [Commitment(**row) for row in result.data]
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.error(f"Failed to fetch commitments: {e}")
                 return []
 
@@ -185,13 +184,13 @@ class PriorityAnalyzer:
             key=lambda c: (
                 -self._score_urgency(c),  # Negative for descending
                 -self._score_importance(c),
-                c.due_date or datetime.max,
+                c.due_date or date.max,  # due_date is a date (not datetime); date.max keeps the sort key type-consistent
             )
         )
 
         return priority_items[:limit]
 
-    def suggest_delegate_items(self, commitments: List[Commitment]) -> List[Tuple[Commitment, str]]:
+    def suggest_delegate_items(self, commitments: list[Commitment]) -> list[tuple[Commitment, str]]:
         """
         Identify items that should be delegated.
 
@@ -228,7 +227,7 @@ class PriorityAnalyzer:
         if commitment.due_date is None:
             return 0.3  # Low urgency if no deadline
 
-        days_until_due = (commitment.due_date - datetime.now().date()).days
+        days_until_due = (commitment.due_date - datetime.now().astimezone().date()).days
 
         if days_until_due < 0:
             return 1.0  # Overdue
@@ -274,13 +273,13 @@ class PriorityAnalyzer:
         if self.context_manager:
             priorities = self.context_manager.get_priorities()
             commitment_lower = commitment.title.lower()
-            for priority_name in priorities.keys():
+            for priority_name in priorities:
                 if priority_name.lower() in commitment_lower:
                     base_score = min(1.0, base_score + 0.2)
 
         return min(1.0, base_score)
 
-    def _suggest_owner(self, commitment: Commitment) -> Optional[str]:
+    def _suggest_owner(self, commitment: Commitment) -> str | None:
         """
         Suggest who should own a task (for delegation).
 
@@ -306,7 +305,7 @@ class PriorityAnalyzer:
 
         return None
 
-    def get_focus_recommendations(self, commitments: List[Commitment]) -> dict:
+    def get_focus_recommendations(self, commitments: list[Commitment]) -> dict:
         """
         Get personalized recommendations on what to focus on.
 

@@ -25,7 +25,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def _sanitize_diff(body: str) -> str:
     return "\n".join(ln for ln in body.splitlines() if not _NON_DIFF_LABEL.match(ln))
 
 
-def extract_unified_diff(text: str) -> Optional[str]:
+def extract_unified_diff(text: str) -> str | None:
     """Pull a unified diff out of an LLM response, or None if there isn't one.
 
     Handles the two shapes the PATCH prompt invites:
@@ -100,7 +100,7 @@ _FILE_BLOCK = re.compile(
 )
 
 
-def _clean_path(raw: str) -> Optional[str]:
+def _clean_path(raw: str) -> str | None:
     path = re.sub(r"^(?:a/|b/|\./)", "", raw.strip().strip('"').strip("'")).strip()
     if not path or path.startswith("/") or ".." in Path(path).parts:
         return None
@@ -130,7 +130,7 @@ def extract_file_blocks(text: str) -> dict[str, str]:
 
 # ─── apply check (read-only) ──────────────────────────────────────────────────
 
-def diff_applies(diff_text: str, repo_root: Optional[Path] = None) -> bool:
+def diff_applies(diff_text: str, repo_root: Path | None = None) -> bool:
     """True iff `diff_text` applies cleanly to the repo — without modifying it.
 
     `git apply --check` validates only; it writes nothing. Returns False on any
@@ -148,6 +148,7 @@ def diff_applies(diff_text: str, repo_root: Optional[Path] = None) -> bool:
             proc = subprocess.run(
                 ["git", "-C", str(root), "apply", "--check", "--recount", fh.name],
                 capture_output=True, text=True, timeout=30,
+                check=False,
             )
         if proc.returncode != 0:
             log.info("[github_pr] diff does not apply: %s", proc.stderr.strip()[:200])
@@ -167,8 +168,8 @@ def open_draft_pr(
     body: str,
     token: str,
     repo: str,
-    base_branch: Optional[str] = None,
-    repo_root: Optional[Path] = None,
+    base_branch: str | None = None,
+    repo_root: Path | None = None,
 ) -> dict[str, Any]:
     """Apply `diff_text` on a fresh branch in a throwaway worktree, push it, and
     open a **draft** PR. Returns a result dict; never raises.
@@ -237,8 +238,8 @@ def open_files_pr(
     body: str,
     token: str,
     repo: str,
-    base_branch: Optional[str] = None,
-    repo_root: Optional[Path] = None,
+    base_branch: str | None = None,
+    repo_root: Path | None = None,
     allow_existing: bool = False,
 ) -> dict[str, Any]:
     """Write whole-file contents into a fresh worktree, commit, push, open a draft PR.
@@ -304,6 +305,7 @@ def open_files_pr(
         diff_proc = subprocess.run(
             ["git", "-C", str(worktree), "diff", "--cached"],
             capture_output=True, text=True, timeout=30,
+            check=False,
         )
         diff_text = diff_proc.stdout
         _git(worktree, "-c", "user.name=Mistral Batch Coder",
@@ -340,7 +342,7 @@ def open_files_pr(
 # ─── GitHub REST helpers (stdlib only) ────────────────────────────────────────
 
 def _api_request(token: str, method: str, path: str,
-                 payload: Optional[dict] = None) -> Any:
+                 payload: dict | None = None) -> Any:
     url = f"{_GITHUB_API}{path}"
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(url, data=data, method=method)
@@ -350,11 +352,11 @@ def _api_request(token: str, method: str, path: str,
     req.add_header("User-Agent", "starship-endeavour-batch-coding")
     if data is not None:
         req.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - url is fixed _GITHUB_API literal prefix + path segments, not user input - reviewed 2026-09-12
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _default_branch(token: str, repo: str) -> Optional[str]:
+def _default_branch(token: str, repo: str) -> str | None:
     try:
         return _api_request(token, "GET", f"/repos/{repo}").get("default_branch")
     except (urllib.error.URLError, OSError, ValueError):
@@ -369,7 +371,7 @@ def _create_pr(token: str, repo: str, *, title: str, head: str,
     return resp.get("html_url", "")
 
 
-def _find_existing_pr(token: str, repo: str, branch: str) -> Optional[str]:
+def _find_existing_pr(token: str, repo: str, branch: str) -> str | None:
     owner = repo.split("/", 1)[0]
     try:
         prs = _api_request(
@@ -408,7 +410,7 @@ def _resolve_base_ref(root: Path, base: str) -> str:
     resort (caller surfaces the git error)."""
     try:  # best-effort refresh so the PR is cut from current remote state
         subprocess.run(["git", "-C", str(root), "fetch", "--quiet", "origin", base],
-                       capture_output=True, text=True, timeout=60)
+                       capture_output=True, text=True, timeout=60, check=False)
     except (subprocess.SubprocessError, OSError):
         pass
     for candidate in (f"origin/{base}", base, "origin/HEAD"):
@@ -419,3 +421,127 @@ def _resolve_base_ref(root: Path, base: str) -> str:
         except subprocess.CalledProcessError:
             continue
     return base
+
+
+# ─── XO engineering-review gate ──────────────────────────────────────────────
+# 2026-09-26: the version-bump auto-PR path (batch_coding.py's
+# _open_files_pr, allow_existing gated to dependency-release titles only)
+# needs a real review step before a human ever sees it, and a way for
+# telegram-bots/xo/app.py's /merge_pr command to check that review's
+# verdict before performing the actual merge. The PR itself (a GitHub
+# comment) is the single source of truth for that verdict — not a
+# separate state file that could drift from what's actually on the PR.
+
+_XO_VERDICT_MARKER = "<!-- xo-review-verdict:"
+
+
+def post_xo_verdict_comment(token: str, repo: str, pr_number: int, verdict: str, reasoning: str) -> bool:
+    """Posts the XO engineering-review verdict as a PR comment, tagged with
+    a marker `get_pr_review_verdict()` can parse back out. Never raises."""
+    body = (
+        f"{_XO_VERDICT_MARKER}{verdict}-->\n"
+        f"## XO Engineering Review\n\n"
+        f"**Verdict:** {verdict.replace('_', ' ').title()}\n\n{reasoning}\n"
+    )
+    try:
+        _api_request(token, "POST", f"/repos/{repo}/issues/{pr_number}/comments", {"body": body})
+        return True
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("[github_pr] failed to post XO verdict comment on PR #%s: %s", pr_number, exc)
+        return False
+
+
+def get_pr_review_verdict(token: str, repo: str, pr_number: int) -> str | None:
+    """The most recent XO-verdict-marked comment's verdict token
+    ("approve" / "approve_with_changes" / "hold"), or None if no such
+    comment exists yet. Never raises."""
+    try:
+        comments = _api_request(token, "GET", f"/repos/{repo}/issues/{pr_number}/comments?per_page=100")
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("[github_pr] failed to read PR #%s comments: %s", pr_number, exc)
+        return None
+    verdict = None
+    for comment in comments:
+        body = comment.get("body", "")
+        if _XO_VERDICT_MARKER in body:
+            start = body.index(_XO_VERDICT_MARKER) + len(_XO_VERDICT_MARKER)
+            end = body.find("-->", start)
+            if end != -1:
+                verdict = body[start:end].strip()
+    return verdict
+
+
+def _graphql_request(token: str, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+    payload = json.dumps({"query": query, "variables": variables}).encode()
+    req = urllib.request.Request(f"{_GITHUB_API}/graphql", data=payload, method="POST")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("User-Agent", "starship-endeavour-batch-coding")
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - url is the fixed _GITHUB_API GraphQL endpoint literal, not user input
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _mark_pr_ready_for_review(token: str, repo: str, pr_number: int) -> bool:
+    """Drafts can't be merged via the REST merge endpoint — GitHub only
+    exposes the draft->ready transition via GraphQL
+    (`markPullRequestReadyForReview`), never added to REST."""
+    try:
+        pr = _api_request(token, "GET", f"/repos/{repo}/pulls/{pr_number}")
+        node_id = pr.get("node_id")
+        if not node_id:
+            return False
+        result = _graphql_request(
+            token,
+            "mutation($id: ID!) { markPullRequestReadyForReview(input: {pullRequestId: $id}) "
+            "{ pullRequest { isDraft } } }",
+            {"id": node_id},
+        )
+        pr_state = (result.get("data") or {}).get("markPullRequestReadyForReview") or {}
+        return not (pr_state.get("pullRequest") or {}).get("isDraft", True)
+    except (urllib.error.URLError, OSError, ValueError, KeyError) as exc:
+        log.warning("[github_pr] failed to mark PR #%s ready for review: %s", pr_number, exc)
+        return False
+
+
+def merge_pr(token: str, repo: str, pr_number: int, *, merge_method: str = "merge") -> tuple[bool, str]:
+    """Marks a still-draft PR ready for review, then merges it. Returns
+    (ok, message) — never raises. This is the ONLY function in this
+    module that performs a real merge; every other function in this file
+    only ever opens/comments on a draft."""
+    try:
+        pr = _api_request(token, "GET", f"/repos/{repo}/pulls/{pr_number}")
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return False, f"could not read PR #{pr_number}: {exc}"
+    if pr.get("draft") and not _mark_pr_ready_for_review(token, repo, pr_number):
+        return False, f"failed to mark PR #{pr_number} ready for review"
+    try:
+        _api_request(token, "PUT", f"/repos/{repo}/pulls/{pr_number}/merge", {"merge_method": merge_method})
+        return True, f"PR #{pr_number} merged"
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300] if exc.fp else str(exc)
+        return False, f"merge failed: {detail}"
+    except (urllib.error.URLError, OSError) as exc:
+        return False, f"merge failed: {exc}"
+
+
+def close_pr(token: str, repo: str, pr_number: int, comment: str | None = None) -> bool:
+    """Closes a PR without merging (the /decline_pr path). Never raises."""
+    try:
+        if comment:
+            add_pr_comment(token, repo, pr_number, comment)
+        _api_request(token, "PATCH", f"/repos/{repo}/pulls/{pr_number}", {"state": "closed"})
+        return True
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("[github_pr] failed to close PR #%s: %s", pr_number, exc)
+        return False
+
+
+def add_pr_comment(token: str, repo: str, pr_number: int, body: str) -> bool:
+    """Generic PR comment, used by close_pr()'s optional decline note and
+    available to any other caller that wants to post plain text."""
+    try:
+        _api_request(token, "POST", f"/repos/{repo}/issues/{pr_number}/comments", {"body": body})
+        return True
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("[github_pr] failed to comment on PR #%s: %s", pr_number, exc)
+        return False

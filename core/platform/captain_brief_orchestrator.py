@@ -22,10 +22,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
-from core.platform.attention_engine import AttentionCategory, evaluate_batch
-from core.platform.priority_engine import PriorityInputs, PriorityScore, rank_events
+from core.platform.attention_engine import evaluate_batch
 from core.platform.captain_brief_contract import (
     CaptainBrief,
     CaptainBriefItem,
@@ -33,6 +32,7 @@ from core.platform.captain_brief_contract import (
     assemble_captain_brief,
     recommendations_from_events,
 )
+from core.platform.priority_engine import PriorityInputs, PriorityScore, rank_events
 
 CAPTAIN_BRIEF_DOCUMENT_VERSION = "1.0"
 
@@ -89,7 +89,7 @@ class CaptainBriefDocument:
     warnings: list[CaptainBriefItem]
     next_actions: list[str]
     metadata: dict[str, Any]
-    confidence: Optional[float]
+    confidence: float | None
     # MSN-0329 Phase 2 Step 5 (Captain Brief Evolution): populated only by
     # captain_brief_evolution.py's assemble_evolved_captain_brief(), never
     # by this module's own assemble_captain_brief_document() — this
@@ -108,7 +108,7 @@ class CaptainBriefDocument:
     interrupt_now: list[CaptainBriefItem] = field(default_factory=list)
 
 
-def _section_for_domain(domain: str) -> Optional[str]:
+def _section_for_domain(domain: str) -> str | None:
     return _DOMAIN_SECTION_MAP.get(domain)
 
 
@@ -135,7 +135,7 @@ def _value_dimensions_from_event(event: dict[str, Any]) -> dict[str, int]:
     return {dimension: int(importance)}
 
 
-def _opportunity_value_from_event(event: dict[str, Any]) -> Optional[int]:
+def _opportunity_value_from_event(event: dict[str, Any]) -> int | None:
     """First-pass opportunity-value derivation for
     `PriorityInputs.opportunity_value` (Priority Engine wiring fix). Same
     honesty caveat as `_value_dimensions_from_event` above: this is not
@@ -206,8 +206,9 @@ def _next_actions(recommendations: list[Recommendation], warnings: list[CaptainB
 def assemble_captain_brief_document(
     events: list[dict[str, Any]],
     *,
-    priority_weights: Optional[Any] = None,
+    priority_weights: Any | None = None,
     top_n_priorities: int = 10,
+    recent_surfaced: list[dict[str, Any]] | None = None,
 ) -> CaptainBriefDocument:
     """The single assembly entry point (Workstream B/C combined) — pull
     already-polled `core_events`-shaped dicts (caller's responsibility to
@@ -217,8 +218,23 @@ def assemble_captain_brief_document(
     (unchanged), attach Recommendations (existing adapter, MSN-0308), group
     by domain section, generate a narrative summary, and return one
     `CaptainBriefDocument`.
+
+    `recent_surfaced` (Phase 4, consolidation mission §7): forwarded to
+    `evaluate_batch()`'s persistence gate — an event whose `core_events.
+    status` already moved past "new" (acknowledged/dismissed/superseded)
+    stops re-triggering INTERRUPT_NOW once nothing has materially changed.
+    Defaults to `events` itself (not an empty gate): `poll_events()`
+    routinely re-returns the same recent rows on every call (no `since`
+    cursor is enforced), so an already-dispatched INTERRUPT_NOW event
+    would otherwise be re-classified as fresh on every subsequent call to
+    this function — the exact "recurring event re-interrupts every cycle"
+    gap the mission's §7 names. Pass an explicit (possibly empty) list to
+    opt out, or a broader externally-polled history to widen the dedup
+    window beyond this one batch.
     """
-    decisions = evaluate_batch(events)
+    if recent_surfaced is None:
+        recent_surfaced = events
+    decisions = evaluate_batch(events, recent_surfaced=recent_surfaced)
     recommendations_map = recommendations_from_events(events)
 
     inputs = [
@@ -244,12 +260,6 @@ def assemble_captain_brief_document(
     # Cross-domain priorities: every surfaced (non-never-interrupt,
     # non-remembered-only) item, ranked — not just interrupt_now/can_be_delayed,
     # since should_be_aggregated/should_be_summarised items can still matter.
-    surfaced_categories = {
-        AttentionCategory.INTERRUPT_NOW,
-        AttentionCategory.CAN_BE_DELAYED,
-        AttentionCategory.SHOULD_BE_SUMMARISED,
-        AttentionCategory.SHOULD_BE_AGGREGATED,
-    }
     all_surfaced_items = (
         brief.interrupt_now + brief.can_be_delayed + brief.should_be_summarised + brief.should_be_aggregated
     )
@@ -276,11 +286,16 @@ def assemble_captain_brief_document(
 
     # Warnings (Workstream E-adjacent): high-risk items, per the Priority
     # Engine's own risk_score (importance/confidence inverse) — a distinct
-    # cut across the same data, not a new score.
+    # cut across the same data, not a new score. risk_score is None for an
+    # event with no importance/confidence signal at all (priority_engine.py's
+    # own "unscored, not fabricated-0.0" contract) — explicitly excluded
+    # here rather than compared against the threshold (None >= float would
+    # raise) or coerced to 0, which would silently treat "never scored" the
+    # same as "scored and safe."
     warnings: list[CaptainBriefItem] = []
     for item in all_surfaced_items:
         score = score_map.get(item.event_id or "")
-        if score and score.risk_score >= _WARNING_RISK_THRESHOLD:
+        if score and score.risk_score is not None and score.risk_score >= _WARNING_RISK_THRESHOLD:
             warnings.append(item)
 
     domains_represented = {e.get("domain", "unknown") for e in events}
@@ -340,7 +355,7 @@ def assemble_captain_brief_document(
 
 
 __all__ = [
-    "CaptainBriefDocument",
     "CAPTAIN_BRIEF_DOCUMENT_VERSION",
+    "CaptainBriefDocument",
     "assemble_captain_brief_document",
 ]

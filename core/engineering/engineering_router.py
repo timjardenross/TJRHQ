@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Engineering Workflow Router
 
@@ -41,16 +42,24 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Allow running as __main__ from repo root
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from core.engineering import output_writer, prompt_builder
+from core.engineering.providers import (
+    gemini,
+    glm,
+    kimi,
+    mistral_batch,
+    model_router,
+    qwen,
+    vm_ollama,
+)
 from core.engineering.schemas import (
     Backend,
     ExecutionMode,
@@ -58,8 +67,6 @@ from core.engineering.schemas import (
     RouterRequest,
     RouterResponse,
 )
-from core.engineering import output_writer, prompt_builder
-from core.engineering.providers import gemini, glm, kimi, mistral_batch, model_router, qwen, vm_ollama
 
 log = logging.getLogger(__name__)
 
@@ -153,7 +160,7 @@ def route(req: RouterRequest) -> RouterResponse:
             warnings=warnings or None,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[router] backend=%s error=%s", req.backend.value, exc)
         resp = RouterResponse(
             mission_id=req.mission_id,
@@ -335,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     print(f"\n{'='*60}")
-    print(f"Engineering Workflow Router")
+    print("Engineering Workflow Router")
     print(f"Mission : {args.mission_id}")
     print(f"Title   : {ctx.title}")
     print(f"Backend : {args.backend}  |  Mode: {args.mode}")
@@ -361,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\nEvidence saved → {resp.evidence_path}")
     else:
         print(f"BACKEND FAILED: {resp.error}")
-        print(f"Evidence of failure saved to evidence folder.")
+        print("Evidence of failure saved to evidence folder.")
         return 1
 
     return 0

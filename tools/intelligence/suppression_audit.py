@@ -94,7 +94,7 @@ import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -156,7 +156,7 @@ def _client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def _judge(event: dict[str, Any]) -> tuple[str, str, Optional[str]]:
+def _judge(event: dict[str, Any]) -> tuple[str, str, str | None]:
     """Runs one suppressed event through the shared LLM provider chain.
     Returns (verdict, reason, provider_used). Never raises — any provider
     failure or unparseable response degrades to UNCERTAIN, matching
@@ -175,11 +175,11 @@ def _judge(event: dict[str, Any]) -> tuple[str, str, Optional[str]]:
 
     providers = [
         ("gemini", lambda: call_gemini(_SYSTEM_PROMPT, prompt, api_key=GEMINI_API_KEY,
-                                        max_output_tokens=200, temperature=0.1, timeout=30)),
+                                        max_output_tokens=200, temperature=0.1, timeout=30).text),
         ("mistral", lambda: call_mistral(_SYSTEM_PROMPT, prompt, api_key=MISTRAL_API_KEY,
-                                          max_tokens=200, temperature=0.1, timeout=30)),
+                                          max_tokens=200, temperature=0.1, timeout=30).text),
         ("ollama", lambda: call_ollama(_SYSTEM_PROMPT, prompt, base_url=OLLAMA_BASE_URL,
-                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=200, timeout=60)),
+                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=200, timeout=60).text),
     ]
 
     for name, fn in providers:
@@ -195,7 +195,7 @@ def _judge(event: dict[str, Any]) -> tuple[str, str, Optional[str]]:
                 return verdict, reason or f"(no reason given, via {name})", name
             log.warning("[suppression-audit] %s returned unrecognised verdict %r — treating as uncertain", name, verdict)
             return "UNCERTAIN", f"unrecognised model output via {name}", name
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[suppression-audit] provider %s failed for event %s: %s", name, event.get("event_id"), exc)
             continue
 
@@ -226,7 +226,7 @@ class SuppressionAuditor:
         ) or []
         return rows
 
-    def _log(self, event: dict[str, Any], verdict: str, reason: str, provider: Optional[str]) -> None:
+    def _log(self, event: dict[str, Any], verdict: str, reason: str, provider: str | None) -> None:
         from core.platform.audit_service import record_audit_event
 
         record_audit_event(

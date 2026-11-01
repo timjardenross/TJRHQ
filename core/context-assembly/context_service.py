@@ -23,6 +23,12 @@ HTTP endpoints:
   GET /health           — liveness check + corpus counts
   GET /brief/captain    — Captain Brief JSON (health summary, priorities, blockers, decisions)
   GET /brief/number-one — Number One Brief JSON (top-3, blocker, risk, recommendation)
+  GET /brief/domains    — Merged cross-domain Domains document (event-bus domains +
+                          Briefs' latest OSINT domain_picture, one normalised list)
+  GET /queue/health-adjusted — Number One's capacity-aware work queue (per-item
+                          capacity_note, recommended_focus, plain-English advisory)
+  GET /remember         — Mission 3 Remember capability: resurfacing personal
+                          tasks + unresolved captures, both capacity-aware
 
 Design constraints (WP-A):
   - Stateless: corpus re-read on every request
@@ -34,13 +40,14 @@ Design constraints (WP-A):
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import shutil
 import sys
-import traceback
-import argparse
-from pathlib import Path
+import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 # Repo root
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -54,17 +61,18 @@ sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
 # makes `core.platform.*` resolvable regardless of the process's cwd.
 sys.path.insert(0, str(REPO_ROOT))
 
-import config
 from assembler import (
-    assemble_mission_context,
-    assemble_health_context,
     assemble_blockers,
-    assemble_decisions_awaiting_input,
     assemble_captain_brief_context,
+    assemble_decisions_awaiting_input,
+    assemble_health_context,
+    assemble_mission_context,
     assemble_operating_picture,
 )
-from recommendation_engine import generate_recommendation_package
 from models import HealthContextPackage
+from recommendation_engine import generate_recommendation_package
+
+import config
 
 # Output directory for pre-generated files
 CONTEXT_OUTPUT_DIR = config.OUTPUT_DIR / "context"
@@ -96,7 +104,7 @@ def _load_missions() -> list:
             }
             missions.append(m_dict)
         return missions
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - module/corpus load failure must not crash the assembler; already logged via _err()
         _err(f"Could not load missions corpus: {e}")
         return []
 
@@ -106,9 +114,74 @@ def _load_corpus():
     try:
         from loaders import load_corpus
         return load_corpus()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - module/corpus load failure must not crash the assembler; already logged via _err()
         _err(f"Could not load corpus: {e}")
         return {"missions": {}, "decisions": {}, "adrs": {}, "capabilities": {}}
+
+
+def _load_live_missions_for_number_one() -> list:
+    """_load_missions() overlaid with live Supabase status/priority — the
+    actual system of record for mission lifecycle (per core/command-centre/
+    backend/api/missions.js's own comment: "mission-index.txt and
+    missions.db are NOT authoritative here. All reads go through
+    supabaseGet() -> PostgREST.").
+
+    2026-09-08: found while extending Number One's brief — the only sync
+    between Supabase and the file corpus (mission-registry-sync.timer, daily
+    06:45) only appends brand-new mission IDs to a flat text index; it never
+    updates an existing mission's status. So Missions/Active/*.md can
+    silently drift from what Supabase actually says a mission's current
+    status/priority is, and Number One's escalation/follow-up detection
+    would be reasoning over stale data without this.
+
+    Supabase's missions table has no blockers/dependencies/next_action/
+    assigned_role columns at all — those richer fields (which Number One's
+    escalation rules do use) only exist in the file corpus, where present.
+    So this overlays live status/priority onto the file corpus by
+    mission_id (Supabase wins for those two fields specifically) rather
+    than replacing the file corpus outright, and adds any Supabase mission
+    with no file-corpus record using just its Supabase fields (blockers/
+    dependencies/assigned_role empty for those — the same information
+    scarcity Number One already tolerates for a bare engineering handoff).
+    Falls back to the plain file corpus on any Supabase read failure.
+    """
+    file_missions = _load_missions()
+    by_id = {m["mission_id"]: dict(m) for m in file_missions}
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
+        from supabase_client import supabase_get
+        rows = supabase_get("missions?select=mission_id,status,priority,updated_at,closed_at,pr_url")
+    except Exception as exc:  # noqa: BLE001 - Supabase read failure falls back to file corpus; already logged via _err()
+        _err(f"Could not load live Supabase mission status — using file corpus only: {exc}")
+        return file_missions
+
+    for row in rows:
+        mid = row.get("mission_id")
+        if not mid:
+            continue
+        pr_url = row.get("pr_url")
+        if mid in by_id:
+            if row.get("status"):
+                by_id[mid]["status"] = row["status"]
+            if row.get("priority"):
+                by_id[mid]["priority"] = row["priority"]
+            if pr_url:
+                by_id[mid].setdefault("metadata", {})["pr_url"] = pr_url
+        else:
+            by_id[mid] = {
+                "mission_id": mid,
+                "title": mid,
+                "status": row.get("status") or "ACTIVE",
+                "priority": row.get("priority") or "P3",
+                "domain": "",
+                "due_date": None,
+                "metadata": {"pr_url": pr_url} if pr_url else {},
+                "blockers": [],
+                "dependencies": [],
+                "next_action": None,
+                "assigned_role": None,
+            }
+    return list(by_id.values())
 
 
 # ---------------------------------------------------------------------------
@@ -120,26 +193,26 @@ def get_health() -> dict:
     return pkg.to_dict()
 
 
-def get_recommendations(missions: list = None, health: HealthContextPackage = None) -> dict:
+def get_recommendations(missions: list | None = None, health: HealthContextPackage = None) -> dict:
     if missions is None:
         missions = _load_missions()
     if health is None:
         try:
             health = assemble_health_context()
-        except Exception:
+        except Exception:  # noqa: BLE001 - optional health enrichment; None fallback is the documented degraded state
             health = None
     pkg = generate_recommendation_package(missions, health)
     return pkg.to_dict()
 
 
-def get_blockers(missions: list = None) -> list:
+def get_blockers(missions: list | None = None) -> list:
     if missions is None:
         missions = _load_missions()
     pkgs = assemble_blockers(missions)
     return [p.to_dict() for p in pkgs]
 
 
-def get_captain_brief(missions: list = None, recommendations: list = None) -> dict:
+def get_captain_brief(missions: list | None = None, recommendations: list | None = None) -> dict:
     if missions is None:
         missions = _load_missions()
     if recommendations is None:
@@ -147,7 +220,7 @@ def get_captain_brief(missions: list = None, recommendations: list = None) -> di
             health = assemble_health_context()
             from recommendation_engine import rank_missions
             recommendations = rank_missions(missions, health)
-        except Exception:
+        except Exception:  # noqa: BLE001 - optional recommendation enrichment; empty-list fallback is the documented degraded state
             recommendations = []
     brief = assemble_captain_brief_context(
         missions=missions,
@@ -157,7 +230,7 @@ def get_captain_brief(missions: list = None, recommendations: list = None) -> di
     return brief.to_dict()
 
 
-def get_operating_picture(missions: list = None, recommendations: list = None) -> dict:
+def get_operating_picture(missions: list | None = None, recommendations: list | None = None) -> dict:
     if missions is None:
         missions = _load_missions()
     if recommendations is None:
@@ -165,7 +238,7 @@ def get_operating_picture(missions: list = None, recommendations: list = None) -
             health = assemble_health_context()
             from recommendation_engine import rank_missions
             recommendations = rank_missions(missions, health)
-        except Exception:
+        except Exception:  # noqa: BLE001 - optional recommendation enrichment; empty-list fallback is the documented degraded state
             recommendations = []
     cop = assemble_operating_picture(
         missions=missions,
@@ -198,13 +271,13 @@ def generate_all_outputs():
         health = assemble_health_context()
         from recommendation_engine import rank_missions
         recs = rank_missions(missions, health)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - optional health/recs enrichment; already logged via _err(), degrades gracefully
         _err(f"Health/recs failed (non-fatal): {e}")
         health = None
         recs = []
 
     outputs = {
-        "health.json": get_health() if health else {"data_quality": "missing", "assembled_at": datetime.utcnow().isoformat() + "Z"},
+        "health.json": get_health() if health else {"data_quality": "missing", "assembled_at": datetime.now(timezone.utc).isoformat()},
         "recommendations.json": get_recommendations(missions, health),
         "blockers.json": get_blockers(missions),
         "captain-brief.json": get_captain_brief(missions, recs),
@@ -274,7 +347,7 @@ def _make_flask_app():
                 },
                 "checked_at": _http_timestamp(),
             })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "status": "unhealthy",
                 "error": str(exc),
@@ -285,7 +358,7 @@ def _make_flask_app():
     def http_captain_brief():
         try:
             return jsonify(_http_captain_brief())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "captain_brief_failed",
                 "detail": str(exc),
@@ -296,9 +369,31 @@ def _make_flask_app():
     def http_number_one_brief():
         try:
             return jsonify(_http_number_one_brief())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "number_one_brief_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
+    @http_app.get("/queue/health-adjusted")
+    def http_health_adjusted_queue():
+        try:
+            return jsonify(_http_health_adjusted_queue())
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
+            return jsonify({
+                "error": "health_adjusted_queue_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
+    @http_app.get("/remember")
+    def http_remember():
+        try:
+            return jsonify(_http_remember())
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
+            return jsonify({
+                "error": "remember_failed",
                 "detail": str(exc),
                 "assembled_at": _http_timestamp(),
             }), 500
@@ -320,16 +415,57 @@ def _make_flask_app():
     def http_full_captain_brief():
         try:
             import dataclasses
-            from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
-            from core.platform.event_bus import poll_events
+
+            from core.platform.captain_brief_orchestrator import (
+                assemble_captain_brief_document,
+            )
+            from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
 
             limit = int(_request_arg("limit", 200))
-            events = poll_events(limit=limit)
+            # assemble_captain_brief_document() never reads the jsonb
+            # linked_* columns select("*") would otherwise re-transfer on
+            # every hit of this route (Supabase egress investigation,
+            # 2026-09-20) — narrow columns here, same list already proven
+            # safe for the identical function in scheduler.py's attention job.
+            events = poll_events(limit=limit, columns=CAPTAIN_BRIEF_COLUMNS)
             doc = assemble_captain_brief_document(events)
             return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "full_captain_brief_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
+    # 2026-09-19: Briefs/Captain's Brief consolidation Phase 2
+    # (BRIEFS_CAPTAINS_BRIEF_CONSOLIDATION.md §4.1/§6) — the shared
+    # cross-domain assembly step the doc recommends, exposed the same way
+    # /brief/full is: reuses assemble_captain_brief_document() (event-bus
+    # domains) and intelligence_store.load_latest_brief() (Briefs' stored
+    # domain_picture) verbatim, merges them via
+    # intelligence.brief.domains_view.assemble_domains_document() — no
+    # reimplemented synthesis logic, just one normalised document the
+    # Briefs "Domains" tab renders instead of reconciling two shapes itself.
+    @http_app.get("/brief/domains")
+    def http_brief_domains():
+        try:
+            import dataclasses
+
+            from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
+            from intelligence.brief.domains_view import assemble_domains_document
+            from intelligence.persistence.intelligence_store import load_latest_brief
+
+            limit = int(_request_arg("limit", 200))
+            # assemble_domains_document() passes events straight through to
+            # assemble_captain_brief_document() unchanged (its own docstring)
+            # — same narrow-column safety as /brief/full above.
+            events = poll_events(limit=limit, columns=CAPTAIN_BRIEF_COLUMNS)
+            latest_brief = load_latest_brief()
+            doc = assemble_domains_document(events, latest_brief)
+            return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
+            return jsonify({
+                "error": "brief_domains_failed",
                 "detail": str(exc),
                 "assembled_at": _http_timestamp(),
             }), 500
@@ -338,7 +474,7 @@ def _make_flask_app():
     def http_recommendations_full():
         try:
             return jsonify(get_recommendations())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "recommendations_failed",
                 "detail": str(exc),
@@ -365,14 +501,17 @@ def _make_flask_app():
     def http_evolved_captain_brief():
         try:
             import dataclasses
-            from core.platform.captain_brief_evolution import assemble_evolved_captain_brief
+
+            from core.platform.captain_brief_evolution import (
+                assemble_evolved_captain_brief,
+            )
             from core.platform.event_bus import poll_events
 
             limit = int(_request_arg("limit", 200))
             events = poll_events(limit=limit)
             doc = assemble_evolved_captain_brief(events)
             return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "evolved_captain_brief_failed",
                 "detail": str(exc),
@@ -380,6 +519,18 @@ def _make_flask_app():
             }), 500
 
     return http_app
+
+
+def create_app():
+    """WSGI entrypoint for gunicorn.
+
+    Thin wrapper around _make_flask_app() so a production WSGI server gets
+    the exact same Flask app the CLI's `serve` subcommand builds — gunicorn
+    is pointed at this via the app-factory target syntax
+    `context_service:create_app()` (see _run_gunicorn() and
+    deploy/context-service.service, both of which use this same target).
+    """
+    return _make_flask_app()
 
 
 def _request_arg(name: str, default):
@@ -424,8 +575,8 @@ def _http_captain_brief() -> dict:
             "data_quality": health.data_quality,
             "safety_flags": health.safety_flags,
         }
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort brief section; now logged via _err(), degrades to the default summary
+        _err(f"Could not assemble health summary (non-fatal, using default): {exc}")
 
     # Blockers
     blocker_list = []
@@ -438,8 +589,8 @@ def _http_captain_brief() -> dict:
                 "recommended_action": b.recommended_action,
                 "dependent_missions": b.dependent_missions,
             })
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort brief section; now logged via _err(), degrades to an empty list
+        _err(f"Could not assemble blockers (non-fatal): {exc}")
 
     # Decisions awaiting input
     pending_decisions = []
@@ -452,8 +603,8 @@ def _http_captain_brief() -> dict:
                 "urgency": d.urgency,
                 "awaiting_captain_input": d.awaiting_captain_input,
             })
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort brief section; now logged via _err(), degrades to an empty list
+        _err(f"Could not assemble pending decisions (non-fatal): {exc}")
 
     # Top priorities from corpus packages
     packages = {}
@@ -462,8 +613,8 @@ def _http_captain_brief() -> dict:
             pkg = assemble_mission_context(mid, corpus)
             if pkg:
                 packages[mid] = pkg
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort per-mission enrichment; now logged via _err(), skips just that mission
+            _err(f"Could not assemble mission context for {mid} (non-fatal): {exc}")
 
     TERMINAL = {"COMPLETED", "CANCELLED", "CLOSED", "ARCHIVED", "COMPLETE"}
 
@@ -515,125 +666,355 @@ def _http_captain_brief() -> dict:
     }
 
 
-def _http_number_one_brief() -> dict:
-    """Assemble Number One Brief: priorities, blocker, risk, recommendation."""
-    corpus = _load_corpus()
-    packages = {}
-    for mid in corpus["missions"]:
-        try:
-            pkg = assemble_mission_context(mid, corpus)
-            if pkg:
-                packages[mid] = pkg
-        except Exception:
-            pass
-
-    TERMINAL = {"COMPLETED", "CANCELLED", "CLOSED", "ARCHIVED", "COMPLETE"}
-
-    def _score(m):
-        p_raw = (m.get("priority") or "P3").upper().replace(" ", "")
-        p = p_raw[:2] if p_raw.startswith("P") and len(p_raw) > 1 and p_raw[1].isdigit() else "P3"
-        pnum = int(p[1])
-        parts = (m.get("status") or "").upper().split()
-        s = parts[0] if parts else ""
-        return pnum * 10 + {"IN_PROGRESS": 0, "ACTIVE": 0, "BLOCKED": -1}.get(s, 5)
-
-    active = [
-        m for m in corpus["missions"].values()
-        if ((m.get("status") or "").upper().split() or [""])[ 0] not in TERMINAL
-    ]
-    ranked = sorted(active, key=_score)[:3]
-
-    top_priorities = []
-    for m in ranked:
-        mid = m["id"]
-        pkg = packages.get(mid)
-        entry: dict = {
-            "mission_id": mid,
-            "title": m.get("title", mid),
-            "status": m.get("status", ""),
-            "owner": m.get("owner", ""),
-            "priority": m.get("priority", ""),
-            "confidence": "HIGH" if pkg and pkg.completeness_score >= 0.7 else "MEDIUM",
-        }
-        if pkg:
-            entry["governed_by"] = [{"id": r.id, "title": r.title} for r in pkg.governing_adrs]
-            entry["triggered_by"] = [{"id": r.id, "title": r.title} for r in pkg.triggering_decisions]
-            entry["depends_on"] = [{"id": r.id, "title": r.title} for r in pkg.dependencies]
-        top_priorities.append(entry)
-
-    # Top blocker — first active mission with an explicit depends_on chain still unresolved
-    top_blocker = None
-    for mid, pkg in packages.items():
-        m = corpus["missions"].get(mid, {})
-        if (m.get("status") or "").upper().split()[0] in TERMINAL:
-            continue
-        if pkg.dependencies:
-            dep = pkg.dependencies[0]
-            dep_m = corpus["missions"].get(dep.id, {})
-            top_blocker = {
-                "blocked_mission": mid,
-                "blocked_title": m.get("title", mid),
-                "blocking_mission": dep.id,
-                "blocking_title": dep.title,
-                "blocking_status": (dep_m.get("status") or "UNKNOWN").upper(),
-                "resolution_path": f"Activate {dep.id} to unblock {mid}",
-                "confidence": "HIGH",
-                "source": f"explicit depends_on in {mid}",
-            }
-            break
-
-    # Top risk — governance traceability gap
-    no_decision = [
-        mid for mid, pkg in packages.items()
-        if not pkg.triggering_decisions
-        and not corpus["missions"].get(mid, {}).get("is_completed")
-    ]
-    top_risk = {
-        "description": (
-            f"Governance traceability gap — {len(no_decision)}/{len(packages)} "
-            "active missions have no traceable authorising decision."
-        ),
-        "severity": "medium",
-        "mitigation": "New mission template requires triggered_by at creation time.",
-        "affected_missions": no_decision,
-        "confidence": "HIGH",
+def _work_queue_item_to_dict(item) -> dict:
+    return {
+        "mission_id": item.mission_id,
+        "priority": item.priority.value,
+        "status": item.status.value,
+        "title": item.title,
+        "assigned_specialist": item.assigned_specialist,
+        "next_action": item.next_action,
+        "blockers": item.blockers,
+        "dependencies": item.dependencies,
+        "confidence": item.confidence,
+        "confidence_band": item.confidence_band.value if item.confidence_band else None,
+        "rationale": item.rationale,
+        "engineering_status": item.engineering_status,
     }
 
-    # Recommended next action
-    recommendation = None
-    if top_blocker:
-        blk_id = top_blocker["blocking_mission"]
-        blk_m = corpus["missions"].get(blk_id, {})
-        recommendation = {
-            "action": f"Activate {blk_id}",
-            "mission_id": blk_id,
-            "title": blk_m.get("title", blk_id),
-            "rationale": (
-                f"Activating {blk_id} unblocks {top_blocker['blocked_mission']} "
-                f"({top_blocker['blocked_title']}), the highest-priority active mission "
-                "with an explicit dependency."
-            ),
-            "confidence": "HIGH",
-            "source": "depends_on traversal",
-        }
-    elif ranked:
-        m = ranked[0]
-        recommendation = {
-            "action": f"Progress {m['id']}",
-            "mission_id": m["id"],
-            "title": m.get("title", m["id"]),
-            "rationale": "Highest-priority active mission with no blocking dependencies.",
-            "confidence": "HIGH",
-            "source": "priority ranking",
-        }
+
+def _escalation_to_dict(esc) -> dict:
+    return {
+        "escalation_type": esc.escalation_type,
+        "mission_id": esc.mission_id,
+        "level": esc.level.value,
+        "reason": esc.reason,
+        "data": esc.data,
+        "recommendation": esc.recommendation,
+        "timestamp": esc.timestamp.isoformat() if esc.timestamp else None,
+    }
+
+
+def _pr_health_escalations(missions: list) -> list[dict]:
+    """Check GitHub PR status for every mission/engineering-handoff carrying
+    a pr_url (core/coordination/pr_health.py) and generate escalation-shaped
+    dicts for what Number One's own rule-based checks can't see at all:
+    failing CI, or a reviewer requesting changes. Captain direction
+    (2026-09-08): "the role Number One plays is to review and catch things
+    I wouldn't pick up on, as I can't review code" — this is that.
+
+    Best-effort in both directions: pr_health.check_pr_health() never raises
+    (bad/missing token, network failure, PR not found all just skip that
+    one PR), and this function only ever ADDS escalations on top of
+    NumberOne's own rule-based ones — it can never suppress or block them.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+    from pr_health import check_pr_health
+
+    escalations = []
+    seen_urls: set[str] = set()
+    for m in missions:
+        pr_url = (m.get("metadata") or {}).get("pr_url")
+        if not pr_url or pr_url in seen_urls:
+            continue
+        seen_urls.add(pr_url)
+
+        health = check_pr_health(pr_url)
+        if not health.get("ok") or health.get("state") != "open":
+            continue
+
+        mission_id = m.get("mission_id", "")
+        if health.get("ci_conclusion") == "failure":
+            escalations.append({
+                "escalation_type": "PR_CI_FAILING",
+                "mission_id": mission_id,
+                "level": "HIGH",
+                "reason": f"CI is red on the open PR for {mission_id}",
+                "data": {"pr_url": pr_url, "ci_conclusion": health["ci_conclusion"]},
+                "recommendation": f"Review the CI failure at {pr_url}",
+                "timestamp": None,
+            })
+        if health.get("review_state") == "CHANGES_REQUESTED":
+            escalations.append({
+                "escalation_type": "PR_CHANGES_REQUESTED",
+                "mission_id": mission_id,
+                "level": "MEDIUM",
+                "reason": f"A reviewer requested changes on the open PR for {mission_id}",
+                "data": {"pr_url": pr_url, "review_state": health["review_state"]},
+                "recommendation": f"Address the review feedback at {pr_url}",
+                "timestamp": None,
+            })
+    return escalations
+
+
+def _capacity_status_for_today() -> str:
+    """Today's Green/Amber/Red/Unknown capacity status, from the same live
+    Captain's Log + capacity_score.py pipeline that already powers the
+    Human Systems Capacity Gate (core/health/capacity_gate.py, D-055) —
+    not a new source of truth, just this endpoint's first use of the
+    existing one. Never raises: falls back to "Unknown" on any failure
+    (no Supabase config, no check-in today, import error), matching
+    get_health_adjusted_queue()'s own honest-Unknown handling.
+    """
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+        from health_context_adapter import build_health_context_live
+
+        health = build_health_context_live()
+        return health.capacity_status or "Unknown"
+    except Exception as exc:  # noqa: BLE001 - already logged via _err(); defaulting capacity status to Unknown is the documented fallback
+        _err(f"Could not resolve today's capacity status — defaulting to Unknown: {exc}")
+        return "Unknown"
+
+
+def _http_health_adjusted_queue() -> dict:
+    """Number One's capacity-aware work queue (get_health_adjusted_queue())
+    over HTTP — the same engine call _http_number_one_brief() makes for the
+    daily brief, but exposing the queue's own capacity_note/recommended_focus/
+    advisory overlay directly rather than folding it into the brief.
+
+    2026-09-08 (USS-TJR-MSN-0054 follow-on): get_health_adjusted_queue() was
+    already built and tested-by-nobody in number_one.py with zero live
+    callers, same situation NumberOne itself was in before this mission.
+    Reuses the exact same mission-loading path as the brief (live Supabase
+    overlay + approved engineering handoffs) so the queue and the brief
+    never disagree about what "today's missions" means.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+    from engineering_handoff_reader import load_engineering_handoffs
+    from number_one import NumberOne
+
+    missions = _load_live_missions_for_number_one()
+    try:
+        missions = missions + load_engineering_handoffs()
+    except Exception as exc:  # noqa: BLE001 - already logged via _err(); engineering handoffs are additive/optional to the mission list
+        _err(f"Could not load engineering handoffs: {exc}")
+
+    capacity_status = _capacity_status_for_today()
+    queue = NumberOne().get_health_adjusted_queue(missions, capacity_status)
 
     return {
         "assembled_at": _http_timestamp(),
         "source": "context_assembly_service",
-        "top_priorities": top_priorities,
-        "top_blocker": top_blocker,
-        "top_risk": top_risk,
-        "recommended_next_action": recommendation,
+        "engine": "number_one_coordination_engine",
+        **queue,
+    }
+
+
+def _http_number_one_brief() -> dict:
+    """Assemble Number One Brief via the real NumberOne coordination engine
+    (core/coordination/number_one.py) — work queue, blockers, follow-ups,
+    escalations, specialist workload, recommended actions.
+
+    2026-09-08 (USS-TJR-MSN-0054): replaces a hand-rolled scoring function
+    that reimplemented a thinner version of the same brief logic from
+    scratch. NumberOne was well-built and tested (core/coordination/
+    test_number_one.py) but had zero live callers anywhere in the platform
+    — this endpoint is the first one. _load_missions() already produces the
+    mission-dict shape NumberOne.Mission.from_registry() expects (mission_id,
+    title, status, priority, domain, blockers, dependencies, next_action,
+    assigned_role), so no new adapter was needed — it was already sitting
+    there unused, just never called from this function specifically.
+
+    Uses _load_live_missions_for_number_one() (not the plain _load_missions())
+    — the file corpus that feeds every other function in this file has no
+    live sync with Supabase status changes, only new-mission-ID appends
+    (mission-registry-sync.timer), so it overlays live Supabase status/
+    priority onto the file corpus by mission_id. See that function's
+    docstring for the full reasoning.
+
+    Also merges in approved engineering handoffs (core/coordination/
+    engineering_handoff_reader.py's load_engineering_handoffs()) —
+    its own docstring already names "Number One's advisory queue" as the
+    intended consumer of its default include_completed=False behaviour, but
+    nothing had ever actually called it from here. Read-only, non-blocking:
+    returns [] and changes nothing if Missions/Engineering-Handoffs/ doesn't
+    exist. Deliberately scoped to this function only (not folded into the
+    shared _load_missions(), which 8 other call sites in this file depend
+    on for their existing, tested behaviour) — Number One's brief is the one
+    consumer that should see `[ENG-HANDOFF]`-prefixed synthetic missions.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+    from attention_state import attention_items_from_brief
+    from engineering_handoff_reader import load_engineering_handoffs
+    from number_one import NumberOne
+    from personal_task_attention_adapter import attention_items_from_personal_tasks
+
+    missions = _load_live_missions_for_number_one()
+    try:
+        missions = missions + load_engineering_handoffs()
+    except Exception as exc:  # noqa: BLE001 - already logged via _err(); engineering handoffs are additive/optional to the mission list
+        _err(f"Could not load engineering handoffs: {exc}")
+    brief = NumberOne().get_daily_brief(missions)
+
+    capacity_status = _capacity_status_for_today()
+
+    # Mission 1 Round 2 (USS-TJR-MSN-1): the canonical Attention-State
+    # normalizer (core/coordination/attention_state.py) — a lossless
+    # reclassification of this same brief into the small category
+    # vocabulary every consuming surface (Chair/Hub's Needs You, a future
+    # iPad surface) should read instead of each re-deriving its own
+    # "what needs attention" logic. Additive field; existing consumers of
+    # this response are unaffected.
+    #
+    # Mission 3: now passes capacity_status (previously omitted here even
+    # though Mission 2 added the parameter — _http_health_adjusted_queue()
+    # below already used it; this endpoint hadn't caught up, so Number
+    # One's own items were never capacity-adjusted in the brief). Fixed as
+    # part of this mission since personal_task items below MUST be
+    # capacity-aware (mission §13) and having Number One's items in the
+    # same list follow a different capacity rule would be inconsistent.
+    attention_items = [i.to_dict() for i in attention_items_from_brief(brief, capacity_status=capacity_status)]
+
+    # Mission 3: Personal Task Attention Adapter. personal_tasks was never
+    # queried by or fed into Number One before this mission (confirmed by
+    # discovery) -- this stays that way: NumberOne() above never sees
+    # personal_tasks, only this endpoint's `attention_items` output gains
+    # entries from it, additive to the Number One items above. A read
+    # failure here must not break the Number One brief the rest of this
+    # endpoint already serves — logged and skipped, same posture as the
+    # engineering-handoffs/PR-health try/excepts above.
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
+        from supabase_client import supabase_get
+        personal_tasks = supabase_get(
+            "personal_tasks"
+            "?work_state=neq.completed&work_state=neq.abandoned"
+            "&select=id,title,work_state,urgency,importance,due_date,"
+            "deferral_count,follow_through_paused,blocker_category"
+        )
+        attention_items += [
+            i.to_dict() for i in attention_items_from_personal_tasks(personal_tasks, capacity_status=capacity_status)
+        ]
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; a personal-task read failure must not break the rest of the Number One brief
+        _err(f"Could not load personal_tasks for Attention State: {exc}")
+
+    # Both sources sort themselves internally, but the concatenation above
+    # isn't globally ordered — re-sort so callers can still rely on
+    # attention_items being priority-ordered overall, not just within
+    # each source.
+    attention_items.sort(key=lambda i: i["priority"])
+
+    escalations = [_escalation_to_dict(e) for e in brief.escalations]
+    try:
+        escalations += _pr_health_escalations(missions)
+    except Exception as exc:  # noqa: BLE001 - already logged via _err(); PR-health enrichment is additive/optional
+        _err(f"Could not check PR health: {exc}")
+
+    return {
+        "assembled_at": _http_timestamp(),
+        "source": "context_assembly_service",
+        "engine": "number_one_coordination_engine",
+        "generated_at": brief.timestamp.isoformat(),
+        "system_health": brief.system_health,
+        "total_missions": brief.total_missions,
+        "active_count": brief.active_count,
+        "blocked_count": brief.blocked_count,
+        "proposed_count": brief.proposed_count,
+        "top_priorities": [_work_queue_item_to_dict(i) for i in brief.top_priorities],
+        "blocked_missions": [_work_queue_item_to_dict(i) for i in brief.blocked_missions],
+        "follow_ups": brief.follow_ups,
+        "escalations": escalations,
+        "specialist_workload": brief.specialist_workload,
+        "recommended_actions": brief.recommended_actions,
+        "attention_items": attention_items,
+    }
+
+
+# Mission 3: caps how many unresolved captured_items Remember surfaces per
+# capacity band -- fewer, higher-value items under reduced capacity (§13),
+# without inventing per-item scoring. Same deterministic-rules-over-opaque-
+# scoring posture as personal_task_attention_adapter.py.
+_REMEMBER_UNRESOLVED_CAP = {"Red": 3, "Amber": 10, "Green": 30, "Unknown": 10}
+
+
+def _remember_capture_limit(capacity_status: str | None) -> int:
+    """Per-band caps apply only under CAPACITY_ENFORCEMENT=enforce; advisory mode uses one common limit."""
+    from core.health.capacity_enforcement import enforcing
+
+    if not enforcing():
+        return _REMEMBER_UNRESOLVED_CAP["Green"]
+    return _REMEMBER_UNRESOLVED_CAP.get(capacity_status, 10)
+
+
+def _http_remember() -> dict:
+    """Mission 3 — the REMEMBER capability (mission §9-10, §13).
+
+    Answers "what have I told you that matters again now?" using existing
+    canonical domain data only -- no new Remember table, no second
+    resurfacing engine. Two derived views, both read-only:
+
+    1. resurfacing_tasks: personal_tasks that have crossed the Personal
+       Task Attention Adapter's deterministic bar (anything above CAN_WAIT
+       -- i.e. NEEDS_NOW/IMPORTANT_NOT_IMMEDIATE/BLOCKED). Reuses
+       attention_items_from_personal_tasks() verbatim (same function
+       _http_number_one_brief() calls) -- Remember is a FILTERED VIEW of
+       the same canonical attention computation, not a second policy.
+       Capacity-aware for free: Red demotes non-critical items to
+       CAN_WAIT inside that shared function, which this filter then
+       naturally excludes -- no separate capacity rule needed here.
+
+    2. unresolved_captures: captured_items still sitting at
+       processing_status='pending' -- nothing routed, nothing decided.
+       This is mission §6's "if confidence is insufficient, preserve the
+       capture rather than making a destructive assumption" made visible:
+       these are exactly the captures failure-safety (§24) is protecting.
+       Capped by capacity band (deterministic, not scored) per §13.
+    """
+    capacity_status = _capacity_status_for_today()
+    stamp = _http_timestamp()
+
+    resurfacing_tasks: list[dict] = []
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+        sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
+        from personal_task_attention_adapter import attention_items_from_personal_tasks
+        from supabase_client import supabase_get
+
+        personal_tasks = supabase_get(
+            "personal_tasks"
+            "?work_state=neq.completed&work_state=neq.abandoned"
+            "&select=id,title,work_state,urgency,importance,due_date,"
+            "deferral_count,follow_through_paused,blocker_category"
+        )
+        items = attention_items_from_personal_tasks(personal_tasks, capacity_status=capacity_status)
+        resurfacing_tasks = [i.to_dict() for i in items if i.category.value != "can_wait"]
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; a read failure here must not break the rest of this endpoint
+        _err(f"Could not load resurfacing personal tasks for Remember: {exc}")
+
+    unresolved_captures: list[dict] = []
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
+        from supabase_client import supabase_get
+
+        cap = _remember_capture_limit(capacity_status)
+        rows = supabase_get(
+            "captured_items"
+            "?processing_status=eq.pending"
+            "&select=id,title,raw_text,captured_at,classification,actionable,review_status"
+            "&order=captured_at.asc"
+            f"&limit={cap}"
+        )
+        unresolved_captures = [
+            {
+                "id": r["id"],
+                "title": r.get("title") or (r.get("raw_text") or "")[:80],
+                "captured_at": r.get("captured_at"),
+                "classification": r.get("classification"),
+                "actionable": r.get("actionable"),
+                "reason": "Captured, not yet routed — still awaiting classification or Captain review",
+            }
+            for r in rows
+        ]
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; a read failure here must not break the rest of this endpoint
+        _err(f"Could not load unresolved captures for Remember: {exc}")
+
+    return {
+        "assembled_at": stamp,
+        "source": "context_assembly_service",
+        "capacity_status": capacity_status,
+        "resurfacing_tasks": resurfacing_tasks,
+        "unresolved_captures": unresolved_captures,
     }
 
 
@@ -647,6 +1028,84 @@ def _out(msg: str):
 
 def _err(msg: str):
     print(f"[context-service] WARN: {msg}", file=sys.stderr)
+
+
+def _resolve_gunicorn_bin(*, attempts: int = 5, delay_seconds: float = 2.0) -> str:
+    """Resolve the gunicorn binary, retrying briefly if the resolved path
+    doesn't exist yet -- see _run_gunicorn's docstring for the real crash
+    loop this guards against (a concurrent venv reinstall transiently
+    removing the binary between resolution and exec). Returns the last
+    resolved path even if it never appeared, so the caller's os.execvp
+    still raises a clear FileNotFoundError rather than this function
+    raising a different one.
+    """
+    last_candidate = "gunicorn"
+    for attempt in range(attempts):
+        candidate = shutil.which("gunicorn") or os.path.join(os.path.dirname(sys.executable), "gunicorn")
+        last_candidate = candidate
+        if os.path.exists(candidate):
+            return candidate
+        if attempt < attempts - 1:
+            _err(f"gunicorn not found at {candidate!r} (attempt {attempt + 1}/{attempts}), "
+                 f"retrying in {delay_seconds}s -- possibly a concurrent venv reinstall")
+            time.sleep(delay_seconds)
+    return last_candidate
+
+
+def _run_gunicorn(host: str, port: int):
+    """Launch gunicorn against this Flask app instead of calling
+    flask_app.run() (the Werkzeug dev server).
+
+    Replaces this process (os.execvp — no child process to babysit or
+    forget to reap) so `python3 context_service.py serve --host ... --port
+    ...` keeps working unchanged for local dev (deploy/context-service.service
+    now execs gunicorn directly instead of going through this function --
+    see that unit's 2026-09-12 ExecStart change -- but this path stays for
+    everyone still running `serve` by hand) while gunicorn's production
+    workers actually handle every request from here on.
+
+    USS-TJR-MSN-0368 Stream 2 hardening: retries the binary-resolution
+    check for a few seconds before exec-ing. Root-caused a real 67-crash
+    loop on context-service.service (2026-09-12, 14:28-14:39) to this exact
+    resolution racing a concurrent `pip install` into the same venv --
+    `gunicorn_bin` momentarily didn't exist, os.execvp raised
+    FileNotFoundError, and systemd's 10s RestartSec turned an 11-minute
+    transient gap into 67 crash/restart cycles before the venv settled.
+    That specific unit is no longer exposed to this since its ExecStart is
+    now a fixed absolute path with no runtime resolution, but this function
+    still is for local `serve` usage, so it gets the same protection.
+
+    --chdir / --pythonpath both point at this script's own directory:
+    core/context-assembly isn't a dotted-importable package (the "-" in
+    the directory name rules that out, see the sys.path comment near the
+    top of this file), so gunicorn needs this directory on sys.path to
+    resolve the bare `context_service` module name in the app-factory
+    target below. config.py / loaders.py resolve everything via
+    Path(__file__), not cwd, so chdir-ing here is safe.
+
+    --worker-class gthread --threads 4 (single worker process) reproduces
+    flask_app.run(..., threaded=True)'s "don't let one slow request stall
+    every other route" behavior without also running N separate copies of
+    this stateless-but-not-cheap-to-import process. --timeout 300 is
+    required, not cosmetic: gunicorn's default 30s worker timeout would
+    kill /brief/evolved's real LLM calls mid-flight (50-260s observed,
+    MSN-0329 Phase 3) as unresponsive.
+    """
+    script_dir = str(Path(__file__).resolve().parent)
+    gunicorn_bin = _resolve_gunicorn_bin()
+    cmd = [
+        gunicorn_bin,
+        "--bind", f"{host}:{port}",
+        "--chdir", script_dir,
+        "--pythonpath", script_dir,
+        "--worker-class", "gthread",
+        "--workers", "1",
+        "--threads", "4",
+        "--timeout", "300",
+        "context_service:create_app()",
+    ]
+    _out(f"[context-service] Launching gunicorn: {' '.join(cmd)}")
+    os.execvp(cmd[0], cmd)
 
 
 def main():
@@ -667,20 +1126,9 @@ def main():
     # HTTP server mode (WP-A)
     if args.command == "serve":
         port = args.port or config.CONTEXT_SERVICE_PORT
-        flask_app = _make_flask_app()
         print(f"[context-service] Starting HTTP server on http://{args.host}:{port}")
-        print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
-        # threaded=True (2026-08-09): /brief/evolved's real LLM calls run
-        # 50-260s (MSN-0329 Phase 3 measured latency). Werkzeug's dev
-        # server defaults to single-threaded/single-process, so without
-        # this, one in-flight /brief/evolved call would also stall every
-        # other route on this service - including /health and /brief/full,
-        # which Captain's Chair polls on every page load. This is still
-        # the Werkzeug dev server, not a production WSGI server; acceptable
-        # for this service's traffic level (matches the rest of this file's
-        # existing scope), but a real concurrency ceiling if load ever
-        # grows past that.
-        flask_app.run(host=args.host, port=port, debug=False, threaded=True)
+        print("[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /queue/health-adjusted  GET /remember  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
+        _run_gunicorn(args.host, port)
         return
 
     try:
@@ -710,8 +1158,8 @@ def main():
 
         print(json.dumps(result, indent=2, default=str))
 
-    except Exception as e:
-        print(json.dumps({"error": str(e), "assembled_at": datetime.utcnow().isoformat() + "Z"}))
+    except Exception as e:  # noqa: BLE001 - top-level CLI entry point: must catch anything to report the failure as JSON and exit non-zero
+        print(json.dumps({"error": str(e), "assembled_at": datetime.now(timezone.utc).isoformat()}))
         sys.exit(1)
 
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 import sys
@@ -10,10 +11,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from commands import research_command
+
 from core.coordination.advisory_memory_formatter import format_memory_block
-from core.coordination.decision_registry_memory_adapter import DecisionRegistryMemoryAdapter
+from core.coordination.decision_registry_memory_adapter import (
+    DecisionRegistryMemoryAdapter,
+)
 from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter
-import commands.research_command as research_command
 
 
 class MemorySmokeTest(unittest.TestCase):
@@ -23,19 +27,7 @@ class MemorySmokeTest(unittest.TestCase):
             decisions_dir = repo_root / "knowledge" / "decisions"
             decisions_dir.mkdir(parents=True)
             (decisions_dir / "DEC-SMOKE.md").write_text(
-                "\n".join([
-                    "Decision ID: DEC-SMOKE",
-                    "Status: Approved",
-                    "",
-                    "Decision:",
-                    "Use the canonical mission registry as source of truth.",
-                    "",
-                    "Rationale:",
-                    "Avoid duplicate work and improve governance recall.",
-                    "",
-                    "Related:",
-                    "Superseded by DEC-SMOKE-2.",
-                ]),
+                "Decision ID: DEC-SMOKE\nStatus: Approved\n\nDecision:\nUse the canonical mission registry as source of truth.\n\nRationale:\nAvoid duplicate work and improve governance recall.\n\nRelated:\nSuperseded by DEC-SMOKE-2.",
                 encoding="utf-8",
             )
 

@@ -20,6 +20,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { fetchAgentStatusEntries, type AgentStatusEntry } from '@/lib/agentStatusJobs';
+import { errorDetail } from '@/lib/errorDetail';
 
 export type { AgentStatusEntry };
 
@@ -34,7 +35,7 @@ export async function GET() {
     const entries = await fetchAgentStatusEntries(sb);
     return NextResponse.json({ jobs: entries, fetchedAt: new Date().toISOString() });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Agent status query failed', detail }, { status: 500 });
   }
 }

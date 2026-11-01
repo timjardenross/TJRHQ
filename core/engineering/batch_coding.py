@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Batch coding pipeline: send approved engineering handoffs to Mistral's Batch API
 for code generation, and collect the results as **review-only patch artifacts**.
@@ -25,26 +26,33 @@ CLI (run with a venv that has mistralai, e.g. platform-runtime/.venv):
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import logging
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from core.engineering.providers import mistral_batch_api as batch_api
-from core.engineering.providers import github_pr
-from core.engineering.schemas import Backend, ExecutionMode, MissionContext, RouterRequest
-from core.engineering import prompt_builder
 from core.coordination.engineering_handoff_reader import (
     DEFAULT_HANDOFFS_DIR,
     _normalise_token,
     _parse_handoff_file,
+)
+from core.engineering import prompt_builder, version_bump_guard, xo_review
+from core.engineering.providers import github_pr
+from core.engineering.providers import mistral_batch_api as batch_api
+from core.engineering.schemas import (
+    Backend,
+    ExecutionMode,
+    MissionContext,
+    RouterRequest,
 )
 
 log = logging.getLogger(__name__)
@@ -53,6 +61,30 @@ log = logging.getLogger(__name__)
 _PENDING_TOKENS = {"", "PENDING", "PENDINGTRIAGE", "UNASSIGNED", "TRIAGE", "NEW", "OPEN"}
 _ARTIFACTS_DIRNAME = "artifacts"
 _MAX_CONTEXT_CHARS = 6000  # clamp handoff body fed into the prompt
+
+# 2026-09-26: matches dependency_releases.py's own candidate title format
+# exactly (scripts/self_improvement/dependency_releases.py's _to_candidate:
+# f"{name} {pinned} -> {latest} ({ecosystem} release)") — the one class of
+# auto-generated change narrow enough that "hallucinated context" can't
+# happen (there's no context to hallucinate, just a version string), so
+# it's the only class allowed to touch an EXISTING file automatically.
+# Everything else stays new-files-only per the pre-existing safety default.
+_VERSION_BUMP_TITLE_RE = re.compile(r"^\S+ \S+ -> \S+ \((pypi|npm) release\)$")
+
+
+def _is_version_bump_title(title: str) -> bool:
+    return bool(_VERSION_BUMP_TITLE_RE.match((title or "").strip()))
+
+
+def _read_repo_file(rel_path: str) -> str | None:
+    """Current on-disk content of a repo-relative path, or None if it does not
+    exist (or escapes the repo / is unreadable). Used by the version-bump guard."""
+    try:
+        target = (_REPO_ROOT / rel_path).resolve()
+        target.relative_to(_REPO_ROOT.resolve())
+        return target.read_text(encoding="utf-8") if target.is_file() else None
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
 
 
 # ─── env ──────────────────────────────────────────────────────────────────────
@@ -79,7 +111,7 @@ def _now() -> str:
 def _read_sections(path: Path) -> dict[str, str]:
     """Return ``{section_heading_lower: text}`` for the ## sections of a handoff."""
     sections: dict[str, list[str]] = {}
-    current: Optional[str] = None
+    current: str | None = None
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
@@ -263,6 +295,130 @@ def _is_fenced_path(rel_path: str) -> bool:
     return any(pattern in lowered for pattern in _FENCED_PATH_PATTERNS)
 
 
+# USS-TJR-MSN-0047 (lightweight code review process): these PRs pass an
+# explicit `body=` to the GitHub API, so GitHub never applies
+# .github/pull_request_template.md to them the way it would for a
+# human/CLI-created PR with no body specified — the checklist has to be
+# folded into the generated body directly or an auto-handoff PR never sees
+# it at all.
+_REVIEW_CHECKLIST_REMINDER = (
+    "Before marking ready for review: run this PR through "
+    "`specialists/knowledge-packs/Code-Review-Checklist.md` — an auto-generated "
+    "diff applying cleanly is not the same as it being correct.\n"
+)
+
+
+def _pr_number_from_url(url: str) -> int | None:
+    try:
+        return int(url.rstrip("/").rsplit("/", 1)[-1])
+    except (ValueError, IndexError):
+        return None
+
+
+def _run_xo_review_and_notify(*, token: str, repo: str, pr_url: str, diff: str, title: str, summary: str) -> None:
+    """Independent review gate for a version-bump auto-PR (see
+    core/engineering/xo_review.py's module docstring for why this must be
+    a separate model call, never the same one that generated the patch).
+    Posts the verdict as a PR comment (single source of truth for
+    telegram-bots/xo/app.py's /merge_pr command) and notifies the Captain.
+    Best-effort: any failure here is logged, never breaks the delivery
+    that already succeeded — the draft PR stands either way, just without
+    a verdict comment, which /merge_pr treats as unreviewed (refuses)."""
+    pr_number = _pr_number_from_url(pr_url)
+    if pr_number is None:
+        log.warning("[batch_coding] could not parse PR number from %r — skipping XO review", pr_url)
+        return
+
+    try:
+        review = xo_review.review_diff(diff=diff, mission_title=title, mission_summary=summary)
+    except Exception as exc:  # noqa: BLE001 - review_diff itself is documented never-raises, but this call site must survive even a bug in that contract; the PR must never look reviewed if this line explodes
+        log.warning("[batch_coding] XO review raised for %s: %s", pr_url, exc)
+        review = {"verdict": "hold", "authority_check": "", "spot_check_findings": "",
+                  "reasoning": f"XO review crashed: {exc}"}
+
+    verdict = review["verdict"]
+    reasoning = review.get("reasoning", "")
+    github_pr.post_xo_verdict_comment(token, repo, pr_number, verdict, reasoning)
+
+    try:
+        from core.platform.notification_service import Severity, notify
+        severity = Severity.INFO if verdict == "approve" else Severity.WARNING
+        notify(
+            f"{title}\n\n{pr_url}\n\nVerdict: {verdict.replace('_', ' ').title()}\n{reasoning}\n\n"
+            f"Reply /merge_pr {pr_number} to merge, or /decline_pr {pr_number} to close without merging.",
+            title="XO Engineering Review",
+            severity=severity,
+        )
+    except Exception as exc:  # noqa: BLE001 - notification is best-effort surfacing; the verdict is already on the PR itself regardless of whether this send succeeds
+        log.warning("[batch_coding] failed to notify Captain about %s: %s", pr_url, exc)
+
+
+def _synthesize_deferred_diff(deferred_existing: list[str], files: dict[str, str]) -> str:
+    """Read-only comparison — never writes anything, never touches the
+    real checkout. A unified diff between each deferred file's real
+    on-disk content and the model's proposed content, so XO's review
+    below has something real to look at even though the new-files-only
+    guard correctly refused to write it."""
+    parts = []
+    for rel in deferred_existing:
+        if rel not in files:
+            continue  # fenced out — no proposed content left to compare
+        target = _REPO_ROOT / rel
+        try:
+            old_content = target.read_text(encoding="utf-8", errors="replace") if target.exists() else ""
+        except OSError:
+            old_content = ""
+        diff_lines = difflib.unified_diff(
+            old_content.splitlines(keepends=True), files[rel].splitlines(keepends=True),
+            fromfile=f"a/{rel}", tofile=f"b/{rel}",
+        )
+        parts.append("".join(diff_lines))
+    return "\n".join(parts)
+
+
+def _review_deferred_files(
+    *, deferred_existing: list[str], files: dict[str, str], title: str, summary: str, custom_id: str,
+) -> dict[str, Any] | None:
+    """Independent XO review for proposed edits the new-files-only guard
+    correctly refused to write automatically (anything outside the narrow
+    version-bump auto-PR class). There is no PR here for XO to approve or
+    hold — the point isn't a merge gate, it's closing the gap where
+    "coded, review the artifact manually" reached nobody, ever, unless a
+    human happened to go dig through Missions/Engineering-Handoffs/
+    artifacts/ on their own. Best-effort: never raises, never blocks
+    delivery — returns None if there's nothing to review."""
+    if not deferred_existing:
+        return None
+    diff = _synthesize_deferred_diff(deferred_existing, files)
+    if not diff.strip():
+        return None
+
+    try:
+        review = xo_review.review_diff(diff=diff, mission_title=title, mission_summary=summary)
+    except Exception as exc:  # noqa: BLE001 - review_diff itself is documented never-raises, but this call site must survive even a bug in that contract
+        log.warning("[batch_coding] deferred-file XO review raised for %s: %s", custom_id, exc)
+        review = {"verdict": "hold", "authority_check": "", "spot_check_findings": "",
+                  "reasoning": f"XO review crashed: {exc}"}
+
+    try:
+        from core.platform.notification_service import Severity, notify
+        verdict = review.get("verdict", "hold")
+        severity = Severity.INFO if verdict == "approve" else Severity.WARNING
+        notify(
+            f"{title}\n\nProposed edits to {len(deferred_existing)} existing file(s) were "
+            f"generated but not auto-applied (outside the narrow version-bump auto-PR class — "
+            f"see docs/self-improvement/HQ-EVOLUTION-SOURCE-EXPANSION.md).\n\n"
+            f"XO verdict: {verdict.replace('_', ' ').title()}\n{review.get('reasoning', '')}\n\n"
+            f"Review the handoff artifact for {custom_id} before applying manually.",
+            title="XO Engineering Review (manual-apply)",
+            severity=severity,
+        )
+    except Exception as exc:  # noqa: BLE001 - notification is best-effort surfacing; the review result is still returned for the artifact regardless of whether this send succeeds
+        log.warning("[batch_coding] failed to notify Captain about deferred review for %s: %s", custom_id, exc)
+
+    return review
+
+
 def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]) -> dict[str, Any]:
     """Best-effort: open a draft PR from whole-file contents (FULL_FILE mode).
 
@@ -273,13 +429,40 @@ def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]
     if not token or not repo:
         return {"opened": False, "reason": "github_not_configured"}
 
+    title = (fields.get("__mission_title__") or custom_id).strip()
+    is_version_bump = _is_version_bump_title(title)
+
     # Safety default: only ADD new files automatically; proposed edits to existing
     # files are deferred to human review (a whole-file rewrite can silently drop
-    # code). Opt in with AUTO_ENGINEER_ALLOW_EXISTING_EDITS=true.
-    allow_existing = (_env_value("AUTO_ENGINEER_ALLOW_EXISTING_EDITS") or "").strip().lower() in {
+    # code). Two ways in: the blanket AUTO_ENGINEER_ALLOW_EXISTING_EDITS=true env
+    # override, or — 2026-09-26 — a version-bump title specifically, the one
+    # class narrow enough that an existing-file edit carries no hallucination
+    # risk (see _is_version_bump_title's own comment). Gated separately from the
+    # XO review below, which runs regardless of which path let the edit through.
+    env_allow_existing = (_env_value("AUTO_ENGINEER_ALLOW_EXISTING_EDITS") or "").strip().lower() in {
         "true", "1", "yes", "on",
     }
-    deferred = sorted(rel for rel in files if (_REPO_ROOT / rel).exists()) if not allow_existing else []
+    allow_existing = env_allow_existing or is_version_bump
+
+    # 2026-11-01: a version-bump title used to switch the existing-file guard
+    # off with nothing checking what the model returned (PRs #462-#467: no-op
+    # rewrites, unrelated modules, and a root package.json overwrite, all logged
+    # as success). Now every file must be an existing manifest whose only
+    # changed lines move the named package's version. See version_bump_guard.py.
+    bump_rejected: dict[str, str] = {}
+    if is_version_bump:
+        files, bump_rejected = version_bump_guard.filter_version_bump_files(
+            title, files, _read_repo_file,
+        )
+        if bump_rejected:
+            log.warning("[batch_coding] version-bump guard rejected for %s: %s",
+                        custom_id, bump_rejected)
+        if not files:
+            return {"opened": False, "reason": "version_bump_guard_rejected",
+                    "detail": "; ".join(f"{p}: {r}" for p, r in sorted(bump_rejected.items()))[:400]}
+
+    deferred_existing = sorted(rel for rel in files if (_REPO_ROOT / rel).exists()) if not allow_existing else []
+    deferred = deferred_existing
 
     # 2026-08-29 (self-improvement autonomous-remediation council): hard fence,
     # not just a risk-level heuristic — an LLM-generated file targeting CI/CD
@@ -290,17 +473,21 @@ def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]
     fenced = sorted(rel for rel in files if _is_fenced_path(rel))
     if fenced:
         files = {rel: content for rel, content in files.items() if rel not in fenced}
-        deferred = sorted(set(deferred) | set(fenced))
+        deferred = sorted(set(deferred_existing) | set(fenced))
         if not files:
             return {"opened": False, "reason": "all_files_fenced", "skipped": fenced}
 
-    title = (fields.get("__mission_title__") or custom_id).strip()
     body = (
         f"Draft PR auto-generated by Mistral batch-coding (whole-file mode) for "
         f"handoff `{custom_id}`.\n\n**Review-only — opened as a draft.** Files were "
         f"generated by an LLM and written directly; review every change before "
-        f"marking ready / merging.\n"
+        f"marking ready / merging.\n\n{_REVIEW_CHECKLIST_REMINDER}"
     )
+    if bump_rejected:
+        body += (
+            "\n**Files the version-bump guard rejected (not included):**\n"
+            + "".join(f"- `{p}`: {r}\n" for p, r in sorted(bump_rejected.items()))
+        )
     if deferred:
         body += (
             "\n**Proposed edits to existing files were NOT included** (new-files-only "
@@ -309,13 +496,30 @@ def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]
             + "".join(f"- `{p}`\n" for p in deferred)
         )
     try:
-        return github_pr.open_files_pr(
+        result = github_pr.open_files_pr(
             custom_id, files, title=f"[Mistral] {title}", body=body, token=token, repo=repo,
             allow_existing=allow_existing,
         )
-    except Exception as exc:  # never let PR creation break delivery
+    except Exception as exc:  # never let PR creation break delivery  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[batch_coding] files-PR attempt errored for %s: %s", custom_id, exc)
         return {"opened": False, "reason": "exception", "detail": str(exc)[:200]}
+
+    if result.get("opened") and is_version_bump:
+        _run_xo_review_and_notify(
+            token=token, repo=repo, pr_url=result.get("url", ""), diff=result.get("diff", ""),
+            title=title, summary=fields.get("summary", ""),
+        )
+
+    # Independent of whether a PR opened for the NEW files above — the
+    # deferred EXISTING-file edits (outside the version-bump class) get
+    # their own review regardless, since that's a real proposal nobody
+    # would otherwise look at (see _review_deferred_files' own docstring).
+    if deferred_existing:
+        result["deferred_review"] = _review_deferred_files(
+            deferred_existing=deferred_existing, files=files, title=title,
+            summary=fields.get("summary", ""), custom_id=custom_id,
+        )
+    return result
 
 
 def _maybe_open_pr(custom_id: str, text: str, fields: dict[str, str]) -> dict[str, str]:
@@ -331,17 +535,24 @@ def _maybe_open_pr(custom_id: str, text: str, fields: dict[str, str]) -> dict[st
     if not diff:
         return {}
     title = (fields.get("__mission_title__") or custom_id).strip()
+    if _is_version_bump_title(title):
+        # A model-written unified diff can touch any file, and the version-bump
+        # guard checks whole-file content, not diffs. Keep the artifact for a
+        # human instead of auto-opening a PR that could do anything.
+        log.info("[batch_coding] no diff-mode PR for version-bump %s (guard applies to FILE mode only)",
+                 custom_id)
+        return {}
     body = (
         f"Draft PR auto-generated by Mistral batch-coding for handoff `{custom_id}`.\n\n"
         f"**Review-only — opened as a draft.** The diff applied cleanly to the base "
-        f"branch; review the changes before marking ready / merging.\n"
+        f"branch; review the changes before marking ready / merging.\n\n{_REVIEW_CHECKLIST_REMINDER}"
     )
     try:
         result = github_pr.open_draft_pr(
             custom_id, diff, title=f"[Mistral] {title}", body=body,
             token=token, repo=repo,
         )
-    except Exception as exc:  # never let PR creation break delivery
+    except Exception as exc:  # never let PR creation break delivery  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[batch_coding] PR attempt errored for %s: %s", custom_id, exc)
         return {}
     if result.get("opened"):
@@ -353,8 +564,8 @@ def _maybe_open_pr(custom_id: str, text: str, fields: dict[str, str]) -> dict[st
 
 # ─── public steps ───────────────────────────────────────────────────────────────
 
-def submit_pending(base: Optional[Path] = None, model: str = batch_api.DEFAULT_MODEL,
-                   limit: Optional[int] = None, dry_run: bool = False,
+def submit_pending(base: Path | None = None, model: str = batch_api.DEFAULT_MODEL,
+                   limit: int | None = None, dry_run: bool = False,
                    client=None) -> dict[str, Any]:
     """Queue all PENDING handoffs into one Mistral batch job.
 
@@ -394,7 +605,7 @@ def submit_pending(base: Optional[Path] = None, model: str = batch_api.DEFAULT_M
     return {"submitted": len(stems), "job_id": job_id, "handoffs": stems, "model": model}
 
 
-def collect(job_id: str, base: Optional[Path] = None, client=None) -> dict[str, Any]:
+def collect(job_id: str, base: Path | None = None, client=None) -> dict[str, Any]:
     """Download finished batch results → review artifacts; mark handoffs DELIVERED.
 
     Safe to call repeatedly. If the job isn't finished, returns its status and
@@ -437,8 +648,8 @@ def collect(job_id: str, base: Optional[Path] = None, client=None) -> dict[str, 
             "artifacts_dir": str(base / _ARTIFACTS_DIRNAME)}
 
 
-def run_sync(base: Optional[Path] = None, model: str = batch_api.DEFAULT_MODEL,
-             limit: Optional[int] = None, dry_run: bool = False,
+def run_sync(base: Path | None = None, model: str = batch_api.DEFAULT_MODEL,
+             limit: int | None = None, dry_run: bool = False,
              client=None) -> dict[str, Any]:
     """Synchronous fallback: process PENDING handoffs immediately via chat.complete.
 
@@ -476,7 +687,7 @@ def run_sync(base: Optional[Path] = None, model: str = batch_api.DEFAULT_MODEL,
             stamp.update(_maybe_open_pr(path.stem, text, fields))
             _stamp(path, stamp)
             delivered.append(path.stem)
-        except Exception as exc:  # per-handoff isolation; one failure doesn't stop the rest
+        except Exception as exc:  # per-handoff isolation; one failure doesn't stop the rest  # noqa: BLE001 - already documented: per-handoff isolation, already logged via log.warning() and recorded in the stamp file
             _stamp(path, {"Batch Status": "FAILED", "Batch Error": str(exc)[:200]})
             failed.append(path.stem)
             log.warning("[batch_coding] sync failed for %s: %s", path.stem, exc)
@@ -512,7 +723,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
     }
     try:
         _ensure_env()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - env-readiness check surfaced into result['error'], not swallowed
         result["status"], result["error"] = "skipped", f"env not ready: {exc}"
         return result
 
@@ -570,6 +781,13 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
                 pr_error = f"{reason}: {detail}" if detail else reason
                 log.info("[batch_coding] files-PR not opened for %s (%s)",
                          path.stem, pr_error)
+            if pr_result.get("deferred_review"):
+                dr = pr_result["deferred_review"]
+                artifact_text += (
+                    f"\n\n## XO review — deferred/manual-apply files\n\n"
+                    f"**Verdict:** {dr.get('verdict', '').replace('_', ' ').title()}\n\n"
+                    f"{dr.get('reasoning', '')}\n"
+                )
         else:
             # Model returned a diff/prose instead of FILE blocks → diff-mode PR.
             mode_used = "patch-fallback"
@@ -592,7 +810,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
         result.update(status="delivered", artifact=artifact_ref, pr_url=pr_url, pr_error=pr_error)
         log.info("[batch_coding] sync-one delivered %s (mode=%s, pr=%s)",
                  path.stem, mode_used, pr_url or "none")
-    except Exception as exc:  # mark FAILED so the queue reflects it; never raise
+    except Exception as exc:  # mark FAILED so the queue reflects it; never raise  # noqa: BLE001 - already documented: must never raise, already logged via log.warning() and recorded in the stamp file
         _stamp(path, {"Batch Status": "FAILED", "Batch Error": str(exc)[:200]})
         result["status"], result["error"] = "failed", str(exc)[:200]
         log.warning("[batch_coding] sync-one failed for %s: %s", path.stem, exc)
@@ -601,7 +819,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
 
 # ─── CLI ────────────────────────────────────────────────────────────────────────
 
-def _main(argv: Optional[list[str]] = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="Mistral batch coding for engineering handoffs")
     sub = parser.add_subparsers(dest="cmd", required=True)

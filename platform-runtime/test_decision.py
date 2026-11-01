@@ -1,10 +1,14 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
 import unittest
+from pathlib import Path
+from typing import ClassVar
 
-from core.coordination.decision_registry_memory_adapter import DecisionRegistryMemoryAdapter
+from core.coordination.decision_registry_memory_adapter import (
+    DecisionRegistryMemoryAdapter,
+)
 from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter
 
 
@@ -78,19 +82,7 @@ class DecisionRegistryMemoryAdapterTests(unittest.TestCase):
             decisions_dir = repo_root / "knowledge" / "decisions"
             decisions_dir.mkdir(parents=True)
             (decisions_dir / "DEC-20260612-TEST.md").write_text(
-                "\n".join([
-                    "Decision ID: DEC-20260612-TEST",
-                    "Status: Approved",
-                    "",
-                    "Decision:",
-                    "Use the canonical mission registry as source of truth.",
-                    "",
-                    "Rationale:",
-                    "Keeps governance aligned.",
-                    "",
-                    "Related:",
-                    "Superseded by DEC-20260613-TEST.",
-                ]),
+                "Decision ID: DEC-20260612-TEST\nStatus: Approved\n\nDecision:\nUse the canonical mission registry as source of truth.\n\nRationale:\nKeeps governance aligned.\n\nRelated:\nSuperseded by DEC-20260613-TEST.",
                 encoding="utf-8",
             )
 
@@ -114,7 +106,7 @@ class NumberOneDecisionMemoryTests(unittest.TestCase):
         class _StubDecisionContext:
             found = True
             confidence = 0.88
-            related_decisions = [
+            related_decisions: ClassVar[list] = [
                 type("Decision", (), {
                     "decision_id": "DEC-011",
                     "status": "approved",

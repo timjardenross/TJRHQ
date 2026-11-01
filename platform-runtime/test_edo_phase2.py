@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-EDO-002 — delivery maturity phase.
 
 WP2 execution package generator (governance gates, no autonomous merge);
@@ -15,9 +16,9 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.delivery import execution  # noqa: E402
-from lib.human_systems import decision, xo, framework, safety  # noqa: E402
-from lib.human_systems.mission_load import MissionLoad, Priority  # noqa: E402
+from lib.delivery import execution
+from lib.human_systems import decision, framework, safety, xo
+from lib.human_systems.mission_load import MissionLoad, Priority
 
 GOOD = {"log_date": "2026-06-20", "energy": "high", "mood": "positive",
         "nervous_system_state": "calm", "sleep_hours": 8, "sleep_quality": "good",
@@ -65,7 +66,7 @@ class TestExecution(unittest.TestCase):
         self.assertNotIn("merged", text.lower())
 
     def test_missing_id(self):
-        pkg, reason = execution.build_execution_package({"title": "x", "status": "Designed"}, plan_approved=True)
+        pkg, _reason = execution.build_execution_package({"title": "x", "status": "Designed"}, plan_approved=True)
         self.assertIsNone(pkg)
 
     def test_dispatch_payload(self):

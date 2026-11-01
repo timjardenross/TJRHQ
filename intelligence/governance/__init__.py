@@ -14,7 +14,11 @@ audit_events table) with category='mutation' — no separate mutation_audit_log
 table is introduced.
 """
 
-from intelligence.governance.workflow_gate import (  # noqa: F401
+from intelligence.governance.llm_cost_governance import (
+    CostCheckResult,
+    LLMCostGovernance,
+)
+from intelligence.governance.workflow_gate import (
     ANALYST,
     EXECUTIVE_APPROVER,
     INTELLIGENCE_LEAD,
@@ -28,26 +32,22 @@ from intelligence.governance.workflow_gate import (  # noqa: F401
     validate_brief_transition,
     validate_signal_transition,
 )
-from intelligence.governance.llm_cost_governance import (  # noqa: F401
-    LLMCostGovernance,
-    CostCheckResult,
-)
 
 __all__ = [
     # Workflow governance (human curation gates)
     "ANALYST",
-    "INTELLIGENCE_LEAD",
     "EXECUTIVE_APPROVER",
+    "INTELLIGENCE_LEAD",
     "WORKFLOW_ROLES",
-    "GovernanceError",
     "AuthorizationError",
-    "NotFoundError",
-    "can",
-    "require",
-    "validate_signal_transition",
-    "validate_brief_transition",
-    "log_mutation",
+    "CostCheckResult",
+    "GovernanceError",
     # Cost governance (Issue 21)
     "LLMCostGovernance",
-    "CostCheckResult",
+    "NotFoundError",
+    "can",
+    "log_mutation",
+    "require",
+    "validate_brief_transition",
+    "validate_signal_transition",
 ]

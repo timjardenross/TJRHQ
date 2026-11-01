@@ -17,7 +17,6 @@ Usage: python3 tools/check_config_loaders.py
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -75,19 +74,19 @@ _ALLOWLIST = dict(_PERMANENT_EXCEPTIONS)
 def main() -> int:
     out = subprocess.run(
         ["git", "grep", "-lE", _SPLITLINES_PATTERN, "--", "*.py"],
-        cwd=_REPO_ROOT, capture_output=True, text=True,
+        cwd=_REPO_ROOT, capture_output=True, text=True, check=False,
     )
     candidates = [f for f in out.stdout.splitlines() if f.strip()]
 
     out2 = subprocess.run(
         ["git", "grep", "-lE", _ENVIRON_WRITE_PATTERN, "--", "*.py"],
-        cwd=_REPO_ROOT, capture_output=True, text=True,
+        cwd=_REPO_ROOT, capture_output=True, text=True, check=False,
     )
     environ_writers = {f for f in out2.stdout.splitlines() if f.strip()}
 
     out3 = subprocess.run(
         ["git", "grep", "-lE", _PARTITION_PATTERN, "--", "*.py"],
-        cwd=_REPO_ROOT, capture_output=True, text=True,
+        cwd=_REPO_ROOT, capture_output=True, text=True, check=False,
     )
     partitioners = {f for f in out3.stdout.splitlines() if f.strip()}
 

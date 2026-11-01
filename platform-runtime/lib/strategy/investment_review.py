@@ -59,8 +59,10 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
 
     # ── Q1: Highest-value investments ─────────────────────────────────────────
     try:
-        from lib.strategy.business_cases import assess_all_business_cases, BusinessCaseOutcome
-        from lib.strategy.investment_governance import list_investments, ApprovalStatus
+        from lib.strategy.business_cases import (
+            assess_all_business_cases,
+        )
+        from lib.strategy.investment_governance import list_investments
 
         investments = list_investments()
         review.total_investments = len(investments)
@@ -73,12 +75,15 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"{bc.title[:55]} (score {bc.composite_score:.1f}/10, {bc.outcome.value.replace('_', ' ')})"
             for bc in approved[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q1 failed, already logged
         log.debug("[investment_review] Q1 failed: %s", exc)
 
     # ── Q2: Investments to stop ────────────────────────────────────────────────
     try:
-        from lib.strategy.portfolio_optimisation import optimise_portfolio, OptimisationDecision
+        from lib.strategy.portfolio_optimisation import (
+            OptimisationDecision,
+            optimise_portfolio,
+        )
         opt = optimise_portfolio(inputs)
         stop_decisions = [d for d in opt.decisions
                           if d.decision in (OptimisationDecision.TERMINATE, OptimisationDecision.PAUSE)]
@@ -86,7 +91,7 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"{d.title[:55]} [{d.decision.value.upper()}] — {d.rationale[:50]}"
             for d in stop_decisions[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q2 failed, already logged
         log.debug("[investment_review] Q2 failed: %s", exc)
 
     # ── Q3: Unrealised benefits ────────────────────────────────────────────────
@@ -98,7 +103,7 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"{l.benefit_title[:50]} [{l.leakage_type.value}] — {l.description[:50]}"
             for l in leakages[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q3 failed, already logged
         log.debug("[investment_review] Q3 failed: %s", exc)
 
     # ── Q4: Delivery constraints ───────────────────────────────────────────────
@@ -110,12 +115,14 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"[{c.constraint_type.value.replace('_', ' ').upper()}] {c.description[:70]}"
             for c in constraint_report.constraints[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q4 failed, already logged
         log.debug("[investment_review] Q4 failed: %s", exc)
 
     # ── Q5: Highest-risk investments ──────────────────────────────────────────
     try:
-        from lib.strategy.business_cases import assess_all_business_cases, BusinessCaseOutcome
+        from lib.strategy.business_cases import (
+            assess_all_business_cases,
+        )
         all_bcs = assess_all_business_cases()
         risky = [bc for bc in all_bcs if bc.risk_flags and not bc.is_approved]
         risky.sort(key=lambda bc: bc.composite_score)
@@ -123,26 +130,28 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"{bc.title[:50]} (score {bc.composite_score:.1f}) — {bc.risk_flags[0][:60]}"
             for bc in risky[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q5 failed, already logged
         log.debug("[investment_review] Q5 failed: %s", exc)
 
     # ── Q6: Funding opportunities ─────────────────────────────────────────────
     try:
+        from lib.strategy.investment_governance import (
+            get_investment_for_initiative,
+        )
         from lib.strategy.prioritisation import rank_initiatives
-        from lib.strategy.investment_governance import get_investment_for_initiative, ApprovalStatus
         ranked = rank_initiatives(inputs)
         high_priority = [ps for ps in ranked if ps.composite_score >= 7.0]
         for ps in high_priority[:5]:
             inv = None
             try:
                 inv = get_investment_for_initiative(ps.initiative_id)
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - per-initiative investment lookup, already logged
+                log.debug("[lib.strategy.investment_review] investment lookup failed for %s, continuing: %s", ps.initiative_id, _exc)
             inv_status = inv.approval_status.value if inv else "no investment registered"
             review.funding_opportunities.append(
                 f"{ps.title[:50]} (score {ps.composite_score:.1f}) — {inv_status}"
             )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q6 failed, already logged
         log.debug("[investment_review] Q6 failed: %s", exc)
 
     # ── Headline ───────────────────────────────────────────────────────────────
@@ -200,6 +209,6 @@ def format_investment_review(review: InvestmentReview) -> str:
 
 __all__ = [
     "InvestmentReview",
-    "generate_investment_review",
     "format_investment_review",
+    "generate_investment_review",
 ]

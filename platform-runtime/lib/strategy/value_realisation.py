@@ -28,7 +28,6 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -114,8 +113,8 @@ def compute_benefit_realisation(benefit: Benefit) -> BenefitRealisation:
                 else:
                     pct = (c - b) / (t - b)
                 pct = round(max(0.0, pct), 3)
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+            log.debug("[lib.strategy.value_realisation] best-effort step failed, continuing: %s", _exc)
 
     status = _classify_realisation(pct)
     gap    = max(0.0, round(1.0 - pct, 3))
@@ -187,7 +186,7 @@ def assess_initiative_value(initiative_id: str) -> ValueRealisationReport | None
             headline=headline,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (assess_initiative_value failed)
         log.debug("[strategy.value_realisation] assess_initiative_value failed: %s", exc)
         return None
 
@@ -201,8 +200,8 @@ def assess_all_value() -> list[ValueRealisationReport]:
             r = assess_initiative_value(init.initiative_id)
             if r:
                 results.append(r)
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+            log.debug("[lib.strategy.value_realisation] best-effort step failed, continuing: %s", _exc)
     results.sort(key=lambda r: r.overall_realisation_pct, reverse=True)
     return results
 
@@ -232,8 +231,8 @@ __all__ = [
     "BenefitAchievementStatus",
     "BenefitRealisation",
     "ValueRealisationReport",
-    "compute_benefit_realisation",
-    "assess_initiative_value",
     "assess_all_value",
+    "assess_initiative_value",
+    "compute_benefit_realisation",
     "format_value_report",
 ]

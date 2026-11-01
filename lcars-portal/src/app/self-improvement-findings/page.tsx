@@ -8,8 +8,10 @@ import { OpportunityDetail } from './_components/OpportunityDetail';
 import {
   CHANGE_CLASS_LABEL,
   MISSION_ONLY_CLASSES,
+  normaliseOpportunity,
   type ChangeClass,
   type EvolutionSummary,
+  type LifecycleStage,
   type Investigation,
   type LegacyFinding,
   type Opportunity,
@@ -28,7 +30,19 @@ import {
 // is an overnight-cycle-fed surface, not a live terminal — with the same
 // hidden-tab pause behaviour, plus a manual refresh action.
 
-type TabKey = 'discover' | 'investigate' | 'improve' | 'learned';
+type TabKey = 'to_decide' | 'in_progress' | 'done' | 'closed';
+
+// The four stages the Captain sees. HQ still tracks finer internal states
+// (discovered, investigating, approved, implementing, verifying, watching, ...)
+// — they survive as `stage_detail` (see _components/types.ts) and show as a
+// small badge inside a stage rather than as stages of their own. Items HQ is
+// still researching are not shown: there is nothing for the Captain to do yet.
+const STAGES: Array<{ key: Exclude<LifecycleStage, 'researching'>; label: string; hint: string; badgeState: string }> = [
+  { key: 'to_decide', label: 'To decide', hint: 'Waiting for your decision', badgeState: 'proposed' },
+  { key: 'in_progress', label: 'In progress', hint: 'Approved, being built or checked', badgeState: 'implementing' },
+  { key: 'done', label: 'Done', hint: 'Finished, outcome recorded', badgeState: 'learned' },
+  { key: 'closed', label: 'Closed', hint: 'Rejected, parked, or already resolved', badgeState: 'rejected' },
+];
 
 const REFRESH_MS = 60_000;
 
@@ -47,7 +61,7 @@ function usePolling(load: () => void) {
 }
 
 export default function HqEvolutionPage() {
-  const [tab, setTab] = useState<TabKey>('discover');
+  const [tab, setTab] = useState<TabKey>('to_decide');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [summary, setSummary] = useState<EvolutionSummary | null>(null);
   const [legacyFindings, setLegacyFindings] = useState<LegacyFinding[]>([]);
@@ -55,6 +69,12 @@ export default function HqEvolutionPage() {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Create Mission moves an opportunity's lifecycle_state straight to
+  // "implementing" (dashboard.py's own decision-effect map), which the
+  // Discover tab's `discoveredOnly`/`proposed` filters immediately exclude —
+  // the item is still there, just relocated to the Improve tab's historical
+  // section. Without this, that relocation reads as "it disappeared."
+  const [notice, setNotice] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState('');
   // Mission's own staged-approval ladder (Idea -> ... -> Approved), surfaced
   // inline for any opportunity handed off via "Create Mission" rather than
@@ -80,7 +100,8 @@ export default function HqEvolutionPage() {
       const findingsBody = await findingsRes.json();
       if (!oppRes.ok) throw new Error(typeof oppBody?.error === 'string' ? oppBody.error : 'Failed to load opportunities');
 
-      const loadedOpportunities: Opportunity[] = oppBody.opportunities || [];
+      // Accept either vocabulary: fine states (old API) or stages + stage_detail (new API).
+      const loadedOpportunities: Opportunity[] = (oppBody.opportunities || []).map(normaliseOpportunity);
       setOpportunities(loadedOpportunities);
       setSummary(summaryRes.ok ? summaryBody : null);
       setLegacyFindings(findingsBody.findings || []);
@@ -109,7 +130,7 @@ export default function HqEvolutionPage() {
       }
     } catch (err) {
       console.error('[HQ Evolution] load failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load HQ Evolution data');
+      setError(err instanceof Error ? err.message : 'Failed to load improvements data');
       setLoading(false);
     }
   }
@@ -140,10 +161,22 @@ export default function HqEvolutionPage() {
         opportunity.investigation?.recommendation_rationale ? `HQ assessment: ${opportunity.investigation.recommendation_rationale}` : '',
       ].filter(Boolean).join('\n\n');
 
+      // Skip the Idea/Designed/Implemented/Tested/Number-One/XO ladder: that
+      // sequence describes a human engineer's own manual progress, but here
+      // the Captain clicking "Create Mission" on an investigated opportunity
+      // *is* the approval decision, and batch_coding.py's sync-one (see
+      // mission_dispatch.py) does design+implement as one AI-drafted step.
+      // Going straight to "Approved for Engineering" lets the existing
+      // mission-engineering-dispatch timer pick this up on its own next
+      // cycle instead of the mission sitting inert at Idea forever waiting
+      // for someone to hand-walk it through statuses that don't apply to
+      // this pathway. The human gate isn't removed, just moved to where it
+      // already happened (this click) plus the one that still exists after
+      // it (reviewing/merging the resulting draft PR).
       const res = await fetch('/api/missions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: opportunity.title, description, status: 'Idea', created_by: 'hq-evolution' }),
+        body: JSON.stringify({ title: opportunity.title, description, status: 'Approved for Engineering', created_by: 'hq-evolution' }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -151,7 +184,19 @@ export default function HqEvolutionPage() {
         const detail = typeof body?.detail === 'string' ? body.detail : '';
         throw new Error(detail ? `${base}: ${detail}` : base);
       }
-      await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', body.mission?.mission_id);
+      const missionId = body.mission?.mission_id as string | undefined;
+      await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', missionId);
+      // Generic wording: this fires both from the Discover tab (where the
+      // opportunity then moves out of view into Improve) and, for an
+      // already-'approved' opportunity with no mission_id, from the Learned
+      // tab's historical section — where it stays in the same list and just
+      // gains a Mission badge instead of moving anywhere.
+      setNotice(
+        missionId
+          ? `Mission ${missionId} created and queued for engineering dispatch.`
+          : 'Mission created and queued for engineering dispatch.',
+      );
+      setTimeout(() => setNotice(null), 8000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create Mission');
     }
@@ -174,15 +219,13 @@ export default function HqEvolutionPage() {
     }
   }
 
-  const proposed = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'proposed'), [opportunities]);
-  const investigating = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'investigating'), [opportunities]);
-  const watching = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'watching'), [opportunities]);
-  const learned = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'learned'), [opportunities]);
-  const historical = useMemo(
-    () => opportunities.filter((o) => ['approved', 'implementing', 'verifying', 'rejected', 'resolved_before_research'].includes(o.lifecycle_state)),
-    [opportunities],
-  );
-  const discoveredOnly = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'discovered'), [opportunities]);
+  const proposed = useMemo(() => opportunities.filter((o) => o.stage === 'to_decide'), [opportunities]);
+  const inProgress = useMemo(() => opportunities.filter((o) => o.stage === 'in_progress'), [opportunities]);
+  const learned = useMemo(() => opportunities.filter((o) => o.stage === 'done'), [opportunities]);
+  // Closed = rejected + parked ("watching") + resolved before research. One tab
+  // with a reason on each, instead of three places to look.
+  const closed = useMemo(() => opportunities.filter((o) => o.stage === 'closed'), [opportunities]);
+  const researchingCount = useMemo(() => opportunities.filter((o) => o.stage === 'researching').length, [opportunities]);
   const radarCounts = useMemo(() => {
     const counts: Partial<Record<ChangeClass, number>> = {};
     for (const o of opportunities) {
@@ -191,21 +234,19 @@ export default function HqEvolutionPage() {
     }
     return counts;
   }, [opportunities]);
+  const stageCounts = useMemo(() => {
+    const counts: Record<string, number> = { to_decide: 0, in_progress: 0, done: 0, closed: 0 };
+    opportunities.forEach((o) => { if (o.stage && o.stage in counts) counts[o.stage] += 1; });
+    return counts;
+  }, [opportunities]);
 
   const selected = opportunities.find((o) => o.opportunity_id === selectedId) || null;
   const selectedLegacyFinding = legacyFindings.find((f) => f.finding_id === selectedFindingId) || null;
   const pendingLegacyCount = legacyFindings.filter((f) => !f.decision).length;
 
-  function reviewOpportunity(o: Opportunity) {
-    setSelectedId(o.opportunity_id);
-    if (o.lifecycle_state === 'proposed') setTab('improve');
-    else if (o.lifecycle_state === 'investigating') setTab('investigate');
-    else setTab('discover');
-  }
-
   if (loading) {
     return (
-      <WorkbenchShell title="HQ Evolution" eyebrow="HQ works on HQ while you're away" tagline="USS TJR · HQ Evolution · Continuous discovery, investigation, and improvement">
+      <WorkbenchShell title="Improvements" eyebrow="HQ works on HQ while you're away" tagline="TJR HQ · Improvements · Continuous discovery, investigation, and improvement" mode="command">
         <div className="text-center py-8 text-wb-ink2">Checking overnight discoveries…</div>
       </WorkbenchShell>
     );
@@ -213,20 +254,21 @@ export default function HqEvolutionPage() {
 
   return (
     <WorkbenchShell
-      title="HQ Evolution"
+      title="Improvements"
       eyebrow="HQ works on HQ while you're away"
-      tagline="USS TJR · HQ Evolution · Discover, investigate, improve, learn — nothing changes production without your say"
+      tagline="TJR HQ · Improvements · Decide, track, learn — nothing changes production without your say"
+      mode="command"
       wide
       tabs={
         <Tabs
-          ariaLabel="HQ Evolution sections"
+          ariaLabel="Improvements sections"
           active={tab}
           onChange={setTab}
           tabs={[
-            { key: 'discover', label: `Discover${proposed.length ? ` (${proposed.length})` : ''}` },
-            { key: 'investigate', label: `Investigate${investigating.length ? ` (${investigating.length})` : ''}` },
-            { key: 'improve', label: `Improve${proposed.length + pendingLegacyCount ? ` (${proposed.length + pendingLegacyCount})` : ''}` },
-            { key: 'learned', label: 'Learned' },
+            { key: 'to_decide', label: `To decide${proposed.length + pendingLegacyCount ? ` (${proposed.length + pendingLegacyCount})` : ''}` },
+            { key: 'in_progress', label: `In progress${inProgress.length ? ` (${inProgress.length})` : ''}` },
+            { key: 'done', label: `Done${learned.length ? ` (${learned.length})` : ''}` },
+            { key: 'closed', label: `Closed${closed.length ? ` (${closed.length})` : ''}` },
           ]}
         />
       }
@@ -237,50 +279,95 @@ export default function HqEvolutionPage() {
         </p>
       )}
 
-      {tab === 'discover' && (
-        <DiscoverTab
-          summary={summary}
-          proposed={proposed}
-          discoveredOnly={discoveredOnly}
-          radarCounts={radarCounts}
-          onReview={reviewOpportunity}
-        />
+      {notice && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mb-4 rounded-lg border border-wb-ok/40 bg-wb-ok/10 p-3 text-sm text-wb-ok-on"
+        >
+          ✓ {notice}
+        </p>
       )}
 
-      {tab === 'investigate' && (
-        <InvestigateTab
-          investigating={investigating}
-          watching={watching}
-          selected={selected}
-          onSelect={setSelectedId}
-          onDecide={decide}
-          missionStatuses={missionStatuses}
-          missionDispatch={missionDispatch}
-        />
+      <Card>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="font-serif text-lg text-wb-ink">Where things stand</h2>
+            <p className="text-xs text-wb-ink2">Four stages: what needs your decision, what is underway, what is finished, and what is closed.</p>
+          </div>
+          <span className="text-wb-label text-wb-ink2">{opportunities.length - researchingCount} shown</span>
+        </div>
+        <ol aria-label="Improvements stages" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {STAGES.map(({ key, label, hint, badgeState }) => (
+            <li key={key}>
+              <button
+                type="button"
+                onClick={() => setTab(key)}
+                aria-current={tab === key ? 'true' : undefined}
+                title={`${hint} — open ${label}`}
+                className={`w-full rounded-md border bg-wb-bg p-2 text-left transition-colors hover:border-wb-sage-deep hover:bg-wb-sage-deep/10 ${
+                  tab === key ? 'border-wb-sage-deep' : 'border-wb-line'
+                }`}
+              >
+                <p className="text-lg font-bold text-wb-ink">{stageCounts[key]}</p>
+                <Badge status={toneToStatus(lifecycleStateToTone(badgeState))}>{label}</Badge>
+                <p className="mt-1 text-xs text-wb-ink2">{hint}</p>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </Card>
+
+      {tab === 'to_decide' && (
+        <div className="space-y-6">
+          <OvernightSummary summary={summary} researchingCount={researchingCount} radarCounts={radarCounts} />
+          <ImproveTab
+            proposed={proposed}
+            selected={selected}
+            onSelect={setSelectedId}
+            onDecide={decide}
+            onCreateMission={createMissionFor}
+            legacyFindings={legacyFindings}
+            selectedLegacyFinding={selectedLegacyFinding}
+            onSelectLegacyFinding={setSelectedFindingId}
+            reasoning={reasoning}
+            setReasoning={setReasoning}
+            onLegacyDecision={makeLegacyDecision}
+            missionStatuses={missionStatuses}
+            missionDispatch={missionDispatch}
+          />
+        </div>
       )}
 
-      {tab === 'improve' && (
-        <ImproveTab
-          proposed={proposed}
-          selected={selected}
-          onSelect={setSelectedId}
+      {tab === 'in_progress' && (
+        <LearnedTab
+          mode="in_progress"
+          learned={[]}
+          historical={inProgress}
           onDecide={decide}
           onCreateMission={createMissionFor}
-          legacyFindings={legacyFindings}
-          selectedLegacyFinding={selectedLegacyFinding}
-          onSelectLegacyFinding={setSelectedFindingId}
-          reasoning={reasoning}
-          setReasoning={setReasoning}
-          onLegacyDecision={makeLegacyDecision}
           missionStatuses={missionStatuses}
           missionDispatch={missionDispatch}
         />
       )}
 
-      {tab === 'learned' && (
+      {tab === 'done' && (
         <LearnedTab
+          mode="done"
           learned={learned}
-          historical={historical}
+          historical={[]}
+          onDecide={decide}
+          onCreateMission={createMissionFor}
+          missionStatuses={missionStatuses}
+          missionDispatch={missionDispatch}
+        />
+      )}
+
+      {tab === 'closed' && (
+        <ClosedTab
+          closed={closed}
+          selected={selected}
+          onSelect={setSelectedId}
           onDecide={decide}
           missionStatuses={missionStatuses}
           missionDispatch={missionDispatch}
@@ -297,90 +384,55 @@ export default function HqEvolutionPage() {
 
 // ── Discover ────────────────────────────────────────────────────────────
 
-function DiscoverTab({
-  summary, proposed, discoveredOnly, radarCounts, onReview,
+function OvernightSummary({
+  summary, researchingCount, radarCounts,
 }: {
   summary: EvolutionSummary | null;
-  proposed: Opportunity[];
-  discoveredOnly: Opportunity[];
+  researchingCount: number;
   radarCounts: Partial<Record<ChangeClass, number>>;
-  onReview: (o: Opportunity) => void;
 }) {
-  const grouped = useMemo(() => {
-    const byClass = new Map<ChangeClass, Opportunity[]>();
-    for (const o of proposed) {
-      const list = byClass.get(o.change_class) ?? [];
-      list.push(o);
-      byClass.set(o.change_class, list);
-    }
-    return byClass;
-  }, [proposed]);
-
   return (
-    <div className="space-y-6">
-      <Card>
-        {!summary || !summary.has_run_yet ? (
-          <p className="text-sm text-wb-ink2">HQ Evolution has not completed an overnight cycle yet — nothing to show.</p>
-        ) : summary.nothing_worth_changing ? (
-          <>
-            <p className="text-lg font-serif text-wb-ink">Nothing worth changing today.</p>
-            <p className="mt-1 text-sm text-wb-ink2">
-              HQ investigated {summary.investigated_count} possibilit{summary.investigated_count === 1 ? 'y' : 'ies'} overnight —
-              none cleared the value/relevance threshold.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="text-lg font-serif text-wb-ink">
-              HQ investigated {summary.investigated_count} possibilit{summary.investigated_count === 1 ? 'y' : 'ies'} overnight.
-            </p>
-            <p className="mt-1 text-sm text-wb-ink2">
-              {summary.worth_considering_count} {summary.worth_considering_count === 1 ? 'is' : 'are'} worth considering.
-            </p>
-          </>
-        )}
-        {!!summary?.outcomes_completed_count && summary.outcomes_completed_count > 0 && (
-          <p className="mt-1 text-xs text-wb-ink2">
-            {summary.outcomes_completed_count} previous improvement{summary.outcomes_completed_count === 1 ? '' : 's'} verified overnight.
+    <Card>
+      {!summary || !summary.has_run_yet ? (
+        <p className="text-sm text-wb-ink2">No overnight improvement cycle has completed yet — nothing to show.</p>
+      ) : summary.nothing_worth_changing ? (
+        <>
+          <p className="text-lg font-serif text-wb-ink">Nothing worth changing today.</p>
+          <p className="mt-1 text-sm text-wb-ink2">
+            HQ investigated {summary.investigated_count} possibilit{summary.investigated_count === 1 ? 'y' : 'ies'} overnight —
+            none cleared the value/relevance threshold.
           </p>
-        )}
-      </Card>
-
-      {[...grouped.entries()].map(([changeClass, items]) => (
-        <div key={changeClass}>
-          <h3 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-2">
-            {CHANGE_CLASS_LABEL[changeClass]}
-          </h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {items.map((o) => (
-              <Card key={o.opportunity_id}>
-                <div className="font-semibold text-sm text-wb-ink mb-1">{o.title}</div>
-                {o.value && <div className="text-xs text-wb-ink2 mb-1">Potential value: <span className="capitalize">{o.value}</span></div>}
-                {o.cost_impact && <div className="text-xs text-wb-ink2 mb-1">Cost impact: <span className="capitalize">{o.cost_impact}</span></div>}
-                {o.complexity && <div className="text-xs text-wb-ink2 mb-2">Complexity: <span className="capitalize">{o.complexity}</span></div>}
-                {o.why_relevant && <p className="text-xs text-wb-ink2 mb-3">{o.why_relevant}</p>}
-                <button
-                  onClick={() => onReview(o)}
-                  className="text-xs font-semibold text-wb-sage-deep hover:underline"
-                >
-                  Review →
-                </button>
-              </Card>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {discoveredOnly.length > 0 && (
-        <p className="text-xs text-wb-ink2">
-          {discoveredOnly.length} other candidate{discoveredOnly.length === 1 ? '' : 's'} cleared the relevance gate but
-          didn&apos;t reach deep investigation this cycle — HQ will reconsider {discoveredOnly.length === 1 ? 'it' : 'them'}
-          {' '}alongside new evidence in a future cycle.
+        </>
+      ) : (
+        <>
+          <p className="text-lg font-serif text-wb-ink">
+            HQ investigated {summary.investigated_count} possibilit{summary.investigated_count === 1 ? 'y' : 'ies'} overnight.
+          </p>
+          <p className="mt-1 text-sm text-wb-ink2">
+            {summary.worth_considering_count} {summary.worth_considering_count === 1 ? 'is' : 'are'} worth considering.
+          </p>
+        </>
+      )}
+      {!!summary?.rejected_at_gate_count && summary.rejected_at_gate_count > 0 && (
+        <p className="mt-1 text-xs text-wb-ink2">
+          {summary.rejected_at_gate_count} other candidate{summary.rejected_at_gate_count === 1 ? '' : 's'} didn&apos;t clear
+          the relevance gate — see the Closed tab to review what HQ filtered out and why, in case anything should
+          have surfaced.
         </p>
       )}
-
+      {!!summary?.outcomes_completed_count && summary.outcomes_completed_count > 0 && (
+        <p className="mt-1 text-xs text-wb-ink2">
+          {summary.outcomes_completed_count} previous improvement{summary.outcomes_completed_count === 1 ? '' : 's'} verified overnight.
+        </p>
+      )}
+      {researchingCount > 0 && (
+        <p className="mt-1 text-xs text-wb-ink2">
+          HQ is still researching {researchingCount} other candidate{researchingCount === 1 ? '' : 's'}; {researchingCount === 1 ? 'it appears' : 'they appear'} here
+          once {researchingCount === 1 ? 'it is' : 'they are'} ready for your decision.
+        </p>
+      )}
       {Object.keys(radarCounts).length > 0 && (
-        <details>
+        <details className="mt-3">
           <summary className="cursor-pointer text-xs uppercase text-wb-ink2 tracking-wider font-semibold">HQ Radar</summary>
           <div className="mt-3 flex flex-wrap gap-2">
             {(Object.entries(radarCounts) as [ChangeClass, number][]).map(([changeClass, count]) => (
@@ -391,7 +443,7 @@ function DiscoverTab({
           </div>
         </details>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -435,77 +487,6 @@ function RelatedExperienceBlock({ investigation }: { investigation?: Investigati
 
 // ── Investigate ─────────────────────────────────────────────────────────
 
-function InvestigateTab({
-  investigating, watching, selected, onSelect, onDecide, missionStatuses, missionDispatch,
-}: {
-  investigating: Opportunity[];
-  watching: Opportunity[];
-  selected: Opportunity | null;
-  onSelect: (id: string) => void;
-  onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
-  missionStatuses: Record<string, string>;
-  missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-      <div className="col-span-1 space-y-4">
-        <Card title="Active investigations">
-          {investigating.length === 0 ? (
-            <p className="text-sm text-wb-ink2">Nothing currently being investigated.</p>
-          ) : (
-            <div className="space-y-2">
-              {investigating.map((o) => (
-                <OpportunityCard key={o.opportunity_id} opportunity={o} selected={selected?.opportunity_id === o.opportunity_id} onSelect={() => onSelect(o.opportunity_id)} />
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {watching.length > 0 && (
-          <details>
-            <summary className="cursor-pointer text-xs uppercase text-wb-ink2 tracking-wider font-semibold px-1">
-              Watching ({watching.length})
-            </summary>
-            <div className="mt-2 space-y-2">
-              {watching.map((o) => (
-                <OpportunityCard key={o.opportunity_id} opportunity={o} selected={selected?.opportunity_id === o.opportunity_id} onSelect={() => onSelect(o.opportunity_id)} />
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-
-      <div className="col-span-2">
-        {selected ? (
-          <OpportunityDetail
-            opportunity={selected}
-            missionStatus={selected.mission_id ? missionStatuses[selected.mission_id] : undefined}
-            missionDispatch={selected.mission_id ? missionDispatch[selected.mission_id] : undefined}
-            actions={
-              <div className="pt-2">
-                <RelatedExperienceBlock investigation={selected.investigation} />
-                <div className="flex gap-2 flex-wrap">
-                  <button onClick={() => onDecide(selected.opportunity_id, 'turn_into_improvement')} className="px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">
-                    Turn into improvement
-                  </button>
-                  <button onClick={() => onDecide(selected.opportunity_id, 'keep_watching', 'Promising but premature')} className="px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90">
-                    Keep watching
-                  </button>
-                  <button onClick={() => onDecide(selected.opportunity_id, 'not_useful', 'Not useful')} className="px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">
-                    Not useful
-                  </button>
-                </div>
-              </div>
-            }
-          />
-        ) : (
-          <Card title="Investigation"><div className="text-center py-12 text-wb-ink2">Select an item to review its investigation record.</div></Card>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // Mirrors the Python-side outcome_contract builder — display-only preview of
 // what approval will commit HQ to measuring; the real contract is created
 // server-side on approval and rendered from OpportunityDetail's "What HQ
@@ -517,9 +498,9 @@ const MEASUREMENT_TYPE_BY_CLASS: Record<string, string> = {
 };
 const OBSERVATION_WINDOW_BY_CLASS: Record<string, string> = {
   maintenance: 'Immediate verification', configuration: 'Immediate verification',
-  reliability: '5 completed HQ Evolution cycles', cost_optimisation: '7 completed HQ Evolution cycles',
-  capability: '7 completed HQ Evolution cycles', product_improvement: '7 completed HQ Evolution cycles',
-  architecture: '14 completed HQ Evolution cycles',
+  reliability: '5 completed improvement cycles', cost_optimisation: '7 completed improvement cycles',
+  capability: '7 completed improvement cycles', product_improvement: '7 completed improvement cycles',
+  architecture: '14 completed improvement cycles',
 };
 
 function ApprovalPreview({ opportunity }: { opportunity: Opportunity }) {
@@ -564,7 +545,7 @@ function ImproveTab({
   return (
     <div className="space-y-10">
       <div>
-        <h2 className="text-sm font-semibold text-wb-ink mb-3">Needs your decision — HQ Evolution opportunities</h2>
+        <h2 className="text-sm font-semibold text-wb-ink mb-3">Needs your decision — improvement opportunities</h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <div className="col-span-1">
             <Card title="Proposed">
@@ -626,7 +607,7 @@ function ImproveTab({
         <h2 className="text-sm font-semibold text-wb-ink mb-1">Bounded remediation queue</h2>
         <p className="text-xs text-wb-ink2 mb-3">
           The existing evidence/PolicyEngine/remediation pipeline — unchanged. Approving here authorises real, tested,
-          rollback-guarded changes for low-risk findings only; nothing here is new HQ Evolution behaviour.
+          rollback-guarded changes for low-risk findings only; nothing here is new improvement behaviour.
         </p>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <div className="col-span-1">
@@ -648,6 +629,7 @@ function ImproveTab({
                         <span className="text-xs bg-wb-line text-wb-ink2 px-2 py-1 rounded">{f.category}</span>
                         <Badge status={toneToStatus(severityToTone(f.severity))}>{f.severity}</Badge>
                         {f.decision && <Badge status={toneToStatus(decisionToTone(f.decision))}>{f.decision.replace('_', ' ')}</Badge>}
+                        {!f.decision && f.staleness?.status === 'resolved' && <Badge status="warning">possibly already fixed</Badge>}
                       </div>
                     </button>
                   ))}
@@ -669,6 +651,22 @@ function ImproveTab({
                 <div className="bg-wb-bg p-3 rounded border-l-4 border-wb-sage-deep text-sm text-wb-ink mb-4">
                   <strong>{selectedLegacyFinding.proposed_action.type}:</strong> {selectedLegacyFinding.proposed_action.description}
                 </div>
+                {!selectedLegacyFinding.decision && selectedLegacyFinding.staleness?.status === 'resolved' && (
+                  <div className="bg-wb-warn/10 border-l-4 border-wb-warn p-3 rounded text-sm text-wb-ink mb-4">
+                    <div className="font-semibold text-xs uppercase tracking-wider text-wb-warn-on mb-1">
+                      This may already be fixed
+                    </div>
+                    <p className="text-xs text-wb-ink2 mb-1">
+                      HQ re-checked this finding&apos;s own evidence against the current repo and none of it still holds —
+                      it may have been fixed outside this pipeline (e.g. a manually-authored PR). Verify before deciding:
+                    </p>
+                    <ul className="list-disc pl-4 text-xs text-wb-ink2 space-y-0.5">
+                      {selectedLegacyFinding.staleness.items.map((item, i) => (
+                        <li key={i}>{item.location ? `${item.location}: ` : ''}{item.detail}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {!selectedLegacyFinding.decision ? (
                   <>
                     <textarea
@@ -678,10 +676,10 @@ function ImproveTab({
                       className="w-full p-2 rounded border border-wb-line bg-wb-bg text-wb-ink text-sm mb-3 font-mono"
                       rows={3}
                     />
-                    <div className="flex gap-2">
-                      <button onClick={() => onLegacyDecision('approved')} className="flex-1 px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">Approve</button>
-                      <button onClick={() => onLegacyDecision('more_evidence')} className="flex-1 px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90">More Evidence</button>
-                      <button onClick={() => onLegacyDecision('rejected')} className="flex-1 px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">Reject</button>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={() => onLegacyDecision('approved')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90 sm:basis-0">Approve</button>
+                      <button onClick={() => onLegacyDecision('more_evidence')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90 sm:basis-0">More Evidence</button>
+                      <button onClick={() => onLegacyDecision('rejected')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90 sm:basis-0">Reject</button>
                     </div>
                   </>
                 ) : (
@@ -711,11 +709,14 @@ const LEARNED_FILTERS: { key: string; label: string; result: string | null }[] =
 ];
 
 function LearnedTab({
-  learned, historical, onDecide, missionStatuses, missionDispatch,
+  mode, learned, historical, onDecide, onCreateMission, missionStatuses, missionDispatch,
 }: {
+  /** 'done' = finished items with outcomes; 'in_progress' = approved/implementing/verifying. */
+  mode: 'done' | 'in_progress';
   learned: Opportunity[];
   historical: Opportunity[];
   onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
+  onCreateMission: (o: Opportunity) => void;
   missionStatuses: Record<string, string>;
   missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
 }) {
@@ -728,6 +729,7 @@ function LearnedTab({
 
   return (
     <div className="space-y-6">
+      {mode === 'done' && (
       <div>
         <h2 className="text-sm font-semibold text-wb-ink mb-3">Recent improvements</h2>
         <div className="flex gap-2 flex-wrap mb-4">
@@ -766,11 +768,22 @@ function LearnedTab({
           </div>
         )}
       </div>
+      )}
 
-      {historical.length > 0 && (
-        <details>
+      {mode === 'in_progress' && historical.length === 0 && (
+        <Card>
+          <p className="text-sm text-wb-ink2">Nothing in progress. Approve something under To decide and it appears here.</p>
+        </Card>
+      )}
+
+      {mode === 'in_progress' && historical.length > 0 && (
+        // 2026-09-27: open by default — the lifecycle strip's Approved/
+        // Implementing/Verifying/Resolved-before-research tiles now route
+        // here (LIFECYCLE_STAGE_TAB above), and landing on a collapsed
+        // <details> looked identical to the tile being a dead end.
+        <details open>
           <summary className="cursor-pointer text-xs uppercase text-wb-ink2 tracking-wider font-semibold">
-            Historical decisions / changes ({historical.length})
+            In progress ({historical.length})
           </summary>
           <div className="mt-3 space-y-2">
             {historical.map((o) => {
@@ -782,8 +795,19 @@ function LearnedTab({
               const autoEligible = !!o.automation_eligibility
                 && !['manual_only', 'needs_more_evidence'].includes(o.automation_eligibility);
               const dispatch = o.mission_id ? missionDispatch[o.mission_id] : undefined;
+              // 2026-09-07: an 'approved' opportunity with no mission_id went
+              // through the legacy bounded-remediation path (approve_improvement)
+              // instead of Create Mission — for a needs_signoff/manual_only
+              // opportunity that path's own risk-level gate skips it every
+              // single cycle, forever, with no other route forward once it's
+              // past 'proposed' (the Improve tab's Create Mission button only
+              // lists opportunities still in that state). Offering it here too
+              // is the same action, just not restricted to the moment it was
+              // first approved — the backend's create_mission transition
+              // doesn't gate on lifecycle_state, only on requiring a mission_id.
+              const canRetroCreateMission = o.lifecycle_state === 'approved' && !o.mission_id;
               return (
-                <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex items-center justify-between gap-3">
+                <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold">{o.title}</div>
                     <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
@@ -809,6 +833,12 @@ function LearnedTab({
                     {o.remediation_status === 'failed' && (
                       <p className="text-xs text-wb-crit-on mt-1">Auto-remediation attempt failed: {o.remediation_message}</p>
                     )}
+                    {o.remediation_status === 'failed' && canRetroCreateMission && (
+                      <p className="text-xs text-wb-ink2 mt-1">
+                        This will keep failing on its own (blocked by risk level/automation eligibility) — use
+                        Create Mission below to route it through AI-assisted engineering instead.
+                      </p>
+                    )}
                     {!o.remediation_status && dispatch?.success && (
                       dispatch.pr_url ? (
                         <p className="text-xs text-wb-ok mt-1">
@@ -830,7 +860,15 @@ function LearnedTab({
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    {canRetroCreateMission && (
+                      <button
+                        onClick={() => onCreateMission(o)}
+                        className="px-3 py-1.5 rounded bg-wb-sage-deep text-white text-xs font-semibold hover:opacity-90"
+                      >
+                        Create Mission
+                      </button>
+                    )}
                     {canMarkImplemented && (
                       <button
                         onClick={() => onDecide(o.opportunity_id, 'mark_implemented', 'Manually implemented by the Captain')}
@@ -850,6 +888,76 @@ function LearnedTab({
           </div>
         </details>
       )}
+    </div>
+  );
+}
+
+// ── Rejected ────────────────────────────────────────────────────────────
+
+/** Everything that is finished with and not "Done": rejected, parked
+ * ("watching") and resolved-before-research. Same master/detail shape as the
+ * other tabs; the reason is shown on each, and a parked item can be moved back
+ * to To decide or rejected for good. */
+const CLOSED_REASON: Record<string, string> = {
+  rejected: 'Rejected',
+  watching: 'Parked — revisit later',
+  resolved_before_research: 'Already resolved — HQ checked before researching',
+};
+
+function ClosedTab({
+  closed, selected, onSelect, onDecide, missionStatuses, missionDispatch,
+}: {
+  closed: Opportunity[];
+  selected: Opportunity | null;
+  onSelect: (id: string) => void;
+  onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
+  missionStatuses: Record<string, string>;
+  missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
+}) {
+  const selectedClosed = selected && closed.some((o) => o.opportunity_id === selected.opportunity_id) ? selected : null;
+
+  return (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="col-span-1">
+        <Card title="Closed">
+          {closed.length === 0 ? (
+            <p className="text-sm text-wb-ink2">Nothing closed yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {closed.map((o) => (
+                <div key={o.opportunity_id}>
+                  <OpportunityCard opportunity={o} selected={selectedClosed?.opportunity_id === o.opportunity_id} onSelect={() => onSelect(o.opportunity_id)} />
+                  <p className="mt-1 px-1 text-xs text-wb-ink2">{CLOSED_REASON[o.lifecycle_state] ?? 'Closed'}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="col-span-2">
+        {selectedClosed ? (
+          <OpportunityDetail
+            opportunity={selectedClosed}
+            missionStatus={selectedClosed.mission_id ? missionStatuses[selectedClosed.mission_id] : undefined}
+            missionDispatch={selectedClosed.mission_id ? missionDispatch[selectedClosed.mission_id] : undefined}
+            actions={
+              selectedClosed.lifecycle_state === 'watching' ? (
+                <div className="pt-2 flex gap-2 flex-wrap">
+                  <button onClick={() => onDecide(selectedClosed.opportunity_id, 'turn_into_improvement')} className="px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">
+                    Move back to To decide
+                  </button>
+                  <button onClick={() => onDecide(selectedClosed.opportunity_id, 'not_useful', 'Not useful')} className="px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">
+                    Reject for good
+                  </button>
+                </div>
+              ) : undefined
+            }
+          />
+        ) : (
+          <Card title="Closed item"><div className="text-center py-12 text-wb-ink2">Select an item to see why it was closed.</div></Card>
+        )}
+      </div>
     </div>
   );
 }

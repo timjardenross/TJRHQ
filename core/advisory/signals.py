@@ -15,7 +15,7 @@ blockers. No new memory store.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +27,8 @@ if str(_HEALTH) not in sys.path:
     sys.path.insert(0, str(_HEALTH))
 
 import timeline as _timeline
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _patterns = _import_sibling("patterns")
 
 try:
@@ -124,7 +125,7 @@ def emerging_signals() -> list[Signal]:
     for d in _DETECTORS:
         try:
             out.extend(d())
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001,S112 - per-detector isolation; one detector's failure must not stop the others from running
             continue
     sev_rank = {"concern": 2, "watch": 1, "info": 0}
     out.sort(key=lambda s: sev_rank.get(s.severity, 0), reverse=True)

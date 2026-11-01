@@ -1,0 +1,39 @@
+# ragas (RAG-specific eval: faithfulness, context precision/recall), isolated from
+# platform-runtime/requirements.txt.
+#
+# USS-TJR-MSN-0366 Stream 4. Isolated for footprint, not (this time) an openai pin
+# fight: ragas's own "openai>=1.0.0" is happily satisfied by the openai==3.13.0 already
+# pinned in platform-runtime/requirements.txt. The real reason is size and churn —
+# `pip install ragas` drags in the full langchain stack (langchain, langchain-core,
+# langchain-community, langchain-openai, langgraph + its checkpoint/sdk/prebuilt
+# packages, langsmith, ...) plus datasets/pyarrow/huggingface_hub: ~90 extra packages
+# the live serving path has no other use for. Same reasoning as garak's isolation
+# (core/quality/requirements-garak.txt) — keep it off the one shared venv every live
+# service depends on.
+#
+# A REAL, confirmed version incompatibility, not a theoretical one:
+# `pip install ragas` alone resolves langchain-community to its latest (0.4.x), but
+# ragas==0.4.3's own ragas/llms/base.py unconditionally does
+#     from langchain_community.chat_models.vertexai import ChatVertexAI
+# at import time — every ragas version checked (0.4.3, 0.3.9, 0.2.15) does the same
+# unconditional import. That submodule does not exist in langchain-community 0.4.2
+# (verified: present in the 0.3.31 wheel, absent from the 0.4.2 wheel — moved to the
+# separate langchain-google-vertexai package upstream). Net effect: `import ragas`
+# raises ModuleNotFoundError before a single line of this eval harness runs, on a
+# completely vanilla `pip install ragas`. Pinning langchain-community<0.4 here fixes
+# it. No cascading downgrade needed: langchain-core 1.6.3 (the version ragas's own
+# "langchain"/"langchain-core" requirements pull in) still satisfies
+# langchain-community 0.3.31's own "langchain-core<2.0.0,>=0.3.78" constraint, so
+# langchain/langchain-openai/langgraph all stay at their latest resolved versions —
+# confirmed via a real `pip install`, not a dry-run guess.
+#
+# Install into a dedicated venv, not platform-runtime/.venv:
+#   python3 -m venv platform-runtime/.venv-ragas
+#   platform-runtime/.venv-ragas/bin/pip install -r core/quality/requirements-ragas.txt
+#
+# core/quality/ragas_eval.py is a standalone script meant to be *run* with this venv's
+# python (platform-runtime/.venv-ragas/bin/python3 core/quality/ragas_eval.py), not
+# imported from platform-runtime's own process — so, like garak, keeping ragas out of
+# the main venv costs the live platform nothing at runtime.
+ragas==0.4.3
+langchain-community<0.4

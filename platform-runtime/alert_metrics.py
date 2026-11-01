@@ -20,7 +20,6 @@ import logging
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ def _client():
     return CommanderSupabaseClient()
 
 
-def _since_iso(days: Optional[int]) -> Optional[str]:
+def _since_iso(days: int | None) -> str | None:
     if days is None:
         return None
     return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
@@ -43,7 +42,7 @@ def _since_iso(days: Optional[int]) -> Optional[str]:
 # Core metrics computation
 # ---------------------------------------------------------------------------
 
-def get_notification_metrics(days: Optional[int] = 7) -> dict:
+def get_notification_metrics(days: int | None = 7) -> dict:
     """
     Compute notification effectiveness metrics from Supabase.
 
@@ -100,7 +99,7 @@ def get_notification_metrics(days: Optional[int] = 7) -> dict:
         resolution_rate = (alerts_resolved / total * 100) if total else 0.0
 
         # Oldest open
-        oldest_open_days: Optional[float] = None
+        oldest_open_days: float | None = None
         if open_rows:
             try:
                 oldest_str = min(r["first_detected"] for r in open_rows if r.get("first_detected"))
@@ -110,10 +109,10 @@ def get_notification_metrics(days: Optional[int] = 7) -> dict:
                 oldest_open_days = round(
                     (datetime.now(timezone.utc) - first).total_seconds() / 86400, 1
                 )
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - oldest-open-alert age calc, already logged
+                log.debug("[alert_metrics] oldest-open age calculation failed, continuing: %s", _exc)
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Metrics computation failed, already logged
         log.warning("[metrics] Metrics computation failed: %s", exc)
         return _empty_metrics(days, now_str)
 
@@ -136,10 +135,10 @@ def _avg_time_between_event_types(
     events_by_key: dict[str, list],
     from_type: str,
     to_type: str,
-) -> Optional[float]:
+) -> float | None:
     """Compute average hours between two event types for the same escalation_id."""
     durations = []
-    for eid, evs in events_by_key.items():
+    for evs in events_by_key.values():
         from_events = sorted(
             [e for e in evs if e.get("event_type") == from_type],
             key=lambda e: e.get("event_at", ""),
@@ -158,12 +157,13 @@ def _avg_time_between_event_types(
                 if t_to > t_from:
                     durations.append((t_to - t_from).total_seconds() / 3600)
                     break
-        except Exception:
+        except Exception as _exc:  # noqa: BLE001 - alert transition duration calc, already logged
+            log.debug("[alert_metrics] transition duration calculation failed, continuing: %s", _exc)
             continue
     return round(sum(durations) / len(durations), 1) if durations else None
 
 
-def _empty_metrics(days: Optional[int], now_str: str) -> dict:
+def _empty_metrics(days: int | None, now_str: str) -> dict:
     return {
         "window_days": days,
         "alerts_created": 0,
@@ -233,6 +233,6 @@ def get_metrics_block_for_brief() -> str:
             f"{resolved_7} resolved (7d) | {resolved_30} resolved (30d) | "
             f"{rate}% resolution rate"
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Brief block failed, already logged
         log.debug("[metrics] Brief block failed: %s", exc)
         return ""

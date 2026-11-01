@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Standalone seed script for the Operational Pattern Library.
 
 Seeds the 8 initial patterns defined in core/platform/operational_pattern_library.py
@@ -21,7 +22,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _REPO_ROOT)
 sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
 
-from operational_pattern_library import (  # noqa: E402
+from operational_pattern_library import (
     propose_dual_write_adoption_pattern,
     seed_initial_patterns,
 )

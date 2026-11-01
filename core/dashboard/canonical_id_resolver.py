@@ -8,7 +8,8 @@ This helper should only remain if the dashboard still needs legacy-to-canonical
 resolution. Prefer direct canonical identifiers where possible.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any
+
 from supabase import create_client
 
 
@@ -44,7 +45,7 @@ class CanonicalIDResolver:
 
             return mission_id
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             # Graceful degradation: return original ID if lookup fails
             print(f"[WARN] Canonical ID resolution failed for {mission_id}: {e}")
             return mission_id
@@ -82,11 +83,11 @@ class CanonicalIDResolver:
 
             return result.data
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             print(f"[ERROR] Failed to list missions: {e}")
             return []
 
-    def search_by_id(self, search_id: str) -> Optional[Dict[str, Any]]:
+    def search_by_id(self, search_id: str) -> dict[str, Any] | None:
         """
         Search for mission by either legacy or canonical ID.
 
@@ -121,7 +122,7 @@ class CanonicalIDResolver:
 
             return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             print(f"[WARN] Search failed for {search_id}: {e}")
             return None
 
@@ -157,6 +158,6 @@ class CanonicalIDResolver:
 
             return result.data
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             print(f"[ERROR] Failed to get missions by status {status}: {e}")
             return []

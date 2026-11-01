@@ -148,7 +148,7 @@ def fetch_github_issues(repo, state="open", limit=10):
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=8) as response:
+        with urllib.request.urlopen(request, timeout=8) as response:  # nosec B310 - url built from hardcoded GITHUB_OWNER literal + repo['github_name'] resolved only from the fixed REPOSITORIES list, not user input - reviewed 2026-09-12
             issues = json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, json.JSONDecodeError, TimeoutError):
         return []

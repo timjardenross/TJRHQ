@@ -8,15 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
 
-from .models import (
-    GovernanceContext,
-    ImplementationView,
-    ImpactAnalysis,
-    NavigationPath,
-    ReasoningPath,
-)
 from .navigator import HierarchyNavigator
 
 log = logging.getLogger(__name__)
@@ -31,9 +23,9 @@ _ID_RE = re.compile(
 def build_hierarchy_context(
     text: str,
     *,
-    navigator: Optional[HierarchyNavigator] = None,
+    navigator: HierarchyNavigator | None = None,
     max_ids: int = 3,
-) -> Optional[str]:
+) -> str | None:
     """
     Scan `text` for entity IDs, look up their hierarchy context, and return
     a compact context block for LLM injection.
@@ -58,7 +50,7 @@ def build_hierarchy_context(
     return "--- Hierarchy Context ---\n" + "\n\n".join(blocks) + "\n--- End Hierarchy Context ---"
 
 
-def _entity_context_block(entity_id: str, nav: HierarchyNavigator) -> Optional[str]:
+def _entity_context_block(entity_id: str, nav: HierarchyNavigator) -> str | None:
     """Build a single entity's hierarchy context block."""
     lines: list[str] = []
 
@@ -133,7 +125,7 @@ def format_nav_response(entity_id: str, verb: str) -> str:
 
     return _format_slack(
         title="Unknown navigation verb",
-        body=f"Supported: `up` | `down` | `impact` | `lessons` | `siblings` | `governance`",
+        body="Supported: `up` | `down` | `impact` | `lessons` | `siblings` | `governance`",
     )
 
 

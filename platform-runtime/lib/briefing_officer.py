@@ -17,15 +17,15 @@ Behavior:
 - Fails gracefully if Mistral unavailable
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any
+import os
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 
 
-def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
+def generate_captains_brief(research_package: dict[str, Any]) -> str | None:
     """Generate a Captain's Brief from a ResearchPackage using direct Mistral API.
 
     Args:
@@ -52,7 +52,7 @@ def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
 
         briefing_prompt = _build_briefing_prompt(research_package)
 
-        from mistral_agent_client import call_agent, AGENT_BRIEFING
+        from mistral_agent_client import AGENT_BRIEFING, call_agent
         brief = call_agent(
             stage="brief",
             agent_name=AGENT_BRIEFING,
@@ -67,12 +67,12 @@ def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
             log.warning("[briefing-officer] Empty response from Mistral agent")
             return None
 
-    except Exception as e:
-        log.error(f"[briefing-officer] FAILED - {type(e).__name__}: {e}", exc_info=True)
+    except Exception:
+        log.exception("[briefing-officer] FAILED")
         return None
 
 
-def _build_briefing_prompt(research_package: Dict[str, Any]) -> str:
+def _build_briefing_prompt(research_package: dict[str, Any]) -> str:
     """Build structured prompt for Mistral briefing agent.
 
     Extracts key information from ResearchPackage for the agent.
@@ -125,12 +125,12 @@ Keep it brief. Captain needs direction, not details.
 """
         return brief_input
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (failed to build prompt: {e})
         log.error(f"[briefing] Failed to build prompt: {e}")
         return "Generate a brief summary of the attached research."
 
 
-def format_brief_for_slack(brief_text: Optional[str], mission_id: str) -> str:
+def format_brief_for_slack(brief_text: str | None, mission_id: str) -> str:
     """Format brief for Slack display.
 
     Args:

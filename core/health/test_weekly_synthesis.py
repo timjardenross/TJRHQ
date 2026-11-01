@@ -23,26 +23,24 @@ import sys
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from health_llm import parse_llm_narrative
 from weekly_synthesis import (
     MIN_DAYS_FOR_BASELINE,
-    _baseline_mean,
-    _classify_vs_baseline,
-    _compute_baselines,
     _analyse_cpap,
-    _analyse_sleep_quality,
     _analyse_intention_delivery,
-    _extract_wins,
+    _analyse_sleep_quality,
     _analyse_statuses,
-    _build_deterministic_findings,
+    _baseline_mean,
     _build_combined_narrative,
+    _build_deterministic_findings,
+    _classify_vs_baseline,
+    _extract_wins,
 )
-from health_llm import parse_llm_narrative
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -50,11 +48,11 @@ from health_llm import parse_llm_narrative
 
 def _entry(
     log_date: str,
-    pain_score: Optional[float] = None,
-    sleep_hours: Optional[float] = None,
-    sleep_quality: Optional[str] = None,
-    energy: Optional[str] = None,
-    mood: Optional[str] = None,
+    pain_score: float | None = None,
+    sleep_hours: float | None = None,
+    sleep_quality: str | None = None,
+    energy: str | None = None,
+    mood: str | None = None,
     cpap_status=None,
     tomorrows_priority: str = "",
     what_happened: str = "",
@@ -62,7 +60,7 @@ def _entry(
     work_status: str = "",
     personal_status: str = "",
     physical_capacity: str = "Same",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "log_date": log_date,
         "pain_score": pain_score,
@@ -80,7 +78,7 @@ def _entry(
     }
 
 
-def _make_entries(n: int, start_date: str = "2026-06-01", **kwargs) -> List[Dict[str, Any]]:
+def _make_entries(n: int, start_date: str = "2026-06-01", **kwargs) -> list[dict[str, Any]]:
     """Generate n consecutive entries starting from start_date."""
     d = date.fromisoformat(start_date)
     return [_entry((d + timedelta(days=i)).isoformat(), **kwargs) for i in range(n)]
@@ -383,14 +381,14 @@ class TestAnalyseStatuses(unittest.TestCase):
 class TestBuildDeterministicFindings(unittest.TestCase):
 
     def _default_args(self):
-        return dict(
-            cpap={"finding": None},
-            sleep_quality={"finding": None},
-            intention={"finding": None},
-            baseline_comparison={"pain": "insufficient_data"},
-            pain_avg=None,
-            baseline_30d={"pain_avg": None, "n_days": 0},
-        )
+        return {
+            "cpap": {"finding": None},
+            "sleep_quality": {"finding": None},
+            "intention": {"finding": None},
+            "baseline_comparison": {"pain": "insufficient_data"},
+            "pain_avg": None,
+            "baseline_30d": {"pain_avg": None, "n_days": 0},
+        }
 
     def test_empty_findings_when_nothing_to_report(self):
         result = _build_deterministic_findings(**self._default_args())
@@ -479,27 +477,27 @@ class TestParseLlmNarrative(unittest.TestCase):
 
 class TestBuildCombinedNarrative(unittest.TestCase):
 
-    _BASE_ARGS = dict(
-        week_start="2026-06-07",
-        n=5,
-        auto_status="Amber",
-        pain_avg=5.0,
-        pain_trend="stable",
-        sleep_avg=7.5,
-        sleep_trend="improving",
-        energy_modal="Moderate",
-        mood_modal="Stable",
-        capacity_avg=65.0,
-        risk_flags=[],
-        positive_flags=[],
-        decisions=[],
-        baseline_30d={"pain_avg": None, "sleep_avg": None, "capacity_avg": None, "n_days": 5},
-        baseline_comparison={"pain": "insufficient_data", "sleep": "insufficient_data",
+    _BASE_ARGS: ClassVar[dict] = {
+        "week_start": "2026-06-07",
+        "n": 5,
+        "auto_status": "Amber",
+        "pain_avg": 5.0,
+        "pain_trend": "stable",
+        "sleep_avg": 7.5,
+        "sleep_trend": "improving",
+        "energy_modal": "Moderate",
+        "mood_modal": "Stable",
+        "capacity_avg": 65.0,
+        "risk_flags": [],
+        "positive_flags": [],
+        "decisions": [],
+        "baseline_30d": {"pain_avg": None, "sleep_avg": None, "capacity_avg": None, "n_days": 5},
+        "baseline_comparison": {"pain": "insufficient_data", "sleep": "insufficient_data",
                               "capacity": "insufficient_data"},
-        deterministic_findings=[],
-        wins=[],
-        llm_narrative=None,
-    )
+        "deterministic_findings": [],
+        "wins": [],
+        "llm_narrative": None,
+    }
 
     def test_contains_week_start(self):
         result = _build_combined_narrative(**self._BASE_ARGS)
@@ -557,7 +555,7 @@ class TestBuildCombinedNarrative(unittest.TestCase):
 
 class TestRunSynthesisIntegration(unittest.TestCase):
 
-    def _make_full_entries(self, n: int = 5) -> List[Dict[str, Any]]:
+    def _make_full_entries(self, n: int = 5) -> list[dict[str, Any]]:
         d = date(2026, 6, 7)
         return [
             _entry(

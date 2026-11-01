@@ -33,10 +33,13 @@ affects the returned document.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from core.platform.attention_engine import evaluate_batch
-from core.platform.captain_brief_orchestrator import CaptainBriefDocument, assemble_captain_brief_document
+from core.platform.captain_brief_orchestrator import (
+    CaptainBriefDocument,
+    assemble_captain_brief_document,
+)
 from core.platform.insight_engine import generate_insights
 from core.platform.insight_outcomes import record_insight
 from core.platform.operational_state_model import assemble_operational_state
@@ -47,7 +50,7 @@ from core.platform.understanding_engine import build_understanding
 def assemble_evolved_captain_brief(
     events: list[dict[str, Any]],
     *,
-    priority_weights: Optional[Any] = None,
+    priority_weights: Any | None = None,
     top_n_priorities: int = 10,
     min_relationship_strength: float = 0.4,
 ) -> CaptainBriefDocument:

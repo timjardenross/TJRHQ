@@ -26,11 +26,12 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -327,7 +328,7 @@ def evaluate_trigger(trigger: OfficerTrigger, ctx: Any) -> TriggerResult:
             officer=trigger.officer,
             trigger_type=trigger.trigger_type,
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Evaluation error, already logged
         log.debug("[officer_triggers] Evaluation error %s/%s: %s", trigger.officer, trigger.trigger_id, exc)
         return TriggerResult(
             fired=False,
@@ -354,10 +355,10 @@ def evaluate_all_triggers(ctx: Any) -> dict[str, list[TriggerResult]]:
 
 
 __all__ = [
-    "TriggerType",
-    "TriggerResult",
-    "OfficerTrigger",
     "OFFICER_TRIGGERS",
-    "evaluate_trigger",
+    "OfficerTrigger",
+    "TriggerResult",
+    "TriggerType",
     "evaluate_all_triggers",
+    "evaluate_trigger",
 ]

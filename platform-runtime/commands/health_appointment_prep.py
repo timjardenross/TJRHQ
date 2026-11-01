@@ -1,15 +1,21 @@
 """
 Appointment Preparation Workflow — M-20260614 WP4
 
-Two entry points:
-  1. check_upcoming_appointments(client, lead_days) — scheduled job.
-     Queries health_events for appointments within lead_days (default 2).
-     For each upcoming appointment found, generates a preparation brief
-     and posts it to the Captain's DM / BRIEF_CHANNEL.
-
-  2. handle_health_prep(ack, command, client) — /health-prep Slack command.
-     Manual trigger. Generates a preparation brief for the next appointment
-     found in health_events (regardless of lead time).
+2026-09-26: Slack fully decommissioned (Captain confirmed). This
+module's three Slack-coupled entry points — `_post()`,
+`check_upcoming_appointments(client, lead_days)` (the scheduled job),
+and `handle_health_prep(ack, command, client)` (the `/health-prep`
+slash command) — have been removed. They were already unreachable in
+production: their own module docstring claimed they were "still live
+via platform-runtime/proactive_scheduler.py + app.py", but neither of
+those files exists in this repo anymore, and there is no other Slack
+Bolt app registering `/health-prep` or scheduling
+check_upcoming_appointments() (zero test coverage for any of the
+three, confirmed before removal). The query + brief-generation helpers
+below aren't Slack-specific and remain live — reused directly by
+intelligence/proactive_cadences.py's `job_appointment_prep()`, which
+delivers over Telegram via `_tg_notify()` (see that module's docstring
+for the 2026-09-08 migration note).
 
 Preparation brief includes:
   - Appointment details (type, provider, date)
@@ -27,18 +33,17 @@ Privacy boundary:
   - Safety footer appended to all outputs
 
 Configuration (.env):
-  BRIEF_CHANNEL / BRIEF_USER_ID  — delivery target
-  APPOINTMENT_LEAD_DAYS          — hours before appointment to trigger (default 48)
+  APPOINTMENT_LEAD_DAYS          — days before appointment to trigger (default 2,
+                                    read by intelligence/proactive_cadences.py's
+                                    job_appointment_prep(), not this module directly)
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
@@ -47,9 +52,9 @@ _HEALTH_LIB = _REPO_ROOT / "core" / "health"
 if str(_HEALTH_LIB) not in sys.path:
     sys.path.insert(0, str(_HEALTH_LIB))
 
-_BRIEF_CHANNEL = os.environ.get("BRIEF_CHANNEL", "")
-_BRIEF_USER_ID = os.environ.get("BRIEF_USER_ID", "")
-_LEAD_DAYS     = int(os.environ.get("APPOINTMENT_LEAD_DAYS", "2"))
+from pain_vocab import (
+    PAIN_STATE_LABELS,
+)
 
 SAFETY_FOOTER = (
     "\n\n---\n"
@@ -67,12 +72,12 @@ def _get_upcoming_appointments(lead_days: int) -> list[dict]:
     """Return health_events rows of type 'appointment' within lead_days."""
     try:
         sys.path.insert(0, str(_HEALTH_LIB))
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             log.warning("[appt-prep] Supabase not configured — skipping appointment check")
             return []
-        today = date.today().isoformat()
-        cutoff = (date.today() + timedelta(days=lead_days)).isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
+        cutoff = (datetime.now(timezone.utc).date() + timedelta(days=lead_days)).isoformat()
         rows = supabase_get(
             f"health_events"
             f"?event_type=eq.appointment"
@@ -81,39 +86,18 @@ def _get_upcoming_appointments(lead_days: int) -> list[dict]:
             f"&order=event_date.asc"
         )
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort appointment query, already logged
         log.error("[appt-prep] Failed to query upcoming appointments: %s", exc)
         return []
-
-
-def _get_next_appointment() -> Optional[dict]:
-    """Return the next upcoming appointment regardless of lead time."""
-    try:
-        sys.path.insert(0, str(_HEALTH_LIB))
-        from supabase_client import supabase_get, is_configured
-        if not is_configured():
-            return None
-        today = date.today().isoformat()
-        rows = supabase_get(
-            f"health_events"
-            f"?event_type=eq.appointment"
-            f"&event_date=gte.{today}"
-            f"&order=event_date.asc"
-            f"&limit=1"
-        )
-        return rows[0] if rows else None
-    except Exception as exc:
-        log.error("[appt-prep] Failed to query next appointment: %s", exc)
-        return None
 
 
 def _get_health_summary_period(days: int = 7) -> dict:
     """Return aggregated health metrics for the last N days."""
     try:
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             return {}
-        cutoff = (date.today() - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
         rows = supabase_get(
             f"analytics_health_daily"
             f"?log_date=gte.{cutoff}"
@@ -122,12 +106,27 @@ def _get_health_summary_period(days: int = 7) -> dict:
         if not rows:
             return {}
         pain_scores  = [r["pain_score"] for r in rows if r.get("pain_score") is not None]
+        pain_state_counts: dict[str, int] = {}
+        try:
+            # Pain is now captured as "compared with your usual baseline"
+            # (capacity_checkins.pain_state); the 0-10 pain_score above is
+            # older history. Missing check-ins stay unknown — never zero.
+            for c in supabase_get(
+                f"capacity_checkins?checkin_type=eq.capacity&log_date=gte.{cutoff}"
+                f"&pain_state=not.is.null&select=pain_state"
+            ) or []:
+                st = c.get("pain_state")
+                if st:
+                    pain_state_counts[st] = pain_state_counts.get(st, 0) + 1
+        except Exception as exc:  # noqa: BLE001 - best-effort supplementary query; summary still renders without it
+            log.warning("[appt-prep] pain_state query failed: %s", exc)
         sleep_hours  = [r["sleep_hours"] for r in rows if r.get("sleep_hours") is not None]
         energies     = [r.get("energy", "") for r in rows if r.get("energy")]
         statuses     = [r.get("health_status", "") for r in rows if r.get("health_status")]
         cpap_hours   = [r["cpap_hours"] for r in rows if r.get("cpap_hours") is not None]
         return {
             "days_logged": len(rows),
+            "pain_state_counts": pain_state_counts,
             "avg_pain": round(sum(pain_scores) / len(pain_scores), 1) if pain_scores else None,
             "max_pain": max(pain_scores) if pain_scores else None,
             "avg_sleep": round(sum(sleep_hours) / len(sleep_hours), 1) if sleep_hours else None,
@@ -138,7 +137,7 @@ def _get_health_summary_period(days: int = 7) -> dict:
             "amber_days": statuses.count("AMBER") + statuses.count("Amber"),
             "green_days": statuses.count("GREEN") + statuses.count("Green"),
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort health summary aggregation, already logged
         log.error("[appt-prep] Failed to get health summary: %s", exc)
         return {}
 
@@ -146,11 +145,11 @@ def _get_health_summary_period(days: int = 7) -> dict:
 def _get_recent_health_events(since_days: int = 30) -> list[dict]:
     """Return health_events from the last N days (excluding upcoming appointments)."""
     try:
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             return []
-        cutoff = (date.today() - timedelta(days=since_days)).isoformat()
-        today = date.today().isoformat()
+        cutoff = (datetime.now(timezone.utc).date() - timedelta(days=since_days)).isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
         rows = supabase_get(
             f"health_events"
             f"?event_date=gte.{cutoff}"
@@ -160,7 +159,7 @@ def _get_recent_health_events(since_days: int = 30) -> list[dict]:
             f"&limit=10"
         )
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort recent events query, already logged
         log.error("[appt-prep] Failed to get recent health events: %s", exc)
         return []
 
@@ -168,17 +167,17 @@ def _get_recent_health_events(since_days: int = 30) -> list[dict]:
 def _get_pending_followups() -> list[dict]:
     """Return health_events with follow_up_required=true and follow_up_date not yet passed."""
     try:
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             return []
         rows = supabase_get(
-            f"health_events"
-            f"?follow_up_required=eq.true"
-            f"&order=follow_up_date.asc"
-            f"&limit=10"
+            "health_events"
+            "?follow_up_required=eq.true"
+            "&order=follow_up_date.asc"
+            "&limit=10"
         )
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort follow-up query, already logged
         log.error("[appt-prep] Failed to get pending follow-ups: %s", exc)
         return []
 
@@ -196,7 +195,7 @@ def _generate_prep_brief(appointment: dict, health_summary: dict, recent_events:
     provider   = appointment.get("provider", "")
     outcome    = appointment.get("description", "")
 
-    lines.append(f":stethoscope: *Appointment Preparation Brief*")
+    lines.append(":stethoscope: *Appointment Preparation Brief*")
     lines.append(f"*{appt_title}*" + (f" — {provider}" if provider else ""))
     lines.append(f"Date: {appt_date}")
     if outcome:
@@ -209,9 +208,13 @@ def _generate_prep_brief(appointment: dict, health_summary: dict, recent_events:
         lines.append(f"*Health Summary — Last {days} days logged:*")
         avg_pain = health_summary.get("avg_pain")
         max_pain = health_summary.get("max_pain")
+        state_counts = health_summary.get("pain_state_counts") or {}
+        if state_counts:
+            parts = [f"{state_counts[s]} {PAIN_STATE_LABELS[s].lower()}" for s in PAIN_STATE_LABELS if state_counts.get(s)]
+            lines.append(f"  • Pain compared with your usual baseline: {', '.join(parts)} (check-ins)")
         if avg_pain is not None:
             pain_trend = "elevated" if avg_pain >= 6 else ("moderate" if avg_pain >= 4 else "low")
-            lines.append(f"  • Pain: average {avg_pain}/10 (peak {max_pain}/10) — {pain_trend}")
+            lines.append(f"  • Pain (older 0-10 records): average {avg_pain}/10 (peak {max_pain}/10) — {pain_trend}")
         avg_sleep = health_summary.get("avg_sleep")
         if avg_sleep is not None:
             sleep_quality = "good" if avg_sleep >= 7 else ("fair" if avg_sleep >= 6 else "reduced")
@@ -274,7 +277,7 @@ def _derive_discussion_topics(health_summary: dict, recent_events: list, follow_
 
     avg_pain = health_summary.get("avg_pain") if health_summary else None
     if avg_pain is not None and avg_pain >= 5:
-        topics.append(f"Pain management — average {avg_pain}/10 over recent period")
+        topics.append(f"Pain management — average {avg_pain}/10 over recent period (older 0-10 records)")
 
     avg_sleep = health_summary.get("avg_sleep") if health_summary else None
     if avg_sleep is not None and avg_sleep < 6.5:
@@ -306,84 +309,3 @@ def _derive_discussion_topics(health_summary: dict, recent_events: list, follow_
     return topics[:7]
 
 
-# ---------------------------------------------------------------------------
-# Delivery helpers
-# ---------------------------------------------------------------------------
-
-def _post(client, text: str) -> bool:
-    channel = _BRIEF_CHANNEL or _BRIEF_USER_ID
-    if not channel:
-        log.warning("[appt-prep] No delivery channel configured (BRIEF_CHANNEL / BRIEF_USER_ID)")
-        return False
-    try:
-        client.chat_postMessage(channel=channel, text=text)
-        return True
-    except Exception as exc:
-        log.error("[appt-prep] Slack post failed: %s", exc)
-        return False
-
-
-# ---------------------------------------------------------------------------
-# Scheduled job — called by proactive_scheduler
-# ---------------------------------------------------------------------------
-
-def check_upcoming_appointments(client, lead_days: int = _LEAD_DAYS) -> int:
-    """
-    Check for upcoming appointments and post preparation briefs.
-    Returns the number of briefs posted.
-    """
-    appointments = _get_upcoming_appointments(lead_days)
-    if not appointments:
-        log.info("[appt-prep] No appointments within %d days", lead_days)
-        return 0
-
-    health_summary = _get_health_summary_period(days=7)
-    recent_events  = _get_recent_health_events(since_days=30)
-    follow_ups     = _get_pending_followups()
-
-    posted = 0
-    for appt in appointments:
-        try:
-            brief = _generate_prep_brief(appt, health_summary, recent_events, follow_ups)
-            if _post(client, brief):
-                posted += 1
-                log.info("[appt-prep] Appointment prep brief posted for %s on %s",
-                         appt.get("title", "appointment"), appt.get("event_date", ""))
-        except Exception as exc:
-            log.error("[appt-prep] Brief generation failed: %s", exc)
-
-    return posted
-
-
-# ---------------------------------------------------------------------------
-# Slack command handler — /health-prep
-# ---------------------------------------------------------------------------
-
-def handle_health_prep(ack, command, client):
-    """/health-prep — generate appointment preparation brief for next appointment."""
-    ack()
-    user_id = command.get("user_id", "")
-    try:
-        appointment = _get_next_appointment()
-        if not appointment:
-            client.chat_postMessage(
-                channel=user_id,
-                text=(
-                    ":calendar: *No upcoming appointments found in health_events.*\n\n"
-                    "Log an appointment using `/health-event` (type: appointment) to enable preparation briefs."
-                )
-            )
-            return
-
-        health_summary = _get_health_summary_period(days=7)
-        recent_events  = _get_recent_health_events(since_days=30)
-        follow_ups     = _get_pending_followups()
-        brief = _generate_prep_brief(appointment, health_summary, recent_events, follow_ups)
-        client.chat_postMessage(channel=user_id, text=brief)
-        log.info("[appt-prep] /health-prep brief delivered to %s", user_id)
-    except Exception as exc:
-        log.error("[appt-prep] /health-prep failed: %s", exc)
-        client.chat_postMessage(
-            channel=user_id,
-            text=f":warning: Appointment prep failed: {exc}"
-        )

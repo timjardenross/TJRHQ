@@ -19,9 +19,17 @@ const { sendTelegram } = require('../connectors/telegram-connector');
 
 const INTERVAL_MS = parseInt(process.env.NOTIFICATION_INTERVAL_MS) || 15 * 60 * 1000;
 
-// In-memory notification store — survives for the process lifetime.
-// Shape: { id, signal_key, title, detail, severity, timestamp, read, telegram_sent }
-let _store = [];
+// Mission 6B §8.2: the in-app unread/history/read store this used to keep
+// (getUnread/getHistory/markRead/markAllRead + the /unread /history
+// /:id/read /read-all routes in api/notifications.js) was retired —
+// discovery confirmed zero live UI consumer anywhere in lcars-portal, and
+// markRead() only ever mutated this in-memory array (decorative: gone on
+// every restart, never touched canonical state). This engine's real value
+// — signal evaluation + direct Telegram push for Critical/High — is
+// untouched; only the dead read-state half was removed. A future in-app
+// notification surface should read Follow-Through's canonical
+// personal_tasks-based state (intelligence/adhd/follow_through_engine.py),
+// not reintroduce a second in-memory store here.
 let _nextId = 1;
 
 // Dedup map: signal_key → last notified ISO timestamp
@@ -42,11 +50,8 @@ function _push(signal_key, title, detail, severity) {
     detail,
     severity,
     timestamp:     new Date().toISOString(),
-    read:          false,
     telegram_sent: false,
   };
-  _store.unshift(note);
-  if (_store.length > 200) _store = _store.slice(0, 200);
   _lastNotified.set(signal_key, note.timestamp);
   return note;
 }
@@ -125,12 +130,14 @@ async function checkHealthDecline() {
 async function checkRepeatedEscalations() {
   try {
     const rows = await supabaseGet(
-      'commander_events?event_type=eq.escalation&select=mission_id,created_at&order=created_at.desc&limit=50'
+      // commander_events has no mission_id column (400'd every 15 min) — it lives in metadata.
+      'commander_events?event_type=eq.escalation&select=metadata,created_at&order=created_at.desc&limit=50'
     );
     if (!rows || !rows.length) return [];
     const counts = {};
     for (const r of rows) {
-      if (r.mission_id) counts[r.mission_id] = (counts[r.mission_id] || 0) + 1;
+      const mId = r.metadata && r.metadata.mission_id;
+      if (mId) counts[mId] = (counts[mId] || 0) + 1;
     }
     const notes = [];
     for (const [mId, count] of Object.entries(counts)) {
@@ -201,24 +208,6 @@ async function evaluate() {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-function getUnread() {
-  return _store.filter(n => !n.read);
-}
-
-function getHistory(limit = 50) {
-  return _store.slice(0, Math.min(limit, 200));
-}
-
-function markRead(id) {
-  const note = _store.find(n => n.id === id);
-  if (note) note.read = true;
-  return !!note;
-}
-
-function markAllRead() {
-  _store.forEach(n => { n.read = true; });
-}
-
 function start() {
   // Run once on startup after a short delay, then every INTERVAL_MS
   setTimeout(evaluate, 10000);
@@ -226,4 +215,4 @@ function start() {
   console.log(`[notify] Engine started — interval ${INTERVAL_MS / 60000}min`);
 }
 
-module.exports = { start, evaluate, getUnread, getHistory, markRead, markAllRead };
+module.exports = { start, evaluate };

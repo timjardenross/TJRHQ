@@ -25,9 +25,11 @@
  * wrapping the same unchanged CaptureBox/contentScoring.ts pipeline.
  *
  * 2026-08: Communications Workbench was delisted from /workbenches (see
- * workbenches/page.tsx) in favour of this one. mark_published still only
- * queues a governed proposal — the Captain approves the actual publish in
- * Decide, same as always.
+ * workbenches/page.tsx) in favour of this one. mark_published is a direct
+ * status flip fired only by the Captain's own click at the end of the QA'd
+ * pipeline (see api/comms/[id]/advance/route.ts's header comment for why
+ * the earlier propose-then-approve-in-Decide detour was reverted — that
+ * queue had no page ever rendering it, so nothing published).
  *
  * 2026-08 follow-up (workbench fault-finding audit): uses `DomainToggle`,
  * the real WAI-ARIA tablist every other *-workbench page uses, with
@@ -42,8 +44,9 @@
  */
 
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { DomainToggle, WorkbenchShell } from '@/components/ui';
+import { useUrlSync } from '@/lib/useUrlSync';
 import { QuickCaptureModal } from './_components/QuickCaptureModal';
 import { TodayView } from './_components/TodayView';
 import { QueueView } from './_components/QueueView';
@@ -65,28 +68,32 @@ function isTab(v: string | null): v is Tab {
 }
 
 function Workbench() {
-  const router = useRouter();
   const params = useSearchParams();
+  const { writeParams } = useUrlSync('/content-workbench');
   const initial = params.get('tab');
   const [tab, setTabState] = useState<Tab>(isTab(initial) ? initial : 'today');
   const [pipelineView, setPipelineView] = useState<PipelineView>('queue');
   const [refreshSignal, setRefreshSignal] = useState(0);
-  const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
+  // Stream C (USS-TJR-MSN-0395): URL-synced, not just local state, so a
+  // refresh or a shared link lands back in the same Studio item instead of
+  // silently dropping back to the tab list -- same pattern as `tab` above,
+  // now race-safe via useUrlSync (Stream A).
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(params.get('item'));
   const refresh = () => setRefreshSignal((n) => n + 1);
 
   const setTab = (t: Tab) => {
     setTabState(t);
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    sp.set('tab', t);
-    router.replace(`/content-workbench?${sp.toString()}`, { scroll: false });
+    writeParams((sp) => sp.set('tab', t));
   };
 
   function openStudio(contentId: string) {
     setSelectedContentId(contentId);
+    writeParams((sp) => sp.set('item', contentId));
   }
 
   function closeStudio() {
     setSelectedContentId(null);
+    writeParams((sp) => sp.delete('item'));
     refresh();
   }
 
@@ -96,14 +103,19 @@ function Workbench() {
 
   return (
     <WorkbenchShell
-      title="Content Workbench"
+      title="Content"
       eyebrow="Your personal AI-assisted content desk"
-      tagline="USS TJR · Content Workbench · Capture to publish, AI prepares, you decide"
+      tagline="TJR HQ · Content Workbench · Capture to publish, AI prepares, you decide"
       right={!selectedContentId ? captureBar : null}
       tabs={!selectedContentId ? (
         <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />
       ) : undefined}
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      // Reversed 2026-09-25: the Read-mode light surface for Studio made
+      // Content Workbench swap from dark to light background moving from
+      // pipeline into an item. Keep Focus mode across the whole workbench
+      // so the dark theme is consistent end-to-end.
+      mode="focus"
       wide
     >
       {selectedContentId ? (
@@ -119,14 +131,14 @@ function Workbench() {
                 <button
                   type="button"
                   onClick={() => setPipelineView('queue')}
-                  className={`rounded-full px-3 py-1 text-[12px] font-medium ${pipelineView === 'queue' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
+                  className={`rounded-full px-3 py-1 text-wb-label font-medium ${pipelineView === 'queue' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
                 >
                   Queue
                 </button>
                 <button
                   type="button"
                   onClick={() => setPipelineView('board')}
-                  className={`rounded-full px-3 py-1 text-[12px] font-medium ${pipelineView === 'board' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
+                  className={`rounded-full px-3 py-1 text-wb-label font-medium ${pipelineView === 'board' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
                 >
                   Board
                 </button>

@@ -16,12 +16,14 @@ On failure: returns None (UI degrades gracefully, no micro-action suggested).
 import json
 import logging
 import urllib.request
-from typing import Optional
 
 from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 from intelligence.config import (
-    GEMINI_API_KEY, MISTRAL_API_KEY,
-    MODEL_ROUTER_URL, OLLAMA_BASE_URL, OLLAMA_MODEL,
+    GEMINI_API_KEY,
+    MISTRAL_API_KEY,
+    MODEL_ROUTER_URL,
+    OLLAMA_BASE_URL,
+    OLLAMA_MODEL,
 )
 
 log = logging.getLogger(__name__)
@@ -53,7 +55,7 @@ Respond with a single, specific action that could be done in 5-15 minutes."""
 class TaskDecomposer:
     """Breaks a task down to one tiny first action. Never raises — returns None on failure."""
 
-    def decompose(self, task_text: str) -> Optional[str]:
+    def decompose(self, task_text: str) -> str | None:
         """
         Given task text, returns a single concrete micro-action string, or None if all LLM providers fail.
         """
@@ -77,7 +79,7 @@ class TaskDecomposer:
                 if result:
                     log.info("Task decomposed via %s", name)
                     return result
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain — one provider failing must not abort the chain; already logged
                 log.warning("TaskDecomposer %s failed: %s", name, exc)
 
         log.warning("All decomposition providers failed — no micro-action suggested")
@@ -85,7 +87,7 @@ class TaskDecomposer:
 
     # ─── Model Router (tier-0 — local, preferred) ────────────────────────────
 
-    def _model_router(self, task_text: str) -> Optional[str]:
+    def _model_router(self, task_text: str) -> str | None:
         """Call local Model Router at :8891/api/model/adhd-decompose."""
         url = f"{MODEL_ROUTER_URL.rstrip('/')}/api/model/adhd-decompose"
         body = json.dumps({"task": task_text}).encode()
@@ -95,7 +97,7 @@ class TaskDecomposer:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL config constant, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
         except Exception as exc:
             raise RuntimeError(f"Model Router unavailable: {exc}") from exc
@@ -107,7 +109,7 @@ class TaskDecomposer:
 
     # ─── Mistral ─────────────────────────────────────────────────────────────
 
-    def _mistral(self, task_text: str) -> Optional[str]:
+    def _mistral(self, task_text: str) -> str | None:
         """Call Mistral Small for decomposition."""
         if not MISTRAL_API_KEY:
             raise RuntimeError("MISTRAL_API_KEY not set")
@@ -119,11 +121,11 @@ class TaskDecomposer:
             max_tokens=256,
             temperature=0.5,
             timeout=15,
-        )
+        ).text
 
     # ─── Gemini ──────────────────────────────────────────────────────────────
 
-    def _gemini(self, task_text: str) -> Optional[str]:
+    def _gemini(self, task_text: str) -> str | None:
         """Call Gemini 2.5 Flash for decomposition."""
         if not GEMINI_API_KEY:
             raise RuntimeError("GEMINI_API_KEY not set")
@@ -134,11 +136,11 @@ class TaskDecomposer:
             max_output_tokens=256,
             temperature=0.5,
             timeout=15,
-        )
+        ).text
 
     # ─── Ollama (local) ──────────────────────────────────────────────────────
 
-    def _ollama(self, task_text: str) -> Optional[str]:
+    def _ollama(self, task_text: str) -> str | None:
         """Call Ollama (local fallback)."""
         if not OLLAMA_BASE_URL or not OLLAMA_MODEL:
             raise RuntimeError("OLLAMA_BASE_URL or OLLAMA_MODEL not set")
@@ -149,12 +151,12 @@ class TaskDecomposer:
             model=OLLAMA_MODEL,
             temperature=0.5,
             timeout=15,
-        )
+        ).text
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 
-_decomposer: Optional[TaskDecomposer] = None
+_decomposer: TaskDecomposer | None = None
 
 
 def get_decomposer() -> TaskDecomposer:
@@ -164,6 +166,6 @@ def get_decomposer() -> TaskDecomposer:
     return _decomposer
 
 
-def decompose_task(task_text: str) -> Optional[str]:
+def decompose_task(task_text: str) -> str | None:
     """Convenience function: decompose a task text string to a micro-action."""
     return get_decomposer().decompose(task_text)

@@ -1,0 +1,85 @@
+{
+  "contract_version": "1.1",
+  "generated_at": "2026-10-15T02:00:00.000Z",
+  "hq_status": {
+    "generated_at": "2026-10-15T01:59:30.000Z",
+    "summary": "HQ is operating normally",
+    "state": "ok",
+    "error": null
+  },
+  "latest_brief": {
+    "generated_at": "2026-10-14T21:00:12.000Z",
+    "brief_date": "2026-10-15",
+    "lines": [
+      "MORNING BRIEF",
+      "",
+      "Quiet night."
+    ],
+    "error": null
+  },
+  "alerts": {
+    "generated_at": "2026-10-15T02:00:00.000Z",
+    "last_polled_at": "2026-10-15T01:58:30.000Z",
+    "items": [
+      {
+        "id": "6f1c0c1e-0000-4000-8000-000000000001",
+        "headline": "Bushfire Emergency Warning: evacuate now",
+        "severity": "emergency_warning",
+        "occurred_at": "2026-10-15T01:40:00.000Z",
+        "alert_type": "bushfire",
+        "status": "updated",
+        "expires_at": "2026-10-15T09:00:00.000Z",
+        "jurisdiction": "VIC",
+        "updated_at": "2026-10-15T01:52:00.000Z",
+        "source_name": "VIC Emergency"
+      },
+      {
+        "id": "6f1c0c1e-0000-4000-8000-000000000004",
+        "headline": "Watch and Act: grass fire near Geelong",
+        "severity": "watch_and_act",
+        "occurred_at": "2026-10-14T20:00:00.000Z",
+        "alert_type": "bushfire",
+        "status": "active",
+        "expires_at": null,
+        "jurisdiction": "VIC",
+        "updated_at": "2026-10-15T00:30:00.000Z",
+        "source_name": "VIC Emergency"
+      },
+      {
+        "id": "6f1c0c1e-0000-4000-8000-000000000003",
+        "headline": "Hazard reduction burn, smoke possible",
+        "severity": "advice",
+        "occurred_at": "2026-10-14T23:00:00.000Z",
+        "alert_type": "hazard_reduction",
+        "status": "new",
+        "expires_at": "2026-10-15T06:00:00.000Z",
+        "jurisdiction": "QLD",
+        "updated_at": "2026-10-14T23:05:00.000Z",
+        "source_name": "QFES"
+      },
+      {
+        "id": "6f1c0c1e-0000-4000-8000-000000000005",
+        "headline": "Smoke haze advisory",
+        "severity": "advice",
+        "occurred_at": "2026-10-14T22:00:00.000Z",
+        "alert_type": "other",
+        "status": "updated",
+        "expires_at": "2026-10-15T12:00:00.000Z",
+        "updated_at": "2026-10-15T01:50:00.000Z"
+      },
+      {
+        "id": "6f1c0c1e-0000-4000-8000-000000000002",
+        "headline": "Severe thunderstorm warning for the Illawarra",
+        "severity": "unknown",
+        "occurred_at": "2026-10-15T00:10:00.000Z",
+        "alert_type": "severe_weather",
+        "status": "active",
+        "expires_at": null,
+        "jurisdiction": "NSW",
+        "updated_at": "2026-10-15T01:57:00.000Z",
+        "source_name": "Bureau of Meteorology warnings"
+      }
+    ],
+    "error": null
+  }
+}

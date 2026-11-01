@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Source_Serif_4 } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
 
@@ -9,11 +9,32 @@ import { SITE_URL } from '@/lib/site';
 // imported PUBLIC_SITE_NAME et al., so every authenticated page (including
 // /home) showed "TJR Mind & Body" in the tab title and favicon.
 const OPS_PORTAL_NAME = 'TJR HQ';
-const OPS_PORTAL_DESCRIPTION = 'USS TJR — Command Centre for missions, intelligence, and recovery operations.';
+const OPS_PORTAL_DESCRIPTION = 'TJR HQ — Command Centre for missions, intelligence, and recovery operations.';
 
-const sourceSerif = Source_Serif_4({
-  subsets: ['latin'],
-  weight: ['600', '700'],
+// Self-hosted variable fonts (latin subset, from @fontsource-variable, SIL OFL 1.1; licence texts sit
+// beside the files in ./fonts). They used to be fetched from Google at build time through
+// the Google loader, which failed on Vercel builds on 2026-10-19 ("An error occurred in next/font") and
+// would block every deploy. Local files make the build independent of Google. Licences: docs/FONT-LICENCES.md.
+const inter = localFont({
+  src: './fonts/inter-latin-wght-normal.woff2',
+  weight: '100 900',
+  style: 'normal',
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const jetBrainsMono = localFont({
+  src: './fonts/jetbrains-mono-latin-wght-normal.woff2',
+  weight: '100 800',
+  style: 'normal',
+  variable: '--font-mono',
+  display: 'swap',
+});
+
+const sourceSerif = localFont({
+  src: './fonts/source-serif-4-latin-wght-normal.woff2',
+  weight: '200 900',
+  style: 'normal',
   variable: '--font-serif',
   display: 'swap',
 });
@@ -61,35 +82,35 @@ export const metadata: Metadata = {
     type: 'website',
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: OPS_PORTAL_NAME,
     description: OPS_PORTAL_DESCRIPTION,
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#F7F4EE',
+  // Design uplift Stage A: the default surface is light (brand mist), so the
+  // browser UI colour follows it.
+  themeColor: '#F5F7FA',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
 };
 
-// Adaptive Themes mission (2026-09-05): reads the saved theme choice and
-// sets it on <html> synchronously, BEFORE hydration/first paint — the
-// standard flash-of-wrong-theme fix for localStorage-based (not cookie/
-// SSR-based) theming. Deliberately a tiny inline script, not a dependency
-// (next-themes etc.) — the actual requirement is one localStorage read and
-// one attribute set. Falls back silently to the default (archive, via
-// globals.css's bare :root block) if localStorage is unavailable or holds
-// an unrecognised value.
-const THEME_INIT_SCRIPT = `
+// Reads the saved motion preference and sets it on <html> synchronously,
+// BEFORE hydration/first paint, so a Captain with Motion: Reduced never
+// sees one frame of animation. Deliberately a tiny inline script, not a
+// dependency — the actual requirement is one localStorage read and one
+// attribute set.
+//
+// Endeavour 27 (USS-TJR-MSN-0394): the 5-theme half of this script
+// (data-theme, tjr-hq-theme) is retired along with lib/theme.ts and
+// ThemeSelector.tsx — the dark Command/Focus vs. light Read surface is now
+// a static per-route classification (WorkbenchShell's `mode` prop ->
+// [data-wb-mode] in globals.css), known at render time, so it needs no
+// anti-flash script of its own the way a client-toggled preference did.
+const MOTION_INIT_SCRIPT = `
 (function () {
-  try {
-    var t = localStorage.getItem('tjr-hq-theme');
-    if (t && ['archive','command','midnight','horizon','sanctuary'].indexOf(t) !== -1) {
-      document.documentElement.setAttribute('data-theme', t);
-    }
-  } catch (e) {}
   try {
     var m = localStorage.getItem('tjr-hq-motion');
     if (m === 'reduced') {
@@ -101,9 +122,9 @@ const THEME_INIT_SCRIPT = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={sourceSerif.variable}>
+    <html lang="en" className={`${inter.variable} ${jetBrainsMono.variable} ${sourceSerif.variable}`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
       </head>
       <body>
         {children}

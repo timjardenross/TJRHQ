@@ -27,8 +27,8 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.debug("[future_state] Supabase unavailable: %s", exc)
         return None
 
@@ -133,7 +133,7 @@ def _row_to_plan(row: dict[str, Any]) -> HorizonPlan | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_FUTURE_CAP_STATEMENT} H{horizon}: "
-    name = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    name = stmt.removeprefix(prefix)
 
     def _en(cls, val, default):
         try:
@@ -180,7 +180,7 @@ def register_future_capability(
         if c is not None:
             owner_pattern = f"{FUTURE_CAP_OWNER_PREFIX}{horizon}:%"
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", owner_pattern)
                 .ilike("statement", f"%{name[:40]}%")
@@ -210,7 +210,7 @@ def register_future_capability(
         )
         log.info("[future_state] Registered H%d future cap %s — %s", horizon, plan_id, name[:60])
         return plan_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort future-cap registration, already logged
         log.warning("[future_state] register_future_capability failed: %s", exc)
         return None
 
@@ -229,7 +229,7 @@ def list_future_capabilities(
         else:
             owner_filter = f"{FUTURE_CAP_OWNER_PREFIX}%"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", owner_filter)
             .order("created_at", desc=True)
@@ -242,7 +242,7 @@ def list_future_capabilities(
             if p:
                 out.append(p)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort future-cap list query, already logged
         log.debug("[future_state] list_future_capabilities failed: %s", exc)
         return []
 
@@ -279,13 +279,13 @@ def format_future_state_plan(fp: FuturePlan) -> str:
 
 
 __all__ = [
-    "HorizonPlan",
-    "FuturePlan",
-    "FutureCapPriority",
-    "register_future_capability",
-    "list_future_capabilities",
-    "build_future_state_plan",
-    "format_future_state_plan",
     "FUTURE_CAP_OWNER_PREFIX",
     "HORIZONS",
+    "FutureCapPriority",
+    "FuturePlan",
+    "HorizonPlan",
+    "build_future_state_plan",
+    "format_future_state_plan",
+    "list_future_capabilities",
+    "register_future_capability",
 ]

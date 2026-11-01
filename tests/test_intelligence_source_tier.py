@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/classification/source_tier.py (Phase A Stage 3).
 

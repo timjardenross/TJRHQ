@@ -26,7 +26,7 @@ import json
 import logging
 import os
 import re
-import subprocess
+import subprocess  # nosec B404 - used with a fixed argv list, no shell
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -88,7 +88,19 @@ _SCAN_INCLUDE_GLOBS: tuple[str, ...] = ("*.md", "*.py", "*.ts", "*.tsx", "*.json
 _SCAN_EXCLUDE_DIRS: tuple[str, ...] = (
     "node_modules", ".git", ".next", ".venv", "__pycache__", "dist", "build",
     "tests", "__tests__",
+    # 2026-09-15 adversarial review: a generated API-graph doc
+    # (.cortex/apigraph/docs/primary/types.md) and self-improvement run
+    # artifacts (data/self-improvement/runs/*/evidence.json) both contain
+    # literal "USS-TJR-MSN-9999" text (a commit-message/example value, not
+    # a real allocation) that this scan otherwise picks up as a candidate
+    # max ID. _MAX_SANE_DRIFT rejects the resulting implausible jump, but
+    # a smaller in-drift-window false positive from either dir would
+    # silently skip real IDs. See
+    # docs/security/2026-09-15-adversarial-review-remediation.md.
+    ".cortex", "data",
 )
+_MAX_SANE_DRIFT: int = 100
+
 _SCAN_EXCLUDE_FILES: tuple[str, ...] = (
     "test_*.py", "*_test.py", "*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx",
     # The ID-minting infrastructure's own docs/CLI/tests carry illustrative
@@ -119,8 +131,8 @@ def scan_repo_max(prefix: str) -> tuple[int, str | None]:
         cmd.append(f"--exclude={f}")
     cmd.append(str(_REPO_ROOT))
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-    except Exception as exc:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)  # nosec B603 - fixed argv list, no shell, args are internal constants/paths only
+    except Exception as exc:  # noqa: BLE001 -- best-effort scan, never blocks minting
         _log.debug("id_registry: repo scan failed for %s: %s", prefix, exc)
         return 0, None
     best_n, best_hit = 0, None
@@ -129,6 +141,15 @@ def scan_repo_max(prefix: str) -> tuple[int, str | None]:
         if not match:
             continue
         n = int(match.group(1))
+        if n == 9999:
+            # 2026-09-15, 3rd recurrence of this exact drift: 9999 is a
+            # universal test-fixture/placeholder sentinel across this repo,
+            # never a real minted ID -- keeps recurring in new docs/tests
+            # that quote it (2 more sources found this session alone, in
+            # knowledge/missions/*.md, outside the tests/-dir excludes
+            # above). Reject the sentinel value itself so a new source
+            # doesn't need its own file added to the exclude list.
+            continue
         if n > best_n:
             best_n, best_hit = n, line
     return best_n, best_hit
@@ -154,7 +175,7 @@ def scan_table_max(prefix: str) -> int | None:
             f"{url}/rest/v1/{table}?{params}",
             headers={"apikey": key, "Authorization": f"Bearer {key}", "Accept": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https
             rows = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:  # noqa: BLE001 — best-effort scan, never blocks minting
         _log.debug("id_registry: table scan failed for %s (%s.%s): %s", prefix, table, column, exc)
@@ -230,16 +251,31 @@ def next_id(prefix: str) -> str:
             stored = data.get(prefix, _SEEDS.get(prefix, 0))
             if scan_result and scan_result[0] > stored:
                 true_max, source, detail = scan_result
-                _log.warning(
-                    "id_registry: counter drift detected for %s -- stored=%s true_max=%s "
-                    "(source=%s, %s). Auto-bumping counter before minting.",
-                    prefix, stored, true_max, source, detail,
-                )
-                data[prefix] = true_max
+                if true_max - stored > _MAX_SANE_DRIFT:
+                    # A jump this large is far more likely to be a scan false
+                    # positive (a placeholder/example ID transiently visible
+                    # mid-edit in this heavily-concurrent repo, e.g. 74+
+                    # parallel agent sessions) than a real gap in allocation.
+                    # Refuse to auto-bump; keep minting from the stored value
+                    # and surface it loudly for a human to reconcile.
+                    _log.error(
+                        "id_registry: IMPLAUSIBLE counter drift for %s -- stored=%s "
+                        "scanned=%s (source=%s, %s) exceeds max sane jump of %s. "
+                        "Refusing to auto-bump -- minting from stored value instead. "
+                        "Investigate the scan hit manually.",
+                        prefix, stored, true_max, source, detail, _MAX_SANE_DRIFT,
+                    )
+                else:
+                    _log.warning(
+                        "id_registry: counter drift detected for %s -- stored=%s true_max=%s "
+                        "(source=%s, %s). Auto-bumping counter before minting.",
+                        prefix, stored, true_max, source, detail,
+                    )
+                    data[prefix] = true_max
             n = data.get(prefix, _SEEDS.get(prefix, 0)) + 1
             data[prefix] = n
             _save(data)
             return f"{canonical}-{n:04d}"
     except Exception:  # noqa: BLE001 — never let ID generation crash the caller
-        from datetime import datetime
-        return f"{canonical}-{datetime.now().strftime('%H%M%S%f')[:10]}"
+        from datetime import datetime, timezone
+        return f"{canonical}-{datetime.now(timezone.utc).strftime('%H%M%S%f')[:10]}"

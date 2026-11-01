@@ -28,7 +28,6 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -89,7 +88,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
         notes = [s for s in ps.signals if "alignment" in s.lower() or "objective" in s.lower()]
         if ps.composite_score < 2.5:
             risk_flags.append("Low strategic priority — composite score below threshold")
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - prioritisation unavailable, already logged
         log.debug("[business_cases] prioritisation unavailable: %s", exc)
         alignment_score = 3.0
         notes = []
@@ -99,7 +98,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
     cap_score = 5.0
     cap_notes: list[str] = []
     try:
-        from lib.strategy.capabilities import list_capabilities, CapabilityStatus
+        from lib.strategy.capabilities import CapabilityStatus, list_capabilities
         caps = [c for c in list_capabilities() if c.initiative_id == initiative_id]
         if caps:
             avg_maturity = sum(c.maturity.value for c in caps) / len(caps)
@@ -114,7 +113,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
             cap_score = 3.0
             cap_notes.append("No capabilities linked — register capabilities to strengthen case")
             conditions.append("Link initiative to at least one capability")
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - capability data unavailable, already logged
         log.debug("[business_cases] capability data unavailable: %s", exc)
     dimensions.append(BusinessCaseDimension("Capability Uplift", cap_score, 0.20, cap_notes))
 
@@ -133,7 +132,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
         else:
             benefit_notes.append("No benefits registered")
             conditions.append("Register at least one quantified benefit before approval")
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - benefits unavailable, already logged
         log.debug("[business_cases] benefits unavailable: %s", exc)
     dimensions.append(BusinessCaseDimension("Benefit Value", benefit_score, 0.20, benefit_notes))
 
@@ -141,7 +140,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
     delivery_score = 5.0
     delivery_notes: list[str] = []
     try:
-        from lib.program.forecasting import forecast_initiative, DeliveryForecast
+        from lib.program.forecasting import DeliveryForecast, forecast_initiative
         fc = forecast_initiative(initiative_id)
         if fc:
             score_map = {
@@ -154,7 +153,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
             delivery_notes.append(f"Forecast: {fc.forecast.value}")
             if fc.forecast in (DeliveryForecast.LIKELY_DELAYED, DeliveryForecast.CRITICAL):
                 risk_flags.append(f"Delivery forecast {fc.forecast.value} — resolve before investing further")
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - forecast unavailable, already logged
         log.debug("[business_cases] forecast unavailable: %s", exc)
     dimensions.append(BusinessCaseDimension("Delivery Complexity", delivery_score, 0.20, delivery_notes))
 
@@ -162,7 +161,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
     debt_score = 7.0
     debt_notes: list[str] = []
     try:
-        from lib.strategy.technical_debt import list_debts, DebtSeverity, DebtTrend
+        from lib.strategy.technical_debt import DebtSeverity, DebtTrend, list_debts
         debts = [d for d in list_debts() if d.initiative_id == initiative_id]
         if debts:
             critical = [d for d in debts if d.severity == DebtSeverity.CRITICAL]
@@ -174,7 +173,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
                 conditions.append("Create tech debt remediation plan")
         else:
             debt_notes.append("No linked tech debt items")
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - tech debt unavailable, already logged
         log.debug("[business_cases] tech debt unavailable: %s", exc)
     dimensions.append(BusinessCaseDimension("Technical Debt Impact", debt_score, 0.10, debt_notes))
 
@@ -192,7 +191,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
             )
             if not ta.worth_doing:
                 risk_flags.append("Tradeoff analysis indicates net negative portfolio impact")
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - tradeoff unavailable, already logged
         log.debug("[business_cases] tradeoff unavailable: %s", exc)
     dimensions.append(BusinessCaseDimension("Portfolio Impact", portfolio_score, 0.05, portfolio_notes))
 
@@ -231,10 +230,10 @@ def assess_all_business_cases() -> list[BusinessCase]:
         for init in initiatives:
             try:
                 results.append(assess_business_case(init.initiative_id))
-            except Exception as exc:
+            except Exception as exc: # noqa: BLE001 - assessment failed for, already logged
                 log.warning("[business_cases] assessment failed for %s: %s", init.initiative_id, exc)
         return results
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - list_initiatives failed, already logged
         log.debug("[business_cases] list_initiatives failed: %s", exc)
         return []
 
@@ -274,10 +273,10 @@ def format_business_case(bc: BusinessCase) -> str:
 
 
 __all__ = [
-    "BusinessCaseOutcome",
-    "BusinessCaseDimension",
     "BusinessCase",
-    "assess_business_case",
+    "BusinessCaseDimension",
+    "BusinessCaseOutcome",
     "assess_all_business_cases",
+    "assess_business_case",
     "format_business_case",
 ]

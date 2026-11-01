@@ -6,11 +6,10 @@ decision, not as a human authorization check.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
-
+from typing import Any
 
 _SLACK_BOT_DIR = Path(__file__).resolve().parent.parent
 _REPO_ROOT = _SLACK_BOT_DIR.parent
@@ -26,7 +25,7 @@ class XOPolicyDecision:
     resulting_state: str
     system_actor: str = "XO"
     requesting_user: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     policy_trace: list[str] = field(default_factory=list)
     policy_sources: list[str] = field(default_factory=list)
 

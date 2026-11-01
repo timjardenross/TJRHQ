@@ -9,12 +9,22 @@
 .env.*
 !.env.example
 !.env*.example
+# Dot-less variants. lcars-portal/env.local (no leading dot) slipped past
+# every pattern above and sat tracked in this public repo from 2026-08-07.
+# Its key values were masked, but the gap was real. Next.js never loads a
+# dot-less env.local, so nothing reads these files at runtime anyway.
+env.local
+env.*.local
 
 # Python virtualenvs — any depth, any name
 .venv/
 venv/
 */.venv/
 */venv/
+# Isolated per-tool venvs (garak, ragas, ...) — created locally per each tool's own
+# requirements-*.txt (core/quality/requirements-garak.txt, requirements-ragas.txt),
+# never committed, same reasoning as .venv/ above.
+*/.venv-*/
 
 # Python
 __pycache__/
@@ -40,6 +50,25 @@ logs/
 call_log.jsonl
 outputs/
 
+# tools/garak_sweep.sh and core/quality/garak_gate.py (USS-TJR-MSN-0365) both
+# write timestamped garak vulnerability-scan reports here — runtime evidence,
+# regenerated on every run, not durable source (same reasoning as every
+# other reports/<tool>/ directory below it, e.g. reports/ragas/,
+# reports/semgrep/, reports/knip/, reports/vulture/ — all of which ARE
+# committed despite that same reasoning applying to them too).
+#
+# garak is the deliberate exception, for a second, garak-specific reason:
+# its report.jsonl/hitlog.jsonl contain the raw adversarial prompt payloads
+# garak sent to the target (prompt-injection strings, hallucination-bait,
+# etc.) as literal text, not just findings about them — unlike ragas/
+# semgrep/knip/vulture reports, which log scores or code-quality findings,
+# never raw attack content. Committing that raw payload text to a public-ish
+# repo history is a different risk profile from committing a coverage
+# report, so it stays excluded even after the inconsistency with its
+# siblings was investigated and confirmed (USS-TJR-MSN-0368,
+# 2026-09-13) — not an oversight.
+reports/garak/
+
 # Editor
 .vscode/
 .idea/
@@ -54,6 +83,12 @@ outputs/
 # id_registry.py's fcntl lock file — ephemeral, recreated on every mint.
 # Track .id-counters.json itself (it's the durable counter state); never this.
 .id-counters.lock
+
+# deploy/auto-deploy.sh's dirty-tree debounce marker (tools/
+# alert_on_stale_dirty_tree.py) — must never be tracked, or committing it
+# would itself be a tracked-file change the script's own dirty-check would
+# then trip on.
+.auto-deploy-dirty-since
 
 # core/platform/memory_graph.py's embedded FalkorDB Lite store (via
 # redislite) — a local binary graph database file, not a durable evidence
@@ -72,3 +107,92 @@ data/memory_graph.db*
 # .infisical-auth.env leak. Ignored explicitly before that repeats.
 core/voice/chatterbox-venv/
 core/voice/cache/
+
+# Same gap, same fix: every dedicated `platform-runtime/.venv-<tool>`
+# isolation venv (core/quality/garak_gate.py's convention for a heavy or
+# conflicting-dependency pip install that shouldn't pollute the shared
+# platform-runtime/.venv) has a literal name the venv/ patterns above don't
+# match. .venv-garak was found untracked-but-not-ignored here too
+# (USS-TJR-MSN-0366 Stream 3, 2026-09-12) — same shape of gap, fixed the
+# same way rather than leaving the next one to repeat it.
+platform-runtime/.venv-*/
+
+# Kokoro TTS (core/voice/tts_kokoro.py, USS-TJR-MSN-0366 Stream 7) — same
+# gap, ignored up front this time. kokoro-venv/ is the isolated venv
+# (ONNX Runtime, no torch/CUDA); kokoro-models/ holds the ~340MB model
+# weights downloaded from GitHub Releases (see tts_kokoro.py's header
+# comment for why not huggingface.co) — binary, regenerable, not source.
+core/voice/kokoro-venv/
+core/voice/kokoro-models/
+
+# Presidio + NeMo Guardrails (core/security/, USS-TJR-MSN-0366 Stream 5) —
+# isolated venv, same "different literal name doesn't match venv/ patterns
+# above" gap the chatterbox-venv/ entry documents. Ignored explicitly up
+# front this time rather than found untracked-but-not-ignored later.
+platform-runtime/.venv-llmsec/
+
+# data/self-improvement/review/: the self-improvement engine's live review
+# state — mutated continuously between cycles as findings get reviewed
+# (decisions.jsonl, opportunities.jsonl) or a cycle runs (.evolution_cycle.lock).
+# Unlike data/self-improvement/runs/ (durable per-cycle evidence, tracked
+# on purpose), these change outside of any deliberate commit, which kept
+# dirtying the VM's working tree and blocking deploy/auto-deploy.sh's
+# fast-forward-only pull (confirmed 2026-09-09: divergence + repeated
+# "working tree is dirty" aborts). Untracked here; the periodic cycle-summary
+# files in the same directory (cycle_summary.json, decision_report.json,
+# evolution_summary.json, opportunity_id_counter.txt, remediation_results.jsonl,
+# mission_dispatch_log.jsonl, finding_staleness.jsonl) are intentionally
+# still committed as each cycle's record and are unaffected by this.
+data/self-improvement/review/.evolution_cycle.lock
+data/self-improvement/review/opportunity_id_counter.lock
+data/self-improvement/review/decisions.jsonl
+data/self-improvement/review/opportunities.jsonl
+# Per-topic last-searched timestamps for external_discovery.py's watchlist
+# rotation — rewritten every cycle, same reason as the files above.
+data/self-improvement/review/watchlist_rotation_state.json
+
+# data/alert_state/: runtime alert-dedup state written by auto-deploy's
+# health-check step, root-owned, mutates every cycle — untracked for the
+# same reason as the self-improvement lock files above.
+data/alert_state/
+
+# cortex_suite (github.com/Artistsyn/cortex_suite) local install, wired into
+# core/engineering/context_enricher.py's STRUCTURAL API CONTEXT section.
+# .cortex/index-sources.json IS committed (the source-root config); everything
+# else here is machine-local, regenerated by `.cortex/cortex.sh reindex`.
+.cortex/memory.db
+.cortex/apigraph/
+.cortex/suite.env
+.cortex/cortex.sh
+.cortex/cortex.ps1
+.cortex/prefs.toml
+.mcp.json
+CLAUDE.md
+.github/copilot-instructions.md
+
+# Local git worktrees created by parallel Claude Code subagents — ephemeral
+# per-session checkouts, not repo content.
+.claude/worktrees/
+
+# USS-TJR-MSN-0366 Stream 6 — watchlist execution engine (changedetection.io
+# + Uptime Kuma, see deploy/docker-compose.watchlist.yml). Bind-mounted
+# container data dirs: SQLite DBs, a per-container generated API
+# key/JWT secret, and a locally-copied TLS CA bundle — all machine-local
+# runtime state, never repo content, and never something to commit
+# (the API key/JWT secret are real, if low-stakes, credentials).
+deploy/watchlist-data/
+
+# webhook_queue.py's on-disk bridge between changedetection_webhook.py/
+# uptime_kuma_webhook.py and their adapters — transient runtime state
+# (drained every collection cycle), not repo content.
+intelligence/watchlist/_queue/*.jsonl
+.claude/settings.local.json
+
+# XO bot daily medication reminder — local per-VM confirmation state
+telegram-bots/xo/.medication_state.json
+
+# data/resilience-crosswalk/: the Operational Resilience Advisor's live audit
+# trail (lib/resilience/audit.py) — local runtime state that can hold the
+# Captain's work queries, so it stays out of git like the self-improvement
+# review logs above.
+data/resilience-crosswalk/

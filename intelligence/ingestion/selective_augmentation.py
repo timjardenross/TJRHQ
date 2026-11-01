@@ -23,7 +23,7 @@ denial; never raises.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +67,9 @@ def augment_if_ambiguous(
         cost_governor.log_call(
             task_type=task_type,
             provider=(llm_score.provider if llm_score else "unknown"),
+            model_name=llm_score.model_name if llm_score else None,
+            input_tokens=llm_score.input_tokens if llm_score else None,
+            output_tokens=llm_score.output_tokens if llm_score else None,
             success=llm_score is not None,
             failure_reason=None if llm_score else "no_llm_result_or_unparseable",
         )

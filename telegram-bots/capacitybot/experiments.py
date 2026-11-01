@@ -285,7 +285,7 @@ async def list_experiments(db, statuses: tuple[str, ...] = OPEN_STATUSES) -> lis
             .execute()
         )
         return res.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_experiments list failed: %s", exc)
         return []
 
@@ -297,7 +297,7 @@ async def get_experiment(db, experiment_id) -> dict | None:
         res = db.table(TABLE).select("*").eq("id", experiment_id).limit(1).execute()
         rows = res.data or []
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_experiments lookup failed: %s", exc)
         return None
 
@@ -327,7 +327,7 @@ async def create_experiment(
         res = db.table(TABLE).insert(payload).execute()
         row = (res.data or [None])[0]
         return True, row, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_experiments insert failed: %s | payload=%s", exc, payload)
         return False, None, str(exc)
 
@@ -338,7 +338,7 @@ async def _update(db, experiment_id, fields: dict) -> tuple[bool, str | None]:
     try:
         db.table(TABLE).update(fields).eq("id", experiment_id).execute()
         return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_experiments update failed: %s | fields=%s", exc, fields)
         return False, str(exc)
 

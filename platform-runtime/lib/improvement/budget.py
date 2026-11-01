@@ -138,6 +138,14 @@ class ImprovementBudget:
 
 # ── Engine ────────────────────────────────────────────────────────────────────
 
+def _capacity_enforcing() -> bool:
+    try:
+        from core.health.capacity_enforcement import enforcing
+    except Exception:  # noqa: BLE001 - if the switch cannot load, keep the original behaviour
+        return True
+    return enforcing()
+
+
 class ImprovementBudgetEngine:
     """Computes improvement budget and gates mission creation.
 
@@ -162,7 +170,13 @@ class ImprovementBudgetEngine:
         Returns:
             ImprovementBudget with current state.
         """
-        allocation = CAPACITY_ALLOCATION.get(capacity_status, CAPACITY_ALLOCATION["Unknown"])
+        advisory = not _capacity_enforcing()
+        # Advisory mode (owner decision 2026-10-18): the reading is reported as before, but the
+        # budget is sized as for Green and Red does not close it. CAPACITY_ENFORCEMENT=enforce
+        # restores the original allocation.
+        allocation = CAPACITY_ALLOCATION.get(
+            "Green" if advisory else capacity_status, CAPACITY_ALLOCATION["Unknown"]
+        )
         max_missions = int(allocation["max_improvement_missions"])
         active_count = self._count_active_improvement_missions()
         remaining = max(0, max_missions - active_count)
@@ -171,7 +185,9 @@ class ImprovementBudgetEngine:
         can_create = remaining > 0
 
         # Red capacity: no new improvement missions unless captain override + critical
-        if capacity_status == "Red" and not captain_override:
+        if advisory:
+            pass
+        elif capacity_status == "Red" and not captain_override:
             can_create = False
         elif capacity_status == "Red" and captain_override:
             exception_active = True
@@ -239,7 +255,7 @@ class ImprovementBudgetEngine:
                 if str(r.get("status") or "").lower() in _ACTIVE_STATUSES
             ]
             return len(active)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort active-count lookup, already logged
             log.debug("[improvement.budget] Active count unavailable: %s", exc)
             return 0
 
@@ -264,8 +280,8 @@ class ImprovementBudgetEngine:
                 ),
                 owner="improvement_budget:human_systems",
             )
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort human systems budget note, already logged
+            log.debug("[lib.improvement.budget] best-effort step failed, continuing: %s", _exc)
 
     def _log_budget_exception(self, capacity_status: str, active_count: int) -> None:
         try:
@@ -281,8 +297,8 @@ class ImprovementBudgetEngine:
                 ),
                 owner="improvement_budget:captain_override",
             )
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort captain override budget note, already logged
+            log.debug("[lib.improvement.budget] best-effort step failed, continuing: %s", _exc)
 
 
 def get_current_budget(
@@ -312,11 +328,11 @@ def budget_report(budget: ImprovementBudget) -> str:
 
 
 __all__ = [
-    "ImprovementBudget",
-    "ImprovementBudgetEngine",
     "CAPACITY_ALLOCATION",
     "DISCOVERY_ALWAYS_PERMITTED",
     "EXECUTION_GOVERNED_BY_CAPACITY",
-    "get_current_budget",
+    "ImprovementBudget",
+    "ImprovementBudgetEngine",
     "budget_report",
+    "get_current_budget",
 ]

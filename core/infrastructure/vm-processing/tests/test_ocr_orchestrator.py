@@ -1,5 +1,4 @@
 import pytest
-
 from ocr import orchestrator, paddleocr_stub
 from ocr.base import OCREngineError
 

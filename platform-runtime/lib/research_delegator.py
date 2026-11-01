@@ -22,15 +22,15 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import json
 import logging
+import os
 import time
-import urllib.request
 import urllib.error
-from typing import Any, Optional
-from dataclasses import dataclass, asdict, field
-from datetime import datetime, timedelta
+import urllib.request
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from typing import Any
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 try:
@@ -64,15 +64,15 @@ class ResearchOutcome:
 
     status: str  # "success", "timeout", "error", "no_providers"
     provider: str  # "gemini-3.5-flash-lite", "gemini-2-flash", "ollama", "none"
-    findings: Optional[str] = None
+    findings: str | None = None
     references: list[str] = None
-    error_message: Optional[str] = None
-    execution_time_ms: Optional[int] = None
-    tokens_used: Optional[dict[str, int]] = None
+    error_message: str | None = None
+    execution_time_ms: int | None = None
+    tokens_used: dict[str, int] | None = None
     timestamp: str = None
     provider_attempted: list[str] = None  # List of providers attempted in order (telemetry)
     provider_skipped: list[str] = field(default_factory=list)  # Providers skipped due to quota/unavailability
-    fallback_reason: Optional[str] = None  # Why fallback was used (e.g., "gemini_quota_exhausted")
+    fallback_reason: str | None = None  # Why fallback was used (e.g., "gemini_quota_exhausted")
 
     def __post_init__(self):
         if self.references is None:
@@ -80,7 +80,7 @@ class ResearchOutcome:
         if self.provider_attempted is None:
             self.provider_attempted = []
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow().isoformat()
+            self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -97,7 +97,7 @@ class MissionGeminiQuota:
     mission_id: str
     gemini_calls_made: int = 0
     gemini_quota_exhausted: bool = False
-    quota_exhausted_timestamp: Optional[str] = None
+    quota_exhausted_timestamp: str | None = None
 
     def record_gemini_call(self) -> None:
         """Record a Gemini call for this mission."""
@@ -107,7 +107,7 @@ class MissionGeminiQuota:
     def mark_quota_exhausted(self) -> None:
         """Mark Gemini quota as exhausted for this mission."""
         self.gemini_quota_exhausted = True
-        self.quota_exhausted_timestamp = datetime.utcnow().isoformat()
+        self.quota_exhausted_timestamp = datetime.now(timezone.utc).isoformat()
         log.warning(f"[QUOTA-MISSION] {self.mission_id}: Gemini quota exhausted. Falling back to Ollama for remaining tasks.")
 
     def can_use_gemini(self) -> bool:
@@ -135,8 +135,8 @@ def get_mission_gemini_quota(mission_id: str) -> MissionGeminiQuota:
 def call_mistral_research(
     task_description: str,
     timeout_sec: int = 60,
-    mission_id: str = None,
-) -> "ResearchOutcome":
+    mission_id: str | None = None,
+) -> ResearchOutcome:
     """
     Call the Mistral Research Agent as primary provider for task execution.
 
@@ -194,7 +194,7 @@ def call_legacy_research_routing(
 def call_ollama_research(
     task_description: str,
     timeout_sec: int = 120,
-    ollama_url: str = None
+    ollama_url: str | None = None
 ) -> ResearchOutcome:
     """Submit research task to qwen3:8b via Ollama (local fallback).
 
@@ -245,10 +245,10 @@ Keep response concise but informative."""
             method="POST"
         )
 
-        log.info(f"Calling Ollama (qwen3:8b) for research")
+        log.info("Calling Ollama (qwen3:8b) for research")
 
         # Make request with timeout
-        with urllib.request.urlopen(request, timeout=timeout_sec) as response:
+        with urllib.request.urlopen(request, timeout=timeout_sec) as response:  # nosec B310 - endpoint built from OLLAMA_BASE_URL env var (internal router base) plus a fixed literal path, not user input - reviewed 2026-09-12
             response_data = json.loads(response.read().decode("utf-8"))
             findings = response_data.get("response", "No findings returned")
 
@@ -267,7 +267,7 @@ Keep response concise but informative."""
         return ResearchOutcome(
             status="error",
             provider="ollama",
-            error_message=f"Ollama connection failed: {str(e)}"
+            error_message=f"Ollama connection failed: {e!s}"
         )
 
     except json.JSONDecodeError as e:
@@ -275,7 +275,7 @@ Keep response concise but informative."""
         return ResearchOutcome(
             status="error",
             provider="ollama",
-            error_message=f"Invalid response from Ollama: {str(e)}"
+            error_message=f"Invalid response from Ollama: {e!s}"
         )
 
     except urllib.error.HTTPError as e:
@@ -286,12 +286,12 @@ Keep response concise but informative."""
             error_message=f"Ollama HTTP {e.code}: {e.reason}"
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (ollama research failed: {e})
         log.error(f"Ollama research failed: {e}")
         return ResearchOutcome(
             status="error",
             provider="ollama",
-            error_message=f"Ollama error: {str(e)}"
+            error_message=f"Ollama error: {e!s}"
         )
 
 
@@ -361,8 +361,8 @@ def call_gemini_2_flash_research(
                         match = re.search(r'retry_delay["\']?\s*:\s*(\d+)', error_str)
                         if match:
                             retry_delay_sec = int(match.group(1))
-                    except:
-                        pass
+                    except ValueError as exc:
+                        log.debug("[lib.research_delegator] could not parse retry_delay from error string: %s", exc)
 
                 log.warning(f"Gemini 2 Flash 429 rate limit. Retrying after {retry_delay_sec}s...")
                 time.sleep(retry_delay_sec + 2)
@@ -378,7 +378,7 @@ def call_gemini_2_flash_research(
                         )
                     )
                     log.info("Gemini 2 Flash retry succeeded")
-                except Exception as retry_error:
+                except Exception as retry_error:  # noqa: BLE001 - best-effort step, already logged (gemini 2 flash retry failed: {retry_error}. will try)
                     log.warning(f"Gemini 2 Flash retry failed: {retry_error}. Will try next provider.")
                     return ResearchOutcome(
                         status="rate_limited",
@@ -386,7 +386,7 @@ def call_gemini_2_flash_research(
                         error_message=f"Rate limited (retried, failed): {str(retry_error)[:100]}"
                     )
             else:
-                raise gemini_error
+                raise
 
         findings = response.text if response.text else "No findings returned"
 
@@ -408,15 +408,15 @@ def call_gemini_2_flash_research(
         return ResearchOutcome(
             status="error",
             provider="gemini-2-flash",
-            error_message=f"Gemini 2 Flash API error: {str(e)}"
+            error_message=f"Gemini 2 Flash API error: {e!s}"
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (gemini 2 flash research failed: {e})
         log.error(f"Gemini 2 Flash research failed: {e}")
         return ResearchOutcome(
             status="error",
             provider="gemini-2-flash",
-            error_message=f"Gemini 2 Flash error: {str(e)}"
+            error_message=f"Gemini 2 Flash error: {e!s}"
         )
 
 
@@ -491,8 +491,8 @@ def call_gemini_2_5_flash_lite_research(
                         match = re.search(r'retry_delay["\']?\s*:\s*(\d+)', error_str)
                         if match:
                             retry_delay_sec = int(match.group(1))
-                    except:
-                        pass
+                    except ValueError as exc:
+                        log.debug("[lib.research_delegator] could not parse retry_delay from error string: %s", exc)
 
                 # If daily quota exhausted (large retry_delay), fail immediately
                 if retry_delay_sec >= 30 or "daily" in error_str.lower():
@@ -523,7 +523,7 @@ def call_gemini_2_5_flash_lite_research(
                             )
                         )
                         log.info("Gemini 2.5 Flash Lite retry succeeded")
-                    except Exception as retry_error:
+                    except Exception as retry_error:  # noqa: BLE001 - best-effort step, already logged (gemini 2.5 flash lite retry failed: {retry_error}. will)
                         log.warning(f"Gemini 2.5 Flash Lite retry failed: {retry_error}. Will try next provider.")
                         return ResearchOutcome(
                             status="rate_limited",
@@ -532,7 +532,7 @@ def call_gemini_2_5_flash_lite_research(
                             fallback_reason="gemini_rate_limited"
                         )
             else:
-                raise gemini_error
+                raise
 
         findings = response.text if response.text else "No findings returned"
 
@@ -554,15 +554,15 @@ def call_gemini_2_5_flash_lite_research(
         return ResearchOutcome(
             status="error",
             provider="gemini-3.5-flash-lite",
-            error_message=f"Gemini 2.5 Flash Lite API error: {str(e)}"
+            error_message=f"Gemini 2.5 Flash Lite API error: {e!s}"
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (gemini 2.5 flash lite research failed: {e})
         log.error(f"Gemini 2.5 Flash Lite research failed: {e}")
         return ResearchOutcome(
             status="error",
             provider="gemini-3.5-flash-lite",
-            error_message=f"Gemini 2.5 Flash Lite error: {str(e)}"
+            error_message=f"Gemini 2.5 Flash Lite error: {e!s}"
         )
 
 
@@ -575,17 +575,21 @@ def delegate_research_task(
     timeout_sec: int = 120,
     gemini_timeout_sec: int = 120,
     ollama_timeout_sec: int = 120,
-    provider_health: Optional[ProviderHealth] = None,
-    mission_id: Optional[str] = None,
+    provider_health: ProviderHealth | None = None,
+    mission_id: str | None = None,
 ) -> ResearchOutcome:
     """Delegate research task with quota-aware provider chain fallback.
 
     MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware routing prevents repeated
     Gemini quota exhaustion retries and 34-second waits that degrade research.
 
-    Provider chain (in order, quota-aware):
-      1. Gemini 3.5 Flash Lite (primary - if quota available AND not exhausted)
-      2. qwen3:8b via Ollama (fallback - local, free, no quota limits)
+    Provider chain (in order, quota-aware) — M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW
+    reordered this to put Mistral first; this docstring previously still
+    described the pre-Mistral 2-provider order, which had silently drifted
+    from the `providers` list below:
+      1. Mistral Research Agent (primary)
+      2. qwen3:8b via Ollama (local fallback, free, no quota limits)
+      3. Gemini 3.5 Flash Lite (secondary fallback - if quota available AND not exhausted)
 
     Quota Budgeting (per-mission):
     - Max GEMINI_MAX_CALLS_PER_MISSION (default=1) per mission
@@ -668,7 +672,7 @@ def delegate_research_task(
                     f"[msp-0060b] Adaptive routing active: "
                     f"order={adaptive_provider_order}"
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort step, already logged (adaptive routing unavailable (using default order): {type(e).__name__})
             log.warning(
                 f"[msp-0060b] Adaptive routing unavailable (using default order): {type(e).__name__}"
             )
@@ -699,7 +703,7 @@ def delegate_research_task(
             if len(reordered) > 0:
                 providers = reordered
                 log.info(f"[msp-0060b] Reordered providers by quality: {[p[0] for p in providers]}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort step, already logged (provider reordering failed, using default: {e})
             log.warning(f"[msp-0060b] Provider reordering failed, using default: {e}")
 
     for provider_id, provider_name, provider_func in providers:
@@ -711,12 +715,11 @@ def delegate_research_task(
             continue
 
         # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Skip Gemini if quota exhausted
-        if provider_id.startswith("gemini") and mission_quota:
-            if not mission_quota.can_use_gemini():
-                reason = "mission_quota_exhausted" if mission_quota.gemini_calls_made >= GEMINI_MAX_CALLS_PER_MISSION else "daily_quota_exceeded"
-                providers_skipped.append(f"{provider_id}({reason})")
-                log.debug(f"[QUOTA-AWARE] {provider_id}: Skipping - {reason}. Calls: {mission_quota.gemini_calls_made}/{GEMINI_MAX_CALLS_PER_MISSION}")
-                continue
+        if provider_id.startswith("gemini") and mission_quota and not mission_quota.can_use_gemini():
+            reason = "mission_quota_exhausted" if mission_quota.gemini_calls_made >= GEMINI_MAX_CALLS_PER_MISSION else "daily_quota_exceeded"
+            providers_skipped.append(f"{provider_id}({reason})")
+            log.debug(f"[QUOTA-AWARE] {provider_id}: Skipping - {reason}. Calls: {mission_quota.gemini_calls_made}/{GEMINI_MAX_CALLS_PER_MISSION}")
+            continue
 
         providers_attempted.append(provider_id)
         log.info(f"[QUOTA-AWARE] Provider chain: Attempting {provider_name}")
@@ -808,9 +811,10 @@ def is_provider_available(provider: str) -> bool:
                 f"{ollama_url}/api/tags",
                 method="GET"
             )
-            with urllib.request.urlopen(request, timeout=5) as response:
+            with urllib.request.urlopen(request, timeout=5) as response:  # nosec B310 - endpoint built from OLLAMA_BASE_URL env var (internal router base) plus a fixed literal path, not user input - reviewed 2026-09-12
                 return response.status == 200
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - best-effort Ollama availability probe
+            log.debug("[research_delegator] Ollama availability check failed: %s", exc)
             return False
 
     return False
@@ -861,7 +865,7 @@ if __name__ == "__main__":
 
     outcome = delegate_research_task(test_task, timeout_sec=30)
 
-    print(f"\nResult:")
+    print("\nResult:")
     print(f"  Status: {outcome.status}")
     print(f"  Provider: {outcome.provider}")
     print(f"  Error: {outcome.error_message}")

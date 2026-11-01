@@ -411,7 +411,7 @@ presentation redesign, landed second as Phase 2. Both are now complete.
   unavailable states.
 - Removed the dead second capacity-read hook (`useCapacityToday`).
 - P3 doc correction (Calendar wiring — see
-  `HQ-V1-INTEGRATION-CONTRACTS.md`).
+  `COMMAND-SURFACE-CONTRACTS.md`).
 
 **Phase 2 — presentation redesign:**
 - `src/lib/commandState.ts`: the new shared composition layer
@@ -498,10 +498,10 @@ the design holds:
 - The Alerts taxonomy audit (decision/escalation/blocked/review/wellness
   vs. `NeedsYouKind`/`AlertSeverity`) named in the original mission brief.
   `src/lib/alerts.ts`'s `AlertSeverity` still does not map 1:1 onto
-  `NeedsYouKind` — see `HQ-V1-INTEGRATION-CONTRACTS.md`'s "known remaining
+  `NeedsYouKind` — see `COMMAND-SURFACE-CONTRACTS.md`'s "known remaining
   duplication" section. This is an audit, not a required repair, per the
   mission brief's own scoping.
 - Ready Room's own assessed execution-state contract (analogous to Human
   Systems' `assessed-context.ts`) does not exist yet; both surfaces still
   read a personal-tasks reminder slice (`useReminders()`) rather than a
-  full execution-state summary (§2, `HQ-V1-INTEGRATION-CONTRACTS.md`).
+  full execution-state summary (§2, `COMMAND-SURFACE-CONTRACTS.md`).

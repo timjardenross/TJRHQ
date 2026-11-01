@@ -24,13 +24,13 @@ from __future__ import annotations
 import sys
 import types
 from pathlib import Path
+from typing import ClassVar
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
 sys.path.insert(0, str(_REPO_ROOT / "platform-runtime" / "lib"))
 
-import outcome_capture as oc  # noqa: E402
-
+import outcome_capture as oc
 
 # ---------------------------------------------------------------------------
 # Test helpers — a tiny in-memory Supabase stub
@@ -305,7 +305,7 @@ def test_aging_band_thresholds():
 
 
 def test_age_days_parses_iso():
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     now = datetime(2026, 6, 25, tzinfo=timezone.utc)
     ts = (now - timedelta(days=10)).isoformat()
     assert oc._age_days(ts, _now=now) == 10
@@ -332,7 +332,7 @@ def test_learning_health_model():
 
 
 def test_velocity_and_trend_buckets():
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     now = datetime.now(timezone.utc)
     rows = [
         {"created_at": (now - timedelta(days=1)).isoformat()},   # week 0
@@ -400,7 +400,7 @@ def test_daily_brief_renders_learning_line():
         headline = "Steady"
         overall_band = "GREEN"
         overall_score = 80
-        domains = [_Dom()]
+        domains: ClassVar = [_Dom()]
 
     class _Rec:
         escalation = ""
@@ -442,7 +442,8 @@ def test_daily_brief_shows_health_overdue_and_sensitive():
         def __init__(self): self.label, self.band = "Physical", "GREEN"
 
     class _Cap:
-        headline = "Steady"; overall_band = "GREEN"; overall_score = 80; domains = [_Dom()]
+        headline = "Steady"; overall_band = "GREEN"; overall_score = 80
+        domains: ClassVar = [_Dom()]
 
     class _Rec:
         escalation = ""; primary = "x"; expected_impact = "i"; opportunity_cost = "c"
@@ -479,7 +480,7 @@ def _run() -> int:
         except AssertionError as e:
             print(f"  ❌ {t.__name__}: {e}")
             failed += 1
-        except Exception as e:  # unexpected
+        except Exception as e:  # noqa: BLE001 - test-runner harness: catches any unexpected failure from a test function to tally it and continue
             print(f"  💥 {t.__name__}: {type(e).__name__}: {e}")
             failed += 1
         finally:
@@ -487,7 +488,7 @@ def _run() -> int:
             try:
                 import importlib
                 importlib.reload(oc)
-            except Exception:
+            except Exception:  # noqa: S110, BLE001 - best-effort module-state cleanup between tests, failure here must not mask the real test result
                 pass
     print(f"\n── Outcome Capture Tests: {passed} passed, {failed} failed ──")
     return 1 if failed else 0

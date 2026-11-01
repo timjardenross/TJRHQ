@@ -23,7 +23,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from schema import ConfidenceLevel, EvidenceItem, RelatedDecision
 
@@ -54,7 +54,7 @@ def _keywords(text: str) -> set[str]:
 def _load_store():
     """Return the mission_knowledge_store module, or None if unavailable."""
     try:
-        import mission_knowledge_store  # noqa: PLC0415  (flat sibling import)
+        import mission_knowledge_store
         return mission_knowledge_store
     except Exception:  # noqa: BLE001
         return None
@@ -180,7 +180,7 @@ def _normalise_outcome(value: Any) -> str:
 def score_confidence(
     base: float,
     raw_evidence: Any,
-    officer_confidences: Optional[list[int]] = None,
+    officer_confidences: list[int] | None = None,
 ) -> ConfidenceLevel:
     """Derive a ConfidenceLevel from a base score, evidence and officer agreement.
 

@@ -17,7 +17,7 @@ const router = express.Router();
 const { execFile } = require('child_process');
 const path = require('path');
 const { cacheManager } = require('../cache/cache-manager');
-const { asyncHandler, successResponse, ApiError } = require('../middleware/error-handling');
+const { asyncHandler, successResponse } = require('../middleware/error-handling');
 const notificationEngine = require('../services/notification-engine');
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../..');
@@ -146,41 +146,19 @@ print(json.dumps({'resolved': ok, 'key': '${key}'}))
   res.json(successResponse(data));
 }));
 
-// ── In-app notification store endpoints ──────────────────────────────────────
-
-// GET /api/v1/notifications/unread
-router.get('/unread', asyncHandler(async (req, res) => {
-  const notes = notificationEngine.getUnread();
-  res.json(successResponse(notes, 200, { count: notes.length }));
-}));
-
-// GET /api/v1/notifications/history?limit=50
-router.get('/history', asyncHandler(async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-  const notes = notificationEngine.getHistory(limit);
-  res.json(successResponse(notes, 200, { count: notes.length }));
-}));
-
-// POST /api/v1/notifications/:id/read
-router.post('/:id/read', asyncHandler(async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) throw new ApiError(400, 'id must be a number');
-  const found = notificationEngine.markRead(id);
-  if (!found) throw new ApiError(404, `Notification ${id} not found`);
-  res.json(successResponse({ id, read: true }));
-}));
-
-// POST /api/v1/notifications/read-all
-router.post('/read-all', asyncHandler(async (req, res) => {
-  notificationEngine.markAllRead();
-  res.json(successResponse({ ok: true }));
-}));
+// Mission 6B §8.2: the in-app unread/history/read-all/:id/read routes that
+// used to live here were retired — they read/wrote notification-engine.js's
+// in-memory `_store`, which had zero live UI consumer (confirmed by
+// repo-wide search) and reset on every process restart, so "read" state was
+// decorative rather than canonical. The real value here — signal
+// evaluation + Telegram delivery — is unaffected; see that file's header
+// comment. A future in-app notification surface belongs on Follow-
+// Through's canonical personal_tasks state, not a new local store.
 
 // POST /api/v1/notifications/trigger  — manual evaluation cycle (for testing)
 router.post('/trigger', asyncHandler(async (req, res) => {
   await notificationEngine.evaluate();
-  const notes = notificationEngine.getHistory(20);
-  res.json(successResponse({ triggered: true, recent: notes.slice(0, 5) }));
+  res.json(successResponse({ triggered: true }));
 }));
 
 module.exports = router;

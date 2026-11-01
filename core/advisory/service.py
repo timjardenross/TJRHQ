@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parents[1]
@@ -39,16 +39,17 @@ for _p in (str(_HERE), str(_REPO_ROOT / "tools" / "supabase"), str(_REPO_ROOT / 
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from schema import (  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+from schema import (
     AdvisoryResponse,
     ConfidenceLevel,
     OfficerPerspective,
 )
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
-_evidence = _import_sibling("evidence")  # noqa: E402
-_lessons = _import_sibling("lessons")  # noqa: E402
-_learning = _import_sibling("learning")  # noqa: E402
-_outcomes = _import_sibling("outcomes")  # noqa: E402
+
+_evidence = _import_sibling("evidence")
+_lessons = _import_sibling("lessons")
+_learning = _import_sibling("learning")
+_outcomes = _import_sibling("outcomes")
 
 
 # ---------------------------------------------------------------------------
@@ -85,8 +86,8 @@ def available_officers() -> list[dict[str, str]]:
 def request_advice(
     question: str,
     *,
-    mission_id: Optional[str] = None,
-    mission_type: Optional[str] = None,
+    mission_id: str | None = None,
+    mission_type: str | None = None,
     challenge: bool = True,
     keyword: bool = False,
     record: bool = True,
@@ -231,24 +232,24 @@ def invoke(action: str, query: str, **opts: Any):
 
 def _run_pipeline(
     question: str,
-    mission_id: Optional[str],
+    mission_id: str | None,
     challenge: bool,
     keyword: bool,
 ) -> dict[str, Any]:
     """Run the existing specialist pipeline. Always returns a dict (never raises)."""
     try:
-        from collaboration_router import select_specialists
-        from specialist_executor import execute_specialist
-        from mission_context_builder import build_context
-        from decision_mode_classifier import classify_decision_mode
-        from decision_context_builder import build_decision_context
-        from review_specialist_selector import select_review_specialist
         from challenge_review import run_challenge_review
+        from collaboration_router import select_specialists
         from commander_synthesis import (
-            synthesize_commander,
-            extract_section,
             extract_bullets,
+            extract_section,
+            synthesize_commander,
         )
+        from decision_context_builder import build_decision_context
+        from decision_mode_classifier import classify_decision_mode
+        from mission_context_builder import build_context
+        from review_specialist_selector import select_review_specialist
+        from specialist_executor import execute_specialist
     except Exception as exc:  # noqa: BLE001
         return _degraded_pipeline(f"advisory pipeline unavailable: {exc}")
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Human Systems Proactive Scheduler / Job-Runner (WP7, HSF-001 §7.2).
 
 Turns the Human Systems Officer from a purely reactive command into a proactive
@@ -5,27 +6,25 @@ capability. It does NOT introduce a new standalone daemon — it reuses:
 
   * the push generators (lib/human_systems/push.py)            — no new logic
   * the framework data fetch (commands/human_systems._fetch_rows)
-  * the Slack DM delivery pattern (lib/human_systems/delivery.py)
+  * the Telegram delivery pattern (lib/human_systems/delivery.py)
   * Command Memory (lib/human_systems/memory.py)
   * the SAME APScheduler + cron-from-env pattern as intelligence/scheduler.py
   * the SAME CLI invocation contract (--once / --job / --test / --json) so an
-    external trigger (cron, CI, or the running bot) drives it.
+    external trigger (cron, CI, or a caller) drives it.
 
-Two ways to run, both reusing the above:
-  1. In-process (recommended): start_in_process(client) is called from the
-     already-running slack-bot (app.py), so there is NO separate process.
-  2. CLI job-runner: `python human_systems_scheduler.py --job morning`
-     for cron/CI/manual invocation, mirroring `python -m intelligence.scheduler`.
+Run via: `python human_systems_scheduler.py --job morning` for cron/CI/manual
+invocation (mirroring `python -m intelligence.scheduler`), or `--daemon` for
+a standalone blocking APScheduler process. run_job() is also importable for
+one-shot use from a command handler (commands/human_systems.py,
+commands/comms.py) without starting any scheduler at all.
 
-# LOCAL SCHEDULER: tightly coupled to Slack bot process — cannot migrate to
-# canonical scheduler (intelligence/scheduler.py). start_in_process() uses a
-# BackgroundScheduler that receives the live Slack WebClient at startup; every
-# job delivers via lib/human_systems/delivery.py which requires that client.
-# The canonical scheduler is a BlockingScheduler with no Slack client and no
-# access to the delivery layer. run_job() is also importable for one-shot CLI
-# or command-handler use (app.py, commands/human_systems.py, commands/comms.py)
-# without starting any scheduler at all.
-"""
+2026-09-08: Slack retired as a transport (Captain direction — Slack was
+disabled). This module previously offered an additional in-process mode
+(start_in_process()) that ran inside the Slack bot process (app.py) and
+delivered via its live Slack WebClient — removed along with app.py itself.
+delivery.py is Telegram-only now, driven purely by env config, so every run
+mode here (CLI job, --test, --daemon) needs no client/channel to be passed
+in at all.
 
 Jobs:
   morning      Morning Readiness Pulse        (default HS_MORNING_CRON   "0 7 * * *")
@@ -40,6 +39,7 @@ actionable signal (push.capacity_degradation_alert returns None otherwise).
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -52,8 +52,8 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.human_systems import push, delivery, memory, decision, mission_load, framework  # noqa: E402
-from commands.human_systems import _fetch_rows, _today_row, _delivery_context  # noqa: E402
+from commands.human_systems import _fetch_rows, _today_row
+from lib.human_systems import delivery, memory, push
 
 JOBS = ("morning", "midday", "eod", "evening", "weekly", "degradation", "comms_weekly")
 
@@ -103,7 +103,8 @@ def _build_message(job: str):
     if job == "comms_weekly":
         # COMMS-001 WP6: the Weekly Thought Leadership Brief. Reuses the live
         # opportunity engine; stays quiet (None) when nothing is publishable.
-        from lib.comms import opportunities as _opp, weekly as _weekly
+        from lib.comms import opportunities as _opp
+        from lib.comms import weekly as _weekly
         opps = _opp.gather_opportunities()
         if not any(getattr(o, "is_publishable", True) for o in opps):
             return None
@@ -115,13 +116,13 @@ def _build_message(job: str):
     raise ValueError(f"unknown job: {job}")
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
     try:
         sys.path.insert(0, str(_BOT_DIR.parent / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("human_systems", status=status, detail=detail, error_message=error_message)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (record_heartbeat failed (non-critical))
         log.debug("[heartbeat] record_heartbeat failed (non-critical): %s", exc)
 
 
@@ -154,15 +155,14 @@ def _publish_core_event(job: str, message, report: dict) -> None:
             domain=domain,
             source="platform-runtime:human_systems_scheduler",
             importance=_SEVERITY_IMPORTANCE.get(message.severity, 20),
-            recommended_action=message.title,
+            description=message.title,
             metrics={"job": job, "delivered": report.get("delivered"), "dry_run": report.get("dry_run")},
         )
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+        log.debug("[human_systems_scheduler] best-effort step failed, continuing: %s", _exc)
 
 
-def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
-            record: bool = True) -> dict:
+def run_job(job: str, *, dry_run: bool = False, record: bool = True) -> dict:
     """Run one proactive job: generate → record → deliver. Returns a report dict."""
     if job not in JOBS:
         return {"job": job, "error": f"unknown job (expected one of {JOBS})"}
@@ -182,10 +182,10 @@ def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
                     output_class=message.output_class, summary=message.title,
                     source="scheduler",
                 )
-            except Exception as exc:  # pragma: no cover
+            except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (memory record failed)
                 log.warning("[human-systems-scheduler] memory record failed: %s", exc)
 
-        result = delivery.deliver(message, client=client, channel=channel, dry_run=dry_run)
+        result = delivery.deliver(message, dry_run=dry_run)
         report = {"job": job, **result.as_dict()}
         log.info("[human-systems-scheduler] job=%s delivered=%s dry_run=%s",
                  job, report["delivered"], report["dry_run"])
@@ -198,92 +198,84 @@ def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
         raise
 
 
-def run_all(*, client=None, channel=None, dry_run: bool = False) -> list[dict]:
+def run_all(*, dry_run: bool = False) -> list[dict]:
     """Run every job once (used for smoke tests and --test)."""
-    return [run_job(j, client=client, channel=channel, dry_run=dry_run) for j in JOBS]
+    return [run_job(j, dry_run=dry_run) for j in JOBS]
 
-
-# ── In-process scheduling (reuses the running slack-bot process) ──────────────
 
 def _timezone():
     tz_name = os.environ.get("HS_SCHEDULE_TZ", "Australia/Sydney")
     try:
         from zoneinfo import ZoneInfo
         return ZoneInfo(tz_name)
-    except Exception:  # pragma: no cover - fall back to scheduler default (UTC)
+    except (ImportError, KeyError):  # pragma: no cover - fall back to scheduler default (UTC)
         return None
 
 
-def start_in_process(client, *, channel: str | None = None):
-    """Start the four jobs on a BackgroundScheduler inside the current process.
+def _cron_expression(job: str) -> str:
+    """Env-var-overridable cron string for `job`, in pgqueuer's cron syntax
+    (identical 5-field crontab format to the old CronTrigger kwargs)."""
+    env_key, default = _CRON_DEFAULTS[job]
+    return os.environ.get(env_key, default)
 
-    Designed to be called from the running slack-bot (app.py) so there is no
-    parallel daemon — the bot is already the long-lived notification service.
-    Returns the scheduler (or None if APScheduler is unavailable).
+
+async def _run_job_async(job: str) -> None:
+    """pgqueuer entrypoints are coroutines; run_job() itself is sync (it
+    calls synchronous Supabase/Telegram clients), so it runs in a thread to
+    avoid blocking pgqueuer's event loop."""
+    await asyncio.to_thread(run_job, job)
+
+
+async def _start_daemon_async():
+    """Postgres-native durable queue daemon (USS-TJR-MSN-0375 pilot).
+
+    Replaces the BlockingScheduler/CronTrigger pair with pgqueuer, whose
+    dequeue() uses `FOR UPDATE SKIP LOCKED` (pgqueuer/adapters/persistence/
+    qb.py) so two co-running instances of this daemon (e.g. during a
+    delayed-restart window) cannot both execute the same due job — the
+    double-fire risk this pilot was scoped to close. JOBS/_CRON_DEFAULTS/
+    _JOB_DOMAIN and every env-var cron override are unchanged; only the
+    execution substrate changed.
     """
-    try:
-        from apscheduler.schedulers.background import BackgroundScheduler
-        from apscheduler.triggers.cron import CronTrigger
-    except ImportError:
-        log.warning("[human-systems-scheduler] APScheduler not installed — proactive jobs disabled")
-        return None
+    import asyncpg
+    from pgqueuer import PgQueuer
+    from pgqueuer.db import AsyncpgDriver
 
-    tz = _timezone()
-    scheduler = BackgroundScheduler(timezone=tz) if tz else BackgroundScheduler()
-
-    for job in JOBS:
-        env_key, default = _CRON_DEFAULTS[job]
-        cron = os.environ.get(env_key, default)
-        parts = cron.split()
-        if len(parts) != 5:
-            log.warning("[human-systems-scheduler] bad cron for %s: %r — skipping", job, cron)
-            continue
-        trigger_kwargs = dict(
-            minute=parts[0], hour=parts[1], day=parts[2],
-            month=parts[3], day_of_week=parts[4],
+    dsn = os.environ.get("SUPABASE_DB_URL") or os.environ.get("HS_SCHEDULER_DB_URL")
+    if not dsn:
+        log.error(
+            "SUPABASE_DB_URL (or HS_SCHEDULER_DB_URL) not set — pgqueuer needs a "
+            "direct Postgres DSN (Supabase project settings -> Database -> "
+            "Connection string), not the supabase-py REST client."
         )
-        if tz:
-            trigger_kwargs["timezone"] = tz
-        scheduler.add_job(
-            run_job, CronTrigger(**trigger_kwargs),
-            kwargs={"job": job, "client": client, "channel": channel},
-            id=f"human_systems_{job}", replace_existing=True,
-        )
-        log.info("[human-systems-scheduler] scheduled %s cron=%r", job, cron)
-
-    scheduler.start()
-    log.info("[human-systems-scheduler] in-process scheduler started (%d jobs)", len(JOBS))
-    return scheduler
-
-
-def _start_daemon(client, channel):
-    """Blocking daemon mode — parity with intelligence/scheduler.py for hosts
-    that prefer a dedicated process. Prefer start_in_process() where possible."""
-    try:
-        from apscheduler.schedulers.blocking import BlockingScheduler
-        from apscheduler.triggers.cron import CronTrigger
-    except ImportError:
-        log.error("APScheduler not installed. Run: pip install apscheduler")
         sys.exit(1)
 
-    tz = _timezone()
-    scheduler = BlockingScheduler(timezone=tz) if tz else BlockingScheduler()
+    conn = await asyncpg.connect(dsn=dsn)
+    pq = PgQueuer(AsyncpgDriver(conn))
+
+    # pgqueuer's SchedulerManager.run() polls pgqueuer_schedules with the
+    # same FOR UPDATE SKIP LOCKED primitive as the main job queue (see
+    # pgqueuer/adapters/persistence/qb.py) — two co-running daemons cannot
+    # both dispatch the same due tick.
     for job in JOBS:
-        env_key, default = _CRON_DEFAULTS[job]
-        parts = os.environ.get(env_key, default).split()
-        kw = dict(minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4])
-        if tz:
-            kw["timezone"] = tz
-        scheduler.add_job(
-            run_job, CronTrigger(**kw),
-            kwargs={"job": job, "client": client, "channel": channel},
-            id=f"human_systems_{job}", replace_existing=True,
-        )
-    log.info("[human-systems-scheduler] daemon started")
+        def _make_handler(job_name: str):
+            async def _handler(_schedule) -> None:
+                await _run_job_async(job_name)
+            return _handler
+
+        pq.schedule(f"human_systems_{job}", _cron_expression(job))(_make_handler(job))
+
+    log.info("[human-systems-scheduler] pgqueuer daemon started (jobs=%s)", ", ".join(JOBS))
     try:
-        scheduler.start()
+        await pq.run()
     except (KeyboardInterrupt, SystemExit):
         log.info("[human-systems-scheduler] stopped")
+    finally:
+        await conn.close()
+
+
+def _start_daemon():
+    asyncio.run(_start_daemon_async())
 
 
 if __name__ == "__main__":
@@ -296,11 +288,8 @@ if __name__ == "__main__":
     parser.add_argument("--daemon", action="store_true", help="Run blocking APScheduler daemon")
     args = parser.parse_args()
 
-    client = None if (args.test or args.dry_run) else delivery.get_slack_client()
-    channel = delivery.captain_channel()
-
     if args.daemon:
-        _start_daemon(client, channel)
+        _start_daemon()
         sys.exit(0)
 
     if args.test:
@@ -310,7 +299,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.job:
-        report = run_job(args.job, client=client, channel=channel, dry_run=args.dry_run)
+        report = run_job(args.job, dry_run=args.dry_run)
         print(json.dumps(report, indent=2) if args.json else report.get("text", report))
         sys.exit(0)
 

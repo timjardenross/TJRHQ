@@ -117,7 +117,7 @@ def convert(input_path: Path, output_path: Path) -> None:
 
     # ── Pretty-print XML ──────────────────────────────────────────────────────
     raw = ET.tostring(root, encoding="unicode")
-    pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")
+    pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")  # nosec B318 - parses our own just-generated ET.tostring() output, not external input
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(pretty)

@@ -27,11 +27,19 @@
 import { NextResponse } from 'next/server';
 import { contextServiceUrl, contextServiceHeaders } from '@/lib/contextService';
 import { requireSession } from '@/lib/supabase-server';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export async function GET() {
   const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // 2026-09-15 adversarial review: this assembles a full brief document
+  // against context_service.py on every call -- cap accidental
+  // loop/retry hammering, not a security boundary.
+  if (!checkRateLimit('captain-brief', 6, 60_000)) {
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 });
   }
 
   try {

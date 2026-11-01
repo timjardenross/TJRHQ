@@ -4,9 +4,10 @@ Production-usable self-improvement capability that continuously audits USS TJR a
 
 **Canonical implementation only.** A second, parallel implementation
 (`self_improving_loop.py`) existed until 2026-07-29 but was never deployed to
-the VM and had gone stale — see
-`self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`. This document
-covers the one actually running in production.
+the VM and had gone stale — it was quarantined under
+`self-improving-loop.DEPRECATED-2026-07-29/` and later removed from the tree;
+see git history for `DEPRECATED.md`. This document covers the one actually
+running in production.
 
 ## Quick Start
 
@@ -181,7 +182,7 @@ Best for:
 ### Scheduled (systemd timer)
 
 ```
-self-improving-system.timer (daily 07:00 Melbourne local, enabled)
+self-improving-system.timer (daily 04:30 Melbourne local, enabled)
 → self-improving-system.service (oneshot)
 → orchestrator.py: collect → analyse (Model Router) → classify (policy engine)
   → process decisions → auto-remediate (if confidence ≥ 0.75) → summarise
@@ -309,8 +310,10 @@ python3 scripts/self_improvement/orchestrator.py --dry-run
 
 ### Scheduled runs — already enabled on the VM
 
-`self-improving-system.timer` is enabled and fires daily at 07:00 Melbourne
-local time (randomized ±5 min). No setup needed; to check or change it:
+`self-improving-system.timer` is enabled and fires daily at 04:30 Melbourne
+local time (randomized ±5 min — moved from 07:00 by HQ V1 Integration QA
+§23 to resolve a documented collision with the Morning Brief). No setup
+needed; to check or change it:
 
 ```bash
 sudo systemctl status self-improving-system.timer
@@ -430,7 +433,7 @@ Review `schemas/self_improvement_finding.schema.json` to understand required fie
 - **Tests:** `tests/test_self_improvement_system.py`
 - **Operations:** `docs/self-improvement/OPERATIONS.md`
 - **Deployment:** `docs/self-improvement/VM-DEPLOYMENT.md`
-- **Deprecated 2nd implementation:** `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`
+- **Deprecated 2nd implementation:** removed from the tree; see git history for `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`
 
 ## Support
 

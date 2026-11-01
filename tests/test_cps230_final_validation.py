@@ -14,14 +14,10 @@ Validates MSN-0060B Phase B1A closure conditions:
 This is the final acceptance test for B1A Decision Capture Foundation.
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from dataclasses import dataclass
-from datetime import datetime
 import logging
-import json
+import sys
+from dataclasses import dataclass
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,8 +69,8 @@ class TestCPS230FinalValidation:
                 spec.loader.exec_module(module)
                 log.info("  ✓ research_orchestration.py loaded successfully")
             else:
-                raise Exception("Could not load research_orchestration.py")
-        except Exception as e:
+                raise RuntimeError("Could not load research_orchestration.py")
+        except Exception as e:  # noqa: BLE001 - test asserts the module loads without raising any error at all
             log.error(f"  ✗ Failed to load: {e}")
             return False
 
@@ -234,8 +230,8 @@ class TestCPS230FinalValidation:
         log.info("TEST 9: Security — Backend-Only Access Model")
 
         files_to_check = [
-            Path("/Users/timjarden-ross/Documents/GitHub/USSTJROS/platform-runtime/lib/learning_loop_service.py"),
-            Path("/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/coordination/research_orchestration.py"),
+            Path(__file__).parent.parent / "platform-runtime" / "lib" / "learning_loop_service.py",
+            Path(__file__).parent.parent / "core" / "coordination" / "research_orchestration.py",
         ]
 
         for filepath in files_to_check:
@@ -352,7 +348,7 @@ def run_final_validation():
                 passed += 1
             else:
                 failed += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from a test function to tally it and continue
             failed += 1
             log.error(f"❌ ERROR in {test_func.__name__}: {e}")
 

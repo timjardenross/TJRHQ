@@ -25,14 +25,14 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(_REPO_ROOT / ".env")
 
 logging.basicConfig(
@@ -75,7 +75,7 @@ def _fetch_batch(offset: int) -> list[dict]:
         f"{SUPABASE_URL}/rest/v1/{qs}",
         headers={**_headers(), "Prefer": "count=exact"},
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
         rows = json.loads(resp.read())
         total_str = (resp.headers.get("content-range") or "").split("/")[-1]
         total = int(total_str) if total_str.isdigit() else None
@@ -91,7 +91,7 @@ def _patch_event(event_id: str, data: dict) -> None:
         method="PATCH",
         headers={**_headers(), "Content-Length": str(len(body)), "Prefer": "return=minimal"},
     )
-    with urllib.request.urlopen(req, timeout=10):
+    with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
         pass
 
 
@@ -99,19 +99,21 @@ def _patch_event(event_id: str, data: dict) -> None:
 
 def _build_classified_event(row: dict):
     """Construct a minimal ClassifiedEvent from a DB row for ori_enrichment."""
-    from intelligence.models import ClassifiedEvent
-    from datetime import timezone
 
-    def _dt(s: Optional[str]) -> Optional[datetime]:
+    from intelligence.models import ClassifiedEvent
+
+    def _dt(s: str | None) -> datetime | None:
         if not s:
             return None
+        # All supported source formats represent UTC instants (explicit +00:00/Z
+        # offset, or a naive-but-known-UTC timestamp from this pipeline).
         for fmt in ("%Y-%m-%dT%H:%M:%S.%f+00:00", "%Y-%m-%dT%H:%M:%S+00:00",
                     "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S"):
             try:
-                return datetime.strptime(s[:26], fmt[:len(s[:26])])
+                return datetime.strptime(s[:26], fmt[:len(s[:26])]).replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     return ClassifiedEvent(
         event_id=row["event_id"],
@@ -124,7 +126,7 @@ def _build_classified_event(row: dict):
         raw_summary=row.get("raw_summary"),
         canonical_url=None,
         published_at=None,
-        collected_at=datetime.utcnow(),
+        collected_at=datetime.now(timezone.utc),
         dedup_hash="",
         event_type=row.get("event_type", "other"),
         geography=row.get("geography", "GLOBAL"),
@@ -146,7 +148,7 @@ def enrich_row(row: dict, dry_run: bool = False) -> bool:
     try:
         event = _build_classified_event(row)
         result = enrich(event)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-row enrichment inside a backfill batch loop — one bad row must not abort the batch; already logged
         log.error("[%s] Enrichment failed: %s", event_id[:8], exc)
         return False
 
@@ -168,19 +170,19 @@ def enrich_row(row: dict, dry_run: bool = False) -> bool:
             "executive_relevance": result["executive_relevance"],
         })
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-row PATCH inside a backfill batch loop — one bad row must not abort the batch; already logged
         log.error("[%s] PATCH failed: %s", event_id[:8], exc)
         return False
 
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
-def run(dry_run: bool = False, max_events: Optional[int] = None) -> dict:
+def run(dry_run: bool = False, max_events: int | None = None) -> dict:
     if not SUPABASE_URL or not SUPABASE_KEY:
         log.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
         sys.exit(1)
 
-    total_found: Optional[int] = None
+    total_found: int | None = None
     processed = ok = errors = 0
 
     while True:
@@ -189,7 +191,7 @@ def run(dry_run: bool = False, max_events: Optional[int] = None) -> dict:
         # Using a moving offset would overshoot once enough rows are removed.
         try:
             batch, total = _fetch_batch(0)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - batch-fetch failure inside the backfill loop — already logged, breaks the loop cleanly rather than crashing
             log.error("Failed to fetch batch: %s", exc)
             break
 

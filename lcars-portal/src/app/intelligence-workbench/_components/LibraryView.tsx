@@ -6,9 +6,10 @@
 // into brief/[id] (still live, unchanged by this uplift) where a brief_id
 // exists.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Badge, Button, Input, Select } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface LibraryItem {
   event_id: string;
@@ -52,8 +53,7 @@ export function LibraryView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     setLoading(true);
     const sp = new URLSearchParams();
     if (q) sp.set('q', q);
@@ -61,15 +61,14 @@ export function LibraryView() {
     if (until) sp.set('until', new Date(until).toISOString());
     if (disposition) sp.set('disposition', disposition);
     sp.set('page', String(page));
-    fetch(`/api/intelligence-workbench/library?${sp.toString()}`)
+    fetch(`/api/intelligence-workbench/library?${sp.toString()}`, { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        if (!cancelled) { setItems(d.items ?? []); setTotal(d.total ?? 0); setError(null); }
+        if (alive()) { setItems(d.items ?? []); setTotal(d.total ?? 0); setError(null); }
       })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .catch((e) => { if (alive() && e instanceof Error && e.name !== 'AbortError') setError(e.message || 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, since, until, disposition, page]);
 
@@ -86,11 +85,11 @@ export function LibraryView() {
         </Select>
       </div>
 
-      {loading && <p className="text-[13px] text-wb-ink2">Loading library…</p>}
-      {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-[13px] text-wb-crit-on">Unavailable: {error}</p>}
+      {loading && <p className="text-wb-body text-wb-ink2">Loading library…</p>}
+      {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-wb-body text-wb-crit-on">Unavailable: {error}</p>}
 
       {!loading && !error && items.length === 0 && (
-        <p className="text-[13px] text-wb-ink2">No historical items match these filters.</p>
+        <p className="text-wb-body text-wb-ink2">No historical items match these filters.</p>
       )}
 
       {!loading && !error && items.length > 0 && (
@@ -100,13 +99,13 @@ export function LibraryView() {
               <div key={it.event_id} className="flex flex-col gap-1 rounded-lg border border-wb-line bg-wb-surface p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   {it.canonical_url ? (
-                    <a href={it.canonical_url} target="_blank" rel="noopener noreferrer" className="block truncate text-[13px] font-medium text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
+                    <a href={it.canonical_url} target="_blank" rel="noopener noreferrer" className="block truncate text-wb-body font-medium text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
                       {it.title}
                     </a>
                   ) : (
-                    <p className="truncate text-[13px] font-medium text-wb-ink">{it.title}</p>
+                    <p className="truncate text-wb-body font-medium text-wb-ink">{it.title}</p>
                   )}
-                  <p className="text-[11px] text-wb-ink2">
+                  <p className="text-wb-label text-wb-ink2">
                     {it.sector ? it.sector.replace(/_/g, ' ') : 'Unknown sector'}
                     {it.geography ? ` · ${it.geography}` : ''}
                     {it.published_at ? ` · ${new Date(it.published_at).toLocaleDateString()}` : ''}
@@ -116,7 +115,7 @@ export function LibraryView() {
                 <div className="flex shrink-0 items-center gap-2">
                   {dispositionBadge(it.disposition)}
                   {it.brief_id && (
-                    <Link href={`/intelligence-workbench/brief/${it.brief_id}`} className="text-[11.5px] text-wb-sage-deep hover:underline">
+                    <Link href={`/intelligence-workbench/brief/${it.brief_id}`} className="text-wb-label text-wb-sage-deep hover:underline">
                       Evidence →
                     </Link>
                   )}
@@ -124,7 +123,7 @@ export function LibraryView() {
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-between text-[12px] text-wb-ink2">
+          <div className="flex items-center justify-between text-wb-label text-wb-ink2">
             <span>Page {page + 1} of {pageCount}</span>
             <div className="flex gap-2">
               <Button size="sm" variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>← Prev</Button>

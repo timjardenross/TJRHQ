@@ -20,7 +20,7 @@ review), not part of this change.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -30,8 +30,8 @@ def record_audit_event(
     actor: str,
     action: str,
     outcome: str,
-    details: Optional[dict[str, Any]] = None,
-    mission_id: Optional[str] = None,
+    details: dict[str, Any] | None = None,
+    mission_id: str | None = None,
 ) -> bool:
     """Record a general audit event. Non-blocking — never raises.
 
@@ -69,7 +69,7 @@ def record_audit_event(
         if not result.ok:
             log.warning("[audit-service] Write failed: %s", result.error)
         return result.ok
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[audit-service] record_audit_event failed (non-blocking): %s", exc)
         return False
 

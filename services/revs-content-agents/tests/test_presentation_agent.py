@@ -1,5 +1,4 @@
 from pptx import Presentation
-
 from src.agents.presentation_agent import PresentationAgent
 
 

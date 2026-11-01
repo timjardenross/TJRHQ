@@ -20,8 +20,7 @@ Public API:
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Optional, List, Tuple
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ class RoutingDecision:
     decision_id: str
     primary_provider: str
     fallback_provider: str
-    fallback_chain: List[str]
+    fallback_chain: list[str]
     routing_rationale: str
     quality_data_available: bool
     timestamp: str
@@ -74,7 +73,7 @@ class AdaptiveRoutingService:
         self.feedback_loops = feedback_loops_service
         log.info("[adaptive-routing] AdaptiveRoutingService initialized")
 
-    def get_routing_order(self) -> List[ProviderRanking]:
+    def get_routing_order(self) -> list[ProviderRanking]:
         """
         Get providers ranked by quality.
 
@@ -144,7 +143,7 @@ class AdaptiveRoutingService:
 
             return rankings
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort ranking build, already logged
             log.error(
                 f"[adaptive-routing] Error getting provider quality: "
                 f"{type(e).__name__}: {str(e)[:100]}"
@@ -162,7 +161,7 @@ class AdaptiveRoutingService:
                 for i, (provider, quality, tier) in enumerate(default_order)
             ]
 
-    def select_provider(self) -> Tuple[str, List[str]]:
+    def select_provider(self) -> tuple[str, list[str]]:
         """
         Select primary and fallback providers.
 
@@ -231,10 +230,10 @@ class AdaptiveRoutingService:
             fallback_chain=fallback,
             routing_rationale=routing_rationale,
             quality_data_available=quality_data_available,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-        log.info(f"[adaptive-routing] Routing decision logged:")
+        log.info("[adaptive-routing] Routing decision logged:")
         log.info(f"  Decision: {decision_id}")
         log.info(f"  Primary: {decision.primary_provider}")
         log.info(f"  Fallback: {decision.fallback_chain}")
@@ -244,8 +243,8 @@ class AdaptiveRoutingService:
 
     def suggest_routing(
         self,
-        decision_id: str = None,
-    ) -> List[Tuple[str, float]]:
+        decision_id: str | None = None,
+    ) -> list[tuple[str, float]]:
         """
         Suggest routing order with quality scores.
 

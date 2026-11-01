@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Health Insight Source Article Enricher
 
@@ -26,8 +27,8 @@ Usage (standalone):
 """
 
 import logging
-from typing import Any, Optional
 from dataclasses import dataclass
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -37,9 +38,9 @@ class SourceArticle:
     """Article reference embedded in health insight."""
     title: str
     url: str
-    summary: Optional[str] = None
-    published_date: Optional[str] = None
-    source_type: Optional[str] = None  # e.g., "Research", "Medical Journal", "Blog", "News"
+    summary: str | None = None
+    published_date: str | None = None
+    source_type: str | None = None  # e.g., "Research", "Medical Journal", "Blog", "News"
 
     def to_dict(self) -> dict:
         return {
@@ -112,7 +113,7 @@ class SourceArticleEnricher:
 
             log.info(f"[source-enricher] Enriched insight {insight_id} with {len(source_articles)} articles")
             return True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"[source-enricher] Failed to enrich insight {insight_id}: {exc}")
             return False
 
@@ -148,7 +149,7 @@ class SourceArticleEnricher:
                     stats["enriched"] += 1
                 else:
                     stats["failed"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.error(f"[source-enricher] Error processing insight {insight['id']}: {exc}")
                 stats["failed"] += 1
 
@@ -169,7 +170,7 @@ if __name__ == "__main__":
     # re-implementing .env parsing here.
     _REPO_ROOT = Path(__file__).resolve().parents[2]
     sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
-    import supabase_client as _sc  # noqa: E402
+    import supabase_client as _sc
 
     parser = argparse.ArgumentParser(description="Enrich recent health_insights with wellness articles")
     parser.add_argument("--days", type=int, default=7, help="Look back N days for insights (default 7)")

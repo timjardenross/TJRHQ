@@ -11,13 +11,12 @@ from __future__ import annotations
 import datetime as dt
 import json
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
-
 import db
 import onboarding
 from copy_bank import APPROACH_LABELS, DEFAULT_REGULATION, STAGE_LABELS
 from safety import screen_for_storage
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes
 
 
 def _kb(rows):

@@ -56,7 +56,7 @@ class RemoteTransport:
         )
         return self.run_remote_script(f"mkdir -p {quoted}")
 
-    def run_remote_script(self, script: str, stdin_text: str = None):
+    def run_remote_script(self, script: str, stdin_text: str | None = None):
         # ssh concatenates all trailing argv elements with spaces and re-parses
         # the result with the remote login shell before our intended "bash -c
         # <script>" ever runs — passing them as separate argv items (the old
@@ -66,13 +66,13 @@ class RemoteTransport:
         # to the remote shell intact.
         remote_cmd = f"bash -c {shlex.quote(script)}"
         cmd = self._ssh_base_args() + [self._target(), remote_cmd]
-        proc = subprocess.run(cmd, input=stdin_text, capture_output=True, text=True)
+        proc = subprocess.run(cmd, input=stdin_text, capture_output=True, text=True, check=False)
         return proc.returncode, proc.stdout, proc.stderr
 
     def push_text_file(self, remote_path: str, content: str):
         remote_cmd = f"bash -c {shlex.quote(f'cat > {shlex.quote(remote_path)}')}"
         cmd = self._ssh_base_args() + [self._target(), remote_cmd]
-        proc = subprocess.run(cmd, input=content, capture_output=True, text=True)
+        proc = subprocess.run(cmd, input=content, capture_output=True, text=True, check=False)
         return proc.returncode, proc.stdout, proc.stderr
 
     def rsync_push(self, local_root: Path, remote_dir: str, rel_paths, dry_run=False, extra_args=None):
@@ -90,7 +90,7 @@ class RemoteTransport:
             cmd += list(extra_args or [])
             local_src = str(local_root).rstrip("/") + "/"
             cmd += [local_src, f"{self._target()}:{remote_dir}/"]
-            proc = subprocess.run(cmd, capture_output=True, text=True)
+            proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
             return proc.returncode, proc.stdout, proc.stderr
         finally:
             os.unlink(list_path)

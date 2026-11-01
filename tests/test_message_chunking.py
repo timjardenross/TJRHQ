@@ -36,7 +36,7 @@ def test_every_chunk_is_within_limit():
 
 
 def test_splits_on_line_boundaries_not_mid_word_when_possible():
-    text = "\n".join(["alpha", "bravo", "charlie", "delta", "echo"])
+    text = "alpha\nbravo\ncharlie\ndelta\necho"
     chunks = chunk_message(text, limit=12)   # forces multiple chunks
     # no word was broken — every original word appears intact somewhere
     joined = "\n".join(chunks)

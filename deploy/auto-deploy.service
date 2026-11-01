@@ -12,11 +12,37 @@
 Description=Pull-based auto-deploy (git pull --ff-only + scoped service restarts)
 After=network-online.target
 Wants=network-online.target
+# OnFailure alerting was added 2026-09-15 after this unit failed silently
+# for 3+ days straight, but turned out too aggressive in practice: it
+# pages on every 5-minute retry for as long as the tree is legitimately
+# dirty mid-edit (a normal, expected state during active development on
+# this checkout), not just on a real failure. Disabled per explicit
+# request (2026-09-15) rather than tuned — dirty-tree aborts are visible
+# in `systemctl status auto-deploy.service` / journalctl on demand.
+#OnFailure=alert-on-failure@%n.service
 
 [Service]
 Type=oneshot
-User=root
+# 2026-09-15 adversarial review: ran as root end-to-end (git pull + npm
+# build + systemctl restart) with no privilege scoping. Repo is now
+# group-owned by `deploy` (chgrp -R, setgid dirs — root's existing access
+# from the ~30 other root-run cron/systemd jobs sharing this tree is
+# untouched, this is an additive group grant) and the one root-required
+# step (systemctl restart) goes through deploy/scoped-restart.sh, which
+# checks the unit against auto-deploy-services.conf before restarting —
+# see deploy/scoped-restart.sh's own header and /etc/sudoers.d/deploy-restart.
+User=deploy
+Environment=AUTO_DEPLOY_SYSTEMCTL=/opt/starship-endeavour/deploy/sudo-scoped-restart.sh
 WorkingDirectory=/opt/starship-endeavour
+# 2026-09-23: root-run jobs sharing this tree kept creating .git/objects/xx/
+# dirs as mode 2755, so fetches as `deploy` failed roughly daily with
+# "insufficient permission for adding an object to repository database".
+# `+` runs this one step as root (User= ignored) to set
+# core.sharedRepository=group and repair anything already wrong - see
+# deploy/repair-git-perms.sh. Points at the promoted /opt/deploy-guard copy,
+# never the in-repo source, which `deploy` can write to. `-` so a missing
+# (not yet promoted) copy doesn't block deploys by itself.
+ExecStartPre=-+/opt/deploy-guard/repair-git-perms.sh
 ExecStart=/opt/starship-endeavour/deploy/auto-deploy.sh
 StandardOutput=journal
 StandardError=journal

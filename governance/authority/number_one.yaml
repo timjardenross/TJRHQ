@@ -1,0 +1,15 @@
+# Baseline permissive authority manifest — see _template_notes.md in this
+# directory for why this file exists and what "baseline" means here.
+officer: number_one
+notes: >
+  Baseline permissive manifest. No action-specific restrictions defined —
+  covers core/coordination/execution_engine.py's "assign_mission_owner"
+  action, the confirmed real call site that motivated this fix. Tighten
+  allowed_actions/disallowed_actions/requires_captain/requires_xo/
+  requires_number_one deliberately, action by action, as real policy is
+  decided.
+allowed_actions: []
+disallowed_actions: []
+requires_captain: []
+requires_xo: []
+requires_number_one: []

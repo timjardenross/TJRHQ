@@ -49,7 +49,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 # MSN-0329 §7: real domains only. Do not add a domain here until a real
 # publish_event() call for it exists somewhere in the repo — this list
@@ -96,7 +96,7 @@ class DomainState:
     label: str
     data_available: bool
     event_count: int = 0
-    latest_event_at: Optional[str] = None
+    latest_event_at: str | None = None
     latest_events: list[dict[str, Any]] = field(default_factory=list)
     # Merged from each event's own `metrics` field (MSN-0328) — last
     # non-null value per key wins, most-recent-first, so a repeated key

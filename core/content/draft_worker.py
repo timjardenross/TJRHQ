@@ -37,7 +37,6 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
@@ -50,9 +49,10 @@ logging.basicConfig(
 log = logging.getLogger("content-draft")
 
 from dotenv import load_dotenv
+
 load_dotenv(_REPO_ROOT / ".env")
 
-from core.platform.heartbeat import record_heartbeat_ok, record_heartbeat_failed
+from core.platform.heartbeat import record_heartbeat_failed, record_heartbeat_ok
 
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY       = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -79,7 +79,7 @@ def _sb_get(path: str) -> list[dict]:
         f"{SUPABASE_URL}/rest/v1/{path}",
         headers={**_sb_headers(), "Prefer": ""},
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         return json.loads(resp.read())
 
 
@@ -94,13 +94,13 @@ def _sb_patch(table: str, match: dict, update: dict) -> None:
         method="PATCH",
         headers={**_sb_headers(), "Prefer": "", "Content-Length": str(len(payload))},
     )
-    with urllib.request.urlopen(req, timeout=15):
+    with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         pass
 
 
 # ── Fetch pending items ───────────────────────────────────────────────────────
 
-def fetch_pending(limit: int, single_id: Optional[str] = None) -> list[dict]:
+def fetch_pending(limit: int, single_id: str | None = None) -> list[dict]:
     # MSN-0305: source_ref added — was never selected, so the link back to
     # the originating research finding/signal was silently dropped before
     # _build_research_topic() could use it (MSN-0302 finding).
@@ -150,7 +150,7 @@ def _build_research_topic(item: dict) -> str:
     return "\n".join(parts)
 
 
-def run_research(item: dict) -> Optional[str]:
+def run_research(item: dict) -> str | None:
     """Run Pass 1 via ResearchOrchestrator. Returns consolidated_findings or None."""
     try:
         from core.coordination.research_orchestration import ResearchOrchestrator
@@ -170,8 +170,8 @@ def run_research(item: dict) -> Optional[str]:
             len(result.consolidated_findings),
         )
         return result.consolidated_findings or None
-    except Exception as exc:
-        log.error("[%s] Research pass failed: %s", item["id"][:8], exc, exc_info=True)
+    except Exception:
+        log.exception("[%s] Research pass failed", item["id"][:8])
         return None
 
 
@@ -215,7 +215,7 @@ def _build_writing_prompt(item: dict, research: str) -> str:
     return prompt
 
 
-def _call_mistral_agent(prompt: str) -> Optional[str]:
+def _call_mistral_agent(prompt: str) -> str | None:
     """Call Briefing Officer via Mistral conversations API."""
     if not MISTRAL_API_KEY or not MISTRAL_BRIEFING_AGENT_ID:
         return None
@@ -240,12 +240,12 @@ def _call_mistral_agent(prompt: str) -> Optional[str]:
                     ).strip()
                 return str(content).strip()
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Mistral agent call failed: %s", exc)
         return None
 
 
-def _call_mistral_direct(prompt: str) -> Optional[str]:
+def _call_mistral_direct(prompt: str) -> str | None:
     """Fallback: mistral-small via chat completions."""
     if not MISTRAL_API_KEY:
         return None
@@ -268,26 +268,26 @@ def _call_mistral_direct(prompt: str) -> Optional[str]:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=45) as resp:
+        with urllib.request.urlopen(req, timeout=45) as resp:  # nosec B310 - url is a hardcoded Mistral API constant, not user input - reviewed 2026-09-12
             data = json.loads(resp.read())
         return data["choices"][0]["message"]["content"].strip()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Mistral direct call failed: %s", exc)
         return None
 
 
-def _call_mistral_batch_provider(prompt: str) -> Optional[str]:
+def _call_mistral_batch_provider(prompt: str) -> str | None:
     """Last resort: mistral_batch.call() from engineering provider."""
     try:
         from core.engineering.providers.mistral_batch import call as mistral_call
         text, _ = mistral_call(f"{_WRITING_SYSTEM_PROMPT}\n\n{prompt}")
         return text or None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("mistral_batch fallback failed: %s", exc)
         return None
 
 
-def run_writing_pass(item: dict, research: str) -> Optional[str]:
+def run_writing_pass(item: dict, research: str) -> str | None:
     """Run Pass 2 — Briefing Officer → direct → batch fallback. Returns draft body or None."""
     prompt = _build_writing_prompt(item, research)
     log.info("[%s] Pass 2 — writing via Briefing Officer agent", item["id"][:8])
@@ -367,8 +367,8 @@ def main() -> None:
                 ok += 1
             else:
                 failed += 1
-        except Exception as exc:
-            log.error("Unhandled error processing %s: %s", item.get("id", "?")[:8], exc, exc_info=True)
+        except Exception:
+            log.exception("Unhandled error processing %s", item.get("id", "?")[:8])
             failed += 1
         time.sleep(2)
 

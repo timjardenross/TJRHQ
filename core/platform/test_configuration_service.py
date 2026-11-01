@@ -6,10 +6,7 @@ this mirrors)."""
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from core.platform.configuration_service import (
     get_shared_config,

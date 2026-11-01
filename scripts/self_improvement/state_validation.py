@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from collector import _grep_exclude_args
+
 log = logging.getLogger("state_validation")
 
 VALIDATION_RESULTS = ("confirmed", "resolved", "unclear")
@@ -35,16 +37,30 @@ _GREP_TIMEOUT_SECONDS = 10
 def _grep(pattern: str, paths: list[str], repo_root: Path) -> list[str]:
     """Bounded `grep -rl` across the given repo-relative paths. Returns the
     list of matching file paths (repo-relative), or [] on any error/timeout
-    — never raises."""
+    — never raises.
+
+    2026-09-08: a watchlist topic's `paths` can name a directory (not just a
+    file) — e.g. an entire service like core/infrastructure/vm-processing/ —
+    and this used to grep it with no exclusions at all, unlike every other
+    grep call in this codebase (collector.py's TodoCollector methods all use
+    _grep_exclude_args() already). That meant descending into that
+    directory's own core/infrastructure/vm-processing/.venv, inflating
+    runtime (~130s observed) and returning matches from vendored third-party
+    code as if they were real findings about this repo. Confirmed live via
+    HQ Evolution's own investigation of opportunity EVO-0003 ("Filesystem
+    audit scanning traverses virtual environment and dependency
+    directories"). Reuses collector.py's exclusion list rather than
+    duplicating it — one definition, not two that can drift apart.
+    """
     existing = [str(repo_root / p) for p in paths if (repo_root / p).exists()]
     if not existing:
         return []
     try:
         result = subprocess.run(
-            ["grep", "-rlE", pattern, *existing],
+            ["grep", "-rlE", pattern, *existing] + _grep_exclude_args(),
             capture_output=True, text=True, timeout=_GREP_TIMEOUT_SECONDS,
-        )
-    except Exception as exc:
+        check=False)
+    except (OSError, subprocess.SubprocessError) as exc:
         log.warning(f"grep failed for pattern={pattern!r} paths={paths}: {exc}")
         return []
     if result.returncode not in (0, 1):  # 1 = no matches, still a clean run
@@ -122,7 +138,7 @@ def validate_topic(topic: dict[str, Any], repo_root: Path) -> dict[str, Any]:
         log.warning(f"Unknown validation check_type: {check_type!r}")
         return {"result": "unclear", "evidence": [], "reason": f"Unknown check_type {check_type!r}", "validated_at": validated_at}
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dispatches across several distinct check_type validation paths with different failure surfaces; already logged and degrades to an honest 'unclear' result rather than crashing watchlist validation
         log.warning(f"Validation failed for topic {topic.get('id')}: {exc}")
         return {"result": "unclear", "evidence": [], "reason": f"Validation error: {exc}", "validated_at": validated_at}
 

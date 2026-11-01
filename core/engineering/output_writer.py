@@ -8,7 +8,6 @@ No repository files are mutated here.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from datetime import datetime, timezone
@@ -42,7 +41,7 @@ def write(response: RouterResponse, evidence_dir: Path | None = None) -> Path:
     try:
         out_path.write_text(response.to_json(), encoding="utf-8")
         log.info("[output_writer] saved evidence → %s", out_path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[output_writer] failed to write evidence: %s", exc)
 
     return out_path

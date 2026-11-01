@@ -15,23 +15,26 @@ import shutil
 import sys
 import tempfile
 import unittest
-import urllib.error
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-import outcome_contract  # noqa: E402
-import outcome_evaluation  # noqa: E402
-import outcome_schema  # noqa: E402
-import evolution_memory  # noqa: E402
-import evidence_sources  # noqa: E402
-from opportunity_store import OpportunityStore, OUTCOME_RESULTS, MISSION_ONLY_CLASSES  # noqa: E402
-from policy import PolicyEngine  # noqa: E402
-import evolution_orchestrator  # noqa: E402
+import evidence_sources
+import evolution_memory
+import evolution_orchestrator
+import outcome_contract
+import outcome_evaluation
+import outcome_schema
+from opportunity_store import (
+    MISSION_ONLY_CLASSES,
+    OUTCOME_RESULTS,
+    OpportunityStore,
+)
+from policy import PolicyEngine
 
 
 def make_candidate(**overrides):
@@ -365,7 +368,7 @@ class TestOutcomeSchema(unittest.TestCase):
         for garbage in (None, {}, {"unexpected_effects": "not a list"}):
             try:
                 outcome_schema.validate_outcome_evaluation(garbage if isinstance(garbage, dict) else {})
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test asserts validate_outcome_evaluation never raises on garbage input
                 self.fail(f"validate_outcome_evaluation raised on {garbage!r}: {exc}")
 
     def test_honest_fallback_never_fabricates_success(self):
@@ -442,7 +445,7 @@ class TestAuthorityFirewall(unittest.TestCase):
                               lifecycle_state="learned", outcome={"outcome_result": "improved", "confidence": "high"})
             new_opp = store.create_new(title="A new but similar idea", change_class="cost_optimisation",
                                         discovery_source="internal", lifecycle_state="discovered")
-            self.assertEqual(new_opp.lifecycle_state, "discovered")
+            self.assertEqual(new_opp.stage_detail, "discovered")
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
@@ -544,7 +547,8 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
 
     def _make_orchestrator(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
+        orch._load_watchlist = list
         return orch
 
     def test_fresh_cycle_reports_calm_zero_state(self):
@@ -566,7 +570,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
         self.assertEqual(result["outcomes_completed_count"], 0)
         # dry-run must never write — record must be unchanged
         current = store.get(opp.opportunity_id)
-        self.assertEqual(current["lifecycle_state"], "approved")
+        self.assertEqual(current["stage_detail"], "approved")
 
     def test_end_to_end_manual_implementation_to_learned(self):
         orch = self._make_orchestrator()
@@ -583,7 +587,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
 
         result = orch.run_cycle(dry_run=False)
         final = store.get(opp.opportunity_id)
-        self.assertEqual(final["lifecycle_state"], "learned")
+        self.assertEqual(final["stage_detail"], "learned")
         self.assertIn(final["outcome"]["outcome_result"], OUTCOME_RESULTS)
         self.assertEqual(result["outcomes_completed_count"], 1)
 
@@ -614,10 +618,10 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
 
         scratch.write_text("x" * 1024)  # shrink -> "after"
         with patch("evidence_sources.file_size_mb", return_value={"available": True, "value": scratch.stat().st_size / (1024 * 1024), "description": "scratch after"}):
-            result = orch.run_cycle(dry_run=False)
+            orch.run_cycle(dry_run=False)
 
         final = store.get(opp.opportunity_id)
-        self.assertEqual(final["lifecycle_state"], "learned")
+        self.assertEqual(final["stage_detail"], "learned")
         self.assertEqual(final["outcome"]["outcome_result"], "improved")
         self.assertEqual(final["outcome"]["method"], "deterministic")
 

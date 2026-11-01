@@ -28,31 +28,41 @@
 // instead of being squeezed into the header's status-text corner.
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { Settings } from 'lucide-react';
-import { LIVE_WORKBENCHES } from '@/lib/workbenches';
+import { LIVE_WORKBENCHES, PRIMARY_ACTIONS, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
+import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
-import { ThemeSelector } from './ThemeSelector';
+import { BrandMark } from '@/components/brand';
+import { AttentionControls } from '@/components/AttentionControls';
+import { ActionHistoryPanel } from '@/components/FocusLane';
+import { trackTaskEvent } from '@/lib/taskTelemetry';
 
 const GLOBAL_HOME = '/workbenches';
 
 function WorkbenchSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
-  const current = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))?.href ?? '';
+  const currentGroup = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))?.group ?? '';
 
   return (
+    // Mission 7 item 1 (Phase 14 finding, Phase 15 fix): this <select> had
+    // no width constraint, so its closed-state face sized to the longest
+    // workbench title (up to 25 chars, "Technical OSINT Workbench") —
+    // confirmed overflowing the viewport at 375px on 20 of 21 workbenches.
+    // max-w + truncate caps the closed face only; the dropdown's own open
+    // list still shows full titles untruncated (native <select> behaviour).
     <select
       aria-label="Switch workbench"
-      value={current}
+      value={currentGroup ? `/workbenches?group=${currentGroup}` : ''}
       onChange={(e) => { if (e.target.value) router.push(e.target.value); }}
-      className="rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-[12px] text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+      className="w-[92px] max-w-[92px] truncate rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-wb-label text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:w-auto sm:max-w-[180px]"
     >
-      {!current && <option value="" disabled>Switch workbench…</option>}
-      {LIVE_WORKBENCHES.map((w) => (
-        <option key={w.href} value={w.href}>{w.title}</option>
+      {!currentGroup && <option value="" disabled>Choose a family…</option>}
+      {(Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[]).map((group) => (
+        <option key={group} value={`/workbenches?group=${group}`}>{WORKBENCH_GROUP_META[group].label}</option>
       ))}
     </select>
   );
@@ -66,6 +76,9 @@ export function WorkbenchShell({
   tabs,
   back,
   wide = false,
+  minimal = false,
+  quiet = false,
+  mode = 'focus',
   children,
 }: {
   title: string;
@@ -82,37 +95,120 @@ export function WorkbenchShell({
    * standard reading-width shell every other workbench uses. Off by default
    * so this stays a per-page choice, not a blanket layout change. */
   wide?: boolean;
+  /** Mission 4 (Executive Function & Regulation): suppress Sidebar, the
+   * workbench switcher, back-link and tagline while the Captain is inside
+   * a single active-execution moment (Ready Room's ActiveTaskView) — one
+   * fewer decision surface competing for attention mid-task. Opt-in, off
+   * by default, so every other workbench is unaffected. Settings stay
+   * reachable (never trap the Captain), QuickCapture/MobileCommandBar
+   * stay mounted. */
+  minimal?: boolean;
+  /** Keeps the Sidebar, header and switcher but drops the per-page extras (primary
+   * action, Attention controls, Recent actions, footer tagline). For notice pages such as
+   * the retired "this page moved" routes, where those controls mean nothing. Off by default. */
+  quiet?: boolean;
+  /** Surface and density classification. The default surface is light
+   * (design uplift Stage A): 'command', 'focus' and 'read' all use the light
+   * token set and differ by density, layout and reading typography only
+   * ('read' adds the `.wb-mode-read` reading rules). 'dark' opts the whole
+   * content surface into the dark navy set (no page uses it today). The
+   * sidebar and mobile bottom bar are dark navy chrome in every mode.
+   * Defaults to 'focus'. */
+  mode?: 'command' | 'focus' | 'read' | 'dark';
   children: ReactNode;
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
+  const pathname = usePathname();
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const from = searchParams.get('from');
+  const item = searchParams.get('item');
+  const originLabel = from === 'captains-chair' ? 'Captain’s Chair' : from === 'hub' ? 'LifeOS Hub' : from;
+  const originHref = from === 'captains-chair' ? '/captains-chair-workbench' : from === 'hub' ? '/hub' : null;
+  const primaryAction = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href)) ? PRIMARY_ACTIONS[LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))!.href] : null;
+  const initialPathRef = useRef(pathname);
+  const workbenchStartedAtRef = useRef<number>(Date.now());
+  useEffect(() => {
+    if (!pathname) return;
+    const taskId = `workbench:${pathname}`;
+    trackTaskEvent(taskId, 'started');
+    const abandon = () => trackTaskEvent(taskId, 'abandoned', { duration_ms: Date.now() - workbenchStartedAtRef.current });
+    window.addEventListener('pagehide', abandon, { once: true });
+    return () => window.removeEventListener('pagehide', abandon);
+  }, [pathname]);
+  useEffect(() => {
+    if (initialPathRef.current === pathname) return;
+    initialPathRef.current = pathname;
+    // Preserve keyboard context after client-side navigation: move focus to
+    // the new workbench content landmark instead of leaving it on a stale
+    // control that no longer exists.
+    document.getElementById('wb-main')?.focus();
+  }, [pathname]);
   return (
     <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
       <a
         href="#wb-main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-wb-ink focus:px-3 focus:py-2 focus:text-[13px] focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-wb-ink focus:px-3 focus:py-2 focus:text-wb-body focus:text-white"
       >
         Skip to content
       </a>
       {/* Adaptive Themes mission (2026-09-05): Sidebar is global chrome on
           every *-workbench page, not just Home — Captain's explicit call.
-          xl:flex on Sidebar itself, no extra breakpoint class needed here. */}
+          xl:flex on Sidebar itself, no extra breakpoint class needed here.
+          Mission 4: hidden in `minimal` mode (see prop doc above).
+          Endeavour 27 (USS-TJR-MSN-0394) Stream A/B: `data-wb-mode` scopes
+          to this inner column only, not the outer wrapper -- mission §1.1
+          is explicit that Read mode swaps the reading pane's surface
+          lightness while "the header/sidebar chrome stays dark navy" (also
+          confirmed directly against Image 1's own Briefs panel). Scoping it
+          on the whole shell made Sidebar go light too on first
+          implementation -- a real bug, caught via live verification, not
+          left in. */}
       <div className="flex">
-        <Sidebar />
-        <div className="min-w-0 flex-1">
-          <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
-            <div className={`mx-auto flex ${shellWidth} items-center gap-3 px-6 py-4`}>
+        {!minimal && <Sidebar />}
+        {/* text-wb-ink re-declared here (not just relying on inheriting
+            the outer wrapper's already-computed colour): `color` inherits
+            the parent's COMPUTED value, not a live re-evaluation of
+            var(--wb-ink) -- without a fresh declaration inside this scope,
+            title text (and anything else with no colour class of its own)
+            silently inherited the outer wrapper's dark-mode ink, invisible
+            against this div's light Read-mode background. Same class of
+            bug as the bg-wb-bg/80 fix above, caught the same way. */}
+        <div data-wb-mode={mode} className={`min-w-0 flex-1 bg-wb-bg text-wb-ink wb-mode-${mode}`}>
+          {/* Endeavour 27 Stream B, found via live verification: `bg-wb-bg/80`
+              never actually rendered a translucent fill -- Tailwind's
+              opacity modifier needs an RGB-channel CSS var (e.g.
+              `--wb-bg-rgb: 11 30 46`), not a plain hex var like `--wb-bg`,
+              so it silently resolved to fully transparent. Invisible before
+              this mission (this header sits on the same solid colour as
+              everything behind it in the old single-surface system), but a
+              real bug once Read mode wants this header genuinely lighter
+              than the dark chrome around it. `backdrop-blur` was already a
+              no-op too -- header isn't `sticky`/`fixed`, nothing scrolls
+              underneath it. Solid bg-wb-bg is the correct, simpler fix. */}
+          <header className="border-b border-wb-line bg-wb-bg">
+            <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
+              {/* Brand mark (TJR HQ identity, Stage 2). Replaces the triangle glyph
+                  in the same 36 px slot. The link carries the accessible name; the
+                  mark is decorative. The header sits on the content surface, which is
+                  light unless mode="dark", so it gets the navy tile (inverted tile only
+                  on a dark surface). */}
               <Link
                 href={GLOBAL_HOME}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
+                className="flex h-9 w-9 shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
                 aria-label="Workbenches home"
               >
-                TJR
+                <BrandMark surface={mode === 'dark' ? 'dark' : 'light'} size={36} />
               </Link>
               <div className="leading-tight">
-                <div className="font-serif text-[17px]">{title}</div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
+                <h1 className="font-serif text-wb-lead">{title}</h1>
+                <div className="text-wb-label uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
               </div>
-              <span className="ml-auto flex items-center gap-3 text-[12px] text-wb-ink2">
+              {/* Mission 7 item 1 (Phase 15): flex-wrap here is the second
+                  layer of the mobile-overflow fix — even with both <select>s
+                  now width-capped, this gives the cluster somewhere to go
+                  (wrap to its own line) rather than force horizontal
+                  scroll, on whatever narrower screen turns up next. */}
+              <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-wb-label text-wb-ink2">
                 {right}
                 {/* Settings Page Redesign mission §23: Sidebar (xl+) already
                     links to /settings, but Sidebar is hidden below xl and
@@ -128,33 +224,43 @@ export function WorkbenchShell({
                 >
                   <Settings className="h-4 w-4" aria-hidden />
                 </Link>
-                <ThemeSelector />
-                <WorkbenchSwitcher />
+                {!minimal && <WorkbenchSwitcher />}
               </span>
             </div>
-            {tabs && (
+            {tabs && !minimal && (
               <div className={`mx-auto ${shellWidth} px-6 pb-4`}>
                 {tabs}
               </div>
             )}
           </header>
-          <main id="wb-main" className={`mx-auto ${shellWidth} px-6 py-8`}>
-            {back && (
+          <main id="wb-main" tabIndex={-1} className={`mx-auto ${shellWidth} px-4 py-6 pb-28 outline-none sm:px-6 sm:py-8 sm:pb-28 xl:pb-8`}>
+            {!minimal && !quiet && primaryAction && <div className="mb-4"><Link href={primaryAction.href} onClick={() => trackTaskEvent(`${pathname}:primary`, 'started', { label: primaryAction.label })} className="inline-flex min-h-11 items-center rounded-md bg-wb-sage-deep px-4 py-2.5 text-wb-body font-semibold text-white transition hover:bg-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{primaryAction.label} →</Link></div>}
+            {!minimal && !quiet && <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><AttentionControls label="Attention" /><ActionHistoryPanel /></div>}
+            {originLabel && pathname !== originHref && (
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-wb-label text-wb-ink2" role="status">
+                <span>Opened from {originLabel}{item ? ` · item ${item}` : ''}</span>
+                {originHref && <Link href={originHref} className="font-semibold text-wb-sage underline underline-offset-2">Return to source →</Link>}
+              </div>
+            )}
+            {back && !minimal && (
               <Link
                 href={back.href}
-                className="mb-4 inline-block text-[13px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
+                className="mb-4 inline-block text-wb-body text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
               >
                 ← {back.label}
               </Link>
             )}
             {children}
-            <p className="mt-8 text-center text-[11px] text-wb-ink2">
-              {tagline}
-            </p>
+            {!minimal && !quiet && (
+              <p className="mt-8 text-center text-wb-label text-wb-ink2">
+                {tagline}
+              </p>
+            )}
           </main>
         </div>
       </div>
       <QuickCapture />
+      <NumberOne />
       <MobileCommandBar />
     </div>
   );

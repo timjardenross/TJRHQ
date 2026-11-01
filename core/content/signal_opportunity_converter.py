@@ -24,7 +24,6 @@ import logging
 import os
 import urllib.error
 import urllib.request
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -54,14 +53,14 @@ def _get(path: str) -> list:
     url = f"{_SUPABASE_URL}/rest/v1/{path}"
     req = urllib.request.Request(url, headers=_headers(), method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             return json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("Supabase query failed (%s): %s", path, exc)
         return []
 
 
-def _post_batch(table: str, rows: list) -> Optional[list]:
+def _post_batch(table: str, rows: list) -> list | None:
     """Insert multiple rows as a single atomic statement. Returns None on failure."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         return None
@@ -71,13 +70,13 @@ def _post_batch(table: str, rows: list) -> Optional[list]:
     body = json.dumps(rows).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode(errors="replace")
         log.error("Batch insert failed (%s): %s %s", table, exc.code, detail)
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("Batch insert failed (%s): %s", table, exc)
         return None
 
@@ -99,16 +98,16 @@ def _log_batch_operation(result: dict) -> None:
         req = urllib.request.Request(
             url, data=json.dumps(row).encode(), headers=_headers(), method="POST"
         )
-        with urllib.request.urlopen(req, timeout=10):
+        with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             pass
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Audit log write failed (non-fatal): %s", exc)
 
 
 def create_opportunities_from_signals(
     limit: int = 5,
     min_rank_score: float = 70.0,
-    domain: Optional[str] = None,
+    domain: str | None = None,
 ) -> dict:
     """
     Create comms_content opportunities from top-ranked, non-suppressed content_signals.
@@ -151,7 +150,7 @@ def create_opportunities_from_signals(
     # high-scoring signal outrank everything scored since, the same "stale
     # dominates forever" defect found in intelligence_events' own consumers.
     # Matches load_recent_events()'s 14-day default elsewhere in the platform.
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     since = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
 
     signals = _get(

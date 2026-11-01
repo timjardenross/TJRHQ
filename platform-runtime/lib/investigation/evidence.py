@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +29,10 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.investigation.framework import (
-    EvidenceItem, EvidencePackage, EvidenceSource, EVIDENCE_OWNER_PREFIX,
+    EVIDENCE_OWNER_PREFIX,
+    EvidenceItem,
+    EvidencePackage,
+    EvidenceSource,
 )
 
 _STOP_WORDS = frozenset({
@@ -67,7 +69,7 @@ def _collect_from_decisions(
         rows: list[dict] = []
         for kw in keywords[:2]:
             res = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("statement,rationale,owner,created_at")
                 .ilike("statement", f"%{kw}%")
                 .order("created_at", desc=True)
@@ -96,7 +98,7 @@ def _collect_from_decisions(
             if len(package.items) >= 8:
                 break
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Decision evidence failed, already logged
         log.debug("[investigation.evidence] Decision evidence failed: %s", exc)
 
 
@@ -134,7 +136,7 @@ def _collect_from_missions(
                     confidence=conf,
                 ))
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Mission evidence failed, already logged
         log.debug("[investigation.evidence] Mission evidence failed: %s", exc)
 
 
@@ -171,7 +173,7 @@ def _collect_from_context(
             confidence=conf,
         ))
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Context evidence failed, already logged
         log.debug("[investigation.evidence] Context evidence failed: %s", exc)
 
 
@@ -196,7 +198,7 @@ def _store_evidence(package: EvidencePackage) -> None:
             ),
             owner=f"{EVIDENCE_OWNER_PREFIX}{package.investigation_id}",
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Store evidence failed, already logged
         log.debug("[investigation.evidence] Store evidence failed: %s", exc)
 
 
@@ -252,7 +254,7 @@ def get_evidence(investigation_id: str) -> EvidencePackage:
             return package
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{EVIDENCE_OWNER_PREFIX}{investigation_id}")
             .order("created_at", desc=True)
@@ -268,7 +270,7 @@ def get_evidence(investigation_id: str) -> EvidencePackage:
                 confidence=0.5,
             ))
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - get_evidence failed, already logged
         log.debug("[investigation.evidence] get_evidence failed: %s", exc)
     return package
 

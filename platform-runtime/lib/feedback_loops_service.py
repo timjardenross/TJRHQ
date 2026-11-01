@@ -26,11 +26,9 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import logging
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from typing import Optional, Any
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -80,10 +78,10 @@ class FeedbackSignal:
     suggested_action: str  # "increase", "decrease", "maintain"
 
     # Optional fields with defaults
-    model_name: Optional[str] = None
-    provider_route: Optional[str] = None
-    feedback_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    model_name: str | None = None
+    provider_route: str | None = None
+    feedback_timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str | None = None
 
     def to_dict(self):
         """Convert to dictionary for Supabase insert."""
@@ -104,13 +102,13 @@ class FeedbackSignal:
 class ProviderQuality:
     """Provider quality metrics and trend."""
     provider_name: str
-    model_name: Optional[str]
-    provider_route: Optional[str]
+    model_name: str | None
+    provider_route: str | None
     decisions_count: int
     avg_effectiveness: float
     effectiveness_trend: str  # "up", "down", "stable"
     quality_tier: str  # "high", "medium", "low"
-    last_score_date: Optional[str]
+    last_score_date: str | None
 
 
 # ============================================================================
@@ -143,10 +141,10 @@ class FeedbackLoops:
         score_id: str,
         decision_id: str,
         provider_name: str,
-        effectiveness_score: Optional[float],
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
-    ) -> Optional[FeedbackSignal]:
+        effectiveness_score: float | None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
+    ) -> FeedbackSignal | None:
         """
         Generate feedback signal from quality score.
 
@@ -201,7 +199,7 @@ class FeedbackLoops:
         # Persist if client available
         if self.supabase_client:
             try:
-                response = (
+                (
                     self.supabase_client.table("feedback_signals")
                     .insert(signal.to_dict())
                     .execute()
@@ -217,7 +215,7 @@ class FeedbackLoops:
 
                 return signal
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort feedback signal generation, already logged
                 log.error(
                     f"[feedback-loops] Failed to generate feedback: {type(e).__name__}: {str(e)[:100]}"
                 )
@@ -227,8 +225,8 @@ class FeedbackLoops:
             return signal
 
     def get_provider_quality(
-        self, provider_name: str, model_name: Optional[str] = None
-    ) -> Optional[ProviderQuality]:
+        self, provider_name: str, model_name: str | None = None
+    ) -> ProviderQuality | None:
         """
         Get provider quality metrics.
 
@@ -270,7 +268,7 @@ class FeedbackLoops:
                 log.debug(f"[feedback-loops] No quality data found for provider: {provider_name}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort provider quality query, already logged
             log.error(
                 f"[feedback-loops] Failed to retrieve provider quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -310,13 +308,13 @@ class FeedbackLoops:
             )
             return routing_order
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort routing suggestion query, already logged
             log.error(
                 f"[feedback-loops] Failed to suggest routing: {type(e).__name__}: {str(e)[:100]}"
             )
             return []
 
-    def get_provider_trend(self, provider_name: str) -> Optional[str]:
+    def get_provider_trend(self, provider_name: str) -> str | None:
         """
         Get provider quality trend.
 
@@ -335,8 +333,8 @@ class FeedbackLoops:
     def _get_provider_baseline(
         self,
         provider_name: str,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
     ) -> float:
         """
         Get provider baseline (average effectiveness).
@@ -366,7 +364,7 @@ class FeedbackLoops:
                     avg = response.data[0].get("avg_effectiveness")
                     if avg is not None:
                         return float(avg)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort baseline lookup, already logged
                 log.debug(
                     f"[feedback-loops] Could not get baseline for {provider_name}: {e}"
                 )
@@ -432,14 +430,14 @@ class FeedbackLoops:
                 trend = "stable"
 
             # Update or insert
-            history_id = f"HIS-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+            history_id = f"HIS-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
 
             update_data = {
                 "decisions_count": count,
                 "avg_effectiveness": round(avg_effectiveness, 1),
                 "effectiveness_trend": trend,
-                "last_score_date": datetime.utcnow().isoformat(),
-                "last_updated": datetime.utcnow().isoformat(),
+                "last_score_date": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(timezone.utc).isoformat(),
             }
 
             if response.data and len(response.data) > 0:
@@ -465,7 +463,7 @@ class FeedbackLoops:
                 f"avg={round(avg_effectiveness, 1)}, trend={trend}"
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort provider quality update, already logged
             log.error(
                 f"[feedback-loops] Failed to update provider quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -480,5 +478,5 @@ class FeedbackLoops:
         Returns:
             Unique, sortable feedback signal ID
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("FBK-%Y%m%d-%H%M%S")

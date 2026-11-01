@@ -16,9 +16,10 @@ Pattern list expanded 2026-08-14 from a best-practices research pass
 (README.md blocker #2). Categories below map to that research's taxonomy.
 Deliberately excluded: bare method/acquisition nouns ("pills", "rope",
 "bought") — too generic to regex without context and a major
-false-positive source; that disambiguation is exactly what a Layer 2
-LLM-based confirmation pass would be for (recommended by the research,
-not yet built — see README.md). Still a keyword/regex layer only.
+false-positive source; that disambiguation is exactly what crisis_layer2.py
+(2026-09-14) now does — a Layer 2 LLM-based confirmation pass over those
+same words, wired into app.py's _crisis_gate after this module. This file
+itself is still a keyword/regex layer only.
 
 ⚠ This still needs the adversarial review the doc's §8.3 checklist calls
 for before this bot talks to a real stranger — a wider pattern list is
@@ -28,7 +29,6 @@ not the same thing as a reviewed one.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 # §5.4a — runs on ALL free text, before any other classification, before
 # storage, before any scheduled send. Biased toward over-triggering.
@@ -144,11 +144,11 @@ _CRISIS_LINE_SHORT = {
 }
 
 
-def locale_resources(locale: Optional[str]) -> str:
+def locale_resources(locale: str | None) -> str:
     return _LOCALE_RESOURCES.get((locale or "OTHER").upper(), _LOCALE_RESOURCES["OTHER"])
 
 
-def crisis_line_short(locale: Optional[str]) -> str:
+def crisis_line_short(locale: str | None) -> str:
     return _CRISIS_LINE_SHORT.get((locale or "OTHER").upper(), _CRISIS_LINE_SHORT["OTHER"])
 
 
@@ -173,7 +173,7 @@ NEVER_SAY = [
 
 # --------------------------------------------------------------- PEM ---
 
-def pem_copy(default: str, pem_variant: Optional[str], pem_flag: bool) -> Optional[str]:
+def pem_copy(default: str, pem_variant: str | None, pem_flag: bool) -> str | None:
     """§7.2 — exhaustive whitelist, default-suppress. Only messages on the
     whitelist get a PEM variant; everything else renders unchanged
     regardless of pem_flag. Callers pass pem_variant=None for anything not

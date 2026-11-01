@@ -13,12 +13,12 @@ export default function StageProgressionPage() {
   return (
     <div className="flex flex-col gap-4">
       <LCARSPanel title="Stage Progression" accent="medical" eyebrow="Retired — prototype data">
-        <p className="text-sm text-lcars-text/90 leading-relaxed">
+        <p className="text-sm text-wb-ink leading-relaxed">
           This page is retired. The stage, stability signal, and assessment log it used to show
           were placeholder data, not a live assessment - they have been removed rather than left
           up as if they were real.
         </p>
-        <p className="mt-3 text-sm text-lcars-text/90 leading-relaxed">
+        <p className="mt-3 text-sm text-wb-ink leading-relaxed">
           Real recovery and readiness data is still available on the Health Centre and Physical
           Readiness pages.
         </p>

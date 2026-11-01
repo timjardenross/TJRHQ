@@ -17,21 +17,21 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
-from supabase_client import supabase_get, is_configured
+from supabase_client import is_configured, supabase_get
 
 log = logging.getLogger(__name__)
 
 MIN_COMPLETED_FOR_ANALYTICS = 3
 
 
-def _parse_dt(dt_str: Optional[str]) -> Optional[datetime]:
+def _parse_dt(dt_str: str | None) -> datetime | None:
     if not dt_str:
         return None
     try:
@@ -48,7 +48,7 @@ def _hours_to_label(hours: float) -> str:
     return f"{round(days, 1)}d"
 
 
-def analyse_missions() -> Dict[str, Any]:
+def analyse_missions() -> dict[str, Any]:
     """
     Fetch all missions and compute time-to-completion analytics.
 
@@ -72,16 +72,16 @@ def analyse_missions() -> Dict[str, Any]:
 
     try:
         missions = supabase_get("missions?limit=500&order=created_at.asc")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("missions fetch failed: %s", exc)
         return _empty(f"Fetch error: {exc}")
 
     completed = [m for m in missions if m.get("status") == "completed"]
     pending   = [m for m in missions if m.get("status") != "completed"]
 
-    durations: List[float] = []
-    by_type: Dict[str, List[float]] = {}
-    mission_details: List[Dict] = []
+    durations: list[float] = []
+    by_type: dict[str, list[float]] = {}
+    mission_details: list[dict] = []
 
     for m in completed:
         created = _parse_dt(m.get("created_at"))
@@ -114,8 +114,8 @@ def analyse_missions() -> Dict[str, Any]:
             "fastest_mission":    None,
             "slowest_mission":    None,
             "findings": [
-                f"Mission analytics: {len(completed)} completed missions "
-                f"(minimum {MIN_COMPLETED_FOR_ANALYTICS} required for reliable analytics)."
+                (f"Mission analytics: {len(completed)} completed missions "
+                 f"(minimum {MIN_COMPLETED_FOR_ANALYTICS} required for reliable analytics).")
             ],
             "status": "insufficient_data",
         }
@@ -142,8 +142,8 @@ def analyse_missions() -> Dict[str, Any]:
     slowest = sorted_missions[-1] if sorted_missions else None
 
     findings = [
-        f"Mission completion: {len(completed)} missions completed. "
-        f"Average time: {_hours_to_label(avg_hours)}, median: {_hours_to_label(median_hours)}."
+        (f"Mission completion: {len(completed)} missions completed. "
+         f"Average time: {_hours_to_label(avg_hours)}, median: {_hours_to_label(median_hours)}.")
     ]
     if by_type_analytics:
         type_lines = [f"{t}: {v['avg_label']} avg (n={v['n']})" for t, v in by_type_analytics.items()]
@@ -171,7 +171,7 @@ def analyse_missions() -> Dict[str, Any]:
     }
 
 
-def _empty(reason: str) -> Dict[str, Any]:
+def _empty(reason: str) -> dict[str, Any]:
     return {
         "total_missions": 0, "completed": 0, "pending": 0,
         "analytics_available": False, "avg_hours": None, "median_hours": None,

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -35,11 +35,11 @@ def create_task(
     domain: str,
     owner: str,
     *,
-    parent_task_id: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    linked_mission_id: Optional[str] = None,
-) -> Optional[str]:
+    parent_task_id: str | None = None,
+    idempotency_key: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    linked_mission_id: str | None = None,
+) -> str | None:
     """Create a task in 'pending' status. Non-blocking — never raises.
 
     Returns the new task_id, or None if the write failed (including a
@@ -69,7 +69,7 @@ def create_task(
         task_id = result.data[0].get("task_id")
         _log_task_event(client, task_id, "created", {"task_type": task_type, "domain": domain, "owner": owner})
         return task_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] create_task failed (non-blocking): %s", exc)
         return None
 
@@ -78,9 +78,9 @@ def transition_task(
     task_id: str,
     new_status: str,
     *,
-    error: Optional[str] = None,
-    confidence: Optional[int] = None,
-    delegated_to: Optional[str] = None,
+    error: str | None = None,
+    confidence: int | None = None,
+    delegated_to: str | None = None,
 ) -> bool:
     """Move a task to a new lifecycle status, recording a task_event.
 
@@ -125,17 +125,17 @@ def transition_task(
             {"new_status": new_status, "error": error, "delegated_to": delegated_to},
         )
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] transition_task failed (non-blocking): %s", exc)
         return False
 
 
-def complete_task(task_id: str, *, confidence: Optional[int] = None) -> bool:
+def complete_task(task_id: str, *, confidence: int | None = None) -> bool:
     """Convenience wrapper: transition to 'completed'."""
     return transition_task(task_id, "completed", confidence=confidence)
 
 
-def get_task(task_id: str) -> Optional[dict[str, Any]]:
+def get_task(task_id: str) -> dict[str, Any] | None:
     """Fetch a single task's current state. Returns None on any failure."""
     try:
         from tools.supabase.client import CommanderSupabaseClient
@@ -143,24 +143,25 @@ def get_task(task_id: str) -> Optional[dict[str, Any]]:
         client = CommanderSupabaseClient()
         rows = client.get(f"tasks?task_id=eq.{task_id}&select=*")
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] get_task failed (non-blocking): %s", exc)
         return None
 
 
-def get_task_by_idempotency_key(idempotency_key: str) -> Optional[dict[str, Any]]:
+def get_task_by_idempotency_key(idempotency_key: str) -> dict[str, Any] | None:
     """Fetch a task by its idempotency_key. Returns None on any failure or if
     no task with that key exists. For adopters that don't want to thread a
     task_id through their own call chain — vm-transfer-style callers can
     correlate purely on their own natural key (e.g. source_path)."""
     try:
-        from tools.supabase.client import CommanderSupabaseClient
         import urllib.parse
+
+        from tools.supabase.client import CommanderSupabaseClient
 
         client = CommanderSupabaseClient()
         rows = client.get(f"tasks?idempotency_key=eq.{urllib.parse.quote(idempotency_key, safe='')}&select=*")
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] get_task_by_idempotency_key failed (non-blocking): %s", exc)
         return None
 
@@ -172,7 +173,7 @@ def get_child_tasks(parent_task_id: str) -> list[dict[str, Any]]:
 
         client = CommanderSupabaseClient()
         return client.get(f"tasks?parent_task_id=eq.{parent_task_id}&select=*")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] get_child_tasks failed (non-blocking): %s", exc)
         return []
 
@@ -184,7 +185,7 @@ def get_task_history(task_id: str) -> list[dict[str, Any]]:
 
         client = CommanderSupabaseClient()
         return client.get(f"task_events?task_id=eq.{task_id}&select=*&order=occurred_at.asc")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] get_task_history failed (non-blocking): %s", exc)
         return []
 
@@ -192,16 +193,16 @@ def get_task_history(task_id: str) -> list[dict[str, Any]]:
 def _log_task_event(client, task_id: str, event_type: str, detail: dict[str, Any]) -> None:
     try:
         client.insert("task_events", {"task_id": task_id, "event_type": event_type, "detail": detail})
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] _log_task_event failed (non-blocking): %s", exc)
 
 
 __all__ = [
-    "create_task",
-    "transition_task",
     "complete_task",
+    "create_task",
+    "get_child_tasks",
     "get_task",
     "get_task_by_idempotency_key",
-    "get_child_tasks",
     "get_task_history",
+    "transition_task",
 ]

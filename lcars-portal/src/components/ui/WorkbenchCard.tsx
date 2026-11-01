@@ -14,8 +14,8 @@ export function WorkbenchCard({ entry }: { entry: WorkbenchEntry }) {
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-wb-sage-deep/10 text-wb-sage-deep">
         <Icon className="h-5 w-5" aria-hidden />
       </span>
-      <span className="font-serif text-[16px] text-wb-ink">{entry.title}</span>
-      <span className="text-[13px] text-wb-ink2">{entry.description}</span>
+      <span className="font-serif text-wb-lead text-wb-ink">{entry.title}</span>
+      <span className="text-wb-body text-wb-ink2">{entry.description}</span>
     </Link>
   );
 }

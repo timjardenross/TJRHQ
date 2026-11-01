@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
-import re
-
 
 ROOT = Path(__file__).resolve().parents[2]
 TEXT_SUFFIXES = {".md", ".txt"}

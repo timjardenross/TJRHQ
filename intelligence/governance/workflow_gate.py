@@ -25,7 +25,7 @@ Every mutation is written to the shared append-only audit trail via `log_mutatio
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -150,9 +150,9 @@ def log_mutation(
     record_id: str,
     mutation_type: str,
     actor_role: str,
-    before_state: Optional[dict[str, Any]] = None,
-    after_state: Optional[dict[str, Any]] = None,
-    mission_id: Optional[str] = None,
+    before_state: dict[str, Any] | None = None,
+    after_state: dict[str, Any] | None = None,
+    mission_id: str | None = None,
 ) -> bool:
     """Append a mutation record to the shared audit trail.
 
@@ -178,6 +178,6 @@ def log_mutation(
             },
             mission_id=mission_id,
         )
-    except Exception as exc:  # audit must never break the workflow
+    except Exception as exc:  # audit must never break the workflow  # noqa: BLE001 - explicitly documented above as 'audit must never break the workflow', already logged
         log.warning("log_mutation: audit write failed (%s); continuing", exc)
         return False

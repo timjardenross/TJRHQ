@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/classification/filter.py
 
@@ -11,14 +12,14 @@ Covers:
 - Returns (bool, str) tuple
 """
 
-import sys
 import os
+import sys
 import unittest
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from intelligence.classification.filter import should_suppress, apply_filter
+from intelligence.classification.filter import apply_filter, should_suppress
 from intelligence.models import ClassifiedEvent
 
 
@@ -98,7 +99,7 @@ class TestOpinionSignal(unittest.TestCase):
 
     def test_analysis_prefix_suppressed(self):
         ev = _make_event(title="Analysis: What rising rates mean for the housing market")
-        suppressed, reason = should_suppress(ev)
+        suppressed, _reason = should_suppress(ev)
         self.assertTrue(suppressed)
 
 
@@ -112,8 +113,47 @@ class TestGenericNews(unittest.TestCase):
 
     def test_gallery_suppressed(self):
         ev = _make_event(title="Gallery: photos from the RBA press conference")
+        suppressed, _reason = should_suppress(ev)
+        self.assertTrue(suppressed)
+
+
+class TestCveBulletinSuppression(unittest.TestCase):
+    """2026-09-08: CVE/CVSS vulnerability bulletins were previously only
+    excluded ad hoc at two Telegram query call sites (captains_brief.py),
+    never marked suppressed=True here at classification time — so they
+    still reached ranking and brief_generator.py's LLM-narrated "What
+    matters today" section even after being "hidden" from the deterministic
+    signal digest."""
+
+    def test_cve_prefixed_title_suppressed(self):
+        ev = _make_event(title="CVE-2026-82598 — SeaCMS avatar upload vulnerability")
         suppressed, reason = should_suppress(ev)
         self.assertTrue(suppressed)
+        self.assertEqual(reason, "raw_cve_bulletin")
+
+    def test_cve_prefix_is_case_insensitive(self):
+        ev = _make_event(title="cve-2026-75760 ash_ai validation error disclosure")
+        suppressed, reason = should_suppress(ev)
+        self.assertTrue(suppressed)
+        self.assertEqual(reason, "raw_cve_bulletin")
+
+    def test_cvssv3_bulletin_summary_suppressed(self):
+        ev = _make_event(
+            title="Fortinet PSIRT Advisory: FortiOS heap overflow",
+            operational_relevance=0.55,
+        )
+        ev.raw_summary = "CVSSv3 Score: 8.8 High — [CWE-122] Heap-based Buffer Overflow"
+        suppressed, reason = should_suppress(ev)
+        self.assertTrue(suppressed)
+        self.assertEqual(reason, "raw_cvss_bulletin")
+
+    def test_genuine_breach_reporting_not_suppressed_as_cve(self):
+        ev = _make_event(
+            title="Major bank confirms customer data breach affecting 2 million accounts",
+            operational_relevance=0.55,
+        )
+        suppressed, _reason = should_suppress(ev)
+        self.assertFalse(suppressed)
 
 
 class TestLowOperationalRelevance(unittest.TestCase):
@@ -223,6 +263,30 @@ class TestApplyFilter(unittest.TestCase):
         ev.suppression_reason = "already_set"
         events = apply_filter([ev])
         self.assertEqual(events[0].suppression_reason, "already_set")
+
+    def test_aemo_price_interval_notices_suppressed(self):
+        for title in (
+            "[EventId:202611010440_confirmed] Prices for interval 01-Nov-2026 04:40 are now confirmed",
+            "[EventId:202611010440_review] Prices for interval 01-Nov-2026 04:40 are subject to review",
+            "Prices for interval 01-Nov-2026 04:35 are now confirmed",
+        ):
+            suppressed, reason = should_suppress(_make_event(title=title))
+            self.assertTrue(suppressed, title)
+            self.assertEqual(reason, "routine_price_interval_notice")
+
+    def test_non_routine_aemo_notice_not_suppressed(self):
+        title = "Market suspension declared in the NEM: administered pricing in effect for Prices for interval 04:40"
+        _, reason = should_suppress(_make_event(title=title))
+        self.assertNotEqual(reason, "routine_price_interval_notice")
+
+    def test_clean_title_strips_event_id_prefix(self):
+        from intelligence.brief.render import clean_title
+        self.assertEqual(
+            clean_title("[EventId:202611010440_confirmed] Prices for interval 04:40 are now confirmed"),
+            "Prices for interval 04:40 are now confirmed",
+        )
+        self.assertEqual(clean_title("Plain title"), "Plain title")
+        self.assertIsNone(clean_title(None))
 
 
 if __name__ == "__main__":

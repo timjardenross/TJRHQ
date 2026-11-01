@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence.audit.brief_qa_agent — the automated data_qa gate
 agent. Uses InMemoryRepository throughout (no network), same convention as
@@ -11,7 +12,11 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from intelligence.audit.brief_qa_agent import run_data_qa_agent, run_nightly, score_brief
+from intelligence.audit.brief_qa_agent import (
+    run_data_qa_agent,
+    run_nightly,
+    score_brief,
+)
 from intelligence.workflow.repository import InMemoryRepository, RepositoryError
 
 

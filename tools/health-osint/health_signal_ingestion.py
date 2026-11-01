@@ -69,7 +69,7 @@ def _direct_get(url: str) -> str:
     external_fetch_budget.py (that module only guards the paid providers)."""
     import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": "USS-TJR-Health-OSINT-Agent/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - generic fetch helper; url comes from this file's fixed per-source config (config["fetch_url"]), not user input - reviewed 2026-09-12
         return resp.read().decode("utf-8", errors="replace")
 
 
@@ -84,7 +84,7 @@ def _direct_post(url: str, body: dict) -> str:
         url, data=payload, method="POST",
         headers={"Content-Type": "application/json", "User-Agent": "USS-TJR-Health-OSINT-Agent/1.0"},
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - generic fetch helper; url comes from this file's fixed per-source config (config["fetch_url"]), not user input - reviewed 2026-09-12
         return resp.read().decode("utf-8", errors="replace")
 
 
@@ -198,7 +198,7 @@ class HealthSignalIngester:
 
         try:
             raw = _fetch(config)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-source fetch inside the ingestion loop — one bad source must not abort the run; already logged + recorded via _record_fetch_result
             log.error("[%s] fetch failed: %s", source_name, exc)
             self._record_fetch_result(config["config_id"], "failed", str(exc)[:500])
             return {"status": "failed", "source": source_name, "error": str(exc)}
@@ -211,7 +211,7 @@ class HealthSignalIngester:
             else:
                 parser_input = raw
             items = parser(parser_input)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-source parse inside the ingestion loop — one bad source must not abort the run; already logged + recorded via _record_fetch_result
             log.error("[%s] parse failed: %s", source_name, exc)
             self._record_fetch_result(config["config_id"], "failed", f"parse error: {exc}"[:500])
             return {"status": "failed", "source": source_name, "error": str(exc)}
@@ -264,7 +264,7 @@ class HealthSignalIngester:
             self.supabase.table("health_signals").insert(row).execute()
             self.stats["saved"] += 1
             return True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-item save inside a batch loop — one bad item must not abort the batch; already logged + counted in self.stats['errors']
             log.error("Save failed for %r: %s", row["title"][:60], exc)
             self.stats["errors"] += 1
             return False

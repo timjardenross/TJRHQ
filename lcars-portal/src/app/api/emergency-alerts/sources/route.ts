@@ -10,6 +10,7 @@
 
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 // alert_sources.source_key -> domain_registry.domain_key (migration 0174).
 const SOURCE_DOMAIN_KEYS: Record<string, string> = {
@@ -102,7 +103,7 @@ export async function GET() {
 
     return NextResponse.json({ sources, fetchedAt: new Date().toISOString() });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Emergency alert source query failed', detail }, { status: 500 });
   }
 }

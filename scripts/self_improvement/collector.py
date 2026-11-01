@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Deterministic evidence collection for self-improvement analysis.
 
@@ -14,40 +15,60 @@ Does not infer or guess — only collects observable facts.
 
 import json
 import logging
-import subprocess
 import re
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger("collector")
 
 # Directories that are large, irrelevant to source analysis, and expensive
-# to walk — excluding them is what keeps find/grep here inside their 10s
-# timeouts. Found via a real ad-hoc run on the production VM where
+# to walk — excluding them is what keeps find/grep here inside their
+# timeout. Found via a real ad-hoc run on the production VM where
 # _count_python_files() and _find_todos() both timed out walking the full
 # tree (node_modules, .venv, .git history, .next build output) before
-# reaching a single real source file.
-_WALK_EXCLUDED_DIRS = (".git", "node_modules", ".venv", "venv", "__pycache__", ".next")
+# reaching a single real source file. 2026-09-22: still timing out at 10s
+# even with these exclusions — root cause was 8 full-repo copies under
+# .claude/worktrees/agent-* (each duplicating the entire source tree)
+# multiplying the walk; added that exclusion and gave the timeout headroom
+# (see _FIND_GREP_TIMEOUT_S below).
+_WALK_EXCLUDED_DIRS = (".git", "node_modules", ".venv", "venv", "__pycache__", ".next", ".claude/worktrees")
+
+# See _WALK_EXCLUDED_DIRS comment above for why 10s wasn't enough.
+_FIND_GREP_TIMEOUT_S = 30
 
 
 def _find_prune_args() -> list[str]:
     """`find` arguments that prune _WALK_EXCLUDED_DIRS (at any depth)
-    before descending into them. Caller appends the real `-name`/`-type`
-    filter plus a trailing `-print` (required once `-prune` is combined
-    with `-o`, since find no longer prints by default)."""
+    before descending into them, plus any dir whose name contains "venv"
+    (case-insensitive) so non-canonically-named venvs like
+    core/voice/chatterbox-venv or platform-runtime/.venv-docling are
+    pruned too, not just the exact ".venv"/"venv" names. Caller appends
+    the real `-name`/`-type` filter plus a trailing `-print` (required
+    once `-prune` is combined with `-o`, since find no longer prints by
+    default)."""
     args: list[str] = ["("]
     for i, d in enumerate(_WALK_EXCLUDED_DIRS):
         if i:
             args.append("-o")
         args += ["-path", f"*/{d}"]
+    args += ["-o", "-ipath", "*venv*"]
     args += [")", "-prune", "-o"]
     return args
 
 
 def _grep_exclude_args() -> list[str]:
-    """`grep -r` arguments that skip _WALK_EXCLUDED_DIRS entirely."""
-    return [f"--exclude-dir={d}" for d in _WALK_EXCLUDED_DIRS]
+    """`grep -r` arguments that skip _WALK_EXCLUDED_DIRS entirely, plus any
+    dir whose name contains "venv" (glob, matches grep's --exclude-dir
+    semantics) — same non-canonical-venv gap as _find_prune_args().
+
+    --exclude-dir matches a bare directory *name* during recursion, not a
+    multi-segment path — so a ".claude/worktrees" entry in
+    _WALK_EXCLUDED_DIRS (needed as a full path for find's -path) is passed
+    here as just its basename, "worktrees"."""
+    names = [d.rsplit("/", 1)[-1] for d in _WALK_EXCLUDED_DIRS]
+    return [f"--exclude-dir={d}" for d in names] + ["--exclude-dir=*venv*"]
 
 
 class RepositoryState:
@@ -67,39 +88,39 @@ class RepositoryState:
             "repo_root": str(self.repo_root),
         }
 
-    def _get_branch(self) -> Optional[str]:
+    def _get_branch(self) -> str | None:
         """Get current branch name."""
         try:
             result = subprocess.run(
                 ["git", "-C", str(self.repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5, check=False
             )
             return result.stdout.strip() if result.returncode == 0 else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get branch: {exc}")
             return None
 
-    def _get_commit(self) -> Optional[str]:
+    def _get_commit(self) -> str | None:
         """Get current commit hash."""
         try:
             result = subprocess.run(
                 ["git", "-C", str(self.repo_root), "rev-parse", "HEAD"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5, check=False
             )
             return result.stdout.strip() if result.returncode == 0 else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get commit: {exc}")
             return None
 
-    def _get_commit_message(self) -> Optional[str]:
+    def _get_commit_message(self) -> str | None:
         """Get commit message of HEAD."""
         try:
             result = subprocess.run(
                 ["git", "-C", str(self.repo_root), "log", "-1", "--format=%B"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5, check=False
             )
             return result.stdout.strip() if result.returncode == 0 else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get commit message: {exc}")
             return None
 
@@ -107,11 +128,11 @@ class RepositoryState:
         """Check if working tree has uncommitted changes."""
         try:
             result = subprocess.run(
-                ["git", "-C", str(self.repo_root), "status", "--porcelain"],
-                capture_output=True, text=True, timeout=5
+                ["git", "-C", str(self.repo_root), "--no-optional-locks", "status", "--porcelain"],
+                capture_output=True, text=True, timeout=5, check=False
             )
             return bool(result.stdout.strip()) if result.returncode == 0 else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to check dirty status: {exc}")
             return None
 
@@ -119,8 +140,8 @@ class RepositoryState:
         """Get list of uncommitted files."""
         try:
             result = subprocess.run(
-                ["git", "-C", str(self.repo_root), "status", "--porcelain"],
-                capture_output=True, text=True, timeout=5
+                ["git", "-C", str(self.repo_root), "--no-optional-locks", "status", "--porcelain"],
+                capture_output=True, text=True, timeout=5, check=False
             )
             if result.returncode != 0:
                 return []
@@ -131,8 +152,16 @@ class RepositoryState:
                     parts = line.split(None, 1)
                     if len(parts) > 1:
                         files.append(parts[1])
+            # Cap the list: an unbounded working tree (e.g. a stuck deploy
+            # or a crash-looping job piling up untracked run artifacts) must
+            # not make this payload grow without bound — it gets fed
+            # straight into an LLM call with a hard input-size limit
+            # downstream (llmsec/spaCy NER, ~1M chars), and an oversized
+            # payload there causes a hard failure, not a graceful truncation.
+            if len(files) > 50:
+                return files[:50] + [f"... and {len(files) - 50} more uncommitted files (truncated)"]
             return files
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get uncommitted files: {exc}")
             return []
 
@@ -159,19 +188,37 @@ class FileSystemAudit:
         try:
             result = subprocess.run(
                 ["find", str(self.repo_root)] + _find_prune_args() + ["-name", "*.py", "-type", "f", "-print"],
-                capture_output=True, text=True, timeout=10
+                capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
             )
             return len(result.stdout.strip().splitlines()) if result.returncode == 0 else 0
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to count Python files: {exc}")
             return 0
 
     def _find_test_files(self) -> list[str]:
-        """Find test files."""
-        test_dir = self.repo_root / "tests"
-        if not test_dir.exists():
+        """Find test files (test_*.py / *_test.py) repo-wide, using the same
+        prune scope as _count_python_files() so the two counts are
+        reconcilable. Previously only glob'd the top-level tests/ directory
+        non-recursively, silently missing every test file living alongside
+        its source (platform-runtime/test_*.py, services/*/tests/*.py,
+        etc.) — 126 of 220 real test files repo-wide (USS-TJR-MSN-1788844167855).
+        Returns repo-relative paths rather than bare names since the same
+        basename can legitimately exist under multiple services."""
+        try:
+            result = subprocess.run(
+                ["find", str(self.repo_root)] + _find_prune_args()
+                + ["(", "-name", "test_*.py", "-o", "-name", "*_test.py", ")", "-type", "f", "-print"],
+                capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
+            )
+            if result.returncode != 0:
+                return []
+            return sorted(
+                str(Path(p).relative_to(self.repo_root))
+                for p in result.stdout.strip().splitlines() if p
+            )
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
+            log.warning(f"Failed to find test files: {exc}")
             return []
-        return [f.name for f in test_dir.glob("test_*.py")]
 
     def _find_doc_files(self) -> dict[str, Any]:
         """
@@ -185,12 +232,21 @@ class FileSystemAudit:
         findings. Count + a small recency sample is enough signal for
         "is documentation stale/sprawling" without the noise.
         """
-        docs = []
-        for pattern in ["*.md", "docs/**/*.md", "**/*.md"]:
-            for f in self.repo_root.glob(pattern):
-                if f.is_file() and "archive/" not in str(f.relative_to(self.repo_root)):
-                    docs.append(f)
-        docs = list(set(docs))  # dedup
+        try:
+            result = subprocess.run(
+                ["find", str(self.repo_root)] + _find_prune_args()
+                + ["-name", "*.md", "-type", "f", "-print"],
+                capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
+            )
+            if result.returncode != 0:
+                return {"count": 0, "most_recent": []}
+            docs = [
+                Path(p) for p in result.stdout.strip().splitlines()
+                if p and "archive/" not in str(Path(p).relative_to(self.repo_root))
+            ]
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/parse failure) must not kill the whole collection run
+            log.warning(f"Failed to find doc files: {exc}")
+            return {"count": 0, "most_recent": []}
         docs.sort(key=lambda f: f.stat().st_mtime, reverse=True)
         return {
             "count": len(docs),
@@ -261,7 +317,7 @@ class ModelRouterAudit:
                         key = line.split('"')[1]
                         task_types[key] = True
             return {"task_types": list(task_types.keys()), "count": len(task_types)}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to read router code: {exc}")
             return {"error": str(exc)}
 
@@ -269,18 +325,18 @@ class ModelRouterAudit:
         """Check if Model Router is reachable."""
         try:
             import urllib.request
-            response = urllib.request.urlopen(f"{self.router_url}/health", timeout=2)
+            response = urllib.request.urlopen(f"{self.router_url}/health", timeout=2)  # nosec B310 - router_url defaults to fixed http://127.0.0.1:8891 literal, only overridable via an operator CLI flag, not user input - reviewed 2026-09-12
             return response.status == 200
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             return False
 
     def _get_router_status(self) -> dict[str, Any]:
         """Get status from Model Router."""
         try:
             import urllib.request
-            response = urllib.request.urlopen(f"{self.router_url}/api/model/status", timeout=5)
+            response = urllib.request.urlopen(f"{self.router_url}/api/model/status", timeout=5)  # nosec B310 - router_url defaults to fixed http://127.0.0.1:8891 literal, only overridable via an operator CLI flag, not user input - reviewed 2026-09-12
             return json.loads(response.read().decode())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             return {"error": str(exc)}
 
     def _check_call_log(self) -> bool:
@@ -288,7 +344,7 @@ class ModelRouterAudit:
         log_file = self.repo_root / "core/model-router/call_log.jsonl"
         return log_file.exists()
 
-    def _get_call_log_size(self) -> Optional[float]:
+    def _get_call_log_size(self) -> float | None:
         """Get size of call_log.jsonl in MB."""
         log_file = self.repo_root / "core/model-router/call_log.jsonl"
         if not log_file.exists():
@@ -321,12 +377,12 @@ class CodeAnalysis:
             for pattern, label in patterns:
                 result = subprocess.run(
                     ["grep", "-r", pattern, str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                    capture_output=True, text=True, timeout=10
+                    capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
                 )
                 if result.returncode == 0 and result.stdout:
                     todos[label] = result.stdout.strip().split('\n')[:10]  # limit to 10
             return todos
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to find TODOs: {exc}")
             return {}
 
@@ -336,12 +392,12 @@ class CodeAnalysis:
         try:
             result = subprocess.run(
                 ["grep", "-r", "^import .*#.*unused", str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                capture_output=True, text=True, timeout=10
+                capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
             )
             if result.returncode == 0 and result.stdout:
                 return result.stdout.strip().split('\n')[:5]
             return []
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             return []
 
     def _find_hardcoded_patterns(self) -> list[str]:
@@ -356,25 +412,25 @@ class CodeAnalysis:
             try:
                 result = subprocess.run(
                     ["grep", "-r", "-E", pattern, str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                    capture_output=True, text=True, timeout=10
+                    capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
                 )
                 if result.returncode == 0 and result.stdout:
                     # Limit to a few examples
                     for line in result.stdout.strip().split('\n')[:2]:
                         if line:
                             findings.append(line)
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
+                log.debug("pattern search failed for %r: %s", pattern, exc)
         return findings[:10]  # limit overall
 
 
 class EvidenceCollector:
     """Orchestrates all evidence collection."""
 
-    def __init__(self, repo_root: Optional[Path] = None):
+    def __init__(self, repo_root: Path | None = None):
         self.repo_root = repo_root or self._find_repo_root()
 
-    def collect_all(self, since_commit: Optional[str] = None) -> dict[str, Any]:
+    def collect_all(self, since_commit: str | None = None) -> dict[str, Any]:
         """Collect all available evidence."""
         log.info(f"Collecting evidence from {self.repo_root}")
 

@@ -21,24 +21,24 @@ Design:
   - Sequential (no parallelization)
   - Non-blocking error handling (failures don't crash)
   - In-memory execution (no database persistence in this phase)
-  - Testable without Slack integration
+  - Testable without any live chat-bot integration
 """
 
 from __future__ import annotations
 
-import os
+import importlib.util
 import json
 import logging
-import urllib.request
-import urllib.error
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from typing import Any, Optional
-import sys
+import os
 import re
-from pathlib import Path
+import sys
 import time
-import importlib.util
+import urllib.error
+import urllib.request
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def _load_decision_profile_excerpt() -> str:
         dec = m2.group(1).strip() if m2 else ""
         combined = "\n\n".join(filter(None, [comm, dec]))
         return combined
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: '' on any parse failure
         return ""
 
 
@@ -114,8 +114,47 @@ except ImportError:
         log.error(f"Could not create spec for research_metrics at {_metrics_file}")
         ResearchMetricsCollector = None
 
+
+def _daily_mission_cap_reached() -> tuple[bool, int, int]:
+    """Return (reached, missions_today, cap).
+
+    Each research mission is ~8-10 Gemini calls, and a requeue loop once ran
+    19 of them a day unnoticed until the Gemini spend cap tripped. This is a
+    hard ceiling on top of any fix for a particular loop. Set
+    RESEARCH_MAX_MISSIONS_PER_DAY=0 to disable. Fails open (never blocks
+    research) if the count can't be read.
+    """
+    try:
+        cap = int(os.getenv("RESEARCH_MAX_MISSIONS_PER_DAY", "30"))
+    except ValueError:
+        cap = 30
+    if cap <= 0:
+        return False, 0, cap
+    try:
+        from supabase import create_client
+
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        if not url or not key:
+            return False, 0, cap
+        midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        resp = (
+            create_client(url, key)
+            .table("research_metrics")
+            .select("id", count="exact")
+            .gte("created_at", midnight.isoformat())
+            .limit(1)
+            .execute()
+        )
+        today = resp.count or 0
+        return today >= cap, today, cap
+    except Exception as exc:  # noqa: BLE001 - cap check is best-effort; a DB hiccup must not block research
+        log.warning(f"[research-cap] could not read today's mission count, allowing: {exc}")
+        return False, 0, cap
+
+
 # Import existing research_delegator
-# Dynamically discover and import from slack_bot/lib using importlib
+# Dynamically discover and import from platform-runtime/lib using importlib
 
 delegate_research_task = None
 ResearchOutcome = None
@@ -123,20 +162,37 @@ ResearchOutcome = None
 # Calculate path relative to this file: core/coordination/research_orchestration.py
 # Go up 2 levels to reach the root, then into platform-runtime/lib (note: hyphen, not underscore)
 _orchestrator_path = Path(__file__).resolve()
-_slack_bot_lib_dir = _orchestrator_path.parent.parent.parent / "platform-runtime" / "lib"
-_research_delegator_file = _slack_bot_lib_dir / "research_delegator.py"
+_platform_runtime_lib_dir = _orchestrator_path.parent.parent.parent / "platform-runtime" / "lib"
+_research_delegator_file = _platform_runtime_lib_dir / "research_delegator.py"
 
 try:
-    # Use importlib to load from file path directly
-    _spec = importlib.util.spec_from_file_location(
+    if "research_delegator" in sys.modules:
+        # Already loaded (by this module or a normal `import research_delegator`
+        # elsewhere) — reuse it rather than re-exec'ing the file and
+        # overwriting sys.modules["research_delegator"] with a brand-new
+        # module object. Re-executing research_orchestration.py itself
+        # (e.g. test_cps230_final_validation.py loads it a second time via
+        # its own importlib spec, to check for import errors) previously
+        # clobbered the shared module every time, silently breaking any
+        # code elsewhere holding a reference into the original one —
+        # including unittest.mock.patch("research_delegator.X") calls in
+        # other already-collected test files, which patched the NEW
+        # (swapped-in) module while delegate_research_task (bound earlier)
+        # kept calling the OLD one's real, unpatched functions.
+        _delegator_module = sys.modules["research_delegator"]
+        delegate_research_task = _delegator_module.delegate_research_task
+        ResearchOutcome = _delegator_module.ResearchOutcome
+        call_legacy_research_routing = _delegator_module.call_legacy_research_routing
+        call_gemini_2_5_flash_lite_research = _delegator_module.call_gemini_2_5_flash_lite_research
+        log.debug("Reused already-loaded research_delegator from sys.modules")
+    elif (_spec := importlib.util.spec_from_file_location(
         "research_delegator",
         _research_delegator_file
-    )
-    if _spec and _spec.loader:
+    )) and _spec.loader:
         # CRITICAL FIX: Ensure platform-runtime/lib is in sys.path BEFORE exec_module
         # This allows research_delegator.py to import sibling modules like provider_health.py
-        if str(_slack_bot_lib_dir) not in sys.path:
-            sys.path.insert(0, str(_slack_bot_lib_dir))
+        if str(_platform_runtime_lib_dir) not in sys.path:
+            sys.path.insert(0, str(_platform_runtime_lib_dir))
 
         _delegator_module = importlib.util.module_from_spec(_spec)
         # Register in sys.modules BEFORE exec_module to avoid dataclass issues
@@ -149,30 +205,28 @@ try:
         log.debug(f"Loaded research_delegator from {_research_delegator_file}")
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
-except (ImportError, AttributeError, FileNotFoundError) as e:
-    log.error(
-        f"Failed to import research_delegator from {_research_delegator_file}: {e}",
-        exc_info=True
+except (ImportError, AttributeError, FileNotFoundError):
+    log.exception(
+        f"Failed to import research_delegator from {_research_delegator_file}"
     )
     call_legacy_research_routing = None
     call_gemini_2_5_flash_lite_research = None
-except Exception as e:
-    log.error(
-        f"Unexpected error loading research_delegator from {_research_delegator_file}: {type(e).__name__}: {e}",
-        exc_info=True
+except Exception:
+    log.exception(
+        f"Unexpected error loading research_delegator from {_research_delegator_file}"
     )
     call_legacy_research_routing = None
     call_gemini_2_5_flash_lite_research = None
 
 # Startup logging for troubleshooting
-log.info(f"[startup] research_orchestration.py loaded")
+log.info("[startup] research_orchestration.py loaded")
 log.info(f"[startup] delegate_research_task loaded = {delegate_research_task is not None}")
 log.info(f"[startup] ResearchOutcome loaded = {ResearchOutcome is not None}")
 log.info(f"[startup] Research delegator file: {_research_delegator_file}")
 log.info(f"[startup] Research delegator file exists = {_research_delegator_file.exists()}")
 
 # ─── Mistral agent client ─────────────────────────────────────────────────────
-# _slack_bot_lib_dir is already in sys.path (added above), so this import works.
+# _platform_runtime_lib_dir is already in sys.path (added above), so this import works.
 try:
     import mistral_agent_client as _mac
     log.info("[startup] mistral_agent_client loaded from platform-runtime/lib")
@@ -183,7 +237,7 @@ except ImportError as _e:
 
 class _StageOutcome:
     """Minimal duck-typed stand-in for ResearchOutcome used by _call_stage()."""
-    __slots__ = ("status", "findings")
+    __slots__ = ("findings", "status")
     def __init__(self, status: str, findings: str):
         self.status = status
         self.findings = findings
@@ -194,8 +248,8 @@ def _call_stage(
     agent_name: str,
     prompt: str,
     timeout_sec: int = 30,
-    mission_id: str = None,
-) -> "_StageOutcome":
+    mission_id: str | None = None,
+) -> _StageOutcome:
     """
     Mistral-first stage call with automatic fallback to the legacy provider chain.
 
@@ -237,11 +291,11 @@ class ResearchTask:
     order_index: int
     description: str
     status: str = "pending"  # pending, delegated, complete, failed
-    provider: Optional[str] = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
-    findings: Optional[str] = None
+    provider: str | None = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
+    findings: str | None = None
     references: list[str] = field(default_factory=list)
-    error_message: Optional[str] = None
-    execution_time_ms: Optional[int] = None
+    error_message: str | None = None
+    execution_time_ms: int | None = None
     provider_chain: list[str] = field(default_factory=list)  # Telemetry: providers attempted in order
 
     def to_dict(self) -> dict[str, Any]:
@@ -266,15 +320,15 @@ class ResearchMissionResult:
     # Results
     task_results: list[ResearchTask] = field(default_factory=list)
     consolidated_findings: str = ""
-    recommendation: Optional[str] = None
+    recommendation: str | None = None
     confidence: float = 0.0  # 0.0-1.0
 
     # Metadata
-    primary_provider: Optional[str] = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
+    primary_provider: str | None = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
     errors: list[str] = field(default_factory=list)
     provider_paths: list[str] = field(default_factory=list)  # Telemetry: provider chain for each task (e.g., ["gemini-3.5-flash-lite → ollama"])
     request_type: str = "unclear"  # MSN-RECOMMENDATION-FIX Option B: "informational", "decision", or "unclear"
-    captains_brief: Optional[str] = None  # Captain's Brief from Briefing Officer (Path A)
+    captains_brief: str | None = None  # Captain's Brief from Briefing Officer (Path A)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -394,16 +448,16 @@ class ResearchOrchestrator:
     6. Return structured result
     """
 
-    def __init__(self, config: Optional[ResearchConfig] = None):
+    def __init__(self, config: ResearchConfig | None = None):
         """Initialize orchestrator."""
         self.config = config or ResearchConfig()
-        self.current_time = datetime.utcnow()
+        self.current_time = datetime.now(timezone.utc)
 
     def run_research_mission(
         self,
         research_topic: str,
-        mission_id: Optional[str] = None,
-        provider_health: Optional[Any] = None,  # MSN-0055C WP2: Circuit breaker
+        mission_id: str | None = None,
+        provider_health: Any | None = None,  # MSN-0055C WP2: Circuit breaker
     ) -> ResearchMissionResult:
         """
         Execute complete research mission.
@@ -422,6 +476,21 @@ class ResearchOrchestrator:
         # Generate mission ID if not provided
         if not mission_id:
             mission_id = self._generate_mission_id()
+
+        reached, today, cap = _daily_mission_cap_reached()
+        if reached:
+            msg = f"Daily research mission cap reached ({today}/{cap}); not starting {mission_id}"
+            log.error(f"[research-cap] {msg}")
+            return ResearchMissionResult(
+                mission_id=mission_id,
+                research_topic=research_topic,
+                status="error",
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                task_breakdown=[],
+                task_count=0,
+                tasks_completed=0,
+                errors=[msg],
+            )
 
         log.info(f"Starting research mission {mission_id}: {research_topic[:80]}...")
 
@@ -442,7 +511,7 @@ class ResearchOrchestrator:
                 mission_id=mission_id,
                 research_topic=research_topic,
                 status="error",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 task_breakdown=[],
                 task_count=0,
                 tasks_completed=0,
@@ -472,7 +541,7 @@ class ResearchOrchestrator:
                 mission_id=mission_id,
                 research_topic=research_topic,
                 status="error",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 task_breakdown=[t.description for t in tasks],
                 task_count=len(tasks),
                 tasks_completed=0,
@@ -516,7 +585,7 @@ class ResearchOrchestrator:
                 log.warning("  Consolidation used fallback (timeout or error)")
             else:
                 log.info(f"  Consolidated {len([t for t in tasks if t.findings])} task findings")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Consolidation failed fatally: {e}. Using local fallback.")
             consolidation_fallback_used = True
             successful_tasks = [t for t in tasks if t.findings]
@@ -544,7 +613,7 @@ class ResearchOrchestrator:
         try:
             # NEW: Pass raw findings to decision framework for evidence grounding
             recommendation, confidence = self._generate_recommendation_with_fallback(raw_findings, tasks)
-        except Exception as rec_error:
+        except Exception as rec_error:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
             recommendation = None
             confidence = 0.0
@@ -560,14 +629,14 @@ class ResearchOrchestrator:
 
         if request_type == "informational":
             # Informational request: skip recommendation generation, findings are the answer
-            log.info(f"[request-type] Informational request: skipping recommendation generation")
+            log.info("[request-type] Informational request: skipping recommendation generation")
             log.info("  Mode: Findings-only (informational request)")
         elif request_type in ["decision", "unclear"]:
             # Decision-oriented or uncertain: generate recommendation (conservative fallback)
             if request_type == "unclear":
-                log.info(f"[request-type] Unclear request type: generating recommendation (conservative fallback)")
+                log.info("[request-type] Unclear request type: generating recommendation (conservative fallback)")
             else:
-                log.info(f"[request-type] Decision-oriented request: generating recommendation")
+                log.info("[request-type] Decision-oriented request: generating recommendation")
 
             # Build raw findings for decision framework (MSN-RECOMMENDATION-FIX #3)
             raw_findings = "\n\n".join([
@@ -578,7 +647,7 @@ class ResearchOrchestrator:
             try:
                 # Pass raw findings to decision framework for evidence grounding
                 recommendation, confidence = self._generate_recommendation_with_fallback(raw_findings, tasks)
-            except Exception as rec_error:
+            except Exception as rec_error:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
                 recommendation = None
                 confidence = 0.0
@@ -637,7 +706,7 @@ class ResearchOrchestrator:
             mission_id=mission_id,
             research_topic=research_topic,
             status=status,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             task_breakdown=[t.description for t in tasks],
             task_count=len(tasks),
             tasks_completed=tasks_completed,
@@ -651,7 +720,7 @@ class ResearchOrchestrator:
             request_type=request_type,  # MSN-RECOMMENDATION-FIX Option B: include request type in result
         )
 
-        # Step 7: Captain's Briefing Officer (Path A: Brief as Primary Slack Output)
+        # Step 7: Captain's Briefing Officer (Path A: Brief as Primary Output)
         # Non-blocking: if briefing fails, mission continues with standard output
         try:
             from briefing_officer import generate_captains_brief
@@ -674,9 +743,9 @@ class ResearchOrchestrator:
                 result.captains_brief = brief
                 log.info("[briefing] Captain's Brief generated and attached to result")
             else:
-                log.warning("[briefing] Brief generation failed; Slack will use fallback format")
-        except Exception as e:
-            log.error(f"[briefing] Failed to load/call briefing officer: {e}", exc_info=True)
+                log.warning("[briefing] Brief generation failed; caller will use fallback format")
+        except Exception:
+            log.exception("[briefing] Failed to load/call briefing officer")
             # Non-blocking: continue without brief
 
         # Step 7b: Optional summary/challenge enrichments from recovered specialist layer.
@@ -699,7 +768,7 @@ class ResearchOrchestrator:
             if summary_result.get("status") == "success":
                 result.captains_brief = result.captains_brief or summary_result.get("summary")
                 log.info("[summary] Summary officer enrichment completed")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"[summary] Optional summary enrichment skipped: {e}")
 
         try:
@@ -714,7 +783,7 @@ class ResearchOrchestrator:
             if challenge_result:
                 result.errors.append("challenge_review_attached")
                 log.info("[challenge] Risk & challenge enrichment completed")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"[challenge] Optional risk/challenge enrichment skipped: {e}")
 
         # MSN-0055C WP7: Persist metrics and log summary
@@ -727,8 +796,8 @@ class ResearchOrchestrator:
     def orchestrate(
         self,
         research_topic: str,
-        mission_id: Optional[str] = None,
-        provider_health: Optional[Any] = None,
+        mission_id: str | None = None,
+        provider_health: Any | None = None,
     ) -> ResearchMissionResult:
         """Backward-compatible alias for callers expecting an orchestrate() API."""
         return self.run_research_mission(
@@ -757,7 +826,7 @@ class ResearchOrchestrator:
             List of task descriptions (2-3 tasks typically)
         """
 
-        ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         decompose_prompt = f"""You are a research planning expert. Break down the following research topic into 2-3 specific, actionable research tasks (maximum 3 to avoid rate limiting).
 
 Research Topic: {research_topic}
@@ -787,7 +856,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 if tasks:
                     log.info(f"Decomposition successful via {provider_name}: {len(tasks)} tasks")
                     return tasks[:3]  # Cap at 3 tasks
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning(f"Decomposition failed with {provider_name}: {e}. Trying next provider.")
                 continue
 
@@ -823,7 +892,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 log.info(f"[decompose] Mistral: SUCCESS — {len(tasks)} tasks")
             return tasks
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"[decompose] Mistral: FAILED — {type(e).__name__}: {e}")
             return []
 
@@ -848,7 +917,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             else:
                 log.error("[decompose] Gemini 2.5 Flash Lite: Empty response from API")
                 return []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"[decompose] Gemini 2.5 Flash Lite: FAILED - {type(e).__name__}: {e}")
             return []
 
@@ -882,7 +951,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
             log.info("[decompose] Ollama: Sending request to qwen3:8b...")
 
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
                 response_data = json.loads(response.read().decode("utf-8"))
                 response_text = response_data.get("response", "")
 
@@ -915,7 +984,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                     log.warning(f"Fallback decomposition produced {len(tasks)} tasks; capped at 3 (max for MVP)")
                 return capped_tasks
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Task decomposition failed: {e}")
             return []
 
@@ -928,7 +997,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             parsed = json.loads(text)
             if isinstance(parsed, list):
                 return [str(item).strip() for item in parsed if str(item).strip()]
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort JSON-shape parse attempt; falls through to the substring-extraction attempt below
             pass
 
         start = text.find("[")
@@ -938,7 +1007,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 parsed = json.loads(text[start : end + 1])
                 if isinstance(parsed, list):
                     return [str(item).strip() for item in parsed if str(item).strip()]
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - best-effort JSON-substring parse attempt; falls through to the line-based parser below
                 pass
 
         tasks = []
@@ -952,8 +1021,8 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         """Deterministically split a research topic into a small task set.
 
         This is the last-resort path when all providers fail or return empty
-        output. It keeps the research pipeline alive so Slack never receives a
-        zero-task mission result.
+        output. It keeps the research pipeline alive so the caller never
+        receives a zero-task mission result.
         """
         topic = (research_topic or "").strip()
         if not topic:
@@ -966,7 +1035,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         return [
             f"Task 1: Identify the latest relevant information about {topic}",
             f"Task 2: Compare the top findings, risks, and practical implications for {topic}",
-            f"Task 3: Summarise the answer for Slack with clear next steps on {topic}",
+            f"Task 3: Summarise the answer with clear next steps on {topic}",
         ]
 
     # ========================================================================
@@ -1084,9 +1153,9 @@ Provide only the consolidated summary, no headers or metadata."""
                 return consolidated
             else:
                 log.warning(f"Consolidation provider failed: {outcome.status}. Using local fallback.")
-                raise Exception("Legacy routing failed")
+                raise RuntimeError("Legacy routing failed")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             # Consolidation timeout or error - use deterministic local fallback
             log.warning(f"Consolidation failed ({type(e).__name__}): {str(e)[:100]}. Using local fallback consolidation.")
 
@@ -1117,7 +1186,7 @@ Provide only the consolidated summary, no headers or metadata."""
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Extract viable options from research findings (MSN-RECOMMENDATION-FIX #1).
 
@@ -1172,16 +1241,16 @@ Cost/Effort: [if relevant]"""
                 log.debug(f"Options extraction failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Options extraction failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
     def _analyze_tradeoffs(
         self,
         consolidated_findings: str,
-        options_text: Optional[str],
+        options_text: str | None,
         tasks: list[ResearchTask]
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Analyze trade-offs between options (MSN-RECOMMENDATION-FIX #1).
 
@@ -1227,16 +1296,16 @@ Be specific with numbers/timelines where possible."""
                 log.debug(f"Trade-off analysis failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Trade-off analysis failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
     def _assess_risks(
         self,
         consolidated_findings: str,
-        options_text: Optional[str],
+        options_text: str | None,
         tasks: list[ResearchTask]
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Assess risks for each option (MSN-RECOMMENDATION-FIX #1).
 
@@ -1280,7 +1349,7 @@ Format clearly. Be specific about probability and impact."""
                 log.debug(f"Risk assessment failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Risk assessment failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
@@ -1288,7 +1357,7 @@ Format clearly. Be specific about probability and impact."""
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
-    ) -> tuple[Optional[str], float]:
+    ) -> tuple[str | None, float]:
         """
         Generate recommendation with decision framework (MSN-RECOMMENDATION-FIX #1).
 
@@ -1344,7 +1413,7 @@ Format clearly. Be specific about probability and impact."""
             log.info(f"[research-recommendation] Decision framework recommendation succeeded (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.debug(f"[research-recommendation] Decision framework recommendation rejected. Trying Ollama...")
+        log.debug("[research-recommendation] Decision framework recommendation rejected. Trying Ollama...")
 
         # Tier 2: Fall back to Ollama with original prompt
         llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
@@ -1359,7 +1428,7 @@ Format clearly. Be specific about probability and impact."""
             log.info(f"[research-recommendation] Used LLM provider (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.debug(f"[research-recommendation] Provider recommendation rejected or failed. Trying Ollama...")
+        log.debug("[research-recommendation] Provider recommendation rejected or failed. Trying Ollama...")
 
         # Tier 2: Fall back to Ollama
         llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
@@ -1374,8 +1443,8 @@ Format clearly. Be specific about probability and impact."""
             log.info(f"[research-recommendation] Used Ollama (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.info(f"[research-recommendation] Both LLM recommendations rejected or failed.")
-        log.info(f"[research-recommendation] Recommendation pipeline needs review. Returning NEEDS_REVIEW status.")
+        log.info("[research-recommendation] Both LLM recommendations rejected or failed.")
+        log.info("[research-recommendation] Recommendation pipeline needs review. Returning NEEDS_REVIEW status.")
 
         # NEW (MSN-RECOMMENDATION-FIX #5): Escalate instead of fallback to "defer"
         successful_tasks = len([t for t in tasks if t.status == "complete"])
@@ -1411,7 +1480,7 @@ Format clearly. Be specific about probability and impact."""
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
-    ) -> tuple[Optional[str], float]:
+    ) -> tuple[str | None, float]:
         """
         Generate recommendation from consolidated findings.
 
@@ -1472,7 +1541,7 @@ CONFIDENCE: [0.0-1.0]"""
 
             log.info("Calling Ollama for recommendation generation")
 
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
                 response_data = json.loads(response.read().decode("utf-8"))
                 response_text = response_data.get("response", "").strip()
 
@@ -1497,18 +1566,18 @@ CONFIDENCE: [0.0-1.0]"""
                     log.info("No recommendation generated from findings")
                     return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"Recommendation generation failed ({type(e).__name__}): {str(e)[:100]}. Continuing without recommendation.")
             return None, 0.0
 
     def _generate_recommendation_with_decision_framework(
         self,
         consolidated_findings: str,
-        options_text: Optional[str],
-        tradeoff_text: Optional[str],
-        risk_text: Optional[str],
+        options_text: str | None,
+        tradeoff_text: str | None,
+        risk_text: str | None,
         tasks: list[ResearchTask]
-    ) -> tuple[Optional[str], float]:
+    ) -> tuple[str | None, float]:
         """
         Generate recommendation using decision framework (MSN-RECOMMENDATION-FIX #2).
 
@@ -1625,7 +1694,7 @@ CONFIDENCE: [0.0-1.0]"""
                 log.debug(f"Decision framework generation failed: {outcome.status}")
                 return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Decision framework generation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 
@@ -1633,7 +1702,7 @@ CONFIDENCE: [0.0-1.0]"""
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
-    ) -> tuple[Optional[str], float]:
+    ) -> tuple[str | None, float]:
         """
         Generate recommendation using the active provider chain (MSN-0058).
 
@@ -1703,7 +1772,7 @@ CONFIDENCE: [0.0-1.0]"""
                 log.debug(f"Flash Lite call failed: {outcome.status}")
                 return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Recommendation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 
@@ -1713,12 +1782,12 @@ CONFIDENCE: [0.0-1.0]"""
 
     def _generate_mission_id(self) -> str:
         """Generate mission ID (MSN-YYYYMMDD-HHMMSS)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("MSN-%Y%m%d-%H%M%S")
 
     def _generate_task_id(self, mission_id: str, order_index: int) -> str:
         """Generate task ID (RES-YYYYMMDD-HHMMSS-NN)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime(f"RES-%Y%m%d-%H%M%S-{order_index:02d}")
 
     def _collect_errors(self, tasks: list[ResearchTask]) -> list[str]:
@@ -1785,7 +1854,7 @@ if __name__ == "__main__":
 
     result = orchestrator.run_research_mission(research_topic)
 
-    print(f"\nResult:")
+    print("\nResult:")
     print(f"  Mission ID: {result.mission_id}")
     print(f"  Status: {result.status}")
     print(f"  Tasks: {result.tasks_completed}/{result.task_count}")
@@ -1795,7 +1864,7 @@ if __name__ == "__main__":
         for error in result.errors:
             print(f"    - {error}")
 
-    print(f"\n  Task Breakdown:")
+    print("\n  Task Breakdown:")
     for task in result.task_results:
         status_icon = "✓" if task.status == "complete" else "✗"
         print(f"    {status_icon} Task {task.order_index}: {task.description}")
@@ -1804,14 +1873,14 @@ if __name__ == "__main__":
         elif task.error_message:
             print(f"       Error: {task.error_message}")
 
-    print(f"\n  Consolidated Findings:")
+    print("\n  Consolidated Findings:")
     print(f"    {result.consolidated_findings[:200]}...")
 
     if result.recommendation:
-        print(f"\n  Recommendation:")
+        print("\n  Recommendation:")
         print(f"    {result.recommendation}")
         print(f"    Confidence: {result.confidence:.2f}")
     else:
-        print(f"\n  No recommendation generated")
+        print("\n  No recommendation generated")
 
     print("\n=== Test Complete ===\n")

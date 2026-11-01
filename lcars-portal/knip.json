@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "deploy-phase-1b.js",
+    "scripts/brand/build-icons.mjs",
+    "scripts/brand/check-icons.mjs"
+  ],
+  "ignore": [
+    "public/sw.js"
+  ]
+}

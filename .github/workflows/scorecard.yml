@@ -1,0 +1,78 @@
+name: Scorecard analysis workflow
+on:
+  # CI/CD friction mission 2026-09-19 follow-up: `push: branches: [main]`
+  # removed. This repo delivers direct-to-main frequently (confirmed via
+  # `gh run list` — dozens of pushes/hour), and scorecard-action's own
+  # analysis run routinely takes well over an hour (GitHub API
+  # rate-limited fan-out across the repo's history/dependencies). Even
+  # with the concurrency group below cancelling superseded runs, a fresh
+  # ~hour-long run started on nearly every push to main is still a
+  # standing hosted-runner-slot cost this workflow doesn't need to pay —
+  # Scorecard isn't a required check, doesn't gate merges, and a
+  # supply-chain posture score has no reason to be recomputed on every
+  # commit. Weekly cron is the real cadence this analysis needs;
+  # workflow_dispatch keeps an on-demand run available (e.g. right after
+  # a dependency change worth re-scoring) without re-adding a push
+  # trigger. Confirmed via `gh workflow view` that both triggers remain
+  # listed/runnable after this change.
+  schedule:
+    # Weekly on Saturdays.
+    - cron:  '30 1 * * 6'
+  workflow_dispatch: {}
+
+permissions: read-all
+
+# CI/CD friction mission 2026-09-19: no workflow here declared a
+# concurrency group, so overlapping scheduled/manual runs (or a rerun
+# before a prior run finished) held their own runner slot for the full
+# ~hour+ duration instead of the newer run superseding the older one.
+# Kept even after removing the push trigger — schedule/manual runs can
+# still overlap if one runs long, and only the newest run's score is
+# ever meaningful.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Needed for Code scanning upload
+      security-events: write
+      # Needed for GitHub OIDC token if publish_results is true
+      id-token: write
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Run analysis"
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # 2026-09-26 GitHub archive/delete audit: this is a private
+          # exec-ops repo, not an open-source project, so publish_results
+          # stays false — no reason to send scan results to Scorecard's
+          # public dataset (https://github.com/ossf/scorecard#public-data).
+          publish_results: false
+
+      # Upload the results as artifacts (optional). Commenting out will disable
+      # uploads of run results in SARIF format to the repository Actions tab.
+      # https://docs.github.com/en/actions/advanced-guides/storing-workflow-data-as-artifacts
+      - name: "Upload artifact"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      # Upload the results to GitHub's code scanning dashboard (optional).
+      # Commenting out will disable upload of results to your repo's Code Scanning dashboard
+      - name: "Upload to code-scanning"
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: results.sarif

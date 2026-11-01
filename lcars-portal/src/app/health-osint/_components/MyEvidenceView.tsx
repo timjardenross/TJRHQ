@@ -5,8 +5,9 @@
 // are derived from health_domain via lib/healthOsintTopics.ts, not a new
 // taxonomy table (none exists) — see /api/health-osint/topics for detail.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge, toneToStatus } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { STRENGTH_LABEL, TREND_LABEL, strengthTone, type TopicSummary } from './shared';
 
 interface Props {
@@ -18,22 +19,21 @@ export function MyEvidenceView({ onOpenTopic }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/health-osint/topics')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/health-osint/topics', { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        setTopics(d.topics ?? []);
-        setError(null);
+        if (alive()) { setTopics(d.topics ?? []); setError(null); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
+      .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
   if (loading) return <p className="text-sm text-wb-ink2">Loading…</p>;
   if (error) return <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>;
   if (!topics || topics.length === 0) {
-    return <p className="rounded-xl border border-wb-line bg-wb-surface p-4 text-[13px] text-wb-ink2">No evidence recorded yet.</p>;
+    return <p className="rounded-xl border border-wb-line bg-wb-surface p-4 text-wb-body text-wb-ink2">No evidence recorded yet.</p>;
   }
 
   return (
@@ -43,13 +43,13 @@ export function MyEvidenceView({ onOpenTopic }: Props) {
           key={t.topic_key}
           type="button"
           onClick={() => onOpenTopic(t.topic_key)}
-          className="flex w-full flex-col gap-1 rounded-xl border border-wb-line bg-wb-surface p-3 text-left transition-colors hover:border-wb-sage-deep sm:flex-row sm:items-center sm:justify-between"
+          className="flex w-full flex-col gap-1 rounded-xl border border-wb-line bg-wb-surface p-3 text-left transition-colors hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex items-center gap-2">
-            <span className="text-[13.5px] font-medium text-wb-ink">{t.topic_label}</span>
+            <span className="text-wb-body font-medium text-wb-ink">{t.topic_label}</span>
             {t.safety_relevant && <Badge status="error">Safety</Badge>}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-[12px] text-wb-ink2">
+          <div className="flex flex-wrap items-center gap-2 text-wb-label text-wb-ink2">
             <Badge status={toneToStatus(strengthTone(t.strength))}>{STRENGTH_LABEL[t.strength]}</Badge>
             <span>{TREND_LABEL[t.trend]}</span>
             {t.last_changed && <span>· Last changed {new Date(t.last_changed).toLocaleDateString()}</span>}

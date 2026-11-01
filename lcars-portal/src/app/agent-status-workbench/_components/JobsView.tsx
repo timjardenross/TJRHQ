@@ -9,8 +9,9 @@
  * same grouping, same tone/badge mapping.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Badge, Card } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { stateToneClasses } from '@/lib/departments';
 import type { AgentStatusEntry } from '@/app/api/agent-status/route';
 import { CAPABILITIES } from '@/lib/hqStatusInterpreter';
@@ -25,7 +26,10 @@ const CRITICALITY_LABEL: Record<AgentStatusEntry['criticality'], string> = {
   background: 'Background',
 };
 
-const REFRESH_INTERVAL_MS = 30_000;
+// 2026-09-20 (Supabase egress investigation): 30s -> 60s, plus the
+// document.hidden guard on the interval below — see StatusView.tsx's
+// matching comment for the full reasoning (same workbench, same fix).
+const REFRESH_INTERVAL_MS = 60_000;
 
 /** Groups job entries by their domain field, preserving insertion order. */
 function groupByDomain(jobs: AgentStatusEntry[]): Map<string, AgentStatusEntry[]> {
@@ -59,8 +63,8 @@ function JobRow({ job }: { job: AgentStatusEntry }) {
         <div className="flex items-center gap-2.5">
           <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${classes.dot}`} aria-hidden />
           <div>
-            <span className="text-[13px] font-medium text-wb-ink">{job.label}</span>
-            <div className="text-[10px] text-wb-ink2/70">
+            <span className="text-wb-body font-medium text-wb-ink">{job.label}</span>
+            <div className="text-wb-label text-wb-ink2">
               {CAPABILITY_LABEL_BY_KEY.get(job.capability) ?? job.capability} · {CRITICALITY_LABEL[job.criticality]}
             </div>
           </div>
@@ -69,11 +73,11 @@ function JobRow({ job }: { job: AgentStatusEntry }) {
       <td className="py-3 pr-4">
         <Badge status={jobStatusToBadge(job.status)}>{jobStatusLabel(job.status)}</Badge>
       </td>
-      <td className="py-3 pr-4 text-[12px] tabular-nums text-wb-ink2">
+      <td className="py-3 pr-4 text-wb-label tabular-nums text-wb-ink2">
         <div>{relativeTime(job.lastRun)}</div>
-        <div className="text-[10px] normal-case tracking-normal text-wb-ink2/70">{job.cadenceLabel}</div>
+        <div className="text-wb-label normal-case tracking-normal text-wb-ink2">{job.cadenceLabel}</div>
       </td>
-      <td className="py-3 text-[12px] text-wb-ink2 max-w-[260px] truncate" title={job.lastAction ?? undefined}>
+      <td className="py-3 text-wb-label text-wb-ink2 max-w-[260px] truncate" title={job.lastAction ?? undefined}>
         {job.lastAction ?? <span className="italic">—</span>}
       </td>
     </tr>
@@ -89,9 +93,9 @@ function DomainSection({ domain, jobs }: { domain: string; jobs: AgentStatusEntr
       <div className="mb-3 flex items-center justify-between border-b border-wb-line pb-3">
         <div>
           <h2 className="font-serif text-lg text-wb-ink">{label}</h2>
-          <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
+          <p className="text-wb-label uppercase tracking-wide text-wb-ink2">
             {jobs.length} job{jobs.length !== 1 ? 's' : ''}
-            {failedCount > 0 && <span className="ml-2 text-state-crit-on">{failedCount} failed</span>}
+            {failedCount > 0 && <span className="ml-2 rounded border border-state-crit/50 bg-state-crit/10 px-1.5 py-0.5 text-state-crit-on">{failedCount} failed</span>}
           </p>
         </div>
         {failedCount > 0 && <Badge status="error">{failedCount} Failed</Badge>}
@@ -100,10 +104,10 @@ function DomainSection({ domain, jobs }: { domain: string; jobs: AgentStatusEntr
         <table className="w-full">
           <thead>
             <tr className="border-b border-wb-line">
-              <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Job</th>
-              <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Status</th>
-              <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Last Run</th>
-              <th className="pb-2 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Last Action</th>
+              <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Job</th>
+              <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Status</th>
+              <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Last Run</th>
+              <th className="pb-2 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Last Action</th>
             </tr>
           </thead>
           <tbody>
@@ -120,33 +124,35 @@ export function JobsView() {
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  async function fetchStatus(withSpinner: boolean) {
-    if (withSpinner) setIsLoading(true);
-    try {
-      const res = await fetch('/api/agent-status', { cache: 'no-store' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
+  useAbortEffect((signal, alive) => {
+    async function fetchStatus(withSpinner: boolean) {
+      if (withSpinner) setIsLoading(true);
+      try {
+        const res = await fetch('/api/agent-status', { cache: 'no-store', signal });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.error ?? `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (alive()) {
+          setJobs(data.jobs ?? []);
+          setFetchedAt(data.fetchedAt ?? null);
+          setLoadError(null);
+        }
+      } catch (err) {
+        if (alive() && !(err instanceof Error && err.name === 'AbortError')) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load agent status');
+        }
+      } finally {
+        if (alive() && withSpinner) setIsLoading(false);
       }
-      const data = await res.json();
-      setJobs(data.jobs ?? []);
-      setFetchedAt(data.fetchedAt ?? null);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to load agent status');
-    } finally {
-      if (withSpinner) setIsLoading(false);
     }
-  }
-
-  useEffect(() => {
     fetchStatus(true);
-    intervalRef.current = setInterval(() => fetchStatus(false), REFRESH_INTERVAL_MS);
-    return () => {
-      if (intervalRef.current !== null) clearInterval(intervalRef.current);
-    };
+    const intervalId = setInterval(() => {
+      if (document.hidden) return;
+      fetchStatus(false);
+    }, REFRESH_INTERVAL_MS);
+    return () => clearInterval(intervalId);
   }, []);
 
   const groups = groupByDomain(jobs);
@@ -156,40 +162,40 @@ export function JobsView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[11px] text-wb-ink2">
+      <p className="text-wb-label text-wb-ink2">
         Scheduler job state from domain_heartbeats — auto-refreshes every 30s
         {fetchedAt && <> · Updated {relativeTime(fetchedAt)}</>}
       </p>
 
       <Card>
         {isLoading ? (
-          <p className="text-[13px] italic text-wb-ink2">Loading agent status…</p>
+          <p className="text-wb-body italic text-wb-ink2">Loading agent status…</p>
         ) : loadError ? (
           <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-            <p className="text-[13px] font-semibold text-wb-crit-on">Failed to load agent status</p>
-            <p className="mt-1 text-[12px] text-wb-ink2">{loadError}</p>
+            <p className="text-wb-body font-semibold text-wb-crit-on">Failed to load agent status</p>
+            <p className="mt-1 text-wb-label text-wb-ink2">{loadError}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
               <p className="text-2xl font-bold text-wb-ink">{jobs.length}</p>
-              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Total Jobs</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Total Jobs</p>
             </div>
-            <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
+            <div className="rounded-md border border-state-ok/40 bg-state-ok/10 p-3 text-center">
               <p className="text-2xl font-bold text-state-ok-on">{jobs.filter((j) => j.status === 'ok').length}</p>
-              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Healthy</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Healthy</p>
             </div>
             <div className={`rounded-md border p-3 text-center ${totalFailed > 0 ? 'border-state-crit/40 bg-state-crit/10' : 'border-wb-line bg-wb-bg'}`}>
               <p className={`text-2xl font-bold ${totalFailed > 0 ? 'text-state-crit-on' : 'text-wb-ink'}`}>{totalFailed}</p>
-              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Failed</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Failed</p>
             </div>
-            <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
+            <div className="rounded-md border border-state-unknown/40 bg-state-unknown/10 p-3 text-center">
               <p className="text-2xl font-bold text-state-unknown-on">{totalUnknown}</p>
-              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Unknown</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Unknown</p>
             </div>
             <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
               <p className="text-2xl font-bold text-wb-ink2">{totalNonLive}</p>
-              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Retired / Disabled</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Retired / Disabled</p>
             </div>
           </div>
         )}

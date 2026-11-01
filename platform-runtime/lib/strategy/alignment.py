@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .objectives import StrategicSnapshot, Objective
+from .objectives import StrategicSnapshot
 
 _TERMINAL_STATUSES = {"closed", "archived"}
 

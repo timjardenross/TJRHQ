@@ -1,15 +1,26 @@
+#!/usr/bin/env python3
 """Command Operations Bus — cross-service routing and health orchestration.
 
 Polls Supabase and systemd state on a configurable cycle, detects problems,
-self-heals where safe, and routes alerts to the Captain across Slack and
-Telegram.  This is the thin coordination layer that was previously missing —
-it does not replace individual service polling, it coordinates across them.
+self-heals where safe, and routes alerts to the Captain via Telegram.  This
+is the thin coordination layer that was previously missing — it does not
+replace individual service polling, it coordinates across them.
 
 Routing rules (applied every COMMAND_BUS_INTERVAL seconds, default 300):
   1. executor_stuck       — build_request_inbox row stuck at engineering_running
                             > EXECUTOR_STUCK_MIN minutes → ALERT
   2. service_health       — critical services down or HTTP backend unhealthy → ALERT
   3. new_missions         — newly created Idea-status missions → one-time triage nudge
+  4. number_one_escalations — CRITICAL/HIGH escalations from Number One's brief
+                            (core/coordination/number_one.py, via context_service.py's
+                            _http_number_one_brief()) → ALERT/CRITICAL. USS-TJR-MSN-0362
+                            candidate A (2026-09-08): Number One catches PR CI failures,
+                            blocked P0 missions, etc. that the Captain wouldn't otherwise
+                            see until asked. MEDIUM-level escalations and follow-ups are
+                            deliberately NOT pushed — visible on Mission Workbench, not
+                            paged. Suppressed during quiet hours (7pm-7am Melbourne,
+                            NUMBER_ONE_QUIET_HOURS_START/_END) — an escalation still open
+                            when quiet hours end fires on the next cycle, never dropped.
 
 # 2026-08-29 (decommissioning-discipline drift check): removed the
 # "executor_needs_restart" rule and its telegram-build-executor.service
@@ -23,8 +34,11 @@ Routing rules (applied every COMMAND_BUS_INTERVAL seconds, default 300):
 # downstream" is reported rather than a fabricated "failed".
 
 Outputs:
-  Slack    — all alerts (CAPTAINS_INBOX_CHANNEL_ID or BRIEF_CHANNEL from platform-runtime/.env)
-  Telegram — ALERT/CRITICAL severity (TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_CHAT_IDS)
+  Telegram — all alerts, every severity (TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_CHAT_IDS)
+             2026-09-08: Slack retired as a transport (Captain direction — Slack was
+             disabled). Telegram is now the only channel, so routing no longer gates
+             by severity the way it did when Slack carried everything and Telegram
+             was ALERT/CRITICAL-only overflow — see _route()'s docstring.
 
 State: SQLite at outputs/command_bus.db
 
@@ -42,11 +56,13 @@ import sqlite3
 import subprocess
 import sys
 import urllib.request
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from zoneinfo import ZoneInfo
 
+from core.health.capacity_enforcement import enforcing
 from core.platform.notification_service import Severity, Transport
 from core.platform.notification_service import notify as _notify
 
@@ -79,8 +95,15 @@ _INTERVAL           = int(_env("COMMAND_BUS_INTERVAL", "300"))       # seconds b
 _STUCK_MIN          = int(_env("EXECUTOR_STUCK_MIN", "60"))           # minutes before stuck alert
 _NOTIFY_COOLDOWN_H  = int(_env("COMMAND_BUS_NOTIFY_COOLDOWN_H", "4")) # hours between repeat alerts
 
-_SLACK_TOKEN        = _env("SLACK_BOT_TOKEN")
-_SLACK_CHANNEL      = _env("BRIEF_CHANNEL") or _env("BRIEF_USER_ID") or _env("CAPTAINS_INBOX_CHANNEL_ID")
+# USS-TJR-MSN-0362 candidate A (2026-09-08): quiet hours for Number One's
+# escalation push specifically — the Captain's answer was 7pm-7am. Scoped to
+# this one rule only, not the other alerts in this file (executor_stuck/
+# service_health/new_missions predate this and nobody asked for their
+# behaviour to change — a genuine service outage at 2am should still page).
+_QUIET_HOURS_START = int(_env("NUMBER_ONE_QUIET_HOURS_START", "19"))  # 24h, Australia/Melbourne
+_QUIET_HOURS_END   = int(_env("NUMBER_ONE_QUIET_HOURS_END", "7"))
+_NUMBER_ONE_TZ      = ZoneInfo("Australia/Melbourne")                  # matches wellness_officer/intelligence.py's convention
+
 _TG_TOKEN           = _env("TELEGRAM_BOT_TOKEN")
 _TG_CHAT_ID         = (_env("TELEGRAM_ALLOWED_CHAT_IDS") or "").split(",")[0].strip()
 
@@ -196,36 +219,10 @@ def _reopen_event(conn: sqlite3.Connection, key: str) -> None:
 # Routing outputs
 # ---------------------------------------------------------------------------
 
-def _slack(message: str) -> bool:
-    if not _SLACK_TOKEN or not _SLACK_CHANNEL:
-        log.warning("[bus:slack] No Slack token/channel configured")
-        return False
-    payload = json.dumps({"channel": _SLACK_CHANNEL, "text": message}).encode()
-    req = urllib.request.Request(
-        "https://slack.com/api/chat.postMessage",
-        data=payload,
-        headers={"Authorization": f"Bearer {_SLACK_TOKEN}",
-                 "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as r:
-            resp = json.load(r)
-            if not resp.get("ok"):
-                log.warning("[bus:slack] API error: %s", resp.get("error"))
-                return False
-        return True
-    except Exception as exc:
-        log.error("[bus:slack] Request failed: %s", exc)
-        return False
-
-
 def _esc_html(value: object) -> str:
     """Escape a DYNAMIC value for Telegram's HTML parse_mode, before it's
-    interpolated into `tg` — the Telegram-bound message string, which mixes
-    intentional <b>/<code> HTML with runtime values. `msg` (the Slack-bound
-    string built alongside `tg` at each call site) intentionally does NOT
-    use this — Slack was never affected by the bug this exists for, and
-    its own mrkdwn (*bold*) formatting is unrelated to Telegram's parser.
+    interpolated into a Telegram-bound message string, which mixes
+    intentional <b>/<code> HTML with runtime values.
 
     2026-08-22, corrected same day: this used to escape for legacy
     Telegram "Markdown" parse_mode (backslash before _, *, `, [). That
@@ -258,31 +255,65 @@ _SEVERITY_MAP = {
 }
 
 
-def _route(severity: str, slack_msg: str, tg_msg: str | None = None) -> bool:
-    """Post to Slack (always) and Telegram (ALERT/CRITICAL). Returns True if Slack succeeded.
+def _route(severity: str, tg_msg: str) -> bool:
+    """Post to Telegram. Returns True on success.
 
-    2026-08-22 Wave 2 cutover: sends now go through
-    notification_service.notify() instead of this file's own raw
-    urllib senders (_slack/_telegram have been retired from this path —
-    notification_service owns retry/backoff and the call-log now).
-    template="raw" is deliberate: slack_msg/tg_msg are already fully
-    composed (tg_msg's dynamic values already HTML-escaped via _esc_html()
-    above) — notify() must pass them through unchanged, not re-escape them
-    (see _esc_html's docstring and notification_service._RAW_TEMPLATES).
-
-    Severity routing is preserved exactly: Slack always fires; Telegram
-    fires only when `severity` is literally "ALERT" or "CRITICAL" (a
-    "HIGH" service-health alert does NOT get Telegram — that was already
-    true of the pre-cutover code: the caller's `tg if crit in
-    ("CRITICAL", "HIGH") else None` ternary was live but the check here
-    excluded "HIGH" regardless of tg_msg, so Telegram never fired for it).
+    2026-09-08 (Slack retirement, Captain direction — Slack was disabled):
+    Telegram is now the only transport. Before this, Slack carried every
+    severity and Telegram only fired for ALERT/CRITICAL (a "HIGH"
+    service-health alert never reached Telegram at all) — that gating
+    existed because Slack was the always-on channel and Telegram was
+    overflow for the urgent cases. With Slack gone, gating by severity
+    would silently drop MEDIUM/HIGH alerts entirely instead of just
+    changing which channel carries them, so every severity now routes to
+    Telegram. `tg_msg` must already be fully composed (dynamic values
+    already HTML-escaped via _esc_html() above) — notify() with
+    template="raw" passes it through unchanged, not re-escaped (see
+    _esc_html's docstring and notification_service._RAW_TEMPLATES).
     """
-    ok = _notify(slack_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
-                 template="raw", transport=Transport.SLACK).ok
-    if severity in ("ALERT", "CRITICAL") and (tg_msg or slack_msg):
-        _notify(tg_msg or slack_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
-                template="raw", transport=Transport.TELEGRAM)
-    return ok
+    return _notify(tg_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
+                    template="raw", transport=Transport.TELEGRAM).ok
+
+
+def _capacity_status(client) -> str:
+    """Mission 2 (USS-TJR-MSN-2): today's capacity status, direct from
+    capacity_checkins (the canonical source, per capacity_score.py's
+    capacity_zone_from_checkin() docstring) via the same Supabase client
+    this cycle already built — no second client, no second network round
+    trip beyond the one query. Returns "Unknown" on any failure or missing
+    today row (never a stale prior day, never treated as Green) — same
+    discipline as core/coordination/health_context_adapter.py's Mission 2
+    fix."""
+    if client is None:
+        return "Unknown"
+    try:
+        from core.health.capacity_score import capacity_zone_from_checkin
+        today = datetime.now(timezone.utc).astimezone().date().isoformat()
+        rows = client.select(
+            "capacity_checkins",
+            filters={
+                "log_date": f"eq.{today}",
+                "checkin_type": "eq.capacity",
+                "order": "captured_at.desc",
+            },
+            limit=1,
+        ) or []
+        _score, status = capacity_zone_from_checkin(rows[0] if rows else None)
+        return status
+    except Exception as exc:  # noqa: BLE001 - best-effort capacity read; Unknown is the documented safe fallback for any failure
+        log.warning("[bus:capacity] Could not read today's capacity_checkins: %s", exc)
+        return "Unknown"
+
+
+def _in_number_one_quiet_hours() -> bool:
+    """True during the Captain's quiet hours for Number One's escalation
+    push (USS-TJR-MSN-0362 candidate A, 7pm-7am Melbourne by default).
+    Handles the overnight wrap (start > end) the same way as a same-day
+    window would — e.g. 19 <= hour or hour < 7."""
+    hour = datetime.now(_NUMBER_ONE_TZ).hour
+    if _QUIET_HOURS_START <= _QUIET_HOURS_END:
+        return _QUIET_HOURS_START <= hour < _QUIET_HOURS_END
+    return hour >= _QUIET_HOURS_START or hour < _QUIET_HOURS_END
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +330,7 @@ def _supabase():
                     os.environ[k] = val
         from tools.supabase.supabase_client import SupabaseClient
         return SupabaseClient()
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented degraded state: None signals 'Supabase unavailable' to every caller of this factory
         return None
 
 
@@ -316,7 +347,7 @@ def _rule_executor_stuck(conn: sqlite3.Connection, client) -> None:
             columns="request_id,status,created_at",
             limit=100,
         ) or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[bus:stuck] Supabase query failed: %s", exc)
         return
 
@@ -348,19 +379,12 @@ def _rule_executor_stuck(conn: sqlite3.Connection, client) -> None:
             _reopen_event(conn, key)
             ev = conn.execute("SELECT * FROM bus_events WHERE event_key=?", (key,)).fetchone()
         if _should_notify(ev, _NOTIFY_COOLDOWN_H):
-            msg = (
-                f":warning: *Build Executor Stuck* [{age_min}m]\n"
-                f"Request `{req_id}` has been at `engineering_running` for {age_min} minutes.\n"
-                "The executor may have died mid-run. Manual intervention required:\n"
-                "• Reset the row status to `approved` to re-queue, OR\n"
-                "• Archive the request if it should not be retried."
-            )
             tg = (
                 f"⚠️ <b>Build Executor Stuck</b> [{age_min}m]\n"
                 f"<code>{_esc_html(req_id)}</code> stuck at <code>engineering_running</code> for {age_min}m.\n"
                 "Reset to <code>approved</code> to re-queue or archive if stale."
             )
-            if _route("ALERT", msg, tg):
+            if _route("ALERT", tg):
                 _mark_notified(conn, key)
                 log.info("[bus:stuck] Alerted on stuck request: %s (%dm)", req_id, age_min)
 
@@ -374,18 +398,19 @@ def _systemd_state(service: str) -> str:
         r = subprocess.run(
             ["systemctl", "is-active", service],
             capture_output=True, text=True, timeout=5,
+            check=False,
         )
         return r.stdout.strip()  # "active", "inactive", "failed", "activating", etc.
-    except Exception:
+    except Exception:  # noqa: BLE001 - systemctl probe; 'unknown' is a valid status value alongside active/inactive/failed
         return "unknown"
 
 
 def _backend_healthy() -> bool:
     try:
-        with urllib.request.urlopen(_BACKEND_HEALTH_URL, timeout=5) as r:
+        with urllib.request.urlopen(_BACKEND_HEALTH_URL, timeout=5) as r:  # nosec B310 - url is BACKEND_HEALTH_URL env var with fixed localhost default, not user input - reviewed 2026-09-12
             data = json.load(r)
             return data.get("status") == "operational"
-    except Exception:
+    except Exception:  # noqa: BLE001 - health-check probe; False is the documented 'not healthy' result for any failure mode
         return False
 
 
@@ -398,10 +423,15 @@ def _emit_service_state_event(event_type: str, svc: str, state: str, crit: str) 
         from core.platform.event_bus import publish_event
         publish_event(
             event_type, domain="platform-operations", source="command_bus",
-            recommended_action=f"{svc}: {state}",
+            # Signal-leakage fix: a bare service-state transition
+            # ("nginx: failed") is an observation, not a recommended
+            # action — it goes in `description`, not `recommended_action`
+            # (see migration 0218), so it doesn't get surfaced downstream
+            # as if the platform were proposing something.
+            description=f"{svc}: {state}",
             metrics={"service": svc, "state": state, "criticality": crit},
         )
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort event emission; must not break the health-monitoring loop it's reporting from
         pass
 
 
@@ -449,14 +479,8 @@ def _rule_service_health(conn: sqlite3.Connection) -> None:
         if not _should_notify(ev, _NOTIFY_COOLDOWN_H):
             continue
 
-        sev_emoji = {"CRITICAL": ":sos:", "HIGH": ":rotating_light:", "MEDIUM": ":warning:"}.get(crit, ":bell:")
-        msg = (
-            f"{sev_emoji} *Service Health Alert* [{crit}]\n"
-            f"`{svc}` is *{state}*.\n"
-            "Check: `systemctl status <service>` | `journalctl -u <service> -n 50`"
-        )
         tg = f"🆘 <b>Service Down</b> [{crit}]\n<code>{_esc_html(svc)}</code> is <b>{_esc_html(state)}</b>."
-        if _route(crit, msg, tg if crit in ("CRITICAL", "HIGH") else None):
+        if _route(crit, tg):
             _mark_notified(conn, key)
             log.info("[bus:health] Alerted: %s is %s [%s]", svc, state, crit)
 
@@ -474,7 +498,7 @@ def _rule_new_missions(conn: sqlite3.Connection, client) -> None:
             columns="mission_id,title,status",
             limit=200,
         ) or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[bus:missions] Supabase query failed: %s", exc)
         return
 
@@ -485,19 +509,127 @@ def _rule_new_missions(conn: sqlite3.Connection, client) -> None:
         if conn.execute("SELECT 1 FROM seen_missions WHERE mission_id=?", (mid,)).fetchone():
             continue
         # First time seeing this Idea
+        tg = (
+            f"💡 <b>New Mission — Triage Required</b>\n"
+            f"<code>{_esc_html(mid)}</code> — {_esc_html(title)}\n"
+            "Status: <b>Idea</b> — awaiting review, approval, or archival via Mission Workbench."
+        )
+        # Mark it seen only AFTER a successful send. It used to be marked first and the send result
+        # ignored, so a failed send (for example a Telegram 401) lost the one-time alert for good.
+        # An unsent mission stays unseen and is retried on the next cycle.
+        if not _route("MEDIUM", tg):
+            log.warning("[bus:missions] New Idea mission %s NOT alerted (send failed); will retry next cycle", mid)
+            break  # the transport is failing; do not make one failing call per remaining Idea
         conn.execute(
             "INSERT OR IGNORE INTO seen_missions (mission_id, first_seen) VALUES (?, ?)",
             (mid, _now_iso()),
         )
         conn.commit()
-        msg = (
-            f":bulb: *New Mission — Triage Required*\n"
-            f"`{mid}` — {title}\n"
-            "Status: *Idea* — awaiting review, approval, or archival.\n"
-            "Use `/mission-status` to advance or `/mission-close` to archive."
-        )
-        _slack(msg)
         log.info("[bus:missions] New Idea mission alerted: %s", mid)
+
+
+# ---------------------------------------------------------------------------
+# Rule 5: Number One escalations (USS-TJR-MSN-0362 candidate A, 2026-09-08)
+# ---------------------------------------------------------------------------
+
+_NUMBER_ONE_ALERT_EMOJI = {"CRITICAL": "🆘", "HIGH": "🔺"}
+
+
+def _get_number_one_brief() -> dict | None:
+    """Fetch Number One's brief (escalations, follow-ups, etc.) via the same
+    function context_service.py's /brief/number-one endpoint calls — no
+    reimplemented scoring/escalation logic, this rule only routes what
+    NumberOne + pr_health.py already computed. Direct in-process import
+    (same convention core/context-assembly/tests/test_number_one_brief.py
+    uses), not HTTP: command_bus.py, context_service.py, and number_one.py
+    all run in the same deployed environment/venv. Returns None on any
+    failure — this rule is best-effort and must never break the rest of
+    the polling cycle."""
+    try:
+        for p in (REPO_ROOT / "core" / "context-assembly", REPO_ROOT / "core" / "coordination", REPO_ROOT):
+            if str(p) not in sys.path:
+                sys.path.insert(0, str(p))
+        import context_service
+        return context_service._http_number_one_brief()
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+        log.warning("[bus:number_one] Could not fetch Number One's brief: %s", exc)
+        return None
+
+
+def _rule_number_one_escalations(conn: sqlite3.Connection, client=None) -> None:
+    """Push Number One's CRITICAL/HIGH escalations (PR CI failing, blocked
+    P0 missions, etc.) to Telegram — the Captain direction behind this:
+    'Number One should also drive what lands in my face' (2026-09-08).
+    MEDIUM escalations and follow-ups stay visible on Mission Workbench
+    only, not pushed — this rule is deliberately narrower than the full
+    brief. Suppressed during quiet hours (_in_number_one_quiet_hours());
+    an escalation still open once quiet hours end is notified on the next
+    cycle — quiet hours delay delivery, they never drop it, since a
+    suppressed escalation is simply never marked notified.
+
+    Mission 2 (USS-TJR-MSN-2) capacity gating, same never-drop mechanism:
+    on Red capacity, HIGH escalations are deferred exactly like a
+    quiet-hours suppression (left un-notified -> _should_notify() is still
+    True next cycle) -- "what must still interrupt" vs "what can wait"
+    (mission §13). CRITICAL always pushes regardless of capacity, matching
+    this mission's P0-protection principle elsewhere (a genuine CRITICAL
+    is the escalation-level equivalent of a P0 mission). Unknown/Green/
+    Amber capacity: no change from existing behaviour."""
+    brief = _get_number_one_brief()
+    if brief is None:
+        return
+
+    relevant = [
+        e for e in (brief.get("escalations") or [])
+        if str(e.get("level", "")).upper() in ("CRITICAL", "HIGH")
+    ]
+
+    def _key(e: dict) -> str:
+        return f"number_one_escalation:{e.get('escalation_type', 'UNKNOWN')}:{e.get('mission_id', '?')}"
+
+    # Resolve escalations that are no longer present (mirrors _rule_service_health).
+    active_keys = {_key(e) for e in relevant}
+    for row in conn.execute(
+        "SELECT event_key FROM bus_events WHERE event_key LIKE 'number_one_escalation:%' AND resolved_at IS NULL"
+    ).fetchall():
+        if row["event_key"] not in active_keys:
+            _resolve_if_gone(conn, row["event_key"])
+
+    quiet = _in_number_one_quiet_hours()
+    capacity_status = _capacity_status(client)
+    for e in relevant:
+        key = _key(e)
+        ev = _upsert_event(conn, key)
+        if ev["resolved_at"]:
+            _reopen_event(conn, key)
+            ev = conn.execute("SELECT * FROM bus_events WHERE event_key=?", (key,)).fetchone()
+        if not _should_notify(ev, _NOTIFY_COOLDOWN_H):
+            continue
+        if quiet:
+            # Leave it un-notified — _should_notify() will still be True on
+            # the next cycle after quiet hours end, so nothing is dropped.
+            continue
+
+        level = str(e.get("level", "")).upper()
+        if level == "HIGH" and capacity_status == "Red" and enforcing():
+            # Deferred, not dropped — same mechanism as the quiet-hours
+            # continue above: never marked notified, so _should_notify()
+            # is still True next cycle (Mission 2, USS-TJR-MSN-2).
+            continue
+        emoji = _NUMBER_ONE_ALERT_EMOJI.get(level, "⚠️")
+        mission_id = e.get("mission_id") or "?"
+        reason = e.get("reason") or ""
+        recommendation = e.get("recommendation") or ""
+        tg = (
+            f"{emoji} <b>Number One — {_esc_html(e.get('escalation_type', 'ESCALATION'))}</b> [{level}]\n"
+            f"<code>{_esc_html(mission_id)}</code> — {_esc_html(reason)}"
+        )
+        if recommendation:
+            tg += f"\n→ {_esc_html(recommendation)}"
+
+        if _route(level, tg):
+            _mark_notified(conn, key)
+            log.info("[bus:number_one] Alerted: %s on %s [%s]", e.get("escalation_type"), mission_id, level)
 
 
 # ---------------------------------------------------------------------------
@@ -515,6 +647,7 @@ def run_once() -> None:
         _rule_executor_stuck(conn, client)
         _rule_service_health(conn)
         _rule_new_missions(conn, client)
+        _rule_number_one_escalations(conn, client)
 
     log.info("[bus] Cycle complete")
 
@@ -523,13 +656,11 @@ def run_loop() -> None:
     """Continuous polling loop. Runs indefinitely; use systemd for lifecycle."""
     import time
     log.info("[bus] Starting command bus (interval=%ds)", _INTERVAL)
-    log.info("[bus] Slack channel: %s | Telegram chat: %s",
-             _SLACK_CHANNEL or "(not configured)",
-             _TG_CHAT_ID or "(not configured)")
+    log.info("[bus] Telegram chat: %s", _TG_CHAT_ID or "(not configured)")
     while True:
         try:
             run_once()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error("[bus] Cycle error (continuing): %s", exc)
         time.sleep(_INTERVAL)
 

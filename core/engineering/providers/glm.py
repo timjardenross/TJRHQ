@@ -3,9 +3,10 @@ GLM (Zhipu / Z.ai) backend for the Engineering Workflow Router.
 
 Talks to a GLM model over the OpenAI-compatible Chat Completions API. The
 default target is Ollama Cloud (https://ollama.com/v1), which serves the GLM-5
-family (glm-5, glm-5.1, glm-5.2, glm-4.7). The same request shape also works for
-any OpenAI-compatible GLM gateway (e.g. a local Ollama at http://localhost:11434/v1,
-or Zhipu/Z.ai's /api/paas/v4), so the endpoint is fully env-driven.
+family (glm-5, glm-5.1, glm-5.2, glm-5.3, glm-5.3-flash, glm-4.7). The same
+request shape also works for any OpenAI-compatible GLM gateway (e.g. a local
+Ollama at http://localhost:11434/v1, or Zhipu/Z.ai's /api/paas/v4), so the
+endpoint is fully env-driven.
 
 Auth is a simple `Authorization: Bearer <GLM_API_KEY>` (Ollama Cloud style). Uses
 only the standard library (urllib) — no extra SDK dependency, matching the
@@ -18,7 +19,8 @@ Required env var:
 
 Optional env vars:
     GLM_BASE_URL   (default: https://ollama.com/v1)
-    GLM_MODEL      (default: glm-5.2)   — set to the exact served model id
+    GLM_MODEL      (default: glm-5.3)   — set to the exact served model id
+                   (e.g. glm-5.3-flash for the multimodal/coding-tuned variant)
 """
 
 from __future__ import annotations
@@ -28,11 +30,10 @@ import logging
 import os
 import urllib.error
 import urllib.request
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "glm-5.2"
+DEFAULT_MODEL = "glm-5.3"
 DEFAULT_BASE_URL = "https://ollama.com/v1"
 _REQUEST_TIMEOUT = 120  # seconds for generation
 
@@ -45,7 +46,7 @@ def _api_key() -> str:
     return os.getenv("GLM_API_KEY", "").strip()
 
 
-def _resolved_model(model: Optional[str]) -> str:
+def _resolved_model(model: str | None) -> str:
     return model or os.getenv("GLM_MODEL", DEFAULT_MODEL)
 
 
@@ -62,7 +63,7 @@ def check_connectivity() -> tuple[bool, str]:
     return True, f"GLM key configured ({masked}). Endpoint: {_base_url()}. Model: {_resolved_model(None)}."
 
 
-def call(prompt: str, model: Optional[str] = None, system: Optional[str] = None) -> tuple[str, str]:
+def call(prompt: str, model: str | None = None, system: str | None = None) -> tuple[str, str]:
     """
     Send prompt to GLM via the OpenAI-compatible Chat Completions endpoint.
 
@@ -107,7 +108,7 @@ def call(prompt: str, model: Optional[str] = None, system: Optional[str] = None)
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:  # nosec B310 - url built from GLM_BASE_URL env var, fixed API endpoint - reviewed 2026-09-12
             raw = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         # Surface the API's error body (it does NOT contain the key) to diagnose
@@ -115,7 +116,7 @@ def call(prompt: str, model: Optional[str] = None, system: Optional[str] = None)
         body = ""
         try:
             body = exc.read().decode("utf-8")[:400]
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort error-body read for a diagnostic message; the RuntimeError below is raised regardless
             pass
         raise RuntimeError(f"GLM request failed: HTTP {exc.code} {exc.reason}. {body}") from exc
     except urllib.error.URLError as exc:

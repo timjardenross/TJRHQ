@@ -20,14 +20,13 @@ Unknown sources fall back to generic JSON extraction.
 
 import json
 import logging
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
-from intelligence.models import IntelligenceItem, SourceRecord
+from intelligence.models import IntelligenceItem
 
 log = logging.getLogger(__name__)
 
@@ -99,7 +98,7 @@ class APIAdapter(BaseSourceAdapter):
         "application/xml", "text/xml",
     })
 
-    def _fetch_json(self, url: str) -> Optional[object]:
+    def _fetch_json(self, url: str) -> object | None:
         """Fetch JSON from url. If the response is RSS/XML, parse as a feed instead."""
         # Strip fragment — HTTP does not transmit fragments; feedparser may also choke on them
         clean_url = url.split("#")[0]
@@ -108,7 +107,7 @@ class APIAdapter(BaseSourceAdapter):
             headers={"User-Agent": _UA, "Accept": "application/json, application/xml;q=0.9, */*;q=0.8"},
         )
         try:
-            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:  # nosec B310 - generic fetch helper; url is this adapter's api_endpoint/url from the curated intelligence_sources registry, not user input - reviewed 2026-09-12
                 raw = resp.read()
                 ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
                 if ct in self._RSS_CONTENT_TYPES or raw.lstrip()[:5] in (b"<?xml", b"<rss ", b"<feed"):
@@ -155,23 +154,23 @@ class APIAdapter(BaseSourceAdapter):
         # Return sentinel so collect() knows we already have items
         return {"__feed_items__": items}
 
-    def _parse_date_from_entry(self, entry) -> Optional[datetime]:
+    def _parse_date_from_entry(self, entry) -> datetime | None:
         import time as _time
         for field in ("published_parsed", "updated_parsed"):
             val = entry.get(field)
             if val:
                 try:
                     return datetime.fromtimestamp(_time.mktime(val), tz=timezone.utc)
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through to the next format
+                    log.debug("[api_adapter] %s field failed mktime parse: %s", field, exc)
         from email.utils import parsedate_to_datetime
         for field in ("published", "updated"):
             val = entry.get(field)
             if val:
                 try:
                     return parsedate_to_datetime(val)
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through to the next format
+                    log.debug("[api_adapter] %s field failed RFC822 parse: %s", field, exc)
         return None
 
     # ─── Source-specific parsers ──────────────────────────────────────────────
@@ -478,13 +477,14 @@ class APIAdapter(BaseSourceAdapter):
             items.append(self._make_item(title, summary, url, published))
         return items
 
-    def _parse_vicemergency_datetime(self, val) -> Optional[datetime]:
+    def _parse_vicemergency_datetime(self, val) -> datetime | None:
         """VicEmergency timestamps are DD/MM/YYYY HH:MM:SS (Australian order), not ISO."""
         if not val:
             return None
         try:
             return datetime.strptime(val, "%d/%m/%Y %H:%M:%S").replace(tzinfo=timezone.utc)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - unparseable/unexpected timestamp format; caller treats None as "no timestamp available"
+            log.debug("[api_adapter] VicEmergency timestamp %r unparseable: %s", val, exc)
             return None
 
     def _parse_generic(self, data) -> list[IntelligenceItem]:
@@ -513,15 +513,17 @@ class APIAdapter(BaseSourceAdapter):
             items.append(self._make_item(str(title), str(summary) or None, url, published))
         return items
 
-    def _parse_iso(self, val) -> Optional[datetime]:
+    def _parse_iso(self, val) -> datetime | None:
         if not val:
             return None
         if isinstance(val, (int, float)):
             try:
                 return datetime.fromtimestamp(val / 1000 if val > 1e10 else val, tz=timezone.utc)
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 - out-of-range/invalid numeric timestamp; caller treats None as "no timestamp available"
+                log.debug("[api_adapter] Numeric timestamp %r unparseable: %s", val, exc)
                 return None
         try:
             return datetime.fromisoformat(str(val).replace("Z", "+00:00"))
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - unparseable/unexpected ISO-ish timestamp string; caller treats None as "no timestamp available"
+            log.debug("[api_adapter] ISO-ish timestamp %r unparseable: %s", val, exc)
             return None

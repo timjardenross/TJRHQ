@@ -16,7 +16,6 @@ signal-level/day-over-day tracking system is FUTURE work.
 from __future__ import annotations
 
 from difflib import SequenceMatcher
-from typing import Optional
 
 _TITLE_MATCH_THRESHOLD = 0.55
 _RISK_ORDER = {"GREEN": 0, "AMBER": 1, "RED": 2, "UNKNOWN": -1}
@@ -30,7 +29,7 @@ def _similar(a: str, b: str) -> float:
     return SequenceMatcher(None, _norm_title(a), _norm_title(b)).ratio()
 
 
-def _best_match(event: dict, candidates: list[dict]) -> Optional[dict]:
+def _best_match(event: dict, candidates: list[dict]) -> dict | None:
     best, best_score = None, 0.0
     for c in candidates:
         score = _similar(event.get("title", ""), c.get("title", ""))
@@ -41,7 +40,7 @@ def _best_match(event: dict, candidates: list[dict]) -> Optional[dict]:
     return best if best_score >= _TITLE_MATCH_THRESHOLD else None
 
 
-def compute_comparison(current_top_events: list[dict], prior_top_events: Optional[list[dict]]) -> Optional[dict]:
+def compute_comparison(current_top_events: list[dict], prior_top_events: list[dict] | None) -> dict | None:
     """
     current_top_events / prior_top_events: lists shaped like
     intelligence_briefs.top_events (title, event_type, risk_rating, ...).

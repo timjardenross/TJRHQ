@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0098 personal/strategic intelligence modules:
 data_quality, wellness, operating_picture, strategic, forecast, daily_brief.
 
@@ -17,7 +18,7 @@ _ADVISORY = _REPO_ROOT / "core" / "advisory"
 if str(_ADVISORY) not in sys.path:
     sys.path.insert(0, str(_ADVISORY))
 
-from _local_import_advisory import import_sibling, reload_sibling  # noqa: E402
+from _local_import_advisory import import_sibling, reload_sibling
 
 # Fleet Engineering Review 2026-08-11: operating_picture, forecast,
 # daily_brief, learning, opportunities, outcomes, service collide with
@@ -59,6 +60,15 @@ def test_capture_gaps(seeded):
     g = data_quality.capture_gaps()
     assert "gaps" in g and isinstance(g["gaps"], list)
     assert "narrative" in g
+
+
+def test_health_checkin_gap_names_a_command_that_exists(seeded):
+    # `/health-check` (Slack) was retired and its module deleted (TJRHQ#386); the hint must not point at it.
+    import data_quality
+    importlib.reload(data_quality)
+    gap = next(g for g in data_quality.capture_gaps()["gaps"] if g["kind"] == "health_checkins")
+    assert "/health-check" not in gap["how_to_capture"]
+    assert "/capacity" in gap["how_to_capture"]
 
 
 def test_trust_metrics_recognises_uncertainty(tmp_path, monkeypatch):

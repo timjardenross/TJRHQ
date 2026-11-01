@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Capture Contract Tests — MSN-XXXX Unified Capture Pipeline
 =====================================================
@@ -12,7 +13,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
@@ -293,7 +294,6 @@ class TestFetchRecentCapturesAllSources:
 
     def test_source_badge_has_all_known_channels(self):
         # source badges should exist for each known channel
-        from lcars_portal_lib_stub import SOURCE_BADGE  # type: ignore
         # Since we can't import Next.js TS directly, just validate the constant list
         expected = {
             "lcars-mobile-quick-capture":  "Portal",
@@ -303,7 +303,7 @@ class TestFetchRecentCapturesAllSources:
             "command-centre-api-capture":  "Command Centre",
         }
         # Documented expectation — used in WS3 validation
-        for ch, label in expected.items():
+        for ch in expected:
             assert ch in KNOWN_CHANNELS
 
 

@@ -1,4 +1,7 @@
+import logging
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -7,7 +10,8 @@ def read_markdown(relative_path: str) -> str:
     file_path = BASE_DIR / relative_path
 
     if not file_path.exists():
-        return f"[Missing file: {relative_path}]"
+        log.error("[prompt_loader] missing context file: %s (resolved: %s)", relative_path, file_path)
+        raise FileNotFoundError(f"prompt_loader: missing context file: {relative_path}")
 
     return file_path.read_text(encoding="utf-8")
 
@@ -132,6 +136,14 @@ SPECIALISTS = {
         "charter": "specialists/core-crew/Visual-Design-Officer.md",
         "knowledge": [],
     },
+    "or_advisor": {
+        "title": "Operational Resilience Advisor",
+        "charter": "specialists/core-crew/OR-Advisor.md",
+        "knowledge": [
+            "specialists/knowledge-packs/Operational-Resilience-Advisor-Knowledge.md",
+            "specialists/knowledge-packs/Regulatory-Crosswalk-Framework.md",
+        ],
+    },
 }
 
 
@@ -173,8 +185,8 @@ def _load_hierarchy_section(text: str) -> str:
         ctx = HierarchyMemoryAdapter().build_hierarchy_note(text=text)
         if ctx.found:
             return build_section("Structural Context", ctx.context_block.strip())
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - optional structural-context lookup, already logged
+        log.debug("[prompt_loader] structural context lookup failed, omitting section: %s", exc)
     return ""
 
 

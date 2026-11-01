@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { signalMatchesRisk } from '@/lib/intelligenceRisk';
+import { errorDetail } from '@/lib/errorDetail';
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -208,7 +209,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Unknown view: ${view}` }, { status: 400 });
 
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Intelligence query failed', detail }, { status: 500 });
   }
 }

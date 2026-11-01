@@ -3,12 +3,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-import uuid
-
 
 ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = ROOT / "logs/collaboration"

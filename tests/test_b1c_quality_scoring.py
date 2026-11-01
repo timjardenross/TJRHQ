@@ -15,13 +15,12 @@ Design: Minimal MVP
 - Enables quality analysis by provider/model/route
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-from dataclasses import dataclass
-from datetime import datetime
 import logging
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -125,7 +124,7 @@ class TestQualityScoringUnit:
         log.info("\n" + "="*80)
         try:
             sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
-            from lib.quality_scoring_service import QualityScoring, QualityScore
+            from lib.quality_scoring_service import QualityScore, QualityScoring
             self.QualityScoring = QualityScoring
             self.QualityScore = QualityScore
         except Exception as e:
@@ -269,9 +268,10 @@ class TestQualityScoringUnit:
         log.info(f"  ✓ Created score: {quality_score.id}")
         log.info("✅ PASSED: Quality score creation without client works")
 
-    def test_9_quality_score_persistence(self):
-        """Unit Test 9: Quality score persistence to Supabase."""
-        log.info("TEST 9: Quality Score Persistence")
+    def test_9_quality_score_not_persisted(self):
+        """Unit Test 9: quality_scores table was dropped (migration 0183) —
+        score_outcome() no longer persists, it only computes in-memory."""
+        log.info("TEST 9: Quality Score — no persistence")
 
         client = MockSupabaseClient()
         scoring = self.QualityScoring(client)
@@ -288,12 +288,11 @@ class TestQualityScoringUnit:
         assert quality_score is not None
         assert quality_score.effectiveness_score == 3.5, f"Expected 3.5, got {quality_score.effectiveness_score}"
 
-        # Verify persisted
+        # quality_scores table no longer exists; nothing should be written to it
         persisted = client.table("quality_scores").data.get(quality_score.id)
-        assert persisted is not None, f"Score not persisted: {quality_score.id}"
-        assert persisted["effectiveness_score"] == 3.5
-        log.info(f"  ✓ Persisted score: {quality_score.id}")
-        log.info("✅ PASSED: Quality score persisted correctly")
+        assert persisted is None, f"Should not persist to dropped table: {quality_score.id}"
+        log.info(f"  ✓ Score computed without persisting: {quality_score.id}")
+        log.info("✅ PASSED: Quality score not persisted (table retired)")
 
     def test_10_provider_attribution(self):
         """Unit Test 10: Provider attribution capture."""
@@ -359,10 +358,11 @@ class TestQualityScoringIntegration:
         assert quality_score.effectiveness_score == 5.0
         assert "executed as planned" in quality_score.scoring_reason.lower()
 
-        # Verify persisted and queryable
+        # quality_scores table was retired (migration 0183); score is computed
+        # in-memory only, not persisted or queryable back from the client
         persisted = client.table("quality_scores").data.get(quality_score.id)
-        assert persisted is not None
-        log.info(f"  ✓ Outcome scored and persisted: {quality_score.id}")
+        assert persisted is None
+        log.info(f"  ✓ Outcome scored without persisting: {quality_score.id}")
         log.info("✅ PASSED: E2E outcome → score flow complete")
 
     def test_12_multiple_scores_per_provider(self):
@@ -480,6 +480,98 @@ class TestQualityScoringIntegration:
         log.info("✅ PASSED: Route quality analysis works")
 
 
+class TestScoreOutputDeepEval:
+    """Tests for QualityScoring.score_output() — the deepeval/HallucinationMetric
+    path (GAP 1). No network calls: HallucinationMetric itself is mocked, so
+    these verify score_output()'s own logic (test-case construction, the
+    judge-model wiring, score inversion, error handling) without depending on
+    deepeval's internal prompt format or hitting core/model-router for real."""
+
+    def setup_method(self):
+        sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
+        import lib.quality_scoring_service as qss
+        self.qss = qss
+        self.QualityScoring = qss.QualityScoring
+
+    def test_score_output_inverts_hallucination_rate(self):
+        """0.2 hallucination rate -> 0.8 quality score."""
+        mock_metric = MagicMock()
+        mock_metric.score = 0.2
+        with patch.object(self.qss, "HallucinationMetric", return_value=mock_metric):
+            scoring = self.QualityScoring()
+            result = scoring.score_output(
+                prompt="What is the capital of France?",
+                response="Paris.",
+                context=["Paris is the capital of France."],
+            )
+        assert result == 0.8
+        mock_metric.measure.assert_called_once()
+
+    def test_score_output_wires_model_router_judge_not_default(self):
+        """Regression: HallucinationMetric() with no model= arg defaults to
+        deepeval's OpenAI judge, which silently fails on this platform
+        (no OPENAI_API_KEY set anywhere) — every score_output() call would
+        return None regardless of the actual response. Confirms the fix:
+        a _ModelRouterJudge instance is always passed explicitly."""
+        mock_metric = MagicMock()
+        mock_metric.score = 0.0
+        with patch.object(self.qss, "HallucinationMetric", return_value=mock_metric) as mock_cls:
+            self.QualityScoring().score_output(prompt="p", response="r")
+        _, kwargs = mock_cls.call_args
+        assert "model" in kwargs, "HallucinationMetric must be given an explicit judge model"
+        assert isinstance(kwargs["model"], self.qss._ModelRouterJudge)
+
+    def test_score_output_returns_none_on_metric_failure(self):
+        """A judge-model call failure (timeout, router down, bad JSON from the
+        judge, etc.) must degrade to None, never raise into the caller."""
+        with patch.object(self.qss, "HallucinationMetric", side_effect=RuntimeError("router unreachable")):
+            result = self.QualityScoring().score_output(prompt="p", response="r")
+        assert result is None
+
+    def test_score_output_returns_none_when_deepeval_unavailable(self):
+        with patch.object(self.qss, "_DEEPEVAL_AVAILABLE", False):
+            result = self.QualityScoring().score_output(prompt="p", response="r")
+        assert result is None
+
+
+class TestModelRouterJudge:
+    """Tests for _ModelRouterJudge, the DeepEvalBaseLLM judge-model wrapper
+    around core/model-router's /api/model/escalate endpoint."""
+
+    def setup_method(self):
+        sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
+        import lib.quality_scoring_service as qss
+        self.qss = qss
+
+    def test_get_model_name(self):
+        judge = self.qss._ModelRouterJudge()
+        assert judge.get_model_name() == "starship-model-router/escalate"
+
+    def test_generate_calls_escalate_endpoint(self):
+        fake_response = MagicMock()
+        fake_response.read.return_value = b'{"success": true, "response": "Paris."}'
+        fake_response.__enter__ = lambda s: s
+        fake_response.__exit__ = MagicMock(return_value=False)
+        judge = self.qss._ModelRouterJudge(router_url="http://127.0.0.1:8891")
+        with patch("urllib.request.urlopen", return_value=fake_response) as mock_urlopen:
+            result = judge.generate("What is the capital of France?")
+        assert result == "Paris."
+        request = mock_urlopen.call_args[0][0]
+        assert request.full_url == "http://127.0.0.1:8891/api/model/escalate"
+
+    def test_generate_raises_on_router_error_response(self):
+        fake_response = MagicMock()
+        fake_response.read.return_value = b'{"success": false, "error": "model unavailable"}'
+        fake_response.__enter__ = lambda s: s
+        fake_response.__exit__ = MagicMock(return_value=False)
+        judge = self.qss._ModelRouterJudge()
+        with (
+            patch("urllib.request.urlopen", return_value=fake_response),
+            pytest.raises(RuntimeError),
+        ):
+            judge.generate("prompt")
+
+
 # ============================================================================
 # Test Runner
 # ============================================================================
@@ -527,7 +619,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 
@@ -540,7 +632,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 

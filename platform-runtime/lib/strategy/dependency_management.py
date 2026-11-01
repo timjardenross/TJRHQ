@@ -42,8 +42,8 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - supabase client init, best-effort, already logged
         log.debug("[dependency_management] Supabase unavailable: %s", exc)
         return None
 
@@ -184,7 +184,7 @@ def register_dependency(
         )
         log.info("[dependency_management] Registered %s: %s → %s (%s)", dep_id, from_id, to_id, dep_type.value)
         return dep_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dependency registration, already logged
         log.warning("[dependency_management] register_dependency failed: %s", exc)
         return None
 
@@ -196,7 +196,7 @@ def list_dependencies(limit: int = 500) -> list[PortfolioDependency]:
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{DEP_LINK_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -209,7 +209,7 @@ def list_dependencies(limit: int = 500) -> list[PortfolioDependency]:
             if d:
                 out.append(d)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dependency listing, best-effort, already logged
         log.debug("[dependency_management] list_dependencies failed: %s", exc)
         return []
 
@@ -300,13 +300,13 @@ def analyse_dependencies() -> PortfolioDependencyReport:
 
     # Supplement with EXEC-007 mission-level blocked missions
     try:
-        from lib.strategy.initiatives import list_initiatives
         from lib.program.wbs import build_wbs
+        from lib.strategy.initiatives import list_initiatives
         for init in list_initiatives(include_closed=False):
             wbs = build_wbs(init.initiative_id)
             if wbs and wbs.blocked_missions and init.initiative_id not in report.blocked_initiative_ids:
                 report.blocked_initiative_ids.append(init.initiative_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - WBS mission-level supplement, best-effort, already logged
         log.debug("[dependency_management] wbs supplement failed: %s", exc)
 
     log.info(
@@ -335,15 +335,15 @@ def format_dependency_report(report: PortfolioDependencyReport) -> str:
 
 
 __all__ = [
-    "DependencyType",
+    "DEP_LINK_OWNER_PREFIX",
     "DependencyStatus",
+    "DependencyType",
     "PortfolioDependency",
     "PortfolioDependencyReport",
-    "register_dependency",
-    "list_dependencies",
+    "analyse_dependencies",
     "detect_blocked_initiatives",
     "detect_circular_dependencies",
-    "analyse_dependencies",
     "format_dependency_report",
-    "DEP_LINK_OWNER_PREFIX",
+    "list_dependencies",
+    "register_dependency",
 ]

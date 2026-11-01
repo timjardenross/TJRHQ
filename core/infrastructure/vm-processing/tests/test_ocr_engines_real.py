@@ -11,8 +11,7 @@ import shutil
 
 import fitz  # PyMuPDF
 import pytest
-
-from ocr import ocrmypdf_engine, tesseract_engine, orchestrator
+from ocr import ocrmypdf_engine, orchestrator, tesseract_engine
 from parsers import pdf_parser
 
 TESSERACT_INSTALLED = shutil.which("tesseract") is not None

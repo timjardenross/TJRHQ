@@ -1,8 +1,8 @@
 """Phase A workflow layer — governance-gated orchestration over the repository."""
 
-from intelligence.workflow.repository import (  # noqa: F401
+from intelligence.workflow.repository import (
     InMemoryRepository,
     WorkflowRepository,
 )
 
-__all__ = ["WorkflowRepository", "InMemoryRepository"]
+__all__ = ["InMemoryRepository", "WorkflowRepository"]

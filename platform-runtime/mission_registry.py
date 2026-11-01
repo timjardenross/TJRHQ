@@ -1,26 +1,23 @@
 # MSN-0048B (2026-06-18): DISTINCT module, not a duplicate. This is the Slack Commander's
 # natural-language mission-registry query/answer layer over the markdown index (functions:
 # answer_mission_registry_request, format_dashboard_list, build_*_report, ...). The same-named
-# core/missions/mission-registry/mission_registry.py is a different module (SQLite `MissionRegistry`
+# core/missions/mission_registry.py is a different module (SQLite `MissionRegistry`
 # class / ADR-0001 closure store). Filename collision only — see
 # Missions/Completed/USS-TJR-MSN-0048-Classification-Register.md.
 import logging
 import re
-import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from mission_logger import (
     MISSION_INDEX,
     MISSIONS_DIR,
-    _BASE_DIR,
+    _supabase_insert_mission,
     build_title,
     ensure_missions_dir,
     generate_mission_id,
     redact_secrets,
-    _supabase_insert_mission,
 )
 
 log = logging.getLogger(__name__)
@@ -55,7 +52,7 @@ def is_mission_registry_request(user_text: str) -> bool:
     return bool(extract_mission_id(text)) or any(trigger in text for trigger in MISSION_REGISTRY_TRIGGERS)
 
 
-def extract_mission_id(user_text: str) -> Optional[str]:
+def extract_mission_id(user_text: str) -> str | None:
     # Canonical USS-TJR-MSN-NNNN and short MSN-NNNN forms — return verbatim (no stripping)
     # so canonical IDs (USS-TJR-MSN-0144) resolve to the correct mission file.
     match = re.search(r"\b(?:USS-TJR-)?MSN-\d{4}[A-Za-z]?\b", user_text, flags=re.IGNORECASE)
@@ -66,7 +63,7 @@ def extract_mission_id(user_text: str) -> Optional[str]:
     return match.group(0).upper() if match else None
 
 
-def parse_index_entry(line: str) -> Optional[dict]:
+def parse_index_entry(line: str) -> dict | None:
     if not line.startswith("- "):
         return None
 
@@ -112,7 +109,7 @@ def create_mission(user_text: str) -> dict:
     raw_title = re.sub(r"(?i)^.*?create (?:a )?mission(?: for|:)?", "", user_text).strip()
     title = build_title(raw_title or user_text)
     domain = infer_domain(title)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     content = f"""# Mission Record
 
@@ -146,19 +143,19 @@ Created from Commander mission registry request.
     return {"mission_id": mission_id, "title": title, "domain": domain, "status": "Active"}
 
 
-def get_mission(mission_id: str) -> Optional[str]:
+def get_mission(mission_id: str) -> str | None:
     path = mission_file_for(mission_id)
     if not path.exists():
         return None
     return path.read_text(encoding="utf-8")
 
 
-def mission_age_days(mission: dict) -> Optional[int]:
+def mission_age_days(mission: dict) -> int | None:
     try:
-        created = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M")
+        created = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
     except ValueError:
         return None
-    return (datetime.now() - created).days
+    return (datetime.now(timezone.utc) - created).days
 
 
 def mission_owner(mission_id: str) -> str:
@@ -387,7 +384,7 @@ def update_mission_status(mission_id: str, status: str) -> bool:
     return True
 
 
-def filter_missions(status: Optional[str] = None, query: Optional[str] = None) -> list[dict]:
+def filter_missions(status: str | None = None, query: str | None = None) -> list[dict]:
     missions = load_registry_entries()
 
     if status:

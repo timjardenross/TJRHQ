@@ -110,11 +110,18 @@ export interface DecisionsInboxData {
 }
 
 export async function fetchDecisionsInbox(): Promise<DecisionsInboxData> {
-  const [engineering, intelligence] = await Promise.all([
+  const [engineering, intelligenceRaw] = await Promise.all([
     fetchEngineeringDecisions(),
     fetchIntelligenceDecisions(),
   ]);
   const actionable = [...engineering].sort((a, b) => b.priorityRank - a.priorityRank);
+  // Sort by the emitting recommendation's own confidence, highest first.
+  // Nulls (a domain that hasn't populated confidence) sort last rather than
+  // first or crashing the comparator — an unscored item is never presented
+  // as more urgent than a scored one.
+  const intelligence = [...intelligenceRaw].sort(
+    (a, b) => (b.confidence ?? -1) - (a.confidence ?? -1),
+  );
   return {
     actionable,
     intelligence,

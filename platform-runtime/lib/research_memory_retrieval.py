@@ -18,10 +18,8 @@ Design:
 """
 
 import logging
-import os
-from datetime import datetime, timedelta
-from typing import Optional
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
 
@@ -47,9 +45,9 @@ class ResearchMemoryEntry:
         """Days since research was created."""
         try:
             created = datetime.fromisoformat(self.created_at)
-            age = datetime.utcnow() - created
+            age = datetime.now(timezone.utc) - created
             return age.days
-        except Exception:
+        except (ValueError, TypeError):
             return 999  # Treat unparseable dates as very old
 
     @property
@@ -72,7 +70,7 @@ class ResearchMemoryEntry:
 class RetrievalResult:
     """Result of research memory retrieval."""
     found: bool
-    entry: Optional[ResearchMemoryEntry] = None
+    entry: ResearchMemoryEntry | None = None
     match_confidence: float = 0.0  # 0.0-1.0 confidence in match
     recommendation: str = ""  # "REUSE" | "REFRESH" | "NEW_RESEARCH"
     reason: str = ""
@@ -153,7 +151,7 @@ class ResearchMemoryRetriever:
                 reason=reason
             )
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Retrieval failed: {e}, already logged
             log.error(f"[KB-RETRIEVE] Retrieval failed: {e}")
             return RetrievalResult(
                 found=False,
@@ -179,7 +177,7 @@ class ResearchMemoryRetriever:
         """
         try:
             # Query all non-stale research (within 6 months)
-            cutoff_date = (datetime.utcnow() - timedelta(days=180)).isoformat()
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=180)).isoformat()
 
             response = self.supabase.table("research_memory") \
                 .select("*") \
@@ -190,7 +188,7 @@ class ResearchMemoryRetriever:
             log.debug(f"[KB-RETRIEVE] Found {len(entries)} non-stale entries")
             return entries
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Query failed: {e}, already logged
             log.warning(f"[KB-RETRIEVE] Query failed: {e}")
             return []
 
@@ -245,7 +243,7 @@ class ResearchMemoryRetriever:
                 if score > 0:
                     scored.append((score, entry))
 
-            except Exception as e:
+            except Exception as e: # noqa: BLE001 - Failed to score candidate: {e}, already logged
                 log.debug(f"[KB-RETRIEVE] Failed to score candidate: {e}")
                 continue
 
@@ -292,25 +290,25 @@ class ResearchMemoryRetriever:
             return f"ℹ️ No prior research found. {result.reason}\nProceeding with new research..."
 
         entry = result.entry
-        report = f"🎯 *Prior Research Found*\n"
-        report += f"━━━━━━━━━━━━━━━━━━\n"
+        report = "🎯 *Prior Research Found*\n"
+        report += "━━━━━━━━━━━━━━━━━━\n"
         report += f"*Previous Question:* {entry.original_question}\n"
         report += f"*Research Age:* {entry.freshness_days} days old\n"
         report += f"*Confidence:* {entry.confidence_level:.0%}\n"
         report += f"*Reuse Count:* {entry.reuse_count} times\n"
-        report += f"\n"
-        report += f"*Previous Recommendation:*\n"
+        report += "\n"
+        report += "*Previous Recommendation:*\n"
         report += f"_{entry.recommendation}_\n"
-        report += f"\n"
+        report += "\n"
         report += f"*Decision:* {result.recommendation}\n"
         report += f"_{result.reason}_\n"
 
         if result.recommendation == "REUSE":
-            report += f"\n✅ Reusing prior research (no new execution needed)\n"
+            report += "\n✅ Reusing prior research (no new execution needed)\n"
         elif result.recommendation == "REFRESH":
-            report += f"\n⚠️ Refreshing research (new execution + merge with prior)\n"
+            report += "\n⚠️ Refreshing research (new execution + merge with prior)\n"
         else:
-            report += f"\n🔄 Executing new research\n"
+            report += "\n🔄 Executing new research\n"
 
         return report
 
@@ -329,7 +327,7 @@ class ResearchMemoryRetriever:
 
         try:
             # Increment reuse_count
-            response = self.supabase.table("research_memory") \
+            self.supabase.table("research_memory") \
                 .update({"reuse_count": self.supabase.rpc("increment_reuse_count", {"entry_id": entry_id})}) \
                 .eq("id", entry_id) \
                 .execute()
@@ -337,6 +335,6 @@ class ResearchMemoryRetriever:
             log.debug(f"[KB-RETRIEVE] Incremented reuse count for {entry_id}")
             return True
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Failed to increment reuse count: {e}, already logged
             log.warning(f"[KB-RETRIEVE] Failed to increment reuse count: {e}")
             return False

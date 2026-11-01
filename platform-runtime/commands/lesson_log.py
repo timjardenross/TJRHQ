@@ -157,7 +157,7 @@ def handle_lesson_log(
         llm_output = generate_response(prompt=text, system_prompt=_SYSTEM_PROMPT)
         fields = _parse_llm_output(llm_output)
         log.info("[lesson-log] LLM parse complete: title=%r mission_id=%r", fields["title"], fields["mission_id"])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM parse, falls back to defaults, already logged
         log.error("[lesson-log] LLM unavailable: %s", exc)
         fields = {
             "title": text[:80],
@@ -191,7 +191,7 @@ def handle_lesson_log(
             result.lesson_id, result.markdown_appended, result.supabase_upserted,
             result.knowledge_record_written, result.errors,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort lesson capture, already logged
         log.error("[lesson-log] capture_lesson failed: %s", exc)
         return (
             f":warning: *Lesson Log — Partial Failure*\n\n"

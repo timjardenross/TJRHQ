@@ -24,8 +24,7 @@ Public API:
 """
 
 import logging
-from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ class ProviderHealth:
         """
         self._provider_status[provider_name] = False
         self._failure_reasons[provider_name] = reason
-        self._failure_times[provider_name] = datetime.utcnow().isoformat()
+        self._failure_times[provider_name] = datetime.now(timezone.utc).isoformat()
         log.warning(f"[provider-health] Provider marked unavailable: {provider_name} ({reason})")
 
     def is_available(self, provider_name: str) -> bool:
@@ -74,7 +73,7 @@ class ProviderHealth:
         # Unknown providers are considered available (will attempt)
         return self._provider_status.get(provider_name, True)
 
-    def get_failure_reason(self, provider_name: str) -> Optional[str]:
+    def get_failure_reason(self, provider_name: str) -> str | None:
         """
         Get failure reason for unavailable provider.
 
@@ -83,7 +82,7 @@ class ProviderHealth:
         """
         return self._failure_reasons.get(provider_name)
 
-    def get_failure_time(self, provider_name: str) -> Optional[str]:
+    def get_failure_time(self, provider_name: str) -> str | None:
         """
         Get ISO timestamp of when provider failed.
 
@@ -116,7 +115,7 @@ class ProviderHealth:
         """String representation for logging."""
         unavailable = self.get_unavailable_providers()
         if not unavailable:
-            return f"<ProviderHealth: all available>"
+            return "<ProviderHealth: all available>"
         return f"<ProviderHealth: unavailable={unavailable}>"
 
 

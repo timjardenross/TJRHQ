@@ -21,10 +21,9 @@ Public API:
 from __future__ import annotations
 
 import json
-import re
 import sys
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import mean, median
 from typing import Any
@@ -34,7 +33,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
 try:
-    from supabase_client import supabase_get, is_configured
+    from supabase_client import is_configured, supabase_get
     _SUPABASE_OK = True
 except ImportError:
     _SUPABASE_OK = False
@@ -55,7 +54,7 @@ def _fetch_missions_supabase() -> list[dict[str, Any]]:
         return []
     try:
         return supabase_get("missions?order=created_at.asc&limit=500")
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: [] on any read failure
         return []
 
 
@@ -78,7 +77,7 @@ def _load_missions_fallback() -> list[dict[str, Any]]:
                 "closed_at":  None,
             })
         return missions
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: [] on any parse failure
         return []
 
 
@@ -107,7 +106,7 @@ def _days_open(m: dict) -> int | None:
     if not created:
         return None
     closed = _parse_date(m.get("closed_at"))
-    end = closed or date.today()
+    end = closed or datetime.now().astimezone().date()
     return (end - created).days
 
 
@@ -226,7 +225,7 @@ def _ageing_analysis(missions: list[dict]) -> dict[str, Any]:
 
 def _throughput_analysis(missions: list[dict]) -> dict[str, Any]:
     """Missions closed per week over last 12 weeks."""
-    today = date.today()
+    today = datetime.now().astimezone().date()
     weekly: dict[str, int] = defaultdict(int)
 
     for m in missions:
