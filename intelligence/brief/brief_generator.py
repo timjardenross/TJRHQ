@@ -18,6 +18,7 @@ from intelligence.brief import external_domains, morning_cycle
 from intelligence.brief.comparison import compute_comparison
 from intelligence.brief.domain_picture import compute_domain_picture
 from intelligence.brief.llm_provider import LLMProvider
+from intelligence.brief.render import clean_title
 from intelligence.classification.classifier import classify
 from intelligence.classification.filter import apply_filter
 from intelligence.config import BRIEF_PERIOD_DAYS, TOP_EVENTS_LIMIT
@@ -371,7 +372,7 @@ class BriefGenerator:
 
         return BriefEvent(
             event_id=event.event_id,
-            title=event.raw_title,
+            title=clean_title(event.raw_title),
             location=location,
             event_type=event.event_type.replace("_", " ").title(),
             risk_rating=risk,
@@ -442,6 +443,9 @@ class BriefGenerator:
             "- Be specific to the event content — do not use generic phrases\n"
             "- Focus on Australian banking and CPS 230 obligations where relevant\n"
             "- One sentence only per event\n"
+            "- If an event has no plausible operational relevance to a bank, return an empty string "
+            "for it rather than inventing one (do not assume trading desks, margin or settlement "
+            "functions the bank may not have)\n"
             "- Return a JSON array of strings, one per event, in the same order\n\n"
             "EVENTS:\n" + "\n".join(lines) + "\n\n"
             "Return ONLY a JSON array like: [\"sentence 1\", \"sentence 2\", ...]"

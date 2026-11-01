@@ -153,6 +153,18 @@ _OR_SPECIFIC_MEDIA_CATEGORIES = {
     "critical_infrastructure", "emergency_management", "transport",
 }
 
+# AEMO publishes a market notice for every 5-minute NEM price interval
+# ("Prices for interval 01-Nov-2026 04:40 are now confirmed" / "... are subject
+# to review"). Routine wholesale-market settlement plumbing, ~288/day, with no
+# operational-resilience action for a bank — they were reaching the brief's
+# top events (rated GREEN / "Other") and the LLM invented energy-desk
+# "so whats" for them. Deliberately matches only these two routine phrasings so
+# genuine AEMO notices (market suspension, administered pricing, LOR, directions)
+# still flow through.
+_AEMO_PRICE_INTERVAL_PATTERN = re.compile(
+    r"^(\[eventid:[^\]]*\]\s*)?prices for interval .+ (are now confirmed|are subject to review)\s*$"
+)
+
 _MIN_TITLE_LENGTH = 10
 _MIN_OP_RELEVANCE = 0.20
 
@@ -180,6 +192,10 @@ def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
         return True, "title_too_short"
     if title_lower in _LOW_SIGNAL_TITLES:
         return True, "placeholder_title"
+
+    # ── Routine AEMO price-interval notices ────────────────────────────────────
+    if _AEMO_PRICE_INTERVAL_PATTERN.match(title_lower):
+        return True, "routine_price_interval_notice"
 
     # ── Opinion / commentary ───────────────────────────────────────────────────
     if any(sig in title_lower for sig in _OPINION_SIGNALS):
