@@ -58,3 +58,8 @@ def test_feed_retirement_notice_raises():
 
 def test_uses_the_official_cap_au_url_not_the_retired_one():
     assert sa_cfs._FEED_URL == "https://data.eso.sa.gov.au/feeds/prod/cap-au.xml"
+
+
+def test_planned_burn_off_is_dropped_but_other_fires_stay():
+    assert sa_cfs.parse(_feed(_info(headline="MOUNT BARKER : BURN OFF"))) == []
+    assert len(sa_cfs.parse(_feed(_info(headline="NORWOOD : STRUCTURE FIRE")))) == 1
