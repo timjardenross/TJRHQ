@@ -103,3 +103,12 @@ def test_two_consecutive_hangs_abort_the_run():
          pytest.raises(hsc.ClassifyHung):
         c.run()
     c._apply.assert_not_called()
+
+
+def test_invalid_scope_rejected():
+    with pytest.raises(ValueError):
+        hsc.HealthSignalCurator(scope="bogus")
+
+
+def test_default_scope_is_now():
+    assert hsc.HealthSignalCurator(dry_run=True).scope == "now"

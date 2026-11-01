@@ -157,6 +157,16 @@ class ClassifyHung(RuntimeError):
     pass
 
 
+# Curation scope (Captain 2026-11-01). The auto-ingest backlog was ~3600
+# signals, two thirds ClinicalTrials.gov registry entries (mostly protocols
+# with no results). Default scope "now" curates only the Captain's priority
+# areas and defers the rest — deferred signals are NOT touched (stay pending,
+# no DB writes), they are just not selected. "all" restores the old
+# behaviour. Supplement (contextual tier) and the low-priority general
+# biomedical/epi/vaccine/treatment domains are deferred.
+NOW_DOMAIN_PREFIXES = ("mental_health", "performance", "neuro", "chronic_pain", "factor")
+DEFERRED_SOURCE_NAMES = ("ClinicalTrials.gov",)
+
 _VALID_MISSION_RELEVANCE = {"RELEVANT", "LOW_CONFIDENCE", "NOT_RELEVANT"}
 _VALID_EVIDENCE_CONTRIBUTION = {
     "CONFIRMS", "CHALLENGES", "EXTENDS", "REPLICATION", "SAFETY", "BACKGROUND", "UNRESOLVED",
@@ -305,7 +315,10 @@ def _classify_with_deadline(signal: dict[str, Any], deadline_s: float) -> dict[s
 
 
 class HealthSignalCurator:
-    def __init__(self, dry_run: bool = False, limit: int | None = None, time_budget: float | None = None):
+    def __init__(self, dry_run: bool = False, limit: int | None = None, time_budget: float | None = None, scope: str = "now"):
+        if scope not in ("now", "all"):
+            raise ValueError(f"scope must be 'now' or 'all', got {scope!r}")
+        self.scope = scope
         self.dry_run = dry_run
         self.limit = limit
         self.time_budget = time_budget
@@ -355,6 +368,18 @@ class HealthSignalCurator:
             # behind newer arrivals.
             .order("collected_at", desc=False)
         )
+        if self.scope == "now":
+            clauses = []
+            for prefix in NOW_DOMAIN_PREFIXES:
+                clauses += [f"health_domain.eq.{prefix}", f"health_domain.like.{prefix}_*"]
+            clauses.append("fda_flagged.eq.true")  # safety signals are always in scope
+            query = query.or_(",".join(clauses))
+            deferred = (
+                self.supabase.table("health_source_registry").select("source_id")
+                .in_("source_name", list(DEFERRED_SOURCE_NAMES)).execute().data or []
+            )
+            if deferred:
+                query = query.not_.in_("source_id", [d["source_id"] for d in deferred])
         if self.limit:
             query = query.limit(self.limit)
         rows = query.execute().data or []
@@ -480,9 +505,10 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int, default=None, help="Only process this many pending signals (oldest-first review still applies to the rest next run)")
     parser.add_argument("--time-budget", type=float, default=None, help="Stop starting new classifications once this many seconds have elapsed; exits 0 with partial counts")
+    parser.add_argument("--scope", choices=("now", "all"), default="now", help="now = priority domains only, ClinicalTrials.gov deferred (default); all = whole pending queue")
     args = parser.parse_args()
 
-    curator = HealthSignalCurator(dry_run=args.dry_run, limit=args.limit, time_budget=args.time_budget)
+    curator = HealthSignalCurator(dry_run=args.dry_run, limit=args.limit, time_budget=args.time_budget, scope=args.scope)
     try:
         result = curator.run()
     except ClassifyHung as exc:
