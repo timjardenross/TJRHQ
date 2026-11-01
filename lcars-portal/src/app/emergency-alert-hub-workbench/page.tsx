@@ -953,6 +953,19 @@ export default function EmergencyAlertsWorkbench() {
                               ? 'No Emergency Warnings or Watch and Act alerts'
                               : 'None detected in monitored sources — coverage incomplete'}
                     </p>
+                    <p className="mt-0.5 text-wb-body font-semibold">
+                      {emergencyAlerts.length > 0
+                        ? (affectedSites.length > 0
+                          ? 'Action: check the sites listed below and confirm the team has been told.'
+                          : 'Action: read the warning and check whether any of our sites are in the area.')
+                        : watchAlerts.length > 0
+                          ? 'Action: review the alert and the sites below. Watch and Act alerts are not emailed, so tell the team yourself if needed.'
+                          : bomHighCount > 0
+                            ? 'Action: review the weather warnings below. The email goes out automatically.'
+                            : coverage.level !== 'good'
+                              ? 'Action: do not treat this as an all-clear until the coverage gap is fixed.'
+                              : 'No action required.'}
+                    </p>
                     <ul className="mt-1 flex flex-col gap-0.5 text-wb-label">
                       <li>
                         Our sites: {affectedSites.length > 0
@@ -972,6 +985,14 @@ export default function EmergencyAlertsWorkbench() {
                     </ul>
                   </div>
                 </section>
+
+                <SitesPanel
+                  sites={sites}
+                  sitesError={sitesError}
+                  affected={affectedSites}
+                  unmatchedByState={unmatchedByState}
+                  onSelectAlert={selectAndMaybeSwitch}
+                />
 
                 {activeSilences.length > 0 && (
                   <section aria-label="Active silences" data-alert-state="silences">
@@ -1087,23 +1108,22 @@ export default function EmergencyAlertsWorkbench() {
                 {informationalAlerts.length > 0 && (
                   <section aria-labelledby="alerts-informational" data-alert-state="informational">
                   <Card>
-                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
-                    <div className="flex flex-col gap-3">
-                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
-                    </div>
+                    {/* Collapsed by default: these are lower-level or unclassified
+                        notices, and a long list of them pushes real warnings and
+                        the status of our sites off screen. */}
+                    <details>
+                      <summary className="cursor-pointer rounded text-wb-body font-bold uppercase tracking-wide text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                        <span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action · show
+                      </summary>
+                      <div className="mt-3 flex flex-col gap-3">
+                        {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
+                      </div>
+                    </details>
                   </Card>
                   </section>
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <SitesPanel
-                    sites={sites}
-                    sitesError={sitesError}
-                    affected={affectedSites}
-                    unmatchedByState={unmatchedByState}
-                    onSelectAlert={selectAndMaybeSwitch}
-                  />
-
                   {(adviceCount > 0 || unknownCount > 0) && (
                     <Card>
                       <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
