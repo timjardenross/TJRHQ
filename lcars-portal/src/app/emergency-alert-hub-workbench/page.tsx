@@ -47,6 +47,7 @@ import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/rout
 import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
 import { matchAlert, stateSiteSummary, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
 import { bomAttentionLevel, BOM_ATTENTION_LABEL, type BomAttention } from '@/lib/bomAttention';
+import { alertEmailStatus, type EmailState, type EmailStatus } from '@/lib/alertEmailStatus';
 import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
 
 // Backend ingests every 15min 24/7 (intelligence/scheduler.py,
@@ -168,6 +169,30 @@ function MutedBadge() {
   );
 }
 
+const EMAIL_STATE_STYLE: Record<EmailState, string> = {
+  sent: 'text-state-ok-on',
+  muted: 'text-state-warn-on',
+  pending: 'text-state-crit-on',
+  not_emailed: 'text-wb-ink2',
+};
+const EMAIL_STATE_ICON: Record<EmailState, string> = { sent: '✉ ', muted: '🔇 ', pending: '⚠ ', not_emailed: '' };
+
+function emailStatusFor(alert: EmergencyAlertEntry, isMuted: boolean): EmailStatus {
+  return alertEmailStatus(alert, isMuted, relativeTime);
+}
+
+/** One plain line saying whether the emergency email went out. Shown on cards
+ * only where an email is expected or was sent, so informational cards stay quiet. */
+function EmailStatusLine({ alert, isMuted }: { alert: EmergencyAlertEntry; isMuted: boolean }) {
+  const status = emailStatusFor(alert, isMuted);
+  if (status.state === 'not_emailed') return null;
+  return (
+    <p className={`mt-1 text-wb-label font-semibold ${EMAIL_STATE_STYLE[status.state]}`} title={status.detail}>
+      {EMAIL_STATE_ICON[status.state]}{status.label}
+    </p>
+  );
+}
+
 function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAlertEntry; isSelected: boolean; isMuted: boolean; onSelect: () => void }) {
   return (
     <tr
@@ -228,6 +253,7 @@ function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }
       <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
       {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
       <p className="mt-1 text-wb-label text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
+      <EmailStatusLine alert={alert} isMuted={isMuted} />
       {siteCount > 0 && (
         <p className="mt-1 text-wb-label font-semibold text-state-crit-on">
           {siteCount} of our site{siteCount === 1 ? '' : 's'} possibly affected
@@ -255,7 +281,8 @@ function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }
   );
 }
 
-function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onClose: () => void }) {
+function AlertDetailPanel({ alert, isMuted, onClose }: { alert: EmergencyAlertEntry; isMuted: boolean; onClose: () => void }) {
+  const email = emailStatusFor(alert, isMuted);
   return (
     <Card>
       <div className="mb-3 flex items-start justify-between gap-4 border-b border-wb-line pb-3">
@@ -281,6 +308,10 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
         <div><span className="uppercase tracking-wide text-wb-label">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
         <div><span className="uppercase tracking-wide text-wb-label">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
       </div>
+      <p className={`mt-3 text-wb-label font-semibold ${EMAIL_STATE_STYLE[email.state]}`}>
+        {EMAIL_STATE_ICON[email.state]}{email.label}
+        <span className="ml-2 font-normal text-wb-ink2">{email.detail}</span>
+      </p>
       {alert.rawText && (
         <p className="mt-4 whitespace-pre-wrap text-wb-body text-wb-ink2">{alert.rawText}</p>
       )}
@@ -799,6 +830,13 @@ export default function EmergencyAlertsWorkbench() {
     return [...bySite.values()].sort((a, b) => (order[a.site.priority] ?? 9) - (order[b.site.priority] ?? 9) || a.site.name.localeCompare(b.site.name));
   }, [emergencyAlerts, watchAlerts, siteMatchesByAlert]);
 
+  // Alerts that qualify for an email and have none sent and no silence holding it.
+  const emailsNotSent = useMemo(
+    () => activeAlerts.filter((a) => emailStatusFor(a, mutedAlertIds.has(a.id)).state === 'pending'),
+    [activeAlerts, mutedAlertIds],
+  );
+  const tier1AffectedCount = useMemo(() => affectedSites.filter((x) => x.site.priority === 'Tier 1').length, [affectedSites]);
+
   const unmatchedByState = useMemo(() => statesWithoutSiteMatch([...emergencyAlerts, ...watchAlerts], sites), [emergencyAlerts, watchAlerts, sites]);
 
   const browseAlerts = useMemo(() => {
@@ -891,6 +929,50 @@ export default function EmergencyAlertsWorkbench() {
 
             {view === 'overview' && (
               <>
+                {/* Overall state in one glance: worst thing active, what it means
+                    for our sites, whether emails went out, and whether the "all
+                    clear" can be trusted. Detail sits in the sections below. */}
+                <section aria-label="Current status" data-alert-state="status-banner">
+                  <div
+                    className={`rounded-md border px-3 py-2 ${
+                      emergencyAlerts.length > 0
+                        ? 'border-state-crit/50 bg-state-crit/10 text-state-crit-on'
+                        : watchAlerts.length > 0 || bomHighCount > 0 || coverage.level !== 'good'
+                          ? 'border-state-warn/50 bg-state-warn/10 text-state-warn-on'
+                          : 'border-state-ok/50 bg-state-ok/10 text-state-ok-on'
+                    }`}
+                  >
+                    <p className="text-wb-lead font-semibold">
+                      {emergencyAlerts.length > 0
+                        ? `${emergencyAlerts.length} Emergency Warning${emergencyAlerts.length === 1 ? '' : 's'} active`
+                        : watchAlerts.length > 0
+                          ? `${watchAlerts.length} Watch and Act alert${watchAlerts.length === 1 ? '' : 's'} active`
+                          : bomHighCount > 0
+                            ? `${bomHighCount} high-attention weather warning${bomHighCount === 1 ? '' : 's'} in force`
+                            : coverage.level === 'good'
+                              ? 'No Emergency Warnings or Watch and Act alerts'
+                              : 'None detected in monitored sources — coverage incomplete'}
+                    </p>
+                    <ul className="mt-1 flex flex-col gap-0.5 text-wb-label">
+                      <li>
+                        Our sites: {affectedSites.length > 0
+                          ? `${affectedSites.length} possibly affected${tier1AffectedCount > 0 ? ` (${tier1AffectedCount} Tier 1)` : ''}`
+                          : 'none matched to a current Emergency Warning or Watch and Act'}
+                      </li>
+                      <li>
+                        Emails: {emailsNotSent.length > 0
+                          ? `${emailsNotSent.length} qualifying alert${emailsNotSent.length === 1 ? ' has' : 's have'} not been emailed yet`
+                          : activeSilences.length > 0
+                            ? 'all qualifying alerts handled (some muted by silence)'
+                            : 'all qualifying alerts emailed'}
+                      </li>
+                      <li>
+                        Coverage: {coverage.level === 'good' ? 'all monitored sources healthy' : coverage.level === 'unknown' ? 'source health unknown' : 'a source is down, stale or unmonitored — see Coverage below'}
+                      </li>
+                    </ul>
+                  </div>
+                </section>
+
                 {activeSilences.length > 0 && (
                   <section aria-label="Active silences" data-alert-state="silences">
                     <div className="rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1.5 text-state-warn-on">
@@ -1128,7 +1210,7 @@ export default function EmergencyAlertsWorkbench() {
 
             {selectedAlert && (
               <div ref={detailPanelRef} className="scroll-mt-24">
-                <AlertDetailPanel alert={selectedAlert} onClose={() => setSelectedAlertId(null)} />
+                <AlertDetailPanel alert={selectedAlert} isMuted={mutedAlertIds.has(selectedAlert.id)} onClose={() => setSelectedAlertId(null)} />
               </div>
             )}
           </>
