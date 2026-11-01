@@ -172,10 +172,11 @@ function MutedBadge() {
 const EMAIL_STATE_STYLE: Record<EmailState, string> = {
   sent: 'text-state-ok-on',
   muted: 'text-state-warn-on',
+  failed: 'text-state-crit-on',
   pending: 'text-state-crit-on',
   not_emailed: 'text-wb-ink2',
 };
-const EMAIL_STATE_ICON: Record<EmailState, string> = { sent: '✉ ', muted: '🔇 ', pending: '⚠ ', not_emailed: '' };
+const EMAIL_STATE_ICON: Record<EmailState, string> = { sent: '✉ ', muted: '🔇 ', failed: '🚫 ', pending: '⚠ ', not_emailed: '' };
 
 function emailStatusFor(alert: EmergencyAlertEntry, isMuted: boolean): EmailStatus {
   return alertEmailStatus(alert, isMuted, relativeTime);
@@ -835,6 +836,10 @@ export default function EmergencyAlertsWorkbench() {
     () => activeAlerts.filter((a) => emailStatusFor(a, mutedAlertIds.has(a.id)).state === 'pending'),
     [activeAlerts, mutedAlertIds],
   );
+  const emailsFailed = useMemo(
+    () => activeAlerts.filter((a) => emailStatusFor(a, mutedAlertIds.has(a.id)).state === 'failed'),
+    [activeAlerts, mutedAlertIds],
+  );
   const tier1AffectedCount = useMemo(() => affectedSites.filter((x) => x.site.priority === 'Tier 1').length, [affectedSites]);
 
   const unmatchedByState = useMemo(() => statesWithoutSiteMatch([...emergencyAlerts, ...watchAlerts], sites), [emergencyAlerts, watchAlerts, sites]);
@@ -954,7 +959,9 @@ export default function EmergencyAlertsWorkbench() {
                               : 'None detected in monitored sources — coverage incomplete'}
                     </p>
                     <p className="mt-0.5 text-wb-body font-semibold">
-                      {emergencyAlerts.length > 0
+                      {emailsFailed.length > 0
+                        ? 'Action: the platform could not email the team. Tell them yourself now; it keeps retrying every 15 minutes.'
+                        : emergencyAlerts.length > 0
                         ? (affectedSites.length > 0
                           ? 'Action: check the sites listed below and confirm the team has been told.'
                           : 'Action: read the warning and check whether any of our sites are in the area.')
@@ -973,7 +980,9 @@ export default function EmergencyAlertsWorkbench() {
                           : 'none matched to a current Emergency Warning or Watch and Act'}
                       </li>
                       <li>
-                        Emails: {emailsNotSent.length > 0
+                        Emails: {emailsFailed.length > 0
+                          ? `${emailsFailed.length} email${emailsFailed.length === 1 ? '' : 's'} FAILED to send — tell the team yourself`
+                          : emailsNotSent.length > 0
                           ? `${emailsNotSent.length} qualifying alert${emailsNotSent.length === 1 ? ' has' : 's have'} not been emailed yet`
                           : activeSilences.length > 0
                             ? 'all qualifying alerts handled (some muted by silence)'

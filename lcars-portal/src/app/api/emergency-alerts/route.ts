@@ -29,6 +29,7 @@ export interface EmergencyAlertEntry {
   longitude: number | null;
   lastSeenAt: string;
   emailSentAt: string | null;
+  emailFailedAt: string | null;
 }
 
 const MAX_ROWS = 500;
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     let query = sb
       .from('alerts')
-      .select('id, source_key, jurisdiction, alert_type, severity, headline, description, location, issued_at, updated_at_src, expiry, status, is_active, canonical_url, raw_text, latitude, longitude, last_seen_at, emergency_email_sent_at')
+      .select('id, source_key, jurisdiction, alert_type, severity, headline, description, location, issued_at, updated_at_src, expiry, status, is_active, canonical_url, raw_text, latitude, longitude, last_seen_at, emergency_email_sent_at, emergency_email_failed_at')
       .order('last_seen_at', { ascending: false })
       .limit(MAX_ROWS);
 
@@ -82,6 +83,7 @@ export async function GET(request: NextRequest) {
       longitude: row.longitude,
       lastSeenAt: row.last_seen_at,
       emailSentAt: row.emergency_email_sent_at,
+      emailFailedAt: row.emergency_email_failed_at,
     }));
 
     return NextResponse.json({ alerts, fetchedAt: new Date().toISOString() });
