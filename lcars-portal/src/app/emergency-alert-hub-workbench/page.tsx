@@ -85,6 +85,7 @@ const SEVERITY_LABELS: Record<string, string> = {
  * corresponding field. Used client-side only to badge alerts already in
  * hand; the API route is the source of truth for matchingActiveAlertCount. */
 function silenceCoversAlert(silence: AlertSilenceEntry, alert: EmergencyAlertEntry): boolean {
+  if (alert.severity === 'emergency_warning') return false; // Emergency Warnings are never silenced
   if (silence.matchJurisdiction !== null && silence.matchJurisdiction !== alert.jurisdiction) return false;
   if (silence.matchAlertType !== null && silence.matchAlertType !== alert.alertType) return false;
   if (silence.matchSeverity !== null && silence.matchSeverity !== alert.severity) return false;
@@ -403,6 +404,7 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
       <p className="mt-1 text-wb-label text-wb-ink2">
         Mute matching alert notifications for a bounded window — e.g. a planned hazard-reduction burn. The alert
         record itself always stays visible; only outbound notifications (email) are suppressed while a silence is active.
+        Emergency Warnings are never silenced — they always notify.
       </p>
       <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
@@ -458,7 +460,7 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
               onChange={(e) => setSeverity(e.target.value)}
             >
               <option value="">Any</option>
-              {Object.entries(SEVERITY_LABELS).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
+              {Object.entries(SEVERITY_LABELS).filter(([key]) => key !== 'emergency_warning').map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
             </select>
           </label>
           <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
@@ -889,6 +891,22 @@ export default function EmergencyAlertsWorkbench() {
 
             {view === 'overview' && (
               <>
+                {activeSilences.length > 0 && (
+                  <section aria-label="Active silences" data-alert-state="silences">
+                    <div className="rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1.5 text-state-warn-on">
+                      <p className="text-wb-lead font-semibold">
+                        {activeSilences.length} silence{activeSilences.length === 1 ? ' is' : 's are'} active — email notifications are muted for matching alerts
+                      </p>
+                      <ul className="mt-1 list-disc pl-4 text-wb-label">
+                        {activeSilences.map((s) => (
+                          <li key={s.id}>{describeSilenceScope(s)} — {s.reason} (ends {relativeTime(s.endsAt)}, muting {s.matchingActiveAlertCount} active alert{s.matchingActiveAlertCount === 1 ? '' : 's'})</li>
+                        ))}
+                      </ul>
+                      <p className="mt-1 text-wb-label">Emergency Warnings are never silenced, and every alert stays visible here.</p>
+                    </div>
+                  </section>
+                )}
+
                 {emergencyAlerts.length === 0 && watchAlerts.length === 0 && (
                   <Card>
                     {coverage.level === 'good' ? (
