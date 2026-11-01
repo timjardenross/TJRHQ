@@ -911,21 +911,21 @@ export default function EmergencyAlertsWorkbench() {
             <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
               <button
                 onClick={() => setView('overview')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'border border-wb-ink bg-wb-ink text-wb-bg [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'overview'}
               >
                 Now
               </button>
               <button
                 onClick={() => setView('browse')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'border border-wb-ink bg-wb-ink text-wb-bg [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'browse'}
               >
                 All alerts
               </button>
               <button
                 onClick={() => setView('silences')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'border border-wb-ink bg-wb-ink text-wb-bg [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'silences'}
               >
                 Silences{activeSilences.length > 0 ? ` (${activeSilences.length})` : ''}
