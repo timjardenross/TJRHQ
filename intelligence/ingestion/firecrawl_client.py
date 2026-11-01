@@ -97,7 +97,7 @@ def _wait_for_spacing(provider: str) -> None:
 def _retry_after_seconds(detail: str) -> float:
     try:
         return float(json.loads(detail).get("retry_after_seconds"))
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
         return _MIN_CALL_GAP_SECONDS * 2
 
 

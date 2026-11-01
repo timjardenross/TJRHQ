@@ -11,7 +11,7 @@ Feed URL resolution order:
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from email.utils import parsedate_to_datetime
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
@@ -136,7 +136,7 @@ class RSSAdapter(BaseSourceAdapter):
                 try:
                     import time as _time
                     ts = _time.mktime(val)
-                    return datetime.fromtimestamp(ts, tz=timezone.utc)
+                    return datetime.fromtimestamp(ts, tz=UTC)
                 except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
                     log.debug("[rss_adapter] %s field failed mktime parse: %s", field, exc)
         # Fallback: try string fields

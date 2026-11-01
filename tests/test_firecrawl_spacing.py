@@ -67,13 +67,15 @@ class SpacingTests(unittest.TestCase):
         inc.assert_called_once_with("firecrawl")  # retry must not spend a second budget unit
 
     def test_second_429_raises(self):
-        with mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY", "k"), \
-             mock.patch.object(external_fetch_budget, "check_and_increment", return_value=1), \
-             mock.patch.object(firecrawl_client, "_wait_for_spacing"), \
-             mock.patch.object(firecrawl_client.time, "sleep"), \
-             mock.patch.object(firecrawl_client.urllib.request, "urlopen", side_effect=[_http_429(1), _http_429(1)]):
-            with self.assertRaisesRegex(RuntimeError, "HTTP 429"):
-                firecrawl_client.scrape("https://example.com")
+        with (
+            mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY", "k"),
+            mock.patch.object(external_fetch_budget, "check_and_increment", return_value=1),
+            mock.patch.object(firecrawl_client, "_wait_for_spacing"),
+            mock.patch.object(firecrawl_client.time, "sleep"),
+            mock.patch.object(firecrawl_client.urllib.request, "urlopen", side_effect=[_http_429(1), _http_429(1)]),
+            self.assertRaisesRegex(RuntimeError, "HTTP 429"),
+        ):
+            firecrawl_client.scrape("https://example.com")
 
 
 if __name__ == "__main__":
