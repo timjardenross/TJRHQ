@@ -22,7 +22,7 @@ import { errorDetail } from '@/lib/errorDetail';
 import { logActionHistory } from '@/lib/actionHistoryServer';
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
-const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'other'] as const;
+const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'thunderstorm_asthma', 'other'] as const;
 const SEVERITIES = ['emergency_warning', 'watch_and_act', 'advice', 'unknown'] as const;
 // alert_sources.source_key values (migration 0174/0176) — kept as a plain
 // list here rather than a live query so an invalid value is rejected with
