@@ -23,12 +23,18 @@ preference to <severity>.
 from __future__ import annotations
 
 import logging
+import re
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
 from .base import CanonicalAlert, http_get
 
 log = logging.getLogger(__name__)
+
+# Planned burns ("MOUNT BARKER : BURN OFF") arrive with CAP event "Fire" and
+# no other marker, so SA's own headline category is the only signal. Dropped
+# like NSW/TAS/WA/QLD/ACT planned burns - planned, not emergencies.
+_PLANNED_BURN_RE = re.compile(r"\bburn[\s-]?off\b|planned\s+burn|hazard\s+reduction|prescribed\s+burn", re.IGNORECASE)
 
 _FEED_URL = "https://data.eso.sa.gov.au/feeds/prod/cap-au.xml"
 
@@ -99,6 +105,8 @@ def parse(raw: bytes) -> list[CanonicalAlert]:
         # own CAP <headline> field (the same one used for `headline` above)
         # already reads "HAYBOROUGH : Hazardous Materials" — SA's own
         # display categorisation, not a title guess we invented.
+        if _PLANNED_BURN_RE.search(headline):
+            continue
         if cap_category == "cbrne" or "hazardous materials" in cap_event or "hazardous materials" in headline.lower():
             continue
 

@@ -13,6 +13,7 @@ incidentSize or incidentStatus, which measure something else.
 from __future__ import annotations
 
 import logging
+import re
 
 from .base import CanonicalAlert, http_get_json, parse_dmy_datetime
 
@@ -26,6 +27,16 @@ _TYPE_MAP = {
     "STRUCTURE": "structure_fire",
     "NON STRUCTURE": "other",
 }
+
+
+# Planned burns are dropped in every other jurisdiction (planned, not
+# emergencies); the VIC feed had none live when this was added, so this is a
+# guard on the incident type/name rather than a response to a seen record.
+_PLANNED_BURN_RE = re.compile(r"planned\s+burn|burn[\s-]?off|hazard\s+reduction|prescribed\s+burn", re.IGNORECASE)
+
+
+def _is_planned_burn(row: dict) -> bool:
+    return bool(_PLANNED_BURN_RE.search(f"{row.get('incidentType') or ''} {row.get('name') or ''}"))
 
 
 def _alert_type(row: dict) -> str:
@@ -42,6 +53,8 @@ def fetch() -> list[CanonicalAlert]:
     data = http_get_json(_FEED_URL)
     out: list[CanonicalAlert] = []
     for row in data.get("results", []):
+        if _is_planned_burn(row):
+            continue
         alert_type = _alert_type(row)
 
         # Captain-directed exclusion 2026-08-26 (Other/Non-Structure), widened
