@@ -1,8 +1,17 @@
 """SA Country Fire Service — Fire Incident Information (CAP-AU) feed.
 
-https://data.eso.sa.gov.au/prod/cfs/criimson/alertsa-fire.xml — confirmed
-live 2026-08-26: an Atom feed whose each <entry><content> embeds one CAP
-1.2 (CAP-AU profile) <alert> block. Despite the feed's "warnings" URL, it
+https://data.eso.sa.gov.au/feeds/prod/cap-au.xml — the CFS CAP-AU feed listed
+on https://www.cfs.sa.gov.au/warnings-restrictions/warnings/rss-feeds/. An
+Atom feed whose each <entry><content> embeds one CAP 1.2 (CAP-AU profile)
+<alert> block.
+
+The earlier URL (/prod/cfs/criimson/alertsa-fire.xml, confirmed live
+2026-08-26) was RETIRED: it now serves one "Feed Retirement Notice" entry and
+"No incident information is published via this feed" (seen on the workbench
+2026-11-02, after SA fire coverage had silently stopped). The replacement
+carries the same CAP-AU schema, WarningLevel parameter included, so the
+parsing below is unchanged. fetch() raises on a retirement notice so a dead
+feed fails the heartbeat instead of appearing as a harmless alert. Despite the feed's "warnings" URL, it
 carries every incident level SA CFS tracks, not only Advice+ — the CAP
 <severity> element itself is frequently literally "Unknown"; the real
 alert-level signal is the <parameter valueName="WarningLevel"> entry
@@ -21,7 +30,7 @@ from .base import CanonicalAlert, http_get
 
 log = logging.getLogger(__name__)
 
-_FEED_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/alertsa-fire.xml"
+_FEED_URL = "https://data.eso.sa.gov.au/feeds/prod/cap-au.xml"
 
 _ATOM_NS = "{http://www.w3.org/2005/Atom}"
 _CAP_NS = "{urn:oasis:names:tc:emergency:cap:1.2}"
@@ -54,7 +63,13 @@ def _cap_parameter(alert_el, name: str) -> str | None:
 
 
 def fetch() -> list[CanonicalAlert]:
-    raw = http_get(_FEED_URL)
+    return parse(http_get(_FEED_URL))
+
+
+def parse(raw: bytes) -> list[CanonicalAlert]:
+    """Pure parse of the CAP-AU Atom feed; separate from fetch() so it can be
+    tested without the network. Raises RuntimeError if the feed is a
+    retirement notice."""
     root = ET.fromstring(raw)
     out: list[CanonicalAlert] = []
     for entry in root.findall(f"{_ATOM_NS}entry"):
@@ -64,6 +79,9 @@ def fetch() -> list[CanonicalAlert]:
         alert_el = content.find(f"{_CAP_NS}alert")
         if alert_el is None:
             continue
+
+        if "feed retirement" in (_cap_text(alert_el, "headline") or "").lower():
+            raise RuntimeError(f"sa_cfs: feed retired - {_cap_text(alert_el, 'description')}")
 
         identifier_el = alert_el.find(f"{_CAP_NS}identifier")
         identifier = identifier_el.text.strip() if identifier_el is not None and identifier_el.text else None
