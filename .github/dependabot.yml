@@ -164,6 +164,12 @@ updates:
       time: "04:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 10
+    # Tailwind 3 -> 4 is a config/CSS migration, not a version bump (2026-11-01
+    # triage, EVO-0113). Keep it out of the grouped PR until a migration
+    # mission owns it; minor/patch updates within 3.x still flow.
+    ignore:
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-dependencies:
         patterns: ["*"]
