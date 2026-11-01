@@ -29,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
 import alert_silences
+import bom_attention
 import site_matching
 from heartbeat import _KEY, _URL, record_heartbeats, supabase_get
 from heartbeat import record_heartbeat as _record_heartbeat
@@ -258,6 +259,89 @@ def _send_emergency_warning_emails(source_key: str) -> int:
     return sent
 
 
+_BOM_EMAIL_DESCRIPTION_CHARS = 1500
+
+
+def _send_bom_attention_emails(source_key: str) -> int:
+    """Email for each active BOM warning whose platform-assigned attention
+    level is "high" (core/platform/bom_attention.py) and that hasn't been
+    emailed yet (alerts.emergency_email_sent_at is null — the same persistent
+    dedupe as Emergency Warnings).
+
+    BOM warnings carry no AWS tier, so these stay severity 'unknown' in the
+    database and the email says plainly that the "high attention" label is
+    this platform's own, not BOM's. BOM names a district, not a place, so
+    per-site matching is coarse: sites whose suburb/postcode is named in the
+    warning are listed, plus how many of our sites are in the affected state.
+    Silences, the unreadable-register fallback and the "never raises" rule
+    match _send_emergency_warning_emails."""
+    try:
+        rows = supabase_get(
+            f"alerts?source_key=eq.{source_key}&severity=eq.unknown&is_active=eq.true&emergency_email_sent_at=is.null"
+            "&select=id,headline,jurisdiction,alert_type,location,description,raw_text,issued_at,latitude,longitude"
+        )
+    except Exception as exc:  # noqa: BLE001 - best-effort unnotified-BOM read, already logged; caller treats 0 as 'nothing to notify'
+        log.warning("[emergency-alerts] %s: failed to read unnotified BOM warnings: %s", source_key, exc)
+        return 0
+    rows = [r for r in rows or [] if bom_attention.attention_level(r.get("headline"), r.get("alert_type")) == bom_attention.HIGH]
+    if not rows:
+        return 0
+
+    try:
+        active_silences = alert_silences.list_active_silences()
+    except Exception as exc:  # noqa: BLE001 - a silence-lookup failure must never block a warning email; degrade to "no active silences"
+        log.warning("[emergency-alerts] %s: failed to read active silences (proceeding as if none): %s", source_key, exc)
+        active_silences = []
+    try:
+        sites = site_matching.list_active_sites()
+    except Exception as exc:  # noqa: BLE001 - a site-register failure must never block a warning email; degrade to "no site context"
+        log.warning("[emergency-alerts] %s: failed to read alert_sites (sending without site context): %s", source_key, exc)
+        sites = []
+
+    sent = 0
+    for row in rows:
+        silenced = alert_silences.check_silence(
+            {"jurisdiction": row["jurisdiction"], "alert_type": row.get("alert_type"), "severity": "unknown", "source_key": source_key},
+            active_silences,
+        )
+        if silenced:
+            log.info("[emergency-alerts] %s: BOM alert %s silenced (%s) — email suppressed", source_key, row["id"], silenced.get("reason"))
+            continue
+
+        matches = site_matching.match_alert({**row, "severity": "unknown"}, sites)
+        state = site_matching.state_site_summary(row["jurisdiction"], sites) if sites else {"total": 0, "tier1": 0}
+        subject = f"⚠️ BOM WARNING — {row['jurisdiction']} — {row['headline']}"
+        source_link = next((line.strip() for line in (row.get("raw_text") or "").splitlines()[::-1] if line.strip().startswith("http")), None)
+        text = (row.get("description") or "").strip()
+        if len(text) > _BOM_EMAIL_DESCRIPTION_CHARS:
+            text = text[:_BOM_EMAIL_DESCRIPTION_CHARS].rstrip() + "…"
+        tier1_note = f" ({state['tier1']} Tier 1)" if state["tier1"] else ""
+        state_line = (
+            f"<p><strong>Our sites in {html.escape(row['jurisdiction'])}:</strong> {state['total']}{tier1_note}. "
+            "BOM names districts, not places — check the warning to see whether they are inside the affected area.</p>"
+            if state["total"] else ""
+        )
+        body = (
+            f"<p><strong>{html.escape(row['headline'])}</strong></p>"
+            f"<p>Jurisdiction: {html.escape(row['jurisdiction'])}<br>Issued: {html.escape(str(row.get('issued_at') or '—'))}</p>"
+            "<p><em>The Bureau of Meteorology does not give this warning an Advice / Watch and Act / Emergency Warning "
+            "tier. “High attention” is this platform’s own label, chosen from the warning type.</em></p>"
+            f"<p>{html.escape(text).replace(chr(10), '<br>')}</p>"
+            + (f'<p><a href="{html.escape(source_link, quote=True)}">Official BOM warning</a></p>' if source_link else "")
+            + state_line
+            + (_sites_html(matches, bool(sites)) if matches else "")
+        )
+        if not send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=body):
+            log.warning("[emergency-alerts] %s: BOM email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
+            continue
+        try:
+            _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})
+            sent += 1
+        except Exception as exc:  # noqa: BLE001 - per-alert notification-flag write inside a loop — one bad write must not abort the batch, already logged with the alert id
+            log.warning("[emergency-alerts] %s: sent BOM email but failed to mark alert %s notified — may re-send next run: %s", source_key, row["id"], exc)
+    return sent
+
+
 _MAX_SITES_IN_EMAIL = 15
 
 
@@ -346,6 +430,13 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
     # per run (~1.4k/day) when there are none (the overwhelmingly common case).
     has_active_warning = any(r["severity"] == "emergency_warning" and r["is_active"] for r in rows)
     emails_sent = _send_emergency_warning_emails(source_key) if has_active_warning else 0
+    # BOM warnings have no AWS tier (severity stays 'unknown'), so they never
+    # reach the Emergency Warning path above; high-attention ones get their own.
+    if source_key.startswith("bom_") and any(
+        r["is_active"] and r["severity"] == "unknown" and bom_attention.attention_level(r.get("headline"), r.get("alert_type")) == bom_attention.HIGH
+        for r in rows
+    ):
+        emails_sent += _send_bom_attention_emails(source_key)
 
     # Surfaced in the heartbeat detail (visible on the workbench's Source
     # Health panel and the Agent/Job dashboard) so a source starting to leak

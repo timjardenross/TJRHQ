@@ -45,7 +45,8 @@ import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
 import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/route';
 import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
-import { matchAlert, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
+import { matchAlert, stateSiteSummary, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
+import { bomAttentionLevel, BOM_ATTENTION_LABEL, type BomAttention } from '@/lib/bomAttention';
 import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
 
 // Backend ingests every 15min 24/7 (intelligence/scheduler.py,
@@ -190,7 +191,7 @@ function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAl
 
 /** Compact card for a high-severity (Emergency Warning / Watch and Act)
  * alert — readable without opening the dense Browse table. */
-function HighSeverityCard({ alert, isMuted, siteCount = 0, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; onSelect: () => void }) {
+function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; attention?: BomAttention; onSelect: () => void }) {
   const isEmergency = alert.severity === 'emergency_warning';
   return (
     <div
@@ -206,6 +207,14 @@ function HighSeverityCard({ alert, isMuted, siteCount = 0, onSelect }: { alert: 
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <SeverityBadge alert={alert} />
         <Badge status="neutral">{alert.jurisdiction}</Badge>
+        {attention && (
+          <span
+            className={`text-wb-label font-semibold uppercase tracking-wide ${attention === 'high' ? 'text-state-crit-on' : 'text-wb-ink2'}`}
+            title="Platform-assigned from the warning type — BOM does not give this warning an Advice / Watch and Act / Emergency Warning tier."
+          >
+            {BOM_ATTENTION_LABEL[attention]}
+          </span>
+        )}
         {isMuted && <MutedBadge />}
       </div>
       {/* WP3 defect #4 sweep: real headline text (e.g. "Fire Weather Warning
@@ -751,19 +760,30 @@ export default function EmergencyAlertsWorkbench() {
   // BOM carries no action tier, but a BOM warning (cyclone, severe
   // thunderstorm, flood, fire weather...) IS an official warning in force —
   // it must never sit under "no immediate action". Shown in its own section.
-  const bomWarnings = useMemo(() => nonActionAlerts.filter((a) => a.severity === 'unknown' && isBomSource(a.sourceKey)), [nonActionAlerts]);
+  const bomWarnings = useMemo(() => {
+    const list = nonActionAlerts.filter((a) => a.severity === 'unknown' && isBomSource(a.sourceKey));
+    const rank = (a: EmergencyAlertEntry) => (bomAttentionLevel(a.headline, a.alertType) === 'high' ? 0 : 1);
+    return [...list].sort((a, b) => rank(a) - rank(b));
+  }, [nonActionAlerts]);
+  const bomHighCount = useMemo(() => bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high').length, [bomWarnings]);
+  // BOM names districts, not places, so per-site matching rarely hits: show how
+  // much of our estate is in each state with a high-attention warning instead.
+  const bomHighStates = useMemo(() => {
+    const states = new Set(bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high').map((a) => a.jurisdiction));
+    return [...states].map((st) => ({ state: st, ...stateSiteSummary(st, sites) })).filter((x) => x.total > 0);
+  }, [bomWarnings, sites]);
   const informationalAlerts = useMemo(() => nonActionAlerts.filter((a) => !(a.severity === 'unknown' && isBomSource(a.sourceKey))), [nonActionAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
   const unknownCount = useMemo(() => informationalAlerts.filter((a) => a.severity === 'unknown').length, [informationalAlerts]);
 
   const siteMatchesByAlert = useMemo(() => {
     const map = new Map<string, SiteMatch[]>();
-    for (const alert of [...emergencyAlerts, ...watchAlerts]) {
+    for (const alert of [...emergencyAlerts, ...watchAlerts, ...bomWarnings]) {
       const matches = matchAlert(alert, sites);
       if (matches.length > 0) map.set(alert.id, matches);
     }
     return map;
-  }, [emergencyAlerts, watchAlerts, sites]);
+  }, [emergencyAlerts, watchAlerts, bomWarnings, sites]);
 
   /** One row per site, attached to its most severe alert (emergency first). */
   const affectedSites = useMemo<AffectedSite[]>(() => {
@@ -893,7 +913,7 @@ export default function EmergencyAlertsWorkbench() {
                     )}
                     {bomWarnings.length > 0 && (
                       <p className="mt-2 text-wb-label font-semibold text-state-warn-on">
-                        {bomWarnings.length} official weather warning{bomWarnings.length === 1 ? ' is' : 's are'} in force — see below.
+                        {bomWarnings.length} official weather warning{bomWarnings.length === 1 ? ' is' : 's are'} in force{bomHighCount > 0 ? ` (${bomHighCount} high attention)` : ''} — see below.
                       </p>
                     )}
                     {(adviceCount + unknownCount) > 0 ? (
@@ -946,10 +966,18 @@ export default function EmergencyAlertsWorkbench() {
                     </h2>
                     <p className="mb-3 text-wb-label text-wb-ink2">
                       The Bureau of Meteorology does not supply an Advice / Watch and Act / Emergency Warning tier — read each warning for what to do.
+                      {bomHighCount > 0 && ' “High attention” is this platform’s own label from the warning type (cyclone, severe thunderstorm, severe weather, tsunami, moderate/major flood); those also send an email.'}
                     </p>
+                    {bomHighStates.length > 0 && (
+                      <p className="mb-3 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+                        High-attention warnings in states where we have sites:{' '}
+                        {bomHighStates.map((x) => `${x.state} — ${x.total} site${x.total === 1 ? '' : 's'}${x.tier1 ? ` (${x.tier1} Tier 1)` : ''}`).join('; ')}.
+                        These warnings name districts, not places — check whether our sites fall inside the affected area.
+                      </p>
+                    )}
                     <div className="flex flex-col gap-3">
                       {bomWarnings.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>

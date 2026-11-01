@@ -98,3 +98,12 @@ export function statesWithoutSiteMatch(alerts: MatchableAlert[], sites: AlertSit
   }
   return out;
 }
+
+/** Our sites in one state: total and Tier 1. For alerts that name a district
+ * rather than a place (BOM warnings), where per-site matching is not possible
+ * — it says how much is in the affected state, not that those sites are
+ * affected. Mirror of site_matching.state_site_summary. */
+export function stateSiteSummary(jurisdiction: string, sites: AlertSiteEntry[]): { total: number; tier1: number } {
+  const inState = sites.filter((s) => s.state === jurisdiction);
+  return { total: inState.length, tier1: inState.filter((s) => s.priority === 'Tier 1').length };
+}

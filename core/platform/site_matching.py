@@ -112,6 +112,15 @@ def states_without_site_match(alerts: list[dict], sites: list[dict]) -> dict[str
     return out
 
 
+def state_site_summary(jurisdiction: str | None, sites: list[dict]) -> dict[str, int]:
+    """Our sites in one state: {"total": n, "tier1": n}. For alerts that name
+    a district rather than a place (BOM warnings), where per-site matching is
+    not possible — it says how much is in the affected state, not that those
+    sites are affected."""
+    in_state = [s for s in sites if s.get("state") == jurisdiction]
+    return {"total": len(in_state), "tier1": sum(1 for s in in_state if s.get("priority") == "Tier 1")}
+
+
 def list_active_sites() -> list[dict]:
     return supabase_get(
         "alert_sites?active=eq.true&select=id,site_type,name,address,suburb,state,postcode,priority,latitude,longitude,geocode_quality"
