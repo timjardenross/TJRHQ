@@ -266,7 +266,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
             orch.run_cycle(dry_run=False)  # second cycle — must not duplicate the record
 
         store = OpportunityStore(self.tmpdir)
-        resolved = [r for r in store.all_current() if r["lifecycle_state"] == "resolved_before_research"]
+        resolved = [r for r in store.all_current() if r["stage_detail"] == "resolved_before_research"]
         self.assertEqual(len(resolved), 1)
         self.assertEqual(resolved[0]["validation_result"], "resolved")
         self.assertTrue(resolved[0]["validated_at"])
@@ -354,7 +354,7 @@ class TestMissionOnlyServerSideEnforcement(unittest.TestCase):
                 })
                 self.assertEqual(res.status_code, 400, f"{change_class} should refuse approve_improvement")
                 current = dashboard.opportunity_store.get(opp.opportunity_id)
-                self.assertEqual(current["lifecycle_state"], "proposed")  # unchanged
+                self.assertEqual(current["stage_detail"], "proposed")  # unchanged
         finally:
             dashboard.opportunity_store = original_store
 
@@ -375,7 +375,7 @@ class TestMissionOnlyServerSideEnforcement(unittest.TestCase):
             })
             self.assertEqual(res.status_code, 200)
             current = dashboard.opportunity_store.get(opp.opportunity_id)
-            self.assertEqual(current["lifecycle_state"], "implementing")
+            self.assertEqual(current["stage_detail"], "implementing")
             self.assertEqual(current["mission_id"], "MSN-0001")
         finally:
             dashboard.opportunity_store = original_store

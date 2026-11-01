@@ -445,7 +445,7 @@ class TestAuthorityFirewall(unittest.TestCase):
                               lifecycle_state="learned", outcome={"outcome_result": "improved", "confidence": "high"})
             new_opp = store.create_new(title="A new but similar idea", change_class="cost_optimisation",
                                         discovery_source="internal", lifecycle_state="discovered")
-            self.assertEqual(new_opp.lifecycle_state, "discovered")
+            self.assertEqual(new_opp.stage_detail, "discovered")
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
@@ -570,7 +570,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
         self.assertEqual(result["outcomes_completed_count"], 0)
         # dry-run must never write — record must be unchanged
         current = store.get(opp.opportunity_id)
-        self.assertEqual(current["lifecycle_state"], "approved")
+        self.assertEqual(current["stage_detail"], "approved")
 
     def test_end_to_end_manual_implementation_to_learned(self):
         orch = self._make_orchestrator()
@@ -587,7 +587,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
 
         result = orch.run_cycle(dry_run=False)
         final = store.get(opp.opportunity_id)
-        self.assertEqual(final["lifecycle_state"], "learned")
+        self.assertEqual(final["stage_detail"], "learned")
         self.assertIn(final["outcome"]["outcome_result"], OUTCOME_RESULTS)
         self.assertEqual(result["outcomes_completed_count"], 1)
 
@@ -621,7 +621,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
             orch.run_cycle(dry_run=False)
 
         final = store.get(opp.opportunity_id)
-        self.assertEqual(final["lifecycle_state"], "learned")
+        self.assertEqual(final["stage_detail"], "learned")
         self.assertEqual(final["outcome"]["outcome_result"], "improved")
         self.assertEqual(final["outcome"]["method"], "deterministic")
 

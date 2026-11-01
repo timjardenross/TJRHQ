@@ -121,7 +121,9 @@ def check_item(base_url: str, item: Item) -> tuple[str, str]:
     title = opp.get("title") or ""
     if item.title_contains.lower() not in title.lower():
         return "skip", f"title mismatch (expected to contain {item.title_contains!r}, got {title!r})"
-    state = opp.get("lifecycle_state")
+    # The fine state is stage_detail on the simplified API and lifecycle_state
+    # on the older one; either way it is one of OPEN_STATES while still open.
+    state = opp.get("stage_detail") or opp.get("lifecycle_state")
     if state not in OPEN_STATES:
         return "skip", f"already {state}"
     return "ok", f"{state}: {title}"

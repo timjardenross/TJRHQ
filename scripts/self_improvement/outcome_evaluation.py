@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import evidence_sources
+import lifecycle
 import outcome_schema
 
 log = logging.getLogger("outcome_evaluation")
@@ -190,7 +191,7 @@ def detect_concurrent_changes(opportunity: dict[str, Any], store: Any, window_st
                 continue
             if rec.get("change_class") != this_class:
                 continue
-            if rec.get("lifecycle_state") not in _CONCURRENT_LIFECYCLE_STATES:
+            if lifecycle.detail_of(rec) not in _CONCURRENT_LIFECYCLE_STATES:
                 continue
             updated_at = rec.get("updated_at")
             if not updated_at:
