@@ -17,6 +17,11 @@ from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
+_BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 USS-TJR-Intelligence-Agent/1.0"
+)
+
 log = logging.getLogger(__name__)
 
 
@@ -38,17 +43,20 @@ class RSSAdapter(BaseSourceAdapter):
         except ImportError:
             raise RuntimeError("feedparser not installed — run: pip install feedparser")
 
-        # feedparser < 6.x does not support timeout kwarg; use socket-level timeout
-        import socket
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(HTTP_TIMEOUT_SECONDS)
-        try:
-            feed = feedparser.parse(
-                self._feed_url,
-                request_headers={"User-Agent": "USS-TJR-Intelligence-Agent/1.0"},
-            )
-        finally:
-            socket.setdefaulttimeout(old_timeout)
+        # Fetch ourselves: some hosts (e.g. BIS) serve a stub to bot UAs, and
+        # some feeds contain illegal XML control chars that make feedparser bail.
+        import re
+        import urllib.request
+        if not (self._feed_url or "").lower().startswith(("http://", "https://")):
+            raise RuntimeError(f"Unsupported feed URL scheme: {self._feed_url!r}")
+        req = urllib.request.Request(
+            self._feed_url,
+            headers={"User-Agent": _BROWSER_UA, "Accept": "application/rss+xml, application/xml, text/xml, */*"},
+        )
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:  # nosec B310 - scheme checked above
+            raw = resp.read()
+        raw = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", b"", raw)
+        feed = feedparser.parse(raw)
 
         if feed.get("bozo") and not feed.entries:
             exc = feed.get("bozo_exception")
