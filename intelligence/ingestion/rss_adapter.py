@@ -47,11 +47,13 @@ class RSSAdapter(BaseSourceAdapter):
         # some feeds contain illegal XML control chars that make feedparser bail.
         import re
         import urllib.request
+        if not (self._feed_url or "").lower().startswith(("http://", "https://")):
+            raise RuntimeError(f"Unsupported feed URL scheme: {self._feed_url!r}")
         req = urllib.request.Request(
             self._feed_url,
             headers={"User-Agent": _BROWSER_UA, "Accept": "application/rss+xml, application/xml, text/xml, */*"},
         )
-        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:  # nosec B310 - scheme checked above
             raw = resp.read()
         raw = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", b"", raw)
         feed = feedparser.parse(raw)
