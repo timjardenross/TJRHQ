@@ -244,13 +244,16 @@ def dispatch_one(repo_root: Path, mission: dict[str, Any]) -> dict[str, Any]:
         return {"success": False, "error": f"sync-one status={out.get('status')}: {out.get('error', '')}"}
 
     pr_url = out.get("pr_url") or ""
+    # Report the real reason when batch_coding gave one (e.g. the version-bump
+    # guard rejecting the model's output) instead of always blaming GitHub config.
+    why = out.get("pr_error") or "GitHub not configured or no new files to add"
     return {
         "success": True,
         "pr_opened": bool(pr_url),
         "message": (
             f"Draft PR opened for review: {pr_url}" if pr_url
             else f"Handoff coded (artifact: {out.get('artifact')}) but no PR opened "
-                 f"(GitHub not configured or no new files to add) — review the artifact manually."
+                 f"({why}) — review the artifact manually."
         ),
     }
 
