@@ -46,6 +46,7 @@ into this module spends one real credit — there is no free retry.
 import json
 import logging
 import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -71,6 +72,33 @@ _semaphores = {
     "firecrawl": threading.Semaphore(_CONCURRENCY_LIMIT),
     "firecrawl_2": threading.Semaphore(_CONCURRENCY_LIMIT),
 }
+
+
+# Firecrawl's per-minute rate limit (the 429 "Rate limit exceeded ... req/min"
+# error seen on the 06:00 sweep, when ~12 Firecrawl-path sources fire in a
+# burst) is independent of the concurrency cap above. Space calls per account
+# so a burst can never exceed ~8 req/min, and retry once on a 429, honouring
+# the API's own retry_after_seconds.
+_MIN_CALL_GAP_SECONDS = 7.5
+_MAX_429_WAIT_SECONDS = 60
+_spacing_lock = threading.Lock()
+_last_call_at = {"firecrawl": 0.0, "firecrawl_2": 0.0}
+
+
+def _wait_for_spacing(provider: str) -> None:
+    """Block until at least _MIN_CALL_GAP_SECONDS after this account's last call."""
+    with _spacing_lock:
+        wait = _last_call_at[provider] + _MIN_CALL_GAP_SECONDS - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _last_call_at[provider] = time.monotonic()
+
+
+def _retry_after_seconds(detail: str) -> float:
+    try:
+        return float(json.loads(detail).get("retry_after_seconds"))
+    except (ValueError, TypeError, AttributeError):
+        return _MIN_CALL_GAP_SECONDS * 2
 
 
 class FirecrawlNotConfigured(RuntimeError):
@@ -166,14 +194,22 @@ def scrape(url: str, formats: list[str] | None = None, timeout: int | None = Non
     )
 
     with _semaphores[provider]:
-        try:
-            with urllib.request.urlopen(req, timeout=timeout or _DEFAULT_TIMEOUT) as resp:  # nosec B310 - request url is the fixed _SCRAPE_ENDPOINT constant (api.firecrawl.dev); target `url` travels only inside the JSON payload, not as the fetch scheme - reviewed 2026-09-12
-                body = json.loads(resp.read().decode("utf-8", errors="replace"))
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:500]
-            raise RuntimeError(f"Firecrawl scrape HTTP {exc.code} for {url}: {detail}") from exc
-        except Exception as exc:
-            raise RuntimeError(f"Firecrawl scrape request failed for {url}: {exc}") from exc
+        for attempt in (1, 2):
+            _wait_for_spacing(provider)
+            try:
+                with urllib.request.urlopen(req, timeout=timeout or _DEFAULT_TIMEOUT) as resp:  # nosec B310 - request url is the fixed _SCRAPE_ENDPOINT constant (api.firecrawl.dev); target `url` travels only inside the JSON payload, not as the fetch scheme - reviewed 2026-09-12
+                    body = json.loads(resp.read().decode("utf-8", errors="replace"))
+                break
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")[:500]
+                if exc.code == 429 and attempt == 1:
+                    wait = min(_retry_after_seconds(detail) + 1, _MAX_429_WAIT_SECONDS)
+                    log.warning("[firecrawl] 429 for %s - retrying once after %.0fs", url, wait)
+                    time.sleep(wait)
+                    continue
+                raise RuntimeError(f"Firecrawl scrape HTTP {exc.code} for {url}: {detail}") from exc
+            except Exception as exc:
+                raise RuntimeError(f"Firecrawl scrape request failed for {url}: {exc}") from exc
 
     if not body.get("success"):
         raise RuntimeError(f"Firecrawl scrape unsuccessful for {url}: {body.get('error', body)}")
