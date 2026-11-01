@@ -10,6 +10,7 @@ Feed URL resolution order:
 """
 
 import logging
+import time
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
@@ -19,7 +20,7 @@ from intelligence.models import IntelligenceItem, SourceRecord
 
 _BROWSER_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 USS-TJR-Intelligence-Agent/1.0"
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 )
 
 log = logging.getLogger(__name__)
@@ -53,10 +54,16 @@ class RSSAdapter(BaseSourceAdapter):
             self._feed_url,
             headers={"User-Agent": _BROWSER_UA, "Accept": "application/rss+xml, application/xml, text/xml, */*"},
         )
-        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:  # nosec B310 - scheme checked above
-            raw = resp.read()
-        raw = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", b"", raw)
-        feed = feedparser.parse(raw)
+        # Some hosts (BIS) intermittently answer with an empty stub feed; one
+        # short retry recovers it without hammering the host.
+        for attempt in (1, 2):
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:  # nosec B310 - scheme checked above
+                raw = resp.read()
+            raw = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", b"", raw)
+            feed = feedparser.parse(raw)
+            if feed.entries or attempt == 2:
+                break
+            time.sleep(2)
 
         if feed.get("bozo") and not feed.entries:
             exc = feed.get("bozo_exception")
