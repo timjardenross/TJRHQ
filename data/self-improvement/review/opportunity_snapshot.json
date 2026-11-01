@@ -1,10 +1,8 @@
 {
   "counts_by_state": {
-    "implementing": 7,
     "learned": 1,
-    "rejected": 129,
-    "resolved_before_research": 4,
-    "verifying": 1
+    "rejected": 137,
+    "resolved_before_research": 4
   },
   "open_opportunities": []
 }
