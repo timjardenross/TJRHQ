@@ -11,7 +11,7 @@ Feed URL resolution order:
 
 import logging
 import time
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
