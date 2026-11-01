@@ -17,6 +17,16 @@ executive_snapshot, top_events, forward_watch, comparison, coverage, ...
 
 from __future__ import annotations
 
+import re
+
+_SOURCE_ID_PREFIX = re.compile(r"^\s*\[EventId:[^\]]*\]\s*", re.IGNORECASE)
+
+
+def clean_title(title: str | None) -> str | None:
+    """Drop a leading machine `[EventId:...]` tag some sources embed in titles."""
+    return _SOURCE_ID_PREFIX.sub("", title) if title else title
+
+
 RISK_LABEL = {"RED": "🔴 RED", "AMBER": "🟡 AMBER", "GREEN": "🟢 GREEN", "UNKNOWN": "⚪ UNKNOWN"}
 
 
@@ -35,7 +45,7 @@ def build_morning_intelligence_view(brief: dict | None, max_items: int = 3) -> d
 
     top = (brief.get("top_events") or [])[:max_items]
     what_matters = [
-        {"title": e.get("title"), "so_what": e.get("so_what"), "risk_rating": e.get("risk_rating")}
+        {"title": clean_title(e.get("title")), "so_what": e.get("so_what"), "risk_rating": e.get("risk_rating")}
         for e in top
     ]
 
@@ -43,9 +53,9 @@ def build_morning_intelligence_view(brief: dict | None, max_items: int = 3) -> d
     changed = None
     if comparison:
         changed = {
-            "new": [i.get("title") for i in (comparison.get("new") or [])[:3]],
-            "escalated": [i.get("title") for i in (comparison.get("escalated") or [])[:3]],
-            "improved": [i.get("title") for i in (comparison.get("improved") or [])[:3]],
+            "new": [clean_title(i.get("title")) for i in (comparison.get("new") or [])[:3]],
+            "escalated": [clean_title(i.get("title")) for i in (comparison.get("escalated") or [])[:3]],
+            "improved": [clean_title(i.get("title")) for i in (comparison.get("improved") or [])[:3]],
         }
         if not any(changed.values()):
             changed = None
