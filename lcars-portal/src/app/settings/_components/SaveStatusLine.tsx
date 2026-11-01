@@ -6,25 +6,25 @@ import type { SaveStatus } from './useSectionSettings';
 
 export function SaveStatusLine({ status, onRetry }: { status: SaveStatus; onRetry?: () => void }) {
   if (status === 'loading') {
-    return <p className="text-[12px] text-wb-ink2">Loading your settings…</p>;
+    return <p className="text-wb-label text-wb-ink2">Loading your settings…</p>;
   }
   if (status === 'saving') {
     return (
-      <p role="status" aria-live="polite" className="text-[12px] text-wb-ink2">
+      <p role="status" aria-live="polite" className="text-wb-label text-wb-ink2">
         Saving…
       </p>
     );
   }
   if (status === 'saved') {
     return (
-      <p role="status" aria-live="polite" className="text-[12px] font-medium text-wb-ok-on">
+      <p role="status" aria-live="polite" className="text-wb-label font-medium text-wb-ok-on">
         Saved ✓
       </p>
     );
   }
   if (status === 'error') {
     return (
-      <p role="alert" className="flex items-center gap-2 text-[12px] font-medium text-wb-crit-on">
+      <p role="alert" className="flex items-center gap-2 text-wb-label font-medium text-wb-crit-on">
         Could not save this setting.
         {onRetry && (
           <button type="button" onClick={onRetry} className="underline underline-offset-2 hover:no-underline">

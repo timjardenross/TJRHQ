@@ -80,7 +80,7 @@ def main():
     print(f"📝 Logging decision: {decision_id}")
     print(f"   Statement: {decision_payload['statement'][:80]}...")
 
-    result = client.insert("decisions", decision_payload)
+    result = client.insert("command_memory_records", decision_payload)
 
     if result.ok:
         print(f"✅ Decision logged successfully: {decision_id}")

@@ -22,7 +22,7 @@
 # long-running daemon (pgqueuer's PgQueuer.run(), an asyncio event loop —
 # it never exits under normal operation), not a discrete job.
 Description=USS TJR Human Systems Scheduler — proactive pushes (pgqueuer pilot, MSN-0375)
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]

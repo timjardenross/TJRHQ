@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 
 log = logging.getLogger("xo-bot.voice")
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 

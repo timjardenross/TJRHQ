@@ -151,6 +151,14 @@ export interface NeedsYouBuildInputs {
   oldestCapturePending: string | null;
   evolutionPendingCount: number | null;
   evolutionHighestValueTitle: string | null;
+  /** MSN-0345's real, governed engineering-approvals count (lib/decisions.ts's
+   *  fetchEngineeringDecisions()) — same source MobileAlertDrawer already
+   *  surfaces on mobile. Links to /decisions, the real approve/reject page
+   *  (deliberately kept off this page itself — Captain's Chair's own inline
+   *  approve/reject actions were removed 2026-08-22, see (app)/engineering-
+   *  queue/page.tsx's retirement comment). */
+  engineeringApprovalsCount: number | null;
+  oldestEngineeringApproval: string | null;
   /** Genuine HQ intervention required (mission scenario F) — only ATTENTION
    *  posture reaches here; DEGRADED never generates a Needs You item. */
   hqPosture: 'NORMAL' | 'DEGRADED' | 'ATTENTION' | 'UNKNOWN' | null;
@@ -230,10 +238,19 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
     });
   }
 
+  if ((inputs.engineeringApprovalsCount ?? 0) > 0) {
+    items.push({
+      id: 'engineering-approvals', kind: 'approval',
+      title: inputs.oldestEngineeringApproval ?? 'Engineering handoffs awaiting approval',
+      detail: `${inputs.engineeringApprovalsCount} handoff${inputs.engineeringApprovalsCount === 1 ? '' : 's'} awaiting your approve/reject decision.`,
+      href: '/decisions', actionLabel: 'Review',
+    });
+  }
+
   if ((inputs.evolutionPendingCount ?? 0) > 0) {
     items.push({
       id: 'hq-evolution', kind: 'review',
-      title: inputs.evolutionHighestValueTitle ?? 'HQ Evolution has opportunities worth considering',
+      title: inputs.evolutionHighestValueTitle ?? 'HQ has improvement opportunities worth considering',
       detail: `${inputs.evolutionPendingCount} opportunit${inputs.evolutionPendingCount === 1 ? 'y' : 'ies'} from overnight research ${inputs.evolutionPendingCount === 1 ? 'needs' : 'need'} your decision.`,
       href: '/self-improvement-findings', actionLabel: 'Review',
     });

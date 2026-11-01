@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0370 — Ruff Manual-Judgment Triage: core/
 
+**Lesson:** LL-173, LL-174
+
 **Scope:** `core/` directory only (parallel worktrees covered `platform-runtime/`, `intelligence/`+`tools/`, `telegram-bots/`+misc).
 **Branch:** `msn-0370-ruff-core` (pushed to origin, not merged to main).
 **Follow-up to:** USS-TJR-MSN-0369 (ruff autofix pass).

@@ -759,8 +759,8 @@ def get_source_reliability_scores() -> list[dict]:
 
 # ─── Source Health ────────────────────────────────────────────────────────────
 
-def save_source_health(health: SourceHealth) -> None:
-    _post("intelligence_source_health", {
+def _source_health_row(health: SourceHealth) -> dict:
+    return {
         "source_id": health.source_id,
         "checked_at": health.checked_at.isoformat(),
         "status": health.status,
@@ -770,7 +770,44 @@ def save_source_health(health: SourceHealth) -> None:
         "http_status": health.http_status,
         "content_valid": health.content_valid,
         "content_validity_reason": health.content_validity_reason,
-    })
+    }
+
+
+def save_source_health_batch(healths: list[SourceHealth]) -> None:
+    """save_source_health() for a whole collection run: one array insert
+    (return=minimal) instead of one POST per source that also downloaded the
+    inserted row (~770 requests/day, usage review 2026-09-27). Failed sources
+    still each publish their intelligence.source.failed core event."""
+    if not healths:
+        return
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        log.warning("Supabase not configured — skipping persist for intelligence_source_health")
+    else:
+        headers = _headers()
+        headers["Prefer"] = "return=minimal"
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/intelligence_source_health",
+            data=json.dumps([_source_health_row(h) for h in healths]).encode(),
+            headers=headers, method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
+                pass
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            log.error("Supabase insert failed (intelligence_source_health x%d): HTTP %s: %s", len(healths), exc.code, detail)
+        except Exception as exc:  # noqa: BLE001 - generic Supabase insert wrapper — failure is logged; source-health persistence is non-blocking for collection
+            log.error("Supabase insert failed (intelligence_source_health x%d): %s", len(healths), exc)
+    for health in healths:
+        _publish_source_failure(health)
+
+
+def save_source_health(health: SourceHealth) -> None:
+    _post("intelligence_source_health", _source_health_row(health))
+    _publish_source_failure(health)
+
+
+def _publish_source_failure(health: SourceHealth) -> None:
     if health.status == "failed":
         _publish_core_event(
             "intelligence.source.failed",
@@ -812,6 +849,65 @@ def event_canonical_url_exists(canonical_url: str) -> bool:
     encoded = urllib.parse.quote(canonical_url, safe="")
     rows = _get(f"intelligence_events?canonical_url=eq.{encoded}&limit=1")
     return len(rows) > 0
+
+
+def _in_filter_value(values: list[str]) -> str:
+    """PostgREST `in.(...)` operand: each value double-quoted (so commas/
+    parens in URLs are literal), then the whole thing URL-encoded."""
+    import urllib.parse
+    quoted = ",".join('"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"' for v in values)
+    return urllib.parse.quote(f"({quoted})", safe="")
+
+
+def _existing_values(column: str, values: list[str], max_query_chars: int = 6000) -> set[str]:
+    """Which of `values` already exist in intelligence_events.<column>, in as
+    few GETs as fit under a safe URL length. A failed chunk counts as "none
+    exist" — the same fail-open the per-item checks had (and save_event's
+    on_conflict=dedup_hash upsert still backstops hash duplicates)."""
+    found: set[str] = set()
+    chunk: list[str] = []
+    for value in dict.fromkeys(values):
+        chunk.append(value)
+        if len(_in_filter_value(chunk)) > max_query_chars and len(chunk) > 1:
+            chunk.pop()
+            found.update(_existing_chunk(column, chunk))
+            chunk = [value]
+    if chunk:
+        found.update(_existing_chunk(column, chunk))
+    return found
+
+
+def _existing_chunk(column: str, chunk: list[str]) -> set[str]:
+    rows = _get(f"intelligence_events?select={column}&{column}=in.{_in_filter_value(chunk)}")
+    return {r[column] for r in rows if r.get(column)}
+
+
+def filter_unpersisted_events(events: list) -> list:
+    """Drop events already persisted by a previous run (same dedup_hash, or
+    same canonical_url from another source; title+date when there's no URL).
+
+    Replaces calling event_hash_exists()/event_canonical_url_exists() per
+    event — 1-2 GETs per collected item, ~10k requests/day and the largest
+    remaining source of Supabase API/log volume (usage review 2026-09-27) —
+    with batched `in.(...)` lookups that select only the key column.
+    Callers still do their own in-run dedup first; order is preserved."""
+    if not events:
+        return events
+    known_hashes = _existing_values("dedup_hash", [e.dedup_hash for e in events if e.dedup_hash])
+    known_urls = _existing_values("canonical_url", [e.canonical_url for e in events if e.canonical_url])
+    fresh = []
+    for event in events:
+        if event.dedup_hash in known_hashes:
+            continue
+        if event.canonical_url and event.canonical_url in known_urls:
+            continue
+        if not event.canonical_url and event.published_at:
+            from intelligence.classification.deduplicator import _normalise
+            date_str = event.published_at.strftime("%Y-%m-%d")
+            if event_title_date_exists(_normalise(event.raw_title), date_str):
+                continue
+        fresh.append(event)
+    return fresh
 
 
 def event_title_date_exists(normalised_title: str, date_str: str) -> bool:

@@ -13,6 +13,7 @@
 // the Captain at the Telegram bot instead, with a read-only glance at the
 // most recent capacity check-in so it isn't a dead end.
 
+import { describePain } from '@/lib/pain-vocab';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell, Card, Badge } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -22,6 +23,7 @@ interface LatestCheckin {
   capacity_state: string | null;
   regulation_state: string | null;
   pain_score: number | null;
+  pain_state: string | null;
 }
 
 export default function RecoveryPulsePage() {
@@ -35,7 +37,7 @@ export default function RecoveryPulsePage() {
         const supabase = createSupabaseBrowserClient();
         const { data } = await supabase
           .from('capacity_checkins')
-          .select('captured_at,capacity_state,regulation_state,pain_score')
+          .select('captured_at,capacity_state,regulation_state,pain_score,pain_state')
           .eq('checkin_type', 'capacity')
           .order('captured_at', { ascending: false })
           .limit(1);
@@ -55,13 +57,13 @@ export default function RecoveryPulsePage() {
     <WorkbenchShell
       title="Recovery Pulse"
       eyebrow="Health Tracking"
-      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
+      tagline="TJR HQ · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <div className="flex flex-col gap-4">
         <Card title="Manual pulse logging has been retired">
           <p className="text-sm leading-relaxed text-wb-ink2">
-            Capacity check-ins now happen via the XO Telegram bot — use{' '}
+            Capacity check-ins now happen via the CapacityBot Telegram bot — use{' '}
             <span className="font-semibold text-wb-ink">/capacity</span> for a quick check-in,{' '}
             <span className="font-semibold text-wb-ink">/deepcheck</span> to go deeper, or{' '}
             <span className="font-semibold text-wb-ink">/evening</span> for an evening reflection.
@@ -69,31 +71,31 @@ export default function RecoveryPulsePage() {
         </Card>
 
         <Card title="Most recent check-in">
-          {loading && <p className="text-[13px] text-wb-ink2">Loading…</p>}
+          {loading && <p className="text-wb-body text-wb-ink2">Loading…</p>}
           {!loading && !latest && (
-            <p className="text-[13px] text-wb-ink2">No capacity check-ins recorded yet.</p>
+            <p className="text-wb-body text-wb-ink2">No capacity check-ins recorded yet.</p>
           )}
           {!loading && latest && (
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Capacity</div>
+                <div className="text-wb-label uppercase tracking-wide text-wb-ink2">Capacity</div>
                 <div className="mt-1">
                   <Badge status="info">{latest.capacity_state ?? 'Not recorded'}</Badge>
                 </div>
               </div>
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Regulation</div>
-                <div className="mt-1 text-[14px] capitalize text-wb-ink">
+                <div className="text-wb-label uppercase tracking-wide text-wb-ink2">Regulation</div>
+                <div className="mt-1 text-wb-body capitalize text-wb-ink">
                   {latest.regulation_state ?? 'Not recorded'}
                 </div>
               </div>
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Pain</div>
-                <div className="mt-1 text-[14px] text-wb-ink">
-                  {latest.pain_score ?? 'Not recorded'}
+                <div className="text-wb-label uppercase tracking-wide text-wb-ink2">Pain</div>
+                <div className="mt-1 text-wb-body text-wb-ink">
+                  {describePain(latest.pain_state, latest.pain_score) ?? 'Not recorded'}
                 </div>
               </div>
-              <div className="sm:col-span-3 text-[12px] text-wb-ink2">
+              <div className="sm:col-span-3 text-wb-label text-wb-ink2">
                 Captured {new Date(latest.captured_at).toLocaleString('en-AU', {
                   weekday: 'long',
                   day: 'numeric',

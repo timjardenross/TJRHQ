@@ -231,7 +231,7 @@ def _get_schedule_state(activity_id: str) -> tuple[datetime | None, int]:
             return None, 0
 
         owner = f"{_SCHEDULE_OWNER_PREFIX}{activity_id}"
-        res = c.raw_client.table("decisions").select("rationale").eq("owner", owner).limit(1).execute()
+        res = c.raw_client.table("command_memory_records").select("rationale").eq("owner", owner).limit(1).execute()
         rows = list(res.data or [])
         if not rows:
             return None, 0
@@ -314,15 +314,15 @@ def record_activity_run(activity_id: str) -> None:
         rationale = f"LAST_RUN: {now.isoformat()} | NEXT_DUE: {next_due.isoformat()} | COUNT: {new_count}"
         statement = f"[OFFICER SCHEDULE] {activity_id}: {schedule.activity}"
 
-        existing = c.raw_client.table("decisions").select("id").eq("owner", owner).limit(1).execute()
+        existing = c.raw_client.table("command_memory_records").select("id").eq("owner", owner).limit(1).execute()
         if list(existing.data or []):
-            c.raw_client.table("decisions").update({
+            c.raw_client.table("command_memory_records").update({
                 "rationale": rationale,
                 "statement": statement,
                 "updated_at": now.isoformat(),
             }).eq("owner", owner).execute()
         else:
-            c.raw_client.table("decisions").insert({
+            c.raw_client.table("command_memory_records").insert({
                 "owner": owner,
                 "statement": statement,
                 "rationale": rationale,

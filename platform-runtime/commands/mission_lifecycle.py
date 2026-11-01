@@ -708,7 +708,7 @@ def handle_mission_close(
         log_file = log_dir / f"CLOSED-{mission_id}-{ts}.json"
         log_file.write_text(json.dumps({
             "mission_id": mission_id_full,
-            "closed_at": datetime.now(timezone.utc).isoformat() + "Z",
+            "closed_at": datetime.now(timezone.utc).isoformat(),
             "closed_by": user_id or "Captain",
             "closing_note": note or None,
         }, indent=2))

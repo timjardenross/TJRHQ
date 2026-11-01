@@ -18,7 +18,7 @@ Routing rules (applied every COMMAND_BUS_INTERVAL seconds, default 300):
                             blocked P0 missions, etc. that the Captain wouldn't otherwise
                             see until asked. MEDIUM-level escalations and follow-ups are
                             deliberately NOT pushed — visible on Mission Workbench, not
-                            paged. Suppressed during quiet hours (7pm-7am Brisbane,
+                            paged. Suppressed during quiet hours (7pm-7am Melbourne,
                             NUMBER_ONE_QUIET_HOURS_START/_END) — an escalation still open
                             when quiet hours end fires on the next cycle, never dropped.
 
@@ -62,6 +62,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from core.health.capacity_enforcement import enforcing
 from core.platform.notification_service import Severity, Transport
 from core.platform.notification_service import notify as _notify
 
@@ -99,9 +100,9 @@ _NOTIFY_COOLDOWN_H  = int(_env("COMMAND_BUS_NOTIFY_COOLDOWN_H", "4")) # hours be
 # this one rule only, not the other alerts in this file (executor_stuck/
 # service_health/new_missions predate this and nobody asked for their
 # behaviour to change — a genuine service outage at 2am should still page).
-_QUIET_HOURS_START = int(_env("NUMBER_ONE_QUIET_HOURS_START", "19"))  # 24h, Australia/Brisbane
+_QUIET_HOURS_START = int(_env("NUMBER_ONE_QUIET_HOURS_START", "19"))  # 24h, Australia/Melbourne
 _QUIET_HOURS_END   = int(_env("NUMBER_ONE_QUIET_HOURS_END", "7"))
-_NUMBER_ONE_TZ      = ZoneInfo("Australia/Brisbane")                  # matches wellness_officer/intelligence.py's convention
+_NUMBER_ONE_TZ      = ZoneInfo("Australia/Melbourne")                  # matches wellness_officer/intelligence.py's convention
 
 _TG_TOKEN           = _env("TELEGRAM_BOT_TOKEN")
 _TG_CHAT_ID         = (_env("TELEGRAM_ALLOWED_CHAT_IDS") or "").split(",")[0].strip()
@@ -306,7 +307,7 @@ def _capacity_status(client) -> str:
 
 def _in_number_one_quiet_hours() -> bool:
     """True during the Captain's quiet hours for Number One's escalation
-    push (USS-TJR-MSN-0362 candidate A, 7pm-7am Brisbane by default).
+    push (USS-TJR-MSN-0362 candidate A, 7pm-7am Melbourne by default).
     Handles the overnight wrap (start > end) the same way as a same-day
     window would — e.g. 19 <= hour or hour < 7."""
     hour = datetime.now(_NUMBER_ONE_TZ).hour
@@ -508,17 +509,22 @@ def _rule_new_missions(conn: sqlite3.Connection, client) -> None:
         if conn.execute("SELECT 1 FROM seen_missions WHERE mission_id=?", (mid,)).fetchone():
             continue
         # First time seeing this Idea
-        conn.execute(
-            "INSERT OR IGNORE INTO seen_missions (mission_id, first_seen) VALUES (?, ?)",
-            (mid, _now_iso()),
-        )
-        conn.commit()
         tg = (
             f"💡 <b>New Mission — Triage Required</b>\n"
             f"<code>{_esc_html(mid)}</code> — {_esc_html(title)}\n"
             "Status: <b>Idea</b> — awaiting review, approval, or archival via Mission Workbench."
         )
-        _route("MEDIUM", tg)
+        # Mark it seen only AFTER a successful send. It used to be marked first and the send result
+        # ignored, so a failed send (for example a Telegram 401) lost the one-time alert for good.
+        # An unsent mission stays unseen and is retried on the next cycle.
+        if not _route("MEDIUM", tg):
+            log.warning("[bus:missions] New Idea mission %s NOT alerted (send failed); will retry next cycle", mid)
+            break  # the transport is failing; do not make one failing call per remaining Idea
+        conn.execute(
+            "INSERT OR IGNORE INTO seen_missions (mission_id, first_seen) VALUES (?, ?)",
+            (mid, _now_iso()),
+        )
+        conn.commit()
         log.info("[bus:missions] New Idea mission alerted: %s", mid)
 
 
@@ -605,7 +611,7 @@ def _rule_number_one_escalations(conn: sqlite3.Connection, client=None) -> None:
             continue
 
         level = str(e.get("level", "")).upper()
-        if level == "HIGH" and capacity_status == "Red":
+        if level == "HIGH" and capacity_status == "Red" and enforcing():
             # Deferred, not dropped — same mechanism as the quiet-hours
             # continue above: never marked notified, so _should_notify()
             # is still True next cycle (Mission 2, USS-TJR-MSN-2).

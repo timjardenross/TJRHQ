@@ -115,7 +115,7 @@ def generate_lesson_candidate(
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 res = (
-                    c.raw_client.table("decisions")
+                    c.raw_client.table("command_memory_records")
                     .select("id")
                     .eq("owner", owner)
                     .ilike("statement", f"%{trigger}:{ref_id}:%")
@@ -287,7 +287,7 @@ def get_lesson_candidates(
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale,owner,created_at")
             .like("owner", f"{LESSON_CANDIDATE_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -333,7 +333,7 @@ def promote_lesson_candidate(candidate_id: str) -> str | None:
 
         # Fetch candidate
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale,owner")
             .eq("id", candidate_id)
             .limit(1)
@@ -369,7 +369,7 @@ def promote_lesson_candidate(candidate_id: str) -> str | None:
         new_rationale = str(rows[0].get("rationale") or "").replace(
             "STATUS: pending", f"STATUS: promoted | LESSON_ID: {lesson_id}"
         )
-        c.raw_client.table("decisions").update(
+        c.raw_client.table("command_memory_records").update(
             {"rationale": new_rationale, "status": "Closed"}
         ).eq("id", candidate_id).execute()
 
@@ -404,7 +404,7 @@ def get_reuse_count(lesson_id: str) -> int:
         if not (c.is_enabled() and c.raw_client):
             return 0
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id", count="exact")
             .eq("owner", f"{LESSON_REUSE_OWNER_PREFIX}{lesson_id}")
             .execute()

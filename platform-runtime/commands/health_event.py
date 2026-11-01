@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from lib.tz import today_brisbane_iso
+from lib.tz import today_local_iso
 
 
 def _make_supabase():
@@ -64,7 +64,7 @@ _EVENT_TYPES = [
 
 def build_health_event_modal() -> dict:
     """Return the Block Kit view dict for the health event modal."""
-    today = today_brisbane_iso()
+    today = today_local_iso()
     return {
         "type": "modal",
         "callback_id": EVENT_MODAL_CALLBACK_ID,
@@ -229,7 +229,7 @@ def handle_health_event_submit(values: dict, user_id: str) -> str:
     2026-09-26: previously DM'd the confirmation via Slack's
     `client.chat_postMessage` — Slack is retired, so this now returns
     the text instead (no live caller today)."""
-    event_date        = _extract(values, "event_date") or today_brisbane_iso()
+    event_date        = _extract(values, "event_date") or today_local_iso()
     event_type        = _extract(values, "event_type")
     title             = _extract(values, "title") or "(untitled)"
     description       = _extract(values, "description")

@@ -84,7 +84,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -107,6 +107,10 @@ jobs:
               - 'telegram-bots/capacitybot/**'
             telegram_recovery_officer:
               - 'telegram-bots/recovery_officer/**'
+            telegram_resiliencebot:
+              - 'telegram-bots/resiliencebot/**'
+              - 'platform-runtime/lib/resilience/**'
+              - 'knowledge/regulatory-corpus/**'
             telegram_revs:
               - 'telegram-bots/revs/**'
             telegram_wellness_officer:
@@ -184,6 +188,11 @@ jobs:
                   "dir": "telegram-bots/recovery_officer",
                   "req": "",
               },
+              "telegram_resiliencebot": {
+                  "name": "telegram-bots-resiliencebot",
+                  "dir": "telegram-bots/resiliencebot",
+                  "req": "telegram-bots/resiliencebot/requirements.txt",
+              },
               "telegram_revs": {
                   "name": "telegram-bots-revs",
                   "dir": "telegram-bots/revs",
@@ -231,7 +240,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
+        id: setup-python
         with:
           python-version: "3.11"
 
@@ -241,7 +251,7 @@ jobs:
       # install never invalidates another's cache.
       - name: Cache pip
         if: matrix.req != ''
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pip
           key: pip-${{ matrix.name }}-${{ hashFiles(matrix.req) }}
@@ -284,15 +294,24 @@ jobs:
       # matrix entry only — no other entry imports core/security/.
       - name: Cache llmsec venv
         if: matrix.name == 'core'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: platform-runtime/.venv-llmsec
-          key: llmsec-venv-${{ hashFiles('core/security/requirements-llmsec.txt') }}
+          # python-version in the key (2026-10-08): "3.11" floats to the
+          # runner's newest patch release, and a venv's bin/python3 is a
+          # symlink into that exact hostedtoolcache path. When the runner
+          # moved to 3.11.17 the restored venv's interpreter link dangled and
+          # the provision step below died before any test ran.
+          key: llmsec-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('core/security/requirements-llmsec.txt') }}
 
       - name: Provision llmsec venv (Presidio + NeMo Guardrails)
         if: matrix.name == 'core'
         run: |
-          if [ ! -x platform-runtime/.venv-llmsec/bin/python3 ]; then
+          # Rebuild if the interpreter can't actually run, not just if the
+          # file is missing - a dangling symlink from a stale cache fails -x
+          # but still blocks `python3 -m venv` from recreating it in place.
+          if ! platform-runtime/.venv-llmsec/bin/python3 -c '' 2>/dev/null; then
+            rm -rf platform-runtime/.venv-llmsec
             python3 -m venv platform-runtime/.venv-llmsec
             platform-runtime/.venv-llmsec/bin/pip install --upgrade pip
             platform-runtime/.venv-llmsec/bin/pip install -r core/security/requirements-llmsec.txt
@@ -341,7 +360,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -384,7 +403,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -450,7 +469,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
 
@@ -487,11 +506,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Cache pre-commit envs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -509,11 +528,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Cache pre-commit envs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -529,11 +548,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Cache pre-commit envs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -620,7 +639,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: detect-secrets (secrets scan — advisory, does not block merge)
@@ -681,7 +700,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -729,7 +748,7 @@ jobs:
 
       - name: Upload Semgrep results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: semgrep-results
           path: semgrep-results.json

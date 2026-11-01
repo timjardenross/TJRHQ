@@ -282,6 +282,18 @@ def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result
             get_available_assignees,
         )
 
+        # 2026-09-26 (USS-TJR-MSN-0210L/M convergence): this write path had
+        # no authority-gate call at all — core/coordination/execution_engine.py's
+        # equivalent on_mission_approved() already wraps its assign_mission-
+        # shaped write in AuthorityContext (SUOC Wave 2/3), this one didn't.
+        # Same pattern: ManifestGapError blocks (fail-closed, Wave 3/4), not
+        # just an ordinary AuthorityError denial. No functional change today
+        # (every governance/authority/*.yaml manifest is still the
+        # deliberately-permissive placeholder), but this path is now covered
+        # once real policy is written.
+        from core.governance.authority_enforcement import AuthorityContext
+        from core.governance.authority_validator import AuthorityError, ManifestGapError
+
         assigned = 0
         for m in missions[:5]:  # cap to 5 per cycle to bound latency
             status = str(m.get("status") or "").lower()
@@ -290,8 +302,23 @@ def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result
                 candidates = get_available_assignees(m.get("type", ""))
                 if candidates:
                     target = candidates[0]
+                    mission_id = m.get("id") or m.get("mission_id", "unknown")
+                    try:
+                        with AuthorityContext(
+                            officer="number_one",
+                            action="assign_mission_owner",
+                            mission_id=mission_id,
+                        ):
+                            pass
+                    except AuthorityError as auth_exc:
+                        log.warning("[officer_cycle] Assignment of %s blocked by authority gate: %s", mission_id, auth_exc.reason)
+                        continue
+                    except ManifestGapError as gap_exc:
+                        log.warning("[officer_cycle] Assignment of %s blocked — manifest gap: %s", mission_id, gap_exc.reason)
+                        continue
+
                     assign_mission(
-                        mission_id=m.get("id") or m.get("mission_id", "unknown"),
+                        mission_id=mission_id,
                         mission_title=m.get("title", ""),
                         target_officer=target,
                         assigning_officer="number_one",
@@ -318,12 +345,37 @@ def _step_escalation_processing(ctx: Any, result: OfficerCycleResult) -> None:
             get_overdue_escalations,
         )
 
+        # 2026-09-26 (USS-TJR-MSN-0210L/M convergence): same authority-gate
+        # gap fix as _step_assignment_resolution above — advance_escalation
+        # is a mutating write with no authority check before this. See that
+        # function's own comment for the full rationale.
+        from core.governance.authority_enforcement import AuthorityContext
+        from core.governance.authority_validator import AuthorityError, ManifestGapError
+
         overdue = get_overdue_escalations()
         result.overdue_followups = len(overdue)
         advanced = 0
         captain_items = 0
 
         for esc in overdue[:10]:  # cap to 10 per cycle
+            try:
+                # AuthorityContext has no dedicated escalation-id field (only
+                # mission_id, purely for audit-log correlation) — reusing it
+                # here for the same purpose rather than adding a new
+                # parameter to a shared governance primitive for one caller.
+                with AuthorityContext(
+                    officer=esc.officer,
+                    action="advance_escalation",
+                    mission_id=esc.esc_id,
+                ):
+                    pass
+            except AuthorityError as auth_exc:
+                log.warning("[officer_cycle] Escalation advance %s blocked by authority gate: %s", esc.esc_id, auth_exc.reason)
+                continue
+            except ManifestGapError as gap_exc:
+                log.warning("[officer_cycle] Escalation advance %s blocked — manifest gap: %s", esc.esc_id, gap_exc.reason)
+                continue
+
             updated = advance_escalation(esc.esc_id)
             if updated:
                 advanced += 1

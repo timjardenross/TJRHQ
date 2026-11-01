@@ -242,7 +242,7 @@ def investigate_knowledge(ctx: Any) -> list[str]:
 
         # Count open knowledge gap decisions
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id", count="exact")
             .ilike("statement", "%knowledge gap%")
             .not_.ilike("owner", "investigation%")

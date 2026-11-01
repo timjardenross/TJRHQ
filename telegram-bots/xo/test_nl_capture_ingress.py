@@ -156,6 +156,30 @@ def test_non_capture_message_does_not_touch_captured_items():
     check("plain chat never writes to captured_items", recorder.get("table") != "captured_items")
 
 
+def test_debrief_failure_falls_back_to_normal_reply():
+    print("\n── Debrief failure falls back to the normal reply ───────────────")
+    recorder: dict = {}
+    update = _make_update("Testing memory - remember that I like tea.")
+    update.message.chat.send_action = AsyncMock()
+    with patch.object(app, "_get_supabase", return_value=_FakeDB(recorder)), \
+         patch("telegram_bots.xo.debrief_engine.route_debrief_interaction",
+               new=AsyncMock(side_effect=RuntimeError("PGRST204 missing column"))), \
+         patch.object(app, "get_recovery_status", return_value=None), \
+         patch.object(app, "get_wellness_snapshot", return_value=None), \
+         patch.object(app, "_get_open_missions", return_value=[]), \
+         patch.object(app, "_get_recent_turns", return_value=[]), \
+         patch.object(app, "_log_conversation_turn") as log_turn, \
+         patch.object(app, "_xo_system_prompt", return_value="sys"), \
+         patch.object(app, "generate_async", new=AsyncMock(return_value="Noted, you like tea.")), \
+         patch.object(app.log, "warning") as warn:
+        _run(app.cmd_message(update, MagicMock()))
+    sent = " ".join(str(c.args[0]) for c in update.message.reply_text.call_args_list)
+    check("normal LLM reply is sent", "Noted" in sent)
+    check("generic error reply is NOT sent", "Something went wrong" not in sent)
+    check("failure logged at warning level", any("debrief routing failed" in str(c.args[0]) for c in warn.call_args_list))
+    check("conversation turns still logged", log_turn.call_count == 2)
+
+
 def main():
     test_nl_capture_writes_to_captured_items_not_personal_tasks()
     test_nl_capture_leaves_classification_undetermined()
@@ -163,6 +187,7 @@ def main():
     test_temporal_intent_preserved_as_summary_hint()
     test_insert_failure_gives_honest_error_not_false_ack()
     test_non_capture_message_does_not_touch_captured_items()
+    test_debrief_failure_falls_back_to_normal_reply()
 
     passed = sum(1 for tag, _ in _results if tag == PASS)
     total = len(_results)

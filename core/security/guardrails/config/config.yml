@@ -21,10 +21,27 @@
 # installed qwen3.5/gemma4 model also carries "vision" and/or "thinking"
 # (chain-of-thought before the final answer, unbounded token generation on
 # a trivial yes/no classification) per `ollama show <model>`'s capabilities
-# list — qwen2.5-coder:7b is the only installed model with neither. Cold
-# load measured ~116s live (vs. gemma3:4b's 73-241s and unpredictable
-# thinking-model runaway generation), warm ~5s; verified it still
-# correctly blocks a jailbreak/DAN-style prompt and allows a benign one.
+# list — qwen2.5-coder:7b was the only installed model with neither.
+#
+# 2026-09-26: switched again, qwen2.5-coder:7b -> qwen2.5:1.5b-instruct.
+# HQ Evolution enrichment's real call_log.jsonl showed a full
+# hq-evolution-external-fit dispatch (input rail + Gemini call + output
+# rail) taking 220-300s; isolating just the input rail
+# (GenerationOptions(rails={"input": True, "output": False, "dialog":
+# False, "retrieval": False}), same call _llmsec_worker.py's _run_rail
+# makes) measured 45-100s on qwen2.5-coder:7b alone — the guardrails
+# check, not Gemini's own latency (a Gemini thinking_level fix landed the
+# same day and made no measurable difference, confirming this). The same
+# isolated benchmark against qwen2.5:1.5b-instruct measured 11-18s for
+# both input and output rails, live-verified still correctly blocking a
+# DAN-style jailbreak prompt and a credential-leak output while allowing
+# benign content — real jailbreak/PII detection quality was not otherwise
+# re-verified beyond those two cases, and is expected to be weaker at
+# 1.5B than 7B; that tradeoff was made explicitly, not accidentally. This
+# does technically add a new locally-hosted model (~1GB), which the
+# original USS-TJR-MSN-0366 mission brief's "no new model to host"
+# constraint would have avoided — a direct, explicit call to prioritise
+# HQ Evolution cycle latency over that constraint, not an oversight.
 #
 # base_url below is the default OLLAMA_BASE_URL (http://localhost:11434).
 # core/security/llm_guardrails.py rewrites parameters.base_url from the real
@@ -33,7 +50,7 @@
 models:
   - type: main
     engine: ollama
-    model: qwen2.5-coder:7b
+    model: qwen2.5:1.5b-instruct
     parameters:
       base_url: http://localhost:11434/v1
       # Ollama's OpenAI-compat endpoint doesn't check this, but the

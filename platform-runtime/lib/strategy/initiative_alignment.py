@@ -148,7 +148,7 @@ def run_alignment_scan() -> AlignmentReport:
     # Orphan investigations (open investigations with no initiative context)
     try:
         ires = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,rationale")
             .like("owner", "investigation:%")
             .limit(100)

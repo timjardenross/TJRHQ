@@ -35,6 +35,7 @@ import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
+import { BrandMark } from '@/components/brand';
 import { AttentionControls } from '@/components/AttentionControls';
 import { ActionHistoryPanel } from '@/components/FocusLane';
 import { trackTaskEvent } from '@/lib/taskTelemetry';
@@ -57,7 +58,7 @@ function WorkbenchSwitcher() {
       aria-label="Switch workbench"
       value={currentGroup ? `/workbenches?group=${currentGroup}` : ''}
       onChange={(e) => { if (e.target.value) router.push(e.target.value); }}
-      className="w-[92px] max-w-[92px] truncate rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-[12px] text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:w-auto sm:max-w-[180px]"
+      className="w-[92px] max-w-[92px] truncate rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-wb-label text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:w-auto sm:max-w-[180px]"
     >
       {!currentGroup && <option value="" disabled>Choose a family…</option>}
       {(Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[]).map((group) => (
@@ -76,6 +77,7 @@ export function WorkbenchShell({
   back,
   wide = false,
   minimal = false,
+  quiet = false,
   mode = 'focus',
   children,
 }: {
@@ -101,14 +103,18 @@ export function WorkbenchShell({
    * reachable (never trap the Captain), QuickCapture/MobileCommandBar
    * stay mounted. */
   minimal?: boolean;
-  /** Endeavour 27 (USS-TJR-MSN-0394): 'command' and 'focus' share the dark
-   * Command/Focus surface (differ by density/layout, not colour — mission
-   * §1.1), 'read' switches to the light reading surface via
-   * [data-wb-mode='read'] in globals.css. Defaults to 'focus' — the
-   * majority of existing action/execution workbenches — so unclassified
-   * pages don't silently go light. Set explicitly per mission §1.8's
-   * classification when migrating a page. */
-  mode?: 'command' | 'focus' | 'read';
+  /** Keeps the Sidebar, header and switcher but drops the per-page extras (primary
+   * action, Attention controls, Recent actions, footer tagline). For notice pages such as
+   * the retired "this page moved" routes, where those controls mean nothing. Off by default. */
+  quiet?: boolean;
+  /** Surface and density classification. The default surface is light
+   * (design uplift Stage A): 'command', 'focus' and 'read' all use the light
+   * token set and differ by density, layout and reading typography only
+   * ('read' adds the `.wb-mode-read` reading rules). 'dark' opts the whole
+   * content surface into the dark navy set (no page uses it today). The
+   * sidebar and mobile bottom bar are dark navy chrome in every mode.
+   * Defaults to 'focus'. */
+  mode?: 'command' | 'focus' | 'read' | 'dark';
   children: ReactNode;
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
@@ -141,7 +147,7 @@ export function WorkbenchShell({
     <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
       <a
         href="#wb-main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-wb-ink focus:px-3 focus:py-2 focus:text-[13px] focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-wb-ink focus:px-3 focus:py-2 focus:text-wb-body focus:text-white"
       >
         Skip to content
       </a>
@@ -181,23 +187,28 @@ export function WorkbenchShell({
               underneath it. Solid bg-wb-bg is the correct, simpler fix. */}
           <header className="border-b border-wb-line bg-wb-bg">
             <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
+              {/* Brand mark (TJR HQ identity, Stage 2). Replaces the triangle glyph
+                  in the same 36 px slot. The link carries the accessible name; the
+                  mark is decorative. The header sits on the content surface, which is
+                  light unless mode="dark", so it gets the navy tile (inverted tile only
+                  on a dark surface). */}
               <Link
                 href={GLOBAL_HOME}
-                className="endeavour-brand-mark h-9 w-9 shrink-0 text-[13px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
+                className="flex h-9 w-9 shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
                 aria-label="Workbenches home"
               >
-                △
+                <BrandMark surface={mode === 'dark' ? 'dark' : 'light'} size={36} />
               </Link>
               <div className="leading-tight">
-                <h1 className="font-serif text-[17px]">{title}</h1>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
+                <h1 className="font-serif text-wb-lead">{title}</h1>
+                <div className="text-wb-label uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
               </div>
               {/* Mission 7 item 1 (Phase 15): flex-wrap here is the second
                   layer of the mobile-overflow fix — even with both <select>s
                   now width-capped, this gives the cluster somewhere to go
                   (wrap to its own line) rather than force horizontal
                   scroll, on whatever narrower screen turns up next. */}
-              <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-[12px] text-wb-ink2">
+              <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-wb-label text-wb-ink2">
                 {right}
                 {/* Settings Page Redesign mission §23: Sidebar (xl+) already
                     links to /settings, but Sidebar is hidden below xl and
@@ -223,10 +234,10 @@ export function WorkbenchShell({
             )}
           </header>
           <main id="wb-main" tabIndex={-1} className={`mx-auto ${shellWidth} px-4 py-6 pb-28 outline-none sm:px-6 sm:py-8 sm:pb-28 xl:pb-8`}>
-            {!minimal && primaryAction && <div className="mb-4"><Link href={primaryAction.href} onClick={() => trackTaskEvent(`${pathname}:primary`, 'started', { label: primaryAction.label })} className="inline-flex min-h-11 items-center rounded-md bg-wb-sage-deep px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{primaryAction.label} →</Link></div>}
-            {!minimal && <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><AttentionControls label="Attention" /><ActionHistoryPanel /></div>}
+            {!minimal && !quiet && primaryAction && <div className="mb-4"><Link href={primaryAction.href} onClick={() => trackTaskEvent(`${pathname}:primary`, 'started', { label: primaryAction.label })} className="inline-flex min-h-11 items-center rounded-md bg-wb-sage-deep px-4 py-2.5 text-wb-body font-semibold text-white transition hover:bg-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{primaryAction.label} →</Link></div>}
+            {!minimal && !quiet && <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><AttentionControls label="Attention" /><ActionHistoryPanel /></div>}
             {originLabel && pathname !== originHref && (
-              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-[11px] text-wb-ink2" role="status">
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-wb-label text-wb-ink2" role="status">
                 <span>Opened from {originLabel}{item ? ` · item ${item}` : ''}</span>
                 {originHref && <Link href={originHref} className="font-semibold text-wb-sage underline underline-offset-2">Return to source →</Link>}
               </div>
@@ -234,14 +245,14 @@ export function WorkbenchShell({
             {back && !minimal && (
               <Link
                 href={back.href}
-                className="mb-4 inline-block text-[13px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
+                className="mb-4 inline-block text-wb-body text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
               >
                 ← {back.label}
               </Link>
             )}
             {children}
-            {!minimal && (
-              <p className="mt-8 text-center text-[11px] text-wb-ink2">
+            {!minimal && !quiet && (
+              <p className="mt-8 text-center text-wb-label text-wb-ink2">
                 {tagline}
               </p>
             )}

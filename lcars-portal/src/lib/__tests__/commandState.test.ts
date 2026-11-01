@@ -186,6 +186,8 @@ function baseNeedsYouInputs(overrides: Partial<NeedsYouBuildInputs> = {}): Needs
     oldestCapturePending: null,
     evolutionPendingCount: null,
     evolutionHighestValueTitle: null,
+    engineeringApprovalsCount: null,
+    oldestEngineeringApproval: null,
     hqPosture: 'NORMAL',
     hqAttentionItems: [],
     criticalAlerts: [],
@@ -404,7 +406,7 @@ describe('buildNeedsYouItems', () => {
 
     it('falls back to a generic title when no highest-value title is given', () => {
       const items = buildNeedsYouItems(baseNeedsYouInputs({ evolutionPendingCount: 1, evolutionHighestValueTitle: null }));
-      expect(items[0].title).toBe('HQ Evolution has opportunities worth considering');
+      expect(items[0].title).toBe('HQ has improvement opportunities worth considering');
     });
 
     it('pluralizes correctly for more than one opportunity', () => {

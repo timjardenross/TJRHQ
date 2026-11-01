@@ -45,7 +45,7 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-TZ = ZoneInfo("Australia/Brisbane")
+TZ = ZoneInfo("Australia/Melbourne")
 
 
 def pulse_type_for_hour(hour: int) -> str:
@@ -61,6 +61,6 @@ def pulse_type_for_hour(hour: int) -> str:
 
 def current_pulse_type() -> str:
     """Convenience wrapper matching app.py's original `_current_pulse_type()`
-    signature - "now", in the same fixed Brisbane timezone every recovery
+    signature - "now", in the same Melbourne timezone every recovery
     pulse in this codebase is already logged against."""
     return pulse_type_for_hour(datetime.now(TZ).hour)

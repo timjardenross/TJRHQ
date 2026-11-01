@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -56,6 +57,13 @@ from heartbeat import _KEY, _URL, supabase_get
 log = logging.getLogger("alert-silences")
 
 _MATCH_FIELDS = ("jurisdiction", "alert_type", "severity", "source_key")
+
+# A silence can never mute these. An Emergency Warning is the one tier where
+# a missed notification can cost lives, and a broad or forgotten silence (the
+# "mute everything for an hour" maintenance window the module docstring
+# allows) must not be able to hide one. Mirrored in the workbench page and
+# api/emergency-alerts/silences/route.ts — keep the three in step.
+UNSILENCEABLE_SEVERITIES = frozenset({"emergency_warning"})
 
 
 @dataclass
@@ -88,7 +96,11 @@ def list_active_silences(at: datetime | None = None) -> list[dict[str, Any]]:
     a best-effort notification path (see emergency_alerts.py's usage)
     should wrap this in their own try/except rather than have it swallow
     errors silently here."""
-    now = (at or datetime.now(timezone.utc)).isoformat()
+    # Percent-encode: isoformat() ends in "+00:00", and a raw '+' in a query
+    # string decodes to a space -> PostgREST 400 ("invalid input syntax for
+    # type timestamp with time zone"), which every caller then degraded to
+    # "no active silences" — so a silence never applied.
+    now = urllib.parse.quote((at or datetime.now(timezone.utc)).isoformat(), safe="")
     return supabase_get(
         f"alert_silences?starts_at=lte.{now}&ends_at=gte.{now}"
         "&select=id,reason,starts_at,ends_at,match_jurisdiction,match_alert_type,match_severity,match_source_key"
@@ -102,11 +114,22 @@ def check_silence(
     """Returns the first active silence matching `alert`, or None. Pass a
     pre-fetched `active_silences` list (from list_active_silences(), called
     once per batch) to avoid one Supabase round-trip per alert; omitting it
-    fetches fresh — convenient for a one-off check, not for a batch loop."""
+    fetches fresh — convenient for a one-off check, not for a batch loop.
+
+    An alert whose severity is in UNSILENCEABLE_SEVERITIES (Emergency
+    Warning) is never silenced: this returns None for it even when a silence
+    matches, and logs the match so a too-broad silence is visible."""
     if active_silences is None:
         active_silences = list_active_silences()
+    unsilenceable = alert.get("severity") in UNSILENCEABLE_SEVERITIES
     for silence in active_silences:
         if _matches(silence, alert):
+            if unsilenceable:
+                log.warning(
+                    "silence %s (%s) matches an Emergency Warning but Emergency Warnings are never silenced - notifying anyway",
+                    silence.get("id"), silence.get("reason"),
+                )
+                return None
             return silence
     return None
 
@@ -130,6 +153,8 @@ def create_silence(
     background write, so both fail loudly rather than degrading quietly."""
     if not reason or not reason.strip():
         raise ValueError("reason must not be empty")
+    if severity in UNSILENCEABLE_SEVERITIES:
+        raise ValueError(f"severity {severity!r} can never be silenced")
     starts = starts_at or datetime.now(timezone.utc).isoformat()
     if ends_at <= starts:
         raise ValueError(f"ends_at ({ends_at}) must be after starts_at ({starts})")
@@ -163,6 +188,7 @@ def create_silence(
 
 
 __all__ = [
+    "UNSILENCEABLE_SEVERITIES",
     "Silence",
     "check_silence",
     "create_silence",

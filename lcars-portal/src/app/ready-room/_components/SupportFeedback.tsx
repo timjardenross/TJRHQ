@@ -106,7 +106,7 @@ export function SupportFeedbackPrompt({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[12px]">
+    <div className="flex flex-wrap items-center gap-2 text-wb-label">
       <span className="text-wb-ink2">{label}</span>
       <Button size="sm" variant="ghost" onClick={() => send('helpful')}>Helpful</Button>
       <Button size="sm" variant="ghost" onClick={() => send('not_helpful')}>Not helpful</Button>

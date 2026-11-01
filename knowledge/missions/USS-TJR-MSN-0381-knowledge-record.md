@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0381 |
 | Title | Land the ApprovalQueue Radix pilot; migrate the 14-file raw-`<button>` follow-up queue |
 | Date | 2026-09-13 |
+| Lesson | LL-190 |
 | Status | **DONE** — pilot merged, all 14 files triaged (4 migrated, 10 verified no-change), screen-reader question explicitly re-deferred |
 
 ## Stream 0 — landed the pilot

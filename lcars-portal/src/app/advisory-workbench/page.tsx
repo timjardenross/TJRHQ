@@ -73,13 +73,13 @@ function Workbench() {
     <WorkbenchShell wide
       title="Advisory"
       eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Advisory · Clarify the decision, compare the options, and choose what happens next."
+      tagline="TJR HQ · Advisory · Clarify the decision, compare the options, and choose what happens next."
       tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory task" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       mode="command"
     >
       <div className="mb-4 rounded-lg border-2 border-wb-sage-deep/40 bg-wb-sage/10 p-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">Your decision</p>
+        <p className="text-wb-label font-bold uppercase tracking-[0.18em] text-wb-sage-deep">Your decision</p>
         <p className="mt-1 text-sm font-semibold text-wb-ink">
           {domain === 'think' ? 'What decision, problem, or question needs clarity?' : domain === 'perspectives' ? 'Which options or viewpoints do you want to compare?' : 'What happened after the decision, and what should HQ learn?'}
         </p>

@@ -134,6 +134,18 @@ def resolve_scoped_auth() -> str | None:
     return preminted or None
 
 
+def _client_options_class():
+    """The ClientOptions class create_client() expects.
+
+    supabase-py 2.32.0's sync client reads `client_options.storage`, which only SyncClientOptions has
+    (the base ClientOptions, used by 2.7.4 and older, does not): passing the base class on 2.32.0 fails
+    with "'ClientOptions' object has no attribute 'storage'". Older releases only have ClientOptions.
+    (USS-TJR-MSN-0412, found while testing the venv rebuild.)"""
+    from supabase.lib import client_options as co
+
+    return getattr(co, "SyncClientOptions", co.ClientOptions)
+
+
 def build_scoped_client(supabase_url: str):
     """Construct a supabase-py client authenticated as the scoped `xo_bot`
     Postgres role, or return None if scoping isn't configured OR the
@@ -168,7 +180,8 @@ def build_scoped_client(supabase_url: str):
         return None
 
     from supabase import create_client
-    from supabase.lib.client_options import ClientOptions
+
+    ClientOptions = _client_options_class()
 
     # See module docstring: since supabase-py 2.4.3, passing Authorization
     # via ClientOptions.headers is the public, supported way to give

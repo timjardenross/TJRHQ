@@ -212,7 +212,7 @@ def create_escalation(
         c = CommanderSupabaseClient()
         if c.is_enabled() and c.raw_client:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .ilike("statement", f"%{title[:40]}%")
                 .ilike("owner", f"{_ESC_OWNER_PREFIX}%")
@@ -221,7 +221,7 @@ def create_escalation(
                 .execute()
             )
             if not list(existing.data or []):
-                c.raw_client.table("decisions").insert({
+                c.raw_client.table("command_memory_records").insert({
                     "owner": f"{_ESC_OWNER_PREFIX}{esc_id}",
                     "statement": f"[OFFICER ESC] L{level.value} {officer}: {item_type}",
                     "rationale": _build_rationale(ei),
@@ -243,7 +243,7 @@ def advance_escalation(esc_id: str) -> EscalationItem | None:
             return None
 
         owner = f"{_ESC_OWNER_PREFIX}{esc_id}"
-        res = c.raw_client.table("decisions").select("owner,statement,rationale,status").eq("owner", owner).limit(1).execute()
+        res = c.raw_client.table("command_memory_records").select("owner,statement,rationale,status").eq("owner", owner).limit(1).execute()
         rows = list(res.data or [])
         if not rows:
             return None
@@ -260,7 +260,7 @@ def advance_escalation(esc_id: str) -> EscalationItem | None:
             if new_level.days_before_advance else None
         )
 
-        c.raw_client.table("decisions").update({
+        c.raw_client.table("command_memory_records").update({
             "statement": f"[OFFICER ESC] L{new_level.value} {ei.officer}: {ei.item_type}",
             "rationale": _build_rationale(ei),
             "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -280,7 +280,7 @@ def resolve_escalation(esc_id: str) -> None:
         c = CommanderSupabaseClient()
         if c.is_enabled() and c.raw_client:
             owner = f"{_ESC_OWNER_PREFIX}{esc_id}"
-            c.raw_client.table("decisions").update({"status": "resolved"}).eq("owner", owner).execute()
+            c.raw_client.table("command_memory_records").update({"status": "resolved"}).eq("owner", owner).execute()
         log.info("[officer_escalations] Resolved %s", esc_id)
     except Exception as exc: # noqa: BLE001 - Resolve failed, already logged
         log.debug("[officer_escalations] Resolve failed %s: %s", esc_id, exc)
@@ -296,7 +296,7 @@ def get_overdue_escalations() -> list[EscalationItem]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,statement,rationale,status")
             .ilike("owner", f"{_ESC_OWNER_PREFIX}%")
             .eq("status", "active")

@@ -1,6 +1,6 @@
 [Unit]
 Description=Starship Endeavour — Engineering handoff batch sync (Mistral)
-After=network.target
+After=network.target docker.service
 # One-shot: runs the sync and exits. The .timer unit re-fires it on schedule.
 
 [Service]

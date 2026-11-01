@@ -119,7 +119,7 @@ def _fetch_recent_text(lookback_days: int) -> list[str]:
 
         # Recent decisions (exclude our own pattern registry rows)
         dres = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .gte("created_at", cutoff)
             .order("created_at", desc=True)
@@ -201,7 +201,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 existing = (
-                    c.raw_client.table("decisions")
+                    c.raw_client.table("command_memory_records")
                     .select("id")
                     .eq("owner", owner)
                     .order("created_at", desc=True)
@@ -209,7 +209,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
                     .execute()
                 )
                 if existing.data:
-                    c.raw_client.table("decisions").update({
+                    c.raw_client.table("command_memory_records").update({
                         "rationale": (
                             f"THEME: {pattern.theme} | OCCURRENCES: {pattern.occurrences} | "
                             f"WINDOW: {pattern.window_days}d | SIGNALS: {', '.join(pattern.signals_matched)} | "
@@ -245,7 +245,7 @@ def get_known_patterns(limit: int = 20) -> list[OrganisationalPattern]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{PATTERN_OWNER_PREFIX}%")
             .order("created_at", desc=True)

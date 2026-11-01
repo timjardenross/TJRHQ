@@ -155,7 +155,7 @@ export function NumberOne() {
             className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1"
           >
             {turns.length === 0 && (
-              <p className="text-[13px] text-wb-ink2">
+              <p className="text-wb-body text-wb-ink2">
                 Ask what matters, say what&rsquo;s stuck, or tell it what to remember — Number One routes to the
                 right place in HQ so you don&rsquo;t have to.
               </p>
@@ -163,7 +163,7 @@ export function NumberOne() {
             {turns.map((t) => (
               <div
                 key={t.id}
-                className={`rounded-md px-3 py-2 text-[13px] leading-snug ${
+                className={`rounded-md px-3 py-2 text-wb-body leading-snug ${
                   t.role === 'user'
                     ? 'ml-6 bg-wb-sage-deep/10 text-wb-ink'
                     : t.error
@@ -175,7 +175,7 @@ export function NumberOne() {
               </div>
             ))}
             {busy && (
-              <div className="mr-6 rounded-md bg-wb-surface-raised px-3 py-2 text-[13px] text-wb-ink2 animate-pulse">
+              <div className="mr-6 rounded-md bg-wb-surface-raised px-3 py-2 text-wb-body text-wb-ink2 animate-pulse">
                 Thinking…
               </div>
             )}
@@ -189,7 +189,7 @@ export function NumberOne() {
                   type="button"
                   onClick={() => send(q.phrase)}
                   disabled={busy}
-                  className="rounded-md border border-wb-line px-2.5 py-1.5 text-[12px] font-medium text-wb-ink2 transition-colors hover:border-wb-sage-deep/40 hover:text-wb-ink disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md border border-wb-line px-2.5 py-1.5 text-wb-label font-medium text-wb-ink2 transition-colors hover:border-wb-sage-deep/40 hover:text-wb-ink disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {q.label}
                 </button>
@@ -210,12 +210,12 @@ export function NumberOne() {
                 placeholder="Or type — e.g. &ldquo;Remember to send the referral Friday&rdquo;"
                 aria-label="Message Number One"
                 disabled={busy}
-                className="w-full min-w-0 flex-1 rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-[13px] text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                className="w-full min-w-0 flex-1 rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-wb-body text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               />
               <button
                 type="submit"
                 disabled={busy || !text.trim()}
-                className="shrink-0 rounded-md bg-wb-sage-deep px-3 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-md bg-wb-sage-deep px-3 py-2 text-wb-body font-semibold text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Send
               </button>

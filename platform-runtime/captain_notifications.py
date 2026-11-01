@@ -569,7 +569,7 @@ def health_nudge_text() -> str:
     return (
         ":pill: *Health Log Reminder*\n"
         "Captain, no health log has been recorded today.\n"
-        "Use `/health-check` to log your daily entry.\n"
+        "Use `/capacity` to log your daily entry.\n"
         "_Logging helps track trends and enables proactive medical intelligence._"
     )
 

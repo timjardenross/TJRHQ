@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0370 — supabase-py Investigation (follow-up to MSN-0369 Stream 4 / PR #157)
 
+**Lesson:** LL-177
+
 Date: 2026-09-12
 Scope: real investigation of why Dependabot PR #157 (`supabase` 2.3.4 → 2.31.0, `telegram-bots/xo`) was deferred rather than merged, and whether `scoped_supabase.py`'s private-attribute monkeypatch has a clean, non-hacky replacement.
 

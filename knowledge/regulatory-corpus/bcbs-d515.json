@@ -1,0 +1,18 @@
+{
+  "framework_id": "BCBS-d515",
+  "title": "Revisions to the Principles for the Sound Management of Operational Risk (BCBS d515)",
+  "issuer": "Basel Committee on Banking Supervision",
+  "jurisdiction": "INTL",
+  "role": "international",
+  "status": "in_force",
+  "effective_date": "2021-03-31",
+  "source_url": "https://www.bis.org/bcbs/publ/d515.htm",
+  "licence": "BIS copyright — headings and short attributed excerpts only",
+  "notes": "",
+  "ingestion": {
+    "method": "pending",
+    "source_sha256": null,
+    "ingested_at": null
+  },
+  "clauses": []
+}

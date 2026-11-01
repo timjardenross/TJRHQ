@@ -165,7 +165,7 @@ def add_participant(
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 res = (
-                    c.raw_client.table("decisions")
+                    c.raw_client.table("command_memory_records")
                     .select("rationale")
                     .eq("owner", owner)
                     .ilike("statement", f"%{officer}%")
@@ -205,7 +205,7 @@ def get_participants(investigation_id: str) -> list[InvestigationParticipant]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{PARTICIPANT_OWNER_PREFIX}{investigation_id}")
             .order("created_at", desc=False)
@@ -310,7 +310,7 @@ def record_evidence_contribution(
 
         owner = f"{PARTICIPANT_OWNER_PREFIX}{investigation_id}"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,rationale")
             .eq("owner", owner)
             .ilike("statement", f"%{officer}%")
@@ -329,7 +329,7 @@ def record_evidence_contribution(
         parts["EVIDENCE"] = str(evidence_count)
 
         new_rationale = " | ".join(f"{k}: {v}" for k, v in parts.items())
-        c.raw_client.table("decisions").update(
+        c.raw_client.table("command_memory_records").update(
             {"rationale": new_rationale}
         ).eq("id", rows[0]["id"]).execute()
 

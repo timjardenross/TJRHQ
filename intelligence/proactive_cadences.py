@@ -179,34 +179,69 @@ def _get_decisions_overdue_outcome(limit: int = 8) -> list[dict]:
     return overdue[:limit]
 
 
+_DIGEST_MAX_LESSONS = 30
+
+
+def _lesson_section(entry: str, name: str) -> str:
+    """First non-blank line under an entry's `### <name>` heading, or ""."""
+    import re as _re
+    match = _re.search(
+        rf"^### {_re.escape(name)}[ \t]*\n(?:[ \t]*\n)*[ \t]*(\S.*)$",
+        entry, _re.MULTILINE,
+    )
+    return match.group(1).strip() if match else ""
+
+
 def _generate_lessons_digest() -> str:
+    # Register entries (written by platform-runtime/lesson_capture.py and
+    # core/knowledge/lesson_capture.py) are `## LL-NNN` followed by
+    # `### Title` / `### Date` / optional `### Mission` sections. This used to
+    # look for inline `Mission:` / `Outcome:` lines no writer produces, so
+    # every line read "unknown: see record", and it treated an entry as recent
+    # if a `YYYY-MM` string appeared anywhere in its body.
     import re as _re
     lessons_path = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
     if not lessons_path.exists():
         return ""
     content = lessons_path.read_text(encoding="utf-8", errors="replace")
-    entries = _re.split(r"(?=^## LL-\d+)", content, flags=_re.MULTILINE)
-    if len(entries) <= 1:
+    entries = [
+        e for e in _re.split(r"(?=^## LL-\d+)", content, flags=_re.MULTILINE)
+        if e.startswith("## LL-")
+    ]
+    if not entries:
         return ""
     today = _today()
-    last_month = today.replace(day=1) - timedelta(days=1)
-    month_pattern = last_month.strftime("%Y-%m")
-    this_month_pattern = today.strftime("%Y-%m")
-    recent = [e for e in entries if month_pattern in e or this_month_pattern in e]
-    all_entries = [e for e in entries if e.strip().startswith("## LL-")]
+    period_start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+    recent = []
+    for entry in entries:
+        try:
+            entry_date = date.fromisoformat(_lesson_section(entry, "Date")[:10])
+        except ValueError:
+            continue
+        if period_start <= entry_date <= today:
+            recent.append((entry_date, int(entry[6:].split(None, 1)[0]), entry))
+    recent.sort()
     lines = [f"Monthly Lessons Digest — {today.strftime('%B %Y')}", ""]
     if recent:
-        lines.append(f"{len(recent)} lesson(s) this period:")
-        for entry in recent:
-            id_match = _re.search(r"## (LL-\d+)", entry)
-            mission_match = _re.search(r"Mission:\s*(.+)", entry)
-            outcome_match = _re.search(r"Outcome:\s*(.+)", entry)
-            eid = id_match.group(1) if id_match else "?"
-            mission = mission_match.group(1).strip()[:60] if mission_match else "unknown"
-            outcome = outcome_match.group(1).strip()[:80] if outcome_match else "see record"
-            lines.append(f"  • {eid} — {mission}: {outcome}")
+        lines.append(
+            f"{len(recent)} lesson(s) recorded since "
+            f"{period_start.strftime('%-d %B %Y')}:"
+        )
+        for entry_date, _, entry in recent[:_DIGEST_MAX_LESSONS]:
+            eid = _re.match(r"## (LL-\d+)", entry).group(1)
+            title = _lesson_section(entry, "Title") or "(untitled)"
+            if len(title) > 100:
+                title = title[:99].rstrip() + "…"
+            mission = _lesson_section(entry, "Mission")
+            suffix = f" [{mission[:40]}]" if mission else ""
+            lines.append(f"  • {eid} ({entry_date.isoformat()}) — {title}{suffix}")
+        if len(recent) > _DIGEST_MAX_LESSONS:
+            lines.append(
+                f"  …and {len(recent) - _DIGEST_MAX_LESSONS} more — "
+                "see knowledge/Lessons-Learned.md"
+            )
     else:
-        lines.append(f"No new lessons recorded this period. {len(all_entries)} total in register.")
+        lines.append(f"No new lessons recorded this period. {len(entries)} total in register.")
         lines.append("Use 'close mission [ID] outcome: ...' when closing missions.")
     return "\n".join(lines)
 
@@ -633,16 +668,21 @@ def job_pending_research_sweep() -> None:
         if not _db.enabled():
             _shakedown_log("pending_research_sweep", "skipped", "inbox DB disabled")
             return
-        unprocessed = (
+        # One read for both passes (was two every 5 min, ~576 requests/day,
+        # almost always both empty). Pass 2 only re-queries when this read
+        # came back full, so a large backlog can't starve research items.
+        _SWEEP_LIMIT = 50
+        pending = (
             _db._client.table("captured_items")
-            .select("id, title")
-            .eq("processing_status", "pending")
+            .select("*")
+            .or_("processing_status.eq.pending,research_status.eq.pending")
             .order("captured_at", desc=False)
-            .limit(10)
+            .limit(_SWEEP_LIMIT)
             .execute()
-        )
+        ).data or []
+        unprocessed = [r for r in pending if r.get("processing_status") == "pending"][:10]
         pass1_ids: set = set()
-        for item in (unprocessed.data or []):
+        for item in unprocessed:
             try:
                 log.info("[proactive] Orchestrating unprocessed item: %s",
                          item.get("title", item["id"])[:60])
@@ -650,15 +690,18 @@ def job_pending_research_sweep() -> None:
                 process_captured_item(item["id"])
             except Exception as exc:  # noqa: BLE001 - per-item orchestration failure inside a loop — one bad captured item must not abort the sweep; already logged
                 log.error("[proactive] Orchestration failed for %s: %s", item["id"], exc)
-        queued = (
-            _db._client.table("captured_items")
-            .select("*")
-            .eq("research_status", "pending")
-            .order("captured_at", desc=False)
-            .limit(5)
-            .execute()
-        )
-        research_items = [r for r in (queued.data or []) if r["id"] not in pass1_ids]
+        if len(pending) < _SWEEP_LIMIT:
+            queued = [r for r in pending if r.get("research_status") == "pending"][:5]
+        else:
+            queued = (
+                _db._client.table("captured_items")
+                .select("*")
+                .eq("research_status", "pending")
+                .order("captured_at", desc=False)
+                .limit(5)
+                .execute()
+            ).data or []
+        research_items = [r for r in queued if r["id"] not in pass1_ids]
         for item in research_items:
             try:
                 _run_research(item["id"], item)

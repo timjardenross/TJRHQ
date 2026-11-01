@@ -3,7 +3,7 @@
 # sure/unsure, writes one verification_state row, self-heartbeats. See
 # core/platform/verification_engine.py for the full design rationale.
 Description=Starship verification engine (heartbeat -> sure/unsure pass)
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]

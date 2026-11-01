@@ -134,7 +134,7 @@ def get_outcome_history(initiative_id: str, limit: int = 30) -> list[OutcomeMeas
         if not (c.is_enabled() and c.raw_client):
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{OUTCOME_OWNER_PREFIX}{initiative_id}")
             .order("created_at", desc=False)

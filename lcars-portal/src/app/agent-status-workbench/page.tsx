@@ -99,7 +99,7 @@ function Workbench() {
     <WorkbenchShell
       title="HQ Status"
       eyebrow="Platform Operations"
-      tagline="USS TJR · HQ Status · Is HQ working properly?"
+      tagline="TJR HQ · HQ Status · Is HQ working properly?"
       tabs={<DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="HQ Status sections" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       mode="command"

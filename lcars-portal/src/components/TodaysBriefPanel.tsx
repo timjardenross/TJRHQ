@@ -23,6 +23,7 @@
 import { useEffect, useState } from 'react';
 import { WorkbenchPanel } from './WorkbenchPanel';
 import { playTts, type TtsPlaybackState } from '@/lib/ttsPlayer';
+import { parseBriefText, toSpokenText } from '@/lib/briefText';
 
 interface Brief {
   id: string;
@@ -39,59 +40,6 @@ const BRIEF_TYPE_LABEL: Record<Brief['brief_type'], string> = {
   eod: 'End of Day',
   weekly: 'Weekly',
 };
-
-// brief_text is Telegram HTML (captains_brief.py builds it for direct bot
-// delivery — whole-line "<b>SECTION HEADER</b>" for section titles,
-// "<i>...</i>" for the stardate line and footer signature, plain text
-// paragraphs in between, sections separated by blank lines). Original
-// stripHtml() below stripped tags AND collapsed every run of whitespace
-// (including all newlines) into one space — safe from a raw-HTML-
-// injection angle, but destroyed 100% of that structure into one run-on
-// paragraph, which is what made this "hard to read." Parsed line-by-line
-// instead so headers/subtitle/paragraph breaks survive, still never
-// dangerouslySetInnerHTML — every tag is matched and stripped explicitly,
-// nothing is ever rendered as raw HTML.
-type BriefLine =
-  | { type: 'header'; text: string }
-  | { type: 'subtitle'; text: string }
-  | { type: 'blank' }
-  | { type: 'text'; text: string };
-
-function stripInlineTags(text: string): string {
-  return text.replace(/<[^>]+>/g, '').trim();
-}
-
-function parseBriefText(raw: string): BriefLine[] {
-  return raw.split('\n').map((line): BriefLine => {
-    const trimmed = line.trim();
-    if (trimmed === '') return { type: 'blank' };
-    const headerMatch = trimmed.match(/^<b>(.*)<\/b>$/);
-    if (headerMatch) return { type: 'header', text: stripInlineTags(headerMatch[1]) };
-    const subtitleMatch = trimmed.match(/^<i>(.*)<\/i>$/);
-    if (subtitleMatch) return { type: 'subtitle', text: stripInlineTags(subtitleMatch[1]) };
-    return { type: 'text', text: stripInlineTags(trimmed) };
-  });
-}
-
-// Emoji ranges covering the ones captains_brief.py actually uses (☀️⚡🌐🤖
-// etc. — Misc Symbols/Dingbats/Transport/Supplemental Symbols blocks plus
-// the variation-selector byte that rides along with some of them) — not
-// exhaustive of every Unicode emoji ever defined, but real section-header
-// decoration, not content, so stripping them loses nothing when spoken.
-const EMOJI_PATTERN = /[\u{2600}-\u{27BF}\u{1F300}-\u{1FAFF}\u{2B00}-\u{2BFF}️]/gu;
-
-// Flat, spoken-friendly text for TTS — unlike parseBriefText (which keeps
-// line structure for on-screen display), speech doesn't need visual
-// paragraph breaks, just tags stripped and whitespace normalized. Emojis
-// stripped too — Google Cloud TTS otherwise tries to read them out
-// ("sun emoji," etc.), which is just noise spoken aloud.
-function toSpokenText(raw: string): string {
-  return raw
-    .replace(/<[^>]+>/g, ' ')
-    .replace(EMOJI_PATTERN, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 function isToday(dateStr: string): boolean {
   const d = new Date(dateStr);
@@ -157,17 +105,17 @@ export function TodaysBriefPanel() {
       ) : (
         <div className="rounded-lg border border-wb-line/60 bg-wb-bg/60 p-3 text-sm">
           <div className="mb-1.5 flex items-center gap-2">
-            <span className="rounded bg-wb-bg px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-wb-ink2">
+            <span className="rounded bg-wb-bg px-1.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">
               {BRIEF_TYPE_LABEL[brief.brief_type]}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-wb-ink2">
+            <span className="text-wb-label uppercase tracking-wider text-wb-ink2">
               {new Date(brief.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
             <button
               type="button"
               onClick={speakBriefAloud}
               disabled={speakState === 'generating' || speakState === 'playing'}
-              className="ml-auto text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
+              className="ml-auto text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
             >
               {speakState === 'generating' ? 'Generating…' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
             </button>
@@ -184,7 +132,7 @@ export function TodaysBriefPanel() {
               }
               if (line.type === 'subtitle') {
                 return (
-                  <p key={i} className="text-[11px] italic text-wb-ink2">
+                  <p key={i} className="text-wb-label italic text-wb-ink2">
                     {line.text}
                   </p>
                 );

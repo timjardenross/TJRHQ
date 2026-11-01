@@ -156,7 +156,58 @@ restore_self_improvement_stash() {
 # and fails loudly, which is exactly the existing "fast-forward failed"
 # abort path. What this check still must catch is an uncommitted EDIT to an
 # already-tracked file - that's the one thing a pull could actually stomp on.
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+#
+# 2026-09-26 (fresh HQ audit found auto-deploy.service ABORTing on EVERY
+# cycle, with journalctl showing an unbroken streak - no auto-deploy had
+# landed in a long time): mission-engineering-dispatch.service runs every
+# 15 minutes and, as part of its normal, expected operation, rewrites
+# these TRACKED files every single cycle:
+#   - .id-counters.json
+#   - data/self-improvement/review/evolution_summary.json
+#   - data/self-improvement/review/finding_staleness.jsonl
+#   - data/self-improvement/review/opportunity_id_counter.txt
+#   - data/self-improvement/review/mission_dispatch_log.jsonl (its own
+#     idempotent dispatch log - DISPATCH_LOG_NAME in
+#     core/engineering/mission_dispatch.py)
+# sync-self-improvement-state.service already owns committing the first
+# four of these on its own 3-minute cycle (see its STATE_FILES allowlist
+# in deploy/sync-self-improvement-state.sh) - mission_dispatch_log.jsonl
+# is the same class of mechanically-rewritten state file but isn't yet in
+# that allowlist (a separate, pre-existing gap, not fixed here). Either
+# way, none of these five paths are ever a human's real in-progress edit,
+# so a modification confined to them is not the "manual WIP" case this
+# guard exists to protect - it's `data/self-improvement/review/` acting
+# exactly as its own header describes: "mechanically-rewritten tracked
+# state files", permanently re-dirtying the tree faster than the 3-minute
+# sync job can commit-and-push it, tripping this guard on every 5-minute
+# auto-deploy cycle in between.
+#
+# Fix: exclude the specific known-owned paths from the dirty-check
+# pathspec, not the untracked-files flag above (that would silently widen
+# protection for genuinely untracked human/other-automation output too,
+# which is not the fix this bug needs) and not by committing them here
+# (that would blur ownership - these paths are already owned and
+# committed by sync-self-improvement-state.service; auto-deploy.sh has no
+# business writing to git history). A real uncommitted edit ANYWHERE else
+# - including a new, not-yet-allowlisted file under
+# data/self-improvement/review/ that isn't one of the paths above, or any
+# genuine human WIP - still trips this guard exactly as before.
+#
+# 2026-10-08: core/mission-control/registry/mission-index.txt added for the
+# same reason. mission-registry-sync.timer (tools/sync_supabase_to_registry.py,
+# daily 06:45) rewrites this tracked file from Supabase and never commits
+# it, so from the first sync after any pull it dirtied the checkout and
+# would have ABORTed every cycle. Found live alongside the timer itself
+# having been stopped since 2026-10-06 - the VM sat 3 commits behind main.
+# If an incoming commit ever edits this file, `git merge --ff-only` still
+# refuses to overwrite the local copy and takes the loud abort path below.
+DIRTY_CHECK_EXCLUDES=(
+  ':!.id-counters.json'
+  ':!data/self-improvement/review'
+  ':!Missions/Engineering-Handoffs'
+  ':!core/mission-control/registry/mission-index.txt'
+)
+if [ -n "$(git status --porcelain --untracked-files=no -- . "${DIRTY_CHECK_EXCLUDES[@]}")" ]; then
   # 2026-09-15's OnFailure= alert for this exact ABORT was disabled the
   # same day for paging every 5-minute retry through ordinary short-lived
   # human WIP (alert_on_systemd_failure.py's own _EXPECTED_NOISE entry
@@ -236,10 +287,41 @@ newest_commit_epoch() {
   git log -1 --format=%ct -- "${1:-.}" 2>/dev/null || echo 0
 }
 
+# A unit the Captain has deliberately MASKED (`systemctl mask`, see PAUSES.md)
+# must never be touched by a deploy: `systemctl restart` starts a stopped
+# unit, so an unconditional staleness restart would revive a bot that was
+# held off on purpose (e.g. a revoked Telegram token). Only a masked unit is
+# skipped. A merely inactive/failed unit is still handled by the existing
+# logic below, so a service that crashed does get restarted by a deploy.
+# LoadState needs no privilege (same as ActiveEnterTimestamp above).
+unit_is_masked() {
+  [ "$(systemctl show -p LoadState --value "$1" 2>/dev/null || true)" = "masked" ]
+}
+
 LP_COMMIT_TS="$(newest_commit_epoch lcars-portal)"
-if LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
+if unit_is_masked lcars-portal.service; then
+  echo "$LOG_PREFIX SKIP lcars-portal.service: unit is masked (deliberately held off) - no rebuild, no restart"
+elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
+  # 2026-10-20: service start time alone is not enough. A restart WITHOUT a
+  # rebuild (00:26) moved the start time past the newest commit, so this
+  # check saw "fresh" while .next/ still held a build from before PRs
+  # #441-#449 - the portal served stale code with no signal. .next/BUILD_ID
+  # is rewritten by every `next build`, so its mtime is when the running
+  # bundle was actually produced. Only checked when it exists: a checkout
+  # with no build yet is the unit's own startup problem, not staleness.
+  LP_BUILD_ID_FILE="$REPO_ROOT/lcars-portal/.next/BUILD_ID"
+  LP_BUILD_TS=""
+  if [ -f "$LP_BUILD_ID_FILE" ]; then
+    LP_BUILD_TS="$(stat -c %Y "$LP_BUILD_ID_FILE" 2>/dev/null || true)"
+  fi
+  LP_STALE_REASON=""
   if [ "$LP_COMMIT_TS" -gt "$LP_START_TS" ]; then
-    echo "$LOG_PREFIX lcars-portal.service is stale (running since before the newest lcars-portal/ commit) - rebuilding"
+    LP_STALE_REASON="running since before the newest lcars-portal/ commit"
+  elif [ -n "$LP_BUILD_TS" ] && [ "$LP_COMMIT_TS" -gt "$LP_BUILD_TS" ]; then
+    LP_STALE_REASON="built (.next/BUILD_ID) before the newest lcars-portal/ commit"
+  fi
+  if [ -n "$LP_STALE_REASON" ]; then
+    echo "$LOG_PREFIX lcars-portal.service is stale ($LP_STALE_REASON) - rebuilding"
     ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
     # 2026-09-21: OLLAMA_MODEL_DEFAULT misconfig (misspelled secret key ->
     # code fell back to a model Ollama doesn't have) silently killed AI
@@ -263,6 +345,10 @@ if [ -f "$SERVICES_CONF" ]; then
   while IFS= read -r line; do
     svc="$(echo "$line" | sed 's/#.*//' | xargs || true)"
     [ -z "$svc" ] && continue
+    if unit_is_masked "$svc"; then
+      echo "$LOG_PREFIX SKIP $svc: unit is masked (deliberately held off) - not checking staleness, not restarting"
+      continue
+    fi
     if svc_start_ts="$(unit_active_since_epoch "$svc")"; then
       if [ "$REPO_COMMIT_TS" -gt "$svc_start_ts" ]; then
         echo "$LOG_PREFIX $svc is stale (running since before the newest repo commit) - restarting"

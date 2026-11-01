@@ -62,7 +62,7 @@ async function reviewChair(sb: SB, since: string): Promise<WorkbenchSection> {
   ]);
 
   return {
-    key: 'chair', title: "Captain's Chair", href: '/captains-chair-workbench',
+    key: 'chair', title: "Today", href: '/captains-chair-workbench',
     signals: [
       signal('blocked', 'Blocked / at risk', blocked.rows.map((r) => ({ id: r.title, title: r.title, meta: r.pr_url ?? undefined })), 'crit', blocked.unavailable),
       signal('decisions', 'Unresolved decisions (held)', decisions.rows.map((r) => ({ id: r.id, title: r.question })), 'warn', decisions.unavailable),

@@ -67,7 +67,7 @@ class GeminiDispatchGuardrailsTest(unittest.TestCase):
             "Contact jane.doe@example.com. Officer clearance: restricted."
         )
 
-        def _fake_gemini_generate(model, prompt, timeout, api_key_env):
+        def _fake_gemini_generate(model, prompt, timeout, api_key_env, thinking_level=None):
             # Assert INSIDE the mock so we're checking exactly what the
             # router handed to the transport function, not something the
             # test re-derived afterward.

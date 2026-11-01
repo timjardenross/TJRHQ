@@ -28,6 +28,7 @@
 // vs. this page's prior 6). Captain confirmed the specific changes below;
 // this is not an engineering author's edit.
 
+import { describePain } from '@/lib/pain-vocab';
 import { useState, useEffect } from 'react';
 import { WorkbenchShell, Card } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -35,12 +36,12 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 interface LiveData {
   activeMissionsCount: number | null;
   lastLog: { log_date: string; captain_capacity_rating: number | null; tomorrows_priority: string | null } | null;
-  lastCheckin: { checkin_type: string | null; pain_score: number | null; capacity_state: string | null; regulation_state: string | null; captured_at: string | null } | null;
+  lastCheckin: { checkin_type: string | null; pain_score: number | null; pain_state: string | null; capacity_state: string | null; regulation_state: string | null; captured_at: string | null } | null;
 }
 
 const DOMAINS = [
   { icon: '🏥', name: 'Health', description: 'Recovery-led operations. Pain management, CPAP adherence, fatigue mapping.', priority: 'P0' },
-  { icon: '🚀', name: 'USS TJR', description: 'Command Centre build, intelligence systems, operational excellence.', priority: 'P1' },
+  { icon: '🚀', name: 'TJR HQ', description: 'Command Centre build, intelligence systems, operational excellence.', priority: 'P1' },
   { icon: '💼', name: 'Career', description: 'Strategic positioning and professional development.', priority: 'P2' },
   { icon: '📚', name: 'Learning', description: 'AI/ML, systems thinking, leadership frameworks.', priority: 'P2' },
   { icon: '🤝', name: 'Relationships', description: 'Family, crew, professional network maintenance.', priority: 'P2' },
@@ -95,7 +96,7 @@ export default function OperatingModelPage() {
             .maybeSingle(),
           supabase
             .from('capacity_checkins')
-            .select('checkin_type, pain_score, capacity_state, regulation_state, captured_at')
+            .select('checkin_type, pain_score, pain_state, capacity_state, regulation_state, captured_at')
             .order('captured_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
@@ -126,7 +127,7 @@ export default function OperatingModelPage() {
     <WorkbenchShell
       title="Operating Model"
       eyebrow="Captain TJR — Personal Operating Model"
-      tagline="USS TJR · A unified view of how command is exercised, capacity allocated, and systems maintained"
+      tagline="TJR HQ · A unified view of how command is exercised, capacity allocated, and systems maintained"
       back={{ href: '/knowledge-workbench', label: 'Knowledge Workbench' }}
     >
       <div className="flex flex-col gap-4">
@@ -134,7 +135,7 @@ export default function OperatingModelPage() {
           {loadError && (
             <div className="mb-3 rounded-md border border-state-crit/50 bg-state-crit/10 px-3 py-2 text-xs text-state-crit-on">
               Couldn&rsquo;t load live data — the tiles below may be blank because of a connection error, not because there is nothing to show.
-              <span className="mt-1 block font-mono text-[10px] text-wb-ink2">{loadError}</span>
+              <span className="mt-1 block font-mono text-wb-label text-wb-ink2">{loadError}</span>
             </div>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -156,7 +157,7 @@ export default function OperatingModelPage() {
         </Card>
 
         <Card title="Domains & Capacity Allocation">
-          <p className="mb-3 text-[11px] uppercase tracking-wide text-wb-ink2">Reference · Operational focus (authored doctrine, not live data)</p>
+          <p className="mb-3 text-wb-label uppercase tracking-wide text-wb-ink2">Reference · Operational focus (authored doctrine, not live data)</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {DOMAINS.map((d) => (
               <div key={d.name} className="flex flex-col gap-2 rounded-md border border-wb-line bg-wb-bg p-4">
@@ -172,7 +173,7 @@ export default function OperatingModelPage() {
         </Card>
 
         <Card title="Operating Principles">
-          <p className="mb-3 text-[11px] uppercase tracking-wide text-wb-ink2">Reference · Decision framework (authored doctrine, not live data)</p>
+          <p className="mb-3 text-wb-label uppercase tracking-wide text-wb-ink2">Reference · Decision framework (authored doctrine, not live data)</p>
           <ol className="space-y-3">
             {PRINCIPLES.map((p) => (
               <li key={p.num} className="flex items-start gap-4 rounded-md border border-wb-line bg-wb-bg px-4 py-3">
@@ -187,7 +188,7 @@ export default function OperatingModelPage() {
         </Card>
 
         <Card title="Current Priorities">
-          <p className="mb-3 text-[11px] uppercase tracking-wide text-wb-ink2">This week</p>
+          <p className="mb-3 text-wb-label uppercase tracking-wide text-wb-ink2">This week</p>
           {loading ? (
             <div className="text-sm text-wb-ink2">Loading…</div>
           ) : lastLog?.tomorrows_priority ? (
@@ -206,7 +207,7 @@ export default function OperatingModelPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
               <div className="mb-3 text-xs uppercase tracking-widest text-wb-ink2">
-                Operating Envelope <span className="normal-case tracking-normal text-wb-ink2/60">· reference</span>
+                Operating Envelope <span className="normal-case tracking-normal text-wb-ink2">· reference</span>
               </div>
               <ul className="space-y-2">
                 {SCHEDULE.map((s) => (
@@ -220,7 +221,7 @@ export default function OperatingModelPage() {
 
             <div>
               <div className="mb-3 text-xs uppercase tracking-widest text-wb-ink2">
-                Last Capacity Check-in <span className="normal-case tracking-normal text-wb-ink2/60">· live</span>
+                Last Capacity Check-in <span className="normal-case tracking-normal text-wb-ink2">· live</span>
               </div>
               {loading ? (
                 <div className="text-sm text-wb-ink2">Loading…</div>
@@ -232,7 +233,7 @@ export default function OperatingModelPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-wb-ink2">Pain</span>
-                    <span className="font-sans text-sm text-wb-ink">{lastCheckin.pain_score != null ? `${lastCheckin.pain_score}/10` : '—'}</span>
+                    <span className="font-sans text-sm text-wb-ink">{describePain(lastCheckin.pain_state, lastCheckin.pain_score) ?? '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-wb-ink2">Capacity</span>

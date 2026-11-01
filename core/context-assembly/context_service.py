@@ -928,6 +928,15 @@ def _http_number_one_brief() -> dict:
 _REMEMBER_UNRESOLVED_CAP = {"Red": 3, "Amber": 10, "Green": 30, "Unknown": 10}
 
 
+def _remember_capture_limit(capacity_status: str | None) -> int:
+    """Per-band caps apply only under CAPACITY_ENFORCEMENT=enforce; advisory mode uses one common limit."""
+    from core.health.capacity_enforcement import enforcing
+
+    if not enforcing():
+        return _REMEMBER_UNRESOLVED_CAP["Green"]
+    return _REMEMBER_UNRESOLVED_CAP.get(capacity_status, 10)
+
+
 def _http_remember() -> dict:
     """Mission 3 — the REMEMBER capability (mission §9-10, §13).
 
@@ -978,7 +987,7 @@ def _http_remember() -> dict:
         sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
         from supabase_client import supabase_get
 
-        cap = _REMEMBER_UNRESOLVED_CAP.get(capacity_status, 10)
+        cap = _remember_capture_limit(capacity_status)
         rows = supabase_get(
             "captured_items"
             "?processing_status=eq.pending"

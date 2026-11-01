@@ -53,7 +53,7 @@ export function DeliveryPanel() {
             ['PR rate', metrics.total ? `${Math.round((metrics.with_pr / metrics.total) * 100)}%` : '—']
           ].map(([label, value]) => (
             <div key={label as string} className="rounded-md border border-wb-line bg-wb-surface-raised/40 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">{label}</p>
+              <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2">{label}</p>
               <p className="mt-0.5 text-sm font-semibold text-wb-ink">{value}</p>
             </div>
           ))}
@@ -70,16 +70,16 @@ export function DeliveryPanel() {
 
       {/* Bottlenecks */}
       <div className="mt-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">Bottlenecks</p>
+        <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2">Bottlenecks</p>
         {bottlenecks.length === 0 ? (
           <p className="mt-1 text-sm text-state-ok">Delivery is flowing — nothing stuck beyond thresholds.</p>
         ) : (
           <ul className="mt-1 flex flex-col gap-1">
             {bottlenecks.slice(0, 6).map((b, i) => (
-              <li key={i} className="flex items-center gap-2 text-xs text-wb-ink/85">
+              <li key={i} className="flex items-center gap-2 text-xs text-wb-ink">
                 <Badge status={toneToStatus(deliverySeverityToTone(b.severity))}>{b.severity}</Badge>
                 <span className="font-semibold">{b.title}</span>
-                <span className="text-wb-ink/60">— {b.detail}</span>
+                <span className="text-wb-ink">— {b.detail}</span>
               </li>
             ))}
           </ul>
@@ -92,7 +92,7 @@ export function DeliveryPanel() {
           The badges inside use `stateTone` (risk/WIP state), not `tone` (department
           identity) — MSN-0394 Phase 9 flagged this conflation, fixed Phase 12. */}
       <div className="mt-4 rounded-md border border-engineering bg-engineering/10 p-3">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-engineering">Control Tower</p>
+        <p className="text-wb-label uppercase tracking-[0.2em] text-engineering">Control Tower</p>
         <div className="mt-1 flex flex-wrap gap-2 text-xs">
           <StatusBadge label={`${tower.highRiskCount} high-risk`} stateTone={tower.highRiskCount ? 'crit' : 'ok'} />
           {tower.constraint && (
@@ -103,7 +103,7 @@ export function DeliveryPanel() {
         {tower.topRisks.length > 0 && (
           <ul className="mt-2 flex flex-col gap-1">
             {tower.topRisks.slice(0, 4).map((r, i) => (
-              <li key={i} className="flex items-center gap-2 text-xs text-wb-ink/80">
+              <li key={i} className="flex items-center gap-2 text-xs text-wb-ink">
                 <StatusBadge label={String(r.score)} stateTone={r.level === 'high' ? 'crit' : r.level === 'medium' ? 'warn' : 'ok'} />
                 <span>{r.title}</span>
               </li>
@@ -112,7 +112,7 @@ export function DeliveryPanel() {
         )}
       </div>
 
-      <p className="mt-3 text-[11px] text-wb-ink2 leading-relaxed">
+      <p className="mt-3 text-wb-label text-wb-ink2 leading-relaxed">
         Instrumented delivery + control tower (EDO). Ask in Slack:{' '}
         <code>/delivery forecast</code>, <code>/delivery risk</code>,{' '}
         <code>/delivery execute &lt;id&gt;</code>.

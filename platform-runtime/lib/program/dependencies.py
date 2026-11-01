@@ -161,7 +161,7 @@ def add_dependency(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .eq("owner", owner)
                 .ilike("statement", f"%{dt.value} {to_id}%")
@@ -193,7 +193,7 @@ def get_dependencies(node_id: str) -> list[Dependency]:
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{DEPENDENCY_OWNER_PREFIX}{node_id}")
             .execute()
@@ -211,7 +211,7 @@ def get_all_dependencies() -> list[Dependency]:
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .like("owner", f"{DEPENDENCY_OWNER_PREFIX}%")
             .limit(500)

@@ -114,6 +114,45 @@ except ImportError:
         log.error(f"Could not create spec for research_metrics at {_metrics_file}")
         ResearchMetricsCollector = None
 
+
+def _daily_mission_cap_reached() -> tuple[bool, int, int]:
+    """Return (reached, missions_today, cap).
+
+    Each research mission is ~8-10 Gemini calls, and a requeue loop once ran
+    19 of them a day unnoticed until the Gemini spend cap tripped. This is a
+    hard ceiling on top of any fix for a particular loop. Set
+    RESEARCH_MAX_MISSIONS_PER_DAY=0 to disable. Fails open (never blocks
+    research) if the count can't be read.
+    """
+    try:
+        cap = int(os.getenv("RESEARCH_MAX_MISSIONS_PER_DAY", "30"))
+    except ValueError:
+        cap = 30
+    if cap <= 0:
+        return False, 0, cap
+    try:
+        from supabase import create_client
+
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        if not url or not key:
+            return False, 0, cap
+        midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        resp = (
+            create_client(url, key)
+            .table("research_metrics")
+            .select("id", count="exact")
+            .gte("created_at", midnight.isoformat())
+            .limit(1)
+            .execute()
+        )
+        today = resp.count or 0
+        return today >= cap, today, cap
+    except Exception as exc:  # noqa: BLE001 - cap check is best-effort; a DB hiccup must not block research
+        log.warning(f"[research-cap] could not read today's mission count, allowing: {exc}")
+        return False, 0, cap
+
+
 # Import existing research_delegator
 # Dynamically discover and import from platform-runtime/lib using importlib
 
@@ -437,6 +476,21 @@ class ResearchOrchestrator:
         # Generate mission ID if not provided
         if not mission_id:
             mission_id = self._generate_mission_id()
+
+        reached, today, cap = _daily_mission_cap_reached()
+        if reached:
+            msg = f"Daily research mission cap reached ({today}/{cap}); not starting {mission_id}"
+            log.error(f"[research-cap] {msg}")
+            return ResearchMissionResult(
+                mission_id=mission_id,
+                research_topic=research_topic,
+                status="error",
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                task_breakdown=[],
+                task_count=0,
+                tasks_completed=0,
+                errors=[msg],
+            )
 
         log.info(f"Starting research mission {mission_id}: {research_topic[:80]}...")
 

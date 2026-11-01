@@ -732,7 +732,7 @@ export const recoveryIndexes: RecoveryIndex[] = [
     key: 'capacity',
     label: 'Capacity',
     band: 'moderate',
-    detail: 'Amber rating — moderate operational window',
+    detail: 'Stretched — moderate operational window',
     tone: 'command'
   }
 ];

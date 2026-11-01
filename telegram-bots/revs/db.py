@@ -10,7 +10,20 @@ Table/column names match core/infrastructure/supabase/migrations/
 from __future__ import annotations
 
 import datetime as dt
+import time
 from typing import Any
+
+# list_active_users() is read by the scheduler tick every 60s (~1.4k
+# Supabase requests/day) but revs_users only changes through this module's
+# own writes in this same process, so cache it and drop the cache on every
+# write. The TTL is only a safety net for out-of-band edits (dashboard/SQL).
+_ACTIVE_USERS_TTL_SECONDS = 600
+_active_users_cache: tuple[float, list[dict]] | None = None
+
+
+def _invalidate_active_users() -> None:
+    global _active_users_cache
+    _active_users_cache = None
 
 # ---------------------------------------------------------------- users ---
 
@@ -26,6 +39,7 @@ def create_user(client, user_id: int, first_name: str) -> dict:
         .insert({"id": user_id, "first_name": first_name, "onboarding_step": "welcome"})
         .execute()
     )
+    _invalidate_active_users()
     return res.data[0]
 
 
@@ -33,6 +47,7 @@ def update_user(client, user_id: int, **fields: Any) -> None:
     if not fields:
         return
     client.table("revs_users").update(fields).eq("id", user_id).execute()
+    _invalidate_active_users()
 
 
 def touch_last_seen(client, user_id: int) -> None:
@@ -54,19 +69,25 @@ def delete_user_cascade(client, user_id: int) -> None:
     ):
         client.table(table).delete().eq("user_id", user_id).execute()
     client.table("revs_users").delete().eq("id", user_id).execute()
+    _invalidate_active_users()
 
 
 def list_active_users(client) -> list[dict]:
     """Users with onboarding complete, not currently paused. Used by the
     scheduler to decide who's due for a scheduled send."""
+    global _active_users_cache
     now = dt.datetime.now(dt.timezone.utc).isoformat()
-    res = (
-        client.table("revs_users")
-        .select("*")
-        .eq("onboarding_complete", True)
-        .execute()
-    )
-    users = res.data or []
+    if _active_users_cache is None or time.monotonic() - _active_users_cache[0] > _ACTIVE_USERS_TTL_SECONDS:
+        res = (
+            client.table("revs_users")
+            .select("*")
+            .eq("onboarding_complete", True)
+            .execute()
+        )
+        _active_users_cache = (time.monotonic(), res.data or [])
+    # paused_until is compared against the current time on every call, so a
+    # pause that lapses is honoured on the next tick even from the cache.
+    users = [dict(u) for u in _active_users_cache[1]]
     return [u for u in users if not (u.get("paused_until") and u["paused_until"] > now)]
 
 

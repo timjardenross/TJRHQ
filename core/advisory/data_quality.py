@@ -67,7 +67,7 @@ def capture_gaps() -> dict[str, Any]:
         "health_checkins",
         0,
         "Daily health check-ins drive wellness intelligence and capacity scoring.",
-        "Use `/health-check` (Slack) or the portal Medical pages — 30s/day.",
+        "Use `/capacity` (CapacityBot on Telegram) or the portal Medical pages — 30s/day.",
         standing=True,
     ))
 

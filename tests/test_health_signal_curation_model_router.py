@@ -50,21 +50,35 @@ def test_parse_classification_unrecognised_decision_escalates():
     assert result["decision"] == "ESCALATE"
 
 
-def test_classify_tries_model_router_first():
-    """Model Router succeeding must short-circuit before any direct
-    provider call is attempted."""
-    router_response = json.dumps({"decision": "REJECT", "reason": "noise"})
-    with mock.patch.object(hsc, "_call_model_router", return_value=router_response) as router_mock, \
+def test_classify_tries_local_ollama_first():
+    """Local Ollama succeeding must short-circuit before any guarded cloud
+    path (router -> gemini rails cost 45-90s each) is attempted."""
+    ollama_result = LLMCallResult(text=json.dumps({"decision": "REJECT", "reason": "noise"}), model="qwen3:8b")
+    with mock.patch("core.llm.provider_chain.call_ollama", return_value=ollama_result) as ollama_mock, \
+         mock.patch.object(hsc, "_call_model_router") as router_mock, \
          mock.patch("core.llm.provider_chain.call_gemini") as gemini_mock:
         result = hsc._classify(_signal())
-    router_mock.assert_called_once()
+    ollama_mock.assert_called_once()
+    router_mock.assert_not_called()
     gemini_mock.assert_not_called()
     assert result["decision"] == "REJECT"
 
 
-def test_classify_falls_back_to_direct_providers_when_model_router_unreachable():
+def test_classify_falls_back_to_model_router_when_ollama_fails():
+    router_response = json.dumps({"decision": "PUBLISH", "reason": "ok"})
+    with mock.patch("core.llm.provider_chain.call_ollama", side_effect=RuntimeError("ollama down")), \
+         mock.patch.object(hsc, "_call_model_router", return_value=router_response) as router_mock, \
+         mock.patch("core.llm.provider_chain.call_gemini") as gemini_mock:
+        result = hsc._classify(_signal())
+    router_mock.assert_called_once()
+    gemini_mock.assert_not_called()
+    assert result["decision"] == "PUBLISH"
+
+
+def test_classify_falls_back_to_direct_cloud_when_ollama_and_router_fail():
     gemini_result = LLMCallResult(text=json.dumps({"decision": "PUBLISH", "reason": "ok"}), model="gemini-3.5-flash-lite")
-    with mock.patch.object(hsc, "_call_model_router", side_effect=RuntimeError("Model Router unavailable")), \
+    with mock.patch("core.llm.provider_chain.call_ollama", side_effect=RuntimeError("ollama down")), \
+         mock.patch.object(hsc, "_call_model_router", side_effect=RuntimeError("Model Router unavailable")), \
          mock.patch("core.llm.provider_chain.call_gemini", return_value=gemini_result) as gemini_mock:
         result = hsc._classify(_signal())
     gemini_mock.assert_called_once()

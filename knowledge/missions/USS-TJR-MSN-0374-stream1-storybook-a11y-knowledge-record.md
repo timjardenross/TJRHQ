@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0374 Stream 1: Storybook a11y CI Enforcement — Knowledge Record
 
+**Lesson:** LL-182
+
 **Date:** 2026-09-13
 **Branch:** `msn-0374-stream1-storybook-a11y`
 **Status:** Complete — not merged to main (per instructions), branch pushed to origin, PR opened.

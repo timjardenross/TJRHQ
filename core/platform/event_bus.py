@@ -21,6 +21,7 @@ emitter per MSN-0210 §21, not part of this build.
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -211,10 +212,25 @@ def poll_events(
         return []
 
 
+def _is_persisted_event_id(event_id: object) -> bool:
+    """core_events.event_id is a uuid. Anything else — e.g. the synthetic
+    `drill-…` ids core/platform/attention_drill.py hands to the dispatcher —
+    was never written there, so an UPDATE by that id can only fail the uuid
+    cast with a 400. Skip the request instead of sending one that can't match."""
+    try:
+        uuid.UUID(str(event_id))
+    except ValueError:
+        return False
+    return True
+
+
 def mark_event_status(event_id: str, status: str) -> bool:
     """Advance an event's status (new -> acknowledged -> acted_on/dismissed/superseded)."""
     if status not in _VALID_STATUSES:
         log.warning("[event-bus] mark_event_status: invalid status %r", status)
+        return False
+    if not _is_persisted_event_id(event_id):
+        log.debug("[event-bus] mark_event_status: %r is not a persisted event id; skipped", event_id)
         return False
     try:
         from tools.supabase.client import CommanderSupabaseClient
@@ -236,6 +252,9 @@ def record_dispatch_message_id(event_id: str, message_id: int) -> bool:
     """Persist the Telegram message_id a dispatch produced, so a bad or
     duplicate push can be deleted/edited later instead of only ever being
     superseded by a resend."""
+    if not _is_persisted_event_id(event_id):
+        log.debug("[event-bus] record_dispatch_message_id: %r is not a persisted event id; skipped", event_id)
+        return False
     try:
         from tools.supabase.client import CommanderSupabaseClient
 

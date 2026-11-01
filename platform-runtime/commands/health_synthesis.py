@@ -82,7 +82,7 @@ def _summarise(rows: list[dict]) -> str:
     if not rows:
         return (
             "No check-in data found for the past 7 days.\n\n"
-            "Use `/health-check` to log today's check-in."
+            "Use `/capacity` to log today's check-in."
         )
 
     total = len(rows)

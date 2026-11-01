@@ -196,7 +196,7 @@ def list_dependencies(limit: int = 500) -> list[PortfolioDependency]:
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{DEP_LINK_OWNER_PREFIX}%")
             .order("created_at", desc=True)

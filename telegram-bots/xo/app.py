@@ -27,7 +27,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 
 from dotenv import load_dotenv
 
@@ -63,6 +63,28 @@ def _ensure_mistral_env() -> None:
 
 _ensure_mistral_env()
 
+
+def _ensure_github_env() -> None:
+    """Same single-key-borrow pattern as _ensure_mistral_env() above — this
+    process loads only its own .env, but /merge_pr and /decline_pr
+    (2026-09-26) need GITHUB_TOKEN/GITHUB_REPO, which live in
+    platform-runtime/.env alongside the rest of the GitHub config
+    core/engineering/providers/github_pr.py already reads."""
+    if os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPO"):
+        return
+    envf = _REPO_ROOT / "platform-runtime" / ".env"
+    try:
+        for line in envf.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith(("GITHUB_TOKEN=", "GITHUB_REPO=")):
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except Exception as exc:  # noqa: BLE001 - best-effort .env bootstrap, must not crash bot startup
+        logging.getLogger(__name__).debug("failed to load GITHUB_TOKEN/GITHUB_REPO from .env: %s", exc)
+
+
+_ensure_github_env()
+
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID   = int(os.environ["TELEGRAM_CHAT_ID"])
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "")
@@ -84,10 +106,15 @@ log = logging.getLogger("xo-bot")
 # python-telegram-bot's polling/send calls means the bot token in plaintext
 # on every log line. WARNING still surfaces real failures, just not the URL.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # ── Shared modules ────────────────────────────────────────────────────────────
 
 sys.path.insert(0, str(_REPO_ROOT))
+
+from core.engineering.providers import (
+    github_pr,
+)
 
 # ── Telemetry ─────────────────────────────────────────────────────────────────
 try:
@@ -380,7 +407,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/meds\\_taken — confirm medicines taken \\(stops the 07:00 reminder, which repeats every 15 min\\)\n\n"
         "*System*\n"
         "/db\\_status — Supabase connectivity test\n"
-        "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
+        "/restart\\_bots \\[telegram\\|all\\] — restart XO itself\n\n"
         "_Or just talk to me — I understand plain English\\._",
         parse_mode="MarkdownV2",
     )
@@ -450,15 +477,20 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # XO is the only Telegram bot (Captain decision 2026-07-05); tg-engineer /
 # tg-engineering-dept are retired. The "telegram" group is therefore empty here —
 # XO self-restarts tg-xo.service separately below (restart_xo).
+# 2026-09-26: "slack" target removed — starfleet-slack-bot.service was deleted
+# (Slack fully retired). "all"/"telegram" previously restarted only the Slack
+# bot (never the XO process's own systemd unit via the services list — XO
+# restarting itself is handled separately below via restart_xo), so with
+# nothing Slack-related left, there are currently no services to restart via
+# this dict; the command still restarts XO itself when arg is telegram/all.
 _RESTARTABLE_SERVICES = {
-    "slack":    ["starfleet-slack-bot.service"],
     "telegram": [],
-    "all":      ["starfleet-slack-bot.service"],
+    "all":      [],
 }
 
 
 async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/restart_bots [slack|telegram|all]  — restart starfleet services. XO restarts itself last."""
+    """/restart_bots [telegram|all]  — restart XO itself (last remaining target after Slack removal)."""
     if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         return
 
@@ -496,6 +528,70 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if restart_xo:
         await asyncio.sleep(3)
         await asyncio.create_subprocess_exec("systemctl", "restart", "tg-xo.service")
+
+
+# ── Engineering review gate (2026-09-26) ──────────────────────────────────────
+# Merge/decline for the auto-generated version-bump PRs core/engineering/
+# batch_coding.py opens (see xo_review.py) — a human action, always. The
+# XO-review verdict posted as a PR comment is the single source of truth
+# for whether a merge is authorized; this bot never re-derives or stores
+# its own copy of that verdict, it just reads the PR back.
+
+async def cmd_merge_pr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/merge_pr <number> [anyway] — merges only if the PR's own XO-review
+    verdict comment says "approve"; `anyway` overrides a Hold (or an
+    unreviewed PR) explicitly, never silently."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /merge_pr <number> [anyway]")
+        return
+    try:
+        pr_number = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("PR number must be an integer.")
+        return
+    force = len(context.args) > 1 and context.args[1].lower() == "anyway"
+
+    token, repo = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        await update.message.reply_text("GitHub not configured for this bot.")
+        return
+
+    verdict = await asyncio.to_thread(github_pr.get_pr_review_verdict, token, repo, pr_number)
+    if verdict != "approve" and not force:
+        await update.message.reply_text(
+            f"PR #{pr_number} verdict: {verdict or 'unreviewed'} — refusing to merge.\n"
+            f"Reply /merge_pr {pr_number} anyway to override."
+        )
+        return
+
+    ok, message = await asyncio.to_thread(github_pr.merge_pr, token, repo, pr_number)
+    await update.message.reply_text(f"{'✅' if ok else '❌'} {message}")
+
+
+async def cmd_decline_pr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/decline_pr <number> — closes without merging."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /decline_pr <number>")
+        return
+    try:
+        pr_number = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("PR number must be an integer.")
+        return
+
+    token, repo = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        await update.message.reply_text("GitHub not configured for this bot.")
+        return
+
+    ok = await asyncio.to_thread(
+        github_pr.close_pr, token, repo, pr_number, "Declined by the Captain via XO bot.",
+    )
+    await update.message.reply_text("✅ Closed." if ok else "❌ Failed to close PR.")
 
 
 # ── OR Intelligence brief ─────────────────────────────────────────────────────
@@ -668,17 +764,17 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         sources  = b.get("sources_checked", 0)
 
         lines = [
-            f"<b>🛡 OR Intelligence Brief — {bid}</b>",
-            f"{risk_icon} Risk: <b>{risk}</b>",
-            f"<i>Period {p_start} → {p_end} · Generated {gen_at} UTC</i>",
+            f"<b>🛡 OR Intelligence Brief — {_esc_html(bid)}</b>",
+            f"{risk_icon} Risk: <b>{_esc_html(risk)}</b>",
+            f"<i>Period {_esc_html(p_start)} → {_esc_html(p_end)} · Generated {_esc_html(gen_at)} UTC</i>",
             "",
         ]
 
         if bottom:
-            lines += ["<b>Bottom Line</b>", bottom[:600], ""]
+            lines += ["<b>Bottom Line</b>", _esc_html(bottom[:600]), ""]
 
         if snap and snap != bottom:
-            lines += ["<b>Snapshot</b>", snap[:500], ""]
+            lines += ["<b>Snapshot</b>", _esc_html(snap[:500]), ""]
 
         # Same canonical selection Telegram's morning push and Captain's
         # Chair render (BRIEFS_CANONICAL_UPLIFT.md Section 29) — this
@@ -692,19 +788,19 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 item_line = f"  {i}. {item['title']}"
                 if item.get("so_what"):
                     item_line += f" — {item['so_what']}"
-                lines.append(item_line[:220])
+                lines.append(_esc_html(item_line[:220]))
             lines.append("")
 
         if themes:
             lines.append("<b>Emerging Themes</b>")
             for t in themes[:5]:
                 label = t if isinstance(t, str) else (t.get("theme") or t.get("title") or str(t))
-                lines.append(f"  • {str(label)[:100]}")
+                lines.append(f"  • {_esc_html(str(label)[:100])}")
             lines.append("")
 
         if fw:
             fw_text = fw if isinstance(fw, str) else json.dumps(fw)
-            lines += ["<b>Forward Watch</b>", str(fw_text)[:300], ""]
+            lines += ["<b>Forward Watch</b>", _esc_html(str(fw_text)[:300]), ""]
 
         if view["changed"]:
             changed_bits = []
@@ -714,17 +810,17 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if changed_bits:
                 lines.append("<b>Changed Since Yesterday</b>")
                 for bit in changed_bits[:5]:
-                    lines.append(f"  • {bit}"[:200])
+                    lines.append(_esc_html(f"  • {bit}"[:200]))
                 lines.append("")
 
         if view["coverage_note"]:
-            lines += [f"⚠️ <i>{view['coverage_note']}</i>", ""]
+            lines += [f"⚠️ <i>{_esc_html(view['coverage_note'])}</i>", ""]
 
         ev_suppressed = ev_total - ev_in if ev_total and ev_in else None
-        ev_line = f"Events: {ev_in} included"
+        ev_line = f"Events: {_esc_html(ev_in)} included"
         if ev_suppressed is not None:
-            ev_line += f" · {ev_suppressed} suppressed"
-        ev_line += f" · {sources} sources checked"
+            ev_line += f" · {_esc_html(ev_suppressed)} suppressed"
+        ev_line += f" · {_esc_html(sources)} sources checked"
         lines.append(f"<i>{ev_line}</i>")
 
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
@@ -1243,19 +1339,26 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     "[cmd_message] debrief_engine not present on this deploy — "
                     "degrading to plain LLM reply, no debrief routing available"
                 )
+            debrief_result = None
             if de is not None:
-                debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
-                if debrief_result["handled"]:
-                    await update.message.reply_text(debrief_result["reply"])
-                    # Voice reply — additive only; text reply already sent above.
-                    try:
-                        from core.voice.tts_edge import send_voice_reply
-                        await send_voice_reply(
-                            context.bot, update.effective_chat.id, debrief_result["reply"]
-                        )
-                    except Exception as exc:  # noqa: BLE001 - best-effort voice reply, must never fail since the text reply is already delivered
-                        log.debug("optional voice reply failed (text reply already delivered): %s", exc)
-                    return
+                try:
+                    debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
+                except Exception as exc:  # an optional debrief feature must never block normal chat
+                    log.warning(
+                        "[cmd_message] debrief routing failed, falling back to the normal reply: %s",
+                        exc, exc_info=True,
+                    )
+            if debrief_result is not None and debrief_result["handled"]:
+                await update.message.reply_text(debrief_result["reply"])
+                # Voice reply — additive only; text reply already sent above.
+                try:
+                    from core.voice.tts_edge import send_voice_reply
+                    await send_voice_reply(
+                        context.bot, update.effective_chat.id, debrief_result["reply"]
+                    )
+                except Exception as exc:  # noqa: BLE001 - best-effort voice reply, must never fail since the text reply is already delivered
+                    log.debug("optional voice reply failed (text reply already delivered): %s", exc)
+                return
 
         status   = get_recovery_status(db)
         snap     = get_wellness_snapshot(db)
@@ -1263,19 +1366,20 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         recent_turns = _get_recent_turns(db, update.effective_chat.id)
         _log_conversation_turn(db, update.effective_chat.id, "captain", text)
         await update.message.chat.send_action("typing")
-        reply = await generate_async(text, _xo_system_prompt(status, snap, missions, recent_turns))
+        # cloud_first: the local router's xo-response is far slower than its 20 s timeout on this host.
+        reply = await generate_async(text, _xo_system_prompt(status, snap, missions, recent_turns), cloud_first=True)
         if reply:
             _log_conversation_turn(db, update.effective_chat.id, "xo", reply)
             await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
         else:
             await update.message.reply_text(
-                "XO here\\. LLM unreachable — use /recovery\\_status or /dispatch for now\\.",
+                "XO here\\. LLM unreachable — use /brief or /priorities for now\\.",
                 parse_mode="MarkdownV2",
             )
     except Exception:
         log.exception("[cmd_message] failed")
         await update.message.reply_text(
-            "⚠️ Something went wrong processing that — try /recovery_status or /dispatch, "
+            "⚠️ Something went wrong processing that — try /brief or /priorities, "
             "or resend your message."
         )
 
@@ -1680,11 +1784,11 @@ _FT_MODEL_ROUTER_URL   = os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:88
 _FT_DECOMPOSE_TIMEOUT  = 65  # server-side cold model load can take ~50s
 
 _FT_BLOCK_REASONS = [
-    ("I don't know what to do",   "no_idea"),
-    ("I need information",        "need_info"),
-    ("I'm waiting on someone",    "waiting"),
-    ("It's too big",              "too_big"),
-    ("I don't have what I need",  "missing"),
+    ("No idea where to start",    "no_idea"),
+    ("Need information",          "need_info"),
+    ("Waiting on someone",        "waiting"),
+    ("Too big",                   "too_big"),
+    ("Don't have what I need",    "missing"),
     ("Not right now",             "not_now"),
     ("Something else",            "other"),
 ]
@@ -1966,7 +2070,7 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary capture write
             log.debug("captured_items heartbeat record failed: %s", exc)
         await update.message.reply_text(
-            f"✅ <b>Note captured</b>\n<i>{_escape(content[:200])}</i>",
+            f"✅ <b>Note captured</b>\n<i>{_esc_html(content[:200])}</i>",
             parse_mode="HTML",
         )
         log.info("[note] captured %d chars", len(content))
@@ -2199,6 +2303,8 @@ _BOT_COMMANDS = [
     ("meds_taken",      "Confirm medicines taken (stops today's reminders)"),
     # System
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
+    ("merge_pr",        "Merge an XO-reviewed auto-PR  e.g. /merge_pr 314"),
+    ("decline_pr",      "Close an auto-PR without merging  e.g. /decline_pr 314"),
     ("db_status",       "Supabase connectivity test"),
     ("start",           "XO introduction and quick-start"),
     ("help",            "Commands"),
@@ -2217,7 +2323,7 @@ async def _post_init(app) -> None:
         return
     meds.schedule(app.job_queue, TELEGRAM_CHAT_ID)
     await meds.resume_if_due(app.bot, app.job_queue, TELEGRAM_CHAT_ID)
-    log.info("[startup] medication reminder scheduled 07:00 Australia/Brisbane, every %d min until confirmed",
+    log.info("[startup] medication reminder scheduled 07:00 Australia/Melbourne, every %d min until confirmed",
              meds.INTERVAL_MINUTES)
 
 
@@ -2264,6 +2370,8 @@ def main() -> None:
     app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CommandHandler("priorities",      cmd_priorities))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
+    app.add_handler(CommandHandler("merge_pr",        cmd_merge_pr))
+    app.add_handler(CommandHandler("decline_pr",      cmd_decline_pr))
     app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,         pattern=r"^mc\|"))
     app.add_handler(CallbackQueryHandler(handle_meds_callback,               pattern=r"^md\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback,      pattern=r"^vc\|"))

@@ -23,11 +23,11 @@ from typing import Any
 
 try:
     from zoneinfo import ZoneInfo as _ZI
-    def _today_brisbane() -> str:
-        return datetime.now(_ZI("Australia/Brisbane")).date().isoformat()
+    def _today_local() -> str:
+        return datetime.now(_ZI("Australia/Melbourne")).date().isoformat()
 except ImportError:
     from datetime import timedelta, timezone
-    def _today_brisbane() -> str:  # type: ignore[misc]
+    def _today_local() -> str:  # type: ignore[misc]
         return datetime.now(timezone(timedelta(hours=10))).date().isoformat()
 
 log = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
     0=none, 1=friendly reminder, 2=RO notification, 3=critical. Previously
     reimplemented 3 times independently (this module, recovery_officer's
     engagement_dispatcher.py, platform-runtime's recovery_scheduler.py) — the
-    Slack copy used naive local system time instead of Brisbane time,
+    Slack copy used naive local system time instead of Melbourne time,
     a real silent-drift risk (MSN-0302 finding) since "afternoon" would
     resolve differently depending on which copy ran and where.
 
@@ -54,9 +54,9 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
     """
     try:
         from zoneinfo import ZoneInfo
-        hour = datetime.now(ZoneInfo("Australia/Brisbane")).hour
+        hour = datetime.now(ZoneInfo("Australia/Melbourne")).hour
     except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing escalation-level gating
-        log.debug("Brisbane zoneinfo lookup failed, falling back to UTC hour: %s", exc)
+        log.debug("Melbourne zoneinfo lookup failed, falling back to UTC hour: %s", exc)
         hour = datetime.now(timezone.utc).hour
 
     if confidence == 0 and pulses_completed == 0:
@@ -149,7 +149,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
         return WellnessSnapshot()
 
     snap = WellnessSnapshot()
-    today = _today_brisbane()
+    today = _today_local()
 
     # ── 1. Recovery confidence ────────────────────────────────────────────────
     # recovery_confidence_today (a view over the retired recovery_pulses
@@ -271,7 +271,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
     # arbitrary pain-score cutoff.
     try:
         from datetime import timedelta
-        seven_days_ago = (date.fromisoformat(_today_brisbane()) - timedelta(days=7)).isoformat()
+        seven_days_ago = (date.fromisoformat(_today_local()) - timedelta(days=7)).isoformat()
         res = (
             supabase_client.table("capacity_checkins")
             .select("log_date,checkin_type,capacity_state,regulation_state,pain_score")
@@ -300,7 +300,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
     # ── 6. 7-day confidence trend (from health_daily_logs) ───────────────────
     try:
         from datetime import timedelta
-        seven_days_ago = (date.fromisoformat(_today_brisbane()) - timedelta(days=7)).isoformat()
+        seven_days_ago = (date.fromisoformat(_today_local()) - timedelta(days=7)).isoformat()
         res = (
             supabase_client.table("health_daily_logs")
             .select("log_date,energy")

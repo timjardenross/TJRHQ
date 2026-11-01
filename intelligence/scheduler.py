@@ -31,6 +31,7 @@ core/platform/heartbeat.record_heartbeat('intelligence_collection', 'ok').
 """
 
 import argparse
+import html
 import json
 import logging
 import os
@@ -581,9 +582,9 @@ def _start_scheduler() -> None:
     # human_systems_scheduler.py's push.py pulses (same recovery_confidence_today
     # data, independently read by two live schedulers). Captain designated
     # human_systems_scheduler.py + push.py the sole automated recovery
-    # messenger. Manual `/dispatch` in Telegram (telegram-bots/xo/app.py)
-    # still works via engagement_dispatcher.py directly — only this
-    # automatic timer is removed.
+    # messenger. The former manual `/dispatch` Telegram command is no longer registered in
+    # telegram-bots/xo/app.py (see DEPLOY.md); this
+    # automatic timer is also removed.
 
     # ── Episodic Memory Decay (migration 0162) ────────────────────────────────
     # Prune zero-reuse research memories older than 90 days. Runs weekly on
@@ -613,7 +614,7 @@ def _start_scheduler() -> None:
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
         "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min | "
-        "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Brisbane) | "
+        "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Melbourne) | "
         "Downdetector threshold recompute: 05:00 (%s) | "
         "Episodic memory decay: Sunday 03:00 (%s)",
         SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
@@ -667,6 +668,9 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
             return
         row = rows[0]
         clean_text = re.sub(r"<[^>]+>", " ", row["brief_text"])
+        # captains_brief escapes dynamic text (&lt; &amp; ...); the tags are gone, so restore the
+        # characters before the text is spoken.
+        clean_text = html.unescape(clean_text)
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
 
         tts_url = os.environ.get("KOKORO_SERVICE_URL") or os.environ.get("TTS_SERVICE_URL", "")
@@ -803,7 +807,6 @@ def _daily_collection_job() -> None:
     from datetime import datetime, timedelta, timezone
 
     from intelligence.classification.classifier import classify
-    from intelligence.classification.deduplicator import _normalise
     from intelligence.classification.filter import apply_filter
     from intelligence.ingestion.collection_engine import collect_all
     from intelligence.persistence import intelligence_store as store
@@ -844,17 +847,10 @@ def _daily_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
@@ -938,16 +934,30 @@ def _health_osint_weekly_fetch_job() -> None:
         # it. Oldest-first ordering (health_signal_curation.py fix, same
         # commit) means this drains the backlog gradually across subsequent
         # weekly runs rather than starving it behind new arrivals.
-        curation_result = subprocess.run(
-            [sys.executable, curation_script, "--limit", "100"],
-            capture_output=True, text=True, check=False, timeout=900,
-        )
-        if curation_result.returncode != 0:
-            log.error("Health OSINT auto-curation failed (exit %d): %s", curation_result.returncode, curation_result.stderr[-2000:])
-            _record_heartbeat("health_osint_auto_curation", "failed", error_message=curation_result.stderr[-500:])
-        else:
-            log.info("Health OSINT auto-curation: %s", curation_result.stdout[-2000:])
-            _record_heartbeat("health_osint_auto_curation", "ok", detail=curation_result.stdout[-500:])
+        #
+        # 2026-10-08: the 09-19 and 09-26 runs hit this 900s timeout, and the
+        # TimeoutExpired fell through to the outer except below, which wrote
+        # it as a health_osint_weekly_fetch failure — the fetch had already
+        # succeeded and heartbeated ok. HQ Status maps that key to the Health
+        # Discovery stage, so a supporting-job overrun read as Health
+        # Intelligence "unavailable". Curation now has its own try and only
+        # ever heartbeats its own key. --time-budget makes the script stop
+        # cleanly (exit 0, partial counts) before this hard timeout; the hard
+        # timeout stays as a backstop for a hung provider call.
+        try:
+            curation_result = subprocess.run(
+                [sys.executable, curation_script, "--limit", "10", "--time-budget", "600"],
+                capture_output=True, text=True, check=False, timeout=900,
+            )
+            if curation_result.returncode != 0:
+                log.error("Health OSINT auto-curation failed (exit %d): %s", curation_result.returncode, curation_result.stderr[-2000:])
+                _record_heartbeat("health_osint_auto_curation", "failed", error_message=curation_result.stderr[-500:])
+            else:
+                log.info("Health OSINT auto-curation: %s", curation_result.stdout[-2000:])
+                _record_heartbeat("health_osint_auto_curation", "ok", detail=curation_result.stdout[-500:])
+        except Exception as exc:  # noqa: BLE001 - curation is a supporting step after a fetch that already heartbeated ok; record against its own key only; already logged
+            log.error("Health OSINT auto-curation failed: %s", exc)
+            _record_heartbeat("health_osint_auto_curation", "failed", error_message=str(exc)[-500:])
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Health OSINT weekly fetch job failed: %s", exc)
         _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=str(exc))
@@ -1059,18 +1069,20 @@ _PRIORITY_TIERED_SOURCE_NAMES = frozenset({
 # ~224/month already committed, blowing past the 850 safe ceiling. 120 min
 # leaves genuine headroom on both providers' budgets — this constant is the
 # real, math-checked interval, not a placeholder.
-_PRIORITY_TIERED_INTERVAL_MINUTES = 120
-_PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, AEST (Australia/Brisbane, no DST)
-_PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, AEST
+# 2026-11-01: widened 120 -> 240 to cut Firecrawl spend (Telstra+Optus ticks
+# 6/day -> 3/day inside the 12h window; ~360 -> ~180 credits/month).
+_PRIORITY_TIERED_INTERVAL_MINUTES = 240
+_PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, Melbourne local time (Australia/Melbourne, DST-aware)
+_PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, Melbourne local time
 
 
 def _within_priority_tiered_window(hour: int) -> bool:
     """Pure, directly-testable time-gate — see
-    tests/test_downdetector_priority_cadence.py. 07:00-19:00 AEST
-    (Australia/Brisbane — this platform's standard timezone, no DST, same
-    tz pulse_time.py already uses;
-    deliberately NOT SCHEDULE_TZ/Australia-Melbourne, which shifts with
-    DST)."""
+    tests/test_downdetector_priority_cadence.py. 07:00-19:00 Melbourne local
+    time (Australia/Melbourne — this platform's standard timezone since
+    2026-10, DST-aware, same tz pulse_time.py uses). The window is the same
+    12 hours as before, so the call budget is unchanged; it shifts by an
+    hour in UTC terms when daylight saving starts or ends."""
     return _PRIORITY_TIERED_WINDOW_START_HOUR <= hour < _PRIORITY_TIERED_WINDOW_END_HOUR
 
 
@@ -1092,16 +1104,16 @@ def _priority_tiered_collection_job() -> None:
     from datetime import datetime as _datetime
     try:
         from zoneinfo import ZoneInfo
-        hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
+        hour = _datetime.now(ZoneInfo("Australia/Melbourne")).hour
     except Exception:  # noqa: BLE001 - defensive-only fallback, see comment above; already handled by falling back to host-local time
-        # Defensive only — ZoneInfo("Australia/Brisbane") should never fail on a
+        # Defensive only — ZoneInfo("Australia/Melbourne") should never fail on a
         # supported Python; if it somehow does, fall back to host local time
         # rather than guessing UTC (this host is deployed/configured for
-        # Brisbane time, so host-local is the closer approximation).
+        # Melbourne time, so host-local is the closer approximation).
         hour = _datetime.now().hour  # noqa: DTZ005 - deliberate host-local-time fallback, see comment above
     if not _within_priority_tiered_window(hour):
         log.info(
-            "Priority tiered collection skipped (outside 07:00-19:00 Brisbane, hour=%d)",
+            "Priority tiered collection skipped (outside 07:00-19:00 Melbourne, hour=%d)",
             hour,
         )
         return
@@ -1111,7 +1123,6 @@ def _priority_tiered_collection_job() -> None:
         from datetime import datetime, timedelta, timezone
 
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1143,17 +1154,10 @@ def _priority_tiered_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
@@ -1262,7 +1266,6 @@ def _intraday_status_collection_job() -> None:
         from datetime import datetime, timedelta, timezone
 
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1301,17 +1304,10 @@ def _intraday_status_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
@@ -1359,7 +1355,6 @@ def _intraday_media_collection_job() -> None:
         from datetime import datetime, timedelta, timezone
 
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1388,17 +1383,10 @@ def _intraday_media_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 

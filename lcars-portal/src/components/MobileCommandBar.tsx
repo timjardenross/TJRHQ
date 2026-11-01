@@ -42,8 +42,8 @@ import { Modal } from './ui/Modal';
  * (components/ui/QuickCapture.tsx: "Mounted once inside WorkbenchShell
  * (every workbench) and once on the hub, so a capture is always at most
  * one click away"), giving mobile two paths to the same captureItem()
- * pipeline. "Ready" points at /physical-readiness (renamed tab label to
- * match the mockup; same destination as the old "Readiness" tab). "Ask"
+ * pipeline. "Ready" points at /ready-room (it pointed at /physical-readiness
+ * until that area was retired on 2026-10-18). "Ask"
  * routes to /advisory-workbench?advisor=number_one — the same deep link
  * Hub's own "Open a full Number One session" link uses (app/hub/page.tsx)
  * to reach ConsultView's persisted, multi-turn Number One thread; the
@@ -92,7 +92,7 @@ interface Tab {
 // /workbenches, now applied consistently on mobile too.
 const TABS: Tab[] = [
   { href: '/hub', label: 'Hub', glyph: '⌂' },
-  { href: '/physical-readiness', label: 'Ready', glyph: '✚' },
+  { href: '/ready-room', label: 'Ready', glyph: '✚' },
 ];
 
 // "Ask" carries a query string (?advisor=number_one), so it isn't one of
@@ -105,7 +105,6 @@ const ASK_HREF = '/advisory-workbench?advisor=number_one';
 // Readiness first: it was a deliberately-kept primary-nav item before this
 // redesign (see history comment above) and must not strand.
 const MORE_LINKS: { href: NavHref; label: string; glyph: string; description: string }[] = [
-  { href: '/physical-readiness', label: 'Physical Readiness', glyph: '✚', description: 'Training, recovery, capacity' },
   { href: '/workbenches', label: 'All Workbenches', glyph: '◊', description: 'The full directory' },
 ];
 
@@ -127,7 +126,8 @@ export function MobileCommandBar() {
     <>
       <nav
         aria-label="Command MVP"
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-wb-line bg-wb-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur xl:hidden"
+        data-wb-chrome="dark"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-wb-line bg-wb-surface pb-[env(safe-area-inset-bottom)] backdrop-blur xl:hidden"
       >
         <ul className="mx-auto flex max-w-[640px]">
           {TABS.map((tab) => {
@@ -151,7 +151,7 @@ export function MobileCommandBar() {
                   <span className="relative text-xl leading-none" aria-hidden>
                     {tab.glyph}
                   </span>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em]">
+                  <span className="text-wb-label font-bold uppercase tracking-[0.12em]">
                     {tab.label}
                   </span>
                   {isActive && (
@@ -174,7 +174,7 @@ export function MobileCommandBar() {
               <span className="relative text-xl leading-none" aria-hidden>
                 ✦
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em]">Ask</span>
+              <span className="text-wb-label font-bold uppercase tracking-[0.12em]">Ask</span>
               {isAskActive && (
                 <span className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-current" aria-hidden />
               )}
@@ -195,7 +195,7 @@ export function MobileCommandBar() {
               <span className="relative text-xl leading-none" aria-hidden>
                 ⋯
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em]">More</span>
+              <span className="text-wb-label font-bold uppercase tracking-[0.12em]">More</span>
               {isMoreActive && (
                 <span className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-current" aria-hidden />
               )}

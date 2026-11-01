@@ -191,6 +191,18 @@ DEFAULT_NEW_JOURNAL_REPUTATION = 0.45  # conservative — must earn tier via val
 STUDY_DESIGN_QUALITY = {"RCT": 0.85, "meta_analysis": 0.90, "observational": 0.55, "case_study": 0.30, "anecdotal": 0.10}
 
 
+def _dedup_key(item) -> str:
+    if item["source"] == "pubmed":
+        return f"pubmed:{item['pmid']}"
+    if item["source"] == "rss":
+        return f"rss:{item['source_name']}:{item['canonical_url']}"
+    return f"ctgov:{item['nct_id']}"
+
+
+def _dedup_hash(item) -> str:
+    return hashlib.sha256(_dedup_key(item).encode()).hexdigest()
+
+
 def _headers():
     return {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json"}
 
@@ -201,6 +213,12 @@ class HealthCollector:
         self.per_domain_limit = per_domain_limit
         self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         self._source_cache = {}  # source_name -> source_id
+        # Per-run caches (usage review 2026-09-27): each collected item used
+        # to cost a dedup GET, a tier GET and (RSS) a source-name GET — ~3
+        # Supabase requests per item for data that repeats across items.
+        self._rss_source_cache = {}  # source_name -> source_id | None
+        self._tier_cache = {}  # source_id -> reliability_tier
+        self._known_hashes: set | None = None  # dedup_hashes already persisted, prefetched by run()
         self.stats = {"pubmed_fetched": 0, "ctgov_fetched": 0, "rss_fetched": 0, "saved": 0, "duplicates": 0, "sources_auto_registered": 0, "errors": 0}
 
     # ─── Source resolution ──────────────────────────────────────────────
@@ -500,11 +518,13 @@ class HealthCollector:
         elif item["source"] == "rss":
             # These 4 (FDA/WHO/NEJM/Lancet) are already hand-curated rows from
             # the original seed migration — look up by name, don't auto-register.
-            existing = self.supabase.table("health_source_registry").select("source_id").eq("source_name", item["source_name"]).limit(1).execute()
-            if not existing.data:
+            if item["source_name"] not in self._rss_source_cache:
+                existing = self.supabase.table("health_source_registry").select("source_id").eq("source_name", item["source_name"]).limit(1).execute()
+                self._rss_source_cache[item["source_name"]] = existing.data[0]["source_id"] if existing.data else None
+            source_id = self._rss_source_cache[item["source_name"]]
+            if source_id is None:
                 logger.warning(f"RSS source '{item['source_name']}' not found in health_source_registry — skipping item")
                 return
-            source_id = existing.data[0]["source_id"]
             dedup_key = f"rss:{item['source_name']}:{item['canonical_url']}"
             signal_type = item.get("signal_type", "study_result")
         else:
@@ -514,16 +534,22 @@ class HealthCollector:
 
         dedup_hash = hashlib.sha256(dedup_key.encode()).hexdigest()
 
-        existing = self.supabase.table("health_signals").select("signal_id").eq("dedup_hash", dedup_hash).limit(1).execute()
-        if existing.data:
+        if self._known_hashes is not None:
+            is_duplicate = dedup_hash in self._known_hashes
+        else:
+            existing = self.supabase.table("health_signals").select("signal_id").eq("dedup_hash", dedup_hash).limit(1).execute()
+            is_duplicate = bool(existing.data)
+        if is_duplicate:
             self.stats["duplicates"] += 1
             return
 
         if source_id == "dry-run-placeholder":
             tier = "TIER_4"
         else:
-            source_row = self.supabase.table("health_source_registry").select("reliability_tier").eq("source_id", source_id).limit(1).execute()
-            tier = source_row.data[0]["reliability_tier"] if source_row.data else "TIER_4"
+            if source_id not in self._tier_cache:
+                source_row = self.supabase.table("health_source_registry").select("reliability_tier").eq("source_id", source_id).limit(1).execute()
+                self._tier_cache[source_id] = source_row.data[0]["reliability_tier"] if source_row.data else "TIER_4"
+            tier = self._tier_cache[source_id]
 
         quality = self._methodology_quality(item["study_design"], item.get("sample_size"), item.get("p_value"))
         confidence = self._confidence_level(tier, quality)
@@ -560,6 +586,8 @@ class HealthCollector:
         try:
             self.supabase.table("health_signals").insert(row).execute()
             self.stats["saved"] += 1
+            if self._known_hashes is not None:
+                self._known_hashes.add(dedup_hash)  # same-run repeat is a duplicate, as the per-item GET would have found
         except Exception as e:  # noqa: BLE001 - per-item save inside a batch loop — one bad item must not abort the batch; already logged + counted in self.stats['errors']
             logger.error(f"Save failed for {item.get('pmid') or item.get('nct_id')}: {e}")
             self.stats["errors"] += 1
@@ -569,16 +597,32 @@ class HealthCollector:
 
     # ─── Orchestration ──────────────────────────────────────────────────
 
+    def _existing_hashes(self, hashes: list, chunk_size: int = 100) -> set:
+        """Which of `hashes` are already in health_signals — a few `in`
+        lookups instead of one GET per item."""
+        found: set = set()
+        unique = list(dict.fromkeys(hashes))
+        for i in range(0, len(unique), chunk_size):
+            chunk = unique[i:i + chunk_size]
+            rows = self.supabase.table("health_signals").select("dedup_hash").in_("dedup_hash", chunk).execute().data or []
+            found.update(r["dedup_hash"] for r in rows)
+        return found
+
     def run(self):
         logger.info(f"Starting health signal collection{' (DRY RUN)' if self.dry_run else ''}")
+        items = []
         for domain in PUBMED_QUERIES:
-            for item in self.fetch_pubmed(domain):
-                self.save_item(item)
-            for item in self.fetch_clinicaltrials(domain):
-                self.save_item(item)
+            items.extend(self.fetch_pubmed(domain))
+            items.extend(self.fetch_clinicaltrials(domain))
         for feed in RSS_FEEDS:
-            for item in self.fetch_rss(feed):
-                self.save_item(item)
+            items.extend(self.fetch_rss(feed))
+        try:
+            self._known_hashes = self._existing_hashes([_dedup_hash(item) for item in items])
+        except Exception as e:  # noqa: BLE001 - prefetch is an optimisation; on failure save_item() falls back to its per-item dedup GET
+            logger.warning(f"Dedup prefetch failed, falling back to per-item checks: {e}")
+            self._known_hashes = None
+        for item in items:
+            self.save_item(item)
         logger.info(f"Collection complete: {self.stats}")
 
 

@@ -163,7 +163,7 @@ def _related_investigations(init: Initiative) -> list[str]:
         return []
     try:
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,rationale")
             .like("owner", "investigation:%")
             .limit(100)

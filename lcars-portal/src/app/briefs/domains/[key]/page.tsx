@@ -51,7 +51,7 @@ export default function DomainDetailPage() {
     <WorkbenchShell
       title={domain?.label ?? 'Domain'}
       eyebrow="Briefs · Domain Detail"
-      tagline="USS TJR · One domain's synthesized picture — posture, what changed, what matters, watch, evidence"
+      tagline="TJR HQ · One domain's synthesized picture — posture, what changed, what matters, watch, evidence"
       back={{ href: '/briefs', label: 'Briefs' }}
     >
       {loading && <p className="text-sm text-wb-ink2 animate-pulse">Assembling domain picture…</p>}

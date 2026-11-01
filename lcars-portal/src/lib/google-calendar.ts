@@ -9,12 +9,13 @@
 // token.
 
 import { createSupabaseServiceRoleClient as createServiceRoleClient } from '@/lib/supabase-service-role';
+import { LOCAL_TIMEZONE, endOfLocalDay, startOfLocalDay } from '@/lib/timezone';
 
 const TOKEN_ROW_ID = 'google_calendar';
 const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const CALENDAR_EVENTS_URL = (calendarId: string) =>
   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
-const TIMEZONE = 'Australia/Brisbane';
+const TIMEZONE = LOCAL_TIMEZONE;
 
 // 2026-09-05: widened again to cover Gmail/Drive/Photos — all read-only,
 // no feature built against any of the three yet (this is legwork ahead of
@@ -223,8 +224,8 @@ async function getValidAccessToken(): Promise<{ accessToken: string; calendarId:
 
 function todayWindow(): { timeMin: string; timeMax: string } {
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TIMEZONE });
-  const start = new Date(`${todayStr}T00:00:00+10:00`); // AEST — Brisbane has no DST
-  const end = new Date(`${todayStr}T23:59:59+10:00`);
+  const start = startOfLocalDay(todayStr);
+  const end = endOfLocalDay(todayStr);
   return { timeMin: start.toISOString(), timeMax: end.toISOString() };
 }
 
@@ -283,7 +284,7 @@ export async function fetchTodayEvents(): Promise<CalendarEvent[]> {
 }
 
 export interface UpcomingCalendarEvent extends CalendarEvent {
-  dateISO: string; // YYYY-MM-DD, Brisbane-local
+  dateISO: string; // YYYY-MM-DD, local (Melbourne)
 }
 
 /** MSN-0363 (Content Workbench "Coming Up"): a wider read window than
@@ -294,7 +295,7 @@ export interface UpcomingCalendarEvent extends CalendarEvent {
 export async function fetchUpcomingEvents(daysAhead: number): Promise<UpcomingCalendarEvent[]> {
   const { accessToken, calendarId } = await getValidAccessToken();
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TIMEZONE });
-  const start = new Date(`${todayStr}T00:00:00+10:00`);
+  const start = startOfLocalDay(todayStr);
   const end = new Date(start.getTime() + daysAhead * 24 * 60 * 60 * 1000);
 
   const params = new URLSearchParams({

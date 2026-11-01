@@ -6,7 +6,7 @@ import { completeWeeklyReview, type SystemSummary } from '@/lib/weeklyReview';
 
 function Check({ done, label }: { done: boolean; label: string }) {
   return (
-    <li className="flex items-center gap-2 text-[13px] text-wb-ink">
+    <li className="flex items-center gap-2 text-wb-body text-wb-ink">
       <span aria-hidden className={done ? 'text-wb-ok-on' : 'text-wb-ink2'}>{done ? '✓' : '○'}</span>
       {label}
     </li>
@@ -41,14 +41,14 @@ export function CompletePanel({
   if (done) {
     return (
       <div className="rounded-md border border-wb-line bg-wb-surface p-6 text-center">
-        <p className="text-[14px] text-wb-ink">Week closed. See you next week.</p>
+        <p className="text-wb-body text-wb-ink">Week closed. See you next week.</p>
       </div>
     );
   }
 
   return (
     <div className="rounded-md border border-wb-line bg-wb-surface p-4">
-      <h2 className="mb-3 font-serif text-[15px] uppercase tracking-[0.1em] text-wb-ink">Close the Week</h2>
+      <h2 className="mb-3 font-serif text-wb-lead uppercase tracking-[0.1em] text-wb-ink">Close the Week</h2>
       <ul className="mb-4 flex flex-col gap-1.5">
         <Check done label="Week synthesised" />
         <Check done label="Carry-forward decisions reviewed" />
@@ -62,7 +62,7 @@ export function CompletePanel({
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
       />
-      {error && <p className="mt-2 text-[12px] text-wb-crit-on">{error}</p>}
+      {error && <p className="mt-2 text-wb-label text-wb-crit-on">{error}</p>}
       <Button className="mt-3" disabled={busy} onClick={complete}>Close Week →</Button>
     </div>
   );

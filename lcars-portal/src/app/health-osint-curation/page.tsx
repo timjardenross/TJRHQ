@@ -96,7 +96,7 @@ export default function HealthOsintCurationPage() {
     <WorkbenchShell wide
       title="Health OSINT Curation"
       eyebrow="Sunday Night Review"
-      tagline="USS TJR · Auto-ingested signals pending approval — nothing publishes without a human decision"
+      tagline="TJR HQ · Auto-ingested signals pending approval — nothing publishes without a human decision"
       back={{ href: '/health-osint', label: 'Health OSINT' }}
     >
       {error && (
@@ -124,7 +124,7 @@ export default function HealthOsintCurationPage() {
                     {s.last_fetch_status ?? 'never run'}
                   </span>
                   {s.last_fetch && (
-                    <span className="text-wb-ink2/70">{new Date(s.last_fetch).toLocaleString()}</span>
+                    <span className="text-wb-ink2">{new Date(s.last_fetch).toLocaleString()}</span>
                   )}
                 </span>
               </div>
@@ -159,10 +159,10 @@ export default function HealthOsintCurationPage() {
                   {new Date(signal.collected_at).toLocaleString()}
                 </div>
                 {signal.description && (
-                  <p className="mt-2 text-xs text-wb-ink2/80">{signal.description.slice(0, 220)}…</p>
+                  <p className="mt-2 text-xs text-wb-ink2">{signal.description.slice(0, 220)}…</p>
                 )}
                 {(signal.mission_relevance || signal.evidence_contribution || signal.disposition) && (
-                  <p className="mt-2 text-xs text-wb-ink2/70">
+                  <p className="mt-2 text-xs text-wb-ink2">
                     Recommended: {signal.disposition ?? '—'}
                     {signal.mission_relevance && ` · relevance ${signal.mission_relevance}`}
                     {signal.evidence_contribution && ` · ${signal.evidence_contribution}`}

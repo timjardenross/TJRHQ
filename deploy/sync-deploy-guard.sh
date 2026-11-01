@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Promotes the human-reviewed deploy/scoped-restart.sh,
-# deploy/repair-git-perms.sh and deploy/auto-deploy-services.conf in this repo to the root-only,
+# deploy/repair-git-perms.sh, deploy/repair-tree-perms.sh and
+# deploy/auto-deploy-services.conf in this repo to the root-only,
 # non-deploy-writable copies that sudo actually trusts
 # (/opt/deploy-guard/*) — see deploy/scoped-restart.sh's 2026-09-15
 # SECOND-pass header for why these can no longer be the same file.
@@ -21,12 +22,14 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC_SCRIPT="$REPO_ROOT/deploy/scoped-restart.sh"
 SRC_CONF="$REPO_ROOT/deploy/auto-deploy-services.conf"
 SRC_REPAIR="$REPO_ROOT/deploy/repair-git-perms.sh"
+SRC_TREE_REPAIR="$REPO_ROOT/deploy/repair-tree-perms.sh"
 DST_DIR="/opt/deploy-guard"
 
 echo "About to promote:"
 echo "  $SRC_SCRIPT -> $DST_DIR/scoped-restart.sh"
 echo "  $SRC_CONF -> $DST_DIR/auto-deploy-services.conf"
 echo "  $SRC_REPAIR -> $DST_DIR/repair-git-perms.sh"
+echo "  $SRC_TREE_REPAIR -> $DST_DIR/repair-tree-perms.sh"
 echo
 echo "Diff of script (excluding the source-only 'THIS COPY IS NOW SOURCE ONLY' banner):"
 diff -u "$DST_DIR/scoped-restart.sh" "$SRC_SCRIPT" || true
@@ -37,6 +40,9 @@ echo
 echo "Diff of git-permissions repair script (run as root by auto-deploy.service ExecStartPre=+):"
 diff -u "$DST_DIR/repair-git-perms.sh" "$SRC_REPAIR" 2>/dev/null || true
 echo
+echo "Diff of tree-permissions repair script (run as root by auto-deploy.service ExecStartPre=+):"
+diff -u "$DST_DIR/repair-tree-perms.sh" "$SRC_TREE_REPAIR" 2>/dev/null || true
+echo
 read -r -p "Proceed with promotion? [y/N] " confirm
 if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
   echo "Aborted." >&2
@@ -46,6 +52,8 @@ fi
 install -o root -g root -m 750 "$SRC_SCRIPT" "$DST_DIR/scoped-restart.sh"
 install -o root -g root -m 640 "$SRC_CONF" "$DST_DIR/auto-deploy-services.conf"
 install -o root -g root -m 750 "$SRC_REPAIR" "$DST_DIR/repair-git-perms.sh"
+install -o root -g root -m 750 "$SRC_TREE_REPAIR" "$DST_DIR/repair-tree-perms.sh"
 bash -n "$DST_DIR/scoped-restart.sh"
 bash -n "$DST_DIR/repair-git-perms.sh"
+bash -n "$DST_DIR/repair-tree-perms.sh"
 echo "Promoted. Note: the source file's own header banner (marking it source-only) is now also present in the enforced copy's comments — harmless, it's just a comment."

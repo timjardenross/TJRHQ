@@ -342,3 +342,32 @@ hn). The arXiv queries use bare AND-joined terms (`ti:LLM AND ti:routing`),
 not quoted phrases, per §10's finding. The other 5 topics and
 `firecrawl_search` were deliberately left untouched — narrower blast
 radius, and firecrawl_search specifically should stay opt-in per §11.
+
+## 13. Real cycle run findings (2026-09-26) — `max_external_enrichments_per_cycle` reverted 5->3
+
+Ran the real (non-dry) cycle twice against `/opt/starship-endeavour`
+after merging Phase 1-3 + the followups. Confirmed working: 38 external
+candidates found across sources in one cycle (not just GitHub —
+real Hugging Face candidates surfaced via `local-inference`'s `hf` query,
+e.g. `RedHatAI/Qwen3.5-9B-quantized`), and the highest-value opportunity
+was a real `dependency_releases.py` find (`openai 3.13.0 -> 3.19.2`).
+arXiv still 406s (§10, unresolved on their end) and deps.dev/Scorecard
+404 for several small/new repos — both failed open exactly as designed,
+no crash.
+
+**Real regression found and fixed**: `hq-evolution-external-fit`
+(external_enrichment.py's LLM call, routed to Gemini cloud via
+`core/model-router/app.py`'s TASK_POLICY, `timeout: 400`) took 4-5.5
+minutes per call in both live runs — pre-existing, already-tuned cloud
+latency (git history shows this timeout was already bumped 300->400s
+before this doc existed), not something this doc's changes caused
+directly. But Phase 2 bumped `max_external_enrichments_per_cycle` from
+3 to 5 without checking that assumption against this route's real
+latency: 5 sequential calls at ~4-5min each burned the entire
+`run_duration_budget_minutes` (1200s) before the SHORTLIST/INVESTIGATE
+phase ever started, so the cycle's own budget guard correctly fired
+("Run duration budget (1200s) exceeded — stopping investigation early")
+and produced `deep_investigated_count: 0`, `worth_considering_count: 0`
+— a clean, non-crashing failure mode, but a wasted cycle. Reverted to 3.
+Root-causing why this specific route is so slow (switching provider/model
+for this task type) is a separate, bigger decision — not made here.

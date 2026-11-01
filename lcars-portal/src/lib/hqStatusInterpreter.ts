@@ -53,7 +53,7 @@ export const CAPABILITIES: ReadonlyArray<CapabilityMeta> = [
   { key: 'technical_intelligence', label: 'Technical Intelligence', impact: 'Technical intelligence coverage may be delayed or incomplete.', order: 2 },
   { key: 'health_intelligence', label: 'Health Intelligence', impact: "Today's health intelligence may be incomplete.", order: 3 },
   { key: 'platform_core', label: 'Platform Core', impact: 'Underlying platform services (event bus, command centre, verification) may be degraded, which can affect several capabilities at once.', order: 4 },
-  { key: 'hq_evolution', label: 'HQ Evolution', impact: "Last night's self-improvement cycle may not have completed.", order: 5 },
+  { key: 'hq_evolution', label: 'Improvements', impact: "Last night's self-improvement cycle may not have completed.", order: 5 },
   { key: 'weekly_review', label: 'Weekly & Periodic Review', impact: 'Weekly or periodic synthesis (reviews, digests, reminders) may be delayed.', order: 6 },
   { key: 'ready_room', label: 'Ready Room Sync', impact: 'Google Tasks sync may be delayed, so Ready Room may not reflect the latest tasks.', order: 7 },
   { key: 'human_systems', label: 'Human Systems', impact: 'Human-systems nudges/check-ins may be delayed. This capability is background/best-effort by design.', order: 8 },

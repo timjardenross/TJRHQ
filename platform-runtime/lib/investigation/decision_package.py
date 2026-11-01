@@ -205,7 +205,7 @@ def get_decision_package(investigation_id: str) -> DecisionPackage | None:
             return None
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{DECISION_OWNER_PREFIX}{investigation_id}")
             .limit(1)
@@ -257,7 +257,7 @@ def get_pending_decision_packages(limit: int = 10) -> list[DecisionPackage]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{DECISION_OWNER_PREFIX}%")
             .order("created_at", desc=True)

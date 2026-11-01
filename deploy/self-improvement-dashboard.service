@@ -1,6 +1,6 @@
 [Unit]
 Description=USS TJR Self-Improvement Dashboard — findings review API (port 8892)
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]

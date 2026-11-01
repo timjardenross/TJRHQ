@@ -25,7 +25,7 @@
 # not xo-bot.service, which doesn't exist as a running unit) rather than
 # delivery-reconciler's or capture-enrichment's oneshot+timer pattern.
 Description=USS TJR Intelligence Scheduler — Captain's Brief (single owner, MSN-0207C)
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]

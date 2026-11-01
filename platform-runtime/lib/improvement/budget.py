@@ -138,6 +138,14 @@ class ImprovementBudget:
 
 # ── Engine ────────────────────────────────────────────────────────────────────
 
+def _capacity_enforcing() -> bool:
+    try:
+        from core.health.capacity_enforcement import enforcing
+    except Exception:  # noqa: BLE001 - if the switch cannot load, keep the original behaviour
+        return True
+    return enforcing()
+
+
 class ImprovementBudgetEngine:
     """Computes improvement budget and gates mission creation.
 
@@ -162,7 +170,13 @@ class ImprovementBudgetEngine:
         Returns:
             ImprovementBudget with current state.
         """
-        allocation = CAPACITY_ALLOCATION.get(capacity_status, CAPACITY_ALLOCATION["Unknown"])
+        advisory = not _capacity_enforcing()
+        # Advisory mode (owner decision 2026-10-18): the reading is reported as before, but the
+        # budget is sized as for Green and Red does not close it. CAPACITY_ENFORCEMENT=enforce
+        # restores the original allocation.
+        allocation = CAPACITY_ALLOCATION.get(
+            "Green" if advisory else capacity_status, CAPACITY_ALLOCATION["Unknown"]
+        )
         max_missions = int(allocation["max_improvement_missions"])
         active_count = self._count_active_improvement_missions()
         remaining = max(0, max_missions - active_count)
@@ -171,7 +185,9 @@ class ImprovementBudgetEngine:
         can_create = remaining > 0
 
         # Red capacity: no new improvement missions unless captain override + critical
-        if capacity_status == "Red" and not captain_override:
+        if advisory:
+            pass
+        elif capacity_status == "Red" and not captain_override:
             can_create = False
         elif capacity_status == "Red" and captain_override:
             exception_active = True

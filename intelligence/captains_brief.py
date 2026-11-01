@@ -16,9 +16,20 @@ import json
 import logging
 import os
 import re
+import urllib.parse
 import urllib.request
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from html import escape as _html_escape
+from html import unescape as _html_unescape
+
+# Shared pain vocabulary. Guarded like the other core.* imports here: a problem
+# importing it must degrade the pain wording only, never the whole brief.
+try:
+    from core.health.pain_vocab import describe_pain
+except Exception:  # pragma: no cover — import-time guard  # noqa: BLE001 - guarded import (see comment above)
+    def describe_pain(pain_state, pain_score=None):  # type: ignore[misc]
+        return None
 
 log = logging.getLogger("captains-brief")
 
@@ -51,10 +62,10 @@ try:
 except Exception:  # pragma: no cover — import-time guard, not a runtime path  # noqa: BLE001 - guarded import — a problem in the LLM provider chain must degrade the exec-summary sections only, never the whole brief (see comment above)
     call_gemini = call_mistral = call_ollama = None  # type: ignore[assignment]
 
-# Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent
+# Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent (approximation: ignores daylight saving)
 try:
     from zoneinfo import ZoneInfo
-    _AEST = ZoneInfo("Australia/Brisbane")
+    _AEST = ZoneInfo("Australia/Melbourne")
 except ImportError:
     from datetime import timezone as _tz
     _AEST = _tz(timedelta(hours=10))
@@ -145,7 +156,20 @@ def _get_capacity_today() -> dict | None:
     (that concept doesn't exist under "allow more than one check-in a day,
     never overwrite")."""
     rows = _sb_get("capacity_checkins_today", "limit=1")
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    row = dict(rows[0])
+    # The view exposes only the legacy numeric latest_pain_score. Pain is now
+    # captured as "compared with your usual baseline" (pain_state), so read the
+    # latest pain_state straight from capacity_checkins (no view change needed).
+    today = datetime.now(_AEST).date().isoformat()
+    latest = _sb_get(
+        "capacity_checkins",
+        f"checkin_type=eq.capacity&log_date=eq.{today}&pain_state=not.is.null"
+        f"&order=captured_at.desc&limit=1&select=pain_state",
+    )
+    row["latest_pain_state"] = latest[0].get("pain_state") if latest else None
+    return row
 
 
 def _get_infra_verification() -> dict | None:
@@ -297,7 +321,7 @@ def _get_new_signals_since(since_iso: str) -> list[dict]:
     the same as a query that succeeded and found zero signals."""
     rows = _sb_request(
         "intelligence_events",
-        f"collected_at=gte.{since_iso}&suppressed=eq.false&signal_status=neq.DUPLICATE"
+        f"collected_at=gte.{urllib.parse.quote(since_iso, safe='')}&suppressed=eq.false&signal_status=neq.DUPLICATE"
         f"&rank_score=gte.50"
         f"&raw_title=not.ilike.CVE-*"
         f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
@@ -406,10 +430,10 @@ def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4
         count_bits.append(f"{len(medium)} MEDIUM")
     lines = [f"<b>{header}</b> <i>({', '.join(count_bits)})</i>"]
     for s in high + medium:
-        lines.append(f"  {_risk_emoji(_bucket_for_display(s))} {_format_signal_title(s)}")
+        lines.append(f"  {_risk_emoji(_bucket_for_display(s))} {_esc(_format_signal_title(s))}")
         commentary = _format_signal_commentary(s)
         if commentary:
-            lines.append(f"     <i>{commentary}</i>")
+            lines.append(f"     <i>{_esc(commentary)}</i>")
     lines.append("")
     return lines
 
@@ -738,6 +762,18 @@ def _now_aest() -> datetime:
     return datetime.now(_AEST)
 
 
+def _clock_label(now: datetime) -> str:
+    """"HH:MM ZZZZ" in the zone the brief jobs are scheduled in (OR_INTEL_SCHEDULE_TZ, default
+    Australia/Melbourne), so the header shows AEDT in daylight saving and matches the clock the job
+    fired on. `_AEST` was Brisbane (no DST) until 2026-10, so formatting `now` directly printed 06:00 AEST for a
+    job that ran at 07:00 AEDT. It is now Melbourne, but the label still follows the schedule setting. Dates and day windows still use `_AEST`; only the displayed label changes."""
+    try:
+        local = now.astimezone(ZoneInfo(os.getenv("OR_INTEL_SCHEDULE_TZ", "Australia/Melbourne")))
+        return local.strftime("%H:%M %Z")
+    except Exception:  # noqa: BLE001 - label only: no zoneinfo/tzdata -> the previous fixed label
+        return f"{now.strftime('%H:%M')} AEST"
+
+
 def _relative_age(timestamp: str | None) -> str:
     """Part 1 item 3 (2026-08-09 Telegram usefulness design): a coarse
     relative-age label ("today" / "3 days old" / "4 weeks old") for a
@@ -762,6 +798,22 @@ def _relative_age(timestamp: str | None) -> str:
     return f"{weeks} week{'s' if weeks != 1 else ''} old"
 
 
+def _esc(value: object) -> str:
+    """Escape database/model text for Telegram's HTML parse_mode. Every brief is sent through
+    notify(template="raw"), which passes the body through untouched, so each builder here must
+    escape its own dynamic text (stored events can carry redaction placeholders such as <NRP>,
+    which Telegram rejects as an unsupported tag, failing the whole message). Escape AFTER
+    truncating (_truncate_clean) so an entity is never cut in half. The literal <b>/<i>/<code>
+    wrappers are never passed through this.
+
+    Feed text can arrive already entity-encoded (an RSS title carrying "&#x5b;Guest Diary&#x5d;"
+    for "[Guest Diary]" because the feed double-encoded it, and rss_adapter stores the title as
+    parsed). Escaping that as-is turns the "&" into "&amp;" and Telegram, the email and the card
+    show the entity text literally. The text is decoded once first, so it reads as plain text, then
+    escaped once for HTML; plain text such as "AT&T" or "<NRP>" is unaffected by the decode."""
+    return _html_escape(_html_unescape(str(value)), quote=False)
+
+
 def _truncate_clean(text: str, limit: int) -> str:
     """Truncate at a word boundary with an ellipsis, never mid-word - a bare
     text[:limit] slice was cutting narratives off mid-sentence (sometimes
@@ -782,7 +834,8 @@ def _format_infra_block(infra: dict | None, morning_text: str | None = None) -> 
     morning)" instead of silently re-rendering the identical warning."""
     if not infra or infra.get("state") != "unsure":
         return []
-    narrative = _truncate_clean(infra["narrative"], 700)
+    # Escaped before the comparison: this morning's persisted text holds the escaped form.
+    narrative = _esc(_truncate_clean(infra["narrative"], 700))
     unchanged = bool(morning_text) and narrative in morning_text
     suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
     return [
@@ -807,17 +860,18 @@ def _format_capacity_block(cap: dict | None, header: str = "⚡ CAPACITY TODAY")
             "",
         ]
     state = cap.get("latest_capacity_state")
-    bits = [f"{_capacity_state_emoji(state)} Capacity <b>{(state or '?').capitalize()}</b>"]
-    if cap.get("latest_pain_score") is not None:
-        bits.append(f"Pain {cap['latest_pain_score']}")
+    bits = [f"{_capacity_state_emoji(state)} Capacity <b>{_esc((state or '?').capitalize())}</b>"]
+    pain_text = describe_pain(cap.get("latest_pain_state"), cap.get("latest_pain_score"))
+    if pain_text:
+        bits.append(_esc(pain_text))
     if cap.get("latest_regulation_state"):
-        bits.append(f"NS {cap['latest_regulation_state'].capitalize()}")
+        bits.append(f"NS {_esc(cap['latest_regulation_state'].capitalize())}")
     if cap.get("latest_executive_function"):
-        bits.append(f"EF {cap['latest_executive_function'].replace('_', ' ').capitalize()}")
+        bits.append(f"EF {_esc(cap['latest_executive_function'].replace('_', ' ').capitalize())}")
     return [
         f"<b>{header}</b>",
         f"  {'  ·  '.join(bits)}",
-        f"  <i>{cap.get('checkin_label', '')}</i>",
+        f"  <i>{_esc(cap.get('checkin_label', ''))}</i>",
         "",
     ]
 
@@ -846,7 +900,7 @@ def _format_weekly_osint_block(
     if not rows:
         lines = [f"<b>{emoji} {title} — WEEKLY</b>", "  No signals collected this week."]
         if empty_caveat:
-            lines.append(f"  <i>⚠ {empty_caveat}</i>")
+            lines.append(f"  <i>⚠ {_esc(empty_caveat)}</i>")
         lines.append("")
         return lines
     counts = Counter((r.get(confidence_field) or "UNKNOWN").upper() for r in rows)
@@ -861,7 +915,7 @@ def _format_weekly_osint_block(
 
     lines = [f"<b>{emoji} {title} — WEEKLY ({len(rows)})</b>"]
     if summary:
-        lines.append(f"  {summary}")
+        lines.append(f"  {_esc(summary)}")
         lines.append(severity_line)
     else:
         # Fallback: no exec summary available — original raw-counts +
@@ -875,7 +929,7 @@ def _format_weekly_osint_block(
         headline = sorted(headline, key=lambda r: r.get("rank_score") or 0, reverse=True)[:top_n]
         for r in headline:
             text = r.get(title_field) or "—"
-            lines.append(f"  {_risk_emoji(r.get(confidence_field))} {_truncate_clean(text, 110)}")
+            lines.append(f"  {_risk_emoji(r.get(confidence_field))} {_esc(_truncate_clean(text, 110))}")
     lines.append("")
     return lines
 
@@ -885,7 +939,7 @@ def _format_weekly_content_block(items: list[dict]) -> list[str]:
     if not items:
         return ["<b>✍️ CONTENT THIS WEEK</b>", "  Nothing published or moved to review this week.", ""]
     status_counts = Counter(c.get("status", "?") for c in items)
-    summary = "  ·  ".join(f"{v} {k.replace('_', ' ')}" for k, v in status_counts.items())
+    summary = "  ·  ".join(f"{v} {_esc(k.replace('_', ' '))}" for k, v in status_counts.items())
     # 2026-08-10 fix (XO product review): ready_to_publish/approved were
     # reusing 🟢/🟡 — the same glyphs _SEVERITY_EMOJI uses for "low/fine" and
     # "medium/caution" a few lines above in the same weekly message, meaning
@@ -898,7 +952,7 @@ def _format_weekly_content_block(items: list[dict]) -> list[str]:
         pillar = (c.get("pillar") or "").replace("_", " ") or "—"
         emoji = status_emoji.get(c.get("status"), "•")
         lines.append(
-            f"  {emoji} <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
+            f"  {emoji} <b>{_esc(c.get('title') or '(untitled)')}</b>  [{_esc(c.get('status', '?'))} · {_esc(pillar)}]"
         )
     lines.append("")
     return lines
@@ -929,7 +983,7 @@ def _format_weekly_outage_alerts_block(alerts: list[dict]) -> list[str]:
         except (TypeError, ValueError):
             conf = "?"
         icon = "✅" if a.get("outcome") == "sent" else "❌"
-        lines.append(f"  {icon} {_truncate_clean(title, 90)}  [{impact} · conf {conf}]")
+        lines.append(f"  {icon} {_esc(_truncate_clean(title, 90))}  [{_esc(impact)} · conf {conf}]")
     lines.append("")
     return lines
 
@@ -957,7 +1011,7 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         trend = " ".join(_rating_emoji(e.get("captain_capacity_rating")) for e in entries)
         return [
             f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s))</b>",
-            f"  {' · '.join(parts) if parts else 'no ratings logged'}",
+            f"  {_esc(' · '.join(parts)) if parts else 'no ratings logged'}",
             f"  <code>{trend}</code>",
             "",
         ]
@@ -980,7 +1034,7 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
              f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})"),
         ]
         if signals_str:
-            lines.append(f"  Latest: {' · '.join(signals_str)}")
+            lines.append(f"  Latest: {_esc(' · '.join(signals_str))}")
         lines.append("")
         return lines
 
@@ -993,7 +1047,7 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         trend = " ".join(_capacity_state_emoji(e.get("capacity_state")) for e in entries)
         return [
             f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} check-in(s) across {days_logged} day(s))</b>",
-            f"  {' · '.join(parts) if parts else 'no state recorded'}",
+            f"  {_esc(' · '.join(parts)) if parts else 'no state recorded'}",
             f"  <code>{trend}</code>",
             "",
         ]
@@ -1023,7 +1077,7 @@ def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
 
     lines = [
         "<b>📡 INTELLIGENCE POSTURE</b>",
-        f"  Posture: <b>{RISK_LABEL.get(view['overall_risk'], view['overall_risk'])}</b>",
+        f"  Posture: <b>{_esc(RISK_LABEL.get(view['overall_risk'], view['overall_risk']))}</b>",
     ]
     if view["what_matters"]:
         lines.append("  <b>What matters today</b>")
@@ -1031,9 +1085,9 @@ def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
             line = f"  {i}. {item['title']}"
             if item.get("so_what"):
                 line += f" — {item['so_what']}"
-            lines.append(_truncate_clean(line, 260))
+            lines.append(_esc(_truncate_clean(line, 260)))
     elif view["executive_read"]:
-        lines.append(f"  {_truncate_clean(view['executive_read'], 350)}")
+        lines.append(f"  {_esc(_truncate_clean(view['executive_read'], 350))}")
 
     if view["changed"]:
         changed_bits = []
@@ -1043,10 +1097,10 @@ def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
         if changed_bits:
             lines.append("  <b>Changed since yesterday</b>")
             for bit in changed_bits[:5]:
-                lines.append(_truncate_clean(f"  - {bit}", 200))
+                lines.append(_esc(_truncate_clean(f"  - {bit}", 200)))
 
     if view["coverage_note"]:
-        lines.append(f"  <i>⚠️ {view['coverage_note']}</i>")
+        lines.append(f"  <i>⚠️ {_esc(view['coverage_note'])}</i>")
 
     lines.append("")
     return lines
@@ -1061,7 +1115,7 @@ def generate_morning_brief() -> str:
 
     lines = [
         f"<b>☀️ MORNING BRIEF — {now.strftime('%A %d %B %Y')}</b>",
-        f"<i>Stardate {now.strftime('%Y.%j')} · {now.strftime('%H:%M')} AEST</i>",
+        f"<i>Stardate {now.strftime('%Y.%j')} · {_clock_label(now)}</i>",
         "",
     ]
 
@@ -1093,7 +1147,7 @@ def generate_morning_brief() -> str:
     if digest_text:
         lines += [
             "<b>🌐 PLATFORM, TODAY</b>",
-            f"  {digest_text}",
+            f"  {_esc(digest_text)}",
             "",
         ]
     else:
@@ -1114,14 +1168,14 @@ def generate_morning_brief() -> str:
 def generate_midday_update(signals: list[dict]) -> str:
     now = _now_aest()
     lines = [
-        f"<b>🔔 MIDDAY UPDATE — {now.strftime('%H:%M')} AEST</b>",
+        f"<b>🔔 MIDDAY UPDATE — {_clock_label(now)}</b>",
         f"<i>{len(signals)} new signal(s) since morning brief</i>",
         "",
         "<b>📡 NEW SIGNALS</b>",
     ]
     for s in signals[:5]:
         lines.append(
-            f"  {_risk_emoji(s.get('risk_rating'))} {_format_signal_title(s)}"
+            f"  {_risk_emoji(s.get('risk_rating'))} {_esc(_format_signal_title(s))}"
         )
     lines += ["", "🤖 <i>XO · Starship Endeavour</i>"]
     return "\n".join(lines)
@@ -1145,7 +1199,7 @@ def generate_eod_summary() -> str:
 
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
-        f"<i>{now.strftime('%H:%M')} AEST</i>",
+        f"<i>{_clock_label(now)}</i>",
         "",
     ]
 
@@ -1167,7 +1221,7 @@ def generate_knowledge_ops_brief() -> str:
 
     lines = [
         f"<b>📚 KNOWLEDGE PLATFORM — {now.strftime('%A %d %B')}</b>",
-        f"<i>{now.strftime('%H:%M')} AEST</i>",
+        f"<i>{_clock_label(now)}</i>",
         "",
     ]
 
@@ -1258,6 +1312,10 @@ def generate_weekly_report() -> str:
     lines += _format_weekly_content_block(content_items)
     lines += _format_weekly_capacity_block(capacity_entries)
 
+    # USS-TJR-MSN-0412 Stream 4: the Free plan goes read-only at 500 MB.
+    from intelligence import db_size
+    lines += [db_size.format_line(db_size.fetch_size_mb()), ""]
+
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
 
@@ -1319,7 +1377,7 @@ def generate_weekly_debrief_digest() -> str:
         if items:
             lines.append(f"<b>{title}</b>")
             for it in items:
-                lines.append(f"  • {it}")
+                lines.append(f"  • {_esc(it)}")
             lines.append("")
 
     _section("😣 RECURRING STRESSORS", stressors)
@@ -1400,6 +1458,10 @@ def send_brief(brief_type: str, **kwargs) -> bool:
         evidence_window_hours=evidence_window_hours, collection_caveat=collection_caveat,
     )
     if brief_type == "morning":
+        # USS-TJR-MSN-0412 Stream 4: once-a-day database size guard (warns at
+        # >= 450 MB, at most once per 24h; best-effort, never raises).
+        from intelligence import db_size
+        db_size.check_and_warn()
         try:
             _email_morning_brief(text)
         except Exception as exc:  # noqa: BLE001 - best-effort email delivery, already logged as non-blocking; Telegram is the real delivery/failure signal per this function's contract

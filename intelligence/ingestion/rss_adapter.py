@@ -10,12 +10,18 @@ Feed URL resolution order:
 """
 
 import logging
-from datetime import datetime, timezone
+import time
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
+
+_BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
 
 log = logging.getLogger(__name__)
 
@@ -38,17 +44,26 @@ class RSSAdapter(BaseSourceAdapter):
         except ImportError:
             raise RuntimeError("feedparser not installed — run: pip install feedparser")
 
-        # feedparser < 6.x does not support timeout kwarg; use socket-level timeout
-        import socket
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(HTTP_TIMEOUT_SECONDS)
-        try:
-            feed = feedparser.parse(
-                self._feed_url,
-                request_headers={"User-Agent": "USS-TJR-Intelligence-Agent/1.0"},
-            )
-        finally:
-            socket.setdefaulttimeout(old_timeout)
+        # Fetch ourselves: some hosts (e.g. BIS) serve a stub to bot UAs, and
+        # some feeds contain illegal XML control chars that make feedparser bail.
+        import re
+        import urllib.request
+        if not (self._feed_url or "").lower().startswith(("http://", "https://")):
+            raise RuntimeError(f"Unsupported feed URL scheme: {self._feed_url!r}")
+        req = urllib.request.Request(
+            self._feed_url,
+            headers={"User-Agent": _BROWSER_UA, "Accept": "application/rss+xml, application/xml, text/xml, */*"},
+        )
+        # Some hosts (BIS) intermittently answer with an empty stub feed; one
+        # short retry recovers it without hammering the host.
+        for attempt in (1, 2):
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:  # nosec B310 - scheme checked above
+                raw = resp.read()
+            raw = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", b"", raw)
+            feed = feedparser.parse(raw)
+            if feed.entries or attempt == 2:
+                break
+            time.sleep(2)
 
         if feed.get("bozo") and not feed.entries:
             exc = feed.get("bozo_exception")
@@ -121,7 +136,7 @@ class RSSAdapter(BaseSourceAdapter):
                 try:
                     import time as _time
                     ts = _time.mktime(val)
-                    return datetime.fromtimestamp(ts, tz=timezone.utc)
+                    return datetime.fromtimestamp(ts, tz=UTC)
                 except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
                     log.debug("[rss_adapter] %s field failed mktime parse: %s", field, exc)
         # Fallback: try string fields

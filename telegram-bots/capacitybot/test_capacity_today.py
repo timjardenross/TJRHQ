@@ -797,7 +797,7 @@ def test_cmd_capacity_skips_sleep_on_repeat_checkin():
     import telegram_bots.capacitybot.app as app_module
     from telegram_bots.capacitybot.app import cmd_capacity
 
-    today = datetime.now(ZoneInfo("Australia/Brisbane")).date().isoformat()
+    today = datetime.now(ZoneInfo("Australia/Melbourne")).date().isoformat()
     db, _ = _make_capacity_db(today_checkin_rows=[{"log_date": today, "checkin_type": "capacity"}])
     app_module._supabase = db
     update = MagicMock()

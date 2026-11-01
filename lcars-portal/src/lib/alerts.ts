@@ -20,6 +20,7 @@ import { createSupabaseBrowserClient } from './supabase-browser';
 import { loadHumanSystems } from './human-systems';
 import { loadDelivery } from './delivery';
 import { fetchRecoveryPosture, fetchEmotionalLoadFlag } from './ros-data';
+import { evaluatePainSignal, type PainCheckinRow } from './painSignal';
 
 // Session-aware client (2026-07-18): capacity_checkins (recovery_pulses'
 // successor)/build_request_inbox/mission_execution_events either never had
@@ -165,35 +166,46 @@ async function wellnessAlerts(): Promise<AlertGroupResult> {
     try {
       const { data } = await supabase
         .from('capacity_checkins')
-        .select('pain_score, captured_at')
+        .select('pain_score, pain_state, captured_at')
         .eq('checkin_type', 'capacity')
         .order('captured_at', { ascending: false })
         .limit(5);
-      if (data && data.length > 0) {
-        const avg = data.reduce((sum: number, r: { pain_score: number | null }) => sum + (r.pain_score ?? 0), 0) / data.length;
-        if (avg > 8) {
-          out.push({
-            id: 'wellness-pain-critical',
-            kind: 'wellness',
-            severity: 'critical',
-            title: 'Pain critically high',
-            detail: `Average pain score over last ${data.length} check-ins is ${avg.toFixed(1)} (threshold: 8).`,
-            why: 'A sustained high-pain trend changes what load is safe today, not just how you feel about it.',
-            href: '/human-systems-workbench',
-            at: nowIso(),
-          });
-        } else if (avg > 6) {
-          out.push({
-            id: 'wellness-pain-elevated',
-            kind: 'wellness',
-            severity: 'high',
-            title: 'Pain trend elevated',
-            detail: `Average pain score over last ${data.length} check-ins is ${avg.toFixed(1)} (threshold: 6).`,
-            why: 'A rising pain trend is worth acting on before it becomes a red-flag escalation.',
-            href: '/human-systems-workbench',
-            at: nowIso(),
-          });
-        }
+      // Red flag = latest pain_state "high" (much higher than usual), any
+      // capacity; legacy numeric trend averages only recorded numbers.
+      const signal = evaluatePainSignal((data ?? []) as PainCheckinRow[]);
+      if (signal?.kind === 'state_high') {
+        out.push({
+          id: 'wellness-pain-critical',
+          kind: 'wellness',
+          severity: 'critical',
+          title: 'Pain much higher than usual',
+          detail: 'Your latest check-in reports pain much higher than your usual baseline.',
+          why: 'A sustained high-pain trend changes what load is safe today, not just how you feel about it.',
+          href: '/human-systems-workbench',
+          at: nowIso(),
+        });
+      } else if (signal?.kind === 'trend_critical') {
+        out.push({
+          id: 'wellness-pain-critical',
+          kind: 'wellness',
+          severity: 'critical',
+          title: 'Pain critically high',
+          detail: `Average pain score over last ${signal.n} check-ins with a recorded number is ${signal.avg.toFixed(1)} (threshold: 8).`,
+          why: 'A sustained high-pain trend changes what load is safe today, not just how you feel about it.',
+          href: '/human-systems-workbench',
+          at: nowIso(),
+        });
+      } else if (signal?.kind === 'trend_elevated') {
+        out.push({
+          id: 'wellness-pain-elevated',
+          kind: 'wellness',
+          severity: 'high',
+          title: 'Pain trend elevated',
+          detail: `Average pain score over last ${signal.n} check-ins with a recorded number is ${signal.avg.toFixed(1)} (threshold: 6).`,
+          why: 'A rising pain trend is worth acting on before it becomes a red-flag escalation.',
+          href: '/human-systems-workbench',
+          at: nowIso(),
+        });
       }
     } catch (e) {
       console.error('[alerts] wellnessAlerts source 2 (pain trend) failed:', e);

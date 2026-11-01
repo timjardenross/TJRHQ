@@ -13,6 +13,7 @@
 // row's glyph + label already identify its source; the colour coding was
 // decorative on top of that, not the only way to tell sources apart.
 
+import { describePain } from '@/lib/pain-vocab';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -75,13 +76,13 @@ async function fetchCapacityCheckins(days: number): Promise<SourceResult> {
     // CAPACITY TODAY). No pulse_type slot exists in the new model — the
     // title reads by checkin_type + date instead of a morning/midday/
     // evening bucket.
-    .select('id, log_date, checkin_type, pain_score, capacity_state, regulation_state, captured_at')
+    .select('id, log_date, checkin_type, pain_score, pain_state, capacity_state, regulation_state, captured_at')
     .gte('captured_at', since)
     .order('captured_at', { ascending: false })
     .limit(30);
   const events = (data ?? []).map(r => {
     const parts: string[] = [];
-    if (r.pain_score != null)    parts.push(`pain ${r.pain_score}`);
+    { const pain = describePain(r.pain_state, r.pain_score); if (pain) parts.push(`pain: ${pain}`); }
     if (r.capacity_state)        parts.push(`capacity ${r.capacity_state}`);
     if (r.regulation_state)      parts.push(`regulation ${r.regulation_state}`);
     return {
@@ -107,7 +108,7 @@ async function fetchLogEntries(days: number): Promise<SourceResult> {
   const events = (data ?? []).map(r => ({
     id:        `log-${r.log_date}`,
     source:    'log' as const,
-    title:     `Captain's Log filed — ${r.log_date}`,
+    title:     `Journal entry filed — ${r.log_date}`,
     detail:    r.tomorrows_priority?.slice(0, 100),
     timestamp: `${r.log_date}T00:00:00Z`,
     metadata:  { capacity: r.captain_capacity_rating },
@@ -276,7 +277,7 @@ export default function TimelinePage() {
           type="button"
           onClick={() => setDays(d)}
           aria-pressed={days === d}
-          className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+          className={`rounded-md px-2 py-1 text-wb-label font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             days === d
               ? 'bg-wb-sage-deep text-white'
               : 'text-wb-ink2 hover:text-wb-ink'
@@ -294,7 +295,7 @@ export default function TimelinePage() {
         type="button"
         onClick={() => setFilter('')}
         aria-pressed={filter === ''}
-        className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+        className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
           filter === ''
             ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep'
             : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'
@@ -308,7 +309,7 @@ export default function TimelinePage() {
           type="button"
           onClick={() => setFilter(s === filter ? '' : s)}
           aria-pressed={filter === s}
-          className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+          className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             filter === s
               ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep'
               : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'
@@ -317,7 +318,7 @@ export default function TimelinePage() {
           {SOURCE_META[s].glyph} {SOURCE_META[s].label}
         </button>
       ))}
-      <span className="ml-auto text-[10px] text-wb-ink2">
+      <span className="ml-auto text-wb-label text-wb-ink2">
         {visible.length} event{visible.length !== 1 ? 's' : ''}
       </span>
     </div>
@@ -326,15 +327,15 @@ export default function TimelinePage() {
     <div className="flex flex-wrap items-center gap-2">
       <div role="group" aria-label="Attention view" className="flex flex-wrap items-center gap-2">
       {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
-        <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+        <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
       ))}
       </div>
       <div role="group" aria-label="Lifecycle state" className="flex flex-wrap items-center gap-2">
         {LIFECYCLE_FILTERS.map(({ value, label }) => (
-          <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+          <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
         ))}
       </div>
-      <span className="text-[10px] text-wb-ink2">{lifecycleVisible.length} shown</span>
+      <span className="text-wb-label text-wb-ink2">{lifecycleVisible.length} shown</span>
     </div>
   );
 
@@ -342,7 +343,7 @@ export default function TimelinePage() {
     <WorkbenchShell
       title="Timeline"
       eyebrow="Cross-domain"
-      tagline="USS TJR · Timeline · Missions, health, log, events, captures"
+      tagline="TJR HQ · Timeline · Missions, health, log, events, captures"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={daySelector}
       tabs={<div className="flex flex-col gap-2">{attentionFilters}{sourceFilters}</div>}
@@ -377,12 +378,12 @@ export default function TimelinePage() {
               <div className="min-w-0 flex-1 pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm leading-snug text-wb-ink">{e.title}</p>
-                  <span className="mt-0.5 shrink-0 text-[10px] text-wb-ink2">{relTs(e.timestamp)}</span>
+                  <span className="mt-0.5 shrink-0 text-wb-label text-wb-ink2">{relTs(e.timestamp)}</span>
                 </div>
                 {e.detail && (
                   <p className="mt-0.5 truncate text-xs text-wb-ink2">{e.detail}</p>
                 )}
-                <span className="mt-1 block text-[9px] uppercase tracking-[0.15em] text-wb-ink2/70">
+                <span className="mt-1 block text-wb-label uppercase tracking-[0.15em] text-wb-ink2">
                   {SOURCE_META[e.source]?.label ?? e.source}
                 </span>
                 <EvidenceMeta source={SOURCE_META[e.source]?.label ?? e.source} observedAt={e.timestamp} />

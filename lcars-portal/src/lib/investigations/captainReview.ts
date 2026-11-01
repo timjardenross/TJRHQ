@@ -16,7 +16,8 @@
  */
 
 import type { InvestigationDefinition, TriggerContext } from '@/lib/investigationEngine';
-import { supabase } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { deriveRisk, type RiskLevel } from '@/lib/intelligenceRisk';
 
 // ─── Shared fetch helper ────────────────────────────────────────────────
@@ -32,12 +33,20 @@ interface FetchResult<T> {
   failed: boolean;
 }
 
+// Reads run as the signed-in Captain (cookie session), not as the anonymous
+// role: the anon key is public, and the tables read here are not anon-readable
+// (see migration 0239). Outside a request there is no session, so the read is
+// reported as failed rather than silently returning nothing.
 async function fetchRows<T>(
-  run: () => PromiseLike<{ data: T[] | null; error: unknown }>
+  run: (db: SupabaseClient) => PromiseLike<{ data: T[] | null; error: unknown }>
 ): Promise<FetchResult<T>> {
-  if (!supabase) return { rows: [], failed: false };
+  // Same as before when Supabase is not configured at all (dev, bare test run).
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return { rows: [], failed: false };
+  }
   try {
-    const { data, error } = await run();
+    const db = await createSupabaseServerClient();
+    const { data, error } = await run(db);
     if (error) return { rows: [], failed: true };
     return { rows: (data ?? []) as T[], failed: false };
   } catch {
@@ -106,8 +115,8 @@ function trendDirection(window: TrendScanPoint[]): TrendDirection {
 }
 
 async function assembleTrendScanEvidence(): Promise<TrendScanEvidence> {
-  const { rows, failed } = await fetchRows<TrendScanPoint>(() =>
-    supabase!
+  const { rows, failed } = await fetchRows<TrendScanPoint>((db) =>
+    db
       .from('intelligence_briefs')
       .select('brief_id, generated_at, period_start, period_end, overall_risk, bottom_line')
       .order('generated_at', { ascending: false })
@@ -275,8 +284,8 @@ interface RawIntelligenceEventRow {
 }
 
 async function assembleNoiseTriageEvidence(): Promise<NoiseTriageEvidence> {
-  const { rows, failed } = await fetchRows<RawIntelligenceEventRow>(() =>
-    supabase!
+  const { rows, failed } = await fetchRows<RawIntelligenceEventRow>((db) =>
+    db
       .from('intelligence_events')
       .select('event_id, raw_title, banking_relevance, customer_impact, collected_at')
       .eq('banking_relevance', 'high')
@@ -534,8 +543,8 @@ async function assembleDecisionTracebackEvidence(trigger: TriggerContext): Promi
   // 1. architecture_records - the real, live decision table, journey #19's
   // actual source of the correct answer.
   sourcesSearched.push('architecture_records');
-  const archResult = await fetchRows<RawArchitectureRecordRow>(() =>
-    supabase!
+  const archResult = await fetchRows<RawArchitectureRecordRow>((db) =>
+    db
       .from('architecture_records')
       .select('id, title, decision_summary, problem_statement, status, decision_date')
       .order('decision_date', { ascending: false })
@@ -565,8 +574,8 @@ async function assembleDecisionTracebackEvidence(trigger: TriggerContext): Promi
   // Slack-approved decisions that aren't (yet) promoted to an architecture
   // record.
   sourcesSearched.push('commander_decisions');
-  const cdResult = await fetchRows<RawCommanderDecisionRow>(() =>
-    supabase!
+  const cdResult = await fetchRows<RawCommanderDecisionRow>((db) =>
+    db
       .from('commander_decisions')
       .select('id, decision_title, decision_summary, status, created_at')
       .order('created_at', { ascending: false })
@@ -590,8 +599,8 @@ async function assembleDecisionTracebackEvidence(trigger: TriggerContext): Promi
 
   // 3. decide_ledger - final fallback, the governed-queue outcome record.
   sourcesSearched.push('decide_ledger');
-  const ledgerResult = await fetchRows<RawDecideLedgerRow>(() =>
-    supabase!
+  const ledgerResult = await fetchRows<RawDecideLedgerRow>((db) =>
+    db
       .from('decide_ledger')
       .select('id, question, action, outcome, decided_at')
       .order('decided_at', { ascending: false })

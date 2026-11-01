@@ -29,7 +29,7 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 
 # ── Env ───────────────────────────────────────────────────────────────────────
 
@@ -56,6 +56,7 @@ log = logging.getLogger("capacitybot")
 # python-telegram-bot's polling/send calls that means the bot token in
 # plaintext on every log line. WARNING still surfaces real failures.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # ── Shared modules ────────────────────────────────────────────────────────────
 
@@ -322,7 +323,6 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
                             capacity_before=row.get("capacity_state"),
                             stimulation_before=row.get("stimulation_state"),
                             pain_before=row.get("pain_state"),
-                            pain_score_before=row.get("pain_score"),
                             regulation_before=row.get("regulation_state"),
                             executive_before=row.get("executive_function"),
                             compensation_before=row.get("compensation_load"),
@@ -449,6 +449,8 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         return
 
     if f.get("ps") is not None:
+        # Retired 0-10 pain answer from a button on an old, in-flight message:
+        # carry on to the next question; the value is not stored.
         await query.edit_message_text(
             ct.q_regulation(),
             reply_markup=ct.kb_regulation(f),
@@ -456,9 +458,11 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         return
 
     if f.get("p") is not None:
+        # Pain state answered ("compared with your usual baseline") — straight
+        # on to the nervous-system question. No numeric pain question.
         await query.edit_message_text(
-            ct.q_pain_score(),
-            reply_markup=ct.kb_pain_score(f),
+            ct.q_regulation(),
+            reply_markup=ct.kb_regulation(f),
         )
         return
 
@@ -1605,7 +1609,7 @@ _BOT_COMMANDS = [
 ]
 
 
-# ── Proactive cadence — 08:00 / 13:00 / 20:00 Australia/Brisbane ────────────
+# ── Proactive cadence — 08:00 / 13:00 / 20:00 Australia/Melbourne ────────────
 # Prior to this, capacitybot was 100% command-driven (no scheduled push at
 # all) — the Captain had to remember to message it. These three jobs push
 # the same flows /capacity, /midcheck, and /evening already serve on
@@ -1652,7 +1656,7 @@ async def _post_init(app) -> None:
 
     log.info(
         "CapacityBot started version=V02 telegram=connected supabase=%s commands=%d "
-        "proactive_cadence=08:00/13:00/20:00 Australia/Brisbane",
+        "proactive_cadence=08:00/13:00/20:00 Australia/Melbourne",
         "connected" if _get_supabase() else "unavailable", len(_BOT_COMMANDS),
     )
 

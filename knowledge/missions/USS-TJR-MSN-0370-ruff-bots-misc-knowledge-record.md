@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0370 — Ruff Manual-Judgment Triage (telegram-bots/scripts/services/tests/config)
 
+**Lesson:** LL-173, LL-174
+
 Date: 2026-09-12
 Branch: `msn-0370-ruff-bots-misc` (pushed to origin, not merged to main)
 Scope: manual-judgment ruff triage, follow-up to USS-TJR-MSN-0369's autofix pass, for `telegram-bots/`, `scripts/`, `services/`, `tests/`, `config/` (everything except `core/`, `platform-runtime/`, `intelligence/`, `tools/`, owned by parallel missions in separate worktrees).

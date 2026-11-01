@@ -56,7 +56,10 @@ export async function GET() {
         .limit(1000),
       supabase.from('lessons_learned').select('lesson_id').limit(1000),
       supabase.from('missions').select('id,mission_id,status,updated_at,created_at').eq('status', 'Closed').limit(500),
-      supabase.from('decisions').select('id,updated_at,created_at').limit(500),
+      // public.decisions was dropped and recreated outside the migration
+      // system (id uuid, ..., timestamp, ...) — no updated_at/created_at
+      // columns on this shape, only timestamp.
+      supabase.from('decisions').select('id,timestamp').limit(500),
     ]);
 
     const outcomes = outRes.data ?? [];
@@ -79,7 +82,7 @@ export async function GET() {
     decisions.forEach((d: any) => {
       const sid = String(d.id ?? '');
       if (sid && !captured.has(`decision:${sid}`)) {
-        pendingAges.push(ageDays(d.updated_at ?? d.created_at) ?? 0);
+        pendingAges.push(ageDays(d.timestamp) ?? 0);
       }
     });
 

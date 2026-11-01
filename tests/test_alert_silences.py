@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -65,6 +66,24 @@ class TestMatches:
 
 # ── check_silence ────────────────────────────────────────────────────────────
 
+class TestEmergencyWarningsNeverSilenced:
+    def test_matching_silence_ignored_for_emergency_warning(self):
+        s = _silence(match_jurisdiction="NSW")
+        assert alert_silences.check_silence(_alert(severity="emergency_warning"), [s]) is None
+
+    def test_everything_silence_ignored_for_emergency_warning(self):
+        assert alert_silences.check_silence(_alert(severity="emergency_warning"), [_silence()]) is None
+
+    def test_other_severities_still_silenced(self):
+        s = _silence(match_jurisdiction="NSW")
+        for sev in ("watch_and_act", "advice", "unknown"):
+            assert alert_silences.check_silence(_alert(severity=sev), [s]) is s
+
+    def test_create_rejects_emergency_warning_severity(self):
+        with pytest.raises(ValueError, match="never be silenced"):
+            alert_silences.create_silence(reason="x", ends_at="2999-01-01T00:00:00+00:00", severity="emergency_warning")
+
+
 class TestCheckSilence:
     def test_returns_none_when_no_silences(self):
         assert alert_silences.check_silence(_alert(), []) is None
@@ -74,13 +93,13 @@ class TestCheckSilence:
             _silence(id="a", match_jurisdiction="QLD"),
             _silence(id="b", match_jurisdiction="NSW"),
         ]
-        match = alert_silences.check_silence(_alert(jurisdiction="NSW"), silences)
+        match = alert_silences.check_silence(_alert(jurisdiction="NSW", severity="advice"), silences)
         assert match is not None
         assert match["id"] == "b"
 
     def test_fetches_active_silences_when_none_passed(self):
         with patch.object(alert_silences, "list_active_silences", return_value=[_silence()]) as mock_list:
-            match = alert_silences.check_silence(_alert())
+            match = alert_silences.check_silence(_alert(severity="advice"))
         mock_list.assert_called_once()
         assert match is not None
 
@@ -137,7 +156,11 @@ class TestListActiveSilences:
         (path,), _ = mock_get.call_args
         assert "starts_at=lte." in path
         assert "ends_at=gte." in path
-        assert "2026-09-01T12:00:00" in path
+        # The timestamp is percent-encoded (a raw "+00:00" would decode to a space
+        # and PostgREST would 400), so assert on what the server decodes it to.
+        params = parse_qs(urlparse(path).query)
+        assert params["starts_at"] == ["lte.2026-09-01T12:00:00+00:00"]
+        assert params["ends_at"] == ["gte.2026-09-01T12:00:00+00:00"]
 
     def test_defaults_to_now(self):
         with patch.object(alert_silences, "supabase_get", return_value=[]) as mock_get:

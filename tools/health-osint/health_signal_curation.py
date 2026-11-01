@@ -35,6 +35,7 @@ Usage:
     python3 tools/health-osint/health_signal_curation.py
     python3 tools/health-osint/health_signal_curation.py --dry-run
     python3 tools/health-osint/health_signal_curation.py --limit 20
+    python3 tools/health-osint/health_signal_curation.py --limit 100 --time-budget 780
 """
 
 from __future__ import annotations
@@ -45,6 +46,8 @@ import logging
 import os
 import re
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +69,13 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+# Curation-specific model. Local CPU models (qwen3:8b, gemma3:4b) time out at
+# 60s on this host, so curation uses an Ollama Cloud model via the local
+# Ollama daemon (call_ollama is unguarded, unlike call_gemini/call_mistral).
+# gpt-oss:20b-cloud: ~2-7s/signal; reasoning tokens count toward num_predict,
+# so 300 returns an empty response — 1500 is the tested minimum.
+CURATION_OLLAMA_MODEL = os.environ.get("HEALTH_CURATION_OLLAMA_MODEL", "gpt-oss:20b-cloud")
+CURATION_OLLAMA_NUM_PREDICT = int(os.environ.get("HEALTH_CURATION_OLLAMA_NUM_PREDICT", "1500"))
 # HQ V1 Integration QA §28 fix: this module previously called
 # core/llm/provider_chain.py directly, bypassing Model Router entirely (the
 # one confirmed bypass found in that audit). Model Router is now tried
@@ -134,6 +144,28 @@ Respond with ONLY a JSON object:
  "population_fit": "<one short sentence>",
  "safety_relevance": true|false}
 """
+
+# Worst case for one _classify() is every provider timing out in turn:
+# model-router 20s + gemini 30s + mistral 30s + ollama 60s = 140s. Anything
+# past that means a call is hung beyond its own socket timeout — stop the
+# run rather than let one signal eat the scheduler's whole 900s window
+# (2026-09-19 and 2026-09-26 both timed out with zero signals applied).
+_CLASSIFY_DEADLINE_S = 150
+
+
+class ClassifyHung(RuntimeError):
+    pass
+
+
+# Curation scope (Captain 2026-11-01). The auto-ingest backlog was ~3600
+# signals, two thirds ClinicalTrials.gov registry entries (mostly protocols
+# with no results). Default scope "now" curates only the Captain's priority
+# areas and defers the rest — deferred signals are NOT touched (stay pending,
+# no DB writes), they are just not selected. "all" restores the old
+# behaviour. Supplement (contextual tier) and the low-priority general
+# biomedical/epi/vaccine/treatment domains are deferred.
+NOW_DOMAIN_PREFIXES = ("mental_health", "performance", "neuro", "chronic_pain", "factor")
+DEFERRED_SOURCE_NAMES = ("ClinicalTrials.gov",)
 
 _VALID_MISSION_RELEVANCE = {"RELEVANT", "LOW_CONFIDENCE", "NOT_RELEVANT"}
 _VALID_EVIDENCE_CONTRIBUTION = {
@@ -238,14 +270,22 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
         f"URL: {signal.get('canonical_url') or '(none)'}\n"
     )
 
+    # Local Ollama first: the cloud paths (router -> gemini, direct gemini,
+    # mistral) all run the NeMo input/output rails (MSN-0412 Stream 5), which
+    # cost 45-90s per call on this CPU-only host and can false-positive on
+    # benign text. With cloud first, the first signal in the queue burned the
+    # whole _CLASSIFY_DEADLINE_S before the local provider was ever tried, so
+    # the weekly run applied nothing (2026-10-11 .. 2026-11-01). Cloud stays
+    # as the fallback if Ollama fails.
     providers = [
+        ("ollama", lambda: call_ollama(_SYSTEM_PROMPT, prompt, base_url=OLLAMA_BASE_URL,
+                                        model=CURATION_OLLAMA_MODEL, temperature=0.1,
+                                        num_predict=CURATION_OLLAMA_NUM_PREDICT, timeout=90).text),
         ("model-router", lambda: _call_model_router(prompt)),
         ("gemini", lambda: call_gemini(_SYSTEM_PROMPT, prompt, api_key=GEMINI_API_KEY,
                                         max_output_tokens=300, temperature=0.1, timeout=30).text),
         ("mistral", lambda: call_mistral(_SYSTEM_PROMPT, prompt, api_key=MISTRAL_API_KEY,
                                           max_tokens=300, temperature=0.1, timeout=30).text),
-        ("ollama", lambda: call_ollama(_SYSTEM_PROMPT, prompt, base_url=OLLAMA_BASE_URL,
-                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=300, timeout=60).text),
     ]
 
     for name, fn in providers:
@@ -261,10 +301,27 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
     return _fallback_classification("all LLM providers unavailable")
 
 
+def _classify_with_deadline(signal: dict[str, Any], deadline_s: float) -> dict[str, Any]:
+    """_classify() in a daemon thread so a hung provider call can't block
+    past deadline_s. A daemon thread left running doesn't keep the process
+    alive at exit, so raising here lets main() finish and report."""
+    box: dict[str, Any] = {}
+    t = threading.Thread(target=lambda: box.setdefault("r", _classify(signal)), daemon=True)
+    t.start()
+    t.join(deadline_s)
+    if "r" not in box:
+        raise ClassifyHung(f"classification of signal {signal.get('signal_id')} exceeded {deadline_s:.0f}s")
+    return box["r"]
+
+
 class HealthSignalCurator:
-    def __init__(self, dry_run: bool = False, limit: int | None = None):
+    def __init__(self, dry_run: bool = False, limit: int | None = None, time_budget: float | None = None, scope: str = "now"):
+        if scope not in ("now", "all"):
+            raise ValueError(f"scope must be 'now' or 'all', got {scope!r}")
+        self.scope = scope
         self.dry_run = dry_run
         self.limit = limit
+        self.time_budget = time_budget
         self.supabase = None if dry_run else _client()
 
     @staticmethod
@@ -298,11 +355,31 @@ class HealthSignalCurator:
             )
             .eq("auto_ingested", True)
             .eq("auto_ingest_reviewed", False)
+            # Skip signals the model already ESCALATEd (mission_relevance is
+            # written on every real model answer). They're waiting on a
+            # human at /health-osint-curation; re-asking every week only
+            # re-escalates them, and with oldest-first ordering they'd
+            # gradually fill every --limit slot and starve new arrivals.
+            # The "all LLM providers unavailable" fallback leaves
+            # mission_relevance NULL, so those still get retried.
+            .is_("mission_relevance", "null")
             # Oldest-first — --limit's own help text ("the rest next run")
             # only holds if older pending rows aren't perpetually pushed
             # behind newer arrivals.
             .order("collected_at", desc=False)
         )
+        if self.scope == "now":
+            clauses = []
+            for prefix in NOW_DOMAIN_PREFIXES:
+                clauses += [f"health_domain.eq.{prefix}", f"health_domain.like.{prefix}_*"]
+            clauses.append("fda_flagged.eq.true")  # safety signals are always in scope
+            query = query.or_(",".join(clauses))
+            deferred = (
+                self.supabase.table("health_source_registry").select("source_id")
+                .in_("source_name", list(DEFERRED_SOURCE_NAMES)).execute().data or []
+            )
+            if deferred:
+                query = query.not_.in_("source_id", [d["source_id"] for d in deferred])
         if self.limit:
             query = query.limit(self.limit)
         rows = query.execute().data or []
@@ -346,7 +423,7 @@ class HealthSignalCurator:
     def run(self) -> dict[str, Any]:
         if self.dry_run:
             log.info("[dry-run] would query health_signals for the pending auto-ingest queue")
-            return {"total": 0, "published": 0, "rejected": 0, "escalated": 0, "details": []}
+            return {"total": 0, "fetched": 0, "stopped_reason": None, "published": 0, "rejected": 0, "escalated": 0, "details": []}
 
         pending = self._pending()
         log.info("Curating %d pending signal(s)", len(pending))
@@ -359,9 +436,36 @@ class HealthSignalCurator:
 
         counts = {"PUBLISH": 0, "REJECT": 0, "ESCALATE": 0}
         details = []
-        for group in groups.values():
+        started = time.monotonic()
+        stopped_reason = None
+        hung_in_a_row = 0
+        skipped_hung = 0
+        for gi, group in enumerate(groups.values()):
+            elapsed = time.monotonic() - started
+            if self.time_budget is not None and elapsed + _CLASSIFY_DEADLINE_S > self.time_budget:
+                stopped_reason = (
+                    f"time budget {self.time_budget:.0f}s reached after {gi}/{len(groups)} group(s) "
+                    f"({elapsed:.0f}s elapsed) — rest stay pending for next run"
+                )
+                log.warning(stopped_reason)
+                break
             representative = group[0]
-            classification = _classify(representative)
+            t0 = time.monotonic()
+            try:
+                classification = _classify_with_deadline(representative, _CLASSIFY_DEADLINE_S)
+            except ClassifyHung as exc:
+                # One hung signal must not block the queue (it is oldest-first,
+                # so it would be picked first every run). Skip it — it stays
+                # pending and untouched — and carry on. Two in a row means the
+                # provider chain itself is down: stop the run (exit 2).
+                hung_in_a_row += 1
+                skipped_hung += 1
+                log.error("Skipping hung signal: %s", exc)
+                if hung_in_a_row >= 2:
+                    raise
+                continue
+            hung_in_a_row = 0
+            classify_s = time.monotonic() - t0
             decision = classification["decision"]
             reason = classification["reason"]
             if len(group) > 1:
@@ -381,10 +485,14 @@ class HealthSignalCurator:
                 })
 
             dup_note = f" (dup x{len(group)})" if len(group) > 1 else ""
-            log.info("[%s]%s %s — %s", decision, dup_note, (representative.get("title") or "")[:80], reason)
+            log.info("[%s]%s (%.1fs) %s — %s", decision, dup_note, classify_s, (representative.get("title") or "")[:80], reason)
 
+        if skipped_hung and not stopped_reason:
+            stopped_reason = f"{skipped_hung} hung signal(s) skipped, left pending"
         return {
-            "total": len(pending),
+            "total": len(details),
+            "fetched": len(pending),
+            "stopped_reason": stopped_reason,
             "published": counts["PUBLISH"],
             "rejected": counts["REJECT"],
             "escalated": counts["ESCALATE"],
@@ -396,14 +504,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Health OSINT auto-curation — LLM-judged publish/reject/escalate")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int, default=None, help="Only process this many pending signals (oldest-first review still applies to the rest next run)")
+    parser.add_argument("--time-budget", type=float, default=None, help="Stop starting new classifications once this many seconds have elapsed; exits 0 with partial counts")
+    parser.add_argument("--scope", choices=("now", "all"), default="now", help="now = priority domains only, ClinicalTrials.gov deferred (default); all = whole pending queue")
     args = parser.parse_args()
 
-    curator = HealthSignalCurator(dry_run=args.dry_run, limit=args.limit)
-    result = curator.run()
-    log.info(
-        "Done: %d total — %d published, %d rejected, %d escalated to human review",
-        result["total"], result["published"], result["rejected"], result["escalated"],
+    curator = HealthSignalCurator(dry_run=args.dry_run, limit=args.limit, time_budget=args.time_budget, scope=args.scope)
+    try:
+        result = curator.run()
+    except ClassifyHung as exc:
+        log.error("Stopping: %s — LLM provider chain is hung; signals already applied this run are kept", exc)
+        sys.exit(2)
+    summary = (
+        f"Done: {result['total']} of {result['fetched']} curated — {result['published']} published, "
+        f"{result['rejected']} rejected, {result['escalated']} escalated to human review"
+        + (f" ({result['stopped_reason']})" if result["stopped_reason"] else "")
     )
+    log.info(summary)
+    # stdout too: the scheduler stores stdout[-500:] as the heartbeat detail.
+    print(summary)
 
 
 if __name__ == "__main__":

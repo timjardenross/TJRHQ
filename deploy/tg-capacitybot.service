@@ -1,6 +1,6 @@
 [Unit]
 Description=Capacity Bot (MY CAPACITY TODAY) Telegram bot
-After=network.target
+After=network.target docker.service
 
 [Service]
 WorkingDirectory=/opt/starship-endeavour

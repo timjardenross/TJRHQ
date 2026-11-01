@@ -171,7 +171,7 @@ def create_handoff(
         if c.is_enabled() and c.raw_client:
             owner = f"{_HANDOFF_OWNER_PREFIX}{handoff_id}"
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .ilike("rationale", f"%FROM: {from_officer}%TO: {to_officer}%")
                 .ilike("owner", f"{_HANDOFF_OWNER_PREFIX}%")
@@ -180,7 +180,7 @@ def create_handoff(
                 .execute()
             )
             if not list(existing.data or []):
-                c.raw_client.table("decisions").insert({
+                c.raw_client.table("command_memory_records").insert({
                     "owner": owner,
                     "statement": f"[OFFICER HANDOFF] {from_officer} → {to_officer}: {hr.item_type[:60]}",
                     "rationale": _build_rationale(hr),
@@ -203,14 +203,14 @@ def accept_handoff(handoff_id: str, accepting_officer: str) -> bool:
             return False
 
         owner = f"{_HANDOFF_OWNER_PREFIX}{handoff_id}"
-        res = c.raw_client.table("decisions").select("rationale").eq("owner", owner).limit(1).execute()
+        res = c.raw_client.table("command_memory_records").select("rationale").eq("owner", owner).limit(1).execute()
         rows = list(res.data or [])
         if not rows:
             return False
 
         rat = rows[0].get("rationale", "")
         new_rat = rat.replace(f"STATUS: {HandoffStatus.PENDING.value}", f"STATUS: {HandoffStatus.ACCEPTED.value}")
-        c.raw_client.table("decisions").update({
+        c.raw_client.table("command_memory_records").update({
             "rationale": new_rat,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("owner", owner).execute()
@@ -230,7 +230,7 @@ def complete_handoff(handoff_id: str) -> bool:
             return False
 
         owner = f"{_HANDOFF_OWNER_PREFIX}{handoff_id}"
-        c.raw_client.table("decisions").update({
+        c.raw_client.table("command_memory_records").update({
             "status": "resolved",
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("owner", owner).execute()
@@ -251,7 +251,7 @@ def get_pending_handoffs(officer: str) -> list[HandoffRecord]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,statement,rationale,status")
             .ilike("owner", f"{_HANDOFF_OWNER_PREFIX}%")
             .ilike("rationale", f"%TO: {officer}%")

@@ -12,6 +12,8 @@ concurrent_with: mission5-evidence-adaptive-support (isolated branch, not touche
 
 # Mission 6A — Chief-of-Staff Experience Foundations
 
+**Lesson:** LL-198
+
 Discovery-first pass across whole-of-HQ experience. 4 parallel discovery streams (A+C, B+G, D+E+F+I, H+J) run against read-only worktree checkout. This record is deliverable #17 (mission knowledge record) and folds in deliverables #1-13.
 
 ## 1. Current-state HQ experience map (summary)

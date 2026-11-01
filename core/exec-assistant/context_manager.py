@@ -59,7 +59,7 @@ class ContextManager:
         Set an executive preference.
 
         Common preferences:
-        - "working_hours": {"start": "09:00", "end": "18:00", "timezone": "Australia/Brisbane"}
+        - "working_hours": {"start": "09:00", "end": "18:00", "timezone": "Australia/Melbourne"}
         - "meeting_preferences": {"max_per_day": 5, "preferred_slots": ["09:30", "14:00"]}
         - "communication_style": {"format": "bullet_points", "brevity": "concise"}
 

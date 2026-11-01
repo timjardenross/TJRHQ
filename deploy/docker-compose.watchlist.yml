@@ -52,15 +52,16 @@ services:
     container_name: changedetection.io
     restart: unless-stopped
     ports:
-      # USS-TJR-MSN-0368 activation: host port 5000 is already bound by
-      # this VM's real Command Centre backend
-      # (core/command-centre/backend/app.js) -- remapped to 5050 on the
-      # host side; the container's own internal port stays 5000.
-      - "5050:5000"
+      # 2026-09-26 (HQ Consolidation Audit): was "5050:5000" (0.0.0.0,
+      # directly internet-reachable, bypassing Caddy's TLS/security
+      # headers entirely). Rebound to loopback-only -- Caddy now fronts
+      # this at /changedetection/* (see /etc/caddy/Caddyfile), same
+      # pattern as every other backend on this host.
+      - "127.0.0.1:5050:5000"
     volumes:
       - ./watchlist-data/changedetection-data:/datastore
     environment:
-      BASE_URL: "http://localhost:5050"
+      BASE_URL: "https://109.123.227.196/changedetection"
       # USS-TJR-MSN-0368 activation: this host has no TLS-intercepting
       # egress gateway (confirmed 2026-09-12 -- plain `curl https://...`
       # works directly, no CA bundle file present) so the three
@@ -77,7 +78,10 @@ services:
     container_name: uptime-kuma
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      # 2026-09-26 (HQ Consolidation Audit): was "3001:3001" (0.0.0.0,
+      # directly internet-reachable). Rebound to loopback-only -- Caddy
+      # now fronts this at /uptime/* (see /etc/caddy/Caddyfile).
+      - "127.0.0.1:3001:3001"
     volumes:
       - ./watchlist-data/uptime-kuma-data:/app/data
     extra_hosts:

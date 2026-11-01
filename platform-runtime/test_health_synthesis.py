@@ -46,7 +46,7 @@ class TestSummariseNoData(unittest.TestCase):
     def test_no_rows_message(self):
         text = _summarise([])
         self.assertIn("No check-in data", text)
-        self.assertIn("/health-check", text)
+        self.assertIn("/capacity", text)
 
 
 # ── _summarise(): aggregation ───────────────────────────────────────────────────

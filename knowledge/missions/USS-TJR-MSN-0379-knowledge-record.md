@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0379 |
 | Title | Added promptfoo as a CI eval job — real run against the live Model Router found a genuine prompt-injection compliance failure garak and deepteam had never actually confirmed live |
 | Date | 2026-09-13 |
+| Lesson | LL-189 |
 | Priority | P2 |
 
 ## Outcome

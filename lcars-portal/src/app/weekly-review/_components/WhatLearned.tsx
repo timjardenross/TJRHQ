@@ -10,13 +10,13 @@ import type { LearnedItem } from '@/lib/weeklyReview';
 export function WhatLearned({ items }: { items: LearnedItem[] }) {
   return (
     <Card>
-      <h2 className="mb-3 font-serif text-[15px] uppercase tracking-[0.1em] text-wb-ink">What HQ Learned</h2>
+      <h2 className="mb-3 font-serif text-wb-lead uppercase tracking-[0.1em] text-wb-ink">What HQ Learned</h2>
       {items.length === 0 ? (
-        <p className="text-[13px] text-wb-ink2">No defensible new lesson this week.</p>
+        <p className="text-wb-body text-wb-ink2">No defensible new lesson this week.</p>
       ) : (
         <ol className="flex flex-col gap-3">
           {items.map((item, i) => (
-            <li key={item.key} className="text-[13px]">
+            <li key={item.key} className="text-wb-body">
               <span className="font-medium text-wb-ink">{i + 1}. {item.title}</span>
               <p className="mt-0.5 text-wb-ink2">{item.lesson}</p>
             </li>

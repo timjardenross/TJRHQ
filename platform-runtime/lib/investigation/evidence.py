@@ -69,7 +69,7 @@ def _collect_from_decisions(
         rows: list[dict] = []
         for kw in keywords[:2]:
             res = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("statement,rationale,owner,created_at")
                 .ilike("statement", f"%{kw}%")
                 .order("created_at", desc=True)
@@ -254,7 +254,7 @@ def get_evidence(investigation_id: str) -> EvidencePackage:
             return package
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{EVIDENCE_OWNER_PREFIX}{investigation_id}")
             .order("created_at", desc=True)

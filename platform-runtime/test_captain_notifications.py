@@ -233,7 +233,7 @@ class TestHealthNudge(unittest.TestCase):
 
     def test_nudge_text_contains_command(self):
         msg = health_nudge_text()
-        self.assertIn("/health-check", msg)
+        self.assertIn("/capacity", msg)
         self.assertIn("Health Log Reminder", msg)
 
 

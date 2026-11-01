@@ -14,7 +14,7 @@ import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 log = logging.getLogger(__name__)
 
 # ── Time of day labels and selection ──────────────────────────────────────────
@@ -44,7 +44,7 @@ def _current_time_of_day() -> str:
     try:
         local_hour = datetime.now(_TZ).hour
     except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing the time-of-day suggestion
-        log.debug("Brisbane zoneinfo lookup failed, falling back to UTC hour: %s", exc)
+        log.debug("Melbourne zoneinfo lookup failed, falling back to UTC hour: %s", exc)
         local_hour = datetime.now(timezone.utc).hour
     if local_hour < 14:
         return "morning"

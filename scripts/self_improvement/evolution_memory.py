@@ -42,6 +42,8 @@ investigation prompt.
 import re
 from typing import Any
 
+import lifecycle
+
 # Lifecycle states worth remembering. Anything else (discovered,
 # investigating, proposed, approved, implementing, verifying) has no
 # settled system-evidence or user-decision signal yet, so it carries
@@ -128,7 +130,7 @@ def find_related_outcomes(candidate: dict[str, Any], store: Any, max_results: in
         for rec in store.all_current():
             if not isinstance(rec, dict):
                 continue
-            if rec.get("lifecycle_state") not in _RELEVANT_STATES:
+            if lifecycle.detail_of(rec) not in _RELEVANT_STATES:
                 continue
             if rec.get("change_class") != candidate_change_class:
                 continue
@@ -152,7 +154,7 @@ def find_related_outcomes(candidate: dict[str, Any], store: Any, max_results: in
 
         results: list[dict[str, Any]] = []
         for relevance_score, rec in scored[:max_results]:
-            relationship = rec.get("lifecycle_state")
+            relationship = lifecycle.detail_of(rec)
             outcome = rec.get("outcome") or {}
             if not isinstance(outcome, dict):
                 outcome = {}

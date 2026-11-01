@@ -119,7 +119,7 @@ def find_related(
 
     # Decisions
     try:
-        d_rows = supabase_client.table("decisions").select(
+        d_rows = supabase_client.table("command_memory_records").select(
             "id, statement, rationale"
         ).not_.in_("status", ["Superseded"]).limit(100).execute().data or []
         for row in d_rows:

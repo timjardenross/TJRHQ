@@ -218,7 +218,7 @@ def register_capability(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", f"{CAPABILITY_OWNER_PREFIX}%")
                 .ilike("statement", f"%{name[:40]}%")
@@ -266,7 +266,7 @@ def update_capability(capability_id: str, **fields: Any) -> bool:
             return False
         owner_key = f"{CAPABILITY_OWNER_PREFIX}{capability_id}"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale")
             .eq("owner", owner_key)
             .limit(1)
@@ -288,7 +288,7 @@ def update_capability(capability_id: str, **fields: Any) -> bool:
             elif k == "status":
                 v = v if isinstance(v, CapabilityStatus) else CapabilityStatus(str(v))
             setattr(cap, k, v)
-        c.raw_client.table("decisions").update({"rationale": _build_rationale(cap)}).eq("id", rows[0]["id"]).execute()
+        c.raw_client.table("command_memory_records").update({"rationale": _build_rationale(cap)}).eq("id", rows[0]["id"]).execute()
         return True
     except Exception as exc:  # noqa: BLE001 - capability update, best-effort, already logged
         log.debug("[strategy.capabilities] update_capability failed: %s", exc)
@@ -301,7 +301,7 @@ def get_capability(capability_id: str) -> Capability | None:
         if c is None:
             return None
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{CAPABILITY_OWNER_PREFIX}{capability_id}")
             .limit(1)
@@ -324,7 +324,7 @@ def list_capabilities(
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{CAPABILITY_OWNER_PREFIX}%")
             .order("created_at", desc=True)

@@ -180,7 +180,7 @@ def register_future_capability(
         if c is not None:
             owner_pattern = f"{FUTURE_CAP_OWNER_PREFIX}{horizon}:%"
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", owner_pattern)
                 .ilike("statement", f"%{name[:40]}%")
@@ -229,7 +229,7 @@ def list_future_capabilities(
         else:
             owner_filter = f"{FUTURE_CAP_OWNER_PREFIX}%"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", owner_filter)
             .order("created_at", desc=True)

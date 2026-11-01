@@ -61,7 +61,7 @@ export function FollowThroughSection() {
       </div>
 
       <div className="mt-6">
-        <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Telegram</h2>
+        <h2 className="mb-2 text-wb-body font-semibold uppercase tracking-[0.1em] text-wb-ink2">Telegram</h2>
         <div className="rounded-lg border border-wb-line bg-wb-surface px-4">
           <SettingRow label="Follow-through messages">
             <Checkbox
@@ -91,7 +91,7 @@ export function FollowThroughSection() {
             />
           </SettingRow>
         </div>
-        <p className="mt-2 text-[12px] text-wb-ink2">
+        <p className="mt-2 text-wb-label text-wb-ink2">
           For connection state and reconnecting Telegram, see{' '}
           <Link href="/settings/connections" className="text-wb-sage-deep hover:underline">
             Connections

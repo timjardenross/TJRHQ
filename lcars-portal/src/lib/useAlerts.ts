@@ -15,6 +15,24 @@ import { fireNotification, notifyEnabled, notificationPermission } from './notif
 
 const LAST_NOTIFIED_KEY = 'lcars-alerts-last-notified';
 const DEFAULT_POLL_MS = 120_000;
+/** computeAlerts() fans out to 6 alert sources (each a Supabase-backed API
+ *  route). Several useAlerts instances are usually mounted at once (the
+ *  global nav badge plus the page's own list), so they share one in-flight
+ *  or recent result instead of each polling separately. */
+const SHARED_RESULT_MS = 30_000;
+type AlertsResult = Awaited<ReturnType<typeof computeAlerts>>;
+let shared: { at: number; promise: Promise<AlertsResult> } | null = null;
+
+function sharedComputeAlerts(force: boolean): Promise<AlertsResult> {
+  const now = Date.now();
+  if (!force && shared && now - shared.at < SHARED_RESULT_MS) return shared.promise;
+  const promise = computeAlerts();
+  shared = { at: now, promise };
+  promise.catch(() => {
+    if (shared?.promise === promise) shared = null;
+  });
+  return promise;
+}
 
 export interface UseAlertsResult {
   alerts: MobileAlert[];
@@ -57,8 +75,8 @@ export function useAlerts(options: UseAlertsOptions = {}): UseAlertsResult {
   const [totalSources, setTotalSources] = useState(0);
   const notifiedRef = useRef<Set<string>>(loadNotified());
 
-  const run = useCallback(async () => {
-    const result = await computeAlerts();
+  const run = useCallback(async (force = false) => {
+    const result = await sharedComputeAlerts(force);
     const next = result.alerts;
     setAlerts(next);
     setFailedSources(result.failedSources);
@@ -89,7 +107,11 @@ export function useAlerts(options: UseAlertsOptions = {}): UseAlertsResult {
       run();
     };
     tick();
-    const interval = setInterval(tick, pollMs);
+    // No polling while the tab is hidden — the visibilitychange handler
+    // below refreshes as soon as it's shown again.
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') tick();
+    }, pollMs);
     const onVisible = () => {
       if (document.visibilityState === 'visible') tick();
     };
@@ -101,7 +123,9 @@ export function useAlerts(options: UseAlertsOptions = {}): UseAlertsResult {
     };
   }, [run, pollMs]);
 
-  return { alerts, isLoading, lastUpdated, refresh: run, failedSources, totalSources };
+  const refresh = useCallback(() => { void run(true); }, [run]);
+
+  return { alerts, isLoading, lastUpdated, refresh, failedSources, totalSources };
 }
 
 /**

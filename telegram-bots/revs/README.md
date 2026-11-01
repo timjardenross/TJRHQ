@@ -81,6 +81,14 @@ handler at all, not even a stub.
   fall through to "Mixed week" — the previous week's matched/logged
   snapshot isn't persisted yet, so "steadier/less steady than last week"
   can't be computed. Needs a small migration addition, not a safety gap.
+- **`crisis_layer2` latency (USS-TJR-MSN-0412 Stream 5).** Its cloud calls go
+  through `core.llm.provider_chain`, which now runs the LLM guard (input rail,
+  PII redaction, output rail) and fails closed. Measured on this CPU-only host,
+  that adds roughly 45-90 s per cloud call, and a busy or unavailable guard
+  refuses the call instead of sending it. Layer 2 is on a time-critical path,
+  so before REVS goes live (or is moved to another host) decide the crisis
+  fallback for a refused or slow guard, and do not wait on the guard before
+  showing the user the Layer 1 safety response.
 
 ## Running locally
 

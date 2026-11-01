@@ -28,6 +28,8 @@ import sys
 # unit), which puts only the repo root on sys.path. Insert this directory
 # before any sibling import below runs, so both invocation styles work.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Shared helper lives one level up (telegram-bots/log_redaction.py).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import commands
 import crisis_layer2
@@ -37,6 +39,7 @@ import onboarding
 import safety
 import scheduler
 import weekly
+from log_redaction import install_token_redaction
 from scoped_supabase import build_scoped_client
 from telegram import Update
 from telegram.ext import (
@@ -52,6 +55,15 @@ from telegram.ext import (
 import config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
+
+# httpx logs every request at INFO with the full URL, which for python-telegram-bot
+# means https://api.telegram.org/bot<TOKEN>/... (token in plaintext in syslog/journal).
+# Silence it, and add a belt-and-braces redacting filter on every root handler.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+install_token_redaction()
 log = logging.getLogger("revs-bot")
 
 _CLIENT = None  # set in main(); module-level so handler closures can reach it
@@ -97,9 +109,27 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     client = _get_client()
     user_id = update.effective_user.id
-    row = db.get_user(client, user_id)
-    if row is None:
-        row = db.create_user(client, user_id, update.effective_user.first_name or "there")
+
+    # 2026-10-02: a Supabase outage (quota block, network partition, etc.)
+    # used to leave a user typing crisis language with complete silence —
+    # the resources message and the Captain escalation both ran *after*
+    # db.get_user/insert_crisis_event/update_user, so a DB exception here
+    # raised straight through PTB's handler before either ever fired. This
+    # is the one path in the whole bot that must never go silent, so it's
+    # now: read best-effort (fall back to an unknown user / default
+    # locale), send resources FIRST, then best-effort DB writes, then
+    # escalate — and the escalation's `detail` says explicitly when the DB
+    # step failed, since that also means the 24h re-contact never got
+    # scheduled and a human needs to follow up by hand.
+    try:
+        row = db.get_user(client, user_id)
+        if row is None:
+            row = db.create_user(client, user_id, update.effective_user.first_name or "there")
+        db_ok = True
+    except Exception:
+        log.exception("[crisis_gate] could not read/create user %s — proceeding with defaults", user_id)
+        row = {"first_name": update.effective_user.first_name, "locale": None}
+        db_ok = False
 
     import datetime as dt
 
@@ -108,11 +138,17 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     now = dt.datetime.now(dt.timezone.utc)
     recontact_due = now + dt.timedelta(hours=24)
-    db.insert_crisis_event(client, user_id, trigger_type, recontact_due)
-    db.update_user(client, user_id, quiet_until=(now + dt.timedelta(hours=48)).isoformat())
 
     response_text = crisis_language_response(safety.locale_resources(row.get("locale")))
     await update.message.reply_text(response_text)
+
+    if db_ok:
+        try:
+            db.insert_crisis_event(client, user_id, trigger_type, recontact_due)
+            db.update_user(client, user_id, quiet_until=(now + dt.timedelta(hours=48)).isoformat())
+        except Exception:
+            log.exception("[crisis_gate] DB write failed for user %s after resources message was sent", user_id)
+            db_ok = False
 
     # Escalation runs after the user's own resources message is already
     # sent — never delays it — and a failure here (bad XO credentials,
@@ -124,6 +160,10 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         trigger_type=trigger_type,
         locale=row.get("locale"),
         triggered_text=text,
+        detail=None if db_ok else (
+            "Supabase unreachable — crisis event was NOT recorded, no 24h "
+            "automatic re-contact scheduled. Follow up by hand."
+        ),
     )
     raise ApplicationHandlerStop
 

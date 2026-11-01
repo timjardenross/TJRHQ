@@ -68,10 +68,15 @@ def _supabase_raw():
     return CommanderSupabaseClient().raw_client
 
 
-async def _distill(transcript: str) -> list[str]:
-    """Ask the LLM for a JSON array of standalone facts. Returns [] on any
-    failure — a consolidation miss is never worse than the raw turns
-    simply staying unconsolidated until the next run."""
+async def _distill(transcript: str) -> list[str] | None:
+    """Ask the LLM for a JSON array of standalone facts.
+
+    Returns the facts (possibly an empty list: the model answered "nothing worth
+    keeping", or there was nothing to distil) on success, and None when the call
+    FAILED or its reply was unusable (exception, no reply, invalid JSON, not a
+    list). Callers must treat None as "not processed": the raw turns have to stay
+    unconsolidated so a later run retries them. Conflating the two used to mark
+    turns consolidated with no facts written whenever the LLM call failed."""
     if not transcript.strip():
         return []
     from telegram_bots.llm import generate_async
@@ -80,16 +85,18 @@ async def _distill(transcript: str) -> list[str]:
         reply = await generate_async(transcript, _DISTILL_SYSTEM_PROMPT)
     except Exception as exc:  # noqa: BLE001 - LLM call surface is unpredictable, already logged
         log.warning("[nightly-consolidation] LLM distillation call failed: %s", exc)
-        return []
+        return None
     if not reply:
-        return []
+        log.warning("[nightly-consolidation] LLM returned no reply")
+        return None
     try:
         facts = json.loads(reply)
     except json.JSONDecodeError:
         log.warning("[nightly-consolidation] LLM reply wasn't valid JSON, skipping: %r", reply[:200])
-        return []
+        return None
     if not isinstance(facts, list):
-        return []
+        log.warning("[nightly-consolidation] LLM reply wasn't a JSON array, skipping")
+        return None
     return [str(f).strip() for f in facts if str(f).strip()]
 
 
@@ -116,10 +123,20 @@ async def consolidate_conversation_turns(db) -> dict[str, int]:
         by_chat.setdefault(row["chat_id"], []).append(row)
 
     facts_written = 0
+    chats_failed = 0
     now_iso = datetime.now(timezone.utc).isoformat()
     for chat_id, turns in by_chat.items():
         transcript = "\n".join(f"{t['role']}: {t['text']}" for t in turns)
         facts = await _distill(transcript)
+        if facts is None:
+            # The LLM call failed. Do NOT mark these turns consolidated: with no facts
+            # written they would never be distilled again. Leave them for the next run.
+            chats_failed += 1
+            log.warning(
+                "[nightly-consolidation] distillation failed for chat_id=%s - leaving %d turns unconsolidated for the next run",
+                chat_id, len(turns),
+            )
+            continue
         for fact in facts:
             result = remember(
                 MemoryType.RELATIONSHIPS, fact, user_id="captain",
@@ -133,7 +150,10 @@ async def consolidate_conversation_turns(db) -> dict[str, int]:
         except Exception as exc:  # noqa: BLE001 - marking-done failure shouldn't crash the batch; worst case these turns get re-distilled next run
             log.warning("[nightly-consolidation] failed to mark %d turns consolidated for chat_id=%s: %s", len(ids), chat_id, exc)
 
-    return {"turns_read": len(rows), "facts_written": facts_written}
+    result = {"turns_read": len(rows), "facts_written": facts_written}
+    if chats_failed:
+        result["chats_failed"] = chats_failed
+    return result
 
 
 async def consolidate_command_memory(db) -> dict[str, int]:
@@ -159,6 +179,11 @@ async def consolidate_command_memory(db) -> dict[str, int]:
         for d in rows
     )
     facts = await _distill(transcript)
+    if facts is None:
+        # Nothing is marked here (the window is the last 24 h), so a failed call only means
+        # this window produced no facts; say so instead of reporting a clean zero.
+        log.warning("[nightly-consolidation] distillation failed for command memory (%d decisions)", len(rows))
+        return {"decisions_read": len(rows), "facts_written": 0, "distill_failed": True}
     facts_written = 0
     for fact in facts:
         result = remember(

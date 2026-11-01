@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0382 |
 | Priority | P2 |
 | Date | 2026-09-13 |
+| Lesson | LL-191 |
 | Status | **DONE** — convention documented, no code/enforcement changes |
 
 ## What triggered this

@@ -89,7 +89,7 @@ async function searchLog(q: string): Promise<SearchOutcome> {
   const results = (data ?? []).map(r => ({
     type:      'log' as const,
     id:        r.log_date,
-    title:     `Captain's Log — ${r.log_date}`,
+    title:     `Journal — ${r.log_date}`,
     detail:    (r.tomorrows_priority ?? r.overall_note ?? '').slice(0, 100),
     timestamp: r.log_date,
     // /timeline renders past log entries chronologically — the real
@@ -147,7 +147,7 @@ async function searchEvents(q: string): Promise<SearchOutcome> {
 // Pair each searcher with its display label so failures can be named.
 const SEARCHERS: { source: string; run: (q: string) => Promise<SearchOutcome> }[] = [
   { source: 'Missions',      run: searchMissions },
-  { source: "Captain's Log", run: searchLog },
+  { source: "Journal", run: searchLog },
   { source: 'Captures',      run: searchCaptures },
   { source: 'Events',        run: searchEvents },
 ];
@@ -156,7 +156,7 @@ const SEARCHERS: { source: string; run: (q: string) => Promise<SearchOutcome> }[
 
 const TYPE_LABEL: Record<string, string> = {
   mission: 'Missions',
-  log:     "Captain's Log",
+  log:     "Journal",
   capture: 'Captures',
   event:   'Events',
 };
@@ -281,7 +281,7 @@ export default function SearchPage() {
     <WorkbenchShell
       title="Search"
       eyebrow="Cross-domain"
-      tagline="USS TJR · Search · Missions, Captain's Log, Captures, Events"
+      tagline="TJR HQ · Search · Missions, Journal, Captures, Events"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       mode="focus"
     >
@@ -305,12 +305,12 @@ export default function SearchPage() {
         </div>
         <div role="group" aria-label="Attention view" className="flex flex-wrap gap-2">
           {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+            <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
           ))}
           {LIFECYCLE_FILTERS.map(({ value, label }) => (
-            <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+            <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
           ))}
-          <span className="self-center text-[10px] text-wb-ink2">{lifecycleResults.length} shown</span>
+          <span className="self-center text-wb-label text-wb-ink2">{lifecycleResults.length} shown</span>
         </div>
 
         {!searched && (
@@ -337,7 +337,7 @@ export default function SearchPage() {
         )}
         {Object.entries(filteredGrouped).map(([type, items]) => (
           <div key={type} className="flex flex-col gap-1">
-            <p className="border-b border-wb-line pb-1 text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
+            <p className="border-b border-wb-line pb-1 text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
               {TYPE_LABEL[type] ?? type}
             </p>
             {items.map(r => (
@@ -353,7 +353,7 @@ export default function SearchPage() {
                   {r.detail && <p className="mt-0.5 truncate text-xs text-wb-ink2">{r.detail}</p>}
                   <EvidenceMeta source={TYPE_LABEL[r.type] ?? r.type} observedAt={r.timestamp} />
                 </div>
-                <span className="mt-1 shrink-0 text-[10px] text-wb-ink2">{relTs(r.timestamp)}</span>
+                <span className="mt-1 shrink-0 text-wb-label text-wb-ink2">{relTs(r.timestamp)}</span>
               </button>
             ))}
           </div>

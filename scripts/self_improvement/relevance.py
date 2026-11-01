@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+import lifecycle
 from opportunity_store import OpportunityStore, new_fingerprint
 
 log = logging.getLogger("relevance")
@@ -80,7 +81,7 @@ class RelevanceGate:
         if not existing:
             return False, None
 
-        state = existing.get("lifecycle_state")
+        state = lifecycle.detail_of(existing)
         # 2026-09-06: "discovered" and "investigating" used to fall through
         # to the blanket block below, permanently — found live via a real
         # "Get more evidence" click and a real capacity-limited "discovered"
@@ -132,7 +133,7 @@ class RelevanceGate:
                          f"(state={existing.get('lifecycle_state')}) — no meaningful new evidence")],
                 is_duplicate=True,
                 duplicate_of=existing.get("opportunity_id"),
-                duplicate_disposition=existing.get("lifecycle_state"),
+                duplicate_disposition=lifecycle.detail_of(existing),
             )
 
         score = self.score_candidate(candidate)

@@ -40,7 +40,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
@@ -56,6 +56,12 @@ _OLLAMA_MODEL = os.getenv("OLLAMA_DEBRIEF_MODEL") or os.getenv("OLLAMA_MODEL", "
 # without a closing utterance — a debrief is meant to be one sitting, not
 # an unbounded conversation racking up LLM calls indefinitely.
 _MAX_TURNS = 40
+
+# A session with no activity for this long is treated as abandoned: it is
+# closed (not deleted) the next time it is looked up, so a forgotten session
+# can no longer capture every plain Telegram message. A real debrief is one
+# sitting; 12h comfortably covers a break and an overnight gap.
+_SESSION_STALE_HOURS = 12
 
 _LIST_FIELDS = (
     "key_themes", "stressors", "energy_sources", "open_loops",
@@ -144,7 +150,53 @@ def get_active_session(db: Any, chat_id: int) -> dict | None:
         .execute()
     )
     rows = result.data or []
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    session = rows[0]
+    if _is_stale(session):
+        log.warning(
+            "[debrief] session %s inactive for more than %dh - closing it so it cannot capture chat",
+            session.get("id"), _SESSION_STALE_HOURS,
+        )
+        _expire_session(db, session)
+        return None
+    return session
+
+
+def _parse_ts(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        ts = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+
+def _last_activity(session: dict) -> datetime | None:
+    """Newest turn timestamp, else the row's created_at; None if neither parses."""
+    stamps = [_parse_ts(t.get("at")) for t in (session.get("turns") or []) if isinstance(t, dict)]
+    stamps = [t for t in stamps if t is not None]
+    if stamps:
+        return max(stamps)
+    return _parse_ts(session.get("created_at"))
+
+
+def _is_stale(session: dict, now: datetime | None = None) -> bool:
+    """Unknown activity time is never treated as stale (fail towards the old behaviour)."""
+    last = _last_activity(session)
+    if last is None:
+        return False
+    return (now or datetime.now(timezone.utc)) - last > timedelta(hours=_SESSION_STALE_HOURS)
+
+
+def _expire_session(db: Any, session: dict) -> None:
+    try:
+        db.table("debrief_sessions").update({
+            "status": "closed", "closed_at": _now_iso(),
+        }).eq("id", session["id"]).execute()
+    except Exception as exc:  # noqa: BLE001 - expiry is best-effort; the caller ignores the stale session either way
+        log.warning("[debrief] could not close stale session %s: %s", session.get("id"), exc)
 
 
 def _save_turns(db: Any, session_id: str, turns: list[dict]) -> None:

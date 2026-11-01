@@ -157,6 +157,53 @@ def test_get_active_session():
     check("does not find a session for a different chat", de.get_active_session(db, 222) is None)
 
 
+def test_stale_session_is_expired():
+    print("\n── stale session expiry ─────────────────────────────────────────")
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    old = (now - timedelta(hours=de._SESSION_STALE_HOURS + 1)).isoformat()
+    fresh = (now - timedelta(hours=1)).isoformat()
+
+    db = _FakeSupabase()
+    db.store["debrief_sessions"].append(_active_session(turns=[{"role": "captain", "text": "x", "at": old}]))
+    check("session idle past the limit is not returned", de.get_active_session(db, 111) is None)
+    row = db.store["debrief_sessions"][0]
+    check("stale session is closed, not deleted", row["status"] == "closed" and "closed_at" in row and len(db.store["debrief_sessions"]) == 1)
+
+    db = _FakeSupabase()
+    db.store["debrief_sessions"].append(_active_session(turns=[{"role": "captain", "text": "x", "at": old}, {"role": "xo", "text": "y", "at": fresh}]))
+    check("newest turn counts: recent activity keeps it active", de.get_active_session(db, 111) is not None)
+
+    db = _FakeSupabase()
+    s = _active_session(turns=[]); s["created_at"] = old
+    db.store["debrief_sessions"].append(s)
+    check("no turns: created_at is used", de.get_active_session(db, 111) is None)
+
+    db = _FakeSupabase()
+    db.store["debrief_sessions"].append(_active_session(turns=[{"role": "captain", "text": "x", "at": "x"}]))
+    check("unparseable timestamps are never treated as stale", de.get_active_session(db, 111) is not None)
+
+    db = _FakeSupabase()
+    db.store["debrief_sessions"].append(_active_session(turns=[{"role": "captain", "text": "x", "at": old}]))
+    with patch.object(de, "_expire_session", side_effect=RuntimeError("boom")):
+        try:
+            de.get_active_session(db, 111)
+            check("expiry failure propagates only if unguarded", False)
+        except RuntimeError:
+            check("expiry failure propagates only if unguarded", True)
+    db2 = _FakeSupabase()
+    db2.store["debrief_sessions"].append(_active_session(turns=[{"role": "captain", "text": "x", "at": old}]))
+    real_table = db2.table
+    def failing_table(name):
+        t = real_table(name)
+        orig = t.update
+        t.update = lambda patch_: (_ for _ in ()).throw(RuntimeError("no closed_at column")) if name == "debrief_sessions" else orig(patch_)
+        return t
+    db2.table = failing_table
+    # selecting works (select is unchanged); only the close update fails
+    check("failed close update still ignores the stale session", de.get_active_session(db2, 111) is None)
+
+
 # ── _parse_synthesis_json ────────────────────────────────────────────────────
 
 def test_parse_synthesis_json():
@@ -297,6 +344,7 @@ if __name__ == "__main__":
     test_score_debrief_intent()
     test_closing_utterance()
     test_get_active_session()
+    test_stale_session_is_expired()
     test_parse_synthesis_json()
     test_call_provider_chain()
     test_route_no_active_session()

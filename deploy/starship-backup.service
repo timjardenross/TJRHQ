@@ -1,0 +1,28 @@
+[Unit]
+Description=Nightly encrypted off-box backup (restic to Google Drive) - USS-TJR-MSN-0412
+Documentation=file:///opt/starship-endeavour/knowledge/missions/VM-OPTIMISE-ZERO-COST-PLAN-20261009.md
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+ConditionPathExists=/root/.restic-pass
+# Existing platform notification path (Telegram via the XO bot), same as other deploy units.
+OnFailure=alert-on-failure@%n.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/starship-endeavour
+Environment=HOME=/root
+# Installed copy (a root-owned file outside the auto-deployed checkout). After this
+# change is merged, deploy/starship-backup.sh is the source of truth; copy it over
+# /opt/starship-backup/backup.sh when it changes.
+ExecStart=/opt/starship-backup/backup.sh
+# Runs in the small hours alongside other jobs: be a polite neighbour.
+Nice=10
+IOSchedulingClass=idle
+# /var/tmp is private to the unit, so staged dumps cannot outlive a run.
+PrivateTmp=true
+TimeoutStartSec=3h
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=starship-backup

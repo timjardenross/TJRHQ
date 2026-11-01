@@ -1,6 +1,6 @@
 [Unit]
 Description=USS TJR VM Knowledge Processing health check
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 # healthcheck.py exits 1 when `healthy: false` — uncomment and point at a
 # real alerting unit to get systemd-driven notification on top of the log:

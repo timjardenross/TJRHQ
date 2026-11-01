@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { BrandMark } from '@/components/brand';
+import { Button } from '@/components/ui/Button';
 
 type Mode = 'password' | 'magic';
 
@@ -14,6 +16,7 @@ export default function LoginPage() {
   const [sent, setSent]       = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     // Belt-and-braces cleanup only — see the `method="post"` on both <form>
@@ -27,6 +30,27 @@ export default function LoginPage() {
     // loads. Confirmed live 2026-09-21: a concurrent build-lock collision
     // broke hydration mid-login and reproduced exactly this GET fallback.
     if (typeof window !== 'undefined' && (window.location.search.includes('email=') || window.location.search.includes('password='))) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Supabase email links land on the Site URL with their result in the
+    // hash, and middleware bounces that to /login with the hash intact.
+    // A recovery session has to go to the reset page (dropping it here is
+    // what made every re-click of a reset link show otp_expired); errors
+    // get a readable message instead of a silent sign-in form.
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    if (hash.get('type') === 'recovery' && hash.get('access_token')) {
+      window.location.replace(`/auth/reset-password${window.location.hash}`);
+      return;
+    }
+    if (hash.get('error_code') === 'otp_expired') {
+      setError('That email link has expired or was already used. Request a new one below.');
+    } else if (hash.get('error_description')) {
+      setError(hash.get('error_description'));
+    } else if (new URLSearchParams(window.location.search).get('error') === 'auth_failed') {
+      setError('Sign-in link could not be verified. Request a new one below.');
+    }
+    if (window.location.hash) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -90,28 +114,55 @@ export default function LoginPage() {
     else setSent(true);
   }
 
+  async function handleForgotPassword() {
+    const target = email.trim();
+    if (!target) {
+      setError('Enter your email above, then choose "Forgot password?".');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const supabase = createSupabaseBrowserClient();
+    // Through /auth/callback so the PKCE code is exchanged server-side and
+    // the session cookie exists before the reset page renders.
+    const { error } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+    });
+    setLoading(false);
+    // Same confirmation whether or not the address has an account, so this
+    // form can't be used to probe which emails are registered.
+    if (error && error.status !== 400 && error.status !== 422) {
+      setError('Could not send a reset email right now. Try again shortly.');
+      return;
+    }
+    setResetSent(true);
+  }
+
   function switchMode(next: Mode) {
     setMode(next);
     setError(null);
     setPassword('');
     setSent(false);
+    setResetSent(false);
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
+    <main className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
       <div className="w-full max-w-md">
 
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="h-12 w-1 rounded-full bg-wb-sage-deep shadow-[0_0_18px_rgba(126,220,190,0.35)]" aria-hidden="true" />
+          {/* TJR HQ identity (Stage 2). Login sits on the default light surface,
+              so the navy tile; decorative, the heading below names the page. */}
+          <BrandMark surface="light" size={48} />
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-wb-ink2">
-              TJR HQ · ENDEAVOUR 27
+              TJR HQ
             </p>
             <h1 className="font-serif text-2xl text-wb-ink">
               Command access
             </h1>
-            <p className="mt-1 text-[12px] text-wb-ink2">A calmer mind. A stronger you. A brighter tomorrow.</p>
+            <p className="mt-1 text-wb-label text-wb-ink2">A calmer mind. A stronger you. A brighter tomorrow.</p>
           </div>
         </div>
 
@@ -121,7 +172,7 @@ export default function LoginPage() {
           <div className="mb-5 flex rounded-lg border border-wb-line overflow-hidden">
             <button
               onClick={() => switchMode('password')}
-              className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+              className={`flex-1 py-1.5 text-wb-label font-bold uppercase tracking-wider transition-colors ${
                 mode === 'password'
                   ? 'bg-wb-sage-deep text-white'
                   : 'text-wb-ink2 hover:text-wb-ink'
@@ -131,7 +182,7 @@ export default function LoginPage() {
             </button>
             <button
               onClick={() => switchMode('magic')}
-              className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+              className={`flex-1 py-1.5 text-wb-label font-bold uppercase tracking-wider transition-colors ${
                 mode === 'magic'
                   ? 'bg-wb-sage-deep text-white'
                   : 'text-wb-ink2 hover:text-wb-ink'
@@ -144,7 +195,7 @@ export default function LoginPage() {
           {/* Password form */}
           {mode === 'password' && (
             <form onSubmit={handlePassword} method="post" action="#" aria-label="Password authentication">
-              <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
+              <p className="mb-1 text-wb-label uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
               <h2 className="mb-4 font-serif text-lg text-wb-ink">
@@ -184,14 +235,28 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                 />
-                <button
+                <Button
                   type="submit"
+                  caps
+                  fullWidth
                   disabled={loading}
-                  className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Authenticating…' : 'Access Bridge'}
-                </button>
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                >
+                  Forgot password?
+                </Button>
+                {resetSent && (
+                  <p role="status" className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-xs text-state-ok-on">
+                    If an account exists for that email, a reset link is on its way. It works once and expires in 1 hour.
+                  </p>
+                )}
                 {error && (
                   <p role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
@@ -202,7 +267,7 @@ export default function LoginPage() {
           {/* Magic link form */}
           {mode === 'magic' && !sent && (
             <form onSubmit={handleMagicLink} method="post" action="#" aria-label="Magic link authentication">
-              <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
+              <p className="mb-1 text-wb-label uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
               <h2 className="mb-4 font-serif text-lg text-wb-ink">
@@ -229,14 +294,15 @@ export default function LoginPage() {
                     aria-describedby={error ? 'login-error' : undefined}
                   />
                 </div>
-                <button
+                <Button
                   type="submit"
+                  caps
+                  fullWidth
                   disabled={loading || !email.trim()}
-                  className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Sending…' : 'Send Access Link'}
-                </button>
+                </Button>
                 {error && (
                   <p id="login-error" role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
@@ -261,10 +327,10 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
+        <p className="mt-4 text-center text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
           Starfleet Command · Secure Access · ROS-001 v1.1
         </p>
       </div>
-    </div>
+    </main>
   );
 }

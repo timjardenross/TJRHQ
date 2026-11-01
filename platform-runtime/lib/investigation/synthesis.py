@@ -354,7 +354,7 @@ def get_synthesis(investigation_id: str) -> IntegratedFinding | None:
             return None
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale")
             .eq("owner", f"{SYNTHESIS_OWNER_PREFIX}{investigation_id}")
             .limit(1)

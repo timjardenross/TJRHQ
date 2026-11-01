@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0374 |
 | Title | deepteam alongside existing deepeval — added a real red-teaming harness, ran it against the LIVE Model Router (contrary to mission pre-flight's "VM-only, unreachable from sandbox" assumption), and hit a real undeclared-dependency packaging bug in deepteam 1.0.9 |
 | Date | 2026-09-13 |
+| Lesson | LL-184 |
 | Stream | Stream 3 |
 
 ## Outcome

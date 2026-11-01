@@ -130,12 +130,14 @@ async function checkHealthDecline() {
 async function checkRepeatedEscalations() {
   try {
     const rows = await supabaseGet(
-      'commander_events?event_type=eq.escalation&select=mission_id,created_at&order=created_at.desc&limit=50'
+      // commander_events has no mission_id column (400'd every 15 min) — it lives in metadata.
+      'commander_events?event_type=eq.escalation&select=metadata,created_at&order=created_at.desc&limit=50'
     );
     if (!rows || !rows.length) return [];
     const counts = {};
     for (const r of rows) {
-      if (r.mission_id) counts[r.mission_id] = (counts[r.mission_id] || 0) + 1;
+      const mId = r.metadata && r.metadata.mission_id;
+      if (mId) counts[mId] = (counts[mId] || 0) + 1;
     }
     const notes = [];
     for (const [mId, count] of Object.entries(counts)) {

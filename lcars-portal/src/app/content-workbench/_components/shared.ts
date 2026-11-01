@@ -48,9 +48,9 @@ export const STAGE_HINT: Record<Stage, string> = {
  */
 export const STAGE_ACCENT: Record<Stage, { icon: string; bar: string; chip: string; header: string; ring: string }> = {
   capture: { icon: '✉', bar: 'bg-wb-ink2/50', chip: 'bg-wb-line text-wb-ink2', header: 'bg-wb-ink2/5', ring: 'border-wb-ink2/30' },
-  research: { icon: '◎', bar: 'bg-wb-sage', chip: 'bg-wb-sage/15 text-wb-sage-deep', header: 'bg-wb-sage/8', ring: 'border-wb-sage/40' },
-  content_prep: { icon: '✎', bar: 'bg-wb-warn', chip: 'bg-wb-warn/15 text-wb-warn-on', header: 'bg-wb-warn/8', ring: 'border-wb-warn/40' },
-  proofing: { icon: '✓', bar: 'bg-wb-ok', chip: 'bg-wb-ok/15 text-wb-ok-on', header: 'bg-wb-ok/8', ring: 'border-wb-ok/40' },
+  research: { icon: '◎', bar: 'bg-wb-sage', chip: 'bg-wb-sage/15 text-wb-sage-deep', header: 'bg-wb-sage/10', ring: 'border-wb-sage/40' },
+  content_prep: { icon: '✎', bar: 'bg-wb-warn', chip: 'bg-wb-warn/15 text-wb-warn-on', header: 'bg-wb-warn/10', ring: 'border-wb-warn/40' },
+  proofing: { icon: '✓', bar: 'bg-wb-ok', chip: 'bg-wb-ok/15 text-wb-ok-on', header: 'bg-wb-ok/10', ring: 'border-wb-ok/40' },
 };
 
 export const PILLAR_LABEL: Record<string, string> = {

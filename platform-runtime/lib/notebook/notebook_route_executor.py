@@ -25,6 +25,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -68,7 +69,7 @@ class ExecutionResult:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _slug(text: str, maxlen: int = 60) -> str:
@@ -86,16 +87,15 @@ def _create_mission(note: dict[str, Any], supabase_client: Any) -> tuple[str | N
         note.get("raw_content"),
     ]))
 
+    # Live missions schema: mission_id (id is a generated uuid), a required repo,
+    # no owner/updated_by columns; timestamps default to now().
     record: dict[str, Any] = {
-        "id":           mid,
+        "mission_id":   mid,
         "title":        title,
         "created_by":   "notebook",
-        "owner":        "notebook",
         "status":       "Idea",
         "description":  description[:2000],
-        "created_at":   _now(),
-        "updated_at":   _now(),
-        "updated_by":   "notebook",
+        "repo":         os.environ.get("MISSIONS_DEFAULT_REPO", "timjardenross/TJRHQ"),
     }
 
     try:
@@ -196,7 +196,7 @@ def _create_improvement(note: dict[str, Any], supabase_client: Any) -> tuple[str
     }
 
     try:
-        supabase_client.table("decisions").insert(record).execute()
+        supabase_client.table("command_memory_records").insert(record).execute()
         log.info("[notebook-executor] Improvement %s created from note %s", dec_id, note["id"])
         return dec_id, "decisions"
     except Exception as exc:  # noqa: BLE001 - best-effort improvement insert, already logged

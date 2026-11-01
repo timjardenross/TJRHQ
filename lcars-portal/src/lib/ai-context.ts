@@ -11,6 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { filterGeneralAccess } from '@/lib/knowledgeSensitivity';
+import { todayLocal } from '@/lib/timezone';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,12 +59,12 @@ async function fetchArchitectureRecords(db: any) {
   return data ?? [];
 }
 
-function todayBrisbane(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+function todayLocalDate(): string {
+  return todayLocal();
 }
 
 async function fetchTodayHealth(db: any) {
-  const today = todayBrisbane();
+  const today = todayLocalDate();
   const { data } = await db
     .from('health_daily_logs')
     .select('log_date, nervous_system_state, energy, mood, sleep_hours, sleep_quality, workload_constraint, daily_capacity_score, pain_score')
@@ -97,7 +98,7 @@ async function fetchKnowledgeSummary(db: any) {
 }
 
 async function fetchTodayCheckins(db: any) {
-  const today = todayBrisbane();
+  const today = todayLocalDate();
   const { data } = await db
     .from('capacity_checkins')
     .select('checkin_type, captured_at, capacity_state, regulation_state, executive_function, compensation_load, pain_score, selected_action, notes, trigger_note')

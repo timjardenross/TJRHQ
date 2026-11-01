@@ -142,18 +142,18 @@ def assign_mission(
                 f"RATIONALE: {rationale[:80]}"
             )
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .eq("owner", owner)
                 .limit(1)
                 .execute()
             )
             if list(existing.data or []):
-                c.raw_client.table("decisions").update(
+                c.raw_client.table("command_memory_records").update(
                     {"statement": statement, "rationale": rat, "updated_at": datetime.now(timezone.utc).isoformat()}
                 ).eq("owner", owner).execute()
             else:
-                c.raw_client.table("decisions").insert({
+                c.raw_client.table("command_memory_records").insert({
                     "owner": owner,
                     "statement": statement,
                     "rationale": rat,
@@ -187,7 +187,7 @@ def get_assignment(mission_id: str) -> AssignmentDecision | None:
             return None
 
         owner = f"{_ASSIGN_OWNER_PREFIX}{mission_id}"
-        res = c.raw_client.table("decisions").select("statement,rationale").eq("owner", owner).limit(1).execute()
+        res = c.raw_client.table("command_memory_records").select("statement,rationale").eq("owner", owner).limit(1).execute()
         rows = list(res.data or [])
         if not rows:
             return None

@@ -27,7 +27,7 @@ export function HqEvolution({
 
   if (reduced) {
     return (
-      <WorkbenchPanel title="HQ Evolution">
+      <WorkbenchPanel title="Improvements">
         <p className="text-sm text-wb-ink2">
           {pendingCount} idea{pendingCount === 1 ? '' : 's'} parked while capacity is protected —{' '}
           <Link href="/self-improvement-findings" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
@@ -39,14 +39,14 @@ export function HqEvolution({
   }
 
   return (
-    <WorkbenchPanel title="HQ Evolution">
+    <WorkbenchPanel title="Improvements">
       <p className="text-sm font-semibold text-wb-ink">
         {pendingCount} idea{pendingCount === 1 ? '' : 's'} worth considering
       </p>
       <p className="mt-1 text-sm text-wb-ink2">
         {highestValueTitle ?? 'Evolution found a possible improvement overnight.'}
       </p>
-      <Link href="/self-improvement-findings" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+      <Link href="/self-improvement-findings" className="mt-2 inline-block text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Review →
       </Link>
     </WorkbenchPanel>

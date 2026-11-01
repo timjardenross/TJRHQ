@@ -142,7 +142,7 @@ def _has_open_investigation(officer: str, inv_type: str, question_prefix: str) -
             return False
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("rationale")
             .like("owner", f"{INV_OWNER_PREFIX}%")
             .ilike("statement", f"{INV_STATEMENT_PREFIX} {inv_type}%")
@@ -238,7 +238,7 @@ def update_investigation_status(
 
         owner = f"{INV_OWNER_PREFIX}{investigation_id}"
         res   = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,rationale")
             .eq("owner", owner)
             .limit(1)
@@ -254,7 +254,7 @@ def update_investigation_status(
             p["NOTES"] = notes[:100]
 
         new_rationale = " | ".join(f"{k}: {v}" for k, v in p.items())
-        c.raw_client.table("decisions").update(
+        c.raw_client.table("command_memory_records").update(
             {"rationale": new_rationale}
         ).eq("id", rows[0]["id"]).execute()
 
@@ -280,7 +280,7 @@ def close_investigation(
 
         owner = f"{INV_OWNER_PREFIX}{investigation_id}"
         res   = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,rationale")
             .eq("owner", owner)
             .limit(1)
@@ -300,7 +300,7 @@ def close_investigation(
             p["MISSION"] = mission_id
 
         new_rationale = " | ".join(f"{k}: {v}" for k, v in p.items())
-        c.raw_client.table("decisions").update(
+        c.raw_client.table("command_memory_records").update(
             {"rationale": new_rationale}
         ).eq("id", rows[0]["id"]).execute()
 
@@ -324,7 +324,7 @@ def get_open_investigations(limit: int = 20) -> list[Investigation]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale,owner,created_at")
             .like("owner", f"{INV_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -356,7 +356,7 @@ def get_investigation(investigation_id: str) -> Investigation | None:
             return None
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale,owner,created_at")
             .eq("owner", f"{INV_OWNER_PREFIX}{investigation_id}")
             .limit(1)

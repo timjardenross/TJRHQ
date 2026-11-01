@@ -264,6 +264,30 @@ class TestApplyFilter(unittest.TestCase):
         events = apply_filter([ev])
         self.assertEqual(events[0].suppression_reason, "already_set")
 
+    def test_aemo_price_interval_notices_suppressed(self):
+        for title in (
+            "[EventId:202611010440_confirmed] Prices for interval 01-Nov-2026 04:40 are now confirmed",
+            "[EventId:202611010440_review] Prices for interval 01-Nov-2026 04:40 are subject to review",
+            "Prices for interval 01-Nov-2026 04:35 are now confirmed",
+        ):
+            suppressed, reason = should_suppress(_make_event(title=title))
+            self.assertTrue(suppressed, title)
+            self.assertEqual(reason, "routine_price_interval_notice")
+
+    def test_non_routine_aemo_notice_not_suppressed(self):
+        title = "Market suspension declared in the NEM: administered pricing in effect for Prices for interval 04:40"
+        _, reason = should_suppress(_make_event(title=title))
+        self.assertNotEqual(reason, "routine_price_interval_notice")
+
+    def test_clean_title_strips_event_id_prefix(self):
+        from intelligence.brief.render import clean_title
+        self.assertEqual(
+            clean_title("[EventId:202611010440_confirmed] Prices for interval 04:40 are now confirmed"),
+            "Prices for interval 04:40 are now confirmed",
+        )
+        self.assertEqual(clean_title("Plain title"), "Plain title")
+        self.assertIsNone(clean_title(None))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -23,31 +23,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import lifecycle
+
 log = logging.getLogger("opportunity_store")
 
 
-# Section 18: opportunity lifecycle states. Deliberately a superset that
-# maps existing finding/decision vocabulary onto it (see migration.py)
-# rather than a second, competing state machine.
-LIFECYCLE_STATES = (
-    "discovered",
-    "investigating",
-    "proposed",
-    "approved",
-    "implementing",
-    "verifying",
-    "learned",
-    "watching",
-    "rejected",
-    # Follow-up mission (current-state validation, spec section 15): a
-    # watchlist gap_hypothesis that no longer holds against current repo
-    # evidence, checked *before* any external research was spent on it.
-    # Distinct from "rejected" (a human decided against it) and "watching"
-    # (premature, not yet worth acting on) — this one HQ itself determined
-    # is no longer applicable, and the record exists so the hypothesis is
-    # never silently re-researched from scratch.
-    "resolved_before_research",
-)
+# Section 18: opportunity lifecycle. The vocabulary lives in lifecycle.py:
+# four stages the Captain sees (plus a hidden "researching"), with the original
+# ten states kept as `stage_detail` for the engine. LIFECYCLE_STATES is the
+# ten fine states, kept under its old name for existing importers.
+LIFECYCLE_STATES = lifecycle.FINE_STATES
+LIFECYCLE_STAGES = lifecycle.STAGES
 
 # Section 24: change classes. "maintenance"/"configuration"/"reliability"/
 # "cost_optimisation" may flow through the existing bounded-remediation path
@@ -94,7 +80,10 @@ class Opportunity:
     title: str
     change_class: str  # one of CHANGE_CLASSES
     discovery_source: str  # "internal" | "external"
-    lifecycle_state: str = "discovered"
+    # A stage (see lifecycle.py). Callers may still pass one of the original
+    # fine states ("verifying"); __post_init__ turns it into stage + stage_detail.
+    lifecycle_state: str = "researching"
+    stage_detail: str | None = None
     fingerprint: str = ""
 
     # What/why (sections 6-10)
@@ -192,6 +181,9 @@ class Opportunity:
     updated_at: str = ""
     run_id: str | None = None
 
+    def __post_init__(self) -> None:
+        self.lifecycle_state, self.stage_detail = lifecycle.split(self.lifecycle_state, self.stage_detail)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -252,7 +244,9 @@ class OpportunityStore:
         for rec in self.all_records():
             oid = rec.get("opportunity_id")
             if oid:
-                latest[oid] = rec
+                # Older lines carry a fine state in lifecycle_state; present every
+                # record as (stage, stage_detail). The log on disk is untouched.
+                latest[oid] = lifecycle.normalise_record(rec)
         return latest
 
     def all_current(self) -> list[dict[str, Any]]:
@@ -325,7 +319,7 @@ class OpportunityStore:
         for rec in self.all_current():
             if not isinstance(rec, dict):
                 continue
-            if rec.get("lifecycle_state") in exclude_states:
+            if lifecycle.detail_of(rec) in exclude_states:
                 continue
             if rec.get("change_class") != change_class:
                 continue
@@ -373,6 +367,9 @@ class OpportunityStore:
         if current is None:
             return None
         merged = {**current, **changes, "opportunity_id": opportunity_id}
+        if "lifecycle_state" in changes and "stage_detail" not in changes:
+            # The previous record's detail belongs to the previous state.
+            merged.pop("stage_detail", None)
         # Drop any keys Opportunity doesn't know about (forward-compat safety)
         valid_fields = {f for f in Opportunity.__dataclass_fields__}
         merged = {k: v for k, v in merged.items() if k in valid_fields}

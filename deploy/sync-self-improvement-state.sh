@@ -1,5 +1,5 @@
 #!/bin/bash
-# Keeps 4 known, mechanically-rewritten tracked state files — plus new
+# Keeps 5 known, mechanically-rewritten tracked state files — plus new
 # data/self-improvement/runs/ directories (see below) — in sync with
 # origin/main so neither ever blocks auto-deploy.sh's dirty-tree guard.
 #
@@ -40,9 +40,35 @@ STATE_FILES=(
   "data/self-improvement/review/evolution_summary.json"
   "data/self-improvement/review/finding_staleness.jsonl"
   "data/self-improvement/review/opportunity_id_counter.txt"
+  "data/self-improvement/review/opportunity_snapshot.json"
+)
+
+# Dirty paths this job neither commits nor lets block it. They are the same
+# paths auto-deploy.sh's DIRTY_CHECK_EXCLUDES already tolerates, and each has
+# an owner other than this job:
+#   - mission_dispatch_log.jsonl: rewritten every dispatch cycle by
+#     mission-engineering-dispatch; left uncommitted on purpose (high churn,
+#     one commit per cycle) and covered by the nightly off-box backup instead.
+#   - mission-index.txt: rewritten from Supabase by mission-registry-sync,
+#     never committed.
+#   - Missions/Engineering-Handoffs/: no job commits handoff edits or
+#     deletions; they are left for a human.
+# Before this list existed, any one of these being dirty made every run exit
+# "leaving for a human" (exit 0, so no alert) and the STATE_FILES above
+# stopped reaching origin/main.
+TOLERATED_DIRTY=(
+  "data/self-improvement/review/mission_dispatch_log.jsonl"
+  "core/mission-control/registry/mission-index.txt"
+  "Missions/Engineering-Handoffs/"
 )
 
 cd "$REPO_ROOT"
+
+# Refresh the tracked snapshot of open opportunities (opportunities.jsonl
+# itself is untracked on purpose) so it rides along with the other state
+# files. Best-effort: a failed export must never stop the sync.
+python3 scripts/self_improvement/export_opportunity_snapshot.py \
+  || echo "$LOG_PREFIX WARNING: opportunity snapshot export failed - continuing." >&2
 
 dirty_tracked="$(git status --porcelain --untracked-files=no)"
 new_run_dirs="$(git status --porcelain --untracked-files=all -- "$RUNS_DIR" | grep '^??' || true)"
@@ -63,6 +89,11 @@ while IFS= read -r line; do
       break
     fi
   done
+  if [ "$match" = false ]; then
+    for tolerated in "${TOLERATED_DIRTY[@]}"; do
+      case "$path" in "$tolerated"*) match=true; break ;; esac
+    done
+  fi
   if [ "$match" = false ]; then
     only_allowlisted=false
     break
@@ -92,6 +123,27 @@ if [ "$current_branch" != "$BRANCH" ]; then
   exit 1
 fi
 
+# 2026-10-10: bring local $BRANCH up to date with origin BEFORE committing.
+# While auto-deploy was wedged, local main fell 17 commits behind origin; this
+# job then committed state files onto that stale main, so local and origin
+# diverged and every later auto-deploy fast-forward aborted ("history
+# diverged"). Committing only on top of origin/$BRANCH makes that impossible:
+# if we cannot fast-forward (fetch failed, or local already has commits
+# origin lacks), skip the commit and say so - nothing is created that could
+# diverge. Exit 1 so the OnFailure alert fires, because a skipped sync means
+# something upstream of this job needs a human.
+if ! git fetch origin "$BRANCH" --quiet; then
+  echo "$LOG_PREFIX WARNING: could not fetch origin/$BRANCH - skipping commit so local history cannot diverge." >&2
+  exit 1
+fi
+if [ "$(git rev-list --count "HEAD..origin/$BRANCH")" -gt 0 ]; then
+  if ! git merge --ff-only "origin/$BRANCH" --quiet 2>/dev/null; then
+    echo "$LOG_PREFIX WARNING: local $BRANCH is behind origin/$BRANCH and cannot fast-forward (diverged, or incoming changes touch dirty files) - skipping commit, needs a human." >&2
+    exit 1
+  fi
+  echo "$LOG_PREFIX fast-forwarded local $BRANCH to origin/$BRANCH before committing."
+fi
+
 echo "$LOG_PREFIX auto-syncing known self-improvement state files"
 if [ -n "$dirty_tracked" ]; then
   git add "${STATE_FILES[@]}"
@@ -99,9 +151,15 @@ fi
 if [ -n "$new_run_dirs" ]; then
   git add "$RUNS_DIR"
 fi
+# Only tolerated paths were dirty: nothing of ours to commit. Without this,
+# `git commit` below would fail under `set -e` and raise a failure alert.
+if git diff --cached --quiet; then
+  echo "$LOG_PREFIX only tolerated paths are dirty - nothing to commit."
+  exit 0
+fi
 git commit --quiet -m "chore(self-improvement): auto-sync tracked state files and new run dirs
 
-Automated commit by sync-self-improvement-state.service - the 4 tracked
+Automated commit by sync-self-improvement-state.service - the 5 tracked
 state files are mechanically rewritten every self-improvement cycle, and
 new $RUNS_DIR/*/ directories are written once per cycle. Both would
 otherwise permanently block auto-deploy.sh's dirty-tree guard (state

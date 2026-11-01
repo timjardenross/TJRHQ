@@ -6,6 +6,7 @@
 | Title | log4brains over canonical ADR directory — Stream 4 only |
 | Scope | Point log4brains at the canonical ADR directory and produce a real, manually-triggered browsable static site. No ADR content changes. No auto-deploy/hosting (out of scope — this mission doesn't own hosting decisions). |
 | Date | 2026-09-13 |
+| Lesson | LL-185 |
 | Branch | msn-0374-stream4-log4brains |
 | Worktree | `/opt/msn-0374-stream4` (created via `git worktree add ../msn-0374-stream4 -b msn-0374-stream4-log4brains origin/main`, isolated from the concurrent uncommitted work on `msn-0368-stage-2b-existing-capability-fixes`) |
 

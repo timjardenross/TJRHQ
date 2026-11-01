@@ -89,7 +89,7 @@ function Workbench() {
 
   const right = (
     <div className="flex items-center gap-3">
-      <span className="hidden text-[11px] text-wb-ink2 sm:inline">
+      <span className="hidden text-wb-label text-wb-ink2 sm:inline">
         {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
       </span>
       <DomainToggle
@@ -106,7 +106,7 @@ function Workbench() {
 
   return (
     <WorkbenchShell wide title="Capture" eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Capture · Review-first — nothing auto-routes without your say"
+      tagline="TJR HQ · Capture · Review-first — nothing auto-routes without your say"
       right={right} back={{ href: '/workbenches', label: 'Workbenches' }} mode="command">
       <KpiDashboard stats={stats} loading={loading} loadError={loadError} onFilter={filterToInbox} />
       {domain === 'capture' && <CaptureView onCaptured={refresh} />}

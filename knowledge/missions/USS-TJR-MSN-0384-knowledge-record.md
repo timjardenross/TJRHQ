@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0384 |
 | Priority | P3 |
 | Date | 2026-09-13 |
+| Lesson | LL-192 |
 | Status | **DONE** — 3 real dupes consolidated onto a shared local primitive; Tremor rejected at pre-flight |
 
 ## Pre-flight: naive grep hit list did not survive inspection

@@ -319,7 +319,7 @@ def _make_promotion_mock(existing_checkin_rows=None):
 def test_promote_capacity_checkin_inserts_when_no_existing_row():
     print("\n── promote_capacity_checkin — insert path (no existing tag match) ─")
     supabase, checkins_table, captured_table = _make_promotion_mock(existing_checkin_rows=[])
-    captured_at = datetime(2026, 7, 9, 9, 0, tzinfo=ZoneInfo("Australia/Brisbane"))
+    captured_at = datetime(2026, 7, 9, 9, 0, tzinfo=ZoneInfo("Australia/Melbourne"))
 
     result = promote_capacity_checkin(supabase, "capture-123", "my pain is pretty bad today", captured_at)
 
@@ -345,7 +345,7 @@ def test_promote_capacity_checkin_is_idempotent():
     print("\n── promote_capacity_checkin — idempotency ────────────────────────")
     existing = [{"id": "existing-checkin-id"}]
     supabase, checkins_table, captured_table = _make_promotion_mock(existing_checkin_rows=existing)
-    captured_at = datetime(2026, 7, 9, 9, 0, tzinfo=ZoneInfo("Australia/Brisbane"))
+    captured_at = datetime(2026, 7, 9, 9, 0, tzinfo=ZoneInfo("Australia/Melbourne"))
 
     result = promote_capacity_checkin(supabase, "capture-789", "already promoted once", captured_at)
 

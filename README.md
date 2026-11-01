@@ -1,6 +1,6 @@
 # TJRHQ
 
-TJR HQ — the operational platform repository for USS TJR.
+TJR HQ — the operational workbench and evidence-control system for the TJR ecosystem.
 
 Everything required to run the internal operational platform lives here: workbenches, bots,
 Telegram/Slack integrations, cron jobs, systemd services, background workers, AI processing
@@ -14,9 +14,13 @@ so file history predating the split is preserved.
 
 ## Repository relationships
 
-- **TJRHQ** (this repo) — operational platform. Runtime code, bots, workbenches, infrastructure.
-- **tjrmindbody_public** — the public-facing website and digital experience.
-- **USSTJROS** — mission, governance, architecture, and institutional-knowledge repository.
+One job per repo:
+
+- **TJRHQ** (this repo) — TJR HQ: operational workbench and evidence-control system. Runtime code, bots, workbenches, database, infrastructure.
+- **TJR-Library** — TJR Library: evidence-governed activity and support library. Research records; no code, no personal data.
+- **TJR-Life-iOS** — TJR Life: the personal iOS command centre.
+- **TJR-website-public** — TJR Mind & Body: the public-facing website and digital experience.
+- **TJR-Ecosystem** (formerly USSTJROS) — the ecosystem charter: vision, decision log, cross-product architecture and data contracts, plus mission, governance and institutional-knowledge records.
   Governs and documents capabilities implemented here, but is not itself a home for
   operational code. Design/implementation-notes docs for several TJRHQ components (context
   assembly, coordination, health, command-centre, infrastructure integrations) live there
@@ -28,7 +32,7 @@ so file history predating the split is preserved.
 ## Interfaces & runtime components
 
 - **`lcars-portal/`** — An LCARS-style web command dashboard (Next.js + React + TypeScript +
-  Tailwind), branded "Starship Endeavour" (NCC-170230). Additive to (not a replacement for)
+  Tailwind), branded "TJR HQ" (formerly "Starship Endeavour"). Additive to (not a replacement for)
   the Commander runtime, Command Centre backend, Context Assembly, and Supabase. Pages
   include Captain's Chair, Missions, Engineering, Number One, XO Brief, Medical/Wellness,
   Operations, and Knowledge Base.
@@ -36,9 +40,11 @@ so file history predating the split is preserved.
   proactive scheduling, specialist registry, captain notifications, runtime event logging,
   the collaboration engine. (Historically this lived at `slack-bot/`; it was renamed to
   `platform-runtime/` in mission MSN-0337 — don't recreate a `slack-bot/` directory.)
-- **`telegram-bots/`** — Telegram-facing bots. `xo/` is the only live Telegram bot (Captain
-  decision 2026-07-05) — the Captain's action interface, running as `tg-xo.service`.
-  `recovery_officer/` and `wellness_officer/` are its helpers. The standalone Chief Engineer
+- **`telegram-bots/`** — Telegram-facing bots. `xo/` is the Captain's action interface, running
+  as `tg-xo.service`; `capacitybot/` (capacity check-ins, `tg-capacitybot.service`) is also live.
+  *(Corrected 2026-10-15: this line used to say XO was the only live Telegram bot, per a
+  2026-07-05 Captain decision. CapacityBot is running — confirmed by the PO on the server, up since
+  2026-10-11 and restarted 2026-10-15.)* `recovery_officer/` and `wellness_officer/` are XO's helpers. The standalone Chief Engineer
   bot was retired 2026-07-12 and removed from the tree; see git history
   (`telegram-bot.DEPRECATED-2026-07-12/` prior to removal).
 - **`core/command-centre/`** — Express.js backend + frontend for the command centre surface.

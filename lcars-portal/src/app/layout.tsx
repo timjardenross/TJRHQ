@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Source_Serif_4 } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
 
@@ -9,11 +9,32 @@ import { SITE_URL } from '@/lib/site';
 // imported PUBLIC_SITE_NAME et al., so every authenticated page (including
 // /home) showed "TJR Mind & Body" in the tab title and favicon.
 const OPS_PORTAL_NAME = 'TJR HQ';
-const OPS_PORTAL_DESCRIPTION = 'USS TJR — Command Centre for missions, intelligence, and recovery operations.';
+const OPS_PORTAL_DESCRIPTION = 'TJR HQ — Command Centre for missions, intelligence, and recovery operations.';
 
-const sourceSerif = Source_Serif_4({
-  subsets: ['latin'],
-  weight: ['600', '700'],
+// Self-hosted variable fonts (latin subset, from @fontsource-variable, SIL OFL 1.1; licence texts sit
+// beside the files in ./fonts). They used to be fetched from Google at build time through
+// the Google loader, which failed on Vercel builds on 2026-10-19 ("An error occurred in next/font") and
+// would block every deploy. Local files make the build independent of Google. Licences: docs/FONT-LICENCES.md.
+const inter = localFont({
+  src: './fonts/inter-latin-wght-normal.woff2',
+  weight: '100 900',
+  style: 'normal',
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const jetBrainsMono = localFont({
+  src: './fonts/jetbrains-mono-latin-wght-normal.woff2',
+  weight: '100 800',
+  style: 'normal',
+  variable: '--font-mono',
+  display: 'swap',
+});
+
+const sourceSerif = localFont({
+  src: './fonts/source-serif-4-latin-wght-normal.woff2',
+  weight: '200 900',
+  style: 'normal',
   variable: '--font-serif',
   display: 'swap',
 });
@@ -61,16 +82,16 @@ export const metadata: Metadata = {
     type: 'website',
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: OPS_PORTAL_NAME,
     description: OPS_PORTAL_DESCRIPTION,
   },
 };
 
 export const viewport: Viewport = {
-  // Endeavour 27: was #F7F4EE (the old Archive theme's bg) — the app's
-  // default surface is now the dark Command/Focus navy.
-  themeColor: '#0B1E2E',
+  // Design uplift Stage A: the default surface is light (brand mist), so the
+  // browser UI colour follows it.
+  themeColor: '#F5F7FA',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -101,7 +122,7 @@ const MOTION_INIT_SCRIPT = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={sourceSerif.variable}>
+    <html lang="en" className={`${inter.variable} ${jetBrainsMono.variable} ${sourceSerif.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
       </head>

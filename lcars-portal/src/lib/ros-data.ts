@@ -12,6 +12,7 @@
  *   analytics_health_daily (21d)   → WeeklyPatternSummary + EmotionalLoadFlag
  */
 
+import { normalizeCapacityCode } from '@/lib/capacity-vocab';
 import { createSupabaseBrowserClient } from './supabase-browser';
 import { checkinNsState } from './human-systems';
 
@@ -252,10 +253,10 @@ function derivePostureFromRow(row: RawPostureDayRow): { posture: RecoveryPosture
     signals.push(Math.max(0, 100 - Number(row.pain_score) * 10));
   }
 
-  const cap = row.captain_capacity_rating?.toLowerCase();
+  const cap = normalizeCapacityCode(row.captain_capacity_rating);
 
   // No usable signal and no self-rating → honestly unknown.
-  if (!signals.length && !(cap === 'green' || cap === 'amber' || cap === 'red')) {
+  if (!signals.length && !cap) {
     return { posture: 'UNKNOWN', score: null };
   }
 
@@ -263,8 +264,8 @@ function derivePostureFromRow(row: RawPostureDayRow): { posture: RecoveryPosture
 
   // Blend the Captain's own capacity rating when present (mirrors the weighting
   // interpretCapacity uses for captain_capacity_rating).
-  if (cap === 'green' || cap === 'amber' || cap === 'red') {
-    const self = cap === 'green' ? 85 : cap === 'amber' ? 55 : 25;
+  if (cap) {
+    const self = cap === 'green' ? 85 : cap === 'orange' ? 55 : 25;
     score = signals.length ? 0.6 * score + 0.4 * self : self;
   }
 
@@ -544,10 +545,10 @@ export async function fetchRecoveryIndexes(date?: string): Promise<RecoveryIndex
     const energyBand = energy === 'High' ? 'good' : energy === 'Moderate' ? 'moderate' : energy === 'Low' ? 'limited' : 'unknown';
     const energyTone: StatusTone = energyBand === 'good' ? 'status' : energyBand === 'moderate' ? 'command' : energyBand === 'limited' ? 'operations' : 'neutral';
 
-    const cap = data.captain_capacity_rating;
-    const capBand = cap === 'Green' ? 'good' : cap === 'Amber' ? 'moderate' : cap === 'Red' ? 'limited' : 'unknown';
+    const cap = normalizeCapacityCode(data.captain_capacity_rating);
+    const capBand = cap === 'green' ? 'good' : cap === 'orange' ? 'moderate' : cap === 'red' ? 'limited' : 'unknown';
     const capTone: StatusTone = capBand === 'good' ? 'status' : capBand === 'moderate' ? 'command' : capBand === 'limited' ? 'operations' : 'neutral';
-    const capDetail = cap === 'Green' ? 'Green rating — full operational window' : cap === 'Amber' ? 'Amber rating — moderate operational window' : cap === 'Red' ? 'Red rating — minimal operational window' : 'Not recorded';
+    const capDetail = cap === 'green' ? 'Sustainable — full operational window' : cap === 'orange' ? 'Stretched — moderate operational window' : cap === 'red' ? 'Depleted — minimal operational window' : 'Not yet known';
 
     return [
       { key: 'sleep',          label: 'Sleep',          band: sleepBand as RecoveryIndex['band'], detail: `${sleepHrs}h · ${data.sleep_quality ?? 'Unknown quality'}${cpapNote}`, tone: sleepTone },

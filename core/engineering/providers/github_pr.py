@@ -421,3 +421,127 @@ def _resolve_base_ref(root: Path, base: str) -> str:
         except subprocess.CalledProcessError:
             continue
     return base
+
+
+# ─── XO engineering-review gate ──────────────────────────────────────────────
+# 2026-09-26: the version-bump auto-PR path (batch_coding.py's
+# _open_files_pr, allow_existing gated to dependency-release titles only)
+# needs a real review step before a human ever sees it, and a way for
+# telegram-bots/xo/app.py's /merge_pr command to check that review's
+# verdict before performing the actual merge. The PR itself (a GitHub
+# comment) is the single source of truth for that verdict — not a
+# separate state file that could drift from what's actually on the PR.
+
+_XO_VERDICT_MARKER = "<!-- xo-review-verdict:"
+
+
+def post_xo_verdict_comment(token: str, repo: str, pr_number: int, verdict: str, reasoning: str) -> bool:
+    """Posts the XO engineering-review verdict as a PR comment, tagged with
+    a marker `get_pr_review_verdict()` can parse back out. Never raises."""
+    body = (
+        f"{_XO_VERDICT_MARKER}{verdict}-->\n"
+        f"## XO Engineering Review\n\n"
+        f"**Verdict:** {verdict.replace('_', ' ').title()}\n\n{reasoning}\n"
+    )
+    try:
+        _api_request(token, "POST", f"/repos/{repo}/issues/{pr_number}/comments", {"body": body})
+        return True
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("[github_pr] failed to post XO verdict comment on PR #%s: %s", pr_number, exc)
+        return False
+
+
+def get_pr_review_verdict(token: str, repo: str, pr_number: int) -> str | None:
+    """The most recent XO-verdict-marked comment's verdict token
+    ("approve" / "approve_with_changes" / "hold"), or None if no such
+    comment exists yet. Never raises."""
+    try:
+        comments = _api_request(token, "GET", f"/repos/{repo}/issues/{pr_number}/comments?per_page=100")
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("[github_pr] failed to read PR #%s comments: %s", pr_number, exc)
+        return None
+    verdict = None
+    for comment in comments:
+        body = comment.get("body", "")
+        if _XO_VERDICT_MARKER in body:
+            start = body.index(_XO_VERDICT_MARKER) + len(_XO_VERDICT_MARKER)
+            end = body.find("-->", start)
+            if end != -1:
+                verdict = body[start:end].strip()
+    return verdict
+
+
+def _graphql_request(token: str, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+    payload = json.dumps({"query": query, "variables": variables}).encode()
+    req = urllib.request.Request(f"{_GITHUB_API}/graphql", data=payload, method="POST")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("User-Agent", "starship-endeavour-batch-coding")
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - url is the fixed _GITHUB_API GraphQL endpoint literal, not user input
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _mark_pr_ready_for_review(token: str, repo: str, pr_number: int) -> bool:
+    """Drafts can't be merged via the REST merge endpoint — GitHub only
+    exposes the draft->ready transition via GraphQL
+    (`markPullRequestReadyForReview`), never added to REST."""
+    try:
+        pr = _api_request(token, "GET", f"/repos/{repo}/pulls/{pr_number}")
+        node_id = pr.get("node_id")
+        if not node_id:
+            return False
+        result = _graphql_request(
+            token,
+            "mutation($id: ID!) { markPullRequestReadyForReview(input: {pullRequestId: $id}) "
+            "{ pullRequest { isDraft } } }",
+            {"id": node_id},
+        )
+        pr_state = (result.get("data") or {}).get("markPullRequestReadyForReview") or {}
+        return not (pr_state.get("pullRequest") or {}).get("isDraft", True)
+    except (urllib.error.URLError, OSError, ValueError, KeyError) as exc:
+        log.warning("[github_pr] failed to mark PR #%s ready for review: %s", pr_number, exc)
+        return False
+
+
+def merge_pr(token: str, repo: str, pr_number: int, *, merge_method: str = "merge") -> tuple[bool, str]:
+    """Marks a still-draft PR ready for review, then merges it. Returns
+    (ok, message) — never raises. This is the ONLY function in this
+    module that performs a real merge; every other function in this file
+    only ever opens/comments on a draft."""
+    try:
+        pr = _api_request(token, "GET", f"/repos/{repo}/pulls/{pr_number}")
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return False, f"could not read PR #{pr_number}: {exc}"
+    if pr.get("draft") and not _mark_pr_ready_for_review(token, repo, pr_number):
+        return False, f"failed to mark PR #{pr_number} ready for review"
+    try:
+        _api_request(token, "PUT", f"/repos/{repo}/pulls/{pr_number}/merge", {"merge_method": merge_method})
+        return True, f"PR #{pr_number} merged"
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300] if exc.fp else str(exc)
+        return False, f"merge failed: {detail}"
+    except (urllib.error.URLError, OSError) as exc:
+        return False, f"merge failed: {exc}"
+
+
+def close_pr(token: str, repo: str, pr_number: int, comment: str | None = None) -> bool:
+    """Closes a PR without merging (the /decline_pr path). Never raises."""
+    try:
+        if comment:
+            add_pr_comment(token, repo, pr_number, comment)
+        _api_request(token, "PATCH", f"/repos/{repo}/pulls/{pr_number}", {"state": "closed"})
+        return True
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("[github_pr] failed to close PR #%s: %s", pr_number, exc)
+        return False
+
+
+def add_pr_comment(token: str, repo: str, pr_number: int, body: str) -> bool:
+    """Generic PR comment, used by close_pr()'s optional decline note and
+    available to any other caller that wants to post plain text."""
+    try:
+        _api_request(token, "POST", f"/repos/{repo}/issues/{pr_number}/comments", {"body": body})
+        return True
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("[github_pr] failed to comment on PR #%s: %s", pr_number, exc)
+        return False

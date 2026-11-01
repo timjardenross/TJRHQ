@@ -1,0 +1,34 @@
+[Unit]
+Description=USS TJR Daily Operating Cycle Timer
+Documentation=file:///opt/starship-endeavour/Missions/Active/USS-TJR-MSN-0390-officer-cycle-adoption.md
+Requires=daily-ops-cycle.service
+
+[Timer]
+# USS-TJR-MSN-0210L/M convergence (2026-09-26). Picked 06:50 Australia/
+# Sydney -- matching mission-registry-sync.timer's own timezone convention
+# for the pre-morning-brief slot -- for two reasons:
+#   1. It runs 5min after mission-registry-sync.timer's 06:45 Australia/
+#      Sydney slot, so the file-corpus side of the live mission overlay
+#      this cycle reads (context_service.py's
+#      _load_live_missions_for_number_one()) is as fresh as the platform's
+#      own existing "before the morning brief" convention already
+#      guarantees -- not a new freshness requirement invented here.
+#   2. It stays 10min clear of the acknowledged 07:00 collision between
+#      intelligence/scheduler.py's captains_morning_brief job and (this
+#      cycle's own sibling orchestrator, per self-improving-system.timer's
+#      header) whatever else lands on that slot -- same "don't add to a
+#      known collision" discipline self-improving-system.timer documented
+#      when it moved off 07:00 to 04:30.
+# Also clear of every other existing timer slot on this host: 01:00 UTC
+# (intelligence-source-validation), 02:17 (memory-nightly-consolidation),
+# 03:00 (hq-evolution), 04:00 Monday (health-intelligence-weekly), 04:30
+# (self-improving-system).
+OnCalendar=*-*-* 06:50:00 Australia/Sydney
+# Also run on system startup if missed
+Persistent=true
+# Randomize by up to 3 minutes to avoid thundering herd with the 06:45
+# mission-registry-sync run immediately before it
+RandomizedDelaySec=3min
+
+[Install]
+WantedBy=timers.target

@@ -98,9 +98,8 @@ def collect_all(
             except Exception as exc:  # noqa: BLE001 - per-source future-result retrieval inside a ThreadPoolExecutor loop — one bad source must not abort the batch; already logged
                 log.error("Unexpected error collecting %s: %s", source.source_name, exc)
 
-    # Persist health records (non-blocking; individual failures logged inside store)
-    for h in all_health:
-        store.save_source_health(h)
+    # Persist health records in one write (non-blocking; failures logged inside store)
+    store.save_source_health_batch(all_health)
 
     ok     = sum(1 for h in all_health if h.status == "ok")
     failed = sum(1 for h in all_health if h.status == "failed")

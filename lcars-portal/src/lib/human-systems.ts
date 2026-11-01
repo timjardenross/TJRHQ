@@ -10,6 +10,7 @@
  * Evidence-informed, non-diagnostic. Bands: good | moderate | limited | depleted.
  */
 
+import { normalizeCapacityCode } from '@/lib/capacity-vocab';
 import { createSupabaseBrowserClient } from './supabase-browser';
 
 // Session-aware client (WORKBENCH-REVIEW.md follow-up, 2026-07-18): same fix
@@ -236,8 +237,9 @@ export function interpretCapacity(row: HealthRow | null): CapacitySnapshot {
   ];
 
   let overall = domains.reduce((a, d) => a + d.score, 0) / domains.length;
-  if (cap === 'green' || cap === 'amber' || cap === 'red') {
-    const self = ({ green: 82, amber: 55, red: 25 } as Record<string, number>)[cap];
+  const capCode = normalizeCapacityCode(cap);
+  if (capCode) {
+    const self = ({ green: 82, orange: 55, red: 25 } as Record<string, number>)[capCode];
     overall = 0.6 * overall + 0.4 * self;
   }
   const overallBand = bandFromScore(overall);
@@ -344,10 +346,10 @@ export function checkinNsState(checkin: Pick<CapacityCheckin, 'regulation_state'
   );
 }
 
-/** Map capacity_state → captain_capacity_rating's lowercase green/amber/red vocabulary. */
+/** Map capacity_state → canonical green/orange/red code (legacy 'amber' is read as orange). */
 function capacityStateToCapacity(state: string | null): string | null {
   if (!state) return null;
-  return ({ green: 'green', orange: 'amber', red: 'red' } as Record<string, string>)[state] ?? null;
+  return normalizeCapacityCode(state);
 }
 
 /** Map capacity_state → a coarse energy proxy — the new model has no

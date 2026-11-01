@@ -271,7 +271,7 @@ def update_initiative(initiative_id: str, **fields: Any) -> bool:
 
         owner_key = f"{INITIATIVE_OWNER_PREFIX}{initiative_id}"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale")
             .eq("owner", owner_key)
             .limit(1)
@@ -302,7 +302,7 @@ def update_initiative(initiative_id: str, **fields: Any) -> bool:
         if "title" in fields:
             update["statement"] = f"{_INITIATIVE_STATEMENT} {initiative_id}: {init.title[:80]}"
 
-        c.raw_client.table("decisions").update(update).eq("id", rows[0]["id"]).execute()
+        c.raw_client.table("command_memory_records").update(update).eq("id", rows[0]["id"]).execute()
         return True
 
     except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (update_initiative failed)
@@ -316,7 +316,7 @@ def get_initiative(initiative_id: str) -> Initiative | None:
         if c is None:
             return None
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{INITIATIVE_OWNER_PREFIX}{initiative_id}")
             .limit(1)
@@ -336,7 +336,7 @@ def list_initiatives(include_closed: bool = False, limit: int = 100) -> list[Ini
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{INITIATIVE_OWNER_PREFIX}%")
             .order("created_at", desc=True)
@@ -374,7 +374,7 @@ def link_mission(initiative_id: str, mission_id: str) -> bool:
 
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .eq("owner", owner)
                 .ilike("statement", f"%{mission_id}%")
@@ -402,7 +402,7 @@ def get_linked_missions(initiative_id: str) -> list[str]:
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("rationale")
             .eq("owner", f"{INITIATIVE_MISSION_PREFIX}{initiative_id}")
             .execute()

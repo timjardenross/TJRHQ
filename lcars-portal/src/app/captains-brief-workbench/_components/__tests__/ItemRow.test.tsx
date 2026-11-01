@@ -74,7 +74,7 @@ describe('ItemRow — headline fallback order', () => {
     render(<ItemRow item={item({ description: 'nginx: failed', recommendation: null })} />);
     const headline = screen.getByText('nginx: failed');
     expect(headline).toBeInTheDocument();
-    expect(headline.className).toContain('text-wb-ink/90');
+    expect(headline.className).toContain('text-wb-ink'); expect(headline.className).not.toContain('text-wb-ink2');
   });
 
   it('falls back to reason only as a last resort, when neither exists', () => {

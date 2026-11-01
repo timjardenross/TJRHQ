@@ -23,6 +23,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Settings, HelpCircle, type LucideIcon } from 'lucide-react';
+import { BrandMark } from '@/components/brand';
+import { SignOutButton } from '@/components/SignOutButton';
 import { LIVE_WORKBENCHES, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
 
 const GROUP_ORDER = Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[];
@@ -42,7 +44,7 @@ const SECONDARY: SidebarLink[] = [
 function SidebarRow({ link, active }: { link: SidebarLink; active: boolean }) {
   const Icon = link.icon;
   const classes = [
-    'flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition-colors',
+    'flex items-center gap-3 rounded-md px-3 py-2 text-wb-body transition-colors',
     link.disabled
       ? 'cursor-not-allowed text-wb-ink2/50'
       : active
@@ -55,7 +57,7 @@ function SidebarRow({ link, active }: { link: SidebarLink; active: boolean }) {
       <span className={classes} aria-disabled="true">
         <Icon className="h-4 w-4 shrink-0" aria-hidden />
         {link.label}
-        <span className="ml-auto text-[10px] uppercase tracking-[0.1em] text-wb-ink2/50">Soon</span>
+        <span className="ml-auto text-wb-label uppercase tracking-[0.1em] text-wb-ink2/50">Soon</span>
       </span>
     );
   }
@@ -79,15 +81,15 @@ export function Sidebar() {
   return (
     <aside
       aria-label="Primary"
+      data-wb-chrome="dark"
       className="sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col justify-between overflow-y-auto border-r border-wb-line bg-wb-surface px-3 py-6 xl:flex"
     >
       <div className="flex flex-col gap-5">
         <Link href="/hub" className="flex items-center gap-2 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep" aria-label="TJR HQ home">
-          <span className="endeavour-brand-mark h-9 w-9 shrink-0 text-[15px] font-semibold">△</span>
-          <span className="leading-tight">
-            <span className="block text-[13px] font-semibold text-wb-ink">TJR HQ</span>
-            <span className="block text-[10px] uppercase tracking-[0.14em] text-wb-ink2">Endeavour 27</span>
-          </span>
+          {/* TJR HQ identity (Stage 2): the sidebar is always dark chrome, so the
+              inverted tile. Name only: the descriptor does not fit at this size. */}
+          <BrandMark surface="dark" size={36} />
+          <span className="text-wb-body font-semibold leading-tight text-wb-ink">TJR HQ</span>
         </Link>
         {GROUP_ORDER.map((group) => {
           const entries = LIVE_WORKBENCHES.filter((e) => e.group === group);
@@ -95,7 +97,7 @@ export function Sidebar() {
           const meta = WORKBENCH_GROUP_META[group];
           return (
             <nav key={group} className="flex flex-col gap-1" aria-label={meta.label}>
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-wb-ink2/70">
+              <p className="px-3 pb-1 text-wb-label font-semibold uppercase tracking-[0.14em] text-wb-ink2">
                 {meta.label}
               </p>
               {entries.map((entry) => (
@@ -117,10 +119,11 @@ export function Sidebar() {
             active={!link.disabled && isActive(link.href)}
           />
         ))}
+        <SignOutButton className="w-full" />
         {/* Mission §1.1: mockups show this motto in every sidebar footer —
             real copy from the source brief, not fabricated here, but not
             yet Captain-confirmed as final (see mission doc §1.1). */}
-        <p className="mt-4 px-3 text-[9px] uppercase leading-relaxed tracking-[0.18em] text-wb-ink2/50">
+        <p className="mt-4 px-3 text-wb-label uppercase leading-relaxed tracking-[0.18em] text-wb-ink2">
           Discipline<br />Clarity<br />Progress<br />Freedom
         </p>
       </nav>

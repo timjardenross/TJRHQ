@@ -4,6 +4,7 @@
 |---|---|
 | Mission | Mission 3 — Capture, Remember & Follow-Through (TJR HQ accommodation-mission series, Mission 1 → Mission 2 → **Mission 3**) |
 | Date | 2026-09-19 |
+| Lesson | LL-197 |
 | Branch | `mission3-capture-remember-followthrough` |
 | Status | Delivered — 0 new regressions, migrations applied live, cross-surface fixture proven |
 | Depends on | Mission 1 (canonical architecture: Domain State → Number One → Attention State → Surfaces), Mission 2 (capacity contract: Green/Amber/Red/Unknown) |

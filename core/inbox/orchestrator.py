@@ -266,7 +266,17 @@ def process_captured_item(item_id: str) -> None:
         # 7. Queue research for actionable classifications (non-blocking)
         classification = updates.get("classification", "")
         is_duplicate = updates.get("duplicate_detected", False)
-        if classification in _RESEARCH_CLASSIFICATIONS and not is_duplicate:
+        # governance-cache-sweep re-queues completed items every 24h for a
+        # governance re-assessment; without this guard each of those passes
+        # relaunched a full research mission (~9 Gemini calls) for the same
+        # item, daily and forever. Re-assessment is cheap; re-research is not.
+        research_done = item.get("research_status") in ("completed", "running")
+        run_research = (
+            classification in _RESEARCH_CLASSIFICATIONS
+            and not is_duplicate
+            and not research_done
+        )
+        if run_research:
             updates["research_status"] = "pending"
 
         _db.update("captured_items", item_id, updates)
@@ -279,7 +289,7 @@ def process_captured_item(item_id: str) -> None:
         )
 
         # Fire research in a daemon thread so it never blocks the capture response
-        if classification in _RESEARCH_CLASSIFICATIONS and not is_duplicate:
+        if run_research:
             t = threading.Thread(
                 target=_run_research,
                 args=(item_id, item),

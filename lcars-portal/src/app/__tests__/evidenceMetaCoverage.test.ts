@@ -33,7 +33,6 @@ const PRIORITY_ROUTES = [
   'self-improvement-findings',
   'emergency-alert-hub-workbench',
   'human-systems-workbench',
-  'physical-readiness',
 ];
 
 function collectTsxFiles(dir: string): string[] {

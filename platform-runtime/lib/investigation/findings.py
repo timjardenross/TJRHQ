@@ -286,7 +286,7 @@ def get_findings(investigation_id: str) -> FindingsReport | None:
             return None
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,created_at")
             .eq("owner", f"{FINDING_OWNER_PREFIX}{investigation_id}")
             .order("created_at", desc=True)

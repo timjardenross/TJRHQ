@@ -41,7 +41,7 @@
 # to the public Caddy-fronted URL and CONTEXT_SERVICE_SECRET to the same
 # value in Vercel's project env vars).
 Description=USS TJR Context Assembly Service — Captain's Brief + Recommendations HTTP bridge
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]

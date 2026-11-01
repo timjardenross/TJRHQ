@@ -9,7 +9,6 @@ never written to a YAML file.
 
 from __future__ import annotations
 
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +31,18 @@ def _load_dotenv(repo_root: Path) -> None:
     from core.platform.configuration_service import load_dotenv_files
 
     load_dotenv_files([repo_root / ".env", repo_root / "platform-runtime" / ".env"])
+
+
+def _shared_supabase() -> tuple[str, str]:
+    """2026-09-26: read SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY via the
+    shared SUOC config base (core/platform/configuration_service.py)
+    instead of this module's own os.environ reads — same two env vars,
+    same '' defaults, same rstrip('/') on the URL that worker.py/
+    healthcheck.py have always received via config.supabase.url."""
+    from core.platform.configuration_service import get_shared_config
+
+    shared = get_shared_config()
+    return shared.supabase_url.rstrip("/"), shared.supabase_service_role_key
 
 
 @dataclass
@@ -100,8 +111,7 @@ def load_config(path: str) -> Config:
     proc_raw = raw.get("processing", {})
     ocr_raw = raw.get("ocr", {})
 
-    supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
-    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    supabase_url, supabase_key = _shared_supabase()
 
     return Config(
         inbox_base_path=Path(inbox_raw["base_path"]).expanduser(),

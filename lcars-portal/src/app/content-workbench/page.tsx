@@ -103,9 +103,9 @@ function Workbench() {
 
   return (
     <WorkbenchShell
-      title="Content Workbench"
+      title="Content"
       eyebrow="Your personal AI-assisted content desk"
-      tagline="USS TJR · Content Workbench · Capture to publish, AI prepares, you decide"
+      tagline="TJR HQ · Content Workbench · Capture to publish, AI prepares, you decide"
       right={!selectedContentId ? captureBar : null}
       tabs={!selectedContentId ? (
         <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />
@@ -131,14 +131,14 @@ function Workbench() {
                 <button
                   type="button"
                   onClick={() => setPipelineView('queue')}
-                  className={`rounded-full px-3 py-1 text-[12px] font-medium ${pipelineView === 'queue' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
+                  className={`rounded-full px-3 py-1 text-wb-label font-medium ${pipelineView === 'queue' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
                 >
                   Queue
                 </button>
                 <button
                   type="button"
                   onClick={() => setPipelineView('board')}
-                  className={`rounded-full px-3 py-1 text-[12px] font-medium ${pipelineView === 'board' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
+                  className={`rounded-full px-3 py-1 text-wb-label font-medium ${pipelineView === 'board' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
                 >
                   Board
                 </button>

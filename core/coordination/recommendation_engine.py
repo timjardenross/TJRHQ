@@ -27,6 +27,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from core.health.capacity_enforcement import enforcing
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
@@ -112,7 +114,7 @@ def rank_missions(
     for m in active:
         score = score_priority(m, missions)
         # Red capacity depresses non-critical mission scores so queue reorders
-        if cap_status == "Red":
+        if cap_status == "Red" and enforcing():  # advisory mode leaves ranking untouched
             priority = _normalized_priority(m)
             if priority in ("P2", "P3"):
                 score = max(0.0, score - 0.15)
@@ -232,6 +234,12 @@ def check_health_constraints(
     priority = _normalized_priority(mission)
     domain = str(mission.get("domain", "")).lower()
     heavy_domains = {"engineering", "governance", "science", "workflow"}
+
+    if cap_status in ("Red", "Amber") and not enforcing():
+        # Advisory mode (owner decision 2026-10-18): a pacing note, never a defer instruction.
+        if cap_status == "Red" and (priority in ("P2", "P3") or domain in heavy_domains):
+            return "Capacity is Red today. Advisory only: pace yourself; nothing is deferred."
+        return None
 
     if cap_status == "Red":
         if priority in ("P2", "P3"):

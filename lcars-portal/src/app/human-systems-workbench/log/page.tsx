@@ -14,12 +14,12 @@ import { WorkbenchShell, Card } from '@/components/ui';
 export default function CaptainsLogPage() {
   return (
     <WorkbenchShell wide
-      title="Captain's Log"
+      title="Journal"
       eyebrow="Recovery & Capacity"
-      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
+      tagline="TJR HQ · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       back={{ href: '/human-systems-workbench?domain=recovery', label: 'Recovery' }}
     >
-      <Card title="Captain's Log disabled for now">
+      <Card title="Journal disabled for now">
         <p className="text-sm leading-relaxed text-wb-ink2">
           Manual Captain&rsquo;s Log entry is disabled for now. Recovery Pulse (via the Telegram XO bot)
           is the Captain&rsquo;s single source for Human Systems capacity and stats at this time — this

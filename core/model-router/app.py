@@ -68,9 +68,8 @@ log = logging.getLogger("model-router")
 # fails the cloud dispatch closed (see llm_guardrails.py's _FAIL_OPEN) rather
 # than silently sending an unredacted, unchecked prompt to Google/Mistral.
 # See docs/decisions/ADR-llm-application-security-baseline.md for the full
-# picture, including the routes this layer does NOT cover (glm-*:cloud via
-# Ollama — same _ollama_generate() code path as fully-local calls, not
-# interceptable at this layer without also touching every local call).
+# picture. glm-*:cloud (Ollama Cloud) is covered too since USS-TJR-MSN-0412
+# Stream 5: _run_task guards any model whose tag ends in ":cloud".
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from core.security.llm_guardrails import (
     check_output_rail,
@@ -204,7 +203,12 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # room to actually finish the JSON object; watch for the same truncation
     # symptom if a doc still overruns this.
     "summarise-document":    {"model": MODEL_MID,   "keep_alive": "15m", "timeout": 300, "num_predict": 700},
-    "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 300},
+    # xo-response: its only caller (telegram_bots/llm.py) gives up after 20 s, but a 300 s server-side
+    # timeout kept the CPU-only local model generating for up to 5 minutes after the client left
+    # (2026-10-11: ~5 min at 400-770% CPU for a reply nobody was waiting for). 25 s = the client's
+    # 20 s plus a small margin; the Ollama request is closed at that point, which stops generation.
+    # num_predict bounds a chat reply so a slow decode cannot run on unchecked.
+    "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 25, "num_predict": 400},
     # 2026-08-23: moved from local MODEL_LARGE (mistral-small3.2:24b) to
     # Gemini — same reasoning as captain-insight-synthesis/
     # captain-reasoning-synthesis below, which were fixed for this exact
@@ -221,7 +225,7 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # `esc_policy` in _run_task() below for classify-capture's escalation
     # path, deliberately decoupled from this entry rather than reused now
     # that the two have different provider shapes.
-    "intelligence-brief":    {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "intelligence-brief":    {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
     # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine.
     # Same tier as intelligence-brief: infrequent, quality-sensitive, not
@@ -247,14 +251,14 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # tier every pipeline on this platform tries before anything else.
     # Uses the shared GEMINI_API_KEY (not the billing-report key -- these
     # aren't billing/cost-report calls).
-    "captain-insight-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "captain-insight-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     # MSN-0329 Phase 2 Step 4: Reasoning Engine. Separate task_type from
     # captain-insight-synthesis (different prompt/purpose) so the call
     # log stays distinguishable, matching this file's own established
     # convention (see classify-document vs summarise-note's comment).
     # Consumes a Step 3 Insight, never the raw event stream directly.
     # Moved to Gemini 2026-08-22 for the same reason as the entry above.
-    "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
     # 2026-09-08: moved from local MODEL_LARGE (mistral-small3.2:24b) to GLM 5.3
     # cloud, same reasoning as intelligence-brief/captain-insight-synthesis/
@@ -281,27 +285,27 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # Gemini API (not Ollama) — separate provider branch in _run_task.
     # Uses GEMINI_BILLING_API_KEY, a dedicated key so billing-report cost
     # tracking stays isolated from the shared GEMINI_API_KEY used elsewhere.
-    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_BILLING_API_KEY", "timeout": 120},
+    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_BILLING_API_KEY", "timeout": 120, "thinking_level": "low"},
     # Self-improvement system (MSN-0099): moved from local MODEL_MID
     # (gemma3:4b) to Gemini — evidence-analysis quality needs a stronger
     # model than the CPU-only VM can serve locally in reasonable time.
     # Uses the shared GEMINI_API_KEY (not the billing-report key — this
     # isn't a billing/cost-report call, so it doesn't belong on that
     # isolated key).
-    "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
-    "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
-    "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
+    "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
+    "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
+    "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
     # HQ Evolution (follow-up to MSN-0099's self-improvement system):
     # per-opportunity investigation synthesis. Smaller, bounded input than
     # self-improvement-analyse (one opportunity's evidence bundle, not the
     # whole repo evidence payload) — shorter timeout accordingly. Same
     # shared GEMINI_API_KEY as the rest of this family.
-    "hq-evolution-investigate":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    "hq-evolution-investigate":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
     # HQ Evolution V2: post-observation-window outcome evaluation. Input is
     # a bounded evidence bundle (outcome_contract + baseline + collected
     # evidence), not a re-run of the original investigation — same timeout
     # class as hq-evolution-investigate.
-    "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
     # HQ Evolution (follow-up to MSN-0099): README-grounded fit assessment
     # for a bounded top-N of external-discovery candidates per cycle (see
     # scripts/self_improvement/external_enrichment.py and router_client.py's
@@ -325,13 +329,21 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # made genuine round trips land at 302-323s under load, past the old
     # 300s on both sides — router_client gave up seconds before the router
     # actually finished successfully (confirmed via call_log.jsonl).
-    "hq-evolution-external-fit": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 400},
+    "hq-evolution-external-fit": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 400, "thinking_level": "low"},
+    # 2026-09-26: the XO engineering-review gate (core/engineering/
+    # xo_review.py) for auto-generated version-bump PRs — an independent
+    # review pass, never the same model that generated the patch. Ports
+    # .claude/skills/xo/SKILL.md's Gatekeeper-mode rubric into a real
+    # model call so it runs unattended (a Claude Code Skill only runs
+    # inside an interactive session). Same timeout class as the other
+    # single-diff review call above.
+    "xo-engineering-review": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
     # HQ V1 Integration QA §28 fix: tools/health-osint/health_signal_curation.py
     # previously called core/llm/provider_chain.py directly, bypassing this
     # router entirely (the one confirmed Model Router bypass found in that
     # audit). Single-signal classification prompt, same bounded shape as
     # hq-evolution-investigate — same timeout class.
-    "health-signal-curation": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 60},
+    "health-signal-curation": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 60, "thinking_level": "low"},
     # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
     # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
     # Do NOT have this route call decompose_task() itself — that function
@@ -347,7 +359,7 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # an interactive UI/Telegram call, not a background synthesis job) —
     # so it belongs on the fast, uncontended cloud tier instead of fighting
     # local jobs for the one CPU inference slot.
-    "adhd-decompose":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 30},
+    "adhd-decompose":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 30, "thinking_level": "low"},
 }
 
 # System prompt for adhd-decompose — intentionally duplicated from (not
@@ -454,6 +466,7 @@ TASK_ROUTES: dict[str, str] = {
     "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
     "/api/model/hq-evolution-external-fit": "hq-evolution-external-fit",
     "/api/model/health-signal-curation": "health-signal-curation",
+    "/api/model/xo-engineering-review": "xo-engineering-review",
 }
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
@@ -509,13 +522,29 @@ def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) ->
         return json.loads(resp.read().decode())
 
 
-def _gemini_generate(model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY") -> dict[str, Any]:
-    """POST /v1beta/models/{model}:generateContent. Returns parsed response dict."""
+def _gemini_generate(
+    model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY", thinking_level: str | None = None,
+) -> dict[str, Any]:
+    """POST /v1beta/models/{model}:generateContent. Returns parsed response dict.
+
+    2026-09-26: every Gemini-routed task_type left `generationConfig`
+    unset, so `gemini-flash-latest` (currently resolving to Gemini 3.8
+    Flash) applied its default `thinking_level: "medium"` to every call.
+    Confirmed live via call_log.jsonl: hq-evolution-external-fit calls
+    with ~1400 prompt tokens and ~80 output tokens (candidatesTokenCount)
+    were taking 220-300s each — a ratio only explained by large amounts
+    of invisible thinking-token generation the router never asked for or
+    logged. `thinking_level` is `TASK_POLICY`'s per-task lever for this;
+    None (the default) omits `generationConfig` entirely, preserving
+    exact prior behaviour for any Gemini task_type that doesn't set it."""
     api_key = os.environ.get(api_key_env, "").strip()
     if not api_key:
         raise RuntimeError(f"{api_key_env} is not set. Add it to .env before using this Gemini-backed route.")
     url = f"{_GEMINI_BASE}/models/{model}:generateContent"
-    payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
+    body: dict[str, Any] = {"contents": [{"parts": [{"text": prompt}]}]}
+    if thinking_level:
+        body["generationConfig"] = {"thinkingConfig": {"thinking_level": thinking_level}}
+    payload = json.dumps(body).encode()
     req = urllib.request.Request(
         url, data=payload,
         headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
@@ -572,16 +601,25 @@ def _log_call(entry: dict[str, Any]) -> None:
         log.warning("call log write failed: %s", exc)
 
 
-def _recent_calls(n: int = 20) -> list[dict[str, Any]]:
+def _recent_calls(n: int = 20, include_direct: bool = True) -> list[dict[str, Any]]:
+    """Newest-first call log entries.
+
+    Entries with "source": "direct" are local Ollama calls made by other programs
+    (core/llm/call_log.py, USS-TJR-MSN-0412 Stream 6). They are listed for visibility but
+    must not feed the router's own health numbers, so /health passes include_direct=False.
+    """
     if not _LOG_FILE.exists():
         return []
     lines = _LOG_FILE.read_text(encoding="utf-8").splitlines()
     out = []
     for ln in reversed(lines[-_LOG_LIMIT:]):
         try:
-            out.append(json.loads(ln))
+            entry = json.loads(ln)
         except json.JSONDecodeError:
-            pass
+            continue
+        if not include_direct and entry.get("source") == "direct":
+            continue
+        out.append(entry)
         if len(out) >= n:
             break
     return out
@@ -662,6 +700,11 @@ def _resolve_cloud_escalation(task_type: str, policy: dict[str, Any]) -> tuple[d
     )
 
 
+def _is_cloud_model(model: str) -> bool:
+    """True for Ollama Cloud tags (e.g. glm-5.3:cloud), which are served off-host."""
+    return model.endswith(":cloud")
+
+
 def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, Any]:
     """Execute routing policy and return result dict."""
     policy = TASK_POLICY.get(task_type)
@@ -699,7 +742,10 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             # Gemini until the prompt has been checked and redacted.
             with _OLLAMA_LOCK:
                 safe_prompt, _redaction = secure_outbound_prompt(prompt)
-            raw = _gemini_generate(model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"))
+            raw = _gemini_generate(
+                model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"),
+                policy.get("thinking_level"),
+            )
             candidates = raw.get("candidates", [])
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
             response_text = "".join(p.get("text", "") for p in parts).strip()
@@ -710,6 +756,10 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             token_info = {
                 "prompt_eval_count": usage.get("promptTokenCount"),
                 "eval_count": usage.get("candidatesTokenCount"),
+                # 2026-09-26: thinking tokens are billed/timed but were
+                # previously invisible in this log — see
+                # _gemini_generate()'s own docstring for why that mattered.
+                "thoughts_token_count": usage.get("thoughtsTokenCount"),
             }
         elif task_type == "embed":
             with _OLLAMA_LOCK:
@@ -718,9 +768,20 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             embeddings = raw.get("embeddings", raw.get("embedding", []))
             token_info = {"prompt_eval_count": raw.get("prompt_eval_count")}
         else:
+            # Ollama Cloud models (glm-*:cloud) leave the host through the local
+            # Ollama daemon, so they get the same gate as the Gemini branch:
+            # nothing goes to any cloud model unredacted (USS-TJR-MSN-0412
+            # Stream 5). Local models are unchanged.
+            outbound = prompt
+            if _is_cloud_model(model):
+                with _OLLAMA_LOCK:
+                    outbound, _redaction = secure_outbound_prompt(prompt)
             with _OLLAMA_LOCK:
-                raw = _ollama_generate(model, prompt, keep_alive, timeout, policy.get("num_predict"))
+                raw = _ollama_generate(model, outbound, keep_alive, timeout, policy.get("num_predict"))
             response_text = raw.get("response", "").strip()
+            if _is_cloud_model(model):
+                with _OLLAMA_LOCK:
+                    check_output_rail(response_text)
             embeddings = None
             token_info = {
                 "prompt_eval_count": raw.get("prompt_eval_count"),
@@ -956,7 +1017,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                 "expires_at": m.get("expires_at"),
             })
         available = [m.get("name") for m in tags.get("models", [])]
-        calls = _recent_calls(5)
+        calls = _recent_calls(5, include_direct=False)
         avg_ms = None
         if calls:
             times = [c.get("duration_ms", 0) for c in calls if c.get("success")]

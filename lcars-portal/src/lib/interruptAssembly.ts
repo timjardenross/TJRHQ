@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { TERMINAL_STATUSES } from './missionStatus';
 import { scanEscalation } from './human-systems';
+import { evaluatePainSignal, type PainCheckinRow } from './painSignal';
 
 // MSN-0349 Objective 2: Executive Interrupt Assembly. Answers exactly one
 // question - "does anything currently justify interrupting the Captain?" -
@@ -311,30 +312,35 @@ async function recoveryEscalationNominator(supabase: SupabaseClient): Promise<In
   return { domain: 'Recovery escalation', text: escalation, evidenceAt: row.captured_at };
 }
 
-/** Average pain_score over the last 5 capacity_checkins, thresholds 8/6 -
+/** Pain signal over the last 5 capacity_checkins: red flag on pain_state "high" (lib/painSignal.ts); numeric history thresholds 8/6 -
  * the exact same disclosed thresholds alerts.ts's own pain-trend check
  * already uses (lib/alerts.ts wellnessAlerts(), "MSN-0335: folded in from
  * the now-retired duplicate check in /api/proactive-signals"). Not a new
  * scale. Realigned 2026-08-22: recovery_pulses -> capacity_checkins. */
-const PAIN_CRITICAL_THRESHOLD = 8;
-const PAIN_ELEVATED_THRESHOLD = 6;
-
 async function painTrendNominator(supabase: SupabaseClient): Promise<Interrupt | null> {
   const { data } = await supabase
     .from('capacity_checkins')
-    .select('pain_score, captured_at')
+    .select('pain_score, pain_state, captured_at')
     .eq('checkin_type', 'capacity')
     .order('captured_at', { ascending: false })
     .limit(5);
-  const rows = (data ?? []) as { pain_score: number | null; captured_at: string }[];
-  if (rows.length === 0) return null;
-  const avg = rows.reduce((sum, r) => sum + (r.pain_score ?? 0), 0) / rows.length;
-  if (avg <= PAIN_ELEVATED_THRESHOLD) return null;
-  const level = avg > PAIN_CRITICAL_THRESHOLD ? 'critically high' : 'elevated';
+  // R2 alignment: red flag = latest pain_state "high" (any capacity); the
+  // legacy numeric trend (thresholds 8/6) averages only recorded numbers —
+  // a missing number is never counted as 0. See lib/painSignal.ts.
+  const signal = evaluatePainSignal((data ?? []) as PainCheckinRow[]);
+  if (!signal) return null;
+  if (signal.kind === 'state_high') {
+    return {
+      domain: 'Recovery pain trend',
+      text: 'Pain is much higher than your usual baseline on the latest check-in.',
+      evidenceAt: signal.evidenceAt,
+    };
+  }
+  const level = signal.kind === 'trend_critical' ? 'critically high' : 'elevated';
   return {
     domain: 'Recovery pain trend',
-    text: `Average pain score over the last ${rows.length} check-ins is ${avg.toFixed(1)} - ${level}.`,
-    evidenceAt: rows[0].captured_at,
+    text: `Average pain score over the last ${signal.n} check-ins is ${signal.avg.toFixed(1)} - ${level}.`,
+    evidenceAt: signal.evidenceAt,
   };
 }
 

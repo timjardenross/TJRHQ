@@ -227,7 +227,7 @@ python -m pytest tests/ --cov=core/exec_assistant --cov-report=html
 cm.set_preference("working_hours", {
     "start": "09:00",
     "end": "18:00",
-    "timezone": "Australia/Brisbane"
+    "timezone": "Australia/Melbourne"
 })
 
 cm.set_preference("meeting_preferences", {

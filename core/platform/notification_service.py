@@ -280,8 +280,44 @@ def _send_telegram(
             parsed = json.loads(resp.read())
             message_id = (parsed.get("result") or {}).get("message_id")
             return True, None, message_id
+    except urllib.error.HTTPError as exc:
+        return False, _telegram_http_error(exc, token), None
     except Exception as exc:  # noqa: BLE001 - error surfaced to the caller in the returned tuple, not swallowed
-        return False, f"{type(exc).__name__}: {exc}", None
+        error = f"{type(exc).__name__}: {exc}"
+        return False, error.replace(token, "<token>") if token else error, None
+
+
+_TELEGRAM_ERROR_DESCRIPTION_MAX = 200
+
+
+def _telegram_http_error(exc: urllib.error.HTTPError, token: str) -> str:
+    """"HTTP <code>: <description>" for a Bot API error response. The
+    description is Telegram's own `description` field (e.g. "Bad Request:
+    can't parse entities: Unsupported start tag ..."), capped short. Only that
+    field is read: never the message text we sent, the request URL or the
+    chat id; the bot token is blanked if it somehow appears."""
+    description = ""
+    try:
+        parsed = json.loads(exc.read(4096))
+        if isinstance(parsed, dict):
+            description = str(parsed.get("description") or "")
+    except Exception:  # noqa: BLE001 - body is optional context; the status code alone is still reported
+        description = ""
+    if token:
+        description = description.replace(token, "<token>")
+    description = description.replace("\n", " ")[:_TELEGRAM_ERROR_DESCRIPTION_MAX]
+    return f"HTTP {exc.code}: {description}" if description else f"HTTP {exc.code}"
+
+
+_PERMANENT_STATUSES = frozenset({400, 401, 403, 404})
+_PERMANENT_FAILURE = re.compile(r"^HTTP (\d{3})\b")
+
+
+def _is_permanent_failure(error: str | None) -> bool:
+    """A Telegram 400 (malformed request, e.g. unparseable HTML), 401, 403 or 404 cannot succeed
+    on retry. 408, 429, 5xx and network errors keep their retries."""
+    m = _PERMANENT_FAILURE.match(error or "")
+    return bool(m) and int(m.group(1)) in _PERMANENT_STATUSES
 
 
 _SEVERITY_TO_APPRISE_TYPE: dict[Severity, str] = {
@@ -425,7 +461,12 @@ def notify(
         # _render already truncated to _TELEGRAM_MAX_LEN — chunk the raw
         # body instead, then render each piece (template wrapping is
         # cheap/idempotent per chunk).
-        chunks = _split_at_word_boundary(body, _TELEGRAM_MAX_LEN)
+        # A "raw" body is caller-composed Telegram HTML: split it so each chunk has balanced tags.
+        # Other templates escape the body wholesale after this split, so it carries no markup yet.
+        if template in _RAW_TEMPLATES:
+            chunks = _split_html_aware(body, _TELEGRAM_MAX_LEN)
+        else:
+            chunks = _split_at_word_boundary(body, _TELEGRAM_MAX_LEN)
         result = None
         for i, piece in enumerate(chunks):
             piece_title = title if i == 0 else None
@@ -459,6 +500,93 @@ def _split_at_word_boundary(text: str, limit: int) -> list[str]:
     return pieces
 
 
+# Telegram HTML parse_mode tags (https://core.telegram.org/bots/api#html-style). A "raw" body is
+# caller-composed HTML, so a chunk boundary must not leave one of these open or cut one in half.
+_TG_TAG = re.compile(
+    r"<(/?)(b|strong|i|em|u|ins|s|strike|del|code|pre|a|tg-spoiler|tg-emoji|span|blockquote)(\s[^<>]*)?>",
+    re.IGNORECASE,
+)
+_TG_ATOM = re.compile(r"(<[^<>]*>|\s+)")
+_TG_ATOM_TAGS = re.compile(r"<[^<>]*>")
+
+
+def _split_html_aware(text: str, limit: int) -> list[str]:
+    """Like _split_at_word_boundary, for a body that is Telegram HTML: each chunk is <= limit
+    characters and has balanced tags, so Telegram does not reject a chunk for an unclosed or cut
+    tag. Design: split only between words/tags (never inside a tag), and at a split close the
+    tags still open (innermost first) and re-open them, attributes included, at the start of
+    the next chunk. The closing tags are budgeted for, so a chunk never exceeds the limit. The
+    last chunk is left exactly as written (a tag the caller left open stays open). If a single
+    word or tag cannot fit a chunk even on its own, it falls back to _split_at_word_boundary."""
+    stack: list[tuple[str, str]] = []  # (tag name, opening tag as written)
+    chunks: list[str] = []
+    cur: list[str] = []
+    cur_len = 0
+    added = 0  # atoms in the current chunk beyond its re-opened tags
+
+    def openers() -> str:
+        return "".join(o for _, o in stack)
+
+    def closers(names: list[str]) -> str:
+        return "".join(f"</{n}>" for n in reversed(names))
+
+    def reserve_after(atom: str) -> int:
+        names = [n for n, _ in stack]
+        m = _TG_TAG.fullmatch(atom)
+        if m:
+            name = m.group(2).lower()
+            if m.group(1):
+                if name in names:
+                    del names[len(names) - 1 - names[::-1].index(name)]
+            else:
+                names.append(name)
+        return len(closers(names))
+
+    def apply(atom: str) -> None:
+        m = _TG_TAG.fullmatch(atom)
+        if not m:
+            return
+        name = m.group(2).lower()
+        if m.group(1):
+            for i in range(len(stack) - 1, -1, -1):
+                if stack[i][0] == name:
+                    del stack[i]
+                    break
+        else:
+            stack.append((name, atom))
+
+    def flush() -> None:
+        nonlocal cur, cur_len, added
+        body = "".join(cur)
+        if _TG_ATOM_TAGS.sub("", body).strip():  # a chunk of tags only carries nothing: drop it
+            chunks.append(body.rstrip() + closers([n for n, _ in stack]))
+        cur, cur_len, added = [], 0, 0
+
+    atoms = [a for a in _TG_ATOM.split(text) if a]
+    i = 0
+    while i < len(atoms):
+        atom = atoms[i]
+        if not cur:
+            if atom.isspace():
+                i += 1
+                continue  # no leading whitespace on a chunk
+            pre = openers()
+            cur, cur_len = [pre], len(pre)
+        if cur_len + len(atom) + reserve_after(atom) > limit:
+            if added == 0:
+                return _split_at_word_boundary(text, limit)
+            flush()  # closes what is open; the next chunk re-opens it
+            continue
+        cur.append(atom)
+        cur_len += len(atom)
+        added += 1
+        apply(atom)
+        i += 1
+    if "".join(cur).strip():
+        chunks.append("".join(cur))
+    return chunks
+
+
 def _send_one(
     sender, text: str, reply_markup, chat_id, max_retries, retry_backoff_seconds, transport: Transport,
     severity: Severity = Severity.INFO,
@@ -470,7 +598,7 @@ def _send_one(
     for attempt in range(max_retries + 1):
         attempts += 1
         ok, error, message_id = sender(text, reply_markup, chat_id, severity)
-        if ok or attempt >= max_retries:
+        if ok or attempt >= max_retries or _is_permanent_failure(error):
             break
         time.sleep(retry_backoff_seconds)
     return NotificationResult(ok=ok, transport=transport, attempts=attempts, error=error, message_id=message_id)

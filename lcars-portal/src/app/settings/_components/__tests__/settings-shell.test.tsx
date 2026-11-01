@@ -35,6 +35,7 @@ vi.mock('next/link', () => ({
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/settings',
+  useRouter: () => ({ push: () => {}, refresh: () => {} }),
 }));
 
 describe('Settings shell — accessibility', () => {

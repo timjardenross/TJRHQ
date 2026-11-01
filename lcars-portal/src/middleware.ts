@@ -1,6 +1,20 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
+import {
+  INVALID_REQUEST,
+  MOBILE_BEARER_READ_ROUTES,
+  failureResponse,
+  hasQueryString,
+  mobileReadJson,
+  parseBearerToken,
+  verifyCaptainBearer,
+} from '@/lib/mobileBearerAuth';
+import {
+  MOBILE_BEARER_WRITE_ROUTES,
+  verifyCaptainWriteBearer,
+  writeFailureResponse,
+} from '@/lib/mobileBearerWrite';
 
 // Routes intended for server-to-server calls carrying X-Bot-Secret, not
 // interactive browsing. 2026-09-15 adversarial review: previously any
@@ -11,6 +25,12 @@ import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
 const BOT_SECRET_ROUTE_ALLOWLIST = new Set<string>([
   '/api/google-tasks/sync',
 ]);
+
+// Native Health Bridge requests carry a bearer token and cannot use the
+// browser's cookie session. The route handler performs the complete token
+// verification and Captain authorization; this exemption is intentionally
+// limited to this exact path.
+const HEALTH_BRIDGE_ROUTE = '/api/integrations/health-bridge/ping';
 
 // Plain-JS constant-time compare, not Node's crypto.timingSafeEqual: this
 // file runs in the Edge Runtime (Next.js middleware), which doesn't support
@@ -35,6 +55,59 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_ROUTE_ALLOWLIST.has(pathname) || pathname.startsWith('/auth')) {
+    return NextResponse.next({ request });
+  }
+
+  if (pathname === HEALTH_BRIDGE_ROUTE) {
+    return NextResponse.next({ request });
+  }
+
+  // TJR Life iOS read path (R3 S2a). Exact-match allowlist, GET only. On
+  // these paths a request without a valid Captain bearer token gets plain
+  // JSON (401/403/405/503), never the /login redirect a native client cannot
+  // follow. A bearer token on ANY other path is ignored here and falls
+  // through to the cookie flow below exactly as before. The route handler
+  // re-verifies via requireCaptainRead() (defence in depth).
+  if (MOBILE_BEARER_READ_ROUTES.has(pathname)) {
+    const token = parseBearerToken(request.headers.get('authorization'));
+    if (!token) {
+      return failureResponse({ ok: false, status: 401, error: 'Unauthorized' });
+    }
+    if (request.method !== 'GET') {
+      return mobileReadJson({ error: 'Method not allowed' }, 405, { Allow: 'GET' });
+    }
+    const verified = await verifyCaptainBearer(token);
+    if (!verified.ok) {
+      return failureResponse(verified);
+    }
+    // After auth: an unauthenticated caller still gets 401/403 first.
+    if (hasQueryString(request.url)) {
+      return failureResponse(INVALID_REQUEST);
+    }
+    return NextResponse.next({ request });
+  }
+
+  // TJR Life iOS write path (R3 Delivery 2, slice D2-1). Exact-match
+  // allowlist, POST only, its own kill switch (MOBILE_WRITE_ENABLED) and its
+  // own Captain id. Same shape as the read path above: plain JSON failures,
+  // never the /login redirect. The route handler re-verifies via
+  // requireCaptainWrite() (defence in depth).
+  if (MOBILE_BEARER_WRITE_ROUTES.has(pathname)) {
+    const token = parseBearerToken(request.headers.get('authorization'));
+    if (!token) {
+      return failureResponse({ ok: false, status: 401, error: 'Unauthorized' });
+    }
+    const verified = await verifyCaptainWriteBearer(token);
+    if (!verified.ok) {
+      return failureResponse(verified);
+    }
+    // After auth: an unauthenticated caller still gets 401/403 first.
+    if (request.method !== 'POST') {
+      return writeFailureResponse({ ok: false, status: 405, error: 'Method not allowed', allow: 'POST' });
+    }
+    if (hasQueryString(request.url)) {
+      return failureResponse(INVALID_REQUEST);
+    }
     return NextResponse.next({ request });
   }
 

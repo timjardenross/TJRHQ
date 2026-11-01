@@ -67,7 +67,7 @@ function Workbench() {
     <WorkbenchShell
       title="Health OSINT"
       eyebrow="Your Personal Health Evidence Desk"
-      tagline="USS TJR · What's worth knowing, your evidence position, the full record"
+      tagline="TJR HQ · What's worth knowing, your evidence position, the full record"
       tabs={!showDetails ? (
         <DomainToggle value={tab} onChange={(v) => setTab(v as Tab)} options={TAB_OPTIONS} ariaLabel="Health OSINT sections" />
       ) : undefined}

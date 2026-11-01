@@ -22,15 +22,13 @@
  * instead of two independently-filtered queries.
  *
  * Freshness is derived from the real per-source domain_heartbeats data
- * (/api/emergency-alerts/sources), not from the browser's own poll timer.
- * Backend ingestion (intelligence/scheduler.py) runs a flat 15-minute
- * interval 24/7 with no overnight pause; only this page's own re-fetch
- * cadence throttles down overnight (Captain-directed 2026-08-26, to avoid
- * hitting a 15-min backend on a 60s UI timer) — new alerts still land and
- * still trigger Emergency Warning emails at any hour regardless of
- * whether a browser tab is open. The two are not the same thing and the
- * UI must not conflate them: "Last checked" always means real backend
- * collection time, never "the tab happened to poll."
+ * (/api/emergency-alerts/sources), not from the browser's own poll timer,
+ * and is judged per source (lib/alertCoverage.ts) so one dead feed can't be
+ * hidden behind fresh ones. Backend ingestion (intelligence/scheduler.py)
+ * runs every 15 minutes 24/7; this page re-fetches every few minutes around
+ * the clock and again when the tab regains focus — a tab left open overnight
+ * must not show hours-old "all clear" state. "Last checked" always means real
+ * backend collection time, never "the tab happened to poll."
  *
  * Detailed per-source crawl health lives in Agent & Job Status, which
  * already reads the same domain_heartbeats rows generically — this page
@@ -46,29 +44,18 @@ import { emergencyAlertTierToTone } from '@/lib/departments';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
 import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/route';
+import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
+import { matchAlert, stateSiteSummary, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
+import { bomAttentionLevel, BOM_ATTENTION_LABEL, type BomAttention } from '@/lib/bomAttention';
+import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
 
-const ACTIVE_HOURS_START = 7;  // 07:00 local
-const ACTIVE_HOURS_END = 19;   // 19:00 local
-const ACTIVE_REFRESH_MS = 60 * 60 * 1000; // hourly during active hours
 // Backend ingests every 15min 24/7 (intelligence/scheduler.py,
-// EMERGENCY_ALERT_INTERVAL_MINUTES). Six missed intervals with no fresh
-// heartbeat is a genuine collection problem, not UI polling cadence.
-const STALE_THRESHOLD_MS = 90 * 60 * 1000;
-
-/** Ms until the next scheduled UI re-fetch: hourly while within the active
- * window, or until the window next opens (07:00) while outside it. This
- * throttles the BROWSER's own refresh only — it has no bearing on when
- * the backend actually collects alerts (see module docstring). */
-function msUntilNextRefresh(now: Date): number {
-  const hour = now.getHours();
-  if (hour >= ACTIVE_HOURS_START && hour < ACTIVE_HOURS_END) {
-    return ACTIVE_REFRESH_MS;
-  }
-  const next7am = new Date(now);
-  next7am.setHours(ACTIVE_HOURS_START, 0, 0, 0);
-  if (next7am <= now) next7am.setDate(next7am.getDate() + 1);
-  return next7am.getTime() - now.getTime();
-}
+// EMERGENCY_ALERT_INTERVAL_MINUTES), so a few minutes is the right UI cadence:
+// fresh enough to catch each new run, light enough for an always-open tab.
+// There is deliberately NO overnight pause — warnings arrive at any hour.
+const REFRESH_MS = 3 * 60 * 1000;
+// Re-fetch on tab focus only if the data is at least this old.
+const FOCUS_REFETCH_MIN_AGE_MS = 60 * 1000;
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
 // alerts.alert_type CHECK constraint (migration 0174).
@@ -98,6 +85,7 @@ const SEVERITY_LABELS: Record<string, string> = {
  * corresponding field. Used client-side only to badge alerts already in
  * hand; the API route is the source of truth for matchingActiveAlertCount. */
 function silenceCoversAlert(silence: AlertSilenceEntry, alert: EmergencyAlertEntry): boolean {
+  if (alert.severity === 'emergency_warning') return false; // Emergency Warnings are never silenced
   if (silence.matchJurisdiction !== null && silence.matchJurisdiction !== alert.jurisdiction) return false;
   if (silence.matchAlertType !== null && silence.matchAlertType !== alert.alertType) return false;
   if (silence.matchSeverity !== null && silence.matchSeverity !== alert.severity) return false;
@@ -134,7 +122,7 @@ function SeverityBadge({ alert }: { alert: EmergencyAlertEntry }) {
       <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{severityLabel(alert)}</Badge>
       {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
         <span
-          className="text-[10px] uppercase tracking-wide text-wb-ink2"
+          className="text-wb-label uppercase tracking-wide text-wb-ink2"
           title="BOM does not provide an Advice / Watch and Act / Emergency Warning tier for this feed."
         >
           BOM
@@ -172,7 +160,7 @@ function relativeTime(isoTimestamp: string | null): string {
 function MutedBadge() {
   return (
     <span
-      className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-wb-ink2"
+      className="inline-flex items-center gap-1 text-wb-label uppercase tracking-wide text-wb-ink2"
       title="An active silence is currently suppressing notifications for this alert."
     >
       🔇 Muted
@@ -190,21 +178,21 @@ function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAl
         <Badge status="neutral">{alert.jurisdiction}</Badge>
       </td>
       <td className="py-3 pr-4"><SeverityBadge alert={alert} /></td>
-      <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink">
+      <td className="py-3 pr-4 text-wb-body font-medium text-wb-ink">
         <div className="flex items-center gap-2">
           <span>{alert.headline}</span>
           {isMuted && <MutedBadge />}
         </div>
       </td>
-      <td className="py-3 pr-4 text-[12px] text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
-      <td className="py-3 text-[12px] tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</td>
+      <td className="py-3 pr-4 text-wb-label text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
+      <td className="py-3 text-wb-label tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</td>
     </tr>
   );
 }
 
 /** Compact card for a high-severity (Emergency Warning / Watch and Act)
  * alert — readable without opening the dense Browse table. */
-function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; onSelect: () => void }) {
+function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; attention?: BomAttention; onSelect: () => void }) {
   const isEmergency = alert.severity === 'emergency_warning';
   return (
     <div
@@ -220,6 +208,14 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <SeverityBadge alert={alert} />
         <Badge status="neutral">{alert.jurisdiction}</Badge>
+        {attention && (
+          <span
+            className={`text-wb-label font-semibold uppercase tracking-wide ${attention === 'high' ? 'text-state-crit-on' : 'text-wb-ink2'}`}
+            title="Platform-assigned from the warning type — BOM does not give this warning an Advice / Watch and Act / Emergency Warning tier."
+          >
+            {BOM_ATTENTION_LABEL[attention]}
+          </span>
+        )}
         {isMuted && <MutedBadge />}
       </div>
       {/* WP3 defect #4 sweep: real headline text (e.g. "Fire Weather Warning
@@ -230,12 +226,17 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
           whole page's) min-content width and forced horizontal page
           scroll. `break-words` lets it wrap mid-word as a last resort. */}
       <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
-      {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
-      <p className="mt-1 text-[11px] text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
+      {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
+      <p className="mt-1 text-wb-label text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
+      {siteCount > 0 && (
+        <p className="mt-1 text-wb-label font-semibold text-state-crit-on">
+          {siteCount} of our site{siteCount === 1 ? '' : 's'} possibly affected
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-3">
         <button
           onClick={onSelect}
-          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           View details
         </button>
@@ -244,7 +245,7 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
             href={alert.canonicalUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-md px-3 py-1.5 text-[12px] font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="rounded-md px-3 py-1.5 text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             View official warning →
           </a>
@@ -265,26 +266,26 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
           <h2 className="break-words font-serif text-lg text-wb-ink">{alert.headline}</h2>
-          {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
+          {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
           {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
-            <p className="mt-1 text-[11px] italic text-wb-ink2">
+            <p className="mt-1 text-wb-label italic text-wb-ink2">
               BOM does not provide an Advice / Watch and Act / Emergency Warning tier for this feed.
             </p>
           )}
         </div>
-        <button onClick={onClose} className="rounded-md px-3 py-2 text-[12px] text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
+        <button onClick={onClose} className="rounded-md px-3 py-2 text-wb-label text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
       </div>
-      <div className="grid grid-cols-2 gap-3 text-[12px] text-wb-ink2 sm:grid-cols-4">
-        <div><span className="uppercase tracking-wide text-[10px]">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Source updated</span><div className="text-wb-ink">{alert.updatedAtSrc ? new Date(alert.updatedAtSrc).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
+      <div className="grid grid-cols-2 gap-3 text-wb-label text-wb-ink2 sm:grid-cols-4">
+        <div><span className="uppercase tracking-wide text-wb-label">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Source updated</span><div className="text-wb-ink">{alert.updatedAtSrc ? new Date(alert.updatedAtSrc).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
       </div>
       {alert.rawText && (
-        <p className="mt-4 whitespace-pre-wrap text-[13px] text-wb-ink2">{alert.rawText}</p>
+        <p className="mt-4 whitespace-pre-wrap text-wb-body text-wb-ink2">{alert.rawText}</p>
       )}
       {alert.canonicalUrl && (
-        <a href={alert.canonicalUrl} target="_blank" rel="noreferrer" className="mt-4 inline-block text-[12px] font-semibold text-wb-sage-deep underline">
+        <a href={alert.canonicalUrl} target="_blank" rel="noreferrer" className="mt-4 inline-block text-wb-label font-semibold text-wb-sage-deep underline">
           Open official source →
         </a>
       )}
@@ -292,54 +293,52 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
   );
 }
 
-type CoverageState = 'good' | 'degraded' | 'stale' | 'unknown';
-
-function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSourceEntry[]; latestCheckedAt: string | null }) {
-  // Sources marked NOT_YET_IMPLEMENTED (TAS/NT) heartbeat "skipped"
-  // permanently by design — that's an honest capability gap, not a live
-  // coverage regression, so it doesn't drive the degraded/failed state.
-  const failedSources = sources.filter((s) => s.status === 'failed');
-  const staleness = latestCheckedAt ? Date.now() - new Date(latestCheckedAt).getTime() : null;
-  const isStale = staleness !== null && staleness > STALE_THRESHOLD_MS;
-
-  let state: CoverageState = 'unknown';
-  if (latestCheckedAt === null) state = 'unknown';
-  else if (isStale) state = 'stale';
-  else if (failedSources.length > 0) state = 'degraded';
-  else state = 'good';
+function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment; sourceCount: number }) {
+  const { level, gaps, newestCheckedAt, oldestCheckedAt } = coverage;
+  const allStale = gaps.length > 0 && gaps.every((g) => g.issue === 'stale');
+  const gapLines = describeGaps(gaps);
+  const real = gaps.filter((g) => g.issue !== 'not_implemented');
 
   return (
-    <section aria-label={`Alert coverage: ${state}`} data-alert-state={state === 'degraded' ? 'unavailable' : state}>
+    <section aria-label={`Alert coverage: ${level}`} data-alert-state={level === 'degraded' ? 'unavailable' : level}>
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-serif text-base text-wb-ink">Coverage</h2>
-          {state === 'good' && (
-            <p className="text-[12px] text-wb-ink2">Official-source coverage is currently good.</p>
+          {level === 'good' && (
+            <p className="text-wb-label text-wb-ink2">All {sourceCount} official sources are reporting.</p>
           )}
-          {state === 'degraded' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[12px] text-state-warn-on">
-              {failedSources.length} official source{failedSources.length === 1 ? '' : 's'} currently unavailable. Alert coverage may be incomplete.
+          {level === 'partial' && (
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+              Coverage is partial — some official sources are not monitored yet, so “none detected” does not cover them.
             </p>
           )}
-          {state === 'stale' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[12px] text-state-warn-on">Alerts have not been refreshed recently. Coverage may be stale.</p>
+          {level === 'degraded' && (
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+              {real.length} official source{real.length === 1 ? '' : 's'} unavailable or not refreshed recently. Alert coverage may be incomplete.
+            </p>
           )}
-          {state === 'unknown' && (
-            <p className="text-[12px] text-wb-ink2">Source health could not be determined.</p>
+          {level === 'unknown' && (
+            <p className="text-wb-label text-wb-ink2">Source health could not be determined.</p>
           )}
-          <p className="mt-1 text-[11px] text-wb-ink2">
-            {latestCheckedAt ? `Last checked ${relativeTime(latestCheckedAt)}.` : 'No collection recorded yet.'}
+          {gapLines.length > 0 && (
+            <ul className="mt-1 list-disc pl-4 text-wb-label text-wb-ink2">
+              {gapLines.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+          )}
+          <p className="mt-1 text-wb-label text-wb-ink2">
+            {newestCheckedAt ? `Last checked ${relativeTime(newestCheckedAt)}` : 'No collection recorded yet.'}
+            {oldestCheckedAt && oldestCheckedAt !== newestCheckedAt ? ` · oldest source ${relativeTime(oldestCheckedAt)}` : ''}
           </p>
           <EvidenceMeta
-            source={`${sources.length} official alert source${sources.length === 1 ? '' : 's'} (domain_heartbeats)`}
-            observedAt={latestCheckedAt}
-            state={state === 'unknown' ? 'unavailable' : state === 'degraded' ? 'unavailable' : state === 'stale' ? 'stale' : undefined}
+            source={`${sourceCount} official alert source${sourceCount === 1 ? '' : 's'} (domain_heartbeats)`}
+            observedAt={oldestCheckedAt}
+            state={level === 'good' ? undefined : allStale ? 'stale' : 'unavailable'}
           />
         </div>
         <Link
           href="/agent-status-workbench"
-          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           View system status →
         </Link>
@@ -402,26 +401,27 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
   return (
     <Card>
       <h2 className="font-serif text-base text-wb-ink">Create a silence</h2>
-      <p className="mt-1 text-[12px] text-wb-ink2">
+      <p className="mt-1 text-wb-label text-wb-ink2">
         Mute matching alert notifications for a bounded window — e.g. a planned hazard-reduction burn. The alert
         record itself always stays visible; only outbound notifications (email) are suppressed while a silence is active.
+        Emergency Warnings are never silenced — they always notify.
       </p>
       <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+        <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
           Reason (required)
           <input
             type="text"
-            className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+            className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="e.g. Planned RFS hazard-reduction burn, western Sydney"
           />
         </label>
         <div className="flex flex-wrap gap-3">
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Duration
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={durationHours}
               onChange={(e) => setDurationHours(Number(e.target.value))}
             >
@@ -430,10 +430,10 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Jurisdiction
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={jurisdiction}
               onChange={(e) => setJurisdiction(e.target.value)}
             >
@@ -441,10 +441,10 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
               {JURISDICTIONS.map((j) => (<option key={j} value={j}>{j}</option>))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Alert type
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={alertType}
               onChange={(e) => setAlertType(e.target.value)}
             >
@@ -452,21 +452,21 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
               {ALERT_TYPES.map((t) => (<option key={t} value={t}>{ALERT_TYPE_LABELS[t]}</option>))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Severity
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={severity}
               onChange={(e) => setSeverity(e.target.value)}
             >
               <option value="">Any</option>
-              {Object.entries(SEVERITY_LABELS).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
+              {Object.entries(SEVERITY_LABELS).filter(([key]) => key !== 'emergency_warning').map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Source
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={sourceKey}
               onChange={(e) => setSourceKey(e.target.value)}
             >
@@ -475,12 +475,12 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
             </select>
           </label>
         </div>
-        {submitError && <p className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-[12px] text-state-crit-on">{submitError}</p>}
+        {submitError && <p className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-wb-label text-state-crit-on">{submitError}</p>}
         <div>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-md bg-wb-ink px-3 py-1.5 text-[12px] font-semibold text-wb-bg hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="rounded-md bg-wb-ink px-3 py-1.5 text-wb-label font-semibold text-wb-bg hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             {isSubmitting ? 'Creating…' : 'Create silence'}
           </button>
@@ -512,9 +512,9 @@ function SilenceRow({ silence, onExpired }: { silence: AlertSilenceEntry; onExpi
           <Badge status={silence.isActive ? 'success' : isUpcoming ? 'neutral' : 'error'}>
             {silence.isActive ? 'Active' : isUpcoming ? 'Upcoming' : 'Expired'}
           </Badge>
-          <span className="text-[13px] font-medium text-wb-ink">{silence.reason}</span>
+          <span className="text-wb-body font-medium text-wb-ink">{silence.reason}</span>
         </div>
-        <p className="mt-1 text-[11px] text-wb-ink2">
+        <p className="mt-1 text-wb-label text-wb-ink2">
           Scope: {describeSilenceScope(silence)} · {silence.isActive ? `Ends ${relativeTime(silence.endsAt)}` : isUpcoming ? `Starts ${relativeTime(silence.startsAt)}` : `Ended ${relativeTime(silence.endsAt)}`}
           {silence.isActive && ` · Currently matching ${silence.matchingActiveAlertCount} active alert${silence.matchingActiveAlertCount === 1 ? '' : 's'}`}
         </p>
@@ -523,7 +523,7 @@ function SilenceRow({ silence, onExpired }: { silence: AlertSilenceEntry; onExpi
         <button
           onClick={handleExpire}
           disabled={isExpiring}
-          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           {isExpiring ? 'Ending…' : 'End now'}
         </button>
@@ -539,7 +539,7 @@ function SilencesPanel({ silences, onRefresh }: { silences: AlertSilenceEntry[];
       <Card>
         <h2 className="font-serif text-base text-wb-ink">Silences</h2>
         {silences.length === 0 ? (
-          <p className="mt-2 text-[12px] italic text-wb-ink2">No silences created yet.</p>
+          <p className="mt-2 text-wb-label italic text-wb-ink2">No silences created yet.</p>
         ) : (
           <div className="mt-2">
             {silences.map((s) => (
@@ -552,10 +552,89 @@ function SilencesPanel({ silences, onRefresh }: { silences: AlertSilenceEntry[];
   );
 }
 
+const MATCH_METHOD_LABEL: Record<string, string> = { distance: 'Near incident point', text: 'Named in alert' };
+
+interface AffectedSite {
+  site: AlertSiteEntry;
+  match: SiteMatch;
+  alert: EmergencyAlertEntry;
+}
+
+/** Own sites that active Emergency Warning / Watch and Act alerts may affect
+ * (lib/siteMatching.ts). "None matched" is never shown as "clear": regional
+ * warnings name a district, not a suburb, so unmatched alerts in states where
+ * we have sites are surfaced as a remainder. */
+function SitesPanel({
+  sites, sitesError, affected, unmatchedByState, onSelectAlert,
+}: {
+  sites: AlertSiteEntry[];
+  sitesError: string | null;
+  affected: AffectedSite[];
+  unmatchedByState: Record<string, number>;
+  onSelectAlert: (id: string) => void;
+}) {
+  const geocoded = sites.filter((s) => s.geocodeQuality === 'address' || s.geocodeQuality === 'street').length;
+  const unmatchedTotal = Object.values(unmatchedByState).reduce((a, b) => a + b, 0);
+  const tier1 = affected.filter((a) => a.site.priority === 'Tier 1').length;
+
+  return (
+    <Card>
+      <h2 className="font-serif text-base text-wb-ink">Your sites</h2>
+      {sitesError ? (
+        <p className="mt-1 text-wb-label text-state-warn-on">Site register could not be loaded ({sitesError}) — showing national alerts only.</p>
+      ) : sites.length === 0 ? (
+        <p className="mt-1 text-wb-label text-wb-ink2">No site register loaded — showing national alerts only.</p>
+      ) : (
+        <>
+          <p className="mt-1 text-wb-label text-wb-ink2">
+            {affected.length === 0
+              ? 'No site matched an active Emergency Warning or Watch and Act.'
+              : `${affected.length} site${affected.length === 1 ? '' : 's'} possibly affected${tier1 > 0 ? ` · ${tier1} Tier 1` : ''}.`}
+          </p>
+          {affected.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-2">
+              {affected.slice(0, 8).map(({ site, match, alert }) => (
+                <li key={`${site.id}-${alert.id}`} className="rounded border border-wb-line px-2 py-1.5 text-wb-label">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge status={site.priority === 'Tier 1' ? 'error' : 'neutral'}>{site.priority}</Badge>
+                    <span className="font-medium text-wb-ink">{site.name}</span>
+                    <span className="text-wb-ink2">{site.suburb} {site.state}</span>
+                  </div>
+                  <p className="mt-1 break-words text-wb-ink2">
+                    {alert.headline} · {MATCH_METHOD_LABEL[match.method]} ({match.reason})
+                  </p>
+                  <button
+                    onClick={() => onSelectAlert(alert.id)}
+                    className="mt-1 text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                  >
+                    View alert
+                  </button>
+                </li>
+              ))}
+              {affected.length > 8 && <li className="text-wb-label italic text-wb-ink2">…and {affected.length - 8} more.</li>}
+            </ul>
+          )}
+          {unmatchedTotal > 0 && (
+            <p className="mt-2 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+              {unmatchedTotal} active alert{unmatchedTotal === 1 ? '' : 's'} in states where we have sites matched no specific site
+              ({Object.entries(unmatchedByState).map(([st, n]) => `${st} ${n}`).join(', ')}). Regional warnings can still apply — check the alert details.
+            </p>
+          )}
+          <p className="mt-2 text-wb-label text-wb-ink2">
+            {sites.length} sites · {geocoded} located to street level; the rest use suburb or postcode centres, so their matches are approximate.
+          </p>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default function EmergencyAlertsWorkbench() {
   const [allAlerts, setAllAlerts] = useState<EmergencyAlertEntry[]>([]);
   const [sources, setSources] = useState<EmergencyAlertSourceEntry[]>([]);
   const [silences, setSilences] = useState<AlertSilenceEntry[]>([]);
+  const [sites, setSites] = useState<AlertSiteEntry[]>([]);
+  const [sitesError, setSitesError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [silencesError, setSilencesError] = useState<string | null>(null);
@@ -564,7 +643,6 @@ export default function EmergencyAlertsWorkbench() {
   const [severityFilter, setSeverityFilter] = useState<string>('');
   const [showInactive, setShowInactive] = useState(false);
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
-  const [showRelevanceInfo, setShowRelevanceInfo] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -586,6 +664,20 @@ export default function EmergencyAlertsWorkbench() {
     }
   }
 
+  /** Same isolation as silences: a site-register outage must not take down
+   * the alert views — the page degrades to national alerts with a notice. */
+  async function fetchSites() {
+    try {
+      const res = await fetch('/api/emergency-alerts/sites', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Sites HTTP ${res.status}`);
+      const data = await res.json();
+      setSites(data.sites ?? []);
+      setSitesError(null);
+    } catch (err) {
+      setSitesError(err instanceof Error ? err.message : 'Failed to load sites');
+    }
+  }
+
   async function fetchData(withSpinner: boolean) {
     if (withSpinner) setIsLoading(true);
     try {
@@ -593,6 +685,7 @@ export default function EmergencyAlertsWorkbench() {
         fetch('/api/emergency-alerts?activeOnly=false', { cache: 'no-store' }),
         fetch('/api/emergency-alerts/sources', { cache: 'no-store' }),
         fetchSilences(),
+        fetchSites(),
       ]);
       if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
       if (!sourcesRes.ok) throw new Error(`Sources HTTP ${sourcesRes.status}`);
@@ -617,22 +710,37 @@ export default function EmergencyAlertsWorkbench() {
 
   useEffect(() => {
     let cancelled = false;
+    let lastFetchAt = 0;
 
-    function scheduleNext() {
-      const delay = msUntilNextRefresh(new Date());
-      timeoutRef.current = setTimeout(async () => {
-        if (cancelled) return;
-        await fetchData(false);
-        if (!cancelled) scheduleNext();
-      }, delay);
+    async function refresh(withSpinner: boolean) {
+      lastFetchAt = Date.now();
+      await fetchData(withSpinner);
     }
 
-    fetchData(true).then(() => {
+    function scheduleNext() {
+      timeoutRef.current = setTimeout(async () => {
+        if (cancelled) return;
+        await refresh(false);
+        if (!cancelled) scheduleNext();
+      }, REFRESH_MS);
+    }
+
+    // Browsers throttle timers in background tabs, so a returning tab may be
+    // far staler than REFRESH_MS — catch up the moment it is visible again.
+    function onVisible() {
+      if (document.visibilityState === 'visible' && Date.now() - lastFetchAt > FOCUS_REFETCH_MIN_AGE_MS) {
+        void refresh(false);
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible);
+
+    refresh(true).then(() => {
       if (!cancelled) scheduleNext();
     });
 
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
       if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -650,9 +758,48 @@ export default function EmergencyAlertsWorkbench() {
   const activeAlerts = useMemo(() => allAlerts.filter((a) => a.isActive), [allAlerts]);
   const emergencyAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'emergency_warning'), [activeAlerts]);
   const watchAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'watch_and_act'), [activeAlerts]);
-  const informationalAlerts = useMemo(() => activeAlerts.filter((a) => a.severity !== 'emergency_warning' && a.severity !== 'watch_and_act'), [activeAlerts]);
+  const nonActionAlerts = useMemo(() => activeAlerts.filter((a) => a.severity !== 'emergency_warning' && a.severity !== 'watch_and_act'), [activeAlerts]);
+  // BOM carries no action tier, but a BOM warning (cyclone, severe
+  // thunderstorm, flood, fire weather...) IS an official warning in force —
+  // it must never sit under "no immediate action". Shown in its own section.
+  const bomWarnings = useMemo(() => {
+    const list = nonActionAlerts.filter((a) => a.severity === 'unknown' && isBomSource(a.sourceKey));
+    const rank = (a: EmergencyAlertEntry) => (bomAttentionLevel(a.headline, a.alertType) === 'high' ? 0 : 1);
+    return [...list].sort((a, b) => rank(a) - rank(b));
+  }, [nonActionAlerts]);
+  const bomHighCount = useMemo(() => bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high').length, [bomWarnings]);
+  // BOM names districts, not places, so per-site matching rarely hits: show how
+  // much of our estate is in each state with a high-attention warning instead.
+  const bomHighStates = useMemo(() => {
+    const states = new Set(bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high').map((a) => a.jurisdiction));
+    return [...states].map((st) => ({ state: st, ...stateSiteSummary(st, sites) })).filter((x) => x.total > 0);
+  }, [bomWarnings, sites]);
+  const informationalAlerts = useMemo(() => nonActionAlerts.filter((a) => !(a.severity === 'unknown' && isBomSource(a.sourceKey))), [nonActionAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
-  const unknownCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'unknown').length, [activeAlerts]);
+  const unknownCount = useMemo(() => informationalAlerts.filter((a) => a.severity === 'unknown').length, [informationalAlerts]);
+
+  const siteMatchesByAlert = useMemo(() => {
+    const map = new Map<string, SiteMatch[]>();
+    for (const alert of [...emergencyAlerts, ...watchAlerts, ...bomWarnings]) {
+      const matches = matchAlert(alert, sites);
+      if (matches.length > 0) map.set(alert.id, matches);
+    }
+    return map;
+  }, [emergencyAlerts, watchAlerts, bomWarnings, sites]);
+
+  /** One row per site, attached to its most severe alert (emergency first). */
+  const affectedSites = useMemo<AffectedSite[]>(() => {
+    const bySite = new Map<string, AffectedSite>();
+    for (const alert of [...emergencyAlerts, ...watchAlerts]) {
+      for (const match of siteMatchesByAlert.get(alert.id) ?? []) {
+        if (!bySite.has(match.site.id)) bySite.set(match.site.id, { site: match.site, match, alert });
+      }
+    }
+    const order: Record<string, number> = { 'Tier 1': 0, 'Tier 2': 1, 'Tier 3': 2 };
+    return [...bySite.values()].sort((a, b) => (order[a.site.priority] ?? 9) - (order[b.site.priority] ?? 9) || a.site.name.localeCompare(b.site.name));
+  }, [emergencyAlerts, watchAlerts, siteMatchesByAlert]);
+
+  const unmatchedByState = useMemo(() => statesWithoutSiteMatch([...emergencyAlerts, ...watchAlerts], sites), [emergencyAlerts, watchAlerts, sites]);
 
   const browseAlerts = useMemo(() => {
     return allAlerts.filter((a) => {
@@ -663,11 +810,7 @@ export default function EmergencyAlertsWorkbench() {
     });
   }, [allAlerts, jurisdictionFilter, severityFilter, showInactive]);
 
-  const latestCheckedAt = useMemo(() => {
-    const timestamps = sources.map((s) => s.lastRun).filter((t): t is string => Boolean(t));
-    if (timestamps.length === 0) return null;
-    return timestamps.reduce((latest, t) => (new Date(t) > new Date(latest) ? t : latest));
-  }, [sources]);
+  const coverage = useMemo(() => assessCoverage(sources), [sources]);
 
   const selectedAlert = allAlerts.find((a) => a.id === selectedAlertId) ?? null;
 
@@ -695,13 +838,13 @@ export default function EmergencyAlertsWorkbench() {
       <div className="risk-reference-surface risk-reference-command flex flex-col gap-4">
         <div className="risk-reference-kicker">Command / intelligence · immediate state first</div>
         {isLoading ? (
-          <Card><p className="text-[13px] italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
+          <Card><p className="text-wb-body italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (
           <Card>
             <DataAvailabilityNotice state="unavailable" sources={[`Emergency Alerts: ${loadError}`]} />
             <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
-              <p className="text-[13px] font-semibold text-state-crit-on">Emergency alert data could not be loaded</p>
-              <p className="mt-1 text-[12px] text-wb-ink2">{loadError}</p>
+              <p className="text-wb-body font-semibold text-state-crit-on">Emergency alert data could not be loaded</p>
+              <p className="mt-1 text-wb-label text-wb-ink2">{loadError}</p>
             </div>
           </Card>
         ) : (
@@ -725,21 +868,21 @@ export default function EmergencyAlertsWorkbench() {
             <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
               <button
                 onClick={() => setView('overview')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'overview'}
               >
                 Current
               </button>
               <button
                 onClick={() => setView('browse')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'browse'}
               >
                 Browse all alerts
               </button>
               <button
                 onClick={() => setView('silences')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'silences'}
               >
                 Silences{activeSilences.length > 0 ? ` (${activeSilences.length})` : ''}
@@ -748,30 +891,69 @@ export default function EmergencyAlertsWorkbench() {
 
             {view === 'overview' && (
               <>
+                {activeSilences.length > 0 && (
+                  <section aria-label="Active silences" data-alert-state="silences">
+                    <div className="rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1.5 text-state-warn-on">
+                      <p className="text-wb-lead font-semibold">
+                        {activeSilences.length} silence{activeSilences.length === 1 ? ' is' : 's are'} active — email notifications are muted for matching alerts
+                      </p>
+                      <ul className="mt-1 list-disc pl-4 text-wb-label">
+                        {activeSilences.map((s) => (
+                          <li key={s.id}>{describeSilenceScope(s)} — {s.reason} (ends {relativeTime(s.endsAt)}, muting {s.matchingActiveAlertCount} active alert{s.matchingActiveAlertCount === 1 ? '' : 's'})</li>
+                        ))}
+                      </ul>
+                      <p className="mt-1 text-wb-label">Emergency Warnings are never silenced, and every alert stays visible here.</p>
+                    </div>
+                  </section>
+                )}
+
                 {emergencyAlerts.length === 0 && watchAlerts.length === 0 && (
                   <Card>
-                    <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-[15px] font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
-                    <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-[15px] font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
+                    {coverage.level === 'good' ? (
+                      <>
+                        <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
+                        <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
+                      </>
+                    ) : (
+                      // Never a green all-clear while a source is down, stale or
+                      // unmonitored: "none detected" only covers what we can see.
+                      <div className="rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1.5 text-state-warn-on">
+                        <p className="text-wb-lead font-semibold">No Emergency Warnings or Watch and Act alerts detected in monitored sources</p>
+                        <p className="mt-1 text-wb-label">
+                          This is not a full all-clear — coverage is {coverage.level === 'unknown' ? 'unknown' : 'incomplete'}:
+                        </p>
+                        <ul className="mt-1 list-disc pl-4 text-wb-label">
+                          {coverage.level === 'unknown'
+                            ? <li>source health could not be determined</li>
+                            : describeGaps(coverage.gaps).map((line) => <li key={line}>{line}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {bomWarnings.length > 0 && (
+                      <p className="mt-2 text-wb-label font-semibold text-state-warn-on">
+                        {bomWarnings.length} official weather warning{bomWarnings.length === 1 ? ' is' : 's are'} in force{bomHighCount > 0 ? ` (${bomHighCount} high attention)` : ''} — see below.
+                      </p>
+                    )}
                     {(adviceCount + unknownCount) > 0 ? (
-                      <p className="mt-2 text-[12px] text-wb-ink2">
+                      <p className="mt-2 text-wb-label text-wb-ink2">
                         {adviceCount + unknownCount} lower-severity or unclassified official alert{adviceCount + unknownCount === 1 ? '' : 's'} {adviceCount + unknownCount === 1 ? 'is' : 'are'} active nationally.
                       </p>
-                    ) : (
-                      <p className="mt-2 text-[12px] text-wb-ink2">No active official alerts detected.</p>
-                    )}
+                    ) : bomWarnings.length === 0 ? (
+                      <p className="mt-2 text-wb-label text-wb-ink2">No active official alerts detected.</p>
+                    ) : null}
                   </Card>
                 )}
 
                 {emergencyAlerts.length > 0 && (
                   <section aria-labelledby="alerts-action-required" data-alert-state="action-required">
                   <Card>
-                    <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-crit-on">
+                    <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-crit-on">
                       <span id="alerts-action-required">Action required · </span>
                       {emergencyAlerts.length} Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}
                     </h2>
                     <div className="flex flex-col gap-3">
                       {emergencyAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>
@@ -781,13 +963,39 @@ export default function EmergencyAlertsWorkbench() {
                 {watchAlerts.length > 0 && (
                   <section aria-labelledby="alerts-watch" data-alert-state="watch">
                   <Card>
-                    <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-warn-on">
+                    <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
                       <span id="alerts-watch">Watch · </span>
                       Watch and Act — {watchAlerts.length} active
                     </h2>
                     <div className="flex flex-col gap-3">
                       {watchAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                      ))}
+                    </div>
+                  </Card>
+                  </section>
+                )}
+
+                {bomWarnings.length > 0 && (
+                  <section aria-labelledby="alerts-bom" data-alert-state="weather-warnings">
+                  <Card>
+                    <h2 className="mb-1 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
+                      <span id="alerts-bom">Official weather warnings · </span>{bomWarnings.length} in force
+                    </h2>
+                    <p className="mb-3 text-wb-label text-wb-ink2">
+                      The Bureau of Meteorology does not supply an Advice / Watch and Act / Emergency Warning tier — read each warning for what to do.
+                      {bomHighCount > 0 && ' “High attention” is this platform’s own label from the warning type (cyclone, severe thunderstorm, severe weather, tsunami, moderate/major flood); those also send an email.'}
+                    </p>
+                    {bomHighStates.length > 0 && (
+                      <p className="mb-3 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+                        High-attention warnings in states where we have sites:{' '}
+                        {bomHighStates.map((x) => `${x.state} — ${x.total} site${x.total === 1 ? '' : 's'}${x.tier1 ? ` (${x.tier1} Tier 1)` : ''}`).join('; ')}.
+                        These warnings name districts, not places — check whether our sites fall inside the affected area.
+                      </p>
+                    )}
+                    <div className="flex flex-col gap-3">
+                      {bomWarnings.map((alert) => (
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>
@@ -797,50 +1005,40 @@ export default function EmergencyAlertsWorkbench() {
                 {informationalAlerts.length > 0 && (
                   <section aria-labelledby="alerts-informational" data-alert-state="informational">
                   <Card>
-                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
+                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
                     <div className="flex flex-col gap-3">
-                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
+                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
                     </div>
                   </Card>
                   </section>
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <Card>
-                    <h2 className="font-serif text-base text-wb-ink">Relevant to you</h2>
-                    <p className="mt-1 text-[12px] text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
-                    <button
-                      onClick={() => setShowRelevanceInfo((v) => !v)}
-                      className="mt-2 text-[11px] font-semibold text-wb-sage-deep underline"
-                    >
-                      {showRelevanceInfo ? 'Hide' : 'How relevance works'}
-                    </button>
-                    {showRelevanceInfo && (
-                      <p className="mt-2 text-[11px] italic text-wb-ink2">
-                        HQ does not yet have a configured location or area of interest to match against alert
-                        locations. Without a reliable match, alerts are shown nationally rather than guessing
-                        at relevance.
-                      </p>
-                    )}
-                  </Card>
+                  <SitesPanel
+                    sites={sites}
+                    sitesError={sitesError}
+                    affected={affectedSites}
+                    unmatchedByState={unmatchedByState}
+                    onSelectAlert={selectAndMaybeSwitch}
+                  />
 
                   {(adviceCount > 0 || unknownCount > 0) && (
                     <Card>
                       <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
-                      <div className="mt-2 flex flex-col gap-1 text-[12px] text-wb-ink2">
+                      <div className="mt-2 flex flex-col gap-1 text-wb-label text-wb-ink2">
                         {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
                         {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
                       </div>
                       <button
                         onClick={() => setView('browse')}
-                        className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                        className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                       >
                         Browse all alerts →
                       </button>
                     </Card>
                   )}
 
-                  <CoveragePanel sources={sources} latestCheckedAt={latestCheckedAt} />
+                  <CoveragePanel coverage={coverage} sourceCount={sources.filter((x) => x.active).length} />
                 </div>
               </>
             )}
@@ -849,10 +1047,10 @@ export default function EmergencyAlertsWorkbench() {
               <>
                 <Card>
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 text-wb-label text-wb-ink2">
                       Jurisdiction
                       <select
-                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
                         value={jurisdictionFilter}
                         onChange={(e) => setJurisdictionFilter(e.target.value)}
                       >
@@ -862,10 +1060,10 @@ export default function EmergencyAlertsWorkbench() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 text-wb-label text-wb-ink2">
                       Severity
                       <select
-                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
                         value={severityFilter}
                         onChange={(e) => setSeverityFilter(e.target.value)}
                       >
@@ -875,7 +1073,7 @@ export default function EmergencyAlertsWorkbench() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex items-center gap-2 rounded-md px-1 py-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 rounded-md px-1 py-2 text-wb-label text-wb-ink2">
                       <input type="checkbox" className="h-4 w-4" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                       Include expired/inactive
                     </label>
@@ -887,11 +1085,11 @@ export default function EmergencyAlertsWorkbench() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-wb-line">
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Jurisdiction</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Severity</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Headline</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Location</th>
-                          <th className="pb-2 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Last Seen</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Jurisdiction</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Severity</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Headline</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Location</th>
+                          <th className="pb-2 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Last Seen</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -905,7 +1103,7 @@ export default function EmergencyAlertsWorkbench() {
                           />
                         ))}
                         {browseAlerts.length === 0 && (
-                          <tr><td colSpan={5} className="py-6 text-center text-[13px] italic text-wb-ink2">No alerts matching these filters.</td></tr>
+                          <tr><td colSpan={5} className="py-6 text-center text-wb-body italic text-wb-ink2">No alerts matching these filters.</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -919,8 +1117,8 @@ export default function EmergencyAlertsWorkbench() {
                 {silencesError && (
                   <Card>
                     <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
-                      <p className="text-[13px] font-semibold text-state-crit-on">Silences could not be loaded</p>
-                      <p className="mt-1 text-[12px] text-wb-ink2">{silencesError}</p>
+                      <p className="text-wb-body font-semibold text-state-crit-on">Silences could not be loaded</p>
+                      <p className="mt-1 text-wb-label text-wb-ink2">{silencesError}</p>
                     </div>
                   </Card>
                 )}

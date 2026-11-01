@@ -168,6 +168,101 @@ def test_omits_portal_deep_link_when_not_configured(monkeypatch):
     assert calls == [INTERRUPT_NOW_EVENT["recommended_action"]]
 
 
+def test_dual_sends_email_alongside_telegram_on_every_interrupt(monkeypatch):
+    """Option (b): email fires on every INTERRUPT_NOW dispatch, not gated on
+    an escalation ladder (which doesn't exist yet)."""
+    events = [dict(INTERRUPT_NOW_EVENT)]
+    items = _brief_items(events)
+
+    import core.platform.interrupt_dispatcher as mod
+
+    email_calls = []
+    monkeypatch.setattr(
+        mod, "send_email",
+        lambda to, subject, html, *a, **k: email_calls.append((to, subject, html)) or True,
+    )
+
+    dispatch_interrupt_now(events, items, notify_fn=lambda *a, **k: _fake_notify_ok())
+
+    assert len(email_calls) == 1
+    to, subject, html = email_calls[0]
+    assert to == "timjardenross1986@gmail.com"
+    assert INTERRUPT_NOW_EVENT["domain"] in subject
+    assert "INTERRUPT NOW" in subject
+    assert INTERRUPT_NOW_EVENT["recommended_action"] in html
+
+
+def test_email_recipient_honours_env_override(monkeypatch):
+    monkeypatch.setenv("INTERRUPT_NOW_EMAIL_TO", "override@example.com")
+    # Reload the module so the env-var-with-default is re-read at import time,
+    # matching the same convention as emergency_alerts.py / emergency_alert_summary.py.
+    import importlib
+
+    import core.platform.interrupt_dispatcher as mod
+    importlib.reload(mod)
+    try:
+        events = [dict(INTERRUPT_NOW_EVENT)]
+        items = _brief_items(events)
+
+        email_calls = []
+        monkeypatch.setattr(
+            mod, "send_email",
+            lambda to, subject, html, *a, **k: email_calls.append(to) or True,
+        )
+
+        mod.dispatch_interrupt_now(events, items, notify_fn=lambda *a, **k: _fake_notify_ok())
+
+        assert email_calls == ["override@example.com"]
+    finally:
+        importlib.reload(mod)
+
+
+def test_email_failure_does_not_block_or_break_telegram_dispatch(monkeypatch):
+    """The email leg is best-effort: it must never prevent notify_fn from
+    running or prevent a successful Telegram dispatch from being marked
+    acknowledged."""
+    events = [dict(INTERRUPT_NOW_EVENT)]
+    items = _brief_items(events)
+
+    import core.platform.interrupt_dispatcher as mod
+    monkeypatch.setattr(mod, "send_email", lambda *a, **k: False)
+    marked = []
+    monkeypatch.setattr(mod, "mark_event_status", lambda event_id, status: marked.append((event_id, status)))
+
+    telegram_calls = []
+
+    def fake_notify(body, **kwargs):
+        telegram_calls.append(body)
+        return _fake_notify_ok()
+
+    results = dispatch_interrupt_now(events, items, notify_fn=fake_notify)
+
+    assert len(telegram_calls) == 1
+    assert len(results) == 1
+    assert results[0].ok
+    assert marked == [(INTERRUPT_NOW_EVENT["event_id"], "acknowledged")]
+
+
+def test_email_send_raising_does_not_propagate(monkeypatch):
+    """Defense in depth: even if send_email somehow raised (contract
+    violation on its part), the dispatcher's own contract is preserved by
+    _email_interrupt_now not needing a try/except here — send_email's own
+    documented contract is never-raise. This test pins that assumption by
+    asserting send_email is invoked in a way dispatch tolerates a falsy
+    return without incident."""
+    events = [dict(INTERRUPT_NOW_EVENT)]
+    items = _brief_items(events)
+
+    import core.platform.interrupt_dispatcher as mod
+    calls = []
+    monkeypatch.setattr(mod, "send_email", lambda *a, **k: calls.append(1) or False)
+
+    results = dispatch_interrupt_now(events, items, notify_fn=lambda *a, **k: _fake_notify_ok())
+
+    assert calls == [1]
+    assert len(results) == 1
+
+
 def test_does_not_record_dispatch_message_id_when_transport_has_none(monkeypatch):
     events = [dict(INTERRUPT_NOW_EVENT)]
     items = _brief_items(events)

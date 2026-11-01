@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: {
     absolute: 'Command Access | TJR HQ',
   },
-  description: 'Secure command access for TJR HQ · Endeavour 27.',
+  description: 'Secure command access for TJR HQ.',
   robots: {
     index: false,
     follow: false,

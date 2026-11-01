@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0371 |
 | Title | Retire .env as a production secret source — Streams 2-6 |
 | Date | 2026-09-12 |
+| Lesson | LL-179 |
 | Follows | Stream 0 (audit), Stream 1 (pilot + runbook) |
 | Status | Streams 2-6 complete against the real (38-service) inventory. |
 

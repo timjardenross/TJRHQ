@@ -48,6 +48,7 @@ def _make_worker(tmp_path, monkeypatch, extract_fn=None, run_ocr_fn=None,
         sleep_fn=lambda seconds: None,
         check_filename_fn=check_filename_fn or eligibility.check_filename,
         check_content_fn=check_content_fn or eligibility.check_content,
+        manifest_path=tmp_path / "scan_manifest.json",
     )
     return inbox_base, db, model_router, worker
 
