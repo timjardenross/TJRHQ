@@ -22,15 +22,13 @@
  * instead of two independently-filtered queries.
  *
  * Freshness is derived from the real per-source domain_heartbeats data
- * (/api/emergency-alerts/sources), not from the browser's own poll timer.
- * Backend ingestion (intelligence/scheduler.py) runs a flat 15-minute
- * interval 24/7 with no overnight pause; only this page's own re-fetch
- * cadence throttles down overnight (Captain-directed 2026-08-26, to avoid
- * hitting a 15-min backend on a 60s UI timer) — new alerts still land and
- * still trigger Emergency Warning emails at any hour regardless of
- * whether a browser tab is open. The two are not the same thing and the
- * UI must not conflate them: "Last checked" always means real backend
- * collection time, never "the tab happened to poll."
+ * (/api/emergency-alerts/sources), not from the browser's own poll timer,
+ * and is judged per source (lib/alertCoverage.ts) so one dead feed can't be
+ * hidden behind fresh ones. Backend ingestion (intelligence/scheduler.py)
+ * runs every 15 minutes 24/7; this page re-fetches every few minutes around
+ * the clock and again when the tab regains focus — a tab left open overnight
+ * must not show hours-old "all clear" state. "Last checked" always means real
+ * backend collection time, never "the tab happened to poll."
  *
  * Detailed per-source crawl health lives in Agent & Job Status, which
  * already reads the same domain_heartbeats rows generically — this page
@@ -48,29 +46,15 @@ import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sourc
 import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/route';
 import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
 import { matchAlert, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
+import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
 
-const ACTIVE_HOURS_START = 7;  // 07:00 local
-const ACTIVE_HOURS_END = 19;   // 19:00 local
-const ACTIVE_REFRESH_MS = 60 * 60 * 1000; // hourly during active hours
 // Backend ingests every 15min 24/7 (intelligence/scheduler.py,
-// EMERGENCY_ALERT_INTERVAL_MINUTES). Six missed intervals with no fresh
-// heartbeat is a genuine collection problem, not UI polling cadence.
-const STALE_THRESHOLD_MS = 90 * 60 * 1000;
-
-/** Ms until the next scheduled UI re-fetch: hourly while within the active
- * window, or until the window next opens (07:00) while outside it. This
- * throttles the BROWSER's own refresh only — it has no bearing on when
- * the backend actually collects alerts (see module docstring). */
-function msUntilNextRefresh(now: Date): number {
-  const hour = now.getHours();
-  if (hour >= ACTIVE_HOURS_START && hour < ACTIVE_HOURS_END) {
-    return ACTIVE_REFRESH_MS;
-  }
-  const next7am = new Date(now);
-  next7am.setHours(ACTIVE_HOURS_START, 0, 0, 0);
-  if (next7am <= now) next7am.setDate(next7am.getDate() + 1);
-  return next7am.getTime() - now.getTime();
-}
+// EMERGENCY_ALERT_INTERVAL_MINUTES), so a few minutes is the right UI cadence:
+// fresh enough to catch each new run, light enough for an always-open tab.
+// There is deliberately NO overnight pause — warnings arrive at any hour.
+const REFRESH_MS = 3 * 60 * 1000;
+// Re-fetch on tab focus only if the data is at least this old.
+const FOCUS_REFETCH_MIN_AGE_MS = 60 * 1000;
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
 // alerts.alert_type CHECK constraint (migration 0174).
@@ -299,49 +283,47 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
   );
 }
 
-type CoverageState = 'good' | 'degraded' | 'stale' | 'unknown';
-
-function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSourceEntry[]; latestCheckedAt: string | null }) {
-  // Sources marked NOT_YET_IMPLEMENTED (TAS/NT) heartbeat "skipped"
-  // permanently by design — that's an honest capability gap, not a live
-  // coverage regression, so it doesn't drive the degraded/failed state.
-  const failedSources = sources.filter((s) => s.status === 'failed');
-  const staleness = latestCheckedAt ? Date.now() - new Date(latestCheckedAt).getTime() : null;
-  const isStale = staleness !== null && staleness > STALE_THRESHOLD_MS;
-
-  let state: CoverageState = 'unknown';
-  if (latestCheckedAt === null) state = 'unknown';
-  else if (isStale) state = 'stale';
-  else if (failedSources.length > 0) state = 'degraded';
-  else state = 'good';
+function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment; sourceCount: number }) {
+  const { level, gaps, newestCheckedAt, oldestCheckedAt } = coverage;
+  const allStale = gaps.length > 0 && gaps.every((g) => g.issue === 'stale');
+  const gapLines = describeGaps(gaps);
+  const real = gaps.filter((g) => g.issue !== 'not_implemented');
 
   return (
-    <section aria-label={`Alert coverage: ${state}`} data-alert-state={state === 'degraded' ? 'unavailable' : state}>
+    <section aria-label={`Alert coverage: ${level}`} data-alert-state={level === 'degraded' ? 'unavailable' : level}>
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-serif text-base text-wb-ink">Coverage</h2>
-          {state === 'good' && (
-            <p className="text-wb-label text-wb-ink2">Official-source coverage is currently good.</p>
+          {level === 'good' && (
+            <p className="text-wb-label text-wb-ink2">All {sourceCount} official sources are reporting.</p>
           )}
-          {state === 'degraded' && (
+          {level === 'partial' && (
             <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
-              {failedSources.length} official source{failedSources.length === 1 ? '' : 's'} currently unavailable. Alert coverage may be incomplete.
+              Coverage is partial — some official sources are not monitored yet, so “none detected” does not cover them.
             </p>
           )}
-          {state === 'stale' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">Alerts have not been refreshed recently. Coverage may be stale.</p>
+          {level === 'degraded' && (
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+              {real.length} official source{real.length === 1 ? '' : 's'} unavailable or not refreshed recently. Alert coverage may be incomplete.
+            </p>
           )}
-          {state === 'unknown' && (
+          {level === 'unknown' && (
             <p className="text-wb-label text-wb-ink2">Source health could not be determined.</p>
           )}
+          {gapLines.length > 0 && (
+            <ul className="mt-1 list-disc pl-4 text-wb-label text-wb-ink2">
+              {gapLines.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+          )}
           <p className="mt-1 text-wb-label text-wb-ink2">
-            {latestCheckedAt ? `Last checked ${relativeTime(latestCheckedAt)}.` : 'No collection recorded yet.'}
+            {newestCheckedAt ? `Last checked ${relativeTime(newestCheckedAt)}` : 'No collection recorded yet.'}
+            {oldestCheckedAt && oldestCheckedAt !== newestCheckedAt ? ` · oldest source ${relativeTime(oldestCheckedAt)}` : ''}
           </p>
           <EvidenceMeta
-            source={`${sources.length} official alert source${sources.length === 1 ? '' : 's'} (domain_heartbeats)`}
-            observedAt={latestCheckedAt}
-            state={state === 'unknown' ? 'unavailable' : state === 'degraded' ? 'unavailable' : state === 'stale' ? 'stale' : undefined}
+            source={`${sourceCount} official alert source${sourceCount === 1 ? '' : 's'} (domain_heartbeats)`}
+            observedAt={oldestCheckedAt}
+            state={level === 'good' ? undefined : allStale ? 'stale' : 'unavailable'}
           />
         </div>
         <Link
@@ -717,22 +699,37 @@ export default function EmergencyAlertsWorkbench() {
 
   useEffect(() => {
     let cancelled = false;
+    let lastFetchAt = 0;
 
-    function scheduleNext() {
-      const delay = msUntilNextRefresh(new Date());
-      timeoutRef.current = setTimeout(async () => {
-        if (cancelled) return;
-        await fetchData(false);
-        if (!cancelled) scheduleNext();
-      }, delay);
+    async function refresh(withSpinner: boolean) {
+      lastFetchAt = Date.now();
+      await fetchData(withSpinner);
     }
 
-    fetchData(true).then(() => {
+    function scheduleNext() {
+      timeoutRef.current = setTimeout(async () => {
+        if (cancelled) return;
+        await refresh(false);
+        if (!cancelled) scheduleNext();
+      }, REFRESH_MS);
+    }
+
+    // Browsers throttle timers in background tabs, so a returning tab may be
+    // far staler than REFRESH_MS — catch up the moment it is visible again.
+    function onVisible() {
+      if (document.visibilityState === 'visible' && Date.now() - lastFetchAt > FOCUS_REFETCH_MIN_AGE_MS) {
+        void refresh(false);
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible);
+
+    refresh(true).then(() => {
       if (!cancelled) scheduleNext();
     });
 
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
       if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -750,9 +747,14 @@ export default function EmergencyAlertsWorkbench() {
   const activeAlerts = useMemo(() => allAlerts.filter((a) => a.isActive), [allAlerts]);
   const emergencyAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'emergency_warning'), [activeAlerts]);
   const watchAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'watch_and_act'), [activeAlerts]);
-  const informationalAlerts = useMemo(() => activeAlerts.filter((a) => a.severity !== 'emergency_warning' && a.severity !== 'watch_and_act'), [activeAlerts]);
+  const nonActionAlerts = useMemo(() => activeAlerts.filter((a) => a.severity !== 'emergency_warning' && a.severity !== 'watch_and_act'), [activeAlerts]);
+  // BOM carries no action tier, but a BOM warning (cyclone, severe
+  // thunderstorm, flood, fire weather...) IS an official warning in force —
+  // it must never sit under "no immediate action". Shown in its own section.
+  const bomWarnings = useMemo(() => nonActionAlerts.filter((a) => a.severity === 'unknown' && isBomSource(a.sourceKey)), [nonActionAlerts]);
+  const informationalAlerts = useMemo(() => nonActionAlerts.filter((a) => !(a.severity === 'unknown' && isBomSource(a.sourceKey))), [nonActionAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
-  const unknownCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'unknown').length, [activeAlerts]);
+  const unknownCount = useMemo(() => informationalAlerts.filter((a) => a.severity === 'unknown').length, [informationalAlerts]);
 
   const siteMatchesByAlert = useMemo(() => {
     const map = new Map<string, SiteMatch[]>();
@@ -786,11 +788,7 @@ export default function EmergencyAlertsWorkbench() {
     });
   }, [allAlerts, jurisdictionFilter, severityFilter, showInactive]);
 
-  const latestCheckedAt = useMemo(() => {
-    const timestamps = sources.map((s) => s.lastRun).filter((t): t is string => Boolean(t));
-    if (timestamps.length === 0) return null;
-    return timestamps.reduce((latest, t) => (new Date(t) > new Date(latest) ? t : latest));
-  }, [sources]);
+  const coverage = useMemo(() => assessCoverage(sources), [sources]);
 
   const selectedAlert = allAlerts.find((a) => a.id === selectedAlertId) ?? null;
 
@@ -873,15 +871,38 @@ export default function EmergencyAlertsWorkbench() {
               <>
                 {emergencyAlerts.length === 0 && watchAlerts.length === 0 && (
                   <Card>
-                    <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
-                    <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
+                    {coverage.level === 'good' ? (
+                      <>
+                        <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
+                        <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
+                      </>
+                    ) : (
+                      // Never a green all-clear while a source is down, stale or
+                      // unmonitored: "none detected" only covers what we can see.
+                      <div className="rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1.5 text-state-warn-on">
+                        <p className="text-wb-lead font-semibold">No Emergency Warnings or Watch and Act alerts detected in monitored sources</p>
+                        <p className="mt-1 text-wb-label">
+                          This is not a full all-clear — coverage is {coverage.level === 'unknown' ? 'unknown' : 'incomplete'}:
+                        </p>
+                        <ul className="mt-1 list-disc pl-4 text-wb-label">
+                          {coverage.level === 'unknown'
+                            ? <li>source health could not be determined</li>
+                            : describeGaps(coverage.gaps).map((line) => <li key={line}>{line}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {bomWarnings.length > 0 && (
+                      <p className="mt-2 text-wb-label font-semibold text-state-warn-on">
+                        {bomWarnings.length} official weather warning{bomWarnings.length === 1 ? ' is' : 's are'} in force — see below.
+                      </p>
+                    )}
                     {(adviceCount + unknownCount) > 0 ? (
                       <p className="mt-2 text-wb-label text-wb-ink2">
                         {adviceCount + unknownCount} lower-severity or unclassified official alert{adviceCount + unknownCount === 1 ? '' : 's'} {adviceCount + unknownCount === 1 ? 'is' : 'are'} active nationally.
                       </p>
-                    ) : (
+                    ) : bomWarnings.length === 0 ? (
                       <p className="mt-2 text-wb-label text-wb-ink2">No active official alerts detected.</p>
-                    )}
+                    ) : null}
                   </Card>
                 )}
 
@@ -910,6 +931,24 @@ export default function EmergencyAlertsWorkbench() {
                     </h2>
                     <div className="flex flex-col gap-3">
                       {watchAlerts.map((alert) => (
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                      ))}
+                    </div>
+                  </Card>
+                  </section>
+                )}
+
+                {bomWarnings.length > 0 && (
+                  <section aria-labelledby="alerts-bom" data-alert-state="weather-warnings">
+                  <Card>
+                    <h2 className="mb-1 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
+                      <span id="alerts-bom">Official weather warnings · </span>{bomWarnings.length} in force
+                    </h2>
+                    <p className="mb-3 text-wb-label text-wb-ink2">
+                      The Bureau of Meteorology does not supply an Advice / Watch and Act / Emergency Warning tier — read each warning for what to do.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      {bomWarnings.map((alert) => (
                         <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
@@ -953,7 +992,7 @@ export default function EmergencyAlertsWorkbench() {
                     </Card>
                   )}
 
-                  <CoveragePanel sources={sources} latestCheckedAt={latestCheckedAt} />
+                  <CoveragePanel coverage={coverage} sourceCount={sources.filter((x) => x.active).length} />
                 </div>
               </>
             )}

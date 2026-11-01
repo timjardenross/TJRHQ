@@ -5,6 +5,7 @@ active one (was ~4 Supabase requests per source per 15-min tick)."""
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -93,3 +94,51 @@ def test_standalone_run_source_still_expires_and_heartbeats_itself():
     expire.assert_called_once()
     assert result["expired"] == 3
     assert single_heartbeat.call_args.kwargs["detail"] == "1 alert(s), 0 unknown severity, 3 expired"
+
+
+# --- empty-feed expiry guard -------------------------------------------------
+
+def test_empty_feed_expiry_is_deferred_by_the_grace_window():
+    adapters = {
+        "quiet": (_adapter([_alert("quiet")]), "emergency_alert_quiet"),
+        "empty": (_adapter([]), "emergency_alert_empty"),
+    }
+    reads = []
+
+    def fake_get(path):
+        reads.append(path)
+        return []
+
+    with patch.object(ea, "_ADAPTERS", adapters), \
+         patch.object(ea, "_upsert_batch"), \
+         patch.object(ea, "supabase_get", side_effect=fake_get), \
+         patch.object(ea, "_supabase_request"), \
+         patch.object(ea, "record_heartbeats") as beats:
+        ea.run_all()
+
+    assert len(reads) == 2  # one pass per group
+    normal = next(r for r in reads if "source_key=in.(quiet)" in r)
+    empty = next(r for r in reads if "source_key=in.(empty)" in r)
+
+    def cutoff(path):
+        from urllib.parse import unquote
+        return datetime.fromisoformat(unquote(path.split("last_seen_at=lt.")[1].split("&")[0]))
+
+    assert cutoff(normal) - cutoff(empty) == ea._EMPTY_FEED_EXPIRY_GRACE
+    detail = {hb["domain_key"]: hb for hb in beats.call_args.args[0]}["emergency_alert_empty"]["detail"]
+    assert "empty feed" in detail
+
+
+def test_all_non_empty_run_still_does_a_single_expiry_read():
+    run = _run_all([])
+    run.get.assert_called_once()
+
+
+def test_standalone_empty_feed_uses_the_grace_cutoff():
+    adapters = {"empty": (_adapter([]), "emergency_alert_empty")}
+    with patch.object(ea, "_ADAPTERS", adapters), \
+         patch.object(ea, "_upsert_batch"), \
+         patch.object(ea, "_expire_stale", return_value=0) as expire, \
+         patch.object(ea, "_record_heartbeat"):
+        ea.run_source("empty", run_started_at="2026-11-01T12:00:00+00:00")
+    assert expire.call_args.args[1] == "2026-11-01T10:00:00+00:00"

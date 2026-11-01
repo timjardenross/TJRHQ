@@ -24,7 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
@@ -76,6 +76,24 @@ _ADAPTERS = {
     "bom_wa":        (bom_warnings.wa,  "emergency_alert_bom_wa"),
     "bom_act":       (bom_warnings.act, "emergency_alert_bom_act"),
 }
+
+
+# A source whose fetch SUCCEEDS but returns zero alerts is ambiguous: either
+# every incident genuinely ended, or the feed/parser quietly broke (a layout
+# change, a throttled page, an empty 200). Treating it as "everything ended"
+# would mark every active alert for that source expired on one bad run — the
+# worst failure for a warning tool. So for an empty result, prior alerts are
+# only expired once they have gone unseen this long; a real all-clear still
+# clears, just not instantly. A non-empty result keeps the immediate rule.
+_EMPTY_FEED_EXPIRY_GRACE = timedelta(hours=2)
+
+
+def _expiry_cutoff(run_started_at: str, empty_feed: bool) -> str:
+    """The last_seen_at cutoff below which an active alert counts as gone."""
+    if not empty_feed:
+        return run_started_at
+    started = datetime.fromisoformat(run_started_at)
+    return (started - _EMPTY_FEED_EXPIRY_GRACE).isoformat()
 
 
 def _supabase_request(method: str, path: str, body: dict | None = None, extra_headers: dict | None = None, timeout: int = 15) -> None:
@@ -319,7 +337,7 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         log.warning("[emergency-alerts] %s: upsert failed: %s", source_key, exc)
         return {"source_key": source_key, "error": str(exc), "count": len(rows)}
 
-    expired = 0 if batched else _expire_stale(source_key, run_started_at)
+    expired = 0 if batched else _expire_stale(source_key, _expiry_cutoff(run_started_at, empty_feed=not rows))
     # Only look for unsent emergency warnings when this run's feed actually
     # carries an active one. Every unsent row the query could return is an
     # active emergency_warning for this source, and a still-active alert is
@@ -361,7 +379,14 @@ def run_all() -> dict:
         results[source_key] = run_source(source_key, run_started_at=run_started_at, heartbeats=heartbeats)
 
     pending = [key for key, result in results.items() if result.pop("pending_expiry", False)]
-    expired = _expire_stale_many(pending, run_started_at)
+    # Group by whether the feed came back empty (see _EMPTY_FEED_EXPIRY_GRACE):
+    # one expiry pass per group, so the common all-non-empty tick is still a
+    # single read + PATCH.
+    empty_keys = [key for key in pending if results[key].get("count", 0) == 0]
+    normal_keys = [key for key in pending if key not in empty_keys]
+    expired = _expire_stale_many(normal_keys, _expiry_cutoff(run_started_at, empty_feed=False))
+    if empty_keys:
+        expired.update(_expire_stale_many(empty_keys, _expiry_cutoff(run_started_at, empty_feed=True)))
     for key in pending:
         results[key]["expired"] = expired.get(key, 0)
     expired_by_domain = {_ADAPTERS[key][1]: expired.get(key, 0) for key in pending}
@@ -377,6 +402,8 @@ def run_all() -> dict:
 
 def _ok_detail(n_rows: int, unknown_count: int, expired: int, emails_sent: int) -> str:
     detail = f"{n_rows} alert(s), {unknown_count} unknown severity, {expired} expired"
+    if n_rows == 0:
+        detail += " (empty feed — earlier alerts held up to 2h before expiring)"
     if emails_sent:
         detail += f", {emails_sent} emergency email(s) sent"
     return detail
