@@ -879,7 +879,7 @@ export default function EmergencyAlertsWorkbench() {
       mode="command"
     >
       <div className="risk-reference-surface risk-reference-command flex flex-col gap-4">
-        <div className="risk-reference-kicker">Command / intelligence · immediate state first</div>
+        <div className="risk-reference-kicker">What is happening now, then what it means for us</div>
         {isLoading ? (
           <Card><p className="text-wb-body italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (
@@ -914,14 +914,14 @@ export default function EmergencyAlertsWorkbench() {
                 className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'overview'}
               >
-                Current
+                Now
               </button>
               <button
                 onClick={() => setView('browse')}
                 className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'browse'}
               >
-                Browse all alerts
+                All alerts
               </button>
               <button
                 onClick={() => setView('silences')}
@@ -1144,7 +1144,7 @@ export default function EmergencyAlertsWorkbench() {
                         onClick={() => setView('browse')}
                         className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                       >
-                        Browse all alerts →
+                        See all alerts →
                       </button>
                     </Card>
                   )}
