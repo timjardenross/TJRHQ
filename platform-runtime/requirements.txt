@@ -20,9 +20,9 @@ idna==3.18
 # `pip install docling`, confirmed live 2026-09-12) this file's other
 # consumers shouldn't have to carry. See core/knowledge/requirements-docling.txt.
 jiter==0.16.0
-openai==3.13.0
-pydantic==2.13.4
-pydantic_core==2.46.4
+openai==3.37.0
+pydantic==2.14.1
+pydantic_core==2.50.1
 python-dotenv==1.2.1
 sniffio==1.3.1
 tqdm==4.67.3
