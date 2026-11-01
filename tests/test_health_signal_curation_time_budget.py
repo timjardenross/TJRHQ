@@ -77,3 +77,29 @@ def test_pending_query_skips_already_escalated():
     c.supabase = q
     c._pending()
     q.is_.assert_called_once_with("mission_relevance", "null")
+
+
+def test_single_hung_signal_is_skipped_and_run_continues():
+    sigs = _signals(3)
+    calls = {"n": 0}
+
+    def flaky(signal, _deadline):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise hsc.ClassifyHung("first hangs")
+        return _ESCALATE
+
+    c = _curator(sigs)
+    with mock.patch.object(hsc, "_classify_with_deadline", side_effect=flaky):
+        result = c.run()
+    assert result["total"] == 2
+    assert c._apply.call_count == 2
+    assert "hung" in result["stopped_reason"]
+
+
+def test_two_consecutive_hangs_abort_the_run():
+    c = _curator(_signals(4))
+    with mock.patch.object(hsc, "_classify_with_deadline", side_effect=hsc.ClassifyHung("down")), \
+         pytest.raises(hsc.ClassifyHung):
+        c.run()
+    c._apply.assert_not_called()

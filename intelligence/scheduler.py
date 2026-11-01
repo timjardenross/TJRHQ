@@ -946,7 +946,7 @@ def _health_osint_weekly_fetch_job() -> None:
         # timeout stays as a backstop for a hung provider call.
         try:
             curation_result = subprocess.run(
-                [sys.executable, curation_script, "--limit", "100", "--time-budget", "780"],
+                [sys.executable, curation_script, "--limit", "10", "--time-budget", "600"],
                 capture_output=True, text=True, check=False, timeout=900,
             )
             if curation_result.returncode != 0:

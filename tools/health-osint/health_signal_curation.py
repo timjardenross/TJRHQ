@@ -69,6 +69,13 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+# Curation-specific model. Local CPU models (qwen3:8b, gemma3:4b) time out at
+# 60s on this host, so curation uses an Ollama Cloud model via the local
+# Ollama daemon (call_ollama is unguarded, unlike call_gemini/call_mistral).
+# gpt-oss:20b-cloud: ~2-7s/signal; reasoning tokens count toward num_predict,
+# so 300 returns an empty response — 1500 is the tested minimum.
+CURATION_OLLAMA_MODEL = os.environ.get("HEALTH_CURATION_OLLAMA_MODEL", "gpt-oss:20b-cloud")
+CURATION_OLLAMA_NUM_PREDICT = int(os.environ.get("HEALTH_CURATION_OLLAMA_NUM_PREDICT", "1500"))
 # HQ V1 Integration QA §28 fix: this module previously called
 # core/llm/provider_chain.py directly, bypassing Model Router entirely (the
 # one confirmed bypass found in that audit). Model Router is now tried
@@ -253,14 +260,22 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
         f"URL: {signal.get('canonical_url') or '(none)'}\n"
     )
 
+    # Local Ollama first: the cloud paths (router -> gemini, direct gemini,
+    # mistral) all run the NeMo input/output rails (MSN-0412 Stream 5), which
+    # cost 45-90s per call on this CPU-only host and can false-positive on
+    # benign text. With cloud first, the first signal in the queue burned the
+    # whole _CLASSIFY_DEADLINE_S before the local provider was ever tried, so
+    # the weekly run applied nothing (2026-10-11 .. 2026-11-01). Cloud stays
+    # as the fallback if Ollama fails.
     providers = [
+        ("ollama", lambda: call_ollama(_SYSTEM_PROMPT, prompt, base_url=OLLAMA_BASE_URL,
+                                        model=CURATION_OLLAMA_MODEL, temperature=0.1,
+                                        num_predict=CURATION_OLLAMA_NUM_PREDICT, timeout=90).text),
         ("model-router", lambda: _call_model_router(prompt)),
         ("gemini", lambda: call_gemini(_SYSTEM_PROMPT, prompt, api_key=GEMINI_API_KEY,
                                         max_output_tokens=300, temperature=0.1, timeout=30).text),
         ("mistral", lambda: call_mistral(_SYSTEM_PROMPT, prompt, api_key=MISTRAL_API_KEY,
                                           max_tokens=300, temperature=0.1, timeout=30).text),
-        ("ollama", lambda: call_ollama(_SYSTEM_PROMPT, prompt, base_url=OLLAMA_BASE_URL,
-                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=300, timeout=60).text),
     ]
 
     for name, fn in providers:
@@ -398,6 +413,8 @@ class HealthSignalCurator:
         details = []
         started = time.monotonic()
         stopped_reason = None
+        hung_in_a_row = 0
+        skipped_hung = 0
         for gi, group in enumerate(groups.values()):
             elapsed = time.monotonic() - started
             if self.time_budget is not None and elapsed + _CLASSIFY_DEADLINE_S > self.time_budget:
@@ -409,7 +426,20 @@ class HealthSignalCurator:
                 break
             representative = group[0]
             t0 = time.monotonic()
-            classification = _classify_with_deadline(representative, _CLASSIFY_DEADLINE_S)
+            try:
+                classification = _classify_with_deadline(representative, _CLASSIFY_DEADLINE_S)
+            except ClassifyHung as exc:
+                # One hung signal must not block the queue (it is oldest-first,
+                # so it would be picked first every run). Skip it — it stays
+                # pending and untouched — and carry on. Two in a row means the
+                # provider chain itself is down: stop the run (exit 2).
+                hung_in_a_row += 1
+                skipped_hung += 1
+                log.error("Skipping hung signal: %s", exc)
+                if hung_in_a_row >= 2:
+                    raise
+                continue
+            hung_in_a_row = 0
             classify_s = time.monotonic() - t0
             decision = classification["decision"]
             reason = classification["reason"]
@@ -432,6 +462,8 @@ class HealthSignalCurator:
             dup_note = f" (dup x{len(group)})" if len(group) > 1 else ""
             log.info("[%s]%s (%.1fs) %s — %s", decision, dup_note, classify_s, (representative.get("title") or "")[:80], reason)
 
+        if skipped_hung and not stopped_reason:
+            stopped_reason = f"{skipped_hung} hung signal(s) skipped, left pending"
         return {
             "total": len(details),
             "fetched": len(pending),
