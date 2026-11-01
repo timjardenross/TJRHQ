@@ -33,6 +33,7 @@ import evolution_memory
 import external_discovery
 import external_enrichment
 import internal_discovery
+import lifecycle
 import outcome_evaluation
 import staleness_check
 import state_validation
@@ -110,7 +111,7 @@ class EvolutionOrchestrator:
             verdict = topic["validation_verdict"]
             fingerprint = new_fingerprint(topic["id"], "evolution_watchlist", "external")
             existing = self.store.find_by_fingerprint(fingerprint)
-            if existing is not None and existing.get("lifecycle_state") == "resolved_before_research":
+            if existing is not None and lifecycle.detail_of(existing) == "resolved_before_research":
                 continue  # already recorded this exact resolution — don't rewrite every cycle
             log.info(f"Watchlist topic '{topic['id']}' resolved before research: {verdict['reason']}")
             if dry_run:
@@ -288,7 +289,7 @@ class EvolutionOrchestrator:
         # against, and that's not an error, just silently out of scope.
         candidates = [
             opp for opp in self.store.all_current()
-            if opp.get("lifecycle_state") in ("approved", "implementing", "verifying")
+            if lifecycle.detail_of(opp) in ("approved", "implementing", "verifying")
             and opp.get("outcome_contract")
         ]
 
@@ -305,7 +306,7 @@ class EvolutionOrchestrator:
 
             opportunity_id = opp.get("opportunity_id")
             try:
-                lifecycle_state = opp.get("lifecycle_state")
+                lifecycle_state = lifecycle.detail_of(opp)
                 contract = opp.get("outcome_contract") or {}
                 evaluate_now = False
 
@@ -782,13 +783,13 @@ class EvolutionOrchestrator:
         # Captain's Chair's signal reads pending_decisions_count; the
         # Discover tab's morning-compression line reads worth_considering_count.
         pending_decisions_count = sum(
-            1 for rec in self.store.all_current() if rec.get("lifecycle_state") == "proposed"
+            1 for rec in self.store.all_current() if lifecycle.detail_of(rec) == "proposed"
         ) if not dry_run else len(surfaced)
 
         model_synthesis_count = sum(1 for i in investigated if i["investigation"].get("method") == "model_synthesis")
         resolved_before_research_count = sum(
             1 for rec in self.store.all_current()
-            if rec.get("run_id") == run_id and rec.get("lifecycle_state") == "resolved_before_research"
+            if rec.get("run_id") == run_id and lifecycle.detail_of(rec) == "resolved_before_research"
         ) if not dry_run else 0
 
         cycle_timestamp = datetime.now(timezone.utc).isoformat()

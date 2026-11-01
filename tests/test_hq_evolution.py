@@ -85,13 +85,13 @@ class TestOpportunityStore(TempStoreTestCase):
         opp = self.store.create_new(title="T", change_class="maintenance", discovery_source="internal")
         fetched = self.store.get(opp.opportunity_id)
         self.assertEqual(fetched["title"], "T")
-        self.assertEqual(fetched["lifecycle_state"], "discovered")
+        self.assertEqual(fetched["stage_detail"], "discovered")
 
     def test_update_appends_new_record_and_folds_to_latest(self):
         opp = self.store.create_new(title="T", change_class="maintenance", discovery_source="internal")
         self.store.update(opp.opportunity_id, lifecycle_state="watching", watch_reason="too new")
         current = self.store.get(opp.opportunity_id)
-        self.assertEqual(current["lifecycle_state"], "watching")
+        self.assertEqual(current["stage_detail"], "watching")
         # audit trail preserved — both records exist in the raw log
         self.assertEqual(len(self.store.all_records()), 2)
 
@@ -508,10 +508,10 @@ class TestMigration(unittest.TestCase):
         self.assertEqual(result["migrated_count"], 2)
         store = OpportunityStore(self.data_root)
         by_title = {o["title"]: o for o in store.all_current()}
-        self.assertEqual(by_title["Unused helper"]["lifecycle_state"], "learned")
+        self.assertEqual(by_title["Unused helper"]["stage_detail"], "learned")
         self.assertTrue(by_title["Unused helper"]["outcome"]["implementation_success"])
         self.assertIsNone(by_title["Unused helper"]["outcome"]["improvement_success"])
-        self.assertEqual(by_title["TODO in prod path"]["lifecycle_state"], "rejected")
+        self.assertEqual(by_title["TODO in prod path"]["stage_detail"], "rejected")
 
     def test_migration_is_idempotent(self):
         migration.migrate_legacy_findings_to_opportunities(self.data_root)
@@ -577,7 +577,7 @@ class TestEvolutionOrchestrator(unittest.TestCase):
         store = OpportunityStore(self.tmpdir)
         current = store.all_current()
         self.assertEqual(len(current), 1)
-        self.assertEqual(current[0]["lifecycle_state"], "proposed")
+        self.assertEqual(current[0]["stage_detail"], "proposed")
 
     def test_rediscovered_candidate_updates_the_same_record_not_a_duplicate(self):
         """Regression test for a real bug found alongside the dedup-
@@ -636,7 +636,7 @@ class TestEvolutionOrchestrator(unittest.TestCase):
         store = OpportunityStore(self.tmpdir)
         current = store.all_current()
         self.assertEqual(len(current), 1)
-        self.assertEqual(current[0]["lifecycle_state"], "rejected")
+        self.assertEqual(current[0]["stage_detail"], "rejected")
         self.assertIsNotNone(current[0]["rejection_reason"])
         self.assertIn("relevance gate", current[0]["rejection_reason"])
 

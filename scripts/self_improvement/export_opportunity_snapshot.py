@@ -21,6 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import lifecycle
 from opportunity_store import OpportunityStore
 
 OPEN_STATES = ("proposed", "investigating", "watching")
@@ -31,10 +32,10 @@ def build_snapshot(store: OpportunityStore) -> dict:
     current = store.all_current()
     counts: dict[str, int] = {}
     for rec in current:
-        state = rec.get("lifecycle_state", "unknown")
+        state = lifecycle.detail_of(rec) if rec.get("lifecycle_state") else "unknown"
         counts[state] = counts.get(state, 0) + 1
     open_items = sorted(
-        (r for r in current if r.get("lifecycle_state") in OPEN_STATES),
+        (r for r in current if lifecycle.detail_of(r) in OPEN_STATES),
         key=lambda r: r.get("opportunity_id", ""),
     )
     return {"counts_by_state": dict(sorted(counts.items())), "open_opportunities": open_items}

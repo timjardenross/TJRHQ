@@ -117,6 +117,22 @@ class BulkDecideTest(unittest.TestCase):
         # the mismatched item must be untouched
         self.assertEqual(_FakeDashboard.store["EVO-0004"]["lifecycle_state"], "proposed")
 
+    def test_works_against_the_simplified_lifecycle_api(self):
+        # Simplified API: lifecycle_state is a stage, the fine state is stage_detail.
+        _FakeDashboard.store = {
+            "EVO-0001": {"opportunity_id": "EVO-0001", "title": "postcss 8.5.28 -> 8.5.31 (npm release)",
+                         "lifecycle_state": "to_decide", "stage_detail": "proposed"},
+            "EVO-0002": {"opportunity_id": "EVO-0002", "title": "knip 5.88.1 -> 6.38.0 (npm release)",
+                         "lifecycle_state": "in_progress", "stage_detail": "verifying"},
+            "EVO-0003": {"opportunity_id": "EVO-0003", "title": "pylint 2.17.0 -> 4.1.2 (pypi release)",
+                         "lifecycle_state": "closed", "stage_detail": "rejected"},
+        }
+        out = io.StringIO()
+        rc = bd.run(self.base, self._items()[:3], apply=True, out=out)
+        self.assertEqual(rc, 0)
+        self.assertEqual({d["opportunity_id"] for d in _FakeDashboard.decisions}, {"EVO-0001", "EVO-0002"})
+        self.assertIn("SKIP    EVO-0003  already rejected", out.getvalue())
+
     def test_second_apply_is_idempotent(self):
         bd.run(self.base, self._items(), apply=True, out=io.StringIO())
         _FakeDashboard.decisions.clear()

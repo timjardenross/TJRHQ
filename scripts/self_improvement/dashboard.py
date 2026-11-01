@@ -14,6 +14,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import lifecycle
 import outcome_contract as outcome_contract_module
 from flask import Flask, jsonify, render_template, request
 from opportunity_store import OpportunityStore
@@ -307,7 +308,7 @@ def api_opportunities():
 
     opportunities = opportunity_store.all_current()
     if states:
-        opportunities = [o for o in opportunities if o.get("lifecycle_state") in states]
+        opportunities = [o for o in opportunities if lifecycle.matches(o, states)]
     opportunities.sort(key=lambda o: o.get("updated_at") or "", reverse=True)
     opportunities = _attach_remediation_status(opportunities, load_remediation_results())
 
@@ -357,8 +358,8 @@ def api_opportunity_decide():
         }), 400
     if decision_type == "create_mission" and not mission_id:
         return jsonify({"error": "create_mission requires mission_id (create the Mission via the canonical /api/missions endpoint first)"}), 400
-    if decision_type == "mark_implemented" and existing.get("lifecycle_state") not in ("approved", "implementing"):
-        return jsonify({"error": f"mark_implemented requires the opportunity to be 'approved' or 'implementing' (currently '{existing.get('lifecycle_state')}')"}), 400
+    if decision_type == "mark_implemented" and lifecycle.detail_of(existing) not in ("approved", "implementing"):
+        return jsonify({"error": f"mark_implemented requires the opportunity to be 'approved' or 'implementing' (currently '{lifecycle.detail_of(existing)}')"}), 400
     if decision_type == "mark_implemented" and not existing.get("outcome_contract"):
         return jsonify({"error": "No outcome contract on this opportunity — approve_improvement or create_mission must run first"}), 400
 
@@ -449,9 +450,9 @@ def api_evolution_summary():
             log.warning(f"Failed to read evolution_summary.json: {exc}")
 
     current = opportunity_store.all_current()
-    pending_decisions_count = sum(1 for o in current if o.get("lifecycle_state") == "proposed")
+    pending_decisions_count = sum(1 for o in current if lifecycle.detail_of(o) == "proposed")
     any_verification_failure = any(
-        o.get("lifecycle_state") == "verifying" and o.get("outcome", {}).get("implementation_success") is False
+        lifecycle.detail_of(o) == "verifying" and o.get("outcome", {}).get("implementation_success") is False
         for o in current
     )
 
@@ -474,11 +475,11 @@ def api_evolution_summary():
     # pending_decisions_count above now applies to both.
     outcomes_completed_count = sum(
         1 for o in current
-        if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") is not None
+        if lifecycle.detail_of(o) == "learned" and o.get("outcome", {}).get("outcome_result") is not None
     )
     regressions_count = sum(
         1 for o in current
-        if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") == "regressed"
+        if lifecycle.detail_of(o) == "learned" and o.get("outcome", {}).get("outcome_result") == "regressed"
     )
 
     return jsonify({
