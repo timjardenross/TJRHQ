@@ -359,12 +359,12 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
             <p className="text-wb-label text-wb-ink2">All {sourceCount} official sources are reporting.</p>
           )}
           {level === 'partial' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+            <p className="mt-1 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
               Coverage is partial — some official sources are not monitored yet, so “none detected” does not cover them.
             </p>
           )}
           {level === 'degraded' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+            <p className="mt-1 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
               {real.length} official source{real.length === 1 ? '' : 's'} unavailable or not refreshed recently. Alert coverage may be incomplete.
             </p>
           )}
@@ -381,9 +381,9 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
             {oldestCheckedAt && oldestCheckedAt !== newestCheckedAt ? ` · oldest source ${relativeTime(oldestCheckedAt)}` : ''}
           </p>
           <EvidenceMeta
-            source={`${sourceCount} official alert source${sourceCount === 1 ? '' : 's'} (domain_heartbeats)`}
+            source={`${sourceCount} official alert source${sourceCount === 1 ? '' : 's'}`}
             observedAt={oldestCheckedAt}
-            state={level === 'good' ? undefined : allStale ? 'stale' : 'unavailable'}
+            state={level === 'good' || level === 'partial' ? undefined : allStale ? 'stale' : 'unavailable'}
           />
         </div>
         <Link
@@ -627,6 +627,16 @@ function SitesPanel({
   const unmatchedTotal = Object.values(unmatchedByState).reduce((a, b) => a + b, 0);
   const tier1 = affected.filter((a) => a.site.priority === 'Tier 1').length;
 
+  // Nothing matched and nothing to warn about: a quiet caption, not a card that
+  // repeats the banner's "Our sites" line.
+  if (!sitesError && sites.length > 0 && affected.length === 0 && unmatchedTotal === 0) {
+    return (
+      <p className="px-1 text-wb-label text-wb-ink2">
+        Your sites: none matched an active Emergency Warning or Watch and Act. {sites.length} sites monitored · {geocoded} located to street level; the rest use suburb or postcode centres, so matches there are approximate.
+      </p>
+    );
+  }
+
   return (
     <Card>
       <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Your sites</h2>
@@ -665,7 +675,7 @@ function SitesPanel({
             </ul>
           )}
           {unmatchedTotal > 0 && (
-            <p className="mt-2 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+            <p className="mt-2 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
               {unmatchedTotal} active alert{unmatchedTotal === 1 ? '' : 's'} in states where we have sites matched no specific site
               ({Object.entries(unmatchedByState).map(([st, n]) => `${st} ${n}`).join(', ')}). Regional warnings can still apply — check the alert details.
             </p>
@@ -928,6 +938,7 @@ export default function EmergencyAlertsWorkbench() {
       title="Emergency Alerts"
       eyebrow="Public Safety"
       tagline="Official Australian emergency information, prioritised by what may require attention now."
+      quiet
       wide
       mode="command"
     >
@@ -935,7 +946,7 @@ export default function EmergencyAlertsWorkbench() {
         {/* Live regions exist from first render so a later change is announced. */}
         <div className="sr-only" role="alert" aria-live="assertive" aria-atomic="true">{assertiveMessage}</div>
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{politeMessage}</div>
-        <div className="risk-reference-kicker">What is happening now, then what it means for us</div>
+        <div className="risk-reference-kicker !text-wb-ink2">What is happening now, then what it means for us</div>
         {isLoading ? (
           <Card><p className="text-wb-body italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (
@@ -1107,9 +1118,9 @@ export default function EmergencyAlertsWorkbench() {
                     <h2 className="mb-2 font-sans text-wb-lead font-bold normal-case tracking-normal text-state-warn-on">
                       <span id="alerts-watch">Watch and Act</span> · {watchAlerts.length}
                     </h2>
-                    <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                       {watchAlerts.map((alert) => (
-                        <div key={alert.id} className="flex flex-col gap-3">
+                        <div key={alert.id} className={`flex flex-col gap-3 ${selectedAlert?.id === alert.id ? 'xl:col-span-2' : ''}`}>
                           <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                           {inlineDetail(alert)}
                         </div>
@@ -1128,15 +1139,15 @@ export default function EmergencyAlertsWorkbench() {
                       {bomHighCount > 0 && ' “High attention” is this platform’s own label from the warning type (cyclone, severe thunderstorm, severe weather, tsunami, moderate/major flood); those also send an email.'}
                     </p>
                     {bomHighStates.length > 0 && (
-                      <p className="mb-3 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+                      <p className="mb-3 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
                         High-attention warnings in states where we have sites:{' '}
                         {bomHighStates.map((x) => `${x.state} — ${x.total} site${x.total === 1 ? '' : 's'}${x.tier1 ? ` (${x.tier1} Tier 1)` : ''}`).join('; ')}.
                         These warnings name districts, not places — check whether our sites fall inside the affected area.
                       </p>
                     )}
-                    <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                       {bomWarnings.map((alert) => (
-                        <div key={alert.id} className="flex flex-col gap-3">
+                        <div key={alert.id} className={`flex flex-col gap-3 ${selectedAlert?.id === alert.id ? 'xl:col-span-2' : ''}`}>
                           <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                           {inlineDetail(alert)}
                         </div>
@@ -1167,7 +1178,7 @@ export default function EmergencyAlertsWorkbench() {
                   </section>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {(adviceCount > 0 || unknownCount > 0) && (
                     <Card>
                       <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Other active alerts</h2>
@@ -1280,6 +1291,7 @@ export default function EmergencyAlertsWorkbench() {
           </>
         )}
       </div>
+      <p className="mt-8 text-center text-wb-label text-wb-ink2">Official Australian emergency information, prioritised by what may require attention now.</p>
     </WorkbenchShell>
   );
 }
