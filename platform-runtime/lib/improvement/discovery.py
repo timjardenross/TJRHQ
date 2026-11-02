@@ -2,7 +2,7 @@
 
 Architecture (D-058):
   DISCOVERY PHASE  — always runs, no capacity gate.
-  EXECUTION PHASE  — capacity-gated by Human Systems (D-055).
+  EXECUTION PHASE  — sized by the improvement budget; capacity is reported, never a gate.
 
 Officers discover opportunities every cycle. Opportunities that cannot
 be executed immediately are added to the persistent Improvement Backlog
@@ -371,12 +371,12 @@ def run_discovery(
 
     Architecture (D-058):
       DISCOVERY PHASE  — always runs; no capacity gate.
-      EXECUTION PHASE  — capacity-gated by Human Systems (D-055).
+      EXECUTION PHASE  — sized by the improvement budget; capacity is reported, never a gate.
 
     Args:
         ctx:              CycleContext with current operational state
         weekly_run:       If True, weekly officers also run (default: daily only)
-        captain_override: If True, bypass Red capacity gate for critical items
+        captain_override: Passed to the budget engine (no longer changes anything for capacity)
 
     Returns:
         DiscoveryResult with all candidates, created missions, backlog additions,
@@ -417,7 +417,7 @@ def run_discovery(
         len(all_opps), len(result.high_band), len(result.medium_band), len(result.low_band),
     )
 
-    # ── EXECUTION PHASE (capacity-gated by Human Systems) ────────────────────
+    # ── EXECUTION PHASE (sized by the improvement budget) ────────────────────
 
     # Step 4: Determine execution budget (after discovery, not before)
     try:
