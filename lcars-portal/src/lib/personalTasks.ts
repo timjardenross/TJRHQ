@@ -201,14 +201,11 @@ export function isSnoozedToday(task: PersonalTask): boolean {
  * then in-progress/restartable, then oldest open, capped at 3 (or a lower
  * capacityLimit). Deliberately simple/inspectable — no opaque AI ranking.
  *
- * Human Execution Loop mission (brief §13/§45/§56): Human Systems context
- * may shrink capacityLimit on a constrained day, but a task the Captain has
- * explicitly acted on — pinned it (pinned_today), or already started it
- * (work_state === 'in_progress', at least as explicit a signal as a pin
- * click) — is never dropped by that shrink. These "kept" tasks are included
- * first and don't count against the cap, which only governs how many
- * *additional*, algorithm-ranked tasks join them. Human Systems informs the
- * cap; it never removes a decision the Captain already made. */
+ * Capacity never shrinks the list (owner decision 2026-11-02): the cap is a
+ * display size only. A task the Captain has explicitly acted on — pinned it
+ * (pinned_today), or already started it (work_state === 'in_progress') — is
+ * always included first and doesn't count against the cap, which only governs
+ * how many *additional*, algorithm-ranked tasks join them. */
 export function rankToday(tasks: PersonalTask[], opts?: { capacityLimit?: number }): PersonalTask[] {
   const cap = opts?.capacityLimit ?? 3;
   const eligible = tasks.filter((t) => t.work_state !== 'blocked' && !isSnoozedToday(t));
@@ -288,7 +285,7 @@ export function buildStatusSentence(opts: {
   // task-context only, so it isn't presented with false confidence.
   const noCheckinNote = hasCheckinToday === false ? " No recent capacity check-in — today's list is based on task context only." : '';
   if (capacityLow && todayCount > 0) {
-    return `Capacity looks limited today. Let's keep today small. ${todayCount} thing${todayCount === 1 ? '' : 's'} worth doing.`;
+    return `Capacity looks limited today. ${todayCount} thing${todayCount === 1 ? '' : 's'} worth doing, if you want to.`;
   }
   if (todayCount === 0) {
     return (waitingCount > 0
@@ -330,26 +327,12 @@ export interface ReadyRoomContext {
   freshnessStatus: 'fresh' | 'stale' | 'none';
 }
 
-/** How much a given NOW posture should shrink today's capacity cap. Human
- * Systems informs the size of the list; it never decides which tasks are
- * on it (brief §7) — this is the only place that mapping happens, so it's
- * easy to audit against "PROTECT reduces recommended attention load" and
- * "higher capacity does not expose the full backlog" (brief §55). */
-export function capacityLimitForPosture(posture: ReadyRoomPosture): number {
-  switch (posture) {
-    case 'RECOVER':
-      return 1;
-    case 'PROTECT':
-    case 'RESET':
-      return 2;
-    case 'ENGAGE':
-    case 'STEADY':
-      return 3;
-    // UNKNOWN (no/stale check-in) defaults to the same cap as a steady day
-    // — absence of evidence is not evidence of constraint (brief §43).
-    default:
-      return 3;
-  }
+/** Size of today's list. Owner decision 2026-11-02: capacity never shrinks
+ * it, so every posture (and UNKNOWN) gets the same size. The parameter is kept
+ * so callers and the audit trail still show where posture enters, and a
+ * future day plan can reuse the seam. Never exposes the full backlog. */
+export function capacityLimitForPosture(_posture: ReadyRoomPosture): number {
+  return 3;
 }
 
 /** Thin read of Human Systems' small assessed-context boundary (brief §6/

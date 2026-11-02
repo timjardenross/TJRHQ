@@ -511,7 +511,7 @@ export function decide(snapshot: CapacitySnapshot, openMissions: number | null):
     highestLeverage = 'Involve a clinician — see the escalation note above.';
   } else if (band === 'limited' || band === 'depleted') {
     highestLeverage =
-      'Protect capacity today: pick one anchor, defer the rest, and schedule one genuine recovery block now.';
+      'Protect capacity today: pick one anchor and schedule one genuine recovery block now. Everything else is optional.';
   } else if (band === 'moderate') {
     highestLeverage =
       'Spend your best window on the highest priority, then protect a recovery block. Hold everything below it.';
@@ -540,7 +540,7 @@ export function decide(snapshot: CapacitySnapshot, openMissions: number | null):
     const sustainable = SUSTAINABLE_ACTIVE[band];
     const overloaded = band === 'limited' || band === 'depleted' || openMissions > 5;
     missionLoadNote = overloaded
-      ? `${openMissions} open missions exceed ${band} capacity — consider pausing new intake; progress ${Math.max(sustainable, 1)} today.`
+      ? `${openMissions} open missions exceed ${band} capacity — pace yourself; around ${Math.max(sustainable, 1)} to progress today if you want a guide.`
       : `${openMissions} open missions sit within ${band} capacity — up to ${sustainable} to progress today.`;
   }
 
