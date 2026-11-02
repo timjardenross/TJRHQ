@@ -76,7 +76,7 @@ from telegram.ext import (
 
 from core.platform.telegram_access import is_allowed as _chat_is_allowed
 from telegram_bots.capacitybot import capacity_today as ct
-from telegram_bots.capacitybot import distract, guide, helpme
+from telegram_bots.capacitybot import day_plan, distract, guide, helpme
 from telegram_bots.capacitybot import experiments as exp
 from telegram_bots.capacitybot import intervention_engine as ie
 
@@ -274,6 +274,27 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # `pg` field (current button page) rides alongside a multi-select's other
 # fields — see capacity_today.kb_multiselect / _page() above.
 
+async def _build_day_plan(db, row: dict) -> str:
+    """The day plan shown under the quick check-in summary (day_plan.py). Best effort: a failure
+    here must never lose the summary, so any error just means no plan."""
+    try:
+        interventions = await ie.rank_interventions(
+            db,
+            capacity_state=row.get("capacity_state"),
+            stimulation_state=row.get("stimulation_state"),
+            pain_state=row.get("pain_state"),
+            executive_function=row.get("executive_function"),
+            limit=day_plan.MAX_SUGGESTIONS,
+        )
+        recent = await ct.fetch_recent(db, days=3)
+        evenings = [r for r in recent if r.get("checkin_type") == "evening" and r.get("capacity_debt")]
+        flagged = sum(1 for r in evenings if r["capacity_debt"] in ("yes", "maybe"))
+        return day_plan.render_day_plan(row, interventions, (flagged, len(evenings)))
+    except Exception as exc:  # noqa: BLE001 - the plan is optional; log and carry on without it
+        log.warning("day plan failed (summary still sent): %s", exc)
+        return ""
+
+
 async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Two phases. Phase 1 (no `id` yet, Q1-Q5): state lives entirely in the
     callback string — cheap, these fields are all single-char codes, never
@@ -377,10 +398,11 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
             # optional extra behind a button, so the quick check-in ends here with its summary.
             await ct.write_quick_checkin(db, {"id": row_id, "cp": f["cp"]})
             row = await ct.fetch_checkin(db, row_id)
-            await query.edit_message_text(
-                ct.render_summary(row or {}),
-                reply_markup=ct.kb_after_quick(row_id),
-            )
+            text = ct.render_summary(row or {})
+            plan = await _build_day_plan(db, row or {})
+            if plan:
+                text += "\n\n" + plan
+            await query.edit_message_text(text, reply_markup=ct.kb_after_quick(row_id))
             return
 
         if f.get("sug") is not None:
