@@ -1317,6 +1317,24 @@ def render_summary(row: dict) -> str:
 
 # ── Trend / pattern analysis (spec §7 — no causal language) ────────────────
 
+def good_day_line(rows: list[dict]) -> str | None:
+    """"Good days: 3 of 5 evenings (longest run: 2 days)" for a window of rows, or None when no
+    evening could be judged. The rule is provisional (core/health/good_day.py) and the Captain's own
+    "Was today a good day?" answer wins over it, so this is a count, never a score."""
+    try:
+        from core.health.good_day import summarize_good_days
+
+        s = summarize_good_days(rows)
+    except Exception as exc:  # noqa: BLE001 - the count is optional; never break a summary over it
+        log.debug("good-day count unavailable: %s", exc)
+        return None
+    if not s["judged"]:
+        return None
+    run = s["longest_run"]
+    run_text = f"{run} day{'' if run == 1 else 's'}"
+    return f"Good days: {s['good']} of {s['judged']} evenings (longest run: {run_text})"
+
+
 async def fetch_recent(db, days: int) -> list[dict]:
     if not db:
         return []
@@ -1396,6 +1414,11 @@ def render_trend_summary(rows: list[dict], label: str) -> str:
         lines.append(f"Capacity debt: {yes_maybe} of {total_evenings} evening reflections")
         lines.append("")
 
+    gd_line = good_day_line(rows)
+    if gd_line:
+        lines.append(gd_line)
+        lines.append("")
+
     lines.append("(Patterns here are simple frequency counts, not clinical claims — worth testing, not treating as fact.)")
     return "\n".join(lines).rstrip()
 
@@ -1446,6 +1469,11 @@ def render_therapy_summary(rows: list[dict], weeks: int) -> str:
     debt_yes = sum(1 for e in evenings if e.get("capacity_debt") in ("yes", "maybe"))
     if evenings:
         lines.append(f"Capacity debt: {debt_yes} of {len(evenings)} evening reflections flagged borrowing from tomorrow.")
+        lines.append("")
+
+    gd_line = good_day_line(rows)
+    if gd_line:
+        lines.append(gd_line)
         lines.append("")
 
     lines.append("Questions to explore:")

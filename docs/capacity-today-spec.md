@@ -176,9 +176,15 @@ treated as unknown, never as bad):
    "borrowing" = maintaining output today at the cost of increased
    exhaustion, pain, overload, shutdown, or recovery needs afterwards.
 5. Was today a good day? Yes / Kind of / No (`good_day`; skippable). The Captain's own
-   answer always wins over the provisional rule in `core/health/good_day.py` (stayed the
-   same or improved, no borrowed capacity, whole-day compensation moderate or lower;
-   missing answers are not counted against the day).
+   answer always wins over the provisional rule in `core/health/good_day.py`: the day stayed
+   the same or improved, and whole-day compensation was moderate or lower (missing answers are
+   not counted against the day). Borrowed capacity (Q4) is deliberately not part of the rule
+   for now (2026-11-03); it is still asked and stored, and still feeds the burnout trend and
+   the day plan.
+
+   `/week`, `/month` and `/therapy` show a count from the latest evening of each day:
+   "Good days: 3 of 5 evenings (longest run: 2 days)". A day with no evening answer is
+   unknown and ends a run.
 
 Migration `0247_capacity_checkins_evening_good_day.sql` adds `day_compensation_load` and
 `good_day`. The start-of-day `compensation_load` is unchanged and is never written by the
