@@ -64,7 +64,7 @@ def test_emergency_warning_near_hobart_emails_with_tier1_site_context():
         assert ea._send_emergency_warning_emails("tas_fire") == 1
 
     subject = mock_send.call_args.kwargs["subject"]
-    assert "EMERGENCY WARNING" in subject and "TAS" in subject
+    assert subject.startswith("[EW] TAS - ")
     assert "1 site possibly affected, 1 Tier 1" in subject  # Hobart only, Launceston is ~160 km away
     assert "Hobart" in mock_send.call_args.kwargs["html"]
 

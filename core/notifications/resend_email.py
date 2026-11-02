@@ -79,7 +79,7 @@ def _fail(reason: str) -> bool:
     return False
 
 
-def send_email(to: str, subject: str, html: str, from_addr: str | None = None, timeout: int = 15) -> bool:
+def send_email(to: str, subject: str, html: str, from_addr: str | None = None, timeout: int = 15, cc: str | None = None) -> bool:
     """Send one email via Resend. Returns True on success, False on any
     failure (missing key, transport error, non-2xx response, or running
     under a test runner — see _running_under_tests) — never raises. The reason
@@ -97,6 +97,7 @@ def send_email(to: str, subject: str, html: str, from_addr: str | None = None, t
     body = json.dumps({
         "from": from_addr or _DEFAULT_FROM,
         "to": [to],
+        **({"cc": [cc]} if cc else {}),
         "subject": subject,
         "html": html,
     }).encode("utf-8")

@@ -34,7 +34,9 @@ def test_failed_send_stamps_failure_and_not_sent():
 def test_successful_send_stamps_sent_only():
     sent, bodies = _run(True)
     assert sent == 1
-    assert len(bodies) == 1 and "emergency_email_sent_at" in bodies[0] and "emergency_email_failed_at" not in bodies[0]
+    # the sent flag first, then the (separate, best-effort) tier/wording metadata
+    assert "emergency_email_sent_at" in bodies[0] and "emergency_email_failed_at" not in bodies[0]
+    assert len(bodies) == 2 and "emergency_email_tier" in bodies[1] and "emergency_email_sent_at" not in bodies[1]
 
 
 def test_failure_write_error_never_raises():
