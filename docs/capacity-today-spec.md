@@ -231,14 +231,14 @@ available. Orange (stretched) → intervene early ("what can you reduce,
 regulate, or change before this becomes red?"). Red (depleted) → protect
 and recover, no productivity optimisation.
 
-**Status**: the three-zone vocabulary is load-bearing throughout
-(`capacity_state`, `capacity_zone_from_checkin()`'s Green/Amber/Red
-mapping into the Capacity Gate); the zone-specific *prompting* (the
-orange-zone "reduce/regulate/change" nudge) is not yet a distinct UI
-moment — it's implicit in the action-suggestion rules, not a standalone
-prompt.
-
----
+**Status**: implemented as the **day plan** (`telegram-bots/capacitybot/day_plan.py`),
+shown under the quick check-in summary. It is suggestions only: a capacity reading never
+defers, limits or blocks anything (owner decision 2026-11-02). It shows the zone with plain
+reasons from the whole check-in (pain above usual, executive function, compensation,
+regulation, stimulation, and borrowing capacity on recent evenings), then a zone prompt
+(green: "spend some, bank some"; orange: the early-intervention question above; red: the
+smallest workable day), then up to three ranked suggestions tagged Reduce / Regulate /
+Recover / Redesign (section 10). A missing answer is never listed as a problem.
 
 ## 10. Core management model — REVS levers
 
@@ -247,8 +247,7 @@ which lever is most useful right now.
 
 **Status**: `suggest_actions()`'s rule table is organised around these
 levers implicitly (its action codes map to Reduce/Regulate/Recover), but
-the lever name itself isn't surfaced to the user — a possible later
-enhancement, not built.
+the lever name is now shown beside each suggestion in the day plan (section 9).
 
 ---
 
