@@ -57,3 +57,14 @@ def test_cc_is_passed_only_when_configured():
     with patch.object(ea, "_EMERGENCY_EMAIL_CC", None), patch.object(ea, "send_email", return_value=True) as send:
         ea._deliver("s", "h")
     assert "cc" not in send.call_args.kwargs
+
+
+def test_the_body_link_is_labelled_honestly_for_a_list_page_and_offers_the_record():
+    row = {**ROW, "canonical_url": "https://incidents.rfs.nsw.gov.au/api/v1/incidents/9"}
+    with patch.object(ea, "supabase_get", return_value=[row]), \
+         patch.object(ea.alert_silences, "list_active_silences", return_value=[]), \
+         patch.object(ea, "_supabase_request"), patch.object(ea, "send_email", return_value=True) as send:
+        ea._send_watch_and_act_emails("nsw_rfs")
+    html = send.call_args.kwargs["html"]
+    assert "current incidents list - find this alert on it" in html and "Data record for this alert" in html
+    assert 'href="https://www.rfs.nsw.gov.au/fire-information/fires-near-me"' in html

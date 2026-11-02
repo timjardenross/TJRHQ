@@ -51,3 +51,31 @@ def test_plain_text_twin_keeps_lines_links_and_list_items():
     assert "Alert-ID: a1\nNotice: EW" in text and "Leave now.\nSecond line" in text
     assert "Official source (https://x.example/w)" in text
     assert "- Tier 1 - Dalby\n- Tier 2 - Chinchilla" in text and "<" not in text
+
+
+def test_direct_pages_are_kept_and_bom_gets_its_product_page_from_the_text():
+    vic = {"source_key": "vic_emergency", "canonical_url": "https://emergency.vic.gov.au/respond/#!/warning/43568/moreinfo"}
+    assert ae.official_links(vic) == (vic["canonical_url"], None, "direct")
+    bom = {"source_key": "bom_vic", "canonical_url": None, "raw_text": "x\nhttp://reg.bom.gov.au/products/IDV21033.shtml"}
+    assert ae.official_links(bom) == ("https://www.bom.gov.au/products/IDV21033.shtml", None, "direct")
+    assert ae.official_links({"source_key": "wa_dfes", "canonical_url": "https://emergency.wa.gov.au/incidents/abc"})[2] == "direct"
+
+
+def test_sources_whose_link_is_a_data_record_give_a_list_page_plus_the_record():
+    nsw = {"source_key": "nsw_rfs", "canonical_url": "https://incidents.rfs.nsw.gov.au/api/v1/incidents/683714"}
+    page, record, precision = ae.official_links(nsw)
+    assert page == "https://www.rfs.nsw.gov.au/fire-information/fires-near-me" and record == nsw["canonical_url"] and precision == "list"
+    act = ae.official_links({"source_key": "act_esa", "canonical_url": "https://esa.act.gov.au/feeds/currentincidents.xml#1"})
+    assert act[0] == "https://esa.act.gov.au/" and act[1].endswith("#1") and act[2] == "list"
+
+
+def test_sa_has_only_a_list_page_and_unknown_sources_say_none():
+    assert ae.official_links({"source_key": "sa_cfs", "canonical_url": None}) == ("https://www.cfs.sa.gov.au/warnings-restrictions/warnings/", None, "list")
+    assert ae.official_links({"source_key": "qld_fire", "canonical_url": None}) == (None, None, "none")
+
+
+def test_header_block_carries_link_precision_and_record_link_after_the_fixed_keys():
+    block = ae.fields_block(ae.EW, {"id": "a", "severity": "emergency_warning", "source_key": "nsw_rfs",
+                                   "canonical_url": "https://incidents.rfs.nsw.gov.au/api/v1/incidents/1"})
+    assert "Official-Link: https://www.rfs.nsw.gov.au/fire-information/fires-near-me" in block
+    assert "Link-Precision: list" in block and "Record-Link: https://incidents.rfs.nsw.gov.au/api/v1/incidents/1" in block
