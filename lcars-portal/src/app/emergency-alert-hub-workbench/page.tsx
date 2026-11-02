@@ -47,6 +47,7 @@ import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/rout
 import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
 import { matchAlert, stateSiteSummary, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
 import { bomAttentionLevel, BOM_ATTENTION_LABEL, type BomAttention } from '@/lib/bomAttention';
+import { displayHeadline } from '@/lib/alertDisplay';
 import { alertEmailStatus, type EmailState, type EmailStatus } from '@/lib/alertEmailStatus';
 import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
 
@@ -216,43 +217,52 @@ function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAl
   );
 }
 
-/** Compact card for a high-severity (Emergency Warning / Watch and Act)
- * alert — readable without opening the dense Browse table. */
+/** Filled chip for the alerts that need a decision (Emergency Warning, Watch
+ * and Act, BOM high attention); every other severity stays a quiet outline so
+ * red and amber only ever mean something. White text on the -fill shades. */
+function cardEmphasis(alert: EmergencyAlertEntry, attention?: BomAttention): 'crit' | 'warn' | null {
+  if (alert.severity === 'emergency_warning') return 'crit';
+  if (alert.severity === 'watch_and_act' || attention === 'high') return 'warn';
+  return null;
+}
+
+/** One alert, whole card clickable. The severity colour is a left bar plus a
+ * filled chip; ordinary alerts get neither. The headline is shown tidied (see
+ * lib/alertDisplay) — the detail panel keeps the full original. */
 function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; attention?: BomAttention; onSelect: () => void }) {
-  const isEmergency = alert.severity === 'emergency_warning';
+  const emphasis = cardEmphasis(alert, attention);
+  const { title, subtitle } = displayHeadline(alert.headline);
+  const bar = emphasis === 'crit' ? 'border-l-state-crit' : emphasis === 'warn' ? 'border-l-state-warn' : 'border-l-wb-line';
+  const tint = alert.severity === 'emergency_warning' ? 'bg-state-crit/10' : alert.severity === 'watch_and_act' ? 'bg-state-warn/10' : 'bg-wb-surface';
+  const chipLabel = attention ? BOM_ATTENTION_LABEL[attention] : severityLabel(alert);
+  const chipClass = emphasis === 'crit' ? 'bg-wb-crit-fill text-white [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : emphasis === 'warn' ? 'bg-wb-warn-fill text-white [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink2';
   return (
-    <div
-      className={`rounded-md border p-4 ${isEmergency ? 'border-state-crit/50 bg-state-crit/10' : 'border-state-warn/50 bg-state-warn/10'}`}
-    >
-      {/* WP3 defect #4 sweep (200% zoom, live-verified: this row's own
-          offsetWidth 45 vs its badges' combined scrollWidth 146 at the
-          zoomed-equivalent width) — no flex-wrap, so the severity/
-          jurisdiction/muted badge trio pushed past the card at a narrow
-          effective width, which was the real source of this page's overall
-          horizontal page overflow (traced up through risk-reference-surface
-          to document.documentElement.scrollWidth). */}
+    <div className={`relative rounded-md border border-l-4 border-wb-line ${bar} ${tint} p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-wb-sage-deep`}>
+      {/* flex-wrap: the chip row must never push the card past a narrow
+          viewport (WP3 defect #4 sweep, 200% zoom). */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <SeverityBadge alert={alert} />
-        <Badge status="neutral">{alert.jurisdiction}</Badge>
-        {attention && (
-          <span
-            className={`text-wb-label font-semibold uppercase tracking-wide ${attention === 'high' ? 'text-state-crit-on' : 'text-wb-ink2'}`}
-            title="Platform-assigned from the warning type — BOM does not give this warning an Advice / Watch and Act / Emergency Warning tier."
-          >
-            {BOM_ATTENTION_LABEL[attention]}
-          </span>
-        )}
+        <span
+          className={`rounded px-2 py-0.5 text-wb-label font-semibold ${chipClass}`}
+          title={attention ? 'Platform-assigned from the warning type — BOM does not give this warning an Advice / Watch and Act / Emergency Warning tier.' : undefined}
+        >
+          {chipLabel}
+        </span>
+        <span className="text-wb-label font-semibold text-wb-ink2">{alert.jurisdiction}</span>
+        {isBomSource(alert.sourceKey) && <span className="text-wb-label text-wb-ink2" title="Bureau of Meteorology">BOM</span>}
         {isMuted && <MutedBadge />}
       </div>
-      {/* WP3 defect #4 sweep: real headline text (e.g. "Fire Weather Warning
-          for Greater Hunter fire weather district") has no soft-wrap point
-          long enough at a narrow effective width — overflow-wrap defaults
-          to `normal`, which never breaks inside a word, so the single
-          longest word in the headline set this card's (and therefore the
-          whole page's) min-content width and forced horizontal page
-          scroll. `break-words` lets it wrap mid-word as a last resort. */}
-      <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
-      {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
+      {/* break-words: a long place name has no soft-wrap point and would force
+          horizontal page scroll at a narrow width. The button's ::after covers
+          the card, making the whole card the tap target. */}
+      <h3 className="break-words font-sans text-wb-body font-semibold normal-case tracking-normal text-wb-ink">
+        <button
+          onClick={onSelect}
+          className="text-left after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+        >
+          {title}
+        </button>
+      </h3>
+      {subtitle ? <p className="text-wb-label text-wb-ink2">{subtitle}</p> : alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
       <p className="mt-1 text-wb-label text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
       <EmailStatusLine alert={alert} isMuted={isMuted} />
       {siteCount > 0 && (
@@ -260,25 +270,32 @@ function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }
           {siteCount} of our site{siteCount === 1 ? '' : 's'} possibly affected
         </p>
       )}
-      <div className="mt-3 flex flex-wrap gap-3">
-        <button
-          onClick={onSelect}
-          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+      {alert.canonicalUrl && (
+        <a
+          href={alert.canonicalUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="relative z-10 mt-2 inline-block rounded text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
-          View details
-        </button>
-        {alert.canonicalUrl && (
-          <a
-            href={alert.canonicalUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md px-3 py-1.5 text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
-          >
-            View official warning →
-          </a>
-        )}
-      </div>
+          View official warning →
+        </a>
+      )}
     </div>
+  );
+}
+
+/** One line per alert for the collapsed informational list. */
+function CompactAlertRow({ alert, isMuted, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; onSelect: () => void }) {
+  const { title } = displayHeadline(alert.headline);
+  return (
+    <li className="flex items-baseline gap-2 border-b border-wb-line py-2 last:border-0">
+      <span className="w-10 shrink-0 text-wb-label font-semibold text-wb-ink2">{alert.jurisdiction}</span>
+      <button onClick={onSelect} className="min-w-0 flex-1 truncate rounded text-left text-wb-body text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep" title={alert.headline}>
+        {title}
+      </button>
+      {isMuted && <MutedBadge />}
+      <span className="shrink-0 text-wb-label tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</span>
+    </li>
   );
 }
 
@@ -336,7 +353,7 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-serif text-base text-wb-ink">Coverage</h2>
+          <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Coverage</h2>
           {level === 'good' && (
             <p className="text-wb-label text-wb-ink2">All {sourceCount} official sources are reporting.</p>
           )}
@@ -611,7 +628,7 @@ function SitesPanel({
 
   return (
     <Card>
-      <h2 className="font-serif text-base text-wb-ink">Your sites</h2>
+      <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Your sites</h2>
       {sitesError ? (
         <p className="mt-1 text-wb-label text-state-warn-on">Site register could not be loaded ({sitesError}) — showing national alerts only.</p>
       ) : sites.length === 0 ? (
@@ -939,15 +956,15 @@ export default function EmergencyAlertsWorkbench() {
                     clear" can be trusted. Detail sits in the sections below. */}
                 <section aria-label="Current status" data-alert-state="status-banner">
                   <div
-                    className={`rounded-md border px-3 py-2 ${
-                      emergencyAlerts.length > 0
-                        ? 'border-state-crit/50 bg-state-crit/10 text-state-crit-on'
+                    className={`rounded-md border px-3 py-2 [print-color-adjust:exact] [-webkit-print-color-adjust:exact] ${
+                      emergencyAlerts.length > 0 || emailsFailed.length > 0
+                        ? 'border-wb-crit-fill bg-wb-crit-fill text-white'
                         : watchAlerts.length > 0 || bomHighCount > 0 || coverage.level !== 'good'
-                          ? 'border-state-warn/50 bg-state-warn/10 text-state-warn-on'
-                          : 'border-state-ok/50 bg-state-ok/10 text-state-ok-on'
+                          ? 'border-wb-warn-fill bg-wb-warn-fill text-white'
+                          : 'border-wb-ok-fill bg-wb-ok-fill text-white'
                     }`}
                   >
-                    <p className="text-wb-lead font-semibold">
+                    <p className="text-wb-title font-bold">
                       {emergencyAlerts.length > 0
                         ? `${emergencyAlerts.length} Emergency Warning${emergencyAlerts.length === 1 ? '' : 's'} active`
                         : watchAlerts.length > 0
@@ -1058,41 +1075,34 @@ export default function EmergencyAlertsWorkbench() {
 
                 {emergencyAlerts.length > 0 && (
                   <section aria-labelledby="alerts-action-required" data-alert-state="action-required">
-                  <Card>
-                    <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-crit-on">
-                      <span id="alerts-action-required">Action required · </span>
-                      {emergencyAlerts.length} Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}
+                    <h2 className="mb-2 font-sans text-wb-lead font-bold normal-case tracking-normal text-state-crit-on">
+                      <span id="alerts-action-required">Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}</span> · {emergencyAlerts.length}
                     </h2>
                     <div className="flex flex-col gap-3">
                       {emergencyAlerts.map((alert) => (
                         <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
-                  </Card>
                   </section>
                 )}
 
                 {watchAlerts.length > 0 && (
                   <section aria-labelledby="alerts-watch" data-alert-state="watch">
-                  <Card>
-                    <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
-                      <span id="alerts-watch">Watch · </span>
-                      Watch and Act — {watchAlerts.length} active
+                    <h2 className="mb-2 font-sans text-wb-lead font-bold normal-case tracking-normal text-state-warn-on">
+                      <span id="alerts-watch">Watch and Act</span> · {watchAlerts.length}
                     </h2>
                     <div className="flex flex-col gap-3">
                       {watchAlerts.map((alert) => (
                         <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
-                  </Card>
                   </section>
                 )}
 
                 {bomWarnings.length > 0 && (
                   <section aria-labelledby="alerts-bom" data-alert-state="weather-warnings">
-                  <Card>
-                    <h2 className="mb-1 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
-                      <span id="alerts-bom">Official weather warnings · </span>{bomWarnings.length} in force
+                    <h2 className="mb-1 font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">
+                      <span id="alerts-bom">Official weather warnings</span> · {bomWarnings.length} in force
                     </h2>
                     <p className="mb-3 text-wb-label text-wb-ink2">
                       The Bureau of Meteorology does not supply an Advice / Watch and Act / Emergency Warning tier — read each warning for what to do.
@@ -1110,32 +1120,30 @@ export default function EmergencyAlertsWorkbench() {
                         <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
-                  </Card>
                   </section>
                 )}
 
                 {informationalAlerts.length > 0 && (
                   <section aria-labelledby="alerts-informational" data-alert-state="informational">
-                  <Card>
-                    {/* Collapsed by default: these are lower-level or unclassified
-                        notices, and a long list of them pushes real warnings and
-                        the status of our sites off screen. */}
-                    <details>
-                      <summary className="cursor-pointer rounded text-wb-body font-bold uppercase tracking-wide text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                        <span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action · show
+                    {/* Collapsed by default, and one line per alert when open:
+                        these are lower-level or unclassified notices, and a long
+                        list of full cards pushes real warnings and the status of
+                        our sites off screen. */}
+                    <details className="rounded-md border border-wb-line bg-wb-surface px-4 py-3">
+                      <summary className="cursor-pointer rounded text-wb-body font-semibold text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                        <span id="alerts-informational">Informational</span> · {informationalAlerts.length} · no immediate action · show
                       </summary>
-                      <div className="mt-3 flex flex-col gap-3">
-                        {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
-                      </div>
+                      <ul className="mt-2">
+                        {informationalAlerts.map((alert) => <CompactAlertRow key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
+                      </ul>
                     </details>
-                  </Card>
                   </section>
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {(adviceCount > 0 || unknownCount > 0) && (
                     <Card>
-                      <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
+                      <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Other active alerts</h2>
                       <div className="mt-2 flex flex-col gap-1 text-wb-label text-wb-ink2">
                         {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
                         {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
