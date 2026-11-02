@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { bomProductLink } from '@/lib/alertLinks';
 
 export interface EmergencyAlertEntry {
   id: string;
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
       expiry: row.expiry,
       status: row.status,
       isActive: row.is_active,
-      canonicalUrl: row.canonical_url,
+      canonicalUrl: row.canonical_url ?? bomProductLink(row.source_key, row.raw_text),
       rawText: row.raw_text,
       latitude: row.latitude,
       longitude: row.longitude,

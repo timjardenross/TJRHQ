@@ -41,8 +41,44 @@ def build_subject(tag: str, jurisdiction: str, headline: str) -> str:
     return f"[{tag}] {jurisdiction} - {headline}"
 
 
+# Pages that LIST current incidents/warnings, for sources whose own per-alert link is a
+# data record (JSON/XML), not a page a person can read. Only addresses known to exist.
+_LIST_PAGES = {
+    "nsw_rfs": "https://www.rfs.nsw.gov.au/fire-information/fires-near-me",
+    "act_esa": "https://esa.act.gov.au/",
+    "sa_cfs": "https://www.cfs.sa.gov.au/warnings-restrictions/warnings/",
+}
+_DATA_RECORD_SOURCES = {"nsw_rfs", "act_esa"}  # their canonical_url is an API / feed address
+
+
+def official_links(row: dict) -> tuple[str | None, str | None, str]:
+    """(official page, data record, precision) for an alert.
+
+    precision: "direct" = the page is about this warning; "list" = a page listing the
+    current ones (find this one on it, or use the record link); "none" = nothing known.
+    BOM warnings carry their product page in raw_text (it cannot be canonical_url: that
+    column is unique across sources and BOM links are shared by neighbouring states)."""
+    source = row.get("source_key") or ""
+    url = row.get("canonical_url") or None
+    if source.startswith("bom_") and not url:
+        for line in reversed((row.get("raw_text") or "").splitlines()):
+            if line.strip().startswith("http"):
+                url = line.strip()
+                break
+    if url and url.startswith("http://reg.bom.gov.au/"):
+        url = url.replace("http://reg.bom.gov.au/", "https://www.bom.gov.au/", 1)
+    elif url and url.startswith("https://reg.bom.gov.au/"):
+        url = url.replace("https://reg.bom.gov.au/", "https://www.bom.gov.au/", 1)
+    if source in _DATA_RECORD_SOURCES or (source in _LIST_PAGES and not url):
+        return _LIST_PAGES.get(source), url if source in _DATA_RECORD_SOURCES else None, "list"
+    if url:
+        return url, None, "direct"
+    return None, None, "none"
+
+
 def fields_block(tag: str, row: dict, extra: dict[str, object] | None = None) -> str:
     """The fixed header. Order and key names are an interface; do not rename."""
+    official, record, precision = official_links(row)
     values: list[tuple[str, object]] = [
         ("Alert-ID", row.get("id")),
         ("Notice", tag),
@@ -51,10 +87,13 @@ def fields_block(tag: str, row: dict, extra: dict[str, object] | None = None) ->
         ("Headline", row.get("headline")),
         ("Location", row.get("location")),
         ("Issued", row.get("issued_at")),
-        ("Official-Link", row.get("canonical_url")),
+        ("Official-Link", official),
         ("Source", row.get("source_key")),
         ("Sent-At", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
+        ("Link-Precision", precision),
     ]
+    if record:
+        values.append(("Record-Link", record))
     values += list((extra or {}).items())
     lines = "\n".join(f"{k}: {html.escape(str(v if v not in (None, '') else '-'))}" for k, v in values)
     return f'<pre style="font-family:monospace;white-space:pre-wrap">{lines}</pre>'

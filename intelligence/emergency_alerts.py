@@ -278,7 +278,7 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         body = (
             alert_email.fields_block(alert_email.EW, {**row, "severity": "emergency_warning", "source_key": source_key})
             + f"<p>{html.escape(row.get('description') or '')}</p>"
-            + (f'<p><a href="{html.escape(row["canonical_url"], quote=True)}">Official source</a></p>' if row.get("canonical_url") else "")
+            + _official_link_html({**row, "source_key": source_key})
         )
         if not _deliver(subject, body):
             log.warning("[emergency-alerts] %s: email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
@@ -327,7 +327,7 @@ def _send_watch_and_act_emails(source_key: str) -> int:
         body = (
             alert_email.fields_block(alert_email.WA, {**row, "severity": "watch_and_act", "source_key": source_key})
             + f"<p>{html.escape(row.get('description') or '')}</p>"
-            + (f'<p><a href="{html.escape(row["canonical_url"], quote=True)}">Official source</a></p>' if row.get("canonical_url") else "")
+            + _official_link_html({**row, "source_key": source_key})
         )
         if not _deliver(subject, body):
             log.warning("[emergency-alerts] %s: Watch and Act email failed for alert %s — will retry next run", source_key, row["id"])
@@ -392,7 +392,7 @@ def _send_bom_attention_emails(source_key: str) -> int:
             + "<p><em>The Bureau of Meteorology does not give this warning an Advice / Watch and Act / Emergency Warning "
             "tier. “High attention” is this platform’s own label, chosen from the warning type.</em></p>"
             f"<p>{html.escape(text).replace(chr(10), '<br>')}</p>"
-            + (f'<p><a href="{html.escape(source_link, quote=True)}">Official BOM warning</a></p>' if source_link else "")
+            + _official_link_html({**row, "source_key": source_key, "canonical_url": source_link}, "Official BOM warning")
         )
         if not _deliver(subject, body):
             log.warning("[emergency-alerts] %s: BOM email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
@@ -406,6 +406,20 @@ def _send_bom_attention_emails(source_key: str) -> int:
             continue
         _record_send_meta(row, "unknown")
     return sent
+
+
+def _official_link_html(row: dict, label: str = "Official source") -> str:
+    """The best page a person can open for this alert, said honestly: a link to a page
+    that LISTS current incidents (NSW RFS, ACT ESA, SA CFS) is labelled as a list, and the
+    exact data record, where there is one, is offered separately."""
+    official, record, precision = alert_email.official_links(row)
+    parts = []
+    if official:
+        text = label if precision == "direct" else f"{label} (current incidents list - find this alert on it)"
+        parts.append(f'<a href="{html.escape(official, quote=True)}">{html.escape(text)}</a>')
+    if record:
+        parts.append(f'<a href="{html.escape(record, quote=True)}">Data record for this alert</a>')
+    return f"<p>{' · '.join(parts)}</p>" if parts else ""
 
 
 def _clean_bom_text(text: str) -> str:
@@ -642,7 +656,7 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
             alert_email.fields_block(alert_email.UPDATE, row, {"Change": change})
             + f"<p><strong>{html.escape(change)}</strong></p>"
             f"<p>{html.escape(row.get('description') or '')}</p>"
-            + (f'<p><a href="{html.escape(row["canonical_url"], quote=True)}">Official source</a></p>' if row.get("canonical_url") else "")
+            + _official_link_html(row)
         )
         if not _deliver(alert_email.build_subject(alert_email.UPDATE, row["jurisdiction"], row["headline"]), body):
             log.warning("[emergency-alerts] follow-up: update email failed for alert %s - will retry next run", row["id"])
@@ -667,7 +681,7 @@ def _send_lifted(row: dict, stamp: str) -> bool:
         + f"<p><strong>No longer listed by the source:</strong> {html.escape(row['headline'])}</p>"
         "<p>The source has stopped listing this alert. <strong>This is not an all-clear</strong>: check the official source "
         "before treating the situation as over.</p>"
-        + (f'<p><a href="{html.escape(row["canonical_url"], quote=True)}">Official source</a></p>' if row.get("canonical_url") else "")
+        + _official_link_html(row)
     )
     if not _deliver(alert_email.build_subject(alert_email.LIFTED, row["jurisdiction"], row["headline"]), body):
         log.warning("[emergency-alerts] follow-up: lifted email failed for alert %s - will retry next run", row["id"])
