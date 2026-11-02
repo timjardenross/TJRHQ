@@ -18,6 +18,7 @@ import html
 import json
 import logging
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -34,6 +35,7 @@ import site_matching
 from heartbeat import _KEY, _URL, record_heartbeats, supabase_get
 from heartbeat import record_heartbeat as _record_heartbeat
 
+from core.notifications import resend_email as _resend_email
 from core.notifications.resend_email import send_email
 from intelligence.ingestion.emergency_alert_adapters import (
     act_esa,
@@ -189,10 +191,19 @@ def _expire_stale_many(source_keys: list[str], run_started_at: str) -> dict[str,
 
 
 def _record_email_failure(alert_id: str) -> None:
-    """Stamp alerts.emergency_email_failed_at (migration 0243) so the workbench
-    shows 'Email failed' rather than 'not sent yet'. Best-effort: never raises."""
+    """Stamp alerts.emergency_email_failed_at (migration 0243) and, when known,
+    the reason (migration 0245) so the workbench shows 'Email FAILED' and why,
+    rather than 'not sent yet'. Best-effort: never raises. If the reason column
+    is not there yet the timestamp is still written."""
+    now = datetime.now(timezone.utc).isoformat()
+    reason = _resend_email.last_failure
     try:
-        _supabase_request("PATCH", f"alerts?id=eq.{alert_id}", body={"emergency_email_failed_at": datetime.now(timezone.utc).isoformat()})
+        _supabase_request("PATCH", f"alerts?id=eq.{alert_id}", body={"emergency_email_failed_at": now, "emergency_email_failure_reason": reason})
+        return
+    except Exception as exc:  # noqa: BLE001 - fall back to the timestamp alone before giving up
+        log.warning("[emergency-alerts] could not record email failure reason for alert %s (retrying without it): %s", alert_id, exc)
+    try:
+        _supabase_request("PATCH", f"alerts?id=eq.{alert_id}", body={"emergency_email_failed_at": now})
     except Exception as exc:  # noqa: BLE001 - recording a failure must never break the ingestion run it is attached to
         log.warning("[emergency-alerts] could not record email failure for alert %s: %s", alert_id, exc)
 
@@ -376,6 +387,26 @@ def _sites_html(matches: list, have_sites: bool) -> str:
     return f"<p><strong>Sites possibly affected ({len(matches)}):</strong></p><ul>{items}</ul>{more}"
 
 
+_RETIRED_FEED_RE = re.compile(
+    r"\b(feed|endpoint|api|data service|web service)\b.{0,40}\b(retire[d]?|retirement|decommission(?:ed)?|discontinued|deprecated|no longer (?:available|supported|updated|maintained))\b"
+    r"|\b(retirement|decommission(?:ing)?|discontinuation)\s+notice\b",
+    re.IGNORECASE,
+)
+
+
+def feed_retirement_notice(alerts: list) -> str | None:
+    """A feed that has been retired sometimes keeps serving a valid document whose
+    only 'alert' is the retirement notice (SA CFS did, 2026-08). Treated as a feed
+    failure so the heartbeat goes red instead of showing a healthy source with a
+    phantom alert. Checks headlines only, with feed-specific wording, so a real
+    alert is not caught by an ordinary word like 'discontinued'."""
+    for a in alerts:
+        headline = getattr(a, "headline", "") or ""
+        if _RETIRED_FEED_RE.search(headline):
+            return headline[:120]
+    return None
+
+
 def run_source(source_key: str, run_started_at: str | None = None, heartbeats: list[dict] | None = None) -> dict:
     """Run one source's adapter end to end. Never raises — failure is
     captured in the returned dict and recorded as a failed heartbeat, same
@@ -405,6 +436,14 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         record_heartbeat(domain_key, status="failed", error_message=str(exc)[:500], latency_ms=latency_ms)
         log.warning("[emergency-alerts] %s: fetch failed: %s", source_key, exc)
         return {"source_key": source_key, "error": str(exc), "count": 0}
+
+    notice = feed_retirement_notice(alerts)
+    if notice:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        message = f"feed appears retired - source returned: {notice}"
+        record_heartbeat(domain_key, status="failed", error_message=message[:500], latency_ms=latency_ms)
+        log.warning("[emergency-alerts] %s: %s", source_key, message)
+        return {"source_key": source_key, "error": message, "count": 0}
 
     if not alerts and hasattr(adapter, "NOT_YET_IMPLEMENTED"):
         # Scrape-tier sources (wa_dfes/tas_fire/nt_securent) with no

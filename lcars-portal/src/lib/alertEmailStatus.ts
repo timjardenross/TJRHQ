@@ -26,6 +26,7 @@ interface EmailStatusAlert {
   alertType: string;
   emailSentAt: string | null;
   emailFailedAt?: string | null;
+  emailFailureReason?: string | null;
 }
 
 export function isEmailEligible(alert: Pick<EmailStatusAlert, 'sourceKey' | 'severity' | 'headline' | 'alertType'>): boolean {
@@ -44,7 +45,7 @@ export function alertEmailStatus(alert: EmailStatusAlert, isMuted: boolean, ago:
     return { state: 'muted', label: 'Email muted by a silence', detail: 'An active silence is holding the email. It sends if the silence ends while the alert is still active.' };
   }
   if (alert.emailFailedAt) {
-    return { state: 'failed', label: `Email FAILED ${ago(alert.emailFailedAt)}`, detail: 'The platform could not send the emergency email and retries every 15 minutes. Tell the team yourself until this clears.' };
+    return { state: 'failed', label: `Email FAILED ${ago(alert.emailFailedAt)}`, detail: `${alert.emailFailureReason ? `Reason: ${alert.emailFailureReason}. ` : ''}The platform retries every 15 minutes. Tell the team yourself until this clears.` };
   }
   return { state: 'pending', label: 'Email not sent yet', detail: 'This alert qualifies for an email and none has gone out. It is picked up on the next 15-minute run; if it stays like this, check the Coverage panel.' };
 }

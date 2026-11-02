@@ -19,6 +19,12 @@ describe('alertEmailStatus', () => {
     expect(alertEmailStatus(alert({ emailFailedAt: '2026-11-02T01:00:00Z' }), false, ago)).toMatchObject({ state: 'failed', label: 'Email FAILED at 2026-11-02T01:00:00Z' });
   });
 
+  it('failed detail includes the reason when one was recorded', () => {
+    const s = alertEmailStatus(alert({ emailFailedAt: '2026-11-02T01:00:00Z', emailFailureReason: 'RESEND_API_KEY is not configured' }), false, ago);
+    expect(s.detail).toContain('Reason: RESEND_API_KEY is not configured.');
+    expect(alertEmailStatus(alert({ emailFailedAt: '2026-11-02T01:00:00Z' }), false, ago).detail).not.toContain('Reason');
+  });
+
   it('a later success beats an earlier failure, and a silence beats a stale failure', () => {
     expect(alertEmailStatus(alert({ emailSentAt: '2026-11-02T02:00:00Z', emailFailedAt: '2026-11-02T01:00:00Z' }), false, ago).state).toBe('sent');
     expect(alertEmailStatus(alert({ emailFailedAt: '2026-11-02T01:00:00Z' }), true, ago).state).toBe('muted');

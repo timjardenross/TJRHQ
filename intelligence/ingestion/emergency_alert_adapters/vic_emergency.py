@@ -56,6 +56,12 @@ def _is_planned_burn(row: dict) -> bool:
     return bool(_PLANNED_BURN_RE.search(f"{row.get('incidentType') or ''} {row.get('name') or ''}"))
 
 
+def _is_false_alarm(row: dict) -> bool:
+    """incidentType 'FALSE ALARM' sits under category1 'Fire', so it would
+    otherwise be kept as a bushfire. Not an emergency; dropped."""
+    return "FALSE ALARM" in (row.get("incidentType") or "").upper()
+
+
 def _alert_type(row: dict) -> str:
     incident_type = (row.get("incidentType") or "").upper()
     for key, mapped in _TYPE_MAP.items():
@@ -143,7 +149,7 @@ def _fetch_incidents() -> list[CanonicalAlert]:
     data = http_get_json(_FEED_URL)
     out: list[CanonicalAlert] = []
     for row in data.get("results", []):
-        if _is_planned_burn(row):
+        if _is_planned_burn(row) or _is_false_alarm(row):
             continue
         alert_type = _alert_type(row)
 
