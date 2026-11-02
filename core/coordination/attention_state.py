@@ -44,7 +44,6 @@ from number_one import CoordinationBrief, EscalationLevel, Priority
 _REPO_ROOT_FOR_ENFORCEMENT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT_FOR_ENFORCEMENT) not in sys.path:  # this module is also imported by bare name
     sys.path.insert(0, str(_REPO_ROOT_FOR_ENFORCEMENT))
-from core.health.capacity_enforcement import enforcing
 
 
 class AttentionCategory(str, Enum):
@@ -150,15 +149,8 @@ def _capacity_note_and_category(
     if capacity_status == "Red":
         if is_critical:
             return category, "CRITICAL — proceed regardless of capacity"
-        if not enforcing():
-            # Advisory mode (owner decision 2026-10-18): flag, never demote.
-            return category, "Advisory: Red capacity - consider limiting to P0 today"
-        # Blocked items stay BLOCKED (already off the Needs You path) --
-        # only non-blocked items get demoted, matching get_health_adjusted_
-        # queue()'s uniform "P0 only today" note without inventing a
-        # steeper reclassification it doesn't itself apply.
-        demoted = AttentionCategory.CAN_WAIT if category != AttentionCategory.BLOCKED else category
-        return demoted, "DEFERRED — Red capacity: P0 only today"
+        # Owner decision 2026-11-02: capacity flags, never demotes.
+        return category, "Advisory: Red capacity - consider limiting to P0 today"
     if capacity_status == "Amber":
         if is_high_priority:
             return category, "Proceed — priority justifies reduced capacity"

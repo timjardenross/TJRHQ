@@ -159,22 +159,22 @@ class TestCheckHealthConstraints:
         result = check_health_constraints(m, _health(workload="normal"))
         assert result is None
 
-    def test_constraint_returned_for_heavy_domain_reduced_workload(self):
+    def test_reduced_workload_gives_no_constraint(self):
+        """Reduced workload reads as Amber; capacity never produces a constraint note for it."""
         m = _mission(priority="P2", domain="Engineering")
-        result = check_health_constraints(m, _health(workload="reduced"))
-        assert result is not None
-        assert isinstance(result, str)
+        assert check_health_constraints(m, _health(workload="reduced")) is None
 
     def test_p0_not_constrained_even_in_reduced_workload(self):
         m = _mission(priority="P0", domain="Engineering")
         result = check_health_constraints(m, _health(workload="reduced"))
         assert result is None
 
-    def test_p3_gets_defer_suggestion(self):
-        m = _mission(priority="P3", domain="Operations")
-        result = check_health_constraints(m, _health(workload="reduced"))
-        assert result is not None
-        assert "defer" in result.lower() or "capacity" in result.lower()
+    def test_red_capacity_gives_pacing_note_never_a_defer_instruction(self):
+        h = _health()
+        h.capacity_status = "Red"
+        result = check_health_constraints(_mission(priority="P3", domain="Operations"), h)
+        assert result is not None and "pace" in result.lower()
+        assert "defer —" not in result.lower()
 
 
 # ---------------------------------------------------------------------------

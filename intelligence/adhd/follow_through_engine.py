@@ -459,51 +459,12 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
     return eligible
 
 
-def _capacity_enforcing() -> bool:
-    try:
-        from core.health.capacity_enforcement import enforcing
-    except Exception:  # noqa: BLE001 - if the switch cannot load, keep the original behaviour
-        return True
-    return enforcing()
-
-
 def _apply_capacity_gate(candidates: list[dict], capacity_status: str, now: datetime) -> list[dict]:
-    """Green: fully unrestricted. Amber: trims only the lowest-urgency
-    "gentle" mode items not due soon. Red: also trims "normal" mode items
-    (unchanged from before this fix).
-
-    Unknown capacity (no check-in today) is treated as Amber, never as
-    Green (Mission 2, Capacity & Attention Engine: "absence of capacity
-    data must not automatically imply Green") -- no signal should never
-    read as full confidence to send every nudge unrestricted, but it also
-    shouldn't over-restrict to Red's stricter cut on a guess. Amber is
-    the safe, explainable middle ground.
-
-    `capacity_status` is the canonical "Green"/"Amber"/"Red"/"Unknown"
-    string (Mission 3: sourced from capacity_zone_from_checkin(), the
-    same mapper every other capacity-status consumer in the platform
-    uses -- this function no longer interprets the raw capacity_checkins
-    "green"/"orange"/"red" strings itself). Behaviour is unchanged from
-    before this mapping fix: raw orange/None both landed in this
-    function's "restrict to gentle only" branch, exactly what
-    Amber/Unknown do here; raw red and Green/canonical-Red are identical.
-    """
-    if not _capacity_enforcing():
-        # Advisory mode (owner decision 2026-10-18): capacity is still read and reported, but it
-        # never trims nudges. CAPACITY_ENFORCEMENT=enforce restores the behaviour below.
-        return candidates
-    if capacity_status not in ("Amber", "Red", "Unknown"):
-        return candidates
-    modes_to_trim = ("gentle", "normal") if capacity_status == "Red" else ("gentle",)
-    today = _today(now)
-    kept = []
-    for task in candidates:
-        mode = task.get("follow_through_mode")
-        due = _parse_date(task.get("due_date"))
-        if mode in modes_to_trim and (due is None or (due - today).days > 1):
-            continue
-        kept.append(task)
-    return kept
+    """Capacity never trims nudges (owner decision 2026-11-02, superseding the 2026-10-18
+    advisory switch). The reading is still passed in so callers can report it; it is
+    deliberately ignored here. Quiet hours and the daily cap are not capacity gates and
+    are applied separately."""
+    return candidates
 
 
 def _is_critical_deadline(task: dict, now: datetime) -> bool:

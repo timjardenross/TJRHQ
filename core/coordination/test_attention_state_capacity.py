@@ -87,20 +87,17 @@ class TestRedCapacity:
         assert p0.category == AttentionCategory.NEEDS_NOW
         assert p0.capacity_adjusted_reason == "CRITICAL — proceed regardless of capacity"
 
-    def test_non_p0_top_priority_item_demoted_to_can_wait(self):
-        items = _items("Red")
-        p2 = _by_ref(items, "MSN-CAP-P2")
-        assert p2.category == AttentionCategory.CAN_WAIT
-        assert p2.capacity_adjusted_reason == "DEFERRED — Red capacity: P0 only today"
+    def test_non_p0_item_flagged_but_never_demoted(self):
+        """Owner decision 2026-11-02: Red flags, it never reclassifies."""
+        red = _by_ref(_items("Red"), "MSN-CAP-P2")
+        baseline = _by_ref(_items(None), "MSN-CAP-P2")
+        assert red.category == baseline.category
+        assert red.capacity_adjusted_reason == "Advisory: Red capacity - consider limiting to P0 today"
 
-    def test_blocked_item_stays_blocked_not_further_demoted(self):
-        """Blocked items are already off the Needs You path -- Red must not
-        invent a steeper reclassification get_health_adjusted_queue()
-        itself doesn't apply."""
-        items = _items("Red")
-        blocked = _by_ref(items, "MSN-CAP-P1-BLOCKED")
+    def test_blocked_item_stays_blocked(self):
+        blocked = _by_ref(_items("Red"), "MSN-CAP-P1-BLOCKED")
         assert blocked.category == AttentionCategory.BLOCKED
-        assert blocked.capacity_adjusted_reason == "DEFERRED — Red capacity: P0 only today"
+        assert blocked.capacity_adjusted_reason == "Advisory: Red capacity - consider limiting to P0 today"
 
     def test_escalations_and_follow_ups_untouched(self):
         """get_health_adjusted_queue() only overlays the work queue --

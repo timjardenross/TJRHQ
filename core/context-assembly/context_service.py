@@ -925,16 +925,12 @@ def _http_number_one_brief() -> dict:
 # capacity band -- fewer, higher-value items under reduced capacity (§13),
 # without inventing per-item scoring. Same deterministic-rules-over-opaque-
 # scoring posture as personal_task_attention_adapter.py.
-_REMEMBER_UNRESOLVED_CAP = {"Red": 3, "Amber": 10, "Green": 30, "Unknown": 10}
+_REMEMBER_UNRESOLVED_LIMIT = 30
 
 
 def _remember_capture_limit(capacity_status: str | None) -> int:
-    """Per-band caps apply only under CAPACITY_ENFORCEMENT=enforce; advisory mode uses one common limit."""
-    from core.health.capacity_enforcement import enforcing
-
-    if not enforcing():
-        return _REMEMBER_UNRESOLVED_CAP["Green"]
-    return _REMEMBER_UNRESOLVED_CAP.get(capacity_status, 10)
+    """One common limit; capacity never changes how many captures Remember surfaces."""
+    return _REMEMBER_UNRESOLVED_LIMIT
 
 
 def _http_remember() -> dict:

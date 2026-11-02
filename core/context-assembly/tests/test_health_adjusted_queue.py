@@ -90,11 +90,11 @@ class TestHttpHealthAdjustedQueue(unittest.TestCase):
                 self.assertIn(key, item)
             self.assertIsInstance(item["priority"], str)
 
-    def test_red_capacity_marks_non_p0_deferred(self):
+    def test_red_capacity_defers_nothing(self):
         result = self._run(capacity_status="Red")
-        notes = {m["mission_id"]: m["capacity_note"] for m in result["queue"]}
-        self.assertIn("CRITICAL", notes["USS-TJR-MSN-9101"])
-        self.assertIn("DEFERRED", notes["USS-TJR-MSN-9102"])
+        for m in result["queue"]:
+            self.assertNotIn("DEFERRED", m["capacity_note"])
+            self.assertIn("advisory", m["capacity_note"])
 
     def test_response_is_actually_json_serializable(self):
         import json
