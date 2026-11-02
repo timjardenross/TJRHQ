@@ -44,6 +44,7 @@ import { computeInterventionEffectiveness } from './intervention-effectiveness';
 import { fetchSensoryRegulation } from './sensory-regulation';
 import { computeStrategicPosture, type BurnoutWindowRow } from './strategic-posture';
 import { deriveSystemPosture } from './derive-system-posture';
+import { computeSleepTile } from './sleep-tile';
 import type {
   Band,
   CapacityBalance,
@@ -275,6 +276,7 @@ interface CheckinRow {
   // 2026-08-22 data-gap close (0152) — sleep asked once/day, emotional and
   // social asked on every quick check-in.
   sleep_state: string | null;
+  cpap_used: boolean | null; // 0248 — replaces the sleep_state hour-bucket question
   emotional_state: string | null;
   social_state: string | null;
   // V3 Mission 1 (0153) — deep-check tier, may be null on any given
@@ -359,29 +361,15 @@ function computeLifeParticipation(d: DailyRow | null): { score: number | null; b
  * Capacity is the outcome these conditions influence"); Pain Burden,
  * Sensory Load, and Recovery Time are new.
  */
-const SLEEP_STATE_LABEL: Record<string, string> = {
-  under_5: 'Under 5h', '5_6': '5-6h', '6_7': '6-7h', '7_8': '7-8h', '8_plus': '8h+',
-};
-const SLEEP_STATE_BAND: Record<string, Band> = {
-  under_5: 'rest', '5_6': 'limited', '6_7': 'moderate', '7_8': 'good', '8_plus': 'good',
-};
-
 function computeRecoveryConditions(
   d: DailyRow | null,
   blended: BlendedSignals,
   latestCheckin: CheckinRow | null,
   recoveryDuration: RecoveryDurationSummary,
   todaySleepState: string | null,
+  todayCpapUsed: boolean | null,
 ): RecoveryIndex[] {
-  const sleepState = todaySleepState;
-  const sleepHrs = d?.sleep_hours ?? 0;
-  const cpapNote = d?.cpap_status?.toLowerCase() === 'yes' ? ' · CPAP compliant' : '';
-  const sleepBand: Band = sleepState
-    ? SLEEP_STATE_BAND[sleepState] ?? 'unknown'
-    : !d?.sleep_hours ? 'unknown' : sleepHrs >= 7 ? 'good' : sleepHrs >= 5.5 ? 'moderate' : 'limited';
-  const sleepDetail = sleepState
-    ? SLEEP_STATE_LABEL[sleepState] ?? sleepState
-    : d?.sleep_hours ? `${sleepHrs}h · ${d.sleep_quality ?? 'Unknown quality'}${cpapNote}` : 'Not recorded';
+  const { band: sleepBand, detail: sleepDetail } = computeSleepTile(todayCpapUsed, todaySleepState, d);
 
   const ns = blended.nervous_system;
   const nsBand: Band = ns === 'calm' ? 'good' : ns === 'activated' ? 'moderate' : ns === 'dysregulated' ? 'limited' : 'unknown';
@@ -577,6 +565,8 @@ interface Ctx {
    *  day (asked once/day, spec 2026-08-22) — so it can live on an earlier
    *  row than latestCheckin. Read separately from today's rows. */
   todaySleepState: string | null;
+  /** cpap_used is also written once a day (first quick check-in), so read it from today's rows too. */
+  todayCpapUsed: boolean | null;
   /** Most recent capacity_intervention_events row across ALL sources
    *  (capacity_q9/helpme/guide/manual) — WP04's "My Next Move" (spec §10)
    *  shows whatever was actually last accepted, not a re-ranked
@@ -611,7 +601,7 @@ async function loadCtx(sb: any): Promise<Ctx> {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'completed').gte('started_at', sevenDaysAgo),
       sb.from('capacity_checkins')
-        .select('active_loads,sleep_state')
+        .select('active_loads,sleep_state,cpap_used')
         .eq('checkin_type', 'capacity')
         .eq('log_date', t)
         .order('captured_at', { ascending: true }),
@@ -632,8 +622,9 @@ async function loadCtx(sb: any): Promise<Ctx> {
     latestInterventionCatalogue = (interventionRow as InterventionRow) ?? null;
   }
 
-  const checkinsTodayRows = (checkinsTodayRowsRes.data as (Pick<CheckinRow, 'active_loads'> & { sleep_state: string | null })[]) ?? [];
+  const checkinsTodayRows = (checkinsTodayRowsRes.data as (Pick<CheckinRow, 'active_loads'> & { sleep_state: string | null; cpap_used: boolean | null })[]) ?? [];
   const todaySleepState = checkinsTodayRows.find((r) => r.sleep_state)?.sleep_state ?? null;
+  const todayCpapUsed = checkinsTodayRows.find((r) => r.cpap_used !== null && r.cpap_used !== undefined)?.cpap_used ?? null;
 
   return {
     posture: (postureRes.data as RawPostureRow) ?? null,
@@ -643,6 +634,7 @@ async function loadCtx(sb: any): Promise<Ctx> {
     sessions7d: sessionCountRes.count ?? 0,
     checkinsTodayRows,
     todaySleepState,
+    todayCpapUsed,
     latestInterventionEvent: event,
     latestInterventionCatalogue,
   };
@@ -843,7 +835,7 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   // intervention effectiveness, redesign candidates. Recovery Conditions
   // needs recovery_duration first, so it's computed before the rest.
   const recovery_duration = await computeRecoveryDuration(sb, 30);
-  const recovery_indexes = computeRecoveryConditions(ctx.daily, deriveBlendedSignals(ctx), ctx.latestCheckin, recovery_duration, ctx.todaySleepState);
+  const recovery_indexes = computeRecoveryConditions(ctx.daily, deriveBlendedSignals(ctx), ctx.latestCheckin, recovery_duration, ctx.todaySleepState, ctx.todayCpapUsed);
   // V3 Mission 3 (§10/§11) — see sensory-regulation.ts's header comment
   // for why sensory_channels/natural_regulation_response/suppressed_
   // regulation_response are read together off the most recent row that
