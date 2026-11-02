@@ -47,14 +47,16 @@ log = logging.getLogger("emergency-alert-summary")
 
 _DOMAIN_KEY = "emergency_alert_hourly_summary"
 _EMAIL_TO = os.environ.get("EMERGENCY_ALERT_EMAIL_TO", "timjardenross1986@gmail.com")
+_EMAIL_CC = os.environ.get("EMERGENCY_ALERT_EMAIL_CC") or None
 _URGENT_TIERS = {"emergency_warning", "watch_and_act"}
 _DIGEST_HOUR_UTC = 22  # ~8am AEST
 
 _SYSTEM_PROMPT = (
-    "You are the Emergency Alert Hub's hourly summarizer for Captain TJR, a "
-    "single reader who wants situational awareness across Australia's Tier 1 "
+    "You are the Emergency Alert Hub's daily digest writer for a business "
+    "continuity team that wants situational awareness across Australia's "
     "emergency alerts (bushfire, flood, storm, cyclone) without reading each "
-    "one individually. Write a short email body: 2-4 short paragraphs, plain "
+    "one individually. Urgent alerts have already been emailed to the team "
+    "one by one; this digest is the daily overview. Write a short email body: 2-4 short paragraphs, plain "
     "language, group by geography/theme where it makes sense, lead with "
     "anything genuinely urgent (Watch and Act / Emergency Warning tier) if "
     "present, otherwise state plainly that nothing is above Advice level. "
@@ -199,25 +201,22 @@ def run() -> dict:
     fingerprint = _fingerprint(alerts)
     state = _get_state()
 
-    if fingerprint == state.get("last_fingerprint"):
-        record_heartbeat(_DOMAIN_KEY, status="ok", detail=f"unchanged, {len(alerts)} active alert(s), no email sent", latency_ms=int((time.monotonic() - t0) * 1000))
-        return {"changed": False, "count": len(alerts), "emailed": False}
+    # One digest a day (~8am AEST), sent even when nothing changed: urgent alerts
+    # are emailed individually the moment they appear (intelligence/
+    # emergency_alerts.py), so the digest no longer fires on every urgent change.
+    from datetime import datetime, timezone
 
-    urgent = any(a["severity"] in _URGENT_TIERS for a in alerts)
-    if not urgent:
-        from datetime import datetime, timezone
-
-        now = datetime.now(timezone.utc)
-        last_sent_at = state.get("last_sent_at")
-        already_sent_today = bool(last_sent_at) and last_sent_at[:10] == now.date().isoformat()
-        if now.hour < _DIGEST_HOUR_UTC or already_sent_today:
-            record_heartbeat(
-                _DOMAIN_KEY,
-                status="ok",
-                detail=f"Advice/unclassified only ({len(alerts)} active) — holding for daily digest, no email sent",
-                latency_ms=int((time.monotonic() - t0) * 1000),
-            )
-            return {"changed": True, "count": len(alerts), "emailed": False, "held_for_digest": True}
+    now = datetime.now(timezone.utc)
+    last_sent_at = state.get("last_sent_at")
+    already_sent_today = bool(last_sent_at) and last_sent_at[:10] == now.date().isoformat()
+    if now.hour < _DIGEST_HOUR_UTC or already_sent_today:
+        record_heartbeat(
+            _DOMAIN_KEY,
+            status="ok",
+            detail=f"{len(alerts)} active alert(s) - holding for the daily digest, no email sent",
+            latency_ms=int((time.monotonic() - t0) * 1000),
+        )
+        return {"changed": fingerprint != state.get("last_fingerprint"), "count": len(alerts), "emailed": False, "held_for_digest": True}
 
     result = _generate_summary(alerts)
     if result is None:
@@ -225,11 +224,12 @@ def run() -> dict:
         return {"changed": True, "count": len(alerts), "emailed": False, "error": "llm_failed"}
 
     summary_text, provider = result
-    subject = f"Emergency Alert Hub — hourly summary ({len(alerts)} active)"
-    html = "<p>" + summary_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    subject = f"[DIGEST] Emergency Alert Hub - daily overview ({len(alerts)} active)"
+    html = '<pre style="font-family:monospace;white-space:pre-wrap">Notice: DIGEST\nActive-Alerts: ' + str(len(alerts)) + "</pre>"
+    html += "<p>" + summary_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
     html += _verbatim_urgent_section(alerts)
 
-    sent = send_email(to=_EMAIL_TO, subject=subject, html=html)
+    sent = send_email(to=_EMAIL_TO, subject=subject, html=html, cc=_EMAIL_CC) if _EMAIL_CC else send_email(to=_EMAIL_TO, subject=subject, html=html)
     now_iso = None
     if sent:
         from datetime import datetime, timezone

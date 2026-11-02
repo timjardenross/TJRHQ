@@ -49,7 +49,7 @@ class TestSendEmergencyWarningEmails:
             sent = ea._send_emergency_warning_emails("nsw_rfs")
         assert sent == 1
         mock_send.assert_called_once()
-        mock_patch.assert_called_once()
+        assert mock_patch.call_count == 2  # sent flag + tier/wording metadata
 
     def test_everything_silence_does_not_mute_emergency_warnings(self):
         rows = [_row()]
@@ -70,7 +70,7 @@ class TestSendEmergencyWarningEmails:
             sent = ea._send_emergency_warning_emails("nsw_rfs")
         assert sent == 1
         mock_send.assert_called_once()
-        mock_patch.assert_called_once()
+        assert mock_patch.call_count == 2  # sent flag + tier/wording metadata
 
     def test_silence_lookup_failure_degrades_to_no_silences(self):
         rows = [_row()]

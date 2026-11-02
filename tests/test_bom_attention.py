@@ -78,12 +78,12 @@ def test_high_attention_bom_warning_is_emailed_with_honest_labelling_and_state_s
     n, send, mark = _send([_bom_row()], [_site(), _site(name="Dubbo", suburb="Dubbo", postcode="2830", priority="Tier 3")])
     assert n == 1
     kw = send.call_args.kwargs
-    assert kw["subject"].startswith("⚠️ BOM WARNING — NSW — Severe Thunderstorm")
+    assert kw["subject"].startswith("[BOM-HIGH] NSW - Severe Thunderstorm")
     assert "does not give this warning" in kw["html"] and "platform’s own label" in kw["html"]
     assert "Our sites in NSW:</strong> 2 (1 Tier 1)" in kw["html"]
     assert "&lt;b&gt;possible&lt;/b&gt;" in kw["html"] and "<b>possible</b>" not in kw["html"]
     assert 'href="https://www.bom.gov.au/products/IDN36400.shtml"' in kw["html"]
-    mark.assert_called_once()  # dedupe flag set
+    assert mark.call_count == 2  # sent flag + tier/wording metadata  # dedupe flag set
 
 
 def test_standard_attention_warning_is_not_emailed():
@@ -159,10 +159,18 @@ def test_email_names_the_sites_inside_the_warned_area_instead_of_a_state_count()
     assert "Our sites in NSW" not in html
 
 
-def test_email_says_plainly_when_no_site_is_inside_the_warned_area():
+def test_no_email_when_the_named_area_is_known_and_no_site_is_inside_it():
     import bom_areas
 
     fake = bom_areas.AreaResult("none_inside", ["Barcoo River to Isisford"], [], 0)
     with patch.object(ea.bom_areas, "match_alert", return_value=fake):
-        _n, send, _ = _send([_bom_row()], [_site(id="s1")])
-    assert "None of our 1 sites are inside the area BOM names" in send.call_args.kwargs["html"]
+        n, send, _ = _send([_bom_row()], [_site(id="s1")])
+    assert n == 0 and not send.called  # left for the daily digest
+
+
+def test_unresolvable_area_in_a_state_with_sites_still_emails():
+    import bom_areas
+
+    with patch.object(ea.bom_areas, "match_alert", return_value=bom_areas.AreaResult("unparsed")):
+        n, send, _ = _send([_bom_row()], [_site(id="s1")])
+    assert n == 1 and send.call_args.kwargs["subject"].startswith("[BOM-HIGH] NSW - ")
