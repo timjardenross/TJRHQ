@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
 import alert_silences
+import bom_areas
 import bom_attention
 import site_matching
 from heartbeat import _KEY, _URL, record_heartbeats, supabase_get
@@ -342,6 +343,9 @@ def _send_bom_attention_emails(source_key: str) -> int:
             "BOM names districts, not places — check the warning to see whether they are inside the affected area.</p>"
             if state["total"] else ""
         )
+        area_line = _bom_area_html(bom_areas.match_alert(row, sites), len(sites)) if sites else ""
+        if area_line:
+            state_line = area_line  # the named area answers the question better than a state-wide count
         body = (
             f"<p><strong>{html.escape(row['headline'])}</strong></p>"
             f"<p>Jurisdiction: {html.escape(row['jurisdiction'])}<br>Issued: {html.escape(str(row.get('issued_at') or '—'))}</p>"
@@ -365,6 +369,26 @@ def _send_bom_attention_emails(source_key: str) -> int:
 
 
 _MAX_SITES_IN_EMAIL = 15
+
+
+def _bom_area_html(result: bom_areas.AreaResult, n_sites: int) -> str:
+    """Our sites inside the district/catchment a BOM warning names. Empty when the
+    headline names nothing we can resolve (the caller keeps its state-wide line).
+    'None inside' is said plainly, with the limit that a catchment is the unit BOM
+    warns on, not the flooded ground."""
+    if result.kind == "unparsed":
+        return ""
+    areas = html.escape(", ".join(result.area_names[:4]) + ("…" if len(result.area_names) > 4 else ""))
+    unknown = f" {result.unknown_sites} site(s) have no area data and are not counted." if result.unknown_sites else ""
+    if result.kind == "none_inside":
+        return f"<p><strong>None of our {n_sites} sites are inside the area BOM names</strong> ({areas}).{unknown}</p>"
+    shown = result.sites[:_MAX_SITES_IN_EMAIL]
+    items = "".join(f"<li>{html.escape(str(s.get('priority') or ''))} — {html.escape(str(s.get('name') or ''))}, {html.escape(str(s.get('suburb') or ''))}</li>" for s in shown)
+    more = f"<li>…and {len(result.sites) - len(shown)} more</li>" if len(result.sites) > len(shown) else ""
+    return (
+        f"<p><strong>{len(result.sites)} of our sites are inside the area BOM names</strong> ({areas}). "
+        f"A catchment or district is BOM's warning unit, not the affected ground.{unknown}</p><ul>{items}{more}</ul>"
+    )
 
 
 def _sites_html(matches: list, have_sites: bool) -> str:
