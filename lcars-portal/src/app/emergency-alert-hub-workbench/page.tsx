@@ -49,6 +49,7 @@ import { matchAlert, stateSiteSummary, statesWithoutSiteMatch, type SiteMatch } 
 import { bomAttentionLevel, BOM_ATTENTION_LABEL, type BomAttention } from '@/lib/bomAttention';
 import { displayHeadline } from '@/lib/alertDisplay';
 import { newlyAppeared } from '@/lib/alertAnnounce';
+import { matchAreas, type AreaResult } from '@/lib/bomAreas';
 import { alertEmailStatus, type EmailState, type EmailStatus } from '@/lib/alertEmailStatus';
 import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
 
@@ -230,7 +231,7 @@ function cardEmphasis(alert: EmergencyAlertEntry, attention?: BomAttention): 'cr
 /** One alert, whole card clickable. The severity colour is a left bar plus a
  * filled chip; ordinary alerts get neither. The headline is shown tidied (see
  * lib/alertDisplay) — the detail panel keeps the full original. */
-function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; attention?: BomAttention; onSelect: () => void }) {
+function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, area, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; attention?: BomAttention; area?: AreaResult; onSelect: () => void }) {
   const emphasis = cardEmphasis(alert, attention);
   const { title, subtitle } = displayHeadline(alert.headline);
   const bar = emphasis === 'crit' ? 'border-l-state-crit' : emphasis === 'warn' ? 'border-l-state-warn' : 'border-l-wb-line';
@@ -266,7 +267,13 @@ function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }
       {subtitle ? <p className="text-wb-label text-wb-ink2">{subtitle}</p> : alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
       <p className="mt-1 text-wb-label text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
       <EmailStatusLine alert={alert} isMuted={isMuted} />
-      {siteCount > 0 && (
+      {area && area.kind !== 'unparsed' ? (
+        <p className={`mt-1 text-wb-label font-semibold ${area.kind === 'matched' ? 'text-state-crit-on' : 'text-wb-ink2'}`}>
+          {area.kind === 'matched'
+            ? `${area.sites.length} of our site${area.sites.length === 1 ? '' : 's'} inside the area BOM names (${area.areaNames[0]}${area.areaNames.length > 1 ? ` +${area.areaNames.length - 1}` : ''})`
+            : `None of our sites are inside the area BOM names (${area.areaNames[0]}${area.areaNames.length > 1 ? ` +${area.areaNames.length - 1}` : ''})`}
+        </p>
+      ) : siteCount > 0 && (
         <p className="mt-1 text-wb-label font-semibold text-state-crit-on">
           {siteCount} of our site{siteCount === 1 ? '' : 's'} possibly affected
         </p>
@@ -602,7 +609,7 @@ function SilencesPanel({ silences, onRefresh }: { silences: AlertSilenceEntry[];
   );
 }
 
-const MATCH_METHOD_LABEL: Record<string, string> = { distance: 'Near incident point', text: 'Named in alert' };
+const MATCH_METHOD_LABEL: Record<string, string> = { distance: 'Near incident point', text: 'Named in alert', area: 'Inside warned area' };
 
 interface AffectedSite {
   site: AlertSiteEntry;
@@ -828,36 +835,54 @@ export default function EmergencyAlertsWorkbench() {
     return [...list].sort((a, b) => rank(a) - rank(b));
   }, [nonActionAlerts]);
   const bomHighCount = useMemo(() => bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high').length, [bomWarnings]);
-  // BOM names districts, not places, so per-site matching rarely hits: show how
-  // much of our estate is in each state with a high-attention warning instead.
-  const bomHighStates = useMemo(() => {
-    const states = new Set(bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high').map((a) => a.jurisdiction));
-    return [...states].map((st) => ({ state: st, ...stateSiteSummary(st, sites) })).filter((x) => x.total > 0);
+  // BOM names districts and catchments, not places. Where the headline names an
+  // area we hold the boundary for, sites are matched to that area (lib/bomAreas).
+  const bomAreaByAlert = useMemo(() => {
+    const map = new Map<string, AreaResult>();
+    for (const alert of bomWarnings) map.set(alert.id, matchAreas(alert, sites));
+    return map;
   }, [bomWarnings, sites]);
+  // Only for high-attention warnings whose area we cannot resolve: fall back to
+  // how much of our estate is in the state, and say it is not a match.
+  const bomHighStates = useMemo(() => {
+    const unresolved = bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high' && bomAreaByAlert.get(a.id)?.kind === 'unparsed');
+    const states = new Set(unresolved.map((a) => a.jurisdiction));
+    return [...states].map((st) => ({ state: st, ...stateSiteSummary(st, sites) })).filter((x) => x.total > 0);
+  }, [bomWarnings, bomAreaByAlert, sites]);
   const informationalAlerts = useMemo(() => nonActionAlerts.filter((a) => !(a.severity === 'unknown' && isBomSource(a.sourceKey))), [nonActionAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
   const unknownCount = useMemo(() => informationalAlerts.filter((a) => a.severity === 'unknown').length, [informationalAlerts]);
 
   const siteMatchesByAlert = useMemo(() => {
     const map = new Map<string, SiteMatch[]>();
-    for (const alert of [...emergencyAlerts, ...watchAlerts, ...bomWarnings]) {
+    for (const alert of [...emergencyAlerts, ...watchAlerts]) {
       const matches = matchAlert(alert, sites);
       if (matches.length > 0) map.set(alert.id, matches);
     }
+    for (const alert of bomWarnings) {
+      const area = bomAreaByAlert.get(alert.id);
+      if (area && area.kind === 'matched') {
+        map.set(alert.id, area.sites.map((site) => ({ site, method: 'area' as const, distanceKm: null, reason: `inside ${area.areaNames[0]}` })));
+      } else if (!area || area.kind === 'unparsed') {
+        const matches = matchAlert(alert, sites);
+        if (matches.length > 0) map.set(alert.id, matches);
+      }
+    }
     return map;
-  }, [emergencyAlerts, watchAlerts, bomWarnings, sites]);
+  }, [emergencyAlerts, watchAlerts, bomWarnings, bomAreaByAlert, sites]);
 
   /** One row per site, attached to its most severe alert (emergency first). */
   const affectedSites = useMemo<AffectedSite[]>(() => {
     const bySite = new Map<string, AffectedSite>();
-    for (const alert of [...emergencyAlerts, ...watchAlerts]) {
+    const bomHigh = bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high');
+    for (const alert of [...emergencyAlerts, ...watchAlerts, ...bomHigh]) {
       for (const match of siteMatchesByAlert.get(alert.id) ?? []) {
         if (!bySite.has(match.site.id)) bySite.set(match.site.id, { site: match.site, match, alert });
       }
     }
     const order: Record<string, number> = { 'Tier 1': 0, 'Tier 2': 1, 'Tier 3': 2 };
     return [...bySite.values()].sort((a, b) => (order[a.site.priority] ?? 9) - (order[b.site.priority] ?? 9) || a.site.name.localeCompare(b.site.name));
-  }, [emergencyAlerts, watchAlerts, siteMatchesByAlert]);
+  }, [emergencyAlerts, watchAlerts, bomWarnings, siteMatchesByAlert]);
 
   // Screen-reader announcements for alerts that appear while the page is open
   // (the 15-second refresh). Emergency Warnings interrupt (assertive); Watch and
@@ -1140,7 +1165,7 @@ export default function EmergencyAlertsWorkbench() {
                     </p>
                     {bomHighStates.length > 0 && (
                       <p className="mb-3 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
-                        High-attention warnings in states where we have sites:{' '}
+                        High-attention warnings whose area we cannot resolve, in states where we have sites:{' '}
                         {bomHighStates.map((x) => `${x.state} — ${x.total} site${x.total === 1 ? '' : 's'}${x.tier1 ? ` (${x.tier1} Tier 1)` : ''}`).join('; ')}.
                         These warnings name districts, not places — check whether our sites fall inside the affected area.
                       </p>
@@ -1148,7 +1173,7 @@ export default function EmergencyAlertsWorkbench() {
                     <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                       {bomWarnings.map((alert) => (
                         <div key={alert.id} className={`flex flex-col gap-3 ${selectedAlert?.id === alert.id ? 'xl:col-span-2' : ''}`}>
-                          <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                          <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} area={bomAreaByAlert.get(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                           {inlineDetail(alert)}
                         </div>
                       ))}

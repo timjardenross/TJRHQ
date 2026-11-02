@@ -144,3 +144,25 @@ def test_state_site_summary():
     import site_matching as sm
     assert sm.state_site_summary("NSW", [_site(), _site(priority="Tier 3"), _site(state="VIC")]) == {"total": 2, "tier1": 1}
     assert sm.state_site_summary("TAS", [_site()]) == {"total": 0, "tier1": 0}
+
+
+def test_email_names_the_sites_inside_the_warned_area_instead_of_a_state_count():
+    import bom_areas
+
+    row = _bom_row()
+    sites = [_site(id="s1", name="Dalby Branch", suburb="Dalby", state="QLD"), _site(id="s2", name="Far Away", state="QLD")]
+    fake = bom_areas.AreaResult("matched", ["Lower Condamine River"], [sites[0]], 0)
+    with patch.object(ea.bom_areas, "match_alert", return_value=fake):
+        n, send, _ = _send([row], sites)
+    html = send.call_args.kwargs["html"]
+    assert n == 1 and "1 of our sites are inside the area BOM names" in html and "Dalby Branch" in html
+    assert "Our sites in NSW" not in html
+
+
+def test_email_says_plainly_when_no_site_is_inside_the_warned_area():
+    import bom_areas
+
+    fake = bom_areas.AreaResult("none_inside", ["Barcoo River to Isisford"], [], 0)
+    with patch.object(ea.bom_areas, "match_alert", return_value=fake):
+        _n, send, _ = _send([_bom_row()], [_site(id="s1")])
+    assert "None of our 1 sites are inside the area BOM names" in send.call_args.kwargs["html"]
