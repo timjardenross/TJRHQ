@@ -4,7 +4,7 @@ Sequences officer outputs in the prescribed order and assembles the Captain brie
 Officers consume outputs from previous officers — no isolated reporting.
 
 Sequence:
-   1. Human Systems                      — capacity gate (governs everything downstream)
+   1. Human Systems                      — capacity reading (advisory; gates nothing)
    2. Strategic Planning                 — portfolio decisions
    3. ORI                                — resilience intelligence
    4. Engineering                        — delivery status
