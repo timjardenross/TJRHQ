@@ -63,9 +63,10 @@ _EMERGENCY_EMAIL_CC = os.environ.get("EMERGENCY_ALERT_EMAIL_CC") or None
 
 def _deliver(subject: str, html: str) -> bool:
     """Every alert email goes through here so recipients are set in one place."""
+    text = alert_email.html_to_text(html)
     if _EMERGENCY_EMAIL_CC:
-        return send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html, cc=_EMERGENCY_EMAIL_CC)
-    return send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html)
+        return send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html, cc=_EMERGENCY_EMAIL_CC, text=text)
+    return send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html, text=text)
 
 log = logging.getLogger("emergency-alerts")
 
@@ -284,17 +285,13 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         matches = site_matching.match_alert({**row, "severity": "emergency_warning"}, sites)
         tier1 = sum(1 for m in matches if m.site.get("priority") == "Tier 1")
         subject = alert_email.build_subject(alert_email.EW, row["jurisdiction"], row["headline"], len(matches), tier1)
-        html = (
-            alert_email.fields_block(alert_email.EW, {**row, "severity": "emergency_warning"}, ({"Sites-Possibly-Affected": len(matches), "Tier1-Sites": tier1} if sites else None))
-            + f"<p><strong>{row['headline']}</strong></p>"
-            f"<p>Jurisdiction: {row['jurisdiction']}<br>"
-            f"Location: {row.get('location') or '—'}<br>"
-            f"Issued: {row.get('issued_at') or '—'}</p>"
-            f"<p>{row.get('description') or ''}</p>"
+        body = (
+            alert_email.fields_block(alert_email.EW, {**row, "severity": "emergency_warning", "source_key": source_key}, ({"Sites-Possibly-Affected": len(matches), "Tier1-Sites": tier1} if sites else None))
+            + f"<p>{html.escape(row.get('description') or '')}</p>"
             + (f"<p><a href=\"{row['canonical_url']}\">Official source</a></p>" if row.get("canonical_url") else "")
             + _sites_html(matches, bool(sites))
         )
-        if not _deliver(subject, html):
+        if not _deliver(subject, body):
             log.warning("[emergency-alerts] %s: email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
             _record_email_failure(row["id"])
             continue
@@ -349,11 +346,8 @@ def _send_watch_and_act_emails(source_key: str) -> int:
         tier1 = sum(1 for m in matches if m.site.get("priority") == "Tier 1")
         subject = alert_email.build_subject(alert_email.WA, row["jurisdiction"], row["headline"], len(matches), tier1)
         body = (
-            alert_email.fields_block(alert_email.WA, {**row, "severity": "watch_and_act"}, ({"Sites-Possibly-Affected": len(matches), "Tier1-Sites": tier1} if sites else None))
-            + f"<p><strong>{html.escape(row['headline'])}</strong></p>"
-            f"<p>Jurisdiction: {html.escape(row['jurisdiction'])}<br>Location: {html.escape(str(row.get('location') or '—'))}<br>"
-            f"Issued: {html.escape(str(row.get('issued_at') or '—'))}</p>"
-            f"<p>{html.escape(row.get('description') or '')}</p>"
+            alert_email.fields_block(alert_email.WA, {**row, "severity": "watch_and_act", "source_key": source_key}, ({"Sites-Possibly-Affected": len(matches), "Tier1-Sites": tier1} if sites else None))
+            + f"<p>{html.escape(row.get('description') or '')}</p>"
             + (f'<p><a href="{html.escape(row["canonical_url"], quote=True)}">Official source</a></p>' if row.get("canonical_url") else "")
             + _sites_html(matches, bool(sites))
         )
@@ -443,10 +437,8 @@ def _send_bom_attention_emails(source_key: str) -> int:
         if area_line:
             state_line = area_line  # the named area answers the question better than a state-wide count
         body = (
-            alert_email.fields_block(alert_email.BOM_HIGH, {**row, "severity": "unknown", "canonical_url": source_link, "issued_at": _issued_text(row) if _issued_text(row) != "-" else None}, {"Area-Match": area_result.kind, "Sites-Inside": n_inside, "Tier1-Sites": tier1_inside})
-            + f"<p><strong>{html.escape(row['headline'])}</strong></p>"
-            f"<p>Jurisdiction: {html.escape(row['jurisdiction'])}<br>Issued: {html.escape(_issued_text(row))}</p>"
-            "<p><em>The Bureau of Meteorology does not give this warning an Advice / Watch and Act / Emergency Warning "
+            alert_email.fields_block(alert_email.BOM_HIGH, {**row, "severity": "unknown", "source_key": source_key, "canonical_url": source_link, "issued_at": _issued_text(row) if _issued_text(row) != "-" else None}, {"Area-Match": area_result.kind, "Sites-Inside": n_inside, "Tier1-Sites": tier1_inside})
+            + "<p><em>The Bureau of Meteorology does not give this warning an Advice / Watch and Act / Emergency Warning "
             "tier. “High attention” is this platform’s own label, chosen from the warning type.</em></p>"
             f"<p>{html.escape(text).replace(chr(10), '<br>')}</p>"
             + (f'<p><a href="{html.escape(source_link, quote=True)}">Official BOM warning</a></p>' if source_link else "")
@@ -755,7 +747,7 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
         tier1 = sum(1 for m in matches if m.site.get("priority") == "Tier 1")
         body = (
             alert_email.fields_block(alert_email.UPDATE, row, {"Change": change})
-            + f"<p><strong>{html.escape(change)}</strong></p><p><strong>{html.escape(row['headline'])}</strong></p>"
+            + f"<p><strong>{html.escape(change)}</strong></p>"
             f"<p>{html.escape(row.get('description') or '')}</p>"
             + (f'<p><a href="{html.escape(row["canonical_url"], quote=True)}">Official source</a></p>' if row.get("canonical_url") else "")
             + (_sites_html(matches, True) if sites else "")
