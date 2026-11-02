@@ -1,5 +1,8 @@
 # Capacity gating is advisory for now (owner decision, 2026-10-18)
 
+> **Superseded 2026-11-02** by [capacity never holds work back](2026-11-02-capacity-never-gates.md). The
+> `CAPACITY_ENFORCEMENT` switch described below has been removed.
+
 **Decision.** Capacity is still measured and shown everywhere it was. A Red, Amber or Unknown reading no
 longer holds anything back: no nudges are trimmed, no missions are deferred or limited, and the
 improvement budget does not close on Red. This is for the time being.

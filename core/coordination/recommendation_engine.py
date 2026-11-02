@@ -27,8 +27,6 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from core.health.capacity_enforcement import enforcing
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
@@ -108,18 +106,11 @@ def rank_missions(
         List of Recommendation objects sorted by priority_rank
     """
     active = _filter_active(missions)
-    cap_status = _capacity_status(health_context)
 
     scored = []
     for m in active:
         score = score_priority(m, missions)
-        # Red capacity depresses non-critical mission scores so queue reorders
-        if cap_status == "Red" and enforcing():  # advisory mode leaves ranking untouched
-            priority = _normalized_priority(m)
-            if priority in ("P2", "P3"):
-                score = max(0.0, score - 0.15)
-            elif priority == "P1":
-                score = max(0.0, score - 0.05)
+        # Capacity never changes ranking (owner decision 2026-11-02).
         health_note = check_health_constraints(m, health_context)
         scored.append((score, m, health_note))
 
@@ -235,25 +226,14 @@ def check_health_constraints(
     domain = str(mission.get("domain", "")).lower()
     heavy_domains = {"engineering", "governance", "science", "workflow"}
 
-    if cap_status in ("Red", "Amber") and not enforcing():
-        # Advisory mode (owner decision 2026-10-18): a pacing note, never a defer instruction.
+    if cap_status in ("Red", "Amber"):
+        # Owner decision 2026-11-02: a pacing note, never a defer instruction.
         if cap_status == "Red" and (priority in ("P2", "P3") or domain in heavy_domains):
             return "Capacity is Red today. Advisory only: pace yourself; nothing is deferred."
         return None
 
-    if cap_status == "Red":
-        if priority in ("P2", "P3"):
-            return "Defer — capacity is Red; reserve energy for P0/P1 only"
-        if priority == "P1" and domain in heavy_domains:
-            return "High cognitive load — pace carefully; capacity is Red"
-        return None
-
-    if cap_status == "Amber" or health_context.workload_constraint == "reduced":
-        if domain in heavy_domains and priority not in ("P0",):
-            return "Consider lower cognitive effort given current recovery status"
-        if priority in ("P2", "P3"):
-            return "Low-priority task — consider deferring during reduced capacity"
-
+    # A legacy "reduced" workload_constraint maps to Amber in _capacity_status(), which is
+    # handled above; capacity never produces a defer instruction (owner decision 2026-11-02).
     return None
 
 

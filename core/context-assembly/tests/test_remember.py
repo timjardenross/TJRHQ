@@ -63,15 +63,14 @@ class TestRemember:
         refs = [i["ref"] for i in result["resurfacing_tasks"]]
         assert "urgent" in refs
 
-    def test_red_capacity_suppresses_non_critical_task_via_shared_adapter(self):
-        """No second capacity rule here -- Red demotes non-critical items
-        to CAN_WAIT inside attention_items_from_personal_tasks() itself,
-        which this endpoint's filter then naturally excludes."""
-        important_not_critical = _personal_task(id="t1", importance=4, urgency=2)
-        with patch("context_service._capacity_status_for_today", return_value="Red"), \
-             patch("supabase_client.supabase_get", return_value=[important_not_critical]):
-            result = context_service._http_remember()
-        assert result["resurfacing_tasks"] == []
+    def test_red_capacity_does_not_suppress_tasks(self):
+        """Owner decision 2026-11-02: Red flags tasks but never hides them."""
+        def run(status):
+            task = _personal_task(id="t1", importance=4, urgency=2)
+            with patch("context_service._capacity_status_for_today", return_value=status), \
+                 patch("supabase_client.supabase_get", return_value=[task]):
+                return [(t["id"], t["category"]) for t in context_service._http_remember()["resurfacing_tasks"]]
+        assert run("Red") == run("Green") != []
 
     def test_unresolved_captures_included(self):
         item = _captured_item(id="ci-9")
@@ -82,7 +81,7 @@ class TestRemember:
         ids = [c["id"] for c in result["unresolved_captures"]]
         assert "ci-9" in ids
 
-    def test_unresolved_captures_capped_tighter_under_red(self):
+    def test_unresolved_captures_limit_is_the_same_under_red(self):
         with patch("context_service._capacity_status_for_today", return_value="Red"), \
              patch("supabase_client.supabase_get") as mock_get:
             captured_calls = []
@@ -94,7 +93,7 @@ class TestRemember:
                 return []
             mock_get.side_effect = fake_get
             context_service._http_remember()
-        assert any("limit=3" in q for q in captured_calls)
+        assert any("limit=30" in q for q in captured_calls)
 
     def test_personal_task_read_failure_degrades_gracefully(self):
         with patch("context_service._capacity_status_for_today", return_value="Green"), \

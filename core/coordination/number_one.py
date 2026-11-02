@@ -38,7 +38,6 @@ from typing import Any
 _REPO_ROOT_FOR_ENFORCEMENT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT_FOR_ENFORCEMENT) not in sys.path:  # this module is also imported by bare name
     sys.path.insert(0, str(_REPO_ROOT_FOR_ENFORCEMENT))
-from core.health.capacity_enforcement import enforcing
 
 log = logging.getLogger(__name__)
 
@@ -390,11 +389,9 @@ class NumberOne:
         """
         base_queue = self.get_work_queue(missions, routing_results)
 
-        # Advisory mode (owner decision 2026-10-18; see core/health/capacity_enforcement.py):
-        # capacity is reported but nothing is marked deferred or P0-only. The Red/Amber text and
-        # focus list below are the original enforcing behaviour, kept unchanged under
-        # CAPACITY_ENFORCEMENT=enforce.
-        advisory_only = capacity_status in ("Red", "Amber") and not enforcing()
+        # Owner decision 2026-11-02: capacity is reported but never marks anything deferred
+        # or P0-only, and never narrows the focus list.
+        advisory_only = capacity_status in ("Red", "Amber")
 
         annotated = []
         for item in base_queue:
@@ -408,52 +405,20 @@ class NumberOne:
                 "blockers": item.blockers,
                 "capacity_note": "",
             }
-            pri = d["priority"]
             if advisory_only:
                 d["capacity_note"] = f"Capacity is {capacity_status} today (advisory only, nothing deferred)"
-            elif capacity_status == "Red":
-                if pri == "P0":
-                    d["capacity_note"] = "CRITICAL — proceed regardless of capacity"
-                else:
-                    d["capacity_note"] = "DEFERRED — Red capacity: P0 only today"
-            elif capacity_status == "Amber":
-                if pri in ("P0", "P1"):
-                    d["capacity_note"] = "Proceed — priority justifies reduced capacity"
-                else:
-                    d["capacity_note"] = "Advisory: consider deferring on reduced capacity days"
-            else:
-                d["capacity_note"] = ""  # Green: no overlay needed
             annotated.append(d)
 
         # Advisory statement
         if advisory_only:
             advisory = (
-                f"Captain's capacity is {capacity_status.upper()} today. Capacity gating is advisory "
-                "for now: nothing is deferred or limited, and normal prioritisation applies. "
+                f"Captain's capacity is {capacity_status.upper()} today. Capacity is advisory: "
+                "nothing is deferred or limited, and normal prioritisation applies. "
                 "Pace yourself as you see fit."
             )
             recommended_focus = [
                 m["title"] for m in annotated
                 if "BLOCKED" not in m["status"].upper()
-            ][:3]
-        elif capacity_status == "Red":
-            advisory = (
-                "Captain is at RED capacity today. "
-                "Number One recommends P0 missions only. "
-                "All other work is deferred until capacity recovers."
-            )
-            recommended_focus = [
-                m["title"] for m in annotated if m["priority"] == "P0" and "BLOCKED" not in m["status"].upper()
-            ][:3] or ["No active P0 missions — prioritise rest and recovery"]
-        elif capacity_status == "Amber":
-            advisory = (
-                "Captain is at AMBER capacity today. "
-                "P0 and P1 missions are recommended. "
-                "P2/P3 work should be deferred unless low-cognitive-load."
-            )
-            recommended_focus = [
-                m["title"] for m in annotated
-                if m["priority"] in ("P0", "P1") and "BLOCKED" not in m["status"].upper()
             ][:3]
         elif capacity_status == "Green":
             advisory = "Captain is at GREEN capacity. Normal prioritisation applies."

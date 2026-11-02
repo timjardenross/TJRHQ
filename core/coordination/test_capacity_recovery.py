@@ -60,11 +60,11 @@ def _build_brief():
 
 
 class TestSuppressedItemReturnsWhenCapacityRecovers:
-    def test_red_demotes_p1_item_with_a_capacity_reason(self):
+    def test_red_flags_p1_item_but_never_demotes_it(self):
         items = attention_items_from_brief(_build_brief(), capacity_status="Red")
         item = _find(items, "MSN-REC-01")
-        assert item.category == AttentionCategory.CAN_WAIT
-        assert item.capacity_adjusted_reason == "DEFERRED — Red capacity: P0 only today"
+        assert item.category == AttentionCategory.IMPORTANT_NOT_IMMEDIATE
+        assert item.capacity_adjusted_reason == "Advisory: Red capacity - consider limiting to P0 today"
 
     def test_green_on_the_identical_fixture_returns_it_uncapped(self):
         """Same mission data, only capacity_status differs -- the item
@@ -111,7 +111,7 @@ class TestNoStatefulSuppression:
         green_first_fresh = attention_items_from_brief(_build_brief(), capacity_status="Green")
 
         red_item = _find(red_first, "MSN-REC-01")
-        assert red_item.category == AttentionCategory.CAN_WAIT
+        assert red_item.category == AttentionCategory.IMPORTANT_NOT_IMMEDIATE
 
         green_item = _find(green_after, "MSN-REC-01")
         fresh_item = _find(green_first_fresh, "MSN-REC-01")
@@ -135,7 +135,7 @@ class TestTransitionsAreCorrectByConstruction:
         brief = _build_brief()
         sequence = ["Red", "Amber", "Green", "Red"]
         expected_category = {
-            "Red": AttentionCategory.CAN_WAIT,
+            "Red": AttentionCategory.IMPORTANT_NOT_IMMEDIATE,
             "Amber": AttentionCategory.IMPORTANT_NOT_IMMEDIATE,
             "Green": AttentionCategory.IMPORTANT_NOT_IMMEDIATE,
         }

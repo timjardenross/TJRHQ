@@ -30,6 +30,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
@@ -56,79 +58,18 @@ ALL_MODES_FAR_DUE = [
 ]
 
 
-class TestGreenIsFullyUnrestricted:
-    def test_green_keeps_every_mode(self):
-        kept = fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Green", NOW)
-        assert {t["id"] for t in kept} == {t["id"] for t in ALL_MODES_FAR_DUE}
+class TestCapacityNeverTrimsNudges:
+    """Owner decision 2026-11-02: no capacity reading (Green, Amber, Red or Unknown)
+    trims follow-through nudges. Replaces the old Amber / Red / Unknown trimming rules."""
 
+    @pytest.mark.parametrize("status", ["Green", "Amber", "Red", "Unknown"])
+    def test_every_mode_is_kept(self, status):
+        kept = fte._apply_capacity_gate(ALL_MODES_FAR_DUE, status, NOW)
+        assert [t["id"] for t in kept] == [t["id"] for t in ALL_MODES_FAR_DUE]
 
-class TestAmberTrimsOnlyGentle:
-    def test_amber_drops_far_due_gentle_item(self):
-        kept = fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Amber", NOW)
-        assert "t-gentle" not in {t["id"] for t in kept}
-
-    def test_amber_keeps_far_due_normal_item(self):
-        """This is the gap: pre-fix, Amber == Green, so a far-due normal
-        item wasn't distinguished from Red's stricter cut. Post-fix, Amber
-        must still be looser than Red -- normal items survive Amber."""
-        kept = fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Amber", NOW)
-        assert "t-normal" in {t["id"] for t in kept}
-
-    def test_amber_keeps_far_due_persistent_deadline_waiting(self):
-        kept = fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Amber", NOW)
-        ids = {t["id"] for t in kept}
-        assert {"t-persistent", "t-deadline", "t-waiting"} <= ids
-
-    def test_amber_keeps_near_due_gentle_item(self):
-        near = [_task("gentle", due_date=NEAR_DUE)]
-        kept = fte._apply_capacity_gate(near, "Amber", NOW)
-        assert len(kept) == 1
-
-    def test_amber_keeps_gentle_item_with_no_due_date_if_not_urgent_by_other_signal(self):
-        """No due_date is treated the same as "far due" (existing Red
-        logic's own `due is None or (due - today).days > 1` treats a
-        missing due date as eligible-for-trim) -- confirms Amber inherits
-        that same interpretation for gentle items rather than a new one."""
-        no_due = [_task("gentle", due_date=None)]
-        kept = fte._apply_capacity_gate(no_due, "Amber", NOW)
-        assert kept == []
-
-    def test_amber_is_strictly_looser_than_red(self):
-        red_kept = {t["id"] for t in fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Red", NOW)}
-        amber_kept = {t["id"] for t in fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Amber", NOW)}
-        assert red_kept < amber_kept
-
-
-class TestRedUnchanged:
-    def test_red_drops_far_due_gentle_and_normal(self):
-        kept = fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Red", NOW)
-        ids = {t["id"] for t in kept}
-        assert "t-gentle" not in ids
-        assert "t-normal" not in ids
-
-    def test_red_keeps_persistent_deadline_waiting(self):
-        kept = fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Red", NOW)
-        ids = {t["id"] for t in kept}
-        assert {"t-persistent", "t-deadline", "t-waiting"} <= ids
-
-
-class TestUnknownCapacityIsNotTreatedAsGreen:
-    """The core safety fix: capacity_status="Unknown" (no check-in today)
-    must not silently behave like Green (fully unrestricted)."""
-
-    def test_unknown_capacity_drops_far_due_gentle_item(self):
-        kept = fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Unknown", NOW)
-        assert "t-gentle" not in {t["id"] for t in kept}
-
-    def test_unknown_capacity_behaves_identically_to_amber(self):
-        unknown_kept = {t["id"] for t in fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Unknown", NOW)}
-        amber_kept = {t["id"] for t in fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Amber", NOW)}
-        assert unknown_kept == amber_kept
-
-    def test_unknown_capacity_is_not_identical_to_green(self):
-        unknown_kept = {t["id"] for t in fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Unknown", NOW)}
-        green_kept = {t["id"] for t in fte._apply_capacity_gate(ALL_MODES_FAR_DUE, "Green", NOW)}
-        assert unknown_kept != green_kept
+    def test_gentle_item_with_no_due_date_is_kept(self):
+        tasks = [_task("gentle", due_date=None)]
+        assert fte._apply_capacity_gate(tasks, "Red", NOW) == tasks
 
 
 class TestCanonicalCapacityMapping:

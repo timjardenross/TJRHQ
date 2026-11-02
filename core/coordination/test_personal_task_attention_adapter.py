@@ -113,13 +113,13 @@ class TestCapacityPolicyIsShared:
     _capacity_note_and_category rather than a second implementation —
     Red demotes non-critical items exactly like Number One's items do."""
 
-    def test_red_demotes_non_needs_now_to_can_wait(self):
+    def test_red_flags_but_never_demotes_non_needs_now(self):
         far = (TODAY + timedelta(days=30)).isoformat()
-        items = attention_items_from_personal_tasks(
-            [_task(importance=4, due_date=far)], capacity_status="Red",
-        )
-        assert items[0].category == AttentionCategory.CAN_WAIT
-        assert "Red capacity" in items[0].capacity_adjusted_reason
+        task = _task(importance=4, due_date=far)
+        red = attention_items_from_personal_tasks([task], capacity_status="Red")
+        none = attention_items_from_personal_tasks([task], capacity_status=None)
+        assert red[0].category == none[0].category
+        assert "Red capacity" in red[0].capacity_adjusted_reason
 
     def test_red_leaves_needs_now_critical_item_unrestricted(self):
         overdue = (TODAY - timedelta(days=1)).isoformat()

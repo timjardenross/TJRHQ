@@ -51,30 +51,20 @@ def _run_human_systems_step(missions, score, status):
     return ctx
 
 
-class TestCapacityGateReceivesRealMissions:
-    def test_red_defers_non_p0_missions_not_empty_list(self):
-        ctx = _run_human_systems_step(MISSIONS, 5, "Red")
-        defer_actions = [a for a in ctx.capacity_actions if a["type"] == "defer_mission"]
-        # Both P1 and P2 missions (non-P0) must be deferred -- with the
-        # old `[]` bug this list was always empty regardless of status.
-        assert len(defer_actions) == 2
-        assert any("MSN-0002" in a["reason"] for a in defer_actions)
-        assert any("MSN-0003" in a["reason"] for a in defer_actions)
+class TestCapacityGateNeverHoldsWorkBack:
+    """Owner decision 2026-11-02: Red / Amber produce one advisory notice and no
+    defer / limit / recovery actions, whatever the mission list looks like."""
 
-    def test_red_protects_p0_mission_from_deferral(self):
-        ctx = _run_human_systems_step(MISSIONS, 5, "Red")
-        defer_actions = [a for a in ctx.capacity_actions if a["type"] == "defer_mission"]
-        assert not any("MSN-0001" in a["reason"] for a in defer_actions)
+    @pytest.mark.parametrize("status,score", [("Red", 5), ("Amber", 50)])
+    def test_only_an_advisory_notice_is_emitted(self, status, score):
+        ctx = _run_human_systems_step(MISSIONS, score, status)
+        types = {a["type"] for a in ctx.capacity_actions}
+        assert types <= {"notify"}
+        assert not types & {"defer_mission", "limit_missions", "trigger_recovery"}
 
-    def test_amber_limit_fires_when_active_missions_exceed_cap(self):
-        many_active = [
-            {"id": f"MSN-{i:04d}", "priority": "P2", "status": "active"} for i in range(3)
-        ]
+    def test_amber_over_the_old_cap_is_not_limited(self):
+        many_active = [{"id": f"MSN-{i:04d}", "priority": "P2", "status": "active"} for i in range(5)]
         ctx = _run_human_systems_step(many_active, 50, "Amber")
-        assert any(a["type"] == "limit_missions" for a in ctx.capacity_actions)
-
-    def test_amber_no_limit_action_when_within_cap(self):
-        ctx = _run_human_systems_step(MISSIONS[:1], 50, "Amber")
         assert not any(a["type"] == "limit_missions" for a in ctx.capacity_actions)
 
     def test_green_emits_no_gate_actions(self):
@@ -87,11 +77,8 @@ class TestCapacityGateReceivesRealMissions:
         assert MISSIONS == before
 
     def test_empty_mission_list_still_degrades_safely(self):
-        """Real-world empty queue (e.g. nothing active today) must not
-        raise -- only the list-dependent actions are absent."""
         ctx = _run_human_systems_step([], 5, "Red")
         assert not any(a["type"] == "defer_mission" for a in ctx.capacity_actions)
-        assert any(a["type"] == "trigger_recovery" for a in ctx.capacity_actions)
 
 
 class TestRunDailyCyclePlumbing:

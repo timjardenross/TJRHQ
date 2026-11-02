@@ -219,7 +219,7 @@ def _build_recommendations(
     if risk_level == "red":
         capacity = getattr(ctx, "capacity_status", "Unknown")
         if capacity == "Red":
-            recs.append("Recommend: invoke capacity recovery protocol immediately")
+            recs.append("Note: capacity is Red. Consider a recovery block; nothing is held back")
         ori = getattr(ctx, "resilience_risk", "Unknown")
         if ori == "RED":
             recs.append("Recommend: ORI RED response — escalate to Captain for resilience decision")
