@@ -235,9 +235,9 @@ function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }
   const bar = emphasis === 'crit' ? 'border-l-state-crit' : emphasis === 'warn' ? 'border-l-state-warn' : 'border-l-wb-line';
   const tint = alert.severity === 'emergency_warning' ? 'bg-state-crit/10' : alert.severity === 'watch_and_act' ? 'bg-state-warn/10' : 'bg-wb-surface';
   const chipLabel = attention ? BOM_ATTENTION_LABEL[attention] : severityLabel(alert);
-  const chipClass = emphasis === 'crit' ? 'bg-wb-crit-fill text-white' : emphasis === 'warn' ? 'bg-wb-warn-fill text-white' : 'border border-wb-line text-wb-ink2';
+  const chipClass = emphasis === 'crit' ? 'bg-wb-crit-fill text-white [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : emphasis === 'warn' ? 'bg-wb-warn-fill text-white [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink2';
   return (
-    <div className={`relative rounded-md border border-l-4 border-wb-line ${bar} ${tint} p-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-wb-sage-deep`}>
+    <div className={`relative rounded-md border border-l-4 border-wb-line ${bar} ${tint} p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-wb-sage-deep`}>
       {/* flex-wrap: the chip row must never push the card past a narrow
           viewport (WP3 defect #4 sweep, 200% zoom). */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -353,7 +353,7 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-serif text-base text-wb-ink">Coverage</h2>
+          <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Coverage</h2>
           {level === 'good' && (
             <p className="text-wb-label text-wb-ink2">All {sourceCount} official sources are reporting.</p>
           )}
@@ -628,7 +628,7 @@ function SitesPanel({
 
   return (
     <Card>
-      <h2 className="font-serif text-base text-wb-ink">Your sites</h2>
+      <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Your sites</h2>
       {sitesError ? (
         <p className="mt-1 text-wb-label text-state-warn-on">Site register could not be loaded ({sitesError}) — showing national alerts only.</p>
       ) : sites.length === 0 ? (
@@ -956,7 +956,7 @@ export default function EmergencyAlertsWorkbench() {
                     clear" can be trusted. Detail sits in the sections below. */}
                 <section aria-label="Current status" data-alert-state="status-banner">
                   <div
-                    className={`rounded-md border px-3 py-2 ${
+                    className={`rounded-md border px-3 py-2 [print-color-adjust:exact] [-webkit-print-color-adjust:exact] ${
                       emergencyAlerts.length > 0 || emailsFailed.length > 0
                         ? 'border-wb-crit-fill bg-wb-crit-fill text-white'
                         : watchAlerts.length > 0 || bomHighCount > 0 || coverage.level !== 'good'
@@ -1143,7 +1143,7 @@ export default function EmergencyAlertsWorkbench() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {(adviceCount > 0 || unknownCount > 0) && (
                     <Card>
-                      <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
+                      <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Other active alerts</h2>
                       <div className="mt-2 flex flex-col gap-1 text-wb-label text-wb-ink2">
                         {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
                         {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
