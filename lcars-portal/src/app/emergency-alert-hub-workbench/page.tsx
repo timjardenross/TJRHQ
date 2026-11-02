@@ -48,6 +48,7 @@ import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
 import { matchAlert, stateSiteSummary, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
 import { bomAttentionLevel, BOM_ATTENTION_LABEL, type BomAttention } from '@/lib/bomAttention';
 import { displayHeadline } from '@/lib/alertDisplay';
+import { newlyAppeared } from '@/lib/alertAnnounce';
 import { alertEmailStatus, type EmailState, type EmailStatus } from '@/lib/alertEmailStatus';
 import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
 
@@ -848,6 +849,30 @@ export default function EmergencyAlertsWorkbench() {
     return [...bySite.values()].sort((a, b) => (order[a.site.priority] ?? 9) - (order[b.site.priority] ?? 9) || a.site.name.localeCompare(b.site.name));
   }, [emergencyAlerts, watchAlerts, siteMatchesByAlert]);
 
+  // Screen-reader announcements for alerts that appear while the page is open
+  // (the 15-second refresh). Emergency Warnings interrupt (assertive); Watch and
+  // Act waits its turn (polite). Nothing is read out on first load.
+  const seenEmergencyRef = useRef<Set<string> | null>(null);
+  const seenWatchRef = useRef<Set<string> | null>(null);
+  const [assertiveMessage, setAssertiveMessage] = useState('');
+  const [politeMessage, setPoliteMessage] = useState('');
+  useEffect(() => {
+    if (isLoading) return;
+    const fresh = newlyAppeared(seenEmergencyRef.current, emergencyAlerts);
+    if (fresh.length > 0) {
+      setAssertiveMessage(`New Emergency Warning: ${fresh.map((x) => `${displayHeadline(x.headline).title}, ${x.jurisdiction}`).join('; ')}`);
+    }
+    seenEmergencyRef.current = new Set(emergencyAlerts.map((x) => x.id));
+  }, [emergencyAlerts, isLoading]);
+  useEffect(() => {
+    if (isLoading) return;
+    const fresh = newlyAppeared(seenWatchRef.current, watchAlerts);
+    if (fresh.length > 0) {
+      setPoliteMessage(`New Watch and Act: ${fresh.map((x) => `${displayHeadline(x.headline).title}, ${x.jurisdiction}`).join('; ')}`);
+    }
+    seenWatchRef.current = new Set(watchAlerts.map((x) => x.id));
+  }, [watchAlerts, isLoading]);
+
   // Alerts that qualify for an email and have none sent and no silence holding it.
   const emailsNotSent = useMemo(
     () => activeAlerts.filter((a) => emailStatusFor(a, mutedAlertIds.has(a.id)).state === 'pending'),
@@ -907,6 +932,9 @@ export default function EmergencyAlertsWorkbench() {
       mode="command"
     >
       <div className="risk-reference-surface risk-reference-command flex flex-col gap-4">
+        {/* Live regions exist from first render so a later change is announced. */}
+        <div className="sr-only" role="alert" aria-live="assertive" aria-atomic="true">{assertiveMessage}</div>
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{politeMessage}</div>
         <div className="risk-reference-kicker">What is happening now, then what it means for us</div>
         {isLoading ? (
           <Card><p className="text-wb-body italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
