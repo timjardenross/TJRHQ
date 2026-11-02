@@ -58,14 +58,13 @@ def test_emergency_warning_near_hobart_emails_with_tier1_site_context():
 
     with patch.object(ea, "supabase_get", return_value=_rows(alerts)), \
          patch.object(ea.alert_silences, "list_active_silences", return_value=[]), \
-         patch.object(ea.site_matching, "list_active_sites", return_value=SITES), \
          patch.object(ea, "send_email", return_value=True) as mock_send, \
          patch.object(ea, "_supabase_request"):
         assert ea._send_emergency_warning_emails("tas_fire") == 1
 
     subject = mock_send.call_args.kwargs["subject"]
     assert subject.startswith("[EW] TAS - ")
-    assert "1 site possibly affected, 1 Tier 1" in subject  # Hobart only, Launceston is ~160 km away
+    assert "site" not in subject  # alerts are pushed as-is; the mailbox's reader works out which sites matter
     assert "Hobart" in mock_send.call_args.kwargs["html"]
 
 
@@ -75,22 +74,18 @@ def test_emergency_warning_survives_a_blanket_silence():
     everything = {"id": "sil-all", "reason": "maintenance window"}
     with patch.object(ea, "supabase_get", return_value=_rows(alerts)), \
          patch.object(ea.alert_silences, "list_active_silences", return_value=[everything]), \
-         patch.object(ea.site_matching, "list_active_sites", return_value=SITES), \
          patch.object(ea, "send_email", return_value=True) as mock_send, \
          patch.object(ea, "_supabase_request"):
         assert ea._send_emergency_warning_emails("tas_fire") == 1
     mock_send.assert_called_once()
 
 
-def test_watch_and_act_is_parsed_and_matched_but_not_emailed_as_emergency():
+def test_watch_and_act_is_parsed_with_its_tier_and_never_goes_through_the_emergency_path():
     payload = {"features": [_feature("Watch and Act", "Bushfire Watch and Act - Hobart", 147.30, -42.88, "wa-1")]}
     [alert] = tas_fire.parse(payload, now_ms=NOW_MS)
     assert alert.severity == "watch_and_act"
-    import site_matching
-    matches = site_matching.match_alert({**alert.__dict__, "severity": alert.severity}, SITES)
-    assert [m.site["name"] for m in matches] == ["Hobart"]
     # The emergency-email query is severity=eq.emergency_warning, so a Watch and Act
-    # never reaches _send_emergency_warning_emails (it appears on the workbench).
+    # is emailed by _send_watch_and_act_emails instead (tests/test_watch_and_act_email.py).
 
 
 def test_untiered_label_stays_unknown_and_sends_no_emergency_email():
