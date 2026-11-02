@@ -79,10 +79,10 @@ def recommended_adjustment(view: CapacityAllocationView) -> str:
     recovery = view.shares.get("Recovery", 0)
     if view.remaining < 15 and eng >= 40:
         return ("Work/engineering is consuming most capacity — the highest-impact "
-                "adjustment is to defer new engineering intake and protect recovery.")
+                "adjustment is to defer new engineering intake and protect recovery, if you choose to.")
     if recovery >= 45:
-        return ("Recovery is the dominant claim on capacity — hold new commitments "
-                "until capacity rebuilds; that protects everything downstream.")
+        return ("Recovery is the dominant claim on capacity — consider keeping new commitments "
+                "light until capacity rebuilds; that protects everything downstream.")
     if view.remaining >= 40:
         return ("There is spare capacity — direct it to the single highest-priority "
                 "domain rather than spreading it thin.")

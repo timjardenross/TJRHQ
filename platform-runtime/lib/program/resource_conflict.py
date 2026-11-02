@@ -129,7 +129,7 @@ def detect_resource_conflicts(capacity_status: str = "Unknown") -> list[Resource
             severity="high",
             description=f"Red capacity with {active_total} active/blocked mission(s) across initiatives",
             subjects=[w.initiative_id for w in all_wbs if w.active_missions or w.blocked_missions],
-            recommendation="Pause lowest-value initiatives to protect the Captain (D-055).",
+            recommendation="Consider easing off the lowest-value initiatives; this is advice, nothing is paused.",
         ))
     elif capacity_status == "Amber" and active_total > 4:
         conflicts.append(ResourceConflict(
@@ -137,7 +137,7 @@ def detect_resource_conflicts(capacity_status: str = "Unknown") -> list[Resource
             severity="medium",
             description=f"Amber capacity with {active_total} active/blocked mission(s)",
             subjects=[w.initiative_id for w in all_wbs],
-            recommendation="Limit new initiative starts until capacity recovers.",
+            recommendation="Consider holding off on new initiative starts; this is advice, nothing is limited.",
         ))
 
     # 4. Priority conflict — many concurrent high-priority active missions
