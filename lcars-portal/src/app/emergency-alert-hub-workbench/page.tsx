@@ -35,7 +35,7 @@
  * only shows an interpreted coverage state + a link out.
  */
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
@@ -310,7 +310,7 @@ function AlertDetailPanel({ alert, isMuted, onClose }: { alert: EmergencyAlertEn
             <SeverityBadge alert={alert} />
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
-          <h2 className="break-words font-serif text-lg text-wb-ink">{alert.headline}</h2>
+          <h2 className="break-words font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">{alert.headline}</h2>
           {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
           {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
             <p className="mt-1 text-wb-label italic text-wb-ink2">
@@ -887,6 +887,17 @@ export default function EmergencyAlertsWorkbench() {
     setSelectedAlertId((prev) => (prev === id ? null : id));
   }
 
+  /** On the Now tab the detail opens directly under the card it belongs to,
+   * not at the foot of the page. Other tabs keep the panel at the bottom. */
+  function inlineDetail(alert: EmergencyAlertEntry) {
+    if (view !== 'overview' || selectedAlert?.id !== alert.id) return null;
+    return (
+      <div ref={detailPanelRef} className="scroll-mt-24">
+        <AlertDetailPanel alert={alert} isMuted={mutedAlertIds.has(alert.id)} onClose={() => setSelectedAlertId(null)} />
+      </div>
+    );
+  }
+
   return (
     <WorkbenchShell
       title="Emergency Alerts"
@@ -960,7 +971,7 @@ export default function EmergencyAlertsWorkbench() {
                       emergencyAlerts.length > 0 || emailsFailed.length > 0
                         ? 'border-wb-crit-fill bg-wb-crit-fill text-white'
                         : watchAlerts.length > 0 || bomHighCount > 0 || coverage.level !== 'good'
-                          ? 'border-wb-warn-fill bg-wb-warn-fill text-white'
+                          ? 'border-state-warn bg-state-warn text-white'
                           : 'border-wb-ok-fill bg-wb-ok-fill text-white'
                     }`}
                   >
@@ -1006,8 +1017,19 @@ export default function EmergencyAlertsWorkbench() {
                             : 'all qualifying alerts emailed'}
                       </li>
                       <li>
-                        Coverage: {coverage.level === 'good' ? 'all monitored sources healthy' : coverage.level === 'unknown' ? 'source health unknown' : 'a source is down, stale or unmonitored — see Coverage below'}
+                        Coverage: {coverage.level === 'good'
+                          ? 'all monitored sources healthy'
+                          : coverage.level === 'unknown'
+                            ? 'source health could not be determined'
+                            : describeGaps(coverage.gaps).join('; ')}
                       </li>
+                      {coverage.level !== 'good' && (
+                        <li className="font-semibold">
+                          {emergencyAlerts.length === 0 && watchAlerts.length === 0
+                            ? 'Not a full all-clear: “none detected” only covers what we can see.'
+                            : 'Coverage is incomplete, so other warnings may exist that we cannot see.'}
+                        </li>
+                      )}
                     </ul>
                   </div>
                 </section>
@@ -1036,43 +1058,6 @@ export default function EmergencyAlertsWorkbench() {
                   </section>
                 )}
 
-                {emergencyAlerts.length === 0 && watchAlerts.length === 0 && (
-                  <Card>
-                    {coverage.level === 'good' ? (
-                      <>
-                        <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
-                        <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
-                      </>
-                    ) : (
-                      // Never a green all-clear while a source is down, stale or
-                      // unmonitored: "none detected" only covers what we can see.
-                      <div className="rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1.5 text-state-warn-on">
-                        <p className="text-wb-lead font-semibold">No Emergency Warnings or Watch and Act alerts detected in monitored sources</p>
-                        <p className="mt-1 text-wb-label">
-                          This is not a full all-clear — coverage is {coverage.level === 'unknown' ? 'unknown' : 'incomplete'}:
-                        </p>
-                        <ul className="mt-1 list-disc pl-4 text-wb-label">
-                          {coverage.level === 'unknown'
-                            ? <li>source health could not be determined</li>
-                            : describeGaps(coverage.gaps).map((line) => <li key={line}>{line}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {bomWarnings.length > 0 && (
-                      <p className="mt-2 text-wb-label font-semibold text-state-warn-on">
-                        {bomWarnings.length} official weather warning{bomWarnings.length === 1 ? ' is' : 's are'} in force{bomHighCount > 0 ? ` (${bomHighCount} high attention)` : ''} — see below.
-                      </p>
-                    )}
-                    {(adviceCount + unknownCount) > 0 ? (
-                      <p className="mt-2 text-wb-label text-wb-ink2">
-                        {adviceCount + unknownCount} lower-severity or unclassified official alert{adviceCount + unknownCount === 1 ? '' : 's'} {adviceCount + unknownCount === 1 ? 'is' : 'are'} active nationally.
-                      </p>
-                    ) : bomWarnings.length === 0 ? (
-                      <p className="mt-2 text-wb-label text-wb-ink2">No active official alerts detected.</p>
-                    ) : null}
-                  </Card>
-                )}
-
                 {emergencyAlerts.length > 0 && (
                   <section aria-labelledby="alerts-action-required" data-alert-state="action-required">
                     <h2 className="mb-2 font-sans text-wb-lead font-bold normal-case tracking-normal text-state-crit-on">
@@ -1080,7 +1065,10 @@ export default function EmergencyAlertsWorkbench() {
                     </h2>
                     <div className="flex flex-col gap-3">
                       {emergencyAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <div key={alert.id} className="flex flex-col gap-3">
+                          <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                          {inlineDetail(alert)}
+                        </div>
                       ))}
                     </div>
                   </section>
@@ -1093,7 +1081,10 @@ export default function EmergencyAlertsWorkbench() {
                     </h2>
                     <div className="flex flex-col gap-3">
                       {watchAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <div key={alert.id} className="flex flex-col gap-3">
+                          <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                          {inlineDetail(alert)}
+                        </div>
                       ))}
                     </div>
                   </section>
@@ -1117,7 +1108,10 @@ export default function EmergencyAlertsWorkbench() {
                     )}
                     <div className="flex flex-col gap-3">
                       {bomWarnings.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <div key={alert.id} className="flex flex-col gap-3">
+                          <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                          {inlineDetail(alert)}
+                        </div>
                       ))}
                     </div>
                   </section>
@@ -1134,7 +1128,12 @@ export default function EmergencyAlertsWorkbench() {
                         <span id="alerts-informational">Informational</span> · {informationalAlerts.length} · no immediate action · show
                       </summary>
                       <ul className="mt-2">
-                        {informationalAlerts.map((alert) => <CompactAlertRow key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
+                        {informationalAlerts.map((alert) => (
+                          <Fragment key={alert.id}>
+                            <CompactAlertRow alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                            {selectedAlert?.id === alert.id && <li className="py-2">{inlineDetail(alert)}</li>}
+                          </Fragment>
+                        ))}
                       </ul>
                     </details>
                   </section>
@@ -1245,7 +1244,7 @@ export default function EmergencyAlertsWorkbench() {
               </>
             )}
 
-            {selectedAlert && (
+            {selectedAlert && view !== 'overview' && (
               <div ref={detailPanelRef} className="scroll-mt-24">
                 <AlertDetailPanel alert={selectedAlert} isMuted={mutedAlertIds.has(selectedAlert.id)} onClose={() => setSelectedAlertId(null)} />
               </div>
