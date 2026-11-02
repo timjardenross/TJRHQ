@@ -14,9 +14,12 @@ from unittest.mock import MagicMock, patch
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from core.coordination import engineering_handoff_reader as reader  # noqa: E402
-from core.engineering import batch_coding  # noqa: E402
-from tests.test_batch_coding_pr_error import _FILE_RESPONSE, write_pending_handoff  # noqa: E402
+from core.coordination import engineering_handoff_reader as reader
+from core.engineering import batch_coding
+from tests.test_batch_coding_pr_error import (
+    _FILE_RESPONSE,
+    write_pending_handoff,
+)
 
 
 class TestXoHoldStamping(unittest.TestCase):
