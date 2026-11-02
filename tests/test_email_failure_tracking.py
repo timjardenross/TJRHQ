@@ -40,3 +40,25 @@ def test_successful_send_stamps_sent_only():
 def test_failure_write_error_never_raises():
     with patch.object(ea, "_supabase_request", side_effect=RuntimeError("down")):
         ea._record_email_failure("a1")
+
+
+def test_failure_reason_is_recorded_and_falls_back_without_the_column():
+    calls = []
+
+    def fake(method, path, body=None, **kw):
+        calls.append(body)
+        if body and "emergency_email_failure_reason" in body:
+            raise RuntimeError("column does not exist")
+
+    with patch.object(ea, "_supabase_request", side_effect=fake), patch.object(ea._resend_email, "last_failure", "Resend rejected the send: HTTP 403"):
+        ea._record_email_failure("a1")
+    assert calls[0]["emergency_email_failure_reason"] == "Resend rejected the send: HTTP 403"
+    assert list(calls[1]) == ["emergency_email_failed_at"]
+
+
+def test_send_email_leaves_a_reason_without_the_key():
+    from core.notifications import resend_email
+
+    with patch.object(resend_email, "_API_KEY", ""), patch.object(resend_email, "_running_under_tests", return_value=False):
+        assert resend_email.send_email("a@b.c", "s", "<p>x</p>") is False
+    assert resend_email.last_failure == "RESEND_API_KEY is not configured"

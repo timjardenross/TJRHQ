@@ -59,3 +59,9 @@ def test_warning_without_an_id_is_skipped():
     w = _warning()
     w["properties"]["id"] = None
     assert vic_emergency.parse_warnings({"features": [w]}) == []
+
+
+def test_false_alarm_is_not_an_incident():
+    assert vic_emergency._is_false_alarm({"incidentType": "FALSE ALARM"})
+    assert not vic_emergency._is_false_alarm({"incidentType": "BUSH"})
+    assert not vic_emergency._is_false_alarm({"incidentType": None})

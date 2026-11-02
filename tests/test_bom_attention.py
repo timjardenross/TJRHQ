@@ -104,7 +104,10 @@ def test_silenced_bom_warning_is_skipped_without_marking_sent():
 def test_failed_send_does_not_set_dedupe_flag():
     n, _, mark = _send([_bom_row()], [_site()], send_ok=False)
     assert n == 0
-    mark.assert_not_called()
+    # A failure is recorded (migration 0243) but the sent flag is never set.
+    bodies = [c.kwargs.get("body") or {} for c in mark.call_args_list]
+    assert all("emergency_email_sent_at" not in b for b in bodies)
+    assert any("emergency_email_failed_at" in b for b in bodies)
 
 
 def test_unreadable_site_register_still_sends_without_site_context():
