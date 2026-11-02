@@ -33,10 +33,15 @@ const NSW_ACT = new Set(['NSW', 'ACT']); // BOM's NSW feed carries the ACT too
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// BOM words a warning as "for parts of Mallee, Northern Country and Wimmera Forecast
+// Districts": "parts of" qualifies the first name but is not part of it.
+const LEAD_RE = /^(?:(?:the\s+)?(?:(?:northern|southern|eastern|western|central|inland|coastal)\s+)?(?:parts?|areas?|all) of\s+|the\s+)/i;
+const stripLead = (s: string) => s.replace(LEAD_RE, '');
+
 function splitNames(text: string): string[] {
   // The whole phrase first ("Wide Bay and Burnett" is ONE district), then its parts.
-  const whole = text.trim().replace(/\.$/, '').replace(/^the\s+/i, '');
-  const parts = whole.split(/,\s*|\s+and\s+/).map((p) => p.trim().replace(/^the\s+/i, '')).filter(Boolean);
+  const whole = stripLead(text.trim().replace(/\.$/, ''));
+  const parts = whole.split(/,\s*|\s+and\s+/).map((p) => stripLead(p.trim())).filter(Boolean);
   return [whole, ...parts.filter((p) => p !== whole)];
 }
 

@@ -371,7 +371,7 @@ def _send_watch_and_act_emails(source_key: str) -> int:
     return sent
 
 
-_BOM_EMAIL_DESCRIPTION_CHARS = 1500
+_BOM_EMAIL_DESCRIPTION_CHARS = 3500
 
 
 def _send_bom_attention_emails(source_key: str) -> int:
@@ -432,9 +432,7 @@ def _send_bom_attention_emails(source_key: str) -> int:
         tier1_inside = sum(1 for s_ in area_result.sites if s_.get("priority") == "Tier 1") if area_result.kind == "matched" else sum(1 for m in matches if m.site.get("priority") == "Tier 1")
         subject = alert_email.build_subject(alert_email.BOM_HIGH, row["jurisdiction"], row["headline"], n_inside, tier1_inside)
         source_link = next((line.strip() for line in (row.get("raw_text") or "").splitlines()[::-1] if line.strip().startswith("http")), None)
-        text = (row.get("description") or "").strip()
-        if len(text) > _BOM_EMAIL_DESCRIPTION_CHARS:
-            text = text[:_BOM_EMAIL_DESCRIPTION_CHARS].rstrip() + "…"
+        text = _clean_bom_text(row.get("description") or "")
         tier1_note = f" ({state['tier1']} Tier 1)" if state["tier1"] else ""
         state_line = (
             f"<p><strong>Our sites in {html.escape(row['jurisdiction'])}:</strong> {state['total']}{tier1_note}. "
@@ -445,9 +443,9 @@ def _send_bom_attention_emails(source_key: str) -> int:
         if area_line:
             state_line = area_line  # the named area answers the question better than a state-wide count
         body = (
-            alert_email.fields_block(alert_email.BOM_HIGH, {**row, "severity": "unknown", "canonical_url": source_link}, {"Area-Match": area_result.kind, "Sites-Inside": n_inside, "Tier1-Sites": tier1_inside})
+            alert_email.fields_block(alert_email.BOM_HIGH, {**row, "severity": "unknown", "canonical_url": source_link, "issued_at": _issued_text(row) if _issued_text(row) != "-" else None}, {"Area-Match": area_result.kind, "Sites-Inside": n_inside, "Tier1-Sites": tier1_inside})
             + f"<p><strong>{html.escape(row['headline'])}</strong></p>"
-            f"<p>Jurisdiction: {html.escape(row['jurisdiction'])}<br>Issued: {html.escape(str(row.get('issued_at') or '—'))}</p>"
+            f"<p>Jurisdiction: {html.escape(row['jurisdiction'])}<br>Issued: {html.escape(_issued_text(row))}</p>"
             "<p><em>The Bureau of Meteorology does not give this warning an Advice / Watch and Act / Emergency Warning "
             "tier. “High attention” is this platform’s own label, chosen from the warning type.</em></p>"
             f"<p>{html.escape(text).replace(chr(10), '<br>')}</p>"
@@ -472,6 +470,38 @@ def _send_bom_attention_emails(source_key: str) -> int:
 _MAX_SITES_IN_EMAIL = 15
 
 
+def _clean_bom_text(text: str) -> str:
+    """BOM descriptions are scraped from the warning page and start with site
+    navigation ("Warnings Information / About Severe Weather Warning Services /
+    IDV21033 / Australian Government Bureau of Meteorology"). Start at the warning
+    itself, drop runs of blank lines, and if it is long cut at a paragraph end
+    rather than mid-sentence."""
+    text = (text or "").strip()
+    for marker in (r"TOP PRIORITY[^\n]*\n", r"Australian Government Bureau of Meteorology[^\n]*\n"):
+        m = re.search(marker, text)
+        if m:
+            text = text[m.end():]
+            break
+    text = re.sub(r"\n\s*\n(\s*\n)+", "\n\n", text).strip()
+    if len(text) > _BOM_EMAIL_DESCRIPTION_CHARS:
+        cut = text.rfind("\n\n", 0, _BOM_EMAIL_DESCRIPTION_CHARS)
+        text = text[: cut if cut > _BOM_EMAIL_DESCRIPTION_CHARS // 2 else _BOM_EMAIL_DESCRIPTION_CHARS].rstrip() + "\n\n[Shortened - see the official warning for the full text.]"
+    return text
+
+
+def _issued_text(row: dict) -> str:
+    """BOM rows have no structured issue time; the warning text says "Issued at 2:38 pm Monday, 2 November 2026."."""
+    if row.get("issued_at"):
+        return str(row["issued_at"])
+    m = re.search(r"Issued at ([^\n]+?)\.?\s*(?:\n|$)", row.get("description") or "")
+    return m.group(1).strip() if m else "-"
+
+
+def _site_label(site: dict) -> str:
+    name, suburb = str(site.get("name") or ""), str(site.get("suburb") or "")
+    return name if not suburb or suburb.lower() in name.lower() else f"{name} ({suburb})"
+
+
 def _bom_area_html(result: bom_areas.AreaResult, n_sites: int) -> str:
     """Our sites inside the district/catchment a BOM warning names. Empty when the
     headline names nothing we can resolve (the caller keeps its state-wide line).
@@ -484,7 +514,7 @@ def _bom_area_html(result: bom_areas.AreaResult, n_sites: int) -> str:
     if result.kind == "none_inside":
         return f"<p><strong>None of our {n_sites} sites are inside the area BOM names</strong> ({areas}).{unknown}</p>"
     shown = result.sites[:_MAX_SITES_IN_EMAIL]
-    items = "".join(f"<li>{html.escape(str(s.get('priority') or ''))} — {html.escape(str(s.get('name') or ''))}, {html.escape(str(s.get('suburb') or ''))}</li>" for s in shown)
+    items = "".join(f"<li>{html.escape(str(s.get('priority') or ''))} - {html.escape(_site_label(s))}</li>" for s in shown)
     more = f"<li>…and {len(result.sites) - len(shown)} more</li>" if len(result.sites) > len(shown) else ""
     return (
         f"<p><strong>{len(result.sites)} of our sites are inside the area BOM names</strong> ({areas}). "
