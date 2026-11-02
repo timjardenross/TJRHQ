@@ -95,22 +95,10 @@ OFFICER_TRIGGERS: dict[str, list[OfficerTrigger]] = {
             trigger_id="med_red_capacity",
             officer="medical",
             trigger_type=TriggerType.EVENT_DRIVEN,
-            description="Capacity at Red — initiate recovery assessment",
+            description="Capacity at Red — offer a recovery assessment (advisory)",
             action_type="review",
             condition=lambda ctx: _ctx(ctx, "capacity_status") == "Red",
-            title_fn=lambda ctx: "Capacity Recovery Assessment — Red status requires medical officer intervention",
-        ),
-        OfficerTrigger(
-            trigger_id="med_amber_persistent",
-            officer="medical",
-            trigger_type=TriggerType.THRESHOLD_BASED,
-            description="Capacity Amber with ≥3 gate actions — compound constraint signal",
-            action_type="investigation",
-            condition=lambda ctx: (
-                _ctx(ctx, "capacity_status") == "Amber"
-                and len(_ctx(ctx, "capacity_actions", [])) >= 3
-            ),
-            title_fn=lambda ctx: f"Capacity constraint pattern investigation — {len(_ctx(ctx, 'capacity_actions', []))} gate actions emitted",
+            title_fn=lambda ctx: "Capacity Recovery Assessment — Red reading, optional medical officer review",
         ),
     ],
 
