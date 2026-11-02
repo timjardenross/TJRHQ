@@ -1,6 +1,10 @@
 import json
+from pathlib import Path
 
 from src import main as main_module
+
+# Absolute so the test passes from any cwd (CI runs from the repo root).
+SAMPLE_BRIEF_PATH = str(Path(__file__).resolve().parent.parent / "examples" / "sample_brief.md")
 
 
 class _FakeAgent:
@@ -22,7 +26,7 @@ def test_one_agent_failure_does_not_abort_the_others(tmp_path, monkeypatch):
     monkeypatch.setitem(main_module._AGENT_CLASSES, "article", lambda: _FakeAgent("article"))
     monkeypatch.setitem(main_module._AGENT_CLASSES, "poster", lambda: _FakeAgent("poster", should_fail=True))
 
-    manifest = main_module.generate("examples/sample_brief.md", tmp_path, formats=["article", "poster"])
+    manifest = main_module.generate(SAMPLE_BRIEF_PATH, tmp_path, formats=["article", "poster"])
 
     outputs = {o["format"]: o for o in manifest["outputs"]}
     assert outputs["article"]["status"] == "success"
@@ -34,7 +38,7 @@ def test_one_agent_failure_does_not_abort_the_others(tmp_path, monkeypatch):
 def test_manifest_carries_brief_metadata(tmp_path, monkeypatch):
     monkeypatch.setitem(main_module._AGENT_CLASSES, "article", lambda: _FakeAgent("article"))
 
-    manifest = main_module.generate("examples/sample_brief.md", tmp_path, formats=["article"])
+    manifest = main_module.generate(SAMPLE_BRIEF_PATH, tmp_path, formats=["article"])
 
     assert manifest["concept_id"] == "REC-001"
     assert manifest["status"] == "Production-Ready"
@@ -45,8 +49,8 @@ def test_manifest_carries_brief_metadata(tmp_path, monkeypatch):
 def test_repeated_runs_version_and_track_history(tmp_path, monkeypatch):
     monkeypatch.setitem(main_module._AGENT_CLASSES, "article", lambda: _FakeAgent("article"))
 
-    first = main_module.generate("examples/sample_brief.md", tmp_path, formats=["article"])
-    second = main_module.generate("examples/sample_brief.md", tmp_path, formats=["article"])
+    first = main_module.generate(SAMPLE_BRIEF_PATH, tmp_path, formats=["article"])
+    second = main_module.generate(SAMPLE_BRIEF_PATH, tmp_path, formats=["article"])
 
     assert first["version"] == 1
     assert second["version"] == 2
