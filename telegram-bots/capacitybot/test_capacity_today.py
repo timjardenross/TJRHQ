@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
@@ -319,7 +319,10 @@ def test_deep_callback_mp_writes_early_and_asks_burnout_framing():
     from telegram_bots.capacitybot.app import handle_capacity_deep_callback
 
     update, context, query = _make_update_and_context("ctd|id=99|lc=p|uc=y|mp=n")
-    asyncio.run(handle_capacity_deep_callback(update, context))
+    # The handler writes the row as soon as mp is answered. Without a mocked database it would hit
+    # the real client and reply "Could not save", so this test only passed with live credentials.
+    with patch("telegram_bots.capacitybot.app._get_supabase", return_value=MagicMock()):
+        asyncio.run(handle_capacity_deep_callback(update, context))
 
     text_arg = query.edit_message_text.call_args[0][0]
     check("asks the burnout-framing question next, not recovery duration",
