@@ -234,6 +234,17 @@ def _write_artifact(base: Path, custom_id: str, text: str, meta_lines: list[str]
 
 # ─── handoff header stamping ────────────────────────────────────────────────────
 
+HELD_STATUS = "HELD"
+
+
+def _is_xo_hold(pr_result: dict[str, Any]) -> bool:
+    """True when the independent XO review of deferred existing-file edits
+    returned Hold (a missing/crashed review also reports hold — see
+    _review_deferred_files)."""
+    review = pr_result.get("deferred_review")
+    return bool(review) and str(review.get("verdict", "")).strip().lower() == "hold"
+
+
 def _stamp(path: Path, updates: dict[str, str]) -> None:
     """Update/insert `- Key: Value` lines in a handoff's header block (idempotent)."""
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -751,9 +762,11 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
         pr_error = ""
         artifact_text = text
         mode_used = "full_file"
+        xo_hold = False
 
         if files:
             pr_result = _open_files_pr(path.stem, files, fields)
+            xo_hold = _is_xo_hold(pr_result)
             if pr_result.get("opened"):
                 pr_url = pr_result.get("url", "")
                 pr_stamp = {"PR URL": pr_url, "PR Branch": pr_result.get("branch", "")}
@@ -805,9 +818,17 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
             "Batch Model": model,
             "Batch Submitted At": _now(),
         }
+        # XO said Hold on the only thing generated (a proposed edit to an existing
+        # file, no PR to gate it): don't leave it in the queue asking for sign-off.
+        # The artifact and the Captain notification still exist for anyone who
+        # wants to look; the reader treats HELD as non-active.
+        if xo_hold and not pr_url:
+            stamp["Batch Status"] = HELD_STATUS
+            stamp["XO Verdict"] = "hold"
         stamp.update(pr_stamp)
         _stamp(path, stamp)
-        result.update(status="delivered", artifact=artifact_ref, pr_url=pr_url, pr_error=pr_error)
+        result.update(status="held" if stamp["Batch Status"] == HELD_STATUS else "delivered",
+                      artifact=artifact_ref, pr_url=pr_url, pr_error=pr_error)
         log.info("[batch_coding] sync-one delivered %s (mode=%s, pr=%s)",
                  path.stem, mode_used, pr_url or "none")
     except Exception as exc:  # mark FAILED so the queue reflects it; never raise  # noqa: BLE001 - already documented: must never raise, already logged via log.warning() and recorded in the stamp file
