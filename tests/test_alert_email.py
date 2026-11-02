@@ -59,3 +59,28 @@ def test_plain_text_twin_keeps_lines_links_and_list_items():
     assert "Alert-ID: a1\nNotice: EW" in text and "Leave now.\nSecond line" in text
     assert "Official source (https://x.example/w)" in text
     assert "- Tier 1 - Dalby\n- Tier 2 - Chinchilla" in text and "<" not in text
+
+
+def test_subject_names_up_to_two_tier1_sites():
+    s = ae.build_subject(ae.EW, "NSW", "Fire", 4, 3, ["Dalby", "Chinchilla", "Warwick"])
+    assert s.endswith("[4 sites possibly affected, 3 Tier 1: Dalby, Chinchilla +1]")
+    assert ae.build_subject(ae.EW, "NSW", "Fire", 2, 0, []).endswith("[2 sites possibly affected]")
+
+
+def test_sites_banner_leads_with_the_count_tier1_and_names():
+    sites = [{"name": "Bendigo", "suburb": "Bendigo", "priority": "Tier 1"}, {"name": "Horsham", "suburb": "Horsham", "priority": "Tier 1"},
+             {"name": "Mildura", "suburb": "Mildura", "priority": "Tier 3"}]
+    box = ae.sites_banner(sites, "inside the area BOM names")
+    text = ae.html_to_text(box)
+    assert "3 of our sites inside the area BOM names - 2 Tier 1" in text
+    assert "Tier 1: Bendigo, Horsham; Tier 3: Mildura" in text and "#A23A34" in box  # red: a Tier 1 site is in it
+    assert "#8A5A1B" in ae.sites_banner([sites[2]])
+
+
+def test_sites_banner_caps_names_and_says_when_nothing_matched_or_unreadable():
+    many = [{"name": f"Site {i}", "suburb": "", "priority": "Tier 2"} for i in range(9)]
+    assert "(+3 more, listed below)" in ae.html_to_text(ae.sites_banner(many))
+    none = ae.html_to_text(ae.sites_banner([]))
+    assert "No site matched this alert" in none and "not proof" in none
+    assert "impact unknown" in ae.html_to_text(ae.sites_banner([], register_ok=False))
+    assert "97 QLD sites" in ae.html_to_text(ae.sites_banner([], fallback="97 QLD sites could be inside it."))

@@ -29,7 +29,7 @@ def _run(sites, silences=None, send_ok=True):
 def test_emails_when_a_site_matches_with_tag_and_fields():
     n, send, req = _run([SITE])
     kw = send.call_args.kwargs
-    assert n == 1 and kw["subject"] == "[WA] NSW - Bushfire Watch and Act - Katoomba [1 site possibly affected, 1 Tier 1]"
+    assert n == 1 and kw["subject"] == "[WA] NSW - Bushfire Watch and Act - Katoomba [1 site possibly affected, 1 Tier 1: Katoomba Branch]"
     assert "Notice: WA" in kw["html"] and "Alert-ID: w1" in kw["html"]
     assert "emergency_email_sent_at" in req.call_args_list[0].kwargs["body"]
 
@@ -66,3 +66,11 @@ def test_every_alert_email_carries_a_plain_text_part_and_no_repeated_headline_bl
     assert n == 1 and kw["text"] and "<" not in kw["text"] and "Notice: WA" in kw["text"]
     # the header block already carries headline / jurisdiction / location: not repeated underneath
     assert "<strong>Bushfire Watch and Act - Katoomba</strong>" not in kw["html"] and "Jurisdiction: NSW<br>" not in kw["html"]
+
+
+def test_the_sites_banner_comes_first_in_the_body_and_the_plain_text():
+    n, send, _req = _run([SITE])
+    kw = send.call_args.kwargs
+    assert n == 1 and kw["html"].startswith('<div style="border-left:6px solid #A23A34')
+    assert kw["text"].startswith("1 of our sites possibly affected - 1 Tier 1")
+    assert "Tier 1: Katoomba Branch" in kw["text"].split("Alert-ID")[0]
