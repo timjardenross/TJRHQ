@@ -49,11 +49,20 @@ def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
 
+_LEAD_RE = re.compile(r"(?i)^(?:(?:the\s+)?(?:(?:northern|southern|eastern|western|central|inland|coastal)\s+)?(?:parts?|areas?|all) of\s+|the\s+)")
+
+
+def _strip_lead(text: str) -> str:
+    """BOM words a warning as "for parts of Mallee, Northern Country and Wimmera
+    Forecast Districts": "parts of" qualifies the first name but is not part of it."""
+    return _LEAD_RE.sub("", text)
+
+
 def _split_names(text: str) -> list[str]:
     """The whole phrase first ("Wide Bay and Burnett" is ONE district), then its
     parts for a list like "East Gippsland and North East"."""
-    whole = re.sub(r"(?i)^the\s+", "", text.strip().rstrip("."))
-    parts = [re.sub(r"(?i)^the\s+", "", p.strip()) for p in re.split(r",\s*|\s+and\s+", whole) if p.strip()]
+    whole = _strip_lead(text.strip().rstrip("."))
+    parts = [_strip_lead(p.strip()) for p in re.split(r",\s*|\s+and\s+", whole) if p.strip()]
     return [whole] + [p for p in parts if p != whole]
 
 

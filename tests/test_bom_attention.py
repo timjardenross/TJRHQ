@@ -174,3 +174,28 @@ def test_unresolvable_area_in_a_state_with_sites_still_emails():
     with patch.object(ea.bom_areas, "match_alert", return_value=bom_areas.AreaResult("unparsed")):
         n, send, _ = _send([_bom_row()], [_site(id="s1")])
     assert n == 1 and send.call_args.kwargs["subject"].startswith("[BOM-HIGH] NSW - ")
+
+
+_REAL_BOM_TEXT = (
+    "Warnings Information\n\n   About Severe Weather Warning Services\n\n\n\nIDV21033\n\nAustralian Government Bureau of Meteorology\n\n"
+    "TOP PRIORITY FOR IMMEDIATE BROADCAST\n\nSevere Thunderstorm Warning\n\nIssued at 2:38 pm Monday, 2 November 2026.\n\nSevere thunderstorms developing."
+)
+
+
+def test_bom_text_starts_at_the_warning_and_issued_comes_from_the_text():
+    cleaned = ea._clean_bom_text(_REAL_BOM_TEXT)
+    assert cleaned.startswith("Severe Thunderstorm Warning") and "About Severe Weather Warning Services" not in cleaned
+    assert ea._issued_text({"description": _REAL_BOM_TEXT}) == "2:38 pm Monday, 2 November 2026"
+    assert ea._issued_text({"issued_at": "2026-11-02T03:38:00Z", "description": ""}) == "2026-11-02T03:38:00Z"
+
+
+def test_long_bom_text_is_cut_at_a_paragraph_not_mid_sentence():
+    long = "\n\n".join(f"Paragraph {i} " + "word " * 60 for i in range(40))
+    out = ea._clean_bom_text(long)
+    assert len(out) < 4000 and out.endswith("[Shortened - see the official warning for the full text.]")
+    assert "Paragraph" in out.split("\n\n")[-2][:12]
+
+
+def test_site_label_does_not_repeat_the_suburb():
+    assert ea._site_label({"name": "Bendigo", "suburb": "Bendigo"}) == "Bendigo"
+    assert ea._site_label({"name": "Norwest Branch", "suburb": "Bella Vista"}) == "Norwest Branch (Bella Vista)"

@@ -26,6 +26,12 @@ describe('parseAreas', () => {
     expect(parseAreas('Severe Thunderstorm Warning for Wide Bay and Burnett Forecast District.', 'QLD')[0]).toEqual(['forecast_district', 'Wide Bay and Burnett', 'QLD']);
   });
 
+  it('does not let "parts of" hide the first district (real VIC headline)', () => {
+    const names = parseAreas('Severe Thunderstorm Warning for parts of Mallee, Northern Country and Wimmera Forecast Districts.', 'VIC').map((a) => a[1]);
+    expect(names).toEqual(expect.arrayContaining(['Mallee', 'Northern Country', 'Wimmera']));
+    expect(names.some((n) => /^parts of/i.test(n))).toBe(false);
+  });
+
   it('ignores cancellations and headlines naming nothing we can resolve', () => {
     expect(parseAreas('Cancellation of Severe Thunderstorm Warning for X Forecast Districts.', 'VIC')).toEqual([]);
     expect(parseAreas('Tropical Cyclone Advice for Norfolk Island', 'NSW')).toEqual([]);

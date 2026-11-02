@@ -51,3 +51,10 @@ def test_real_data_file_loads_and_resolves_a_known_warning():
     sites = [{"id": i, "name": i, "priority": "Tier 1"} for i in data["sites"]]
     r = ba.match_alert({"headline": "Moderate Flood Warning for the Lower Condamine River", "jurisdiction": "QLD"}, sites)
     assert r.kind in ("matched", "none_inside") and r.area_names
+
+
+def test_parts_of_prefix_does_not_hide_the_first_district():
+    """Real headline (VIC, 2 Nov 2026): the first district was missed."""
+    names = [n for _, n, _ in ba.parse_areas("Severe Thunderstorm Warning for parts of Mallee, Northern Country and Wimmera Forecast Districts.", "VIC")]
+    assert "Mallee" in names and "Northern Country" in names and "Wimmera" in names
+    assert not any(n.lower().startswith("parts of") for n in names)
