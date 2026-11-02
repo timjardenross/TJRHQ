@@ -59,11 +59,11 @@ const REFRESH_MS = 3 * 60 * 1000;
 const FOCUS_REFETCH_MIN_AGE_MS = 60 * 1000;
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
-// alerts.alert_type CHECK constraint (migration 0174).
-const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'other'] as const;
+// alerts.alert_type CHECK constraint (migrations 0174, 0244).
+const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'thunderstorm_asthma', 'other'] as const;
 const ALERT_TYPE_LABELS: Record<string, string> = {
   bushfire: 'Bushfire', flood: 'Flood', storm: 'Storm', cyclone: 'Cyclone', heatwave: 'Heatwave',
-  hazard_reduction: 'Hazard Reduction Burn', structure_fire: 'Structure Fire', other: 'Other',
+  hazard_reduction: 'Hazard Reduction Burn', structure_fire: 'Structure Fire', thunderstorm_asthma: 'Thunderstorm Asthma', other: 'Other',
 };
 // alert_sources.source_key (migration 0174/0176).
 const SOURCE_KEY_LABELS: Record<string, string> = {
