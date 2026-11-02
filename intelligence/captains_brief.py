@@ -314,6 +314,11 @@ def _with_risk_label(rows: list[dict]) -> list[dict]:
     return rows
 
 
+# 2026-11-02 (Captain): GitHub Status incident items are noise in the briefs -
+# excluded from every brief signal query. PostgREST value, space URL-encoded.
+_EXCLUDE_GITHUB_STATUS = "&raw_title=not.ilike.GitHub%20Status:*"
+
+
 def _get_new_signals_since(since_iso: str) -> list[dict]:
     """Raises on a genuine Supabase fetch failure (via _sb_request) — the
     caller (check_midday_signals, via scheduler.py's _midday_check_job, which
@@ -323,7 +328,7 @@ def _get_new_signals_since(since_iso: str) -> list[dict]:
         "intelligence_events",
         f"collected_at=gte.{urllib.parse.quote(since_iso, safe='')}&suppressed=eq.false&signal_status=neq.DUPLICATE"
         f"&rank_score=gte.50"
-        f"&raw_title=not.ilike.CVE-*"
+        f"&raw_title=not.ilike.CVE-*{_EXCLUDE_GITHUB_STATUS}"
         f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
         f"&order=rank_score.desc&limit=10"
         f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary,"
@@ -353,7 +358,7 @@ def _get_recent_signals(hours: int = 24, limit: int = 12) -> list[dict]:
     rows = _sb_get(
         "intelligence_events",
         f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE"
-        f"&raw_title=not.ilike.CVE-*"
+        f"&raw_title=not.ilike.CVE-*{_EXCLUDE_GITHUB_STATUS}"
         f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
         f"&order=rank_score.desc&limit={limit}"
         f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary,"
@@ -460,7 +465,7 @@ def _get_weekly_tech_signals(days: int = 7, limit: int = 1000) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     return _sb_get(
         "intelligence_events",
-        f"collected_at=gte.{since}&suppressed=eq.false"
+        f"collected_at=gte.{since}&suppressed=eq.false{_EXCLUDE_GITHUB_STATUS}"
         f"&order=rank_score.desc&limit={limit}"
         f"&select=raw_title,sector,rank_score,osint_confidence_level,collected_at,"
         f"intelligence_source_registry(source_name)",
