@@ -18,7 +18,6 @@ ROW = {"id": "a1", "headline": "Bush fire Katoomba", "jurisdiction": "NSW", "ale
 def _run(send_ok: bool):
     with patch.object(ea, "supabase_get", return_value=[ROW]), \
          patch.object(ea.alert_silences, "list_active_silences", return_value=[]), \
-         patch.object(ea.site_matching, "list_active_sites", return_value=[]), \
          patch.object(ea, "_supabase_request") as req, \
          patch.object(ea, "send_email", return_value=send_ok):
         sent = ea._send_emergency_warning_emails("nsw_rfs")

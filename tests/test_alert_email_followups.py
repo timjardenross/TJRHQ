@@ -30,7 +30,6 @@ def _row(**o):
 def _run(rows, silences=None, send_ok=True):
     with patch.object(ea, "supabase_get", return_value=rows), \
          patch.object(ea.alert_silences, "list_active_silences", return_value=silences or []), \
-         patch.object(ea.site_matching, "list_active_sites", return_value=[]), \
          patch.object(ea, "_supabase_request") as req, \
          patch.object(ea, "send_email", return_value=send_ok) as send:
         out = ea._send_follow_up_emails(NOW)
