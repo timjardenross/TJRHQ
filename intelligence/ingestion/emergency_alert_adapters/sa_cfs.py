@@ -107,6 +107,11 @@ def parse(raw: bytes) -> list[CanonicalAlert]:
         # display categorisation, not a title guess we invented.
         if _PLANNED_BURN_RE.search(headline):
             continue
+        # Structure fires are not this hub's scope: VIC and WA already keep
+        # "bushfire only" (Captain-directed 2026-08-26). SA carries them under
+        # CAP event "Structure Fire", which is the structured signal used here.
+        if (_cap_text(alert_el, "event") or "").strip().lower() == "structure fire":
+            continue
         if cap_category == "cbrne" or "hazardous materials" in cap_event or "hazardous materials" in headline.lower():
             continue
 
