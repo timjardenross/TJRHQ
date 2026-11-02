@@ -57,8 +57,8 @@ export default function MissionWorkbenchPage() {
   // Fall back to UNKNOWN (the most conservative band — only P3 missions show
   // as "suitable today", no overcommitment threshold is defined for it)
   // rather than silently using useROSData()'s mock STABLE posture when there
-  // is no real check-in data. A capacity-gating decision must never present
-  // fabricated data as if it were a real, current posture reading.
+  // is no real check-in data. The posture shown must never present
+  // fabricated data as if it were a real, current reading.
   const currentPosture = isPostureLive ? (livePosture.posture ?? 'UNKNOWN') : 'UNKNOWN';
 
   const [view, setView] = useState<'open' | 'closed'>('open');
@@ -189,11 +189,11 @@ export default function MissionWorkbenchPage() {
 
         {view === 'open' && (
           <>
-            {/* D-055 capacity filter */}
+            {/* Opt-in capacity view: default is All; nothing is hidden or held back. */}
             <div className="flex flex-col justify-between gap-3 rounded-lg border border-wb-line bg-wb-surface px-4 py-3 sm:flex-row sm:items-center">
               <div>
                 <p className="mb-1 text-wb-label uppercase tracking-wider text-wb-ink2">
-                  D-055 · Today&apos;s posture: <span className="text-wb-sage-deep">{currentPosture}</span>
+                  Today&apos;s posture: <span className="text-wb-sage-deep">{currentPosture}</span>
                 </p>
                 <p className="text-wb-label text-wb-ink">
                   {suitableCount} of {activeMissions.length} active missions suitable for today&apos;s capacity.

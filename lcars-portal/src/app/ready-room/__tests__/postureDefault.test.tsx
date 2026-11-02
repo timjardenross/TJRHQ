@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
 //
-// Mission 2 (Capacity & Attention Engine, §19): Ready Room's initial
-// Do/Unstick Me mode now defaults from today's Human Systems posture when
-// the Captain hasn't already picked one -- RECOVER/RESET/PROTECT start on
-// Unstick Me, ENGAGE/STEADY start on Do, UNKNOWN changes nothing. An
-// explicit ?domain= URL param must always win over the posture default,
-// and a toggle click must never be re-overridden by a later posture read.
+// Ready Room's initial Do/Unstick Me mode is always "Do" unless the Captain picks
+// otherwise (owner decision 2026-11-02): capacity posture no longer changes the default.
+// An explicit ?domain= URL param still wins.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -46,58 +43,25 @@ afterEach(() => {
   mockSearchParam = null;
 });
 
-describe('Ready Room initial mode — posture default (Mission 2 §19)', () => {
-  it('defaults to Unstick Me when posture is RECOVER and no explicit domain param', async () => {
-    mockSearchParam = null;
-    mockHumanSystemsPosture('RECOVER');
-    const { default: ReadyRoomWorkbench } = await import('../page');
-    render(<ReadyRoomWorkbench />);
-    await waitFor(() => expect(screen.getByTestId('decompose-view')).toBeInTheDocument());
-  });
+describe('Ready Room initial mode — posture never changes the default', () => {
+  it.each(['RECOVER', 'PROTECT', 'RESET', 'STEADY', 'ENGAGE', 'UNKNOWN'])(
+    'starts on Do when posture is %s and no explicit domain param',
+    async (posture) => {
+      mockSearchParam = null;
+      mockHumanSystemsPosture(posture);
+      const { default: ReadyRoomWorkbench } = await import('../page');
+      render(<ReadyRoomWorkbench />);
+      await waitFor(() => expect(screen.getByTestId('today-stream')).toBeInTheDocument());
+      await new Promise((r) => setTimeout(r, 10));
+      expect(screen.queryByTestId('decompose-view')).not.toBeInTheDocument();
+    },
+  );
 
-  it('defaults to Unstick Me when posture is PROTECT and no explicit domain param', async () => {
-    mockSearchParam = null;
-    mockHumanSystemsPosture('PROTECT');
-    const { default: ReadyRoomWorkbench } = await import('../page');
-    render(<ReadyRoomWorkbench />);
-    await waitFor(() => expect(screen.getByTestId('decompose-view')).toBeInTheDocument());
-  });
-
-  it('defaults to Do when posture is STEADY and no explicit domain param', async () => {
-    mockSearchParam = null;
-    mockHumanSystemsPosture('STEADY');
-    const { default: ReadyRoomWorkbench } = await import('../page');
-    render(<ReadyRoomWorkbench />);
-    await waitFor(() => expect(screen.getByTestId('today-stream')).toBeInTheDocument());
-    expect(screen.queryByTestId('decompose-view')).not.toBeInTheDocument();
-  });
-
-  it('does not force a mode when posture is UNKNOWN -- keeps the pre-existing "do" default', async () => {
-    mockSearchParam = null;
-    mockHumanSystemsPosture('UNKNOWN');
-    const { default: ReadyRoomWorkbench } = await import('../page');
-    render(<ReadyRoomWorkbench />);
-    await waitFor(() => expect(screen.getByTestId('today-stream')).toBeInTheDocument());
-  });
-
-  it('an explicit ?domain=unstick param wins even when posture is STEADY (Green)', async () => {
+  it('an explicit ?domain=unstick param is respected', async () => {
     mockSearchParam = 'unstick';
     mockHumanSystemsPosture('STEADY');
     const { default: ReadyRoomWorkbench } = await import('../page');
     render(<ReadyRoomWorkbench />);
     await waitFor(() => expect(screen.getByTestId('decompose-view')).toBeInTheDocument());
-    // Posture resolves after mount; explicit param must still hold.
-    await new Promise((r) => setTimeout(r, 10));
-    expect(screen.getByTestId('decompose-view')).toBeInTheDocument();
-  });
-
-  it('an explicit ?domain=do param wins even when posture is RECOVER (Red-equivalent)', async () => {
-    mockSearchParam = 'do';
-    mockHumanSystemsPosture('RECOVER');
-    const { default: ReadyRoomWorkbench } = await import('../page');
-    render(<ReadyRoomWorkbench />);
-    await waitFor(() => expect(screen.getByTestId('today-stream')).toBeInTheDocument());
-    await new Promise((r) => setTimeout(r, 10));
-    expect(screen.getByTestId('today-stream')).toBeInTheDocument();
   });
 });

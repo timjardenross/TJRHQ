@@ -47,12 +47,11 @@ function task(overrides: Partial<PersonalTask> = {}): PersonalTask {
   };
 }
 
-describe('capacityLimitForPosture — informs the cap, never vetoes (brief §7/§44/§45)', () => {
-  it('shrinks the cap under PROTECT/RESET/RECOVER without reaching zero', () => {
-    expect(capacityLimitForPosture('RECOVER')).toBeGreaterThan(0);
-    expect(capacityLimitForPosture('PROTECT')).toBeGreaterThan(0);
-    expect(capacityLimitForPosture('RESET')).toBeGreaterThan(0);
-    expect(capacityLimitForPosture('RECOVER')).toBeLessThan(capacityLimitForPosture('STEADY'));
+describe('capacityLimitForPosture — capacity never shrinks the list (owner decision 2026-11-02)', () => {
+  it('gives the same size under every posture, including RECOVER/PROTECT/RESET and UNKNOWN', () => {
+    for (const p of ['RECOVER', 'PROTECT', 'RESET', 'STEADY', 'ENGAGE', 'UNKNOWN'] as const) {
+      expect(capacityLimitForPosture(p)).toBe(3);
+    }
   });
 
   it('does not unbound the cap on a strong day (brief §45 — no backlog dump)', () => {

@@ -14,7 +14,7 @@
 // "Suitable today" filter (useROSData()'s 5-band STRONG/STABLE/FRAGILE/REST/
 // UNKNOWN system, already live) — this is Number One's own 3-band Green/
 // Amber/Red read on today's capacity (core/health/capacity_score.py, the
-// same source the D-055 Capacity Gate uses), advisory-only and additive.
+// same source the capacity reading uses), advisory-only and additive.
 // Captain direction (2026-09-08): "Number One should also drive what lands
 // in my face" — this is that, not a replacement for the existing filter.
 

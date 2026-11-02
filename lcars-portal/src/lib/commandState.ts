@@ -132,8 +132,8 @@ export interface NumberOneAttentionItem {
   ref: string | null;
   generated_at: string;
   /** Mission 2 (Capacity & Attention Engine) — set only when capacity
-   * actually changed this item's category (e.g. "DEFERRED — Red capacity:
-   * P0 only today"). null/absent means capacity made no difference to
+   * actually changed this item's category (e.g. "Advisory: Red capacity -
+   * consider limiting to P0 today"). null/absent means capacity made no difference to
    * this item. Structured reason, not a re-derived explanation (mission
    * §22: prefer concise reason codes over verbose AI text). */
   capacity_adjusted_reason?: string | null;
