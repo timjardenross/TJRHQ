@@ -27,7 +27,6 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
@@ -107,7 +106,6 @@ def rank_missions(
         List of Recommendation objects sorted by priority_rank
     """
     active = _filter_active(missions)
-    cap_status = _capacity_status(health_context)
 
     scored = []
     for m in active:

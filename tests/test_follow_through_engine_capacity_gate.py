@@ -27,9 +27,10 @@ capacity-policy gap Mission 3 discovery found.
 from __future__ import annotations
 
 import sys
-import pytest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))

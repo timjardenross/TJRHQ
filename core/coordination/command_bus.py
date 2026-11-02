@@ -595,7 +595,6 @@ def _rule_number_one_escalations(conn: sqlite3.Connection, client=None) -> None:
             _resolve_if_gone(conn, row["event_key"])
 
     quiet = _in_number_one_quiet_hours()
-    capacity_status = _capacity_status(client)
     for e in relevant:
         key = _key(e)
         ev = _upsert_event(conn, key)
