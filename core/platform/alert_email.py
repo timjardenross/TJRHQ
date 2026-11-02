@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import hashlib
 import html
+import re
+from datetime import datetime, timezone
 
 EW, WA, BOM_HIGH, UPDATE, LIFTED, DIGEST = "EW", "WA", "BOM-HIGH", "UPDATE", "LIFTED", "DIGEST"
 
@@ -54,6 +56,8 @@ def fields_block(tag: str, row: dict, extra: dict[str, object] | None = None) ->
         ("Location", row.get("location")),
         ("Issued", row.get("issued_at")),
         ("Official-Link", row.get("canonical_url")),
+        ("Source", row.get("source_key")),
+        ("Sent-At", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
     ]
     values += list((extra or {}).items())
     lines = "\n".join(f"{k}: {html.escape(str(v if v not in (None, '') else '-'))}" for k, v in values)
@@ -77,3 +81,15 @@ def bom_should_email(area_kind: str, state_site_total: int) -> bool:
     if area_kind == "none_inside":
         return False
     return state_site_total > 0
+
+
+def html_to_text(markup: str) -> str:
+    """Plain-text twin of an alert email (sent as the text/plain part). Block
+    tags become line breaks, list items become "- " lines, links keep their URL."""
+    text = re.sub(r'(?is)<a [^>]*href="([^"]+)"[^>]*>(.*?)</a>', r"\2 (\1)", markup)
+    text = re.sub(r"(?i)<br\s*/?>|</p>|</pre>|</ul>", "\n", text)
+    text = re.sub(r"(?i)<li[^>]*>", "- ", text)
+    text = re.sub(r"(?i)</li>", "\n", text)
+    text = re.sub(r"(?s)<[^>]+>", "", text)
+    text = html.unescape(text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"

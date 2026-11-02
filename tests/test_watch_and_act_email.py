@@ -58,3 +58,11 @@ def test_cc_is_passed_only_when_configured():
     with patch.object(ea, "_EMERGENCY_EMAIL_CC", None), patch.object(ea, "send_email", return_value=True) as send:
         ea._deliver("s", "h")
     assert "cc" not in send.call_args.kwargs
+
+
+def test_every_alert_email_carries_a_plain_text_part_and_no_repeated_headline_block():
+    n, send, _req = _run([SITE])
+    kw = send.call_args.kwargs
+    assert n == 1 and kw["text"] and "<" not in kw["text"] and "Notice: WA" in kw["text"]
+    # the header block already carries headline / jurisdiction / location: not repeated underneath
+    assert "<strong>Bushfire Watch and Act - Katoomba</strong>" not in kw["html"] and "Jurisdiction: NSW<br>" not in kw["html"]
