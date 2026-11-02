@@ -284,9 +284,10 @@ def _send_emergency_warning_emails(source_key: str) -> int:
 
         matches = site_matching.match_alert({**row, "severity": "emergency_warning"}, sites)
         tier1 = sum(1 for m in matches if m.site.get("priority") == "Tier 1")
-        subject = alert_email.build_subject(alert_email.EW, row["jurisdiction"], row["headline"], len(matches), tier1)
+        subject = alert_email.build_subject(alert_email.EW, row["jurisdiction"], row["headline"], len(matches), tier1, [_site_label(m.site) for m in matches if m.site.get("priority") == "Tier 1"])
         body = (
-            alert_email.fields_block(alert_email.EW, {**row, "severity": "emergency_warning", "source_key": source_key}, ({"Sites-Possibly-Affected": len(matches), "Tier1-Sites": tier1} if sites else None))
+            alert_email.sites_banner([m.site for m in matches], "possibly affected", register_ok=bool(sites))
+            + alert_email.fields_block(alert_email.EW, {**row, "severity": "emergency_warning", "source_key": source_key}, ({"Sites-Possibly-Affected": len(matches), "Tier1-Sites": tier1} if sites else None))
             + f"<p>{html.escape(row.get('description') or '')}</p>"
             + (f"<p><a href=\"{row['canonical_url']}\">Official source</a></p>" if row.get("canonical_url") else "")
             + _sites_html(matches, bool(sites))
@@ -344,9 +345,10 @@ def _send_watch_and_act_emails(source_key: str) -> int:
         if not alert_email.watch_and_act_should_email(len(matches)):
             continue
         tier1 = sum(1 for m in matches if m.site.get("priority") == "Tier 1")
-        subject = alert_email.build_subject(alert_email.WA, row["jurisdiction"], row["headline"], len(matches), tier1)
+        subject = alert_email.build_subject(alert_email.WA, row["jurisdiction"], row["headline"], len(matches), tier1, [_site_label(m.site) for m in matches if m.site.get("priority") == "Tier 1"])
         body = (
-            alert_email.fields_block(alert_email.WA, {**row, "severity": "watch_and_act", "source_key": source_key}, ({"Sites-Possibly-Affected": len(matches), "Tier1-Sites": tier1} if sites else None))
+            alert_email.sites_banner([m.site for m in matches], "possibly affected")
+            + alert_email.fields_block(alert_email.WA, {**row, "severity": "watch_and_act", "source_key": source_key}, ({"Sites-Possibly-Affected": len(matches), "Tier1-Sites": tier1} if sites else None))
             + f"<p>{html.escape(row.get('description') or '')}</p>"
             + (f'<p><a href="{html.escape(row["canonical_url"], quote=True)}">Official source</a></p>' if row.get("canonical_url") else "")
             + _sites_html(matches, bool(sites))
@@ -424,7 +426,8 @@ def _send_bom_attention_emails(source_key: str) -> int:
             continue
         n_inside = len(area_result.sites) if area_result.kind == "matched" else len(matches)
         tier1_inside = sum(1 for s_ in area_result.sites if s_.get("priority") == "Tier 1") if area_result.kind == "matched" else sum(1 for m in matches if m.site.get("priority") == "Tier 1")
-        subject = alert_email.build_subject(alert_email.BOM_HIGH, row["jurisdiction"], row["headline"], n_inside, tier1_inside)
+        inside_sites = area_result.sites if area_result.kind == "matched" else [m.site for m in matches]
+        subject = alert_email.build_subject(alert_email.BOM_HIGH, row["jurisdiction"], row["headline"], n_inside, tier1_inside, [_site_label(x) for x in inside_sites if x.get("priority") == "Tier 1"])
         source_link = next((line.strip() for line in (row.get("raw_text") or "").splitlines()[::-1] if line.strip().startswith("http")), None)
         text = _clean_bom_text(row.get("description") or "")
         tier1_note = f" ({state['tier1']} Tier 1)" if state["tier1"] else ""
@@ -436,8 +439,13 @@ def _send_bom_attention_emails(source_key: str) -> int:
         area_line = _bom_area_html(area_result, len(sites)) if sites else ""
         if area_line:
             state_line = area_line  # the named area answers the question better than a state-wide count
+        unresolved = (
+            f"The named area could not be worked out, so none can be ruled out: {state['total']} of our {row['jurisdiction']} sites{tier1_note} could be inside it. Check the warning."
+            if area_result.kind == "unparsed" and state["total"] else None
+        )
         body = (
-            alert_email.fields_block(alert_email.BOM_HIGH, {**row, "severity": "unknown", "source_key": source_key, "canonical_url": source_link, "issued_at": _issued_text(row) if _issued_text(row) != "-" else None}, {"Area-Match": area_result.kind, "Sites-Inside": n_inside, "Tier1-Sites": tier1_inside})
+            alert_email.sites_banner(inside_sites, "inside the area BOM names" if area_result.kind == "matched" else "possibly affected", register_ok=bool(sites), fallback=unresolved)
+            + alert_email.fields_block(alert_email.BOM_HIGH, {**row, "severity": "unknown", "source_key": source_key, "canonical_url": source_link, "issued_at": _issued_text(row) if _issued_text(row) != "-" else None}, {"Area-Match": area_result.kind, "Sites-Inside": n_inside, "Tier1-Sites": tier1_inside})
             + "<p><em>The Bureau of Meteorology does not give this warning an Advice / Watch and Act / Emergency Warning "
             "tier. “High attention” is this platform’s own label, chosen from the warning type.</em></p>"
             f"<p>{html.escape(text).replace(chr(10), '<br>')}</p>"
@@ -490,8 +498,7 @@ def _issued_text(row: dict) -> str:
 
 
 def _site_label(site: dict) -> str:
-    name, suburb = str(site.get("name") or ""), str(site.get("suburb") or "")
-    return name if not suburb or suburb.lower() in name.lower() else f"{name} ({suburb})"
+    return alert_email.site_label(site)
 
 
 def _bom_area_html(result: bom_areas.AreaResult, n_sites: int) -> str:
@@ -746,13 +753,14 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
         matches = site_matching.match_alert(row, sites) if sites else []
         tier1 = sum(1 for m in matches if m.site.get("priority") == "Tier 1")
         body = (
-            alert_email.fields_block(alert_email.UPDATE, row, {"Change": change})
+            alert_email.sites_banner([m.site for m in matches], "possibly affected", register_ok=bool(sites))
+            + alert_email.fields_block(alert_email.UPDATE, row, {"Change": change})
             + f"<p><strong>{html.escape(change)}</strong></p>"
             f"<p>{html.escape(row.get('description') or '')}</p>"
             + (f'<p><a href="{html.escape(row["canonical_url"], quote=True)}">Official source</a></p>' if row.get("canonical_url") else "")
             + (_sites_html(matches, True) if sites else "")
         )
-        if not _deliver(alert_email.build_subject(alert_email.UPDATE, row["jurisdiction"], row["headline"], len(matches), tier1), body):
+        if not _deliver(alert_email.build_subject(alert_email.UPDATE, row["jurisdiction"], row["headline"], len(matches), tier1, [_site_label(m.site) for m in matches if m.site.get("priority") == "Tier 1"]), body):
             log.warning("[emergency-alerts] follow-up: update email failed for alert %s - will retry next run", row["id"])
             continue
         _record_send_meta(row, row["severity"])

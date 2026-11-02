@@ -199,3 +199,12 @@ def test_long_bom_text_is_cut_at_a_paragraph_not_mid_sentence():
 def test_site_label_does_not_repeat_the_suburb():
     assert ea._site_label({"name": "Bendigo", "suburb": "Bendigo"}) == "Bendigo"
     assert ea._site_label({"name": "Norwest Branch", "suburb": "Bella Vista"}) == "Norwest Branch (Bella Vista)"
+
+
+def test_unresolved_bom_area_says_how_many_sites_could_be_inside():
+    import bom_areas
+
+    with patch.object(ea.bom_areas, "match_alert", return_value=bom_areas.AreaResult("unparsed")):
+        _n, send, _ = _send([_bom_row()], [_site(id="s1")])
+    text = send.call_args.kwargs["text"]
+    assert text.startswith("No site matched this alert") and "could be inside it" in text.split("Alert-ID")[0]
