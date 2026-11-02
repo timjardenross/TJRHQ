@@ -35,7 +35,7 @@
  * only shows an interpreted coverage state + a link out.
  */
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
@@ -47,6 +47,10 @@ import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/rout
 import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
 import { matchAlert, stateSiteSummary, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
 import { bomAttentionLevel, BOM_ATTENTION_LABEL, type BomAttention } from '@/lib/bomAttention';
+import { displayHeadline } from '@/lib/alertDisplay';
+import { newlyAppeared } from '@/lib/alertAnnounce';
+import { matchAreas, type AreaResult } from '@/lib/bomAreas';
+import { alertEmailStatus, type EmailState, type EmailStatus } from '@/lib/alertEmailStatus';
 import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
 
 // Backend ingests every 15min 24/7 (intelligence/scheduler.py,
@@ -58,11 +62,11 @@ const REFRESH_MS = 3 * 60 * 1000;
 const FOCUS_REFETCH_MIN_AGE_MS = 60 * 1000;
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
-// alerts.alert_type CHECK constraint (migration 0174).
-const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'other'] as const;
+// alerts.alert_type CHECK constraint (migrations 0174, 0244).
+const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'thunderstorm_asthma', 'other'] as const;
 const ALERT_TYPE_LABELS: Record<string, string> = {
   bushfire: 'Bushfire', flood: 'Flood', storm: 'Storm', cyclone: 'Cyclone', heatwave: 'Heatwave',
-  hazard_reduction: 'Hazard Reduction Burn', structure_fire: 'Structure Fire', other: 'Other',
+  hazard_reduction: 'Hazard Reduction Burn', structure_fire: 'Structure Fire', thunderstorm_asthma: 'Thunderstorm Asthma', other: 'Other',
 };
 // alert_sources.source_key (migration 0174/0176).
 const SOURCE_KEY_LABELS: Record<string, string> = {
@@ -168,6 +172,31 @@ function MutedBadge() {
   );
 }
 
+const EMAIL_STATE_STYLE: Record<EmailState, string> = {
+  sent: 'text-state-ok-on',
+  muted: 'text-state-warn-on',
+  failed: 'text-state-crit-on',
+  pending: 'text-state-crit-on',
+  not_emailed: 'text-wb-ink2',
+};
+const EMAIL_STATE_ICON: Record<EmailState, string> = { sent: '✉ ', muted: '🔇 ', failed: '🚫 ', pending: '⚠ ', not_emailed: '' };
+
+function emailStatusFor(alert: EmergencyAlertEntry, isMuted: boolean): EmailStatus {
+  return alertEmailStatus(alert, isMuted, relativeTime);
+}
+
+/** One plain line saying whether the emergency email went out. Shown on cards
+ * only where an email is expected or was sent, so informational cards stay quiet. */
+function EmailStatusLine({ alert, isMuted }: { alert: EmergencyAlertEntry; isMuted: boolean }) {
+  const status = emailStatusFor(alert, isMuted);
+  if (status.state === 'not_emailed') return null;
+  return (
+    <p className={`mt-1 text-wb-label font-semibold ${EMAIL_STATE_STYLE[status.state]}`} title={status.detail}>
+      {EMAIL_STATE_ICON[status.state]}{status.label}
+    </p>
+  );
+}
+
 function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAlertEntry; isSelected: boolean; isMuted: boolean; onSelect: () => void }) {
   return (
     <tr
@@ -190,72 +219,96 @@ function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAl
   );
 }
 
-/** Compact card for a high-severity (Emergency Warning / Watch and Act)
- * alert — readable without opening the dense Browse table. */
-function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; attention?: BomAttention; onSelect: () => void }) {
-  const isEmergency = alert.severity === 'emergency_warning';
+/** Filled chip for the alerts that need a decision (Emergency Warning, Watch
+ * and Act, BOM high attention); every other severity stays a quiet outline so
+ * red and amber only ever mean something. White text on the -fill shades. */
+function cardEmphasis(alert: EmergencyAlertEntry, attention?: BomAttention): 'crit' | 'warn' | null {
+  if (alert.severity === 'emergency_warning') return 'crit';
+  if (alert.severity === 'watch_and_act' || attention === 'high') return 'warn';
+  return null;
+}
+
+/** One alert, whole card clickable. The severity colour is a left bar plus a
+ * filled chip; ordinary alerts get neither. The headline is shown tidied (see
+ * lib/alertDisplay) — the detail panel keeps the full original. */
+function HighSeverityCard({ alert, isMuted, siteCount = 0, attention, area, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; attention?: BomAttention; area?: AreaResult; onSelect: () => void }) {
+  const emphasis = cardEmphasis(alert, attention);
+  const { title, subtitle } = displayHeadline(alert.headline);
+  const bar = emphasis === 'crit' ? 'border-l-state-crit' : emphasis === 'warn' ? 'border-l-state-warn' : 'border-l-wb-line';
+  const tint = alert.severity === 'emergency_warning' ? 'bg-state-crit/10' : alert.severity === 'watch_and_act' ? 'bg-state-warn/10' : 'bg-wb-surface';
+  const chipLabel = attention ? BOM_ATTENTION_LABEL[attention] : severityLabel(alert);
+  const chipClass = emphasis === 'crit' ? 'bg-wb-crit-fill text-white [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : emphasis === 'warn' ? 'bg-wb-warn-fill text-white [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink2';
   return (
-    <div
-      className={`rounded-md border p-4 ${isEmergency ? 'border-state-crit/50 bg-state-crit/10' : 'border-state-warn/50 bg-state-warn/10'}`}
-    >
-      {/* WP3 defect #4 sweep (200% zoom, live-verified: this row's own
-          offsetWidth 45 vs its badges' combined scrollWidth 146 at the
-          zoomed-equivalent width) — no flex-wrap, so the severity/
-          jurisdiction/muted badge trio pushed past the card at a narrow
-          effective width, which was the real source of this page's overall
-          horizontal page overflow (traced up through risk-reference-surface
-          to document.documentElement.scrollWidth). */}
+    <div className={`relative rounded-md border border-l-4 border-wb-line ${bar} ${tint} p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-wb-sage-deep`}>
+      {/* flex-wrap: the chip row must never push the card past a narrow
+          viewport (WP3 defect #4 sweep, 200% zoom). */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <SeverityBadge alert={alert} />
-        <Badge status="neutral">{alert.jurisdiction}</Badge>
-        {attention && (
-          <span
-            className={`text-wb-label font-semibold uppercase tracking-wide ${attention === 'high' ? 'text-state-crit-on' : 'text-wb-ink2'}`}
-            title="Platform-assigned from the warning type — BOM does not give this warning an Advice / Watch and Act / Emergency Warning tier."
-          >
-            {BOM_ATTENTION_LABEL[attention]}
-          </span>
-        )}
+        <span
+          className={`rounded px-2 py-0.5 text-wb-label font-semibold ${chipClass}`}
+          title={attention ? 'Platform-assigned from the warning type — BOM does not give this warning an Advice / Watch and Act / Emergency Warning tier.' : undefined}
+        >
+          {chipLabel}
+        </span>
+        <span className="text-wb-label font-semibold text-wb-ink2">{alert.jurisdiction}</span>
+        {isBomSource(alert.sourceKey) && <span className="text-wb-label text-wb-ink2" title="Bureau of Meteorology">BOM</span>}
         {isMuted && <MutedBadge />}
       </div>
-      {/* WP3 defect #4 sweep: real headline text (e.g. "Fire Weather Warning
-          for Greater Hunter fire weather district") has no soft-wrap point
-          long enough at a narrow effective width — overflow-wrap defaults
-          to `normal`, which never breaks inside a word, so the single
-          longest word in the headline set this card's (and therefore the
-          whole page's) min-content width and forced horizontal page
-          scroll. `break-words` lets it wrap mid-word as a last resort. */}
-      <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
-      {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
+      {/* break-words: a long place name has no soft-wrap point and would force
+          horizontal page scroll at a narrow width. The button's ::after covers
+          the card, making the whole card the tap target. */}
+      <h3 className="break-words font-sans text-wb-body font-semibold normal-case tracking-normal text-wb-ink">
+        <button
+          onClick={onSelect}
+          className="text-left after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+        >
+          {title}
+        </button>
+      </h3>
+      {subtitle ? <p className="text-wb-label text-wb-ink2">{subtitle}</p> : alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
       <p className="mt-1 text-wb-label text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
-      {siteCount > 0 && (
+      <EmailStatusLine alert={alert} isMuted={isMuted} />
+      {area && area.kind !== 'unparsed' ? (
+        <p className={`mt-1 text-wb-label font-semibold ${area.kind === 'matched' ? 'text-state-crit-on' : 'text-wb-ink2'}`}>
+          {area.kind === 'matched'
+            ? `${area.sites.length} of our site${area.sites.length === 1 ? '' : 's'} inside the area BOM names (${area.areaNames[0]}${area.areaNames.length > 1 ? ` +${area.areaNames.length - 1}` : ''})`
+            : `None of our sites are inside the area BOM names (${area.areaNames[0]}${area.areaNames.length > 1 ? ` +${area.areaNames.length - 1}` : ''})`}
+        </p>
+      ) : siteCount > 0 && (
         <p className="mt-1 text-wb-label font-semibold text-state-crit-on">
           {siteCount} of our site{siteCount === 1 ? '' : 's'} possibly affected
         </p>
       )}
-      <div className="mt-3 flex flex-wrap gap-3">
-        <button
-          onClick={onSelect}
-          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+      {alert.canonicalUrl && (
+        <a
+          href={alert.canonicalUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="relative z-10 mt-2 inline-block rounded text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
-          View details
-        </button>
-        {alert.canonicalUrl && (
-          <a
-            href={alert.canonicalUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md px-3 py-1.5 text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
-          >
-            View official warning →
-          </a>
-        )}
-      </div>
+          View official warning →
+        </a>
+      )}
     </div>
   );
 }
 
-function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onClose: () => void }) {
+/** One line per alert for the collapsed informational list. */
+function CompactAlertRow({ alert, isMuted, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; onSelect: () => void }) {
+  const { title } = displayHeadline(alert.headline);
+  return (
+    <li className="flex items-baseline gap-2 border-b border-wb-line py-2 last:border-0">
+      <span className="w-10 shrink-0 text-wb-label font-semibold text-wb-ink2">{alert.jurisdiction}</span>
+      <button onClick={onSelect} className="min-w-0 flex-1 truncate rounded text-left text-wb-body text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep" title={alert.headline}>
+        {title}
+      </button>
+      {isMuted && <MutedBadge />}
+      <span className="shrink-0 text-wb-label tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</span>
+    </li>
+  );
+}
+
+function AlertDetailPanel({ alert, isMuted, onClose }: { alert: EmergencyAlertEntry; isMuted: boolean; onClose: () => void }) {
+  const email = emailStatusFor(alert, isMuted);
   return (
     <Card>
       <div className="mb-3 flex items-start justify-between gap-4 border-b border-wb-line pb-3">
@@ -265,7 +318,7 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
             <SeverityBadge alert={alert} />
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
-          <h2 className="break-words font-serif text-lg text-wb-ink">{alert.headline}</h2>
+          <h2 className="break-words font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">{alert.headline}</h2>
           {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
           {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
             <p className="mt-1 text-wb-label italic text-wb-ink2">
@@ -281,6 +334,10 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
         <div><span className="uppercase tracking-wide text-wb-label">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
         <div><span className="uppercase tracking-wide text-wb-label">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
       </div>
+      <p className={`mt-3 text-wb-label font-semibold ${EMAIL_STATE_STYLE[email.state]}`}>
+        {EMAIL_STATE_ICON[email.state]}{email.label}
+        <span className="ml-2 font-normal text-wb-ink2">{email.detail}</span>
+      </p>
       {alert.rawText && (
         <p className="mt-4 whitespace-pre-wrap text-wb-body text-wb-ink2">{alert.rawText}</p>
       )}
@@ -304,17 +361,17 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-serif text-base text-wb-ink">Coverage</h2>
+          <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Coverage</h2>
           {level === 'good' && (
             <p className="text-wb-label text-wb-ink2">All {sourceCount} official sources are reporting.</p>
           )}
           {level === 'partial' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+            <p className="mt-1 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
               Coverage is partial — some official sources are not monitored yet, so “none detected” does not cover them.
             </p>
           )}
           {level === 'degraded' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+            <p className="mt-1 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
               {real.length} official source{real.length === 1 ? '' : 's'} unavailable or not refreshed recently. Alert coverage may be incomplete.
             </p>
           )}
@@ -331,9 +388,9 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
             {oldestCheckedAt && oldestCheckedAt !== newestCheckedAt ? ` · oldest source ${relativeTime(oldestCheckedAt)}` : ''}
           </p>
           <EvidenceMeta
-            source={`${sourceCount} official alert source${sourceCount === 1 ? '' : 's'} (domain_heartbeats)`}
+            source={`${sourceCount} official alert source${sourceCount === 1 ? '' : 's'}`}
             observedAt={oldestCheckedAt}
-            state={level === 'good' ? undefined : allStale ? 'stale' : 'unavailable'}
+            state={level === 'good' || level === 'partial' ? undefined : allStale ? 'stale' : 'unavailable'}
           />
         </div>
         <Link
@@ -552,7 +609,7 @@ function SilencesPanel({ silences, onRefresh }: { silences: AlertSilenceEntry[];
   );
 }
 
-const MATCH_METHOD_LABEL: Record<string, string> = { distance: 'Near incident point', text: 'Named in alert' };
+const MATCH_METHOD_LABEL: Record<string, string> = { distance: 'Near incident point', text: 'Named in alert', area: 'Inside warned area' };
 
 interface AffectedSite {
   site: AlertSiteEntry;
@@ -577,9 +634,19 @@ function SitesPanel({
   const unmatchedTotal = Object.values(unmatchedByState).reduce((a, b) => a + b, 0);
   const tier1 = affected.filter((a) => a.site.priority === 'Tier 1').length;
 
+  // Nothing matched and nothing to warn about: a quiet caption, not a card that
+  // repeats the banner's "Our sites" line.
+  if (!sitesError && sites.length > 0 && affected.length === 0 && unmatchedTotal === 0) {
+    return (
+      <p className="px-1 text-wb-label text-wb-ink2">
+        Your sites: none matched an active Emergency Warning or Watch and Act. {sites.length} sites monitored · {geocoded} located to street level; the rest use suburb or postcode centres, so matches there are approximate.
+      </p>
+    );
+  }
+
   return (
     <Card>
-      <h2 className="font-serif text-base text-wb-ink">Your sites</h2>
+      <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Your sites</h2>
       {sitesError ? (
         <p className="mt-1 text-wb-label text-state-warn-on">Site register could not be loaded ({sitesError}) — showing national alerts only.</p>
       ) : sites.length === 0 ? (
@@ -615,7 +682,7 @@ function SitesPanel({
             </ul>
           )}
           {unmatchedTotal > 0 && (
-            <p className="mt-2 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+            <p className="mt-2 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
               {unmatchedTotal} active alert{unmatchedTotal === 1 ? '' : 's'} in states where we have sites matched no specific site
               ({Object.entries(unmatchedByState).map(([st, n]) => `${st} ${n}`).join(', ')}). Regional warnings can still apply — check the alert details.
             </p>
@@ -768,36 +835,89 @@ export default function EmergencyAlertsWorkbench() {
     return [...list].sort((a, b) => rank(a) - rank(b));
   }, [nonActionAlerts]);
   const bomHighCount = useMemo(() => bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high').length, [bomWarnings]);
-  // BOM names districts, not places, so per-site matching rarely hits: show how
-  // much of our estate is in each state with a high-attention warning instead.
-  const bomHighStates = useMemo(() => {
-    const states = new Set(bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high').map((a) => a.jurisdiction));
-    return [...states].map((st) => ({ state: st, ...stateSiteSummary(st, sites) })).filter((x) => x.total > 0);
+  // BOM names districts and catchments, not places. Where the headline names an
+  // area we hold the boundary for, sites are matched to that area (lib/bomAreas).
+  const bomAreaByAlert = useMemo(() => {
+    const map = new Map<string, AreaResult>();
+    for (const alert of bomWarnings) map.set(alert.id, matchAreas(alert, sites));
+    return map;
   }, [bomWarnings, sites]);
+  // Only for high-attention warnings whose area we cannot resolve: fall back to
+  // how much of our estate is in the state, and say it is not a match.
+  const bomHighStates = useMemo(() => {
+    const unresolved = bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high' && bomAreaByAlert.get(a.id)?.kind === 'unparsed');
+    const states = new Set(unresolved.map((a) => a.jurisdiction));
+    return [...states].map((st) => ({ state: st, ...stateSiteSummary(st, sites) })).filter((x) => x.total > 0);
+  }, [bomWarnings, bomAreaByAlert, sites]);
   const informationalAlerts = useMemo(() => nonActionAlerts.filter((a) => !(a.severity === 'unknown' && isBomSource(a.sourceKey))), [nonActionAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
   const unknownCount = useMemo(() => informationalAlerts.filter((a) => a.severity === 'unknown').length, [informationalAlerts]);
 
   const siteMatchesByAlert = useMemo(() => {
     const map = new Map<string, SiteMatch[]>();
-    for (const alert of [...emergencyAlerts, ...watchAlerts, ...bomWarnings]) {
+    for (const alert of [...emergencyAlerts, ...watchAlerts]) {
       const matches = matchAlert(alert, sites);
       if (matches.length > 0) map.set(alert.id, matches);
     }
+    for (const alert of bomWarnings) {
+      const area = bomAreaByAlert.get(alert.id);
+      if (area && area.kind === 'matched') {
+        map.set(alert.id, area.sites.map((site) => ({ site, method: 'area' as const, distanceKm: null, reason: `inside ${area.areaNames[0]}` })));
+      } else if (!area || area.kind === 'unparsed') {
+        const matches = matchAlert(alert, sites);
+        if (matches.length > 0) map.set(alert.id, matches);
+      }
+    }
     return map;
-  }, [emergencyAlerts, watchAlerts, bomWarnings, sites]);
+  }, [emergencyAlerts, watchAlerts, bomWarnings, bomAreaByAlert, sites]);
 
   /** One row per site, attached to its most severe alert (emergency first). */
   const affectedSites = useMemo<AffectedSite[]>(() => {
     const bySite = new Map<string, AffectedSite>();
-    for (const alert of [...emergencyAlerts, ...watchAlerts]) {
+    const bomHigh = bomWarnings.filter((a) => bomAttentionLevel(a.headline, a.alertType) === 'high');
+    for (const alert of [...emergencyAlerts, ...watchAlerts, ...bomHigh]) {
       for (const match of siteMatchesByAlert.get(alert.id) ?? []) {
         if (!bySite.has(match.site.id)) bySite.set(match.site.id, { site: match.site, match, alert });
       }
     }
     const order: Record<string, number> = { 'Tier 1': 0, 'Tier 2': 1, 'Tier 3': 2 };
     return [...bySite.values()].sort((a, b) => (order[a.site.priority] ?? 9) - (order[b.site.priority] ?? 9) || a.site.name.localeCompare(b.site.name));
-  }, [emergencyAlerts, watchAlerts, siteMatchesByAlert]);
+  }, [emergencyAlerts, watchAlerts, bomWarnings, siteMatchesByAlert]);
+
+  // Screen-reader announcements for alerts that appear while the page is open
+  // (the 15-second refresh). Emergency Warnings interrupt (assertive); Watch and
+  // Act waits its turn (polite). Nothing is read out on first load.
+  const seenEmergencyRef = useRef<Set<string> | null>(null);
+  const seenWatchRef = useRef<Set<string> | null>(null);
+  const [assertiveMessage, setAssertiveMessage] = useState('');
+  const [politeMessage, setPoliteMessage] = useState('');
+  useEffect(() => {
+    if (isLoading) return;
+    const fresh = newlyAppeared(seenEmergencyRef.current, emergencyAlerts);
+    if (fresh.length > 0) {
+      setAssertiveMessage(`New Emergency Warning: ${fresh.map((x) => `${displayHeadline(x.headline).title}, ${x.jurisdiction}`).join('; ')}`);
+    }
+    seenEmergencyRef.current = new Set(emergencyAlerts.map((x) => x.id));
+  }, [emergencyAlerts, isLoading]);
+  useEffect(() => {
+    if (isLoading) return;
+    const fresh = newlyAppeared(seenWatchRef.current, watchAlerts);
+    if (fresh.length > 0) {
+      setPoliteMessage(`New Watch and Act: ${fresh.map((x) => `${displayHeadline(x.headline).title}, ${x.jurisdiction}`).join('; ')}`);
+    }
+    seenWatchRef.current = new Set(watchAlerts.map((x) => x.id));
+  }, [watchAlerts, isLoading]);
+
+  // Alerts that qualify for an email and have none sent and no silence holding it.
+  const emailsNotSent = useMemo(
+    () => activeAlerts.filter((a) => emailStatusFor(a, mutedAlertIds.has(a.id)).state === 'pending'),
+    [activeAlerts, mutedAlertIds],
+  );
+  const emailsFailed = useMemo(
+    () => activeAlerts.filter((a) => emailStatusFor(a, mutedAlertIds.has(a.id)).state === 'failed'),
+    [activeAlerts, mutedAlertIds],
+  );
+  const tier1AffectedCount = useMemo(() => affectedSites.filter((x) => x.site.priority === 'Tier 1').length, [affectedSites]);
 
   const unmatchedByState = useMemo(() => statesWithoutSiteMatch([...emergencyAlerts, ...watchAlerts], sites), [emergencyAlerts, watchAlerts, sites]);
 
@@ -827,16 +947,31 @@ export default function EmergencyAlertsWorkbench() {
     setSelectedAlertId((prev) => (prev === id ? null : id));
   }
 
+  /** On the Now tab the detail opens directly under the card it belongs to,
+   * not at the foot of the page. Other tabs keep the panel at the bottom. */
+  function inlineDetail(alert: EmergencyAlertEntry) {
+    if (view !== 'overview' || selectedAlert?.id !== alert.id) return null;
+    return (
+      <div ref={detailPanelRef} className="scroll-mt-24">
+        <AlertDetailPanel alert={alert} isMuted={mutedAlertIds.has(alert.id)} onClose={() => setSelectedAlertId(null)} />
+      </div>
+    );
+  }
+
   return (
     <WorkbenchShell
       title="Emergency Alerts"
       eyebrow="Public Safety"
       tagline="Official Australian emergency information, prioritised by what may require attention now."
+      quiet
       wide
       mode="command"
     >
       <div className="risk-reference-surface risk-reference-command flex flex-col gap-4">
-        <div className="risk-reference-kicker">Command / intelligence · immediate state first</div>
+        {/* Live regions exist from first render so a later change is announced. */}
+        <div className="sr-only" role="alert" aria-live="assertive" aria-atomic="true">{assertiveMessage}</div>
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{politeMessage}</div>
+        <div className="risk-reference-kicker !text-wb-ink2">What is happening now, then what it means for us</div>
         {isLoading ? (
           <Card><p className="text-wb-body italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (
@@ -868,21 +1003,21 @@ export default function EmergencyAlertsWorkbench() {
             <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
               <button
                 onClick={() => setView('overview')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'border border-wb-ink bg-wb-ink text-wb-bg [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'overview'}
               >
-                Current
+                Now
               </button>
               <button
                 onClick={() => setView('browse')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'border border-wb-ink bg-wb-ink text-wb-bg [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'browse'}
               >
-                Browse all alerts
+                All alerts
               </button>
               <button
                 onClick={() => setView('silences')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'border border-wb-ink bg-wb-ink text-wb-bg [print-color-adjust:exact] [-webkit-print-color-adjust:exact]' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'silences'}
               >
                 Silences{activeSilences.length > 0 ? ` (${activeSilences.length})` : ''}
@@ -891,6 +1026,86 @@ export default function EmergencyAlertsWorkbench() {
 
             {view === 'overview' && (
               <>
+                {/* Overall state in one glance: worst thing active, what it means
+                    for our sites, whether emails went out, and whether the "all
+                    clear" can be trusted. Detail sits in the sections below. */}
+                <section aria-label="Current status" data-alert-state="status-banner">
+                  <div
+                    className={`rounded-md border px-3 py-2 [print-color-adjust:exact] [-webkit-print-color-adjust:exact] ${
+                      emergencyAlerts.length > 0 || emailsFailed.length > 0
+                        ? 'border-wb-crit-fill bg-wb-crit-fill text-white'
+                        : watchAlerts.length > 0 || bomHighCount > 0 || coverage.level !== 'good'
+                          ? 'border-state-warn bg-state-warn text-white'
+                          : 'border-wb-ok-fill bg-wb-ok-fill text-white'
+                    }`}
+                  >
+                    <p className="text-wb-title font-bold">
+                      {emergencyAlerts.length > 0
+                        ? `${emergencyAlerts.length} Emergency Warning${emergencyAlerts.length === 1 ? '' : 's'} active`
+                        : watchAlerts.length > 0
+                          ? `${watchAlerts.length} Watch and Act alert${watchAlerts.length === 1 ? '' : 's'} active`
+                          : bomHighCount > 0
+                            ? `${bomHighCount} high-attention weather warning${bomHighCount === 1 ? '' : 's'} in force`
+                            : coverage.level === 'good'
+                              ? 'No Emergency Warnings or Watch and Act alerts'
+                              : 'None detected in monitored sources — coverage incomplete'}
+                    </p>
+                    <p className="mt-0.5 text-wb-body font-semibold">
+                      {emailsFailed.length > 0
+                        ? 'Action: the platform could not email the team. Tell them yourself now; it keeps retrying every 15 minutes.'
+                        : emergencyAlerts.length > 0
+                        ? (affectedSites.length > 0
+                          ? 'Action: check the sites listed below and confirm the team has been told.'
+                          : 'Action: read the warning and check whether any of our sites are in the area.')
+                        : watchAlerts.length > 0
+                          ? 'Action: review the alert and the sites below. Watch and Act alerts are not emailed, so tell the team yourself if needed.'
+                          : bomHighCount > 0
+                            ? 'Action: review the weather warnings below. The email goes out automatically.'
+                            : coverage.level !== 'good'
+                              ? 'Action: do not treat this as an all-clear until the coverage gap is fixed.'
+                              : 'No action required.'}
+                    </p>
+                    <ul className="mt-1 flex flex-col gap-0.5 text-wb-label">
+                      <li>
+                        Our sites: {affectedSites.length > 0
+                          ? `${affectedSites.length} possibly affected${tier1AffectedCount > 0 ? ` (${tier1AffectedCount} Tier 1)` : ''}`
+                          : 'none matched to a current Emergency Warning or Watch and Act'}
+                      </li>
+                      <li>
+                        Emails: {emailsFailed.length > 0
+                          ? `${emailsFailed.length} email${emailsFailed.length === 1 ? '' : 's'} FAILED to send — tell the team yourself`
+                          : emailsNotSent.length > 0
+                          ? `${emailsNotSent.length} qualifying alert${emailsNotSent.length === 1 ? ' has' : 's have'} not been emailed yet`
+                          : activeSilences.length > 0
+                            ? 'all qualifying alerts handled (some muted by silence)'
+                            : 'all qualifying alerts emailed'}
+                      </li>
+                      <li>
+                        Coverage: {coverage.level === 'good'
+                          ? 'all monitored sources healthy'
+                          : coverage.level === 'unknown'
+                            ? 'source health could not be determined'
+                            : describeGaps(coverage.gaps).join('; ')}
+                      </li>
+                      {coverage.level !== 'good' && (
+                        <li className="font-semibold">
+                          {emergencyAlerts.length === 0 && watchAlerts.length === 0
+                            ? 'Not a full all-clear: “none detected” only covers what we can see.'
+                            : 'Coverage is incomplete, so other warnings may exist that we cannot see.'}
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </section>
+
+                <SitesPanel
+                  sites={sites}
+                  sitesError={sitesError}
+                  affected={affectedSites}
+                  unmatchedByState={unmatchedByState}
+                  onSelectAlert={selectAndMaybeSwitch}
+                />
+
                 {activeSilences.length > 0 && (
                   <section aria-label="Active silences" data-alert-state="silences">
                     <div className="rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1.5 text-state-warn-on">
@@ -907,124 +1122,91 @@ export default function EmergencyAlertsWorkbench() {
                   </section>
                 )}
 
-                {emergencyAlerts.length === 0 && watchAlerts.length === 0 && (
-                  <Card>
-                    {coverage.level === 'good' ? (
-                      <>
-                        <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
-                        <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
-                      </>
-                    ) : (
-                      // Never a green all-clear while a source is down, stale or
-                      // unmonitored: "none detected" only covers what we can see.
-                      <div className="rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1.5 text-state-warn-on">
-                        <p className="text-wb-lead font-semibold">No Emergency Warnings or Watch and Act alerts detected in monitored sources</p>
-                        <p className="mt-1 text-wb-label">
-                          This is not a full all-clear — coverage is {coverage.level === 'unknown' ? 'unknown' : 'incomplete'}:
-                        </p>
-                        <ul className="mt-1 list-disc pl-4 text-wb-label">
-                          {coverage.level === 'unknown'
-                            ? <li>source health could not be determined</li>
-                            : describeGaps(coverage.gaps).map((line) => <li key={line}>{line}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {bomWarnings.length > 0 && (
-                      <p className="mt-2 text-wb-label font-semibold text-state-warn-on">
-                        {bomWarnings.length} official weather warning{bomWarnings.length === 1 ? ' is' : 's are'} in force{bomHighCount > 0 ? ` (${bomHighCount} high attention)` : ''} — see below.
-                      </p>
-                    )}
-                    {(adviceCount + unknownCount) > 0 ? (
-                      <p className="mt-2 text-wb-label text-wb-ink2">
-                        {adviceCount + unknownCount} lower-severity or unclassified official alert{adviceCount + unknownCount === 1 ? '' : 's'} {adviceCount + unknownCount === 1 ? 'is' : 'are'} active nationally.
-                      </p>
-                    ) : bomWarnings.length === 0 ? (
-                      <p className="mt-2 text-wb-label text-wb-ink2">No active official alerts detected.</p>
-                    ) : null}
-                  </Card>
-                )}
-
                 {emergencyAlerts.length > 0 && (
                   <section aria-labelledby="alerts-action-required" data-alert-state="action-required">
-                  <Card>
-                    <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-crit-on">
-                      <span id="alerts-action-required">Action required · </span>
-                      {emergencyAlerts.length} Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}
+                    <h2 className="mb-2 font-sans text-wb-lead font-bold normal-case tracking-normal text-state-crit-on">
+                      <span id="alerts-action-required">Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}</span> · {emergencyAlerts.length}
                     </h2>
                     <div className="flex flex-col gap-3">
                       {emergencyAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <div key={alert.id} className="flex flex-col gap-3">
+                          <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                          {inlineDetail(alert)}
+                        </div>
                       ))}
                     </div>
-                  </Card>
                   </section>
                 )}
 
                 {watchAlerts.length > 0 && (
                   <section aria-labelledby="alerts-watch" data-alert-state="watch">
-                  <Card>
-                    <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
-                      <span id="alerts-watch">Watch · </span>
-                      Watch and Act — {watchAlerts.length} active
+                    <h2 className="mb-2 font-sans text-wb-lead font-bold normal-case tracking-normal text-state-warn-on">
+                      <span id="alerts-watch">Watch and Act</span> · {watchAlerts.length}
                     </h2>
-                    <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                       {watchAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <div key={alert.id} className={`flex flex-col gap-3 ${selectedAlert?.id === alert.id ? 'xl:col-span-2' : ''}`}>
+                          <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                          {inlineDetail(alert)}
+                        </div>
                       ))}
                     </div>
-                  </Card>
                   </section>
                 )}
 
                 {bomWarnings.length > 0 && (
                   <section aria-labelledby="alerts-bom" data-alert-state="weather-warnings">
-                  <Card>
-                    <h2 className="mb-1 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
-                      <span id="alerts-bom">Official weather warnings · </span>{bomWarnings.length} in force
+                    <h2 className="mb-1 font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">
+                      <span id="alerts-bom">Official weather warnings</span> · {bomWarnings.length} in force
                     </h2>
                     <p className="mb-3 text-wb-label text-wb-ink2">
                       The Bureau of Meteorology does not supply an Advice / Watch and Act / Emergency Warning tier — read each warning for what to do.
                       {bomHighCount > 0 && ' “High attention” is this platform’s own label from the warning type (cyclone, severe thunderstorm, severe weather, tsunami, moderate/major flood); those also send an email.'}
                     </p>
                     {bomHighStates.length > 0 && (
-                      <p className="mb-3 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
-                        High-attention warnings in states where we have sites:{' '}
+                      <p className="mb-3 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
+                        High-attention warnings whose area we cannot resolve, in states where we have sites:{' '}
                         {bomHighStates.map((x) => `${x.state} — ${x.total} site${x.total === 1 ? '' : 's'}${x.tier1 ? ` (${x.tier1} Tier 1)` : ''}`).join('; ')}.
                         These warnings name districts, not places — check whether our sites fall inside the affected area.
                       </p>
                     )}
-                    <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                       {bomWarnings.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <div key={alert.id} className={`flex flex-col gap-3 ${selectedAlert?.id === alert.id ? 'xl:col-span-2' : ''}`}>
+                          <HighSeverityCard alert={alert} isMuted={mutedAlertIds.has(alert.id)} attention={bomAttentionLevel(alert.headline, alert.alertType)} area={bomAreaByAlert.get(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                          {inlineDetail(alert)}
+                        </div>
                       ))}
                     </div>
-                  </Card>
                   </section>
                 )}
 
                 {informationalAlerts.length > 0 && (
                   <section aria-labelledby="alerts-informational" data-alert-state="informational">
-                  <Card>
-                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
-                    <div className="flex flex-col gap-3">
-                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
-                    </div>
-                  </Card>
+                    {/* Collapsed by default, and one line per alert when open:
+                        these are lower-level or unclassified notices, and a long
+                        list of full cards pushes real warnings and the status of
+                        our sites off screen. */}
+                    <details className="rounded-md border border-wb-line bg-wb-surface px-4 py-3">
+                      <summary className="cursor-pointer rounded text-wb-body font-semibold text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                        <span id="alerts-informational">Informational</span> · {informationalAlerts.length} · no immediate action · show
+                      </summary>
+                      <ul className="mt-2">
+                        {informationalAlerts.map((alert) => (
+                          <Fragment key={alert.id}>
+                            <CompactAlertRow alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                            {selectedAlert?.id === alert.id && <li className="py-2">{inlineDetail(alert)}</li>}
+                          </Fragment>
+                        ))}
+                      </ul>
+                    </details>
                   </section>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <SitesPanel
-                    sites={sites}
-                    sitesError={sitesError}
-                    affected={affectedSites}
-                    unmatchedByState={unmatchedByState}
-                    onSelectAlert={selectAndMaybeSwitch}
-                  />
-
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {(adviceCount > 0 || unknownCount > 0) && (
                     <Card>
-                      <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
+                      <h2 className="font-sans text-wb-lead font-bold normal-case tracking-normal text-wb-ink">Other active alerts</h2>
                       <div className="mt-2 flex flex-col gap-1 text-wb-label text-wb-ink2">
                         {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
                         {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
@@ -1033,7 +1215,7 @@ export default function EmergencyAlertsWorkbench() {
                         onClick={() => setView('browse')}
                         className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                       >
-                        Browse all alerts →
+                        See all alerts →
                       </button>
                     </Card>
                   )}
@@ -1126,14 +1308,15 @@ export default function EmergencyAlertsWorkbench() {
               </>
             )}
 
-            {selectedAlert && (
+            {selectedAlert && view !== 'overview' && (
               <div ref={detailPanelRef} className="scroll-mt-24">
-                <AlertDetailPanel alert={selectedAlert} onClose={() => setSelectedAlertId(null)} />
+                <AlertDetailPanel alert={selectedAlert} isMuted={mutedAlertIds.has(selectedAlert.id)} onClose={() => setSelectedAlertId(null)} />
               </div>
             )}
           </>
         )}
       </div>
+      <p className="mt-8 text-center text-wb-label text-wb-ink2">Official Australian emergency information, prioritised by what may require attention now.</p>
     </WorkbenchShell>
   );
 }

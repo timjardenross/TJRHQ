@@ -5,7 +5,8 @@ notes: >
   Baseline permissive manifest. No action-specific restrictions defined.
   get_capacity_gate_rules() reads a capacity_gates key from this manifest
   but has zero callers in the repo (dead code) — left absent rather than
-  invented. Tighten allowed_actions/disallowed_actions/requires_captain/
+  invented. Capacity gating itself was removed on 2026-11-02, so no
+  capacity_gates policy is planned. Tighten allowed_actions/disallowed_actions/requires_captain/
   requires_xo/requires_number_one deliberately, action by action, as real
   policy is decided.
 allowed_actions: []

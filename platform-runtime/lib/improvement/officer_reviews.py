@@ -57,12 +57,14 @@ REVIEW_SCHEDULE: dict[str, str] = {
 # ── Human Systems Review ──────────────────────────────────────────────────────
 
 def review_human_systems(ctx: Any) -> list[ImprovementOpportunity]:
-    """Human Systems Officer — capacity governance improvement review."""
+    """Human Systems Officer — capacity reading improvement review.
+
+    Capacity no longer triggers gate or recovery actions (owner decision 2026-11-02),
+    so the old checks that looked for those actions are gone."""
     opportunities: list[ImprovementOpportunity] = []
 
     status = getattr(ctx, "capacity_status", "Unknown")
     score = getattr(ctx, "capacity_score", None)
-    actions = getattr(ctx, "capacity_actions", [])
 
     # Missing capacity data — no log entry for today
     if status == "Unknown" or score is None:
@@ -73,37 +75,8 @@ def review_human_systems(ctx: Any) -> list[ImprovementOpportunity]:
             category=ImprovementCategory.AUTOMATION,
             suggested_action="Automate daily capacity log entry or create reminder mission",
             estimated_effort="low",
-            expected_benefit="Capacity gate runs every cycle with valid data",
+            expected_benefit="A capacity reading is available every cycle",
         ))
-
-    # Capacity in Amber/Red AND gate emitted more than 3 actions — complexity signal
-    if status in ("Amber", "Red") and len(actions) > 3:
-        opportunities.append(ImprovementOpportunity(
-            source_officer="human_systems",
-            domain="capacity_governance",
-            observation=(
-                f"Capacity at {status} with {len(actions)} gate actions emitted. "
-                "Recovery pattern may benefit from structured protocol."
-            ),
-            category=ImprovementCategory.RISK,
-            suggested_action="Define and implement documented capacity recovery protocol",
-            estimated_effort="medium",
-            expected_benefit="Faster, consistent recovery when capacity degrades",
-        ))
-
-    # Capacity Red but no recovery trigger found in actions
-    if status == "Red":
-        recovery_actions = [a for a in actions if a.get("type") == "trigger_recovery"]
-        if not recovery_actions:
-            opportunities.append(ImprovementOpportunity(
-                source_officer="human_systems",
-                domain="capacity_governance",
-                observation="RED capacity detected but no recovery protocol triggered",
-                category=ImprovementCategory.RISK,
-                suggested_action="Review and test RED capacity recovery trigger mechanism",
-                estimated_effort="low",
-                expected_benefit="Recovery protocol fires reliably under RED conditions",
-            ))
 
     return opportunities
 

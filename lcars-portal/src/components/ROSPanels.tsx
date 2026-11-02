@@ -180,7 +180,7 @@ function MissionLoadGuidance({ posture, mlg }: { posture: RecoveryPostureBand; m
         {mlg.decisions_pending > 0 && (
           <div className="rounded-lg border border-wb-line bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink">
             <span className="text-wb-ink2">Decisions · </span>
-            {mlg.decisions_pending} pending — {mlg.defer_decisions ? 'defer to tomorrow if capacity allows' : 'within capacity to address'}
+            {mlg.decisions_pending} pending — {mlg.defer_decisions ? 'can wait until tomorrow if you prefer' : 'within capacity to address'}
           </div>
         )}
       </div>

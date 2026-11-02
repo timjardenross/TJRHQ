@@ -340,6 +340,26 @@ else
   echo "$LOG_PREFIX WARNING: lcars-portal.service has no ActiveEnterTimestamp (never started / wrong unit name?) - skipping staleness check for it" >&2
 fi
 
+# 2026-11-02: a staleness restart of intelligence-scheduler at 07:00:30 killed
+# _morning_brief_job 30s into its run (triggered 07:00:00, process exited
+# status=1 mid-job) - the 07:00 Captain's brief was never sent, and nothing
+# re-fires a cron job missed by a restart. Hold restarts of the services that
+# run/serve the briefs while a brief window is open; staleness persists, so
+# the next 5-minute cycle after the window closes restarts them as normal.
+# Windows (Australia/Melbourne): 06:55-07:10 (morning + Monday weekly),
+# 12:25-12:40 (midday), 17:55-18:10 (EOD) - see intelligence/scheduler.py.
+BRIEF_PROTECTED_SERVICES="intelligence-scheduler.service context-service.service"
+
+in_brief_window() {
+  local hm mins
+  hm="$(TZ=Australia/Melbourne date +%H:%M)"
+  mins=$((10#${hm%%:*} * 60 + 10#${hm##*:}))
+  # 06:55-07:10 = 415-430, 12:25-12:40 = 745-760, 17:55-18:10 = 1075-1090
+  { [ "$mins" -ge 415 ] && [ "$mins" -le 430 ]; } ||
+  { [ "$mins" -ge 745 ] && [ "$mins" -le 760 ]; } ||
+  { [ "$mins" -ge 1075 ] && [ "$mins" -le 1090 ]; }
+}
+
 if [ -f "$SERVICES_CONF" ]; then
   REPO_COMMIT_TS="$(newest_commit_epoch)"
   while IFS= read -r line; do
@@ -351,6 +371,14 @@ if [ -f "$SERVICES_CONF" ]; then
     fi
     if svc_start_ts="$(unit_active_since_epoch "$svc")"; then
       if [ "$REPO_COMMIT_TS" -gt "$svc_start_ts" ]; then
+        case " $BRIEF_PROTECTED_SERVICES " in
+          *" $svc "*)
+            if in_brief_window; then
+              echo "$LOG_PREFIX HOLD $svc: stale but a Captain's brief window is open - deferring restart to a later cycle"
+              continue
+            fi
+            ;;
+        esac
         echo "$LOG_PREFIX $svc is stale (running since before the newest repo commit) - restarting"
         "$SYSTEMCTL" restart "$svc" || echo "$LOG_PREFIX WARNING: restart failed for $svc (wrong/stale unit name?)" >&2
       fi

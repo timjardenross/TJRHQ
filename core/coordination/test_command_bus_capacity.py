@@ -52,15 +52,15 @@ class TestCriticalAlwaysPushesRegardlessOfCapacity:
         assert route_mock.call_args[0][0] == "CRITICAL"
 
 
-class TestHighDefersOnRedNotDropped:
-    def test_high_does_not_push_on_red_capacity(self):
+class TestHighIsNeverHeldByCapacity:
+    def test_high_still_pushes_on_red_capacity(self):
         conn = _memory_conn()
         with mock.patch.object(cb, "_get_number_one_brief", return_value=_brief_with("HIGH")), \
              mock.patch.object(cb, "_capacity_status", return_value="Red"), \
              mock.patch.object(cb, "_in_number_one_quiet_hours", return_value=False), \
              mock.patch.object(cb, "_route", return_value=True) as route_mock:
             cb._rule_number_one_escalations(conn, client=None)
-        route_mock.assert_not_called()
+        route_mock.assert_called_once()
 
     def test_high_pushes_normally_on_green_capacity(self):
         conn = _memory_conn()
@@ -82,37 +82,6 @@ class TestHighDefersOnRedNotDropped:
              mock.patch.object(cb, "_in_number_one_quiet_hours", return_value=False), \
              mock.patch.object(cb, "_route", return_value=True) as route_mock:
             cb._rule_number_one_escalations(conn, client=None)
-        route_mock.assert_called_once()
-
-    def test_deferred_high_is_not_dropped_and_pushes_once_capacity_recovers(self):
-        """The core "deferred, not dropped" guarantee: an escalation
-        suppressed on Red must still be eligible to push on a later cycle
-        once capacity recovers -- proven by running two cycles against the
-        same in-memory event store, exactly as the live watchdog's
-        poll loop would."""
-        conn = _memory_conn()
-        brief = _brief_with("HIGH", mission_id="MSN-RECOVER")
-
-        with mock.patch.object(cb, "_get_number_one_brief", return_value=brief), \
-             mock.patch.object(cb, "_capacity_status", return_value="Red"), \
-             mock.patch.object(cb, "_in_number_one_quiet_hours", return_value=False), \
-             mock.patch.object(cb, "_route", return_value=True) as route_mock:
-            cb._rule_number_one_escalations(conn, client=None)  # cycle 1: Red -> deferred
-        route_mock.assert_not_called()
-
-        # Confirm it's still an open, un-notified event (not silently lost).
-        row = conn.execute(
-            "SELECT notif_count, resolved_at FROM bus_events WHERE event_key LIKE 'number_one_escalation:%MSN-RECOVER'"
-        ).fetchone()
-        assert row is not None
-        assert row["notif_count"] == 0
-        assert row["resolved_at"] is None
-
-        with mock.patch.object(cb, "_get_number_one_brief", return_value=brief), \
-             mock.patch.object(cb, "_capacity_status", return_value="Green"), \
-             mock.patch.object(cb, "_in_number_one_quiet_hours", return_value=False), \
-             mock.patch.object(cb, "_route", return_value=True) as route_mock:
-            cb._rule_number_one_escalations(conn, client=None)  # cycle 2: Green -> pushes
         route_mock.assert_called_once()
 
 

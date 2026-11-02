@@ -235,8 +235,10 @@ class TestCrossSurfaceFixture:
         # differs, but per Mission 2's own canonical semantics both apply no
         # per-item note here (see attention_state._capacity_note_and_category) —
         # what must NOT happen is Unknown ever being MORE permissive than Amber.
-        if results_by_capacity["Red"] and results_by_capacity["Red"][0].category.value != "needs_now":
-            assert results_by_capacity["Red"][0].category.value == "can_wait", "Red demotes non-critical items"
+        # Owner decision 2026-11-02: capacity never demotes anything; Red gives the same
+        # category as Green (it may add an advisory note).
+        assert [i.category for i in results_by_capacity["Red"]] == [i.category for i in results_by_capacity["Green"]], \
+            "Red must not demote items"
 
         # ── 8. COMPLETION: disappears from active attention, provenance retained.
         completed_task = {**task_row, "work_state": "completed"}

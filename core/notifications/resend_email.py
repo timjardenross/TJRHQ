@@ -66,22 +66,39 @@ def _running_under_tests() -> bool:
     return bool(os.environ.get("PYTEST_CURRENT_TEST"))
 
 
-def send_email(to: str, subject: str, html: str, from_addr: str | None = None, timeout: int = 15) -> bool:
+# Why the most recent send_email call failed (None after a success). Read by
+# intelligence/emergency_alerts.py so the workbench can say WHY an emergency email
+# did not go out. Module state is safe here: sends run one at a time from the
+# single-threaded ingestion job. Never holds the API key or request headers.
+last_failure: str | None = None
+
+
+def _fail(reason: str) -> bool:
+    global last_failure
+    last_failure = reason[:200]
+    return False
+
+
+def send_email(to: str, subject: str, html: str, from_addr: str | None = None, timeout: int = 15, cc: str | None = None, text: str | None = None) -> bool:
     """Send one email via Resend. Returns True on success, False on any
     failure (missing key, transport error, non-2xx response, or running
-    under a test runner — see _running_under_tests) — never raises."""
+    under a test runner — see _running_under_tests) — never raises. The reason
+    for a failure is left in `last_failure`."""
+    global last_failure
     if _running_under_tests() and os.environ.get("RESEND_EMAIL_ALLOW_IN_TESTS", "").strip().lower() not in ("1", "true", "yes"):
         log.warning("[resend-email] running under a test runner — refusing to send a real email "
                     "(set RESEND_EMAIL_ALLOW_IN_TESTS=1 to override for a deliberate live-send test)")
-        return False
+        return _fail("refused: running under a test runner")
 
     if not _API_KEY:
         log.warning("[resend-email] RESEND_API_KEY not configured — email not sent")
-        return False
+        return _fail("RESEND_API_KEY is not configured")
 
     body = json.dumps({
         "from": from_addr or _DEFAULT_FROM,
         "to": [to],
+        **({"cc": [cc]} if cc else {}),
+        **({"text": text} if text else {}),
         "subject": subject,
         "html": html,
     }).encode("utf-8")
@@ -103,11 +120,12 @@ def send_email(to: str, subject: str, html: str, from_addr: str | None = None, t
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - req.url is the hardcoded https://api.resend.com/emails literal, not user input - reviewed 2026-09-12
             resp.read()
+            last_failure = None
             return True
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
         log.warning("[resend-email] send failed: HTTP %s %s", exc.code, detail[:300])
-        return False
+        return _fail(f"Resend rejected the send: HTTP {exc.code} {detail[:120]}".strip())
     except (urllib.error.URLError, OSError) as exc:
         log.warning("[resend-email] send failed: %s", exc)
-        return False
+        return _fail(f"could not reach Resend: {type(exc).__name__}")

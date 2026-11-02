@@ -21,9 +21,9 @@ def _feed(entry_inner: str) -> bytes:
     ).encode()
 
 
-def _info(headline="TAILEM BEND : STRUCTURE FIRE", warning="Incident", status="Going") -> str:
+def _info(headline="TAILEM BEND : GRASS FIRE", warning="Incident", status="Going", event="Fire") -> str:
     return (
-        "<category>Fire</category><event>Structure Fire</event>"
+        f"<category>Fire</category><event>{event}</event>"
         f"<headline>{headline}</headline><description>Not Available</description>"
         f"<parameter><valueName>WarningLevel</valueName><value>{warning}</value></parameter>"
         f"<parameter><valueName>Status</valueName><value>{status}</value></parameter>"
@@ -58,3 +58,13 @@ def test_feed_retirement_notice_raises():
 
 def test_uses_the_official_cap_au_url_not_the_retired_one():
     assert sa_cfs._FEED_URL == "https://data.eso.sa.gov.au/feeds/prod/cap-au.xml"
+
+
+def test_planned_burn_off_is_dropped_but_other_fires_stay():
+    assert sa_cfs.parse(_feed(_info(headline="MOUNT BARKER : BURN OFF"))) == []
+    assert len(sa_cfs.parse(_feed(_info(headline="NORWOOD : STRUCTURE FIRE")))) == 1
+
+
+def test_structure_fires_are_dropped_like_vic_and_wa():
+    assert sa_cfs.parse(_feed(_info(headline="NORWOOD : STRUCTURE FIRE", event="Structure Fire"))) == []
+    assert len(sa_cfs.parse(_feed(_info()))) == 1

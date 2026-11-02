@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
@@ -43,29 +43,30 @@ from telegram_bots.capacitybot.capacity_today import (
     SENSORY_RESPONSE_OPTIONS,
     UNHELPFUL_ACTIONS_OPTIONS,
     base_from,
+    kb_after_quick,
     kb_body_signal_clarity,
     kb_burnout_framing,
     kb_capacity,
+    kb_cpap,
+    kb_deep_emotional,
     kb_deep_multiselect,
-    kb_emotional,
+    kb_deep_social,
     kb_multiselect,
     kb_natural_regulation,
     kb_predictability,
     kb_sensory_channel_response,
-    kb_sleep,
-    kb_social,
     kb_suppressed_regulation,
     parse_cb,
     q_active_loads,
     q_body_signal_clarity,
     q_burnout_framing,
     q_capacity,
+    q_cpap,
     q_emotional,
     q_executive_function,
     q_natural_regulation,
     q_predictability,
     q_sensory_channel_response,
-    q_sleep,
     q_social,
     q_suppressed_regulation,
     render_multiselect_question,
@@ -314,16 +315,19 @@ def test_write_deep_checkin_body_clarity_and_predictability():
     check("predictability decoded", payload.get("predictability") == "lots_changing")
 
 
-def test_deep_callback_mp_writes_early_and_asks_burnout_framing():
-    print("\n── handle_capacity_deep_callback — mp answered -> asks burnout framing ─")
+def test_deep_callback_mp_writes_early_and_asks_emotional_load():
+    print("\n── handle_capacity_deep_callback — mp answered -> asks emotional load ─")
     from telegram_bots.capacitybot.app import handle_capacity_deep_callback
 
     update, context, query = _make_update_and_context("ctd|id=99|lc=p|uc=y|mp=n")
-    asyncio.run(handle_capacity_deep_callback(update, context))
+    # The handler writes the row as soon as mp is answered. Without a mocked database it would hit
+    # the real client and reply "Could not save", so this test only passed with live credentials.
+    with patch("telegram_bots.capacitybot.app._get_supabase", return_value=MagicMock()):
+        asyncio.run(handle_capacity_deep_callback(update, context))
 
     text_arg = query.edit_message_text.call_args[0][0]
-    check("asks the burnout-framing question next, not recovery duration",
-          "frame this period" in text_arg.lower())
+    check("asks emotional load next (moved here from the quick check-in), not recovery duration",
+          "emotional load" in text_arg.lower())
     kb_arg = query.edit_message_text.call_args[1].get("reply_markup")
     check("next screen's base is id-only (no lc/uc/mp chained on)",
           all("lc=" not in b.callback_data for row in kb_arg.inline_keyboard for b in row))
@@ -675,66 +679,89 @@ def test_cmd_message_intercepts_pending_deep_note():
 
 # ── Sleep / Emotional / Social (2026-08-22 workbench data-gap review) ────────
 
-def test_q_sleep_lists_all_5_buckets():
-    print("\n── q_sleep — all 5 hour buckets in body ──────────────────────────")
-    text = q_sleep()
-    for bucket in ("Under 5h", "5-6h", "6-7h", "7-8h", "8h+"):
-        check(f"'{bucket}' present", bucket in text)
+def test_q_cpap_asks_yes_no_with_skip():
+    print("\n── q_cpap — one yes/no question, skippable ───────────────────────")
+    text = q_cpap()
+    check("asks about CPAP", "cpap" in text.lower())
+    for label in ("Yes", "No", "Skip"):
+        check(f"'{label}' present", label in text)
+    check("no hour buckets any more", "5-6h" not in text)
 
 
-def test_kb_sleep_callbacks_have_bare_base():
-    print("\n── kb_sleep — always the true start of the flow (bare 'ct' base) ─")
-    kb = kb_sleep()
-    first_cb = kb.inline_keyboard[0][0].callback_data
-    check("callback has no prior fields, just sl=", first_cb == "ct|sl=u5")
+def test_kb_cpap_callbacks_have_bare_base():
+    print("\n── kb_cpap — always the true start of the flow (bare 'ct' base) ──")
+    cbs = [b.callback_data for row in kb_cpap().inline_keyboard for b in row]
+    check("callbacks have no prior fields, just cx=", cbs == ["ct|cx=y", "ct|cx=n", "ct|cx=x"])
 
 
-def test_kb_capacity_carries_sleep_forward_when_present():
-    print("\n── kb_capacity(f) — carries sl forward after the sleep question ──")
-    kb_with_sleep = kb_capacity({"sl": "u5"})
-    cb = kb_with_sleep.inline_keyboard[0][0].callback_data
-    check("sl carried into the capacity callback", cb.startswith("ct|sl=u5|c="))
-
-    kb_without = kb_capacity()
-    cb2 = kb_without.inline_keyboard[0][0].callback_data
-    check("no sl segment when the sleep question wasn't asked (repeat check-ins)", cb2 == "ct|c=g")
+def test_kb_capacity_carries_cpap_forward_when_present():
+    print("\n── kb_capacity(f) — carries cx forward after the CPAP question ───")
+    cb = kb_capacity({"cx": "y"}).inline_keyboard[0][0].callback_data
+    check("cx carried into the capacity callback", cb.startswith("ct|cx=y|c="))
+    cb2 = kb_capacity().inline_keyboard[0][0].callback_data
+    check("no cx segment when the question wasn't asked (repeat check-ins)", cb2 == "ct|c=g")
 
 
-def test_emotional_question_sits_between_regulation_and_executive_function():
-    print("\n── kb_emotional/kb_executive_function — base_from() threads em correctly ─")
+def test_emotional_question_is_in_go_deeper():
+    print("\n── q_emotional/kb_deep_emotional — write-through, id-only base ────")
     text = q_emotional()
     for label in ("Light", "Moderate", "Heavy", "Overwhelming"):
         check(f"emotional option '{label}' in body", label in text)
-
-    kb_em = kb_emotional({"c": "g", "t": "b", "p": "l", "ps": "5", "r": "s"})
-    em_cb = kb_em.inline_keyboard[0][0].callback_data
-    check("emotional callback carries every prior field", em_cb == "ct|c=g|t=b|p=l|ps=5|r=s|em=l")
-
-    from telegram_bots.capacitybot.capacity_today import kb_executive_function
-    kb_ef = kb_executive_function({"c": "g", "t": "b", "p": "l", "ps": "5", "r": "s", "em": "m"})
-    ef_cb = kb_ef.inline_keyboard[0][0].callback_data
-    check("executive_function callback carries em forward too", "em=m" in ef_cb and ef_cb.startswith("ct|c=g|t=b|p=l|ps=5|r=s|em=m|e="))
+    cbs = [b.callback_data for row in kb_deep_emotional("42").inline_keyboard for b in row]
+    check("deep base is id-only", cbs[0] == "ctd|id=42|em=l")
+    check("skippable", cbs[-1] == "ctd|id=42|em=x")
 
 
-def test_q_social_and_kb_social():
-    print("\n── q_social/kb_social — phase-2 shape, matches kb_compensation ──")
+def test_q_social_and_kb_deep_social():
+    print("\n── q_social/kb_deep_social — write-through, id-only base ─────────")
     text = q_social()
     for label in ("Plenty", "Some", "Limited", "None left"):
         check(f"social option '{label}' in body", label in text)
-    kb = kb_social("ct|id=42")
-    cb = kb.inline_keyboard[0][0].callback_data
-    check("id-based base carried through", cb == "ct|id=42|so=g")
-    done_cb = kb.inline_keyboard[-1][0].callback_data
-    check("has a Done row like other phase-2 single-selects", done_cb == "ct|id=42|done=1")
+    cbs = [b.callback_data for row in kb_deep_social("42").inline_keyboard for b in row]
+    check("deep base is id-only", cbs[0] == "ctd|id=42|so=g")
+    check("skippable", cbs[-1] == "ctd|id=42|so=x")
+
+
+def test_kb_after_quick_offers_suggestions_as_an_option():
+    print("\n── kb_after_quick — suggestions are optional, not a question ─────")
+    cbs = [b.callback_data for row in kb_after_quick("42").inline_keyboard for b in row]
+    check("offers suggestions", "ct|id=42|sug=1" in cbs)
+    check("offers go deeper", "ctd|id=42" in cbs)
 
 
 def test_base_from_includes_new_fields_in_canonical_order():
     print("\n── base_from — sl/em/so slot into _FIELD_ORDER correctly ────────")
-    f = {"sl": "u5", "c": "g", "t": "b", "em": "l", "e": "g", "so": "m"}
+    f = {"sl": "u5", "cx": "y", "c": "g", "t": "b", "em": "l", "e": "g", "so": "m"}
     base = base_from(f)
     check("sleep first", base.index("sl=") < base.index("c="))
+    check("cpap before capacity", base.index("cx=") < base.index("c=g"))
     check("emotional between regulation-slot and executive_function", base.index("em=") < base.index("e="))
     check("social present", "so=m" in base)
+
+
+def test_write_quick_checkin_stores_cpap_and_skip_stores_nothing():
+    print("\n── write_quick_checkin — cpap_used true/false, skip stores nothing ─")
+    for code, expected in (("y", True), ("n", False)):
+        db, table = _make_db()
+        asyncio.run(write_quick_checkin(db, {"id": "7", "cx": code}))
+        check(f"cx={code} -> {expected}", table.update.call_args[0][0].get("cpap_used") is expected)
+    db, table = _make_db()
+    asyncio.run(write_quick_checkin(db, {"id": "7", "cx": "x"}))
+    check("skip -> nothing stored", "cpap_used" not in table.update.call_args[0][0])
+
+
+def test_write_deep_checkin_stores_emotional_and_social_and_skip_stores_nothing():
+    print("\n── write_deep_checkin — emotional/social moved here ──────────────")
+    db, table = _make_db()
+    asyncio.run(write_deep_checkin(db, "7", {"em": "h"}))
+    check("emotional stored", table.update.call_args[0][0].get("emotional_state") == "heavy")
+    db, table = _make_db()
+    asyncio.run(write_deep_checkin(db, "7", {"so": "n"}))
+    check("social stored", table.update.call_args[0][0].get("social_state") == "none")
+    db, table = _make_db()
+    asyncio.run(write_deep_checkin(db, "7", {"em": "x", "so": "x"}))
+    payload = table.update.call_args[0][0]
+    check("skip stores nothing", "emotional_state" not in payload and "social_state" not in payload)
 
 
 def test_write_quick_checkin_maps_new_fields():
@@ -751,8 +778,9 @@ def test_render_summary_includes_new_fields_when_present():
     print("\n── render_summary — sleep/emotional/social shown when present ───")
     from telegram_bots.capacitybot.capacity_today import render_summary
     text = render_summary({
-        "sleep_state": "under_5", "emotional_state": "overwhelming", "social_state": "plenty",
+        "sleep_state": "under_5", "emotional_state": "overwhelming", "social_state": "plenty", "cpap_used": False,
     })
+    check("cpap line present", "CPAP: No" in text)
     check("sleep line present", "Under 5h" in text)
     check("emotional line present", "Overwhelming" in text)
     check("social line present", "Plenty" in text)
@@ -771,8 +799,8 @@ def _make_capacity_db(today_checkin_rows=None):
     return db, table
 
 
-def test_cmd_capacity_asks_sleep_on_first_checkin_of_day():
-    print("\n── cmd_capacity — first check-in today asks sleep first ─────────")
+def test_cmd_capacity_asks_cpap_on_first_checkin_of_day():
+    print("\n── cmd_capacity — first check-in today asks the CPAP question first ─")
     import telegram_bots.capacitybot.app as app_module
     from telegram_bots.capacitybot.app import cmd_capacity
 
@@ -785,11 +813,11 @@ def test_cmd_capacity_asks_sleep_on_first_checkin_of_day():
     asyncio.run(cmd_capacity(update, context))
 
     text_sent = update.message.reply_text.call_args[0][0]
-    check("asks about sleep, not capacity, on the first check-in", "sleep" in text_sent.lower())
+    check("asks about CPAP, not capacity, on the first check-in", "cpap" in text_sent.lower())
     app_module._supabase = None
 
 
-def test_cmd_capacity_skips_sleep_on_repeat_checkin():
+def test_cmd_capacity_skips_cpap_on_repeat_checkin():
     print("\n── cmd_capacity — later check-ins today skip straight to capacity ─")
     from datetime import datetime
     from zoneinfo import ZoneInfo
@@ -807,7 +835,7 @@ def test_cmd_capacity_skips_sleep_on_repeat_checkin():
     asyncio.run(cmd_capacity(update, context))
 
     text_sent = update.message.reply_text.call_args[0][0]
-    check("asks about capacity directly, sleep already answered today", "capacity right now" in text_sent.lower())
+    check("asks about capacity directly, CPAP already answered today", "capacity right now" in text_sent.lower())
     app_module._supabase = None
 
 
@@ -825,29 +853,29 @@ def _make_cb_update_and_context(callback_data: str):
     return update, context, query
 
 
-def test_handle_capacity_callback_sleep_then_capacity_then_stimulation():
-    print("\n── handle_capacity_callback — sl -> c -> t chain ─────────────────")
+def test_handle_capacity_callback_cpap_then_capacity_then_stimulation():
+    print("\n── handle_capacity_callback — cx -> c -> t chain ─────────────────")
     import telegram_bots.capacitybot.app as app_module
     from telegram_bots.capacitybot.app import handle_capacity_callback
 
     app_module._supabase = MagicMock()
 
-    update, context, query = _make_cb_update_and_context("ct|sl=u5")
+    update, context, query = _make_cb_update_and_context("ct|cx=y")
     asyncio.run(handle_capacity_callback(update, context))
     text1 = query.edit_message_text.call_args[0][0]
-    check("after sleep, asks capacity", "capacity right now" in text1.lower())
+    check("after CPAP, asks capacity", "capacity right now" in text1.lower())
     kb1 = query.edit_message_text.call_args[1]["reply_markup"]
-    check("capacity buttons still carry sl forward", kb1.inline_keyboard[0][0].callback_data.startswith("ct|sl=u5|c="))
+    check("capacity buttons still carry cx forward", kb1.inline_keyboard[0][0].callback_data.startswith("ct|cx=y|c="))
 
-    update, context, query = _make_cb_update_and_context("ct|sl=u5|c=g")
+    update, context, query = _make_cb_update_and_context("ct|cx=y|c=g")
     asyncio.run(handle_capacity_callback(update, context))
     text2 = query.edit_message_text.call_args[0][0]
     check("after capacity, asks stimulation", "stimulation" in text2.lower())
     app_module._supabase = None
 
 
-def test_handle_capacity_callback_regulation_then_emotional_then_ef():
-    print("\n── handle_capacity_callback — r -> em -> e chain ─────────────────")
+def test_handle_capacity_callback_regulation_goes_straight_to_executive_function():
+    print("\n── handle_capacity_callback — r -> e (emotional moved to Go deeper) ─")
     import telegram_bots.capacitybot.app as app_module
     from telegram_bots.capacitybot.app import handle_capacity_callback
 
@@ -856,34 +884,81 @@ def test_handle_capacity_callback_regulation_then_emotional_then_ef():
     update, context, query = _make_cb_update_and_context("ct|c=g|t=b|p=l|ps=5|r=s")
     asyncio.run(handle_capacity_callback(update, context))
     text1 = query.edit_message_text.call_args[0][0]
-    check("after regulation (nervous system), asks emotional load", "emotional load" in text1.lower())
+    check("after regulation, asks executive function", "think, decide" in text1.lower())
+    check("emotional load is no longer asked in the quick check-in", "emotional load" not in text1.lower())
 
     update, context, query = _make_cb_update_and_context("ct|c=g|t=b|p=l|ps=5|r=s|em=l")
     asyncio.run(handle_capacity_callback(update, context))
     text2 = query.edit_message_text.call_args[0][0]
-    check("after emotional, asks executive function", "think, decide" in text2.lower())
+    check("an old in-flight emotional button still carries on to executive function", "think, decide" in text2.lower())
     app_module._supabase = None
 
 
-def test_handle_capacity_callback_active_loads_then_social_then_compensation():
-    print("\n── handle_capacity_callback — ld -> so -> cp chain (phase 2) ─────")
+def test_handle_capacity_callback_active_loads_then_compensation_then_summary_with_suggestions_option():
+    print("\n── handle_capacity_callback — ld -> cp -> summary + optional suggestions ──")
     import telegram_bots.capacitybot.app as app_module
     from telegram_bots.capacitybot.app import handle_capacity_callback
 
     db, table = _make_db()
+    table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[{"id": 42, "capacity_state": "orange"}])
     app_module._supabase = db
 
     update, context, query = _make_cb_update_and_context("ct|id=42|ld=0,1|next=1")
     asyncio.run(handle_capacity_callback(update, context))
     text1 = query.edit_message_text.call_args[0][0]
-    check("after active loads (next), asks social capacity, not compensation yet", "social capacity" in text1.lower())
+    check("after active loads (next), asks compensation (social moved to Go deeper)", "push, mask, or compensate" in text1.lower())
+    check("social capacity is no longer asked", "social capacity" not in text1.lower())
 
-    update, context, query = _make_cb_update_and_context("ct|id=42|so=m")
+    update, context, query = _make_cb_update_and_context("ct|id=42|cp=m")
     asyncio.run(handle_capacity_callback(update, context))
-    text2 = query.edit_message_text.call_args[0][0]
-    check("after social, asks compensation", "push, mask, or compensate" in text2.lower())
-    payload = table.update.call_args[0][0]
-    check("social_state written before moving on", payload.get("social_state") == "some")
+    check("compensation is written", table.update.call_args[0][0].get("compensation_load") == "moderate")
+    kb = query.edit_message_text.call_args[1]["reply_markup"]
+    cbs = [b.callback_data for row in kb.inline_keyboard for b in row]
+    check("the quick check-in ends with a summary and a suggestions button", "ct|id=42|sug=1" in cbs)
+    check("needs is not asked automatically", "what do you need" not in query.edit_message_text.call_args[0][0].lower())
+
+    update, context, query = _make_cb_update_and_context("ct|id=42|sug=1")
+    asyncio.run(handle_capacity_callback(update, context))
+    check("tapping suggestions asks what would help", "help your system" in query.edit_message_text.call_args[0][0].lower())
+    app_module._supabase = None
+
+
+def test_midday_is_one_tap():
+    print("\n── handle_midday_callback — capacity answer saves the check-in ───")
+    import telegram_bots.capacitybot.app as app_module
+    from telegram_bots.capacitybot.app import handle_midday_callback
+
+    db, table = _make_db()
+    app_module._supabase = db
+    update, context, query = _make_cb_update_and_context("cm|c=o")
+    asyncio.run(handle_midday_callback(update, context))
+    payload = table.insert.call_args[0][0]
+    check("saved on the first tap", payload.get("checkin_type") == "midday" and payload.get("capacity_state") == "orange")
+    check("no follow-up question", "saved" in query.edit_message_text.call_args[0][0].lower())
+    app_module._supabase = None
+
+
+def test_deep_callback_mp_now_asks_emotional_then_social_then_burnout_framing():
+    print("\n── handle_capacity_deep_callback — mp -> em -> so -> framing ─────")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    db, table = _make_db()
+    import telegram_bots.capacitybot.app as app_module
+    app_module._supabase = db
+
+    update, context, query = _make_update_and_context("ctd|id=99|lc=p|uc=y|mp=n")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+    check("after masking, asks emotional load", "emotional load" in query.edit_message_text.call_args[0][0].lower())
+
+    update, context, query = _make_update_and_context("ctd|id=99|em=h")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+    check("after emotional, asks social capacity", "social capacity" in query.edit_message_text.call_args[0][0].lower())
+    check("emotional written", table.update.call_args[0][0].get("emotional_state") == "heavy")
+
+    update, context, query = _make_update_and_context("ctd|id=99|so=x")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+    check("after social (skipped), asks burnout framing", "frame this period" in query.edit_message_text.call_args[0][0].lower())
     app_module._supabase = None
 
 
@@ -912,7 +987,7 @@ def main():
     test_write_deep_checkin_burnout_framing()
     test_write_deep_checkin_compensation_type_stores_canonical_values_not_labels()
     test_write_deep_checkin_body_clarity_and_predictability()
-    test_deep_callback_mp_writes_early_and_asks_burnout_framing()
+    test_deep_callback_mp_writes_early_and_asks_emotional_load()
     test_deep_callback_bf_asks_compensation_type_multiselect()
     test_deep_callback_cpt_continue_asks_body_signal_clarity()
     test_deep_callback_cpt_toggle_without_continue_redraws_multiselect()
@@ -941,19 +1016,24 @@ def main():
     test_reminder_callback_with_duration_schedules_job()
     test_cmd_message_intercepts_pending_deep_note()
 
-    test_q_sleep_lists_all_5_buckets()
-    test_kb_sleep_callbacks_have_bare_base()
-    test_kb_capacity_carries_sleep_forward_when_present()
-    test_emotional_question_sits_between_regulation_and_executive_function()
-    test_q_social_and_kb_social()
+    test_q_cpap_asks_yes_no_with_skip()
+    test_kb_cpap_callbacks_have_bare_base()
+    test_kb_capacity_carries_cpap_forward_when_present()
+    test_emotional_question_is_in_go_deeper()
+    test_q_social_and_kb_deep_social()
+    test_kb_after_quick_offers_suggestions_as_an_option()
+    test_write_quick_checkin_stores_cpap_and_skip_stores_nothing()
+    test_write_deep_checkin_stores_emotional_and_social_and_skip_stores_nothing()
     test_base_from_includes_new_fields_in_canonical_order()
     test_write_quick_checkin_maps_new_fields()
     test_render_summary_includes_new_fields_when_present()
-    test_cmd_capacity_asks_sleep_on_first_checkin_of_day()
-    test_cmd_capacity_skips_sleep_on_repeat_checkin()
-    test_handle_capacity_callback_sleep_then_capacity_then_stimulation()
-    test_handle_capacity_callback_regulation_then_emotional_then_ef()
-    test_handle_capacity_callback_active_loads_then_social_then_compensation()
+    test_cmd_capacity_asks_cpap_on_first_checkin_of_day()
+    test_cmd_capacity_skips_cpap_on_repeat_checkin()
+    test_handle_capacity_callback_cpap_then_capacity_then_stimulation()
+    test_handle_capacity_callback_regulation_goes_straight_to_executive_function()
+    test_handle_capacity_callback_active_loads_then_compensation_then_summary_with_suggestions_option()
+    test_midday_is_one_tap()
+    test_deep_callback_mp_now_asks_emotional_then_social_then_burnout_framing()
 
     passed = sum(1 for tag, _ in _results if tag == PASS)
     total = len(_results)

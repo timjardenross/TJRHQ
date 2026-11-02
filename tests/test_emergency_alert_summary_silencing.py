@@ -95,14 +95,31 @@ class TestRunSilencing:
     def test_unsilenced_alert_reaches_summary_generation(self):
         alerts = [_alert(id="a1", severity="watch_and_act")]
 
-        with patch.object(eas, "supabase_get", return_value=alerts), \
+        with patch.object(eas, "_DIGEST_HOUR_UTC", 0), \
+             patch.object(eas, "supabase_get", return_value=alerts), \
              patch.object(eas.alert_silences, "list_active_silences", return_value=[]), \
              patch.object(eas, "_get_state", return_value={"last_fingerprint": None, "last_sent_at": None}), \
              patch.object(eas, "_generate_summary", return_value=("summary text", "gemini")), \
-             patch.object(eas, "send_email", return_value=True), \
+             patch.object(eas, "send_email", return_value=True) as send, \
              patch.object(eas, "_set_state"), \
              patch.object(eas, "record_heartbeat"):
             result = eas.run()
 
         assert result["count"] == 1
         assert result["emailed"] is True
+        assert send.call_args.kwargs["subject"].startswith("[DIGEST] ")
+
+    def test_urgent_alerts_no_longer_trigger_an_hourly_send_before_the_digest_hour(self):
+        """Urgent alerts are emailed individually now; the digest waits for its hour."""
+        alerts = [_alert(id="a1", severity="emergency_warning")]
+
+        with patch.object(eas, "_DIGEST_HOUR_UTC", 25), \
+             patch.object(eas, "supabase_get", return_value=alerts), \
+             patch.object(eas.alert_silences, "list_active_silences", return_value=[]), \
+             patch.object(eas, "_get_state", return_value={"last_fingerprint": None, "last_sent_at": None}), \
+             patch.object(eas, "_generate_summary") as generate, \
+             patch.object(eas, "send_email", return_value=True) as send, \
+             patch.object(eas, "record_heartbeat"):
+            result = eas.run()
+
+        assert result["held_for_digest"] is True and not generate.called and not send.called

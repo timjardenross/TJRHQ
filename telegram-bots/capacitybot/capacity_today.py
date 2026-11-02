@@ -299,19 +299,20 @@ def _select_rows(base: str, key: str, options: list[tuple[str, str]],
 
 # ── Keyboard builders ──────────────────────────────────────────────────────────
 
-def q_sleep() -> str:
-    return render_question("How much sleep did you get last night?",
-                            [label for _, label in SLEEP_OPTIONS])
+CPAP_OPTIONS = [("y", "Yes"), ("n", "No"), ("x", "Skip")]
+CPAP_SHORT = {"y": "Yes", "n": "No", "x": "Skip"}
 
 
-def kb_sleep() -> InlineKeyboardMarkup:
+def q_cpap() -> str:
+    return render_question("Did you use your CPAP last night?",
+                            [label for _, label in CPAP_OPTIONS])
+
+
+def kb_cpap() -> InlineKeyboardMarkup:
     """Always the true start of the flow when shown (once per day, before
     capacity_state is even asked) — no prior fields to carry, base is
-    always bare "ct"."""
-    buttons = [InlineKeyboardButton(f"{i} · {SLEEP_SHORT[code]}", callback_data=f"ct|sl={code}")
-               for i, (code, _label) in enumerate(SLEEP_OPTIONS, 1)]
-    rows = [buttons[i:i + 3] for i in range(0, len(buttons), 3)]
-    return InlineKeyboardMarkup(rows)
+    always bare "ct". "x" (skip) stores nothing: unknown, never "no"."""
+    return InlineKeyboardMarkup(_select_rows("ct", "cx", CPAP_OPTIONS, CPAP_SHORT, per_row=3))
 
 
 def q_capacity() -> str:
@@ -372,10 +373,11 @@ def q_emotional() -> str:
                             [label for _, label in EMOTIONAL_OPTIONS])
 
 
-def kb_emotional(f: dict) -> InlineKeyboardMarkup:
-    base = base_from(f)
-    rows = _select_rows(base, "em", EMOTIONAL_OPTIONS, EMOTIONAL_SHORT, per_row=2)
-    rows.append(_done_row(base))
+def kb_deep_emotional(row_id: str) -> InlineKeyboardMarkup:
+    """Emotional load now lives in "Go deeper" (write-through, id-only base), not the quick
+    check-in. "x" skips without storing anything."""
+    rows = _select_rows(f"ctd|id={row_id}", "em", EMOTIONAL_OPTIONS + [("x", "Skip")],
+                        {**EMOTIONAL_SHORT, "x": "Skip"}, per_row=2)
     return InlineKeyboardMarkup(rows)
 
 
@@ -396,10 +398,11 @@ def q_social() -> str:
                             [label for _, label in SOCIAL_OPTIONS])
 
 
-def kb_social(base: str) -> InlineKeyboardMarkup:
-    """Phase 2 (id-based, write-through) — same shape as kb_compensation."""
-    rows = _select_rows(base, "so", SOCIAL_OPTIONS, SOCIAL_SHORT, per_row=2)
-    rows.append(_done_row(base))
+def kb_deep_social(row_id: str) -> InlineKeyboardMarkup:
+    """Social capacity now lives in "Go deeper" (write-through, id-only base), not the quick
+    check-in. "x" skips without storing anything."""
+    rows = _select_rows(f"ctd|id={row_id}", "so", SOCIAL_OPTIONS + [("x", "Skip")],
+                        {**SOCIAL_SHORT, "x": "Skip"}, per_row=2)
     return InlineKeyboardMarkup(rows)
 
 
@@ -488,6 +491,17 @@ def kb_actions(base: str, interventions: list[dict]) -> InlineKeyboardMarkup:
     ]
     rows.append([InlineKeyboardButton("⏭ Skip", callback_data=f"{base}|act=skip")])
     return InlineKeyboardMarkup(rows)
+
+
+def kb_after_quick(row_id: str) -> InlineKeyboardMarkup:
+    """Shown with the summary once compensation is answered: the quick check-in is finished, and
+    suggestions (needs, then a suggested action) are an optional extra instead of more questions."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💡 Want suggestions?", callback_data=f"ct|id={row_id}|sug=1")],
+        [InlineKeyboardButton("🔎 Go deeper", callback_data=f"ctd|id={row_id}")],
+        [InlineKeyboardButton("⏰ Remind me", callback_data=f"ctr|id={row_id}")],
+        [InlineKeyboardButton("Done", callback_data="ct|noop=1")],
+    ])
 
 
 def kb_go_deeper(row_id: str) -> InlineKeyboardMarkup:
@@ -891,6 +905,22 @@ EVENING_TRAJECTORY_SHORT = {"u": "Improved", "s": "About the same", "d": "Declin
 EVENING_DEBT_OPTIONS = [("n", "No"), ("m", "Maybe"), ("y", "Yes")]
 EVENING_DEBT_SHORT = {"n": "No", "m": "Maybe", "y": "Yes"}
 
+# Whole-day compensation (same four levels as the start-of-day question, plus Skip) and the
+# Captain's own "good day" answer (yes / kind of / no, plus Skip). "x" means skipped and stores
+# nothing: a missing answer is unknown, never bad. Stored in day_compensation_load / good_day
+# (migration 0247) on the evening row.
+EVENING_COMP_OPTIONS = COMPENSATION_OPTIONS + [("x", "Skip")]
+EVENING_COMP_SHORT = {**COMPENSATION_SHORT, "x": "Skip"}
+EVENING_GOOD_DAY_OPTIONS = [("y", "Yes"), ("k", "Kind of"), ("n", "No"), ("x", "Skip")]
+EVENING_GOOD_DAY_SHORT = {"y": "Yes", "k": "Kind of", "n": "No", "x": "Skip"}
+EVENING_GOOD_DAY_CODE_TO_STATE = {"y": "yes", "k": "kind_of", "n": "no"}
+_EVENING_KEY_ORDER = ("dt", "cp", "hf", "cd")
+
+
+def _evening_base(f: dict, keys: tuple[str, ...]) -> str:
+    """Callback prefix carrying the evening answers collected so far, in a fixed order."""
+    return "cte|" + "|".join(f"{k}={f[k]}" for k in keys if f.get(k) is not None)
+
 
 def q_evening_trajectory() -> str:
     return render_question("Did your capacity improve, stay the same, or decline today?",
@@ -902,12 +932,22 @@ def kb_evening_trajectory() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
+def q_evening_compensation() -> str:
+    return render_question("Looking back, how much did you have to push, mask, or compensate today?",
+                            [label for _, label in EVENING_COMP_OPTIONS])
+
+
+def kb_evening_compensation(f: dict) -> InlineKeyboardMarkup:
+    rows = _select_rows(_evening_base(f, ("dt",)), "cp", EVENING_COMP_OPTIONS, EVENING_COMP_SHORT, per_row=2)
+    return InlineKeyboardMarkup(rows)
+
+
 def q_evening_helpful() -> str:
     return render_question("What helped most?", DAY_WIN_HELPED_OPTIONS)
 
 
-def kb_evening_helpful(dt: str) -> InlineKeyboardMarkup:
-    base = f"cte|dt={dt}"
+def kb_evening_helpful(f: dict) -> InlineKeyboardMarkup:
+    base = _evening_base(f, ("dt", "cp"))
     buttons = [InlineKeyboardButton(f"{i} · {short}", callback_data=f"{base}|hf={i - 1}")
                for i, short in enumerate(DAY_WIN_HELPED_SHORT, 1)]
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
@@ -919,21 +959,26 @@ def q_evening_debt() -> str:
                             [label for _, label in EVENING_DEBT_OPTIONS])
 
 
-def kb_evening_debt(dt: str, hf: str) -> InlineKeyboardMarkup:
-    base = f"cte|dt={dt}|hf={hf}"
-    rows = _select_rows(base, "cd", EVENING_DEBT_OPTIONS, EVENING_DEBT_SHORT, per_row=3)
+def kb_evening_debt(f: dict) -> InlineKeyboardMarkup:
+    rows = _select_rows(_evening_base(f, ("dt", "cp", "hf")), "cd", EVENING_DEBT_OPTIONS, EVENING_DEBT_SHORT, per_row=3)
+    return InlineKeyboardMarkup(rows)
+
+
+def q_evening_good_day() -> str:
+    return render_question("Was today a good day?", [label for _, label in EVENING_GOOD_DAY_OPTIONS])
+
+
+def kb_evening_good_day(f: dict) -> InlineKeyboardMarkup:
+    rows = _select_rows(_evening_base(f, ("dt", "cp", "hf", "cd")), "gd",
+                        EVENING_GOOD_DAY_OPTIONS, EVENING_GOOD_DAY_SHORT, per_row=2)
     return InlineKeyboardMarkup(rows)
 
 
 # ── Midday micro check-in (checkin_type='midday') ───────────────────────────
-# Deliberately 2 taps, not the 9-question quick flow: a lunchtime pulse, not
+# Deliberately 1 tap, not the 9-question quick flow: a lunchtime pulse, not
 # a full reassessment. capacity_state (same options as the morning/anytime
-# quick check-in) plus unexpected_change (the deep-check column already on
-# the table, reused here rather than adding a new one) is the whole flow.
-
-YESNO_OPTIONS = [("1", "Yes"), ("0", "No")]
-YESNO_SHORT = {"1": "Yes", "0": "No"}
-
+# quick check-in) is the whole flow; the old "anything changed since this
+# morning?" follow-up was dropped (it was "yes" 3 times in 12 and nothing read it).
 
 def q_midday() -> str:
     return render_question("Midday check-in\n\nHow is your capacity right now?",
@@ -942,16 +987,6 @@ def q_midday() -> str:
 
 def kb_midday() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(_select_rows("cm", "c", CAPACITY_OPTIONS, CAPACITY_SHORT, per_row=3))
-
-
-def q_midday_change() -> str:
-    return "Anything changed since this morning?"
-
-
-def kb_midday_change(capacity_code: str) -> InlineKeyboardMarkup:
-    base = f"cm|c={capacity_code}"
-    rows = _select_rows(base, "uc", YESNO_OPTIONS, YESNO_SHORT, per_row=2)
-    return InlineKeyboardMarkup(rows)
 
 
 async def write_midday_checkin(db, f: dict) -> tuple[bool, str | None]:
@@ -1010,7 +1045,7 @@ def parse_cb(data: str) -> dict:
     return result
 
 
-_FIELD_ORDER = ["sl", "c", "t", "p", "ps", "r", "em", "e", "ld", "cp", "so", "nd"]
+_FIELD_ORDER = ["sl", "cx", "c", "t", "p", "ps", "r", "em", "e", "ld", "cp", "so", "nd"]
 
 
 def base_from(f: dict, keys: list[str] | None = None) -> str:
@@ -1066,7 +1101,9 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
 
     payload: dict = {"checkin_type": "capacity", "source": "telegram"}
     if f.get("sl"):
-        payload["sleep_state"] = SLEEP_CODE_TO_STATE.get(f["sl"])
+        payload["sleep_state"] = SLEEP_CODE_TO_STATE.get(f["sl"])  # only from old in-flight buttons
+    if f.get("cx") in ("y", "n"):
+        payload["cpap_used"] = f["cx"] == "y"  # "x" (skip) stores nothing
     if f.get("c"):
         payload["capacity_state"] = CAPACITY_CODE_TO_STATE.get(f["c"])
     if f.get("t"):
@@ -1138,6 +1175,10 @@ async def write_deep_checkin(db, row_id: str, f: dict) -> tuple[bool, str | None
         payload["unexpected_change"] = f["uc"] == "y"
     if f.get("mp"):
         payload["masking_present"] = f["mp"] == "y"
+    if f.get("em") in EMOTIONAL_CODE_TO_STATE:
+        payload["emotional_state"] = EMOTIONAL_CODE_TO_STATE[f["em"]]
+    if f.get("so") in SOCIAL_CODE_TO_STATE:
+        payload["social_state"] = SOCIAL_CODE_TO_STATE[f["so"]]
     # V3 burnout-tier fields (migration 0153) — see the section above
     # kb_deep_yesno for why these are written through individually rather
     # than accumulated with lc/uc/mp above.
@@ -1220,6 +1261,11 @@ async def write_evening(db, f: dict) -> tuple[bool, str | None]:
         "helpful_factor": helpful_factor,
         "capacity_debt": {"n": "no", "m": "maybe", "y": "yes"}.get(f.get("cd")),
     }
+    # Skipped ("x") or missing answers store nothing: unknown, never bad.
+    if f.get("cp") in COMP_CODE_TO_STATE:
+        payload["day_compensation_load"] = COMP_CODE_TO_STATE[f["cp"]]
+    if f.get("gd") in EVENING_GOOD_DAY_CODE_TO_STATE:
+        payload["good_day"] = EVENING_GOOD_DAY_CODE_TO_STATE[f["gd"]]
     try:
         db.table(TABLE).insert(payload).execute()
         try:
@@ -1239,6 +1285,8 @@ def render_summary(row: dict) -> str:
     lines = ["MY CAPACITY TODAY", ""]
     if row.get("sleep_state"):
         lines.append(f"Sleep: {SLEEP_LABEL.get(row['sleep_state'], row['sleep_state'])}")
+    if row.get("cpap_used") is not None:
+        lines.append(f"CPAP: {'Yes' if row['cpap_used'] else 'No'}")
     if row.get("capacity_state"):
         lines.append(f"Capacity: {CAPACITY_LABEL.get(row['capacity_state'], row['capacity_state'])}")
     if row.get("stimulation_state"):

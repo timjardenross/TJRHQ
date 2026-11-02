@@ -5,7 +5,7 @@
 // write personal_tasks (migration 0090, extended 0163/0165/0184). Same
 // WorkbenchShell + DomainToggle architecture as every other workbench.
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { useUrlSync } from '@/lib/useUrlSync';
@@ -14,24 +14,10 @@ import { WhatNeedsMeNow } from '@/components/WhatNeedsMeNow';
 import { DecomposeView } from './_components/DecomposeView';
 import { EYEBROW, isDomain, type Domain } from './_components/types';
 import { rankToday, taskAnalytics, type PersonalTask, type TaskAnalytics } from '@/lib/personalTasks';
-import { useHumanSystemsContext } from '@/lib/captainsChairData';
-import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
-
-// Mission 2 (Capacity & Attention Engine): the initial (unstick-vs-do)
-// mode defaults to today's Human Systems posture when the Captain hasn't
-// already chosen one -- RECOVER/RESET/PROTECT (reduced capacity) start on
-// Unstick Me, ENGAGE/STEADY (normal capacity) start on Do. This is Human
-// Systems INFORMING a default, never vetoing a choice (assessed-context.ts's
-// own "Human Systems informs, never vetoes" boundary, brief §7): an
-// explicit ?domain= URL param, or any click on the toggle, always wins and
-// is never overridden by a later posture read. UNKNOWN/loading posture
-// changes nothing -- Ready Room's pre-existing 'do' default stands.
-const REDUCED_CAPACITY_POSTURES: ReadonlySet<SystemPostureBand> = new Set(['RECOVER', 'RESET', 'PROTECT']);
 
 function Workbench() {
   const params = useSearchParams();
   const { writeParams } = useUrlSync('/ready-room');
-  const { context: humanSystems } = useHumanSystemsContext();
 
   // Mission 6B §8.4: Hub's Needs You deep-links a specific personal-task
   // Needs You item straight into Ready Room's execution surface via
@@ -58,17 +44,6 @@ function Workbench() {
   // mode so nav/switcher/tagline stop competing for attention mid-task.
   const [executing, setExecuting] = useState(false);
 
-  // Only a posture-driven default is allowed to move `domain` on its own --
-  // once the Captain has explicitly picked (URL param on load, or any
-  // toggle click), this effect must never fire again.
-  const captainHasChosen = useRef(hadExplicitDomain);
-  useEffect(() => {
-    if (captainHasChosen.current) return;
-    const posture = humanSystems?.posture;
-    if (!posture || posture === 'UNKNOWN') return; // no signal -- keep the pre-existing 'do' default
-    setDomain(REDUCED_CAPACITY_POSTURES.has(posture) ? 'unstick' : 'do');
-  }, [humanSystems?.posture]);
-
   const handleLoaded = useCallback((tasks: PersonalTask[]) => {
     setTodayBadge(rankToday(tasks).length);
     setTaskStates(tasks.reduce<Record<string, number>>((acc, task) => { acc[task.work_state] = (acc[task.work_state] ?? 0) + 1; return acc; }, {}));
@@ -76,7 +51,6 @@ function Workbench() {
   }, []);
 
   const changeDomain = (d: Domain) => {
-    captainHasChosen.current = true;
     setDomain(d);
     writeParams((sp) => sp.set('domain', d));
   };

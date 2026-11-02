@@ -21,7 +21,7 @@
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
 
-export type SiteMatchMethod = 'distance' | 'text';
+export type SiteMatchMethod = 'distance' | 'text' | 'area';
 
 export interface SiteMatch {
   site: AlertSiteEntry;

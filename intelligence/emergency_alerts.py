@@ -18,6 +18,7 @@ import html
 import json
 import logging
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -28,12 +29,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
+import alert_email
 import alert_silences
 import bom_attention
-import site_matching
 from heartbeat import _KEY, _URL, record_heartbeats, supabase_get
 from heartbeat import record_heartbeat as _record_heartbeat
 
+from core.notifications import resend_email as _resend_email
 from core.notifications.resend_email import send_email
 from intelligence.ingestion.emergency_alert_adapters import (
     act_esa,
@@ -53,6 +55,16 @@ from intelligence.ingestion.emergency_alert_adapters import (
 # timjardenross@outlook.com — confirmed live. Override via env once the
 # domain is verified; no code change needed.
 _EMERGENCY_EMAIL_TO = os.environ.get("EMERGENCY_ALERT_EMAIL_TO", "timjardenross1986@gmail.com")
+# Optional second recipient (e.g. the Captain, while the team mailbox is primary).
+_EMERGENCY_EMAIL_CC = os.environ.get("EMERGENCY_ALERT_EMAIL_CC") or None
+
+
+def _deliver(subject: str, html: str) -> bool:
+    """Every alert email goes through here so recipients are set in one place."""
+    text = alert_email.html_to_text(html)
+    if _EMERGENCY_EMAIL_CC:
+        return send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html, cc=_EMERGENCY_EMAIL_CC, text=text)
+    return send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html, text=text)
 
 log = logging.getLogger("emergency-alerts")
 
@@ -188,6 +200,39 @@ def _expire_stale_many(source_keys: list[str], run_started_at: str) -> dict[str,
     return counts
 
 
+def _record_email_failure(alert_id: str) -> None:
+    """Stamp alerts.emergency_email_failed_at (migration 0243) and, when known,
+    the reason (migration 0245) so the workbench shows 'Email FAILED' and why,
+    rather than 'not sent yet'. Best-effort: never raises. If the reason column
+    is not there yet the timestamp is still written."""
+    now = datetime.now(timezone.utc).isoformat()
+    reason = _resend_email.last_failure
+    try:
+        _supabase_request("PATCH", f"alerts?id=eq.{alert_id}", body={"emergency_email_failed_at": now, "emergency_email_failure_reason": reason})
+        return
+    except Exception as exc:  # noqa: BLE001 - fall back to the timestamp alone before giving up
+        log.warning("[emergency-alerts] could not record email failure reason for alert %s (retrying without it): %s", alert_id, exc)
+    try:
+        _supabase_request("PATCH", f"alerts?id=eq.{alert_id}", body={"emergency_email_failed_at": now})
+    except Exception as exc:  # noqa: BLE001 - recording a failure must never break the ingestion run it is attached to
+        log.warning("[emergency-alerts] could not record email failure for alert %s: %s", alert_id, exc)
+
+
+def _record_send_meta(row: dict, severity: str) -> None:
+    """What was true when we last emailed this alert (tier, wording, time), so a
+    later escalation or a material change can be told apart from no change.
+    Separate best-effort write (migration 0246): the sent flag never depends on
+    these columns existing."""
+    try:
+        _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={
+            "emergency_email_tier": severity,
+            "emergency_email_hash": alert_email.content_hash(row),
+            "emergency_email_last_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as exc:  # noqa: BLE001 - metadata only; follow-up emails baseline themselves if it is missing
+        log.warning("[emergency-alerts] could not record email metadata for alert %s: %s", row.get("id"), exc)
+
+
 def _send_emergency_warning_emails(source_key: str) -> int:
     """Email (Resend, core/notifications/resend_email.py) for every
     currently-active severity='emergency_warning' alert on this source that
@@ -219,12 +264,6 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         log.warning("[emergency-alerts] %s: failed to read active silences (proceeding as if none): %s", source_key, exc)
         active_silences = []
 
-    try:
-        sites = site_matching.list_active_sites()
-    except Exception as exc:  # noqa: BLE001 - a site-register failure must never block a real emergency warning email; degrade to "no site context"
-        log.warning("[emergency-alerts] %s: failed to read alert_sites (sending without site context): %s", source_key, exc)
-        sites = []
-
     sent = 0
     for row in rows:
         silenced = alert_silences.check_silence(
@@ -235,31 +274,76 @@ def _send_emergency_warning_emails(source_key: str) -> int:
             log.info("[emergency-alerts] %s: alert %s silenced (%s) — email suppressed", source_key, row["id"], silenced.get("reason"))
             continue
 
-        matches = site_matching.match_alert({**row, "severity": "emergency_warning"}, sites)
-        tier1 = sum(1 for m in matches if m.site.get("priority") == "Tier 1")
-        site_prefix = f"[{len(matches)} site{'s' if len(matches) != 1 else ''} possibly affected{f', {tier1} Tier 1' if tier1 else ''}] " if matches else ""
-        subject = f"🚨 {site_prefix}EMERGENCY WARNING — {row['jurisdiction']} — {row['headline']}"
-        html = (
-            f"<p><strong>{row['headline']}</strong></p>"
-            f"<p>Jurisdiction: {row['jurisdiction']}<br>"
-            f"Location: {row.get('location') or '—'}<br>"
-            f"Issued: {row.get('issued_at') or '—'}</p>"
-            f"<p>{row.get('description') or ''}</p>"
-            + (f"<p><a href=\"{row['canonical_url']}\">Official source</a></p>" if row.get("canonical_url") else "")
-            + _sites_html(matches, bool(sites))
+        subject = alert_email.build_subject(alert_email.EW, row["jurisdiction"], row["headline"])
+        body = (
+            alert_email.fields_block(alert_email.EW, {**row, "severity": "emergency_warning", "source_key": source_key})
+            + f"<p>{html.escape(row.get('description') or '')}</p>"
+            + _official_link_html({**row, "source_key": source_key})
         )
-        if not send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html):
+        if not _deliver(subject, body):
             log.warning("[emergency-alerts] %s: email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
+            _record_email_failure(row["id"])
             continue
         try:
             _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})
             sent += 1
         except Exception as exc:  # noqa: BLE001 - per-alert notification-flag write inside a loop — one bad write must not abort the batch, already logged with the alert id
             log.warning("[emergency-alerts] %s: sent email but failed to mark alert %s notified — may re-send next run: %s", source_key, row["id"], exc)
+            continue
+        _record_send_meta(row, "emergency_warning")
     return sent
 
 
-_BOM_EMAIL_DESCRIPTION_CHARS = 1500
+def _send_watch_and_act_emails(source_key: str) -> int:
+    """Email for each active Watch and Act alert that has not been emailed yet.
+    Same dedupe column, silences, never-raises and failure-recording rules as
+    Emergency Warnings (a Watch and Act CAN be silenced; an Emergency Warning
+    cannot). No site matching: the mailbox's reader decides what it means for us."""
+    try:
+        rows = supabase_get(
+            f"alerts?source_key=eq.{source_key}&severity=eq.watch_and_act"
+            "&is_active=eq.true&emergency_email_sent_at=is.null"
+            "&select=id,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,latitude,longitude"
+        )
+    except Exception as exc:  # noqa: BLE001 - best-effort read, already logged; caller treats 0 as 'nothing to notify'
+        log.warning("[emergency-alerts] %s: failed to read unnotified Watch and Act alerts: %s", source_key, exc)
+        return 0
+    if not rows:
+        return 0
+    try:
+        active_silences = alert_silences.list_active_silences()
+    except Exception as exc:  # noqa: BLE001 - a silence-lookup failure must not block a warning email; degrade to "no active silences"
+        log.warning("[emergency-alerts] %s: failed to read active silences (proceeding as if none): %s", source_key, exc)
+        active_silences = []
+
+    sent = 0
+    for row in rows:
+        if alert_silences.check_silence(
+            {"jurisdiction": row["jurisdiction"], "alert_type": row.get("alert_type"), "severity": "watch_and_act", "source_key": source_key},
+            active_silences,
+        ):
+            continue
+        subject = alert_email.build_subject(alert_email.WA, row["jurisdiction"], row["headline"])
+        body = (
+            alert_email.fields_block(alert_email.WA, {**row, "severity": "watch_and_act", "source_key": source_key})
+            + f"<p>{html.escape(row.get('description') or '')}</p>"
+            + _official_link_html({**row, "source_key": source_key})
+        )
+        if not _deliver(subject, body):
+            log.warning("[emergency-alerts] %s: Watch and Act email failed for alert %s — will retry next run", source_key, row["id"])
+            _record_email_failure(row["id"])
+            continue
+        try:
+            _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})
+            sent += 1
+        except Exception as exc:  # noqa: BLE001 - per-alert flag write inside a loop; one bad write must not abort the batch
+            log.warning("[emergency-alerts] %s: sent Watch and Act email but failed to mark alert %s notified: %s", source_key, row["id"], exc)
+            continue
+        _record_send_meta(row, "watch_and_act")
+    return sent
+
+
+_BOM_EMAIL_DESCRIPTION_CHARS = 3500
 
 
 def _send_bom_attention_emails(source_key: str) -> int:
@@ -270,11 +354,9 @@ def _send_bom_attention_emails(source_key: str) -> int:
 
     BOM warnings carry no AWS tier, so these stay severity 'unknown' in the
     database and the email says plainly that the "high attention" label is
-    this platform's own, not BOM's. BOM names a district, not a place, so
-    per-site matching is coarse: sites whose suburb/postcode is named in the
-    warning are listed, plus how many of our sites are in the affected state.
-    Silences, the unreadable-register fallback and the "never raises" rule
-    match _send_emergency_warning_emails."""
+    this platform's own, not BOM's. Every high-attention warning is emailed; no
+    site matching (the mailbox's reader decides what it means for us). Silences
+    and the "never raises" rule match _send_emergency_warning_emails."""
     try:
         rows = supabase_get(
             f"alerts?source_key=eq.{source_key}&severity=eq.unknown&is_active=eq.true&emergency_email_sent_at=is.null"
@@ -292,12 +374,6 @@ def _send_bom_attention_emails(source_key: str) -> int:
     except Exception as exc:  # noqa: BLE001 - a silence-lookup failure must never block a warning email; degrade to "no active silences"
         log.warning("[emergency-alerts] %s: failed to read active silences (proceeding as if none): %s", source_key, exc)
         active_silences = []
-    try:
-        sites = site_matching.list_active_sites()
-    except Exception as exc:  # noqa: BLE001 - a site-register failure must never block a warning email; degrade to "no site context"
-        log.warning("[emergency-alerts] %s: failed to read alert_sites (sending without site context): %s", source_key, exc)
-        sites = []
-
     sent = 0
     for row in rows:
         silenced = alert_silences.check_silence(
@@ -308,61 +384,89 @@ def _send_bom_attention_emails(source_key: str) -> int:
             log.info("[emergency-alerts] %s: BOM alert %s silenced (%s) — email suppressed", source_key, row["id"], silenced.get("reason"))
             continue
 
-        matches = site_matching.match_alert({**row, "severity": "unknown"}, sites)
-        state = site_matching.state_site_summary(row["jurisdiction"], sites) if sites else {"total": 0, "tier1": 0}
-        subject = f"⚠️ BOM WARNING — {row['jurisdiction']} — {row['headline']}"
+        subject = alert_email.build_subject(alert_email.BOM_HIGH, row["jurisdiction"], row["headline"])
         source_link = next((line.strip() for line in (row.get("raw_text") or "").splitlines()[::-1] if line.strip().startswith("http")), None)
-        text = (row.get("description") or "").strip()
-        if len(text) > _BOM_EMAIL_DESCRIPTION_CHARS:
-            text = text[:_BOM_EMAIL_DESCRIPTION_CHARS].rstrip() + "…"
-        tier1_note = f" ({state['tier1']} Tier 1)" if state["tier1"] else ""
-        state_line = (
-            f"<p><strong>Our sites in {html.escape(row['jurisdiction'])}:</strong> {state['total']}{tier1_note}. "
-            "BOM names districts, not places — check the warning to see whether they are inside the affected area.</p>"
-            if state["total"] else ""
-        )
+        text = _clean_bom_text(row.get("description") or "")
         body = (
-            f"<p><strong>{html.escape(row['headline'])}</strong></p>"
-            f"<p>Jurisdiction: {html.escape(row['jurisdiction'])}<br>Issued: {html.escape(str(row.get('issued_at') or '—'))}</p>"
-            "<p><em>The Bureau of Meteorology does not give this warning an Advice / Watch and Act / Emergency Warning "
+            alert_email.fields_block(alert_email.BOM_HIGH, {**row, "severity": "unknown", "source_key": source_key, "canonical_url": source_link, "issued_at": _issued_text(row) if _issued_text(row) != "-" else None})
+            + "<p><em>The Bureau of Meteorology does not give this warning an Advice / Watch and Act / Emergency Warning "
             "tier. “High attention” is this platform’s own label, chosen from the warning type.</em></p>"
             f"<p>{html.escape(text).replace(chr(10), '<br>')}</p>"
-            + (f'<p><a href="{html.escape(source_link, quote=True)}">Official BOM warning</a></p>' if source_link else "")
-            + state_line
-            + (_sites_html(matches, bool(sites)) if matches else "")
+            + _official_link_html({**row, "source_key": source_key, "canonical_url": source_link}, "Official BOM warning")
         )
-        if not send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=body):
+        if not _deliver(subject, body):
             log.warning("[emergency-alerts] %s: BOM email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
+            _record_email_failure(row["id"])
             continue
         try:
             _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})
             sent += 1
         except Exception as exc:  # noqa: BLE001 - per-alert notification-flag write inside a loop — one bad write must not abort the batch, already logged with the alert id
             log.warning("[emergency-alerts] %s: sent BOM email but failed to mark alert %s notified — may re-send next run: %s", source_key, row["id"], exc)
+            continue
+        _record_send_meta(row, "unknown")
     return sent
 
 
-_MAX_SITES_IN_EMAIL = 15
+def _official_link_html(row: dict, label: str = "Official source") -> str:
+    """The best page a person can open for this alert, said honestly: a link to a page
+    that LISTS current incidents (NSW RFS, ACT ESA, SA CFS) is labelled as a list, and the
+    exact data record, where there is one, is offered separately."""
+    official, record, precision = alert_email.official_links(row)
+    parts = []
+    if official:
+        text = label if precision == "direct" else f"{label} (current incidents list - find this alert on it)"
+        parts.append(f'<a href="{html.escape(official, quote=True)}">{html.escape(text)}</a>')
+    if record:
+        parts.append(f'<a href="{html.escape(record, quote=True)}">Data record for this alert</a>')
+    return f"<p>{' · '.join(parts)}</p>" if parts else ""
 
 
-def _sites_html(matches: list, have_sites: bool) -> str:
-    """Own sites this alert may affect, highest-priority first. States the
-    basis of each match (distance vs named suburb/postcode) and that no match
-    is not proof of safety — regional warnings name a district, not a site.
-    Empty when the site register could not be read."""
-    if not have_sites:
-        return ""
-    if not matches:
-        return ("<p><strong>Sites:</strong> none matched by location. A regional warning may still "
-                "affect sites in this area — check the official source.</p>")
-    items = "".join(
-        f"<li>{html.escape(m.site.get('priority') or '')} · {html.escape(m.site.get('site_type') or '')} · "
-        f"{html.escape(m.site.get('name') or '')}, {html.escape(m.site.get('suburb') or '')} {html.escape(m.site.get('state') or '')} "
-        f"— {html.escape(m.reason)}</li>"
-        for m in matches[:_MAX_SITES_IN_EMAIL]
-    )
-    more = f"<p>…and {len(matches) - _MAX_SITES_IN_EMAIL} more.</p>" if len(matches) > _MAX_SITES_IN_EMAIL else ""
-    return f"<p><strong>Sites possibly affected ({len(matches)}):</strong></p><ul>{items}</ul>{more}"
+def _clean_bom_text(text: str) -> str:
+    """BOM descriptions are scraped from the warning page and start with site
+    navigation ("Warnings Information / About Severe Weather Warning Services /
+    IDV21033 / Australian Government Bureau of Meteorology"). Start at the warning
+    itself, drop runs of blank lines, and if it is long cut at a paragraph end
+    rather than mid-sentence."""
+    text = (text or "").strip()
+    for marker in (r"TOP PRIORITY[^\n]*\n", r"Australian Government Bureau of Meteorology[^\n]*\n"):
+        m = re.search(marker, text)
+        if m:
+            text = text[m.end():]
+            break
+    text = re.sub(r"\n\s*\n(\s*\n)+", "\n\n", text).strip()
+    if len(text) > _BOM_EMAIL_DESCRIPTION_CHARS:
+        cut = text.rfind("\n\n", 0, _BOM_EMAIL_DESCRIPTION_CHARS)
+        text = text[: cut if cut > _BOM_EMAIL_DESCRIPTION_CHARS // 2 else _BOM_EMAIL_DESCRIPTION_CHARS].rstrip() + "\n\n[Shortened - see the official warning for the full text.]"
+    return text
+
+
+def _issued_text(row: dict) -> str:
+    """BOM rows have no structured issue time; the warning text says "Issued at 2:38 pm Monday, 2 November 2026."."""
+    if row.get("issued_at"):
+        return str(row["issued_at"])
+    m = re.search(r"Issued at ([^\n]+?)\.?\s*(?:\n|$)", row.get("description") or "")
+    return m.group(1).strip() if m else "-"
+
+
+_RETIRED_FEED_RE = re.compile(
+    r"\b(feed|endpoint|api|data service|web service)\b.{0,40}\b(retire[d]?|retirement|decommission(?:ed)?|discontinued|deprecated|no longer (?:available|supported|updated|maintained))\b"
+    r"|\b(retirement|decommission(?:ing)?|discontinuation)\s+notice\b",
+    re.IGNORECASE,
+)
+
+
+def feed_retirement_notice(alerts: list) -> str | None:
+    """A feed that has been retired sometimes keeps serving a valid document whose
+    only 'alert' is the retirement notice (SA CFS did, 2026-08). Treated as a feed
+    failure so the heartbeat goes red instead of showing a healthy source with a
+    phantom alert. Checks headlines only, with feed-specific wording, so a real
+    alert is not caught by an ordinary word like 'discontinued'."""
+    for a in alerts:
+        headline = getattr(a, "headline", "") or ""
+        if _RETIRED_FEED_RE.search(headline):
+            return headline[:120]
+    return None
 
 
 def run_source(source_key: str, run_started_at: str | None = None, heartbeats: list[dict] | None = None) -> dict:
@@ -394,6 +498,14 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         record_heartbeat(domain_key, status="failed", error_message=str(exc)[:500], latency_ms=latency_ms)
         log.warning("[emergency-alerts] %s: fetch failed: %s", source_key, exc)
         return {"source_key": source_key, "error": str(exc), "count": 0}
+
+    notice = feed_retirement_notice(alerts)
+    if notice:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        message = f"feed appears retired - source returned: {notice}"
+        record_heartbeat(domain_key, status="failed", error_message=message[:500], latency_ms=latency_ms)
+        log.warning("[emergency-alerts] %s: %s", source_key, message)
+        return {"source_key": source_key, "error": message, "count": 0}
 
     if not alerts and hasattr(adapter, "NOT_YET_IMPLEMENTED"):
         # Scrape-tier sources (wa_dfes/tas_fire/nt_securent) with no
@@ -430,6 +542,8 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
     # per run (~1.4k/day) when there are none (the overwhelmingly common case).
     has_active_warning = any(r["severity"] == "emergency_warning" and r["is_active"] for r in rows)
     emails_sent = _send_emergency_warning_emails(source_key) if has_active_warning else 0
+    if any(r["severity"] == "watch_and_act" and r["is_active"] for r in rows):
+        emails_sent += _send_watch_and_act_emails(source_key)
     # BOM warnings have no AWS tier (severity stays 'unknown'), so they never
     # reach the Emergency Warning path above; high-attention ones get their own.
     if source_key.startswith("bom_") and any(
@@ -457,6 +571,122 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         "source_key": source_key, "count": len(rows), "unknown_severity": unknown_count,
         "expired": expired, "emails_sent": emails_sent, "pending_expiry": batched,
     }
+
+
+_FOLLOW_UP_WINDOW = timedelta(hours=6)
+_UPDATE_MIN_INTERVAL = timedelta(minutes=30)
+
+
+def _parse_ts(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _still_high_bom(row: dict) -> bool:
+    return not row["source_key"].startswith("bom_") or bom_attention.attention_level(row.get("headline"), row.get("alert_type")) == bom_attention.HIGH
+
+
+def _send_follow_up_emails(now: datetime | None = None) -> dict:
+    """[UPDATE] and [LIFTED] emails for alerts we have already emailed, from ONE
+    read per run (alerts emailed and seen in the last 6 hours).
+
+      UPDATE   the alert escalated (e.g. Watch and Act -> Emergency Warning), or its
+               wording materially changed (at most one every 30 minutes).
+      LIFTED   the alert is no longer active; sent once. Says only that the source
+               stopped listing it, which is NOT an all-clear.
+
+    Alerts emailed before migration 0246 have no stored tier: they are baselined
+    silently, never emailed retroactively. Watch and Act / BOM can be silenced;
+    an Emergency Warning cannot. Never raises."""
+    now = now or datetime.now(timezone.utc)
+    cutoff = urllib.parse.quote((now - _FOLLOW_UP_WINDOW).isoformat())
+    try:
+        rows = supabase_get(
+            f"alerts?emergency_email_sent_at=not.is.null&last_seen_at=gte.{cutoff}&limit=500"
+            "&select=id,source_key,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,is_active,"
+            "emergency_email_tier,emergency_email_hash,emergency_email_last_at,emergency_email_lifted_at"
+        )
+    except Exception as exc:  # noqa: BLE001 - follow-ups are best-effort (also fails safe while migration 0246 is not applied)
+        log.warning("[emergency-alerts] follow-up read failed: %s", exc)
+        return {"updates": 0, "lifted": 0}
+    if not rows:
+        return {"updates": 0, "lifted": 0}
+    try:
+        active_silences = alert_silences.list_active_silences()
+    except Exception as exc:  # noqa: BLE001 - degrade to "no active silences"
+        log.warning("[emergency-alerts] follow-up: failed to read active silences: %s", exc)
+        active_silences = []
+    counts = {"updates": 0, "lifted": 0}
+    stamp = now.isoformat()
+    for row in rows:
+        recorded = row.get("emergency_email_tier")
+        if not row.get("is_active"):
+            if row.get("emergency_email_lifted_at"):
+                continue
+            if not recorded:  # predates 0246: close it out silently
+                _patch_alert(row["id"], {"emergency_email_lifted_at": stamp})
+                continue
+            if _send_lifted(row, stamp):
+                counts["lifted"] += 1
+            continue
+        if not recorded:  # predates 0246: baseline silently
+            _record_send_meta(row, row["severity"])
+            continue
+        if not _still_high_bom(row):
+            continue
+        change = None
+        if alert_email.tier_rank(row["severity"]) > alert_email.tier_rank(recorded):
+            change = f"Escalated from {alert_email.TIER_LABEL.get(recorded, recorded)} to {alert_email.TIER_LABEL.get(row['severity'], row['severity'])}"
+        elif row.get("emergency_email_hash") and alert_email.content_hash(row) != row["emergency_email_hash"]:
+            last = _parse_ts(row.get("emergency_email_last_at"))
+            if last is None or now - last >= _UPDATE_MIN_INTERVAL:
+                change = "Wording updated"
+        if not change:
+            continue
+        if row["severity"] != "emergency_warning" and alert_silences.check_silence(
+            {"jurisdiction": row["jurisdiction"], "alert_type": row.get("alert_type"), "severity": row["severity"], "source_key": row["source_key"]},
+            active_silences,
+        ):
+            continue
+        body = (
+            alert_email.fields_block(alert_email.UPDATE, row, {"Change": change})
+            + f"<p><strong>{html.escape(change)}</strong></p>"
+            f"<p>{html.escape(row.get('description') or '')}</p>"
+            + _official_link_html(row)
+        )
+        if not _deliver(alert_email.build_subject(alert_email.UPDATE, row["jurisdiction"], row["headline"]), body):
+            log.warning("[emergency-alerts] follow-up: update email failed for alert %s - will retry next run", row["id"])
+            continue
+        _record_send_meta(row, row["severity"])
+        counts["updates"] += 1
+    return counts
+
+
+def _patch_alert(alert_id: str, body: dict) -> bool:
+    try:
+        _supabase_request("PATCH", f"alerts?id=eq.{alert_id}", body=body)
+        return True
+    except Exception as exc:  # noqa: BLE001 - per-alert write inside a loop; logged with the alert id
+        log.warning("[emergency-alerts] could not update alert %s: %s", alert_id, exc)
+        return False
+
+
+def _send_lifted(row: dict, stamp: str) -> bool:
+    body = (
+        alert_email.fields_block(alert_email.LIFTED, row, {"Listed-Until": stamp})
+        + f"<p><strong>No longer listed by the source:</strong> {html.escape(row['headline'])}</p>"
+        "<p>The source has stopped listing this alert. <strong>This is not an all-clear</strong>: check the official source "
+        "before treating the situation as over.</p>"
+        + _official_link_html(row)
+    )
+    if not _deliver(alert_email.build_subject(alert_email.LIFTED, row["jurisdiction"], row["headline"]), body):
+        log.warning("[emergency-alerts] follow-up: lifted email failed for alert %s - will retry next run", row["id"])
+        return False
+    return _patch_alert(row["id"], {"emergency_email_lifted_at": stamp})
 
 
 def run_all() -> dict:
@@ -488,6 +718,7 @@ def run_all() -> dict:
             hb["detail"] = _ok_detail(n_rows, unknown_count, expired_by_domain.get(hb["domain_key"], 0), emails_sent)
 
     record_heartbeats(heartbeats)
+    results["_follow_up"] = _send_follow_up_emails()
     return results
 
 

@@ -795,7 +795,7 @@ export const recoveryBrief: RecoveryBrief = {
   load_summary: 'STABLE posture supports 1 active mission today.',
   active_mission_note: 'MSN-0062 is within this — safe and appropriate to continue.',
   new_starts_note: 'New starts not recommended today. Hold for a STRONG day.',
-  decisions_note: '2 decisions pending — defer to tomorrow if capacity allows.',
+  decisions_note: '2 decisions pending — these can wait until tomorrow if you prefer.',
   fleet_summary: 'No blockers. Crew nominal. Full detail on Captain\'s Chair.'
 };
 

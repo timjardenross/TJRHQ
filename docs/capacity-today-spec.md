@@ -97,6 +97,19 @@ something else → `identified_needs`
 
 **Status**: fully implemented (`capacity_today.py` Q1-Q8 flow).
 
+**Changes (2026-11-02)**, from reviewing how often each question was actually answered:
+
+- **Sleep** (once a day, first check-in) is now one yes/no question, "Did you use your CPAP last
+  night?" (`cpap_used`, migration 0248; skippable). The five hour-bucket question and
+  `sleep_state` are no longer asked or written; old rows keep their `sleep_state`.
+- **Emotional load** (`emotional_state`) and **social capacity** (`social_state`) moved from the
+  quick check-in into "Go deeper" (section 4), each skippable. The quick check-in is now: capacity,
+  stimulation, pain, nervous system, executive function, loads, compensation.
+- **Needs and the suggested action** (Q8 and section 2) are no longer asked automatically. The quick
+  check-in ends after compensation with its summary and a "Want suggestions?" button that opens them.
+- **Midday check-in** is one tap (capacity only). The "anything changed since this morning?"
+  follow-up was dropped: it was "yes" in 3 of 12 and nothing read it.
+
 ---
 
 ## 2. Action selection
@@ -151,14 +164,25 @@ than two separate free-text questions.
 
 ## 5. Evening reflection
 
-Three questions only:
+Five questions; the second and fifth are skippable (a skipped answer stores nothing and is
+treated as unknown, never as bad):
 
 1. Did your capacity improve, stay the same, or decline today?
    (`day_trajectory`)
-2. What helped most? (`helpful_factor`)
-3. Did you borrow capacity from tomorrow? No/Maybe/Yes (`capacity_debt`) —
+2. Looking back, how much did you have to push, mask, or compensate today?
+   (`day_compensation_load`, same low / moderate / high / extreme scale as Q7; skippable)
+3. What helped most? (`helpful_factor`)
+4. Did you borrow capacity from tomorrow? No/Maybe/Yes (`capacity_debt`) —
    "borrowing" = maintaining output today at the cost of increased
    exhaustion, pain, overload, shutdown, or recovery needs afterwards.
+5. Was today a good day? Yes / Kind of / No (`good_day`; skippable). The Captain's own
+   answer always wins over the provisional rule in `core/health/good_day.py` (stayed the
+   same or improved, no borrowed capacity, whole-day compensation moderate or lower;
+   missing answers are not counted against the day).
+
+Migration `0247_capacity_checkins_evening_good_day.sql` adds `day_compensation_load` and
+`good_day`. The start-of-day `compensation_load` is unchanged and is never written by the
+evening flow.
 
 **Status**: implemented (`/evening`, `cte|` callback flow).
 

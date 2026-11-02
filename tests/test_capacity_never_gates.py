@@ -1,11 +1,11 @@
-"""Capacity gating is advisory by default (owner decision 2026-10-18): capacity is still read and
-reported, but nothing is trimmed, deferred or blocked. CAPACITY_ENFORCEMENT=enforce restores D-055."""
+"""Capacity never holds anything back (owner decision 2026-11-02, superseding the 2026-10-18
+advisory switch): a Red / Amber / Unknown reading is reported but nothing is trimmed, deferred or
+blocked, and there is no enforce mode to turn back on."""
 
 from datetime import datetime, timezone
 
 import pytest
 
-from core.health import capacity_enforcement as ce
 from core.health.capacity_gate import CapacityGate
 from intelligence.adhd import follow_through_engine as fte
 
@@ -16,54 +16,33 @@ MISSIONS = [
 ]
 
 
-@pytest.fixture
-def advisory(monkeypatch):
-    monkeypatch.delenv("CAPACITY_ENFORCEMENT", raising=False)
 
 
-@pytest.fixture
-def enforce(monkeypatch):
-    monkeypatch.setenv("CAPACITY_ENFORCEMENT", "enforce")
 
 
-def test_default_mode_is_advisory(advisory):
-    assert ce.capacity_enforcement_mode() == "advisory"
-    assert ce.enforcing() is False
-
-
-def test_unknown_value_falls_back_to_advisory(monkeypatch):
-    monkeypatch.setenv("CAPACITY_ENFORCEMENT", "banana")
-    assert ce.enforcing() is False
 
 
 @pytest.mark.parametrize("status", ["Red", "Amber"])
-def test_gate_defers_and_limits_nothing_in_advisory(advisory, status):
+def test_gate_defers_and_limits_nothing_in_advisory(status):
     actions = CapacityGate().evaluate(20, status, MISSIONS)
     assert [a.action_type for a in actions] == ["notify"]
     assert "advisory" in actions[0].reason
     assert not any(a.action_type in ("defer_mission", "limit_missions", "trigger_recovery") for a in actions)
 
 
-def test_gate_still_defers_when_enforcing(enforce):
-    types = [a.action_type for a in CapacityGate().evaluate(20, "Red", MISSIONS)]
-    assert "defer_mission" in types and "trigger_recovery" in types
 
 
-def test_governance_statement_says_advisory(advisory):
+def test_governance_statement_says_advisory():
     assert "Advisory only" in CapacityGate().get_governance_statement("Red")
 
 
-def test_follow_through_never_trimmed_in_advisory(advisory):
+def test_follow_through_never_trimmed_in_advisory():
     now = datetime(2026, 10, 18, 9, 0, tzinfo=timezone.utc)
     tasks = [{"id": "t1", "follow_through_mode": "gentle", "due_date": None}, {"id": "t2", "follow_through_mode": "normal", "due_date": None}]
     for status in ("Red", "Amber", "Unknown"):
         assert fte._apply_capacity_gate(list(tasks), status, now) == tasks
 
 
-def test_follow_through_still_trimmed_when_enforcing(enforce):
-    now = datetime(2026, 10, 18, 9, 0, tzinfo=timezone.utc)
-    tasks = [{"id": "t1", "follow_through_mode": "gentle", "due_date": None}, {"id": "t2", "follow_through_mode": "normal", "due_date": None}]
-    assert fte._apply_capacity_gate(list(tasks), "Red", now) == []
 
 
 
@@ -80,7 +59,7 @@ def _budget_module():
     return mod
 
 
-def test_improvement_budget_not_closed_by_red_in_advisory(advisory, monkeypatch):
+def test_improvement_budget_not_closed_by_red_in_advisory(monkeypatch):
     mod = _budget_module()
     engine = mod.ImprovementBudgetEngine()
     monkeypatch.setattr(engine, "_count_active_improvement_missions", lambda: 0)
@@ -90,12 +69,6 @@ def test_improvement_budget_not_closed_by_red_in_advisory(advisory, monkeypatch)
     assert budget.can_create is True
 
 
-def test_improvement_budget_still_closed_by_red_when_enforcing(enforce, monkeypatch):
-    mod = _budget_module()
-    engine = mod.ImprovementBudgetEngine()
-    monkeypatch.setattr(engine, "_count_active_improvement_missions", lambda: 0)
-    monkeypatch.setattr(engine, "_log_budget_state", lambda b: None)
-    assert engine.get_budget("Red").can_create is False
 
 
 # --- Number One work queue and the context-service path (Codex P1 on this PR) ---
@@ -114,7 +87,7 @@ def _number_one():
 
 
 @pytest.mark.parametrize("status", ["Red", "Amber"])
-def test_number_one_queue_defers_nothing_in_advisory(advisory, status):
+def test_number_one_queue_defers_nothing_in_advisory(status):
     out = _number_one().get_health_adjusted_queue(QUEUE_MISSIONS, status)
     text = " ".join([n["capacity_note"] for n in out["queue"]] + [out["advisory"]] + out["recommended_focus"])
     assert "DEFERRED" not in text and "P0 only" not in text and "P0 missions only" not in text
@@ -123,19 +96,11 @@ def test_number_one_queue_defers_nothing_in_advisory(advisory, status):
     assert len(out["recommended_focus"]) == 3  # normal focus, not narrowed to P0/P1
 
 
-def test_number_one_queue_red_still_defers_when_enforcing(enforce):
-    out = _number_one().get_health_adjusted_queue(QUEUE_MISSIONS, "Red")
-    notes = {n["priority"]: n["capacity_note"] for n in out["queue"]}
-    assert notes["P2"].startswith("DEFERRED") and notes["P0"].startswith("CRITICAL")
-    assert out["recommended_focus"] == ["Critical thing"]
 
 
-def test_number_one_queue_amber_still_narrows_when_enforcing(enforce):
-    out = _number_one().get_health_adjusted_queue(QUEUE_MISSIONS, "Amber")
-    assert out["recommended_focus"] == ["Critical thing", "Important thing"]
 
 
-def test_context_service_queue_path_is_advisory(advisory, monkeypatch):
+def test_context_service_queue_path_is_advisory(monkeypatch):
     """The live path the mission workbench uses: context_service -> NumberOne.get_health_adjusted_queue."""
     import importlib.util
     import sys
@@ -164,7 +129,7 @@ def _rec():
     return importlib.import_module("core.coordination.recommendation_engine")
 
 
-def test_recommendation_note_is_not_a_defer_instruction_in_advisory(advisory):
+def test_recommendation_note_is_not_a_defer_instruction_in_advisory():
     rec = _rec()
 
     class Health:
@@ -175,14 +140,6 @@ def test_recommendation_note_is_not_a_defer_instruction_in_advisory(advisory):
     assert note and "Defer" not in note and "nothing is deferred" in note
 
 
-def test_recommendation_note_still_says_defer_when_enforcing(enforce):
-    rec = _rec()
-
-    class Health:
-        capacity_status = "Red"
-        workload_constraint = "normal"
-
-    assert rec.check_health_constraints({"priority": "P3", "domain": "x"}, Health()).startswith("Defer")
 
 
 # --- Consumers found by G7 review of PR #434 (attention state, command bus, Remember) ---
@@ -197,7 +154,7 @@ def _attention_note(status):
     return _capacity_note_and_category(AttentionCategory.IMPORTANT_NOT_IMMEDIATE, False, False, status)
 
 
-def test_attention_state_red_does_not_demote_in_advisory(advisory):
+def test_attention_state_red_does_not_demote_in_advisory():
     from core.coordination.attention_state import AttentionCategory
 
     category, note = _attention_note("Red")
@@ -205,12 +162,6 @@ def test_attention_state_red_does_not_demote_in_advisory(advisory):
     assert note.startswith("Advisory")
 
 
-def test_attention_state_red_still_demotes_when_enforcing(enforce):
-    from core.coordination.attention_state import AttentionCategory
-
-    category, note = _attention_note("Red")
-    assert category == AttentionCategory.CAN_WAIT
-    assert note.startswith("DEFERRED")
 
 
 def _run_high_escalation(capacity):
@@ -232,12 +183,10 @@ def _run_high_escalation(capacity):
     return route
 
 
-def test_command_bus_high_on_red_is_sent_in_advisory(advisory):
+def test_command_bus_high_on_red_is_sent_in_advisory():
     _run_high_escalation("Red").assert_called_once()
 
 
-def test_command_bus_high_on_red_is_held_when_enforcing(enforce):
-    _run_high_escalation("Red").assert_not_called()
 
 
 def _remember_limit(status):
@@ -254,9 +203,6 @@ def _remember_limit(status):
     return mod._remember_capture_limit(status)
 
 
-def test_remember_limit_is_common_in_advisory(advisory):
+def test_remember_limit_is_common_in_advisory():
     assert {_remember_limit(s) for s in ("Red", "Amber", "Green", "Unknown", None)} == {30}
 
-
-def test_remember_limit_follows_band_when_enforcing(enforce):
-    assert (_remember_limit("Red"), _remember_limit("Amber"), _remember_limit("Green")) == (3, 10, 30)

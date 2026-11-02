@@ -1,0 +1,6466 @@
+{
+"source":"Bureau of Meteorology spatial data IDM00001, IDM00007, IDM00017",
+"areas":{
+"NSW_FW001":{
+"product":"fire_weather_district",
+"name":"Far North Coast",
+"state":"NSW"
+},
+"NSW_FW002":{
+"product":"fire_weather_district",
+"name":"North Coast",
+"state":"NSW"
+},
+"NSW_FW003":{
+"product":"fire_weather_district",
+"name":"Greater Hunter",
+"state":"NSW"
+},
+"NSW_FW004":{
+"product":"fire_weather_district",
+"name":"Greater Sydney Region",
+"state":"NSW"
+},
+"NSW_FW005":{
+"product":"fire_weather_district",
+"name":"Illawarra/Shoalhaven",
+"state":"NSW"
+},
+"NSW_FW006":{
+"product":"fire_weather_district",
+"name":"Far South Coast",
+"state":"NSW"
+},
+"NSW_FW007":{
+"product":"fire_weather_district",
+"name":"Monaro Alpine",
+"state":"NSW"
+},
+"NSW_FW008":{
+"product":"fire_weather_district",
+"name":"Australian Capital Territory",
+"state":"ACT"
+},
+"NSW_FW009":{
+"product":"fire_weather_district",
+"name":"Southern Ranges",
+"state":"NSW"
+},
+"NSW_FW010":{
+"product":"fire_weather_district",
+"name":"Central Ranges",
+"state":"NSW"
+},
+"NSW_FW011":{
+"product":"fire_weather_district",
+"name":"New England",
+"state":"NSW"
+},
+"NSW_FW012":{
+"product":"fire_weather_district",
+"name":"Northern Slopes",
+"state":"NSW"
+},
+"NSW_FW013":{
+"product":"fire_weather_district",
+"name":"North Western",
+"state":"NSW"
+},
+"NSW_FW014":{
+"product":"fire_weather_district",
+"name":"Upper Central West Plains",
+"state":"NSW"
+},
+"NSW_FW015":{
+"product":"fire_weather_district",
+"name":"Lower Central West Plains",
+"state":"NSW"
+},
+"NSW_FW016":{
+"product":"fire_weather_district",
+"name":"Southern Slopes",
+"state":"NSW"
+},
+"NSW_FW017":{
+"product":"fire_weather_district",
+"name":"Eastern Riverina",
+"state":"NSW"
+},
+"NSW_FW018":{
+"product":"fire_weather_district",
+"name":"Southern Riverina",
+"state":"NSW"
+},
+"NSW_FW019":{
+"product":"fire_weather_district",
+"name":"Northern Riverina",
+"state":"NSW"
+},
+"NSW_FW020":{
+"product":"fire_weather_district",
+"name":"South Western",
+"state":"NSW"
+},
+"NSW_FW021":{
+"product":"fire_weather_district",
+"name":"Far Western",
+"state":"NSW"
+},
+"NSW_PW001":{
+"product":"forecast_district",
+"name":"Northern Rivers",
+"state":"NSW"
+},
+"NSW_PW002":{
+"product":"forecast_district",
+"name":"Mid North Coast",
+"state":"NSW"
+},
+"NSW_PW003":{
+"product":"forecast_district",
+"name":"Hunter",
+"state":"NSW"
+},
+"NSW_PW004":{
+"product":"forecast_district",
+"name":"Northern Tablelands",
+"state":"NSW"
+},
+"NSW_PW005":{
+"product":"forecast_district",
+"name":"Metropolitan",
+"state":"NSW"
+},
+"NSW_PW006":{
+"product":"forecast_district",
+"name":"Illawarra",
+"state":"NSW"
+},
+"NSW_PW007":{
+"product":"forecast_district",
+"name":"South Coast",
+"state":"NSW"
+},
+"NSW_PW008":{
+"product":"forecast_district",
+"name":"Central Tablelands",
+"state":"NSW"
+},
+"NSW_PW009":{
+"product":"forecast_district",
+"name":"Southern Tablelands",
+"state":"NSW"
+},
+"NSW_PW010":{
+"product":"forecast_district",
+"name":"Snowy Mountains",
+"state":"NSW"
+},
+"NSW_PW011":{
+"product":"forecast_district",
+"name":"North West Slopes & Plains",
+"state":"NSW"
+},
+"NSW_PW012":{
+"product":"forecast_district",
+"name":"Central West Slopes & Plains",
+"state":"NSW"
+},
+"NSW_PW013":{
+"product":"forecast_district",
+"name":"South West Slopes",
+"state":"NSW"
+},
+"NSW_PW014":{
+"product":"forecast_district",
+"name":"Riverina",
+"state":"NSW"
+},
+"NSW_PW015":{
+"product":"forecast_district",
+"name":"Lower Western",
+"state":"NSW"
+},
+"NSW_PW016":{
+"product":"forecast_district",
+"name":"Upper Western",
+"state":"NSW"
+},
+"NSW_PW017":{
+"product":"forecast_district",
+"name":"Australian Capital Territory",
+"state":"ACT"
+},
+"NSW_RC001":{
+"product":"flood_catchment",
+"name":"Tweed River",
+"state":"NSW"
+},
+"NSW_RC003":{
+"product":"flood_catchment",
+"name":"Clarence River",
+"state":"NSW"
+},
+"NSW_RC004":{
+"product":"flood_catchment",
+"name":"Bellinger and Kalang Rivers",
+"state":"NSW"
+},
+"NSW_RC005":{
+"product":"flood_catchment",
+"name":"Macleay River",
+"state":"NSW"
+},
+"NSW_RC006":{
+"product":"flood_catchment",
+"name":"Hastings River",
+"state":"NSW"
+},
+"NSW_RC007":{
+"product":"flood_catchment",
+"name":"Manning and Gloucester Rivers",
+"state":"NSW"
+},
+"NSW_RC008":{
+"product":"flood_catchment",
+"name":"Hunter River",
+"state":"NSW"
+},
+"NSW_RC009":{
+"product":"flood_catchment",
+"name":"Hawkesbury and Nepean Rivers",
+"state":"NSW"
+},
+"NSW_RC010":{
+"product":"flood_catchment",
+"name":"Georges and Woronora Rivers",
+"state":"NSW"
+},
+"NSW_RC011":{
+"product":"flood_catchment",
+"name":"Shoalhaven River",
+"state":"NSW"
+},
+"NSW_RC012":{
+"product":"flood_catchment",
+"name":"Moruya and Deua Rivers",
+"state":"NSW"
+},
+"NSW_RC013":{
+"product":"flood_catchment",
+"name":"Bega River",
+"state":"NSW"
+},
+"NSW_RC014":{
+"product":"flood_catchment",
+"name":"Wyong River and Tuggerah Lake",
+"state":"NSW"
+},
+"NSW_RC016":{
+"product":"flood_catchment",
+"name":"Parramatta River",
+"state":"NSW"
+},
+"NSW_RC017":{
+"product":"flood_catchment",
+"name":"Cooks River",
+"state":"NSW"
+},
+"NSW_RC018":{
+"product":"flood_catchment",
+"name":"Orara River",
+"state":"NSW"
+},
+"NSW_RC019":{
+"product":"flood_catchment",
+"name":"Lake Macquarie",
+"state":"NSW"
+},
+"NSW_RC020":{
+"product":"flood_catchment",
+"name":"Upper Macintyre River",
+"state":"NSW"
+},
+"NSW_RC021":{
+"product":"flood_catchment",
+"name":"Gwydir River",
+"state":"NSW"
+},
+"NSW_RC022":{
+"product":"flood_catchment",
+"name":"Peel and Namoi Rivers",
+"state":"NSW"
+},
+"NSW_RC023":{
+"product":"flood_catchment",
+"name":"Castlereagh River",
+"state":"NSW"
+},
+"NSW_RC024":{
+"product":"flood_catchment",
+"name":"Macquarie River",
+"state":"NSW"
+},
+"NSW_RC025":{
+"product":"flood_catchment",
+"name":"Bogan River",
+"state":"NSW"
+},
+"NSW_RC026":{
+"product":"flood_catchment",
+"name":"Lachlan River",
+"state":"NSW"
+},
+"NSW_RC027":{
+"product":"flood_catchment",
+"name":"Queanbeyan and Molonglo Rivers",
+"state":"NSW"
+},
+"NSW_RC028":{
+"product":"flood_catchment",
+"name":"Murrumbidgee River",
+"state":"NSW"
+},
+"NSW_RC029":{
+"product":"flood_catchment",
+"name":"Murray River",
+"state":"NSW"
+},
+"NSW_RC030":{
+"product":"flood_catchment",
+"name":"Culgoa, Birrie, Bokhara and Narran Rivers",
+"state":"NSW"
+},
+"NSW_RC031":{
+"product":"flood_catchment",
+"name":"Warrego River (NSW)",
+"state":"NSW"
+},
+"NSW_RC032":{
+"product":"flood_catchment",
+"name":"Paroo River (NSW)",
+"state":"NSW"
+},
+"NSW_RC036":{
+"product":"flood_catchment",
+"name":"Belubula River",
+"state":"NSW"
+},
+"NSW_RC037":{
+"product":"flood_catchment",
+"name":"Brunswick River and Marshalls Creek",
+"state":"NSW"
+},
+"NSW_RC038":{
+"product":"flood_catchment",
+"name":"Wallis Lake",
+"state":"NSW"
+},
+"NSW_RC039":{
+"product":"flood_catchment",
+"name":"Paterson and Williams Rivers",
+"state":"NSW"
+},
+"NSW_RC040":{
+"product":"flood_catchment",
+"name":"Nambucca River",
+"state":"NSW"
+},
+"NSW_RC041":{
+"product":"flood_catchment",
+"name":"Camden Haven River",
+"state":"NSW"
+},
+"NSW_RC042":{
+"product":"flood_catchment",
+"name":"Coffs Creek",
+"state":"NSW"
+},
+"NSW_RC043":{
+"product":"flood_catchment",
+"name":"Myall River",
+"state":"NSW"
+},
+"NSW_RC044":{
+"product":"flood_catchment",
+"name":"Cooma Creek",
+"state":"NSW"
+},
+"NSW_RC046":{
+"product":"flood_catchment",
+"name":"Molong Creek",
+"state":"NSW"
+},
+"NSW_RC047":{
+"product":"flood_catchment",
+"name":"Woronora River",
+"state":"NSW"
+},
+"NSW_RC049":{
+"product":"flood_catchment",
+"name":"Cootamundra",
+"state":"NSW"
+},
+"NSW_RC050":{
+"product":"flood_catchment",
+"name":"Wooli River",
+"state":"NSW"
+},
+"NSW_RC051":{
+"product":"flood_catchment",
+"name":"Wilsons River",
+"state":"NSW"
+},
+"NSW_RC052":{
+"product":"flood_catchment",
+"name":"Richmond River",
+"state":"NSW"
+},
+"NSW_RC053":{
+"product":"flood_catchment",
+"name":"Bellinger River",
+"state":"NSW"
+},
+"NSW_RC054":{
+"product":"flood_catchment",
+"name":"Kalang River",
+"state":"NSW"
+},
+"NSW_RC055":{
+"product":"flood_catchment",
+"name":"Gloucester River",
+"state":"NSW"
+},
+"NSW_RC056":{
+"product":"flood_catchment",
+"name":"Manning River",
+"state":"NSW"
+},
+"NSW_RC057":{
+"product":"flood_catchment",
+"name":"Wollombi Brook",
+"state":"NSW"
+},
+"NSW_RC058":{
+"product":"flood_catchment",
+"name":"Upper Nepean River",
+"state":"NSW"
+},
+"NSW_RC059":{
+"product":"flood_catchment",
+"name":"Hawkesbury and Lower Nepean River",
+"state":"NSW"
+},
+"NSW_RC060":{
+"product":"flood_catchment",
+"name":"Colo River",
+"state":"NSW"
+},
+"NSW_RC061":{
+"product":"flood_catchment",
+"name":"Wyong River",
+"state":"NSW"
+},
+"NSW_RC062":{
+"product":"flood_catchment",
+"name":"Tuggerah Lake",
+"state":"NSW"
+},
+"NSW_RC063":{
+"product":"flood_catchment",
+"name":"Severn River",
+"state":"NSW"
+},
+"NSW_RC064":{
+"product":"flood_catchment",
+"name":"Macintyre River to Yetman",
+"state":"NSW"
+},
+"NSW_RC065":{
+"product":"flood_catchment",
+"name":"Mehi River",
+"state":"NSW"
+},
+"NSW_RC066":{
+"product":"flood_catchment",
+"name":"Peel River",
+"state":"NSW"
+},
+"NSW_RC067":{
+"product":"flood_catchment",
+"name":"Namoi River",
+"state":"NSW"
+},
+"NSW_RC068":{
+"product":"flood_catchment",
+"name":"Macquarie River to Bathurst",
+"state":"NSW"
+},
+"NSW_RC069":{
+"product":"flood_catchment",
+"name":"Bell River",
+"state":"NSW"
+},
+"NSW_RC070":{
+"product":"flood_catchment",
+"name":"Mandagery Creek",
+"state":"NSW"
+},
+"NSW_RC071":{
+"product":"flood_catchment",
+"name":"Queanbeyan River",
+"state":"NSW"
+},
+"NSW_RC072":{
+"product":"flood_catchment",
+"name":"Molonglo River",
+"state":"NSW"
+},
+"NSW_RC073":{
+"product":"flood_catchment",
+"name":"Tumut River",
+"state":"NSW"
+},
+"NSW_RC074":{
+"product":"flood_catchment",
+"name":"Murrumbidgee River downstream of Burrinjuck to Wagga Wagga",
+"state":"NSW"
+},
+"NSW_RC075":{
+"product":"flood_catchment",
+"name":"Murray River downstream of Hume Dam to Tocumwal",
+"state":"NSW"
+},
+"NSW_RC076":{
+"product":"flood_catchment",
+"name":"Edward River",
+"state":"NSW"
+},
+"NSW_RC077":{
+"product":"flood_catchment",
+"name":"Darling River downstream of Wilcannia to Burtundy",
+"state":"NSW"
+},
+"NSW_RC078":{
+"product":"flood_catchment",
+"name":"Marshalls Creek",
+"state":"NSW"
+},
+"NSW_RC079":{
+"product":"flood_catchment",
+"name":"Brunswick River",
+"state":"NSW"
+},
+"NSW_RC080":{
+"product":"flood_catchment",
+"name":"Williams River",
+"state":"NSW"
+},
+"NSW_RC081":{
+"product":"flood_catchment",
+"name":"Paterson River",
+"state":"NSW"
+},
+"NSW_RC082":{
+"product":"flood_catchment",
+"name":"Macdonald River",
+"state":"NSW"
+},
+"NSW_RC083":{
+"product":"flood_catchment",
+"name":"St Georges Basin",
+"state":"NSW"
+},
+"NSW_RC084":{
+"product":"flood_catchment",
+"name":"Barwon River Mungindi to Collarenebri",
+"state":"NSW"
+},
+"NSW_RC085":{
+"product":"flood_catchment",
+"name":"Upper Hunter",
+"state":"NSW"
+},
+"NSW_RC086":{
+"product":"flood_catchment",
+"name":"Lower Hunter",
+"state":"NSW"
+},
+"NSW_RC087":{
+"product":"flood_catchment",
+"name":"Gwydir River to Copeton Dam",
+"state":"NSW"
+},
+"NSW_RC088":{
+"product":"flood_catchment",
+"name":"Gwydir River downstream of Copeton Dam",
+"state":"NSW"
+},
+"NSW_RC089":{
+"product":"flood_catchment",
+"name":"Macquarie River downstream of Burrendong Dam",
+"state":"NSW"
+},
+"NSW_RC090":{
+"product":"flood_catchment",
+"name":"Culgoa River",
+"state":"NSW"
+},
+"NSW_RC091":{
+"product":"flood_catchment",
+"name":"Birrie River",
+"state":"NSW"
+},
+"NSW_RC092":{
+"product":"flood_catchment",
+"name":"Bokhara River",
+"state":"NSW"
+},
+"NSW_RC093":{
+"product":"flood_catchment",
+"name":"Narran River",
+"state":"NSW"
+},
+"NSW_RC094":{
+"product":"flood_catchment",
+"name":"Dumaresq Creek",
+"state":"NSW"
+},
+"NSW_RC095":{
+"product":"flood_catchment",
+"name":"Barwon and Darling Rivers",
+"state":"NSW"
+},
+"NSW_RC096":{
+"product":"flood_catchment",
+"name":"Orange",
+"state":"NSW"
+},
+"NSW_RC097":{
+"product":"flood_catchment",
+"name":"Stockinbingal",
+"state":"NSW"
+},
+"NSW_RC098":{
+"product":"flood_catchment",
+"name":"Murrumbidgee River downstream of Darlington Point to Balranald Weir",
+"state":"NSW"
+},
+"NSW_RC099":{
+"product":"flood_catchment",
+"name":"Lower Lachlan River downstream of Euabalong to Booligal Weir",
+"state":"NSW"
+},
+"NSW_RC100":{
+"product":"flood_catchment",
+"name":"Lachlan River downstream of Wyangala Dam to Jemalong Weir",
+"state":"NSW"
+},
+"NSW_RC101":{
+"product":"flood_catchment",
+"name":"Lower Bogan River",
+"state":"NSW"
+},
+"NSW_RC102":{
+"product":"flood_catchment",
+"name":"Bogan River to Nyngan",
+"state":"NSW"
+},
+"NSW_RC103":{
+"product":"flood_catchment",
+"name":"Georges River",
+"state":"NSW"
+},
+"NSW_RC104":{
+"product":"flood_catchment",
+"name":"Deua River",
+"state":"NSW"
+},
+"NSW_RC105":{
+"product":"flood_catchment",
+"name":"Macintyre River to Inverell",
+"state":"NSW"
+},
+"NSW_RC106":{
+"product":"flood_catchment",
+"name":"Murray River downstream of Tocumwal to Barham",
+"state":"NSW"
+},
+"NSW_RC107":{
+"product":"flood_catchment",
+"name":"Murray River downstream of Barham to Wentworth",
+"state":"NSW"
+},
+"NSW_RC108":{
+"product":"flood_catchment",
+"name":"Belubula River and Mandagery Creek",
+"state":"NSW"
+},
+"NSW_RC109":{
+"product":"flood_catchment",
+"name":"Moruya River",
+"state":"NSW"
+},
+"NSW_RC110":{
+"product":"flood_catchment",
+"name":"Murrumbidgee River to Burrinjuck Dam",
+"state":"NSW"
+},
+"NSW_RC111":{
+"product":"flood_catchment",
+"name":"Murrumbidgee River downstream of Narrandera to Darlington Point",
+"state":"NSW"
+},
+"NSW_RC112":{
+"product":"flood_catchment",
+"name":"Murrumbidgee River downstream of Wagga Wagga to Narrandera",
+"state":"NSW"
+},
+"NSW_RC113":{
+"product":"flood_catchment",
+"name":"Billabong and Yanco Creeks",
+"state":"NSW"
+},
+"NSW_RC114":{
+"product":"flood_catchment",
+"name":"Lachlan River to Wyangala Dam",
+"state":"NSW"
+},
+"NSW_RC115":{
+"product":"flood_catchment",
+"name":"Lower Lachlan River downstream of Jemalong Weir to Euabalong",
+"state":"NSW"
+},
+"NSW_RC116":{
+"product":"flood_catchment",
+"name":"Darling River downstream of Tilpa to Wilcannia",
+"state":"NSW"
+},
+"NSW_RC117":{
+"product":"flood_catchment",
+"name":"Darling River downstream of  Bourke to Tilpa",
+"state":"NSW"
+},
+"NSW_RC118":{
+"product":"flood_catchment",
+"name":"Barwon and Darling Rivers downstream of Brewarrina to Bourke",
+"state":"NSW"
+},
+"NSW_RC119":{
+"product":"flood_catchment",
+"name":"Barwon River downstream of  Walgett to Brewarrina",
+"state":"NSW"
+},
+"NSW_RC120":{
+"product":"flood_catchment",
+"name":"Barwon River downstream of Collarenebri to Walgett",
+"state":"NSW"
+},
+"NSW_RC121":{
+"product":"flood_catchment",
+"name":"Mirrool Creek",
+"state":"NSW"
+},
+"NSW_RC122":{
+"product":"flood_catchment",
+"name":"Upper Coxs River",
+"state":"NSW"
+},
+"NSW_RC123":{
+"product":"flood_catchment",
+"name":"Upper Murrumbidgee",
+"state":"NSW"
+},
+"NSW_RC124":{
+"product":"flood_catchment",
+"name":"Newcastle Area",
+"state":"NSW"
+},
+"NSW_RC125":{
+"product":"flood_catchment",
+"name":"Upper Mirrool Creek",
+"state":"NSW"
+},
+"NSW_RC126":{
+"product":"flood_catchment",
+"name":"Mirrool Creek to East Mirrool Regulator",
+"state":"NSW"
+},
+"NSW_RC127":{
+"product":"flood_catchment",
+"name":"Sandy Creek",
+"state":"NSW"
+},
+"NT_FW001":{
+"product":"fire_weather_district",
+"name":"Darwin and Adelaide River",
+"state":"NT"
+},
+"NT_FW002":{
+"product":"fire_weather_district",
+"name":"Northern Fire Protection Area",
+"state":"NT"
+},
+"NT_FW003":{
+"product":"fire_weather_district",
+"name":"Daly South",
+"state":"NT"
+},
+"NT_FW004":{
+"product":"fire_weather_district",
+"name":"Tiwi",
+"state":"NT"
+},
+"NT_FW005":{
+"product":"fire_weather_district",
+"name":"Arnhem West",
+"state":"NT"
+},
+"NT_FW006":{
+"product":"fire_weather_district",
+"name":"Arnhem East",
+"state":"NT"
+},
+"NT_FW007":{
+"product":"fire_weather_district",
+"name":"Katherine Fire Protection Zone",
+"state":"NT"
+},
+"NT_FW008":{
+"product":"fire_weather_district",
+"name":"Carpentaria West",
+"state":"NT"
+},
+"NT_FW009":{
+"product":"fire_weather_district",
+"name":"Carpentaria East",
+"state":"NT"
+},
+"NT_FW010":{
+"product":"fire_weather_district",
+"name":"Gregory North West",
+"state":"NT"
+},
+"NT_FW011":{
+"product":"fire_weather_district",
+"name":"Gregory South East",
+"state":"NT"
+},
+"NT_FW012":{
+"product":"fire_weather_district",
+"name":"Barkly North",
+"state":"NT"
+},
+"NT_FW013":{
+"product":"fire_weather_district",
+"name":"Barkly South",
+"state":"NT"
+},
+"NT_FW014":{
+"product":"fire_weather_district",
+"name":"Alice Springs Fire Protection Zone",
+"state":"NT"
+},
+"NT_FW015":{
+"product":"fire_weather_district",
+"name":"Simpson West",
+"state":"NT"
+},
+"NT_FW016":{
+"product":"fire_weather_district",
+"name":"Simpson East",
+"state":"NT"
+},
+"NT_FW017":{
+"product":"fire_weather_district",
+"name":"Lasseter West",
+"state":"NT"
+},
+"NT_FW018":{
+"product":"fire_weather_district",
+"name":"Lasseter East",
+"state":"NT"
+},
+"NT_FW019":{
+"product":"fire_weather_district",
+"name":"Tanami North",
+"state":"NT"
+},
+"NT_FW020":{
+"product":"fire_weather_district",
+"name":"Tanami South",
+"state":"NT"
+},
+"NT_PW001":{
+"product":"forecast_district",
+"name":"Daly",
+"state":"NT"
+},
+"NT_PW002":{
+"product":"forecast_district",
+"name":"Tiwi",
+"state":"NT"
+},
+"NT_PW003":{
+"product":"forecast_district",
+"name":"Arnhem",
+"state":"NT"
+},
+"NT_PW004":{
+"product":"forecast_district",
+"name":"Carpentaria",
+"state":"NT"
+},
+"NT_PW005":{
+"product":"forecast_district",
+"name":"Gregory",
+"state":"NT"
+},
+"NT_PW006":{
+"product":"forecast_district",
+"name":"Barkly",
+"state":"NT"
+},
+"NT_PW007":{
+"product":"forecast_district",
+"name":"Simpson",
+"state":"NT"
+},
+"NT_PW008":{
+"product":"forecast_district",
+"name":"Lasseter",
+"state":"NT"
+},
+"NT_PW009":{
+"product":"forecast_district",
+"name":"Tanami",
+"state":"NT"
+},
+"NT_RC001":{
+"product":"flood_catchment",
+"name":"Katherine River",
+"state":"NT"
+},
+"NT_RC002":{
+"product":"flood_catchment",
+"name":"Adelaide River",
+"state":"NT"
+},
+"NT_RC003":{
+"product":"flood_catchment",
+"name":"Roper and Waterhouse Rivers",
+"state":"NT"
+},
+"NT_RC004":{
+"product":"flood_catchment",
+"name":"Victoria River",
+"state":"NT"
+},
+"NT_RC005":{
+"product":"flood_catchment",
+"name":"McArthur River",
+"state":"NT"
+},
+"NT_RC006":{
+"product":"flood_catchment",
+"name":"Daly River",
+"state":"NT"
+},
+"NT_RC010":{
+"product":"flood_catchment",
+"name":"Adelaide River and Margaret River",
+"state":"NT"
+},
+"NT_RC011":{
+"product":"flood_catchment",
+"name":"Upper Adelaide River",
+"state":"NT"
+},
+"NT_RC012":{
+"product":"flood_catchment",
+"name":"Lower Daly River",
+"state":"NT"
+},
+"NT_RC013":{
+"product":"flood_catchment",
+"name":"Daly River above Douglas River",
+"state":"NT"
+},
+"NT_RC014":{
+"product":"flood_catchment",
+"name":"Fergusson River",
+"state":"NT"
+},
+"NT_RC015":{
+"product":"flood_catchment",
+"name":"Roper River below Elsey Creek",
+"state":"NT"
+},
+"NT_RC016":{
+"product":"flood_catchment",
+"name":"Waterhouse River",
+"state":"NT"
+},
+"NT_RC017":{
+"product":"flood_catchment",
+"name":"Victoria River below Battle Creek",
+"state":"NT"
+},
+"NT_RC018":{
+"product":"flood_catchment",
+"name":"Victoria River between Battle Creek and Armstrong River",
+"state":"NT"
+},
+"NT_RC019":{
+"product":"flood_catchment",
+"name":"Victoria River between Armstrong River and Wattie Creek",
+"state":"NT"
+},
+"NT_RC020":{
+"product":"flood_catchment",
+"name":"Upper Victoria River",
+"state":"NT"
+},
+"NT_RC021":{
+"product":"flood_catchment",
+"name":"Katherine River Gorge Road",
+"state":"NT"
+},
+"NT_RC022":{
+"product":"flood_catchment",
+"name":"Katherine Town",
+"state":"NT"
+},
+"QLD_FW001":{
+"product":"fire_weather_district",
+"name":"Peninsula",
+"state":"QLD"
+},
+"QLD_FW002":{
+"product":"fire_weather_district",
+"name":"Gulf Country",
+"state":"QLD"
+},
+"QLD_FW003":{
+"product":"fire_weather_district",
+"name":"Northern Goldfields and Upper Flinders",
+"state":"QLD"
+},
+"QLD_FW004":{
+"product":"fire_weather_district",
+"name":"North Tropical Coast and Tablelands",
+"state":"QLD"
+},
+"QLD_FW006":{
+"product":"fire_weather_district",
+"name":"Burdekin and Whitsundays",
+"state":"QLD"
+},
+"QLD_FW007":{
+"product":"fire_weather_district",
+"name":"Capricornia",
+"state":"QLD"
+},
+"QLD_FW008":{
+"product":"fire_weather_district",
+"name":"Central Highlands and Coalfields",
+"state":"QLD"
+},
+"QLD_FW009":{
+"product":"fire_weather_district",
+"name":"Central West",
+"state":"QLD"
+},
+"QLD_FW010":{
+"product":"fire_weather_district",
+"name":"North West",
+"state":"QLD"
+},
+"QLD_FW011":{
+"product":"fire_weather_district",
+"name":"Channel Country",
+"state":"QLD"
+},
+"QLD_FW012":{
+"product":"fire_weather_district",
+"name":"Maranoa and Warrego",
+"state":"QLD"
+},
+"QLD_FW013":{
+"product":"fire_weather_district",
+"name":"Darling Downs and Granite Belt",
+"state":"QLD"
+},
+"QLD_FW014":{
+"product":"fire_weather_district",
+"name":"Wide Bay and Burnett",
+"state":"QLD"
+},
+"QLD_FW015":{
+"product":"fire_weather_district",
+"name":"Southeast Coast",
+"state":"QLD"
+},
+"QLD_PW001":{
+"product":"forecast_district",
+"name":"Peninsula",
+"state":"QLD"
+},
+"QLD_PW002":{
+"product":"forecast_district",
+"name":"Gulf Country",
+"state":"QLD"
+},
+"QLD_PW003":{
+"product":"forecast_district",
+"name":"Northern Goldfields and Upper Flinders",
+"state":"QLD"
+},
+"QLD_PW004":{
+"product":"forecast_district",
+"name":"North Tropical Coast and Tablelands",
+"state":"QLD"
+},
+"QLD_PW005":{
+"product":"forecast_district",
+"name":"Herbert and Lower Burdekin",
+"state":"QLD"
+},
+"QLD_PW006":{
+"product":"forecast_district",
+"name":"Central Coast and Whitsundays",
+"state":"QLD"
+},
+"QLD_PW007":{
+"product":"forecast_district",
+"name":"Capricornia",
+"state":"QLD"
+},
+"QLD_PW008":{
+"product":"forecast_district",
+"name":"Central Highlands and Coalfields",
+"state":"QLD"
+},
+"QLD_PW009":{
+"product":"forecast_district",
+"name":"Central West",
+"state":"QLD"
+},
+"QLD_PW010":{
+"product":"forecast_district",
+"name":"North West",
+"state":"QLD"
+},
+"QLD_PW011":{
+"product":"forecast_district",
+"name":"Channel Country",
+"state":"QLD"
+},
+"QLD_PW012":{
+"product":"forecast_district",
+"name":"Maranoa and Warrego",
+"state":"QLD"
+},
+"QLD_PW013":{
+"product":"forecast_district",
+"name":"Darling Downs and Granite Belt",
+"state":"QLD"
+},
+"QLD_PW014":{
+"product":"forecast_district",
+"name":"Wide Bay and Burnett",
+"state":"QLD"
+},
+"QLD_PW015":{
+"product":"forecast_district",
+"name":"Southeast Coast",
+"state":"QLD"
+},
+"QLD_RC005":{
+"product":"flood_catchment",
+"name":"Daintree and Mossman Rivers",
+"state":"QLD"
+},
+"QLD_RC006":{
+"product":"flood_catchment",
+"name":"Barron River",
+"state":"QLD"
+},
+"QLD_RC007":{
+"product":"flood_catchment",
+"name":"Mulgrave and Russell Rivers",
+"state":"QLD"
+},
+"QLD_RC008":{
+"product":"flood_catchment",
+"name":"Johnstone River Catchment",
+"state":"QLD"
+},
+"QLD_RC009":{
+"product":"flood_catchment",
+"name":"Tully and Murray Rivers",
+"state":"QLD"
+},
+"QLD_RC010":{
+"product":"flood_catchment",
+"name":"Herbert River",
+"state":"QLD"
+},
+"QLD_RC011":{
+"product":"flood_catchment",
+"name":"Ross, Bohle and Black Rivers",
+"state":"QLD"
+},
+"QLD_RC012":{
+"product":"flood_catchment",
+"name":"Haughton River Catchment",
+"state":"QLD"
+},
+"QLD_RC013":{
+"product":"flood_catchment",
+"name":"Burdekin River",
+"state":"QLD"
+},
+"QLD_RC014":{
+"product":"flood_catchment",
+"name":"Don and Proserpine Rivers",
+"state":"QLD"
+},
+"QLD_RC015":{
+"product":"flood_catchment",
+"name":"Pioneer River",
+"state":"QLD"
+},
+"QLD_RC016":{
+"product":"flood_catchment",
+"name":"Fitzroy River Catchment",
+"state":"QLD"
+},
+"QLD_RC017":{
+"product":"flood_catchment",
+"name":"Burnett River",
+"state":"QLD"
+},
+"QLD_RC018":{
+"product":"flood_catchment",
+"name":"Kolan, Boyne and Calliope Rivers and Baffle Creek",
+"state":"QLD"
+},
+"QLD_RC019":{
+"product":"flood_catchment",
+"name":"Burrum and Cherwell Rivers Catchments",
+"state":"QLD"
+},
+"QLD_RC020":{
+"product":"flood_catchment",
+"name":"Mary River",
+"state":"QLD"
+},
+"QLD_RC021":{
+"product":"flood_catchment",
+"name":"Maroochy and Noosa Rivers",
+"state":"QLD"
+},
+"QLD_RC022":{
+"product":"flood_catchment",
+"name":"Upper Brisbane River",
+"state":"QLD"
+},
+"QLD_RC025":{
+"product":"flood_catchment",
+"name":"Logan and Albert Rivers",
+"state":"QLD"
+},
+"QLD_RC026":{
+"product":"flood_catchment",
+"name":"Nerang and Coomera Rivers",
+"state":"QLD"
+},
+"QLD_RC028":{
+"product":"flood_catchment",
+"name":"Macintyre and Weir Rivers",
+"state":"QLD"
+},
+"QLD_RC029":{
+"product":"flood_catchment",
+"name":"Moonie River",
+"state":"QLD"
+},
+"QLD_RC030":{
+"product":"flood_catchment",
+"name":"Wallam and Mungallala Creeks",
+"state":"QLD"
+},
+"QLD_RC031":{
+"product":"flood_catchment",
+"name":"Warrego River (QLD)",
+"state":"QLD"
+},
+"QLD_RC032":{
+"product":"flood_catchment",
+"name":"Paroo River (QLD)",
+"state":"QLD"
+},
+"QLD_RC033":{
+"product":"flood_catchment",
+"name":"Bulloo River",
+"state":"QLD"
+},
+"QLD_RC034":{
+"product":"flood_catchment",
+"name":"Thomson and Barcoo Rivers and Cooper Creek",
+"state":"QLD"
+},
+"QLD_RC035":{
+"product":"flood_catchment",
+"name":"Diamantina River",
+"state":"QLD"
+},
+"QLD_RC036":{
+"product":"flood_catchment",
+"name":"Georgina River and Eyre Creek",
+"state":"QLD"
+},
+"QLD_RC040":{
+"product":"flood_catchment",
+"name":"Nicholson and Leichhardt Rivers",
+"state":"QLD"
+},
+"QLD_RC041":{
+"product":"flood_catchment",
+"name":"Flinders and Cloncurry Rivers",
+"state":"QLD"
+},
+"QLD_RC042":{
+"product":"flood_catchment",
+"name":"Norman and Gilbert Rivers",
+"state":"QLD"
+},
+"QLD_RC047":{
+"product":"flood_catchment",
+"name":"Barron River to Tinaroo Dam",
+"state":"QLD"
+},
+"QLD_RC048":{
+"product":"flood_catchment",
+"name":"Barron River downstream of Tinaroo Dam to Barron Falls",
+"state":"QLD"
+},
+"QLD_RC049":{
+"product":"flood_catchment",
+"name":"Barron River downstream of Barron Falls",
+"state":"QLD"
+},
+"QLD_RC050":{
+"product":"flood_catchment",
+"name":"Mulgrave River",
+"state":"QLD"
+},
+"QLD_RC051":{
+"product":"flood_catchment",
+"name":"Russell River",
+"state":"QLD"
+},
+"QLD_RC052":{
+"product":"flood_catchment",
+"name":"Tully River",
+"state":"QLD"
+},
+"QLD_RC053":{
+"product":"flood_catchment",
+"name":"Murray River",
+"state":"QLD"
+},
+"QLD_RC054":{
+"product":"flood_catchment",
+"name":"Herbert River to Nash's Crossing",
+"state":"QLD"
+},
+"QLD_RC055":{
+"product":"flood_catchment",
+"name":"Herbert River downstream of Nash's Crossing",
+"state":"QLD"
+},
+"QLD_RC056":{
+"product":"flood_catchment",
+"name":"Ross River",
+"state":"QLD"
+},
+"QLD_RC057":{
+"product":"flood_catchment",
+"name":"Black River and Bluewater Creek",
+"state":"QLD"
+},
+"QLD_RC058":{
+"product":"flood_catchment",
+"name":"Bohle River",
+"state":"QLD"
+},
+"QLD_RC059":{
+"product":"flood_catchment",
+"name":"Belyando and Suttor Rivers to Burdekin Falls Dam",
+"state":"QLD"
+},
+"QLD_RC060":{
+"product":"flood_catchment",
+"name":"Cape River to Burdekin Falls Dam",
+"state":"QLD"
+},
+"QLD_RC061":{
+"product":"flood_catchment",
+"name":"Burdekin River to Burdekin Falls Dam",
+"state":"QLD"
+},
+"QLD_RC062":{
+"product":"flood_catchment",
+"name":"Burdekin River downstream of Burdekin Falls Dam",
+"state":"QLD"
+},
+"QLD_RC063":{
+"product":"flood_catchment",
+"name":"Proserpine River",
+"state":"QLD"
+},
+"QLD_RC064":{
+"product":"flood_catchment",
+"name":"Don River",
+"state":"QLD"
+},
+"QLD_RC065":{
+"product":"flood_catchment",
+"name":"Dawson River to Theodore",
+"state":"QLD"
+},
+"QLD_RC066":{
+"product":"flood_catchment",
+"name":"Dawson River downstream of Theodore",
+"state":"QLD"
+},
+"QLD_RC067":{
+"product":"flood_catchment",
+"name":"Don and Dee Rivers",
+"state":"QLD"
+},
+"QLD_RC068":{
+"product":"flood_catchment",
+"name":"Comet River",
+"state":"QLD"
+},
+"QLD_RC069":{
+"product":"flood_catchment",
+"name":"Nogoa River",
+"state":"QLD"
+},
+"QLD_RC070":{
+"product":"flood_catchment",
+"name":"Connors and Isaac Rivers",
+"state":"QLD"
+},
+"QLD_RC071":{
+"product":"flood_catchment",
+"name":"Mackenzie River",
+"state":"QLD"
+},
+"QLD_RC072":{
+"product":"flood_catchment",
+"name":"Fitzroy River",
+"state":"QLD"
+},
+"QLD_RC073":{
+"product":"flood_catchment",
+"name":"Burnett River to Mundubbera",
+"state":"QLD"
+},
+"QLD_RC074":{
+"product":"flood_catchment",
+"name":"Stuart and Boyne Rivers",
+"state":"QLD"
+},
+"QLD_RC075":{
+"product":"flood_catchment",
+"name":"Auburn River",
+"state":"QLD"
+},
+"QLD_RC076":{
+"product":"flood_catchment",
+"name":"Burnett River downstream of Mundubbera to Paradise Dam",
+"state":"QLD"
+},
+"QLD_RC077":{
+"product":"flood_catchment",
+"name":"Barker and Barambah Creeks",
+"state":"QLD"
+},
+"QLD_RC078":{
+"product":"flood_catchment",
+"name":"Burnett River downstream of Paradise Dam",
+"state":"QLD"
+},
+"QLD_RC079":{
+"product":"flood_catchment",
+"name":"Kolan River",
+"state":"QLD"
+},
+"QLD_RC080":{
+"product":"flood_catchment",
+"name":"Baffle Creek",
+"state":"QLD"
+},
+"QLD_RC081":{
+"product":"flood_catchment",
+"name":"Boyne River",
+"state":"QLD"
+},
+"QLD_RC082":{
+"product":"flood_catchment",
+"name":"Calliope River",
+"state":"QLD"
+},
+"QLD_RC083":{
+"product":"flood_catchment",
+"name":"Burrum and Cherwell Rivers",
+"state":"QLD"
+},
+"QLD_RC084":{
+"product":"flood_catchment",
+"name":"Isis, Gregory and Elliott Rivers",
+"state":"QLD"
+},
+"QLD_RC085":{
+"product":"flood_catchment",
+"name":"Mary River to Gympie",
+"state":"QLD"
+},
+"QLD_RC086":{
+"product":"flood_catchment",
+"name":"Six Mile Creek",
+"state":"QLD"
+},
+"QLD_RC087":{
+"product":"flood_catchment",
+"name":"Mary River downstream of Gympie",
+"state":"QLD"
+},
+"QLD_RC088":{
+"product":"flood_catchment",
+"name":"Tinana Creek",
+"state":"QLD"
+},
+"QLD_RC089":{
+"product":"flood_catchment",
+"name":"Maroochy River",
+"state":"QLD"
+},
+"QLD_RC090":{
+"product":"flood_catchment",
+"name":"Mooloolah River",
+"state":"QLD"
+},
+"QLD_RC091":{
+"product":"flood_catchment",
+"name":"Coochin Creek",
+"state":"QLD"
+},
+"QLD_RC092":{
+"product":"flood_catchment",
+"name":"Noosa River",
+"state":"QLD"
+},
+"QLD_RC093":{
+"product":"flood_catchment",
+"name":"Stanley River to Somerset Dam",
+"state":"QLD"
+},
+"QLD_RC094":{
+"product":"flood_catchment",
+"name":"Brisbane River to Wivenhoe Dam",
+"state":"QLD"
+},
+"QLD_RC097":{
+"product":"flood_catchment",
+"name":"Brisbane River downstream of Wivenhoe Dam",
+"state":"QLD"
+},
+"QLD_RC098":{
+"product":"flood_catchment",
+"name":"Logan River to Yarrahappini",
+"state":"QLD"
+},
+"QLD_RC099":{
+"product":"flood_catchment",
+"name":"Logan River downstream of Yarrahappini",
+"state":"QLD"
+},
+"QLD_RC100":{
+"product":"flood_catchment",
+"name":"Albert River",
+"state":"QLD"
+},
+"QLD_RC101":{
+"product":"flood_catchment",
+"name":"Pimpama and Coomera Rivers",
+"state":"QLD"
+},
+"QLD_RC102":{
+"product":"flood_catchment",
+"name":"Nerang River",
+"state":"QLD"
+},
+"QLD_RC103":{
+"product":"flood_catchment",
+"name":"Mudgeeraba Creek",
+"state":"QLD"
+},
+"QLD_RC104":{
+"product":"flood_catchment",
+"name":"Tallebudgera and Currumbin Creeks",
+"state":"QLD"
+},
+"QLD_RC114":{
+"product":"flood_catchment",
+"name":"Dumaresq River",
+"state":"QLD"
+},
+"QLD_RC115":{
+"product":"flood_catchment",
+"name":"Macintyre Brook",
+"state":"QLD"
+},
+"QLD_RC117":{
+"product":"flood_catchment",
+"name":"Macintyre River downstream of Holdfast",
+"state":"QLD"
+},
+"QLD_RC118":{
+"product":"flood_catchment",
+"name":"Moonie River to Flinton",
+"state":"QLD"
+},
+"QLD_RC119":{
+"product":"flood_catchment",
+"name":"Moonie River downstream of Flinton",
+"state":"QLD"
+},
+"QLD_RC120":{
+"product":"flood_catchment",
+"name":"Warrego River to Charleville",
+"state":"QLD"
+},
+"QLD_RC121":{
+"product":"flood_catchment",
+"name":"Langlo and Ward Rivers",
+"state":"QLD"
+},
+"QLD_RC122":{
+"product":"flood_catchment",
+"name":"Warrego River downstream of Charleville",
+"state":"QLD"
+},
+"QLD_RC123":{
+"product":"flood_catchment",
+"name":"Paroo River to Eulo",
+"state":"QLD"
+},
+"QLD_RC124":{
+"product":"flood_catchment",
+"name":"Paroo River downstream of Eulo",
+"state":"QLD"
+},
+"QLD_RC125":{
+"product":"flood_catchment",
+"name":"Bulloo River to Quilpie",
+"state":"QLD"
+},
+"QLD_RC126":{
+"product":"flood_catchment",
+"name":"Bulloo River downstream of Quilpie",
+"state":"QLD"
+},
+"QLD_RC127":{
+"product":"flood_catchment",
+"name":"Thomson River",
+"state":"QLD"
+},
+"QLD_RC128":{
+"product":"flood_catchment",
+"name":"Barcoo River to Isisford",
+"state":"QLD"
+},
+"QLD_RC129":{
+"product":"flood_catchment",
+"name":"Barcoo River downstream of Isisford",
+"state":"QLD"
+},
+"QLD_RC130":{
+"product":"flood_catchment",
+"name":"Cooper Creek",
+"state":"QLD"
+},
+"QLD_RC131":{
+"product":"flood_catchment",
+"name":"Diamantina River to Diamantina Lakes",
+"state":"QLD"
+},
+"QLD_RC132":{
+"product":"flood_catchment",
+"name":"Western River",
+"state":"QLD"
+},
+"QLD_RC133":{
+"product":"flood_catchment",
+"name":"Diamantina River downstream of Diamantina Lakes",
+"state":"QLD"
+},
+"QLD_RC134":{
+"product":"flood_catchment",
+"name":"Georgina River to Marion Downs",
+"state":"QLD"
+},
+"QLD_RC135":{
+"product":"flood_catchment",
+"name":"Georgina River downstream of Marion Downs",
+"state":"QLD"
+},
+"QLD_RC136":{
+"product":"flood_catchment",
+"name":"Eyre Creek",
+"state":"QLD"
+},
+"QLD_RC137":{
+"product":"flood_catchment",
+"name":"Nicholson and Gregory Rivers",
+"state":"QLD"
+},
+"QLD_RC138":{
+"product":"flood_catchment",
+"name":"Leichhardt River",
+"state":"QLD"
+},
+"QLD_RC139":{
+"product":"flood_catchment",
+"name":"Flinders River to Richmond",
+"state":"QLD"
+},
+"QLD_RC140":{
+"product":"flood_catchment",
+"name":"Flinders River downstream of Richmond",
+"state":"QLD"
+},
+"QLD_RC141":{
+"product":"flood_catchment",
+"name":"Cloncurry River",
+"state":"QLD"
+},
+"QLD_RC142":{
+"product":"flood_catchment",
+"name":"Norman River",
+"state":"QLD"
+},
+"QLD_RC143":{
+"product":"flood_catchment",
+"name":"Gilbert River",
+"state":"QLD"
+},
+"QLD_RC145":{
+"product":"flood_catchment",
+"name":"Lower Balonne and Bokhara Rivers, Balonne River Minor",
+"state":"QLD"
+},
+"QLD_RC146":{
+"product":"flood_catchment",
+"name":"Weir River to Giddi Giddi South",
+"state":"QLD"
+},
+"QLD_RC147":{
+"product":"flood_catchment",
+"name":"Weir River downstream of Giddi Giddi South",
+"state":"QLD"
+},
+"QLD_RC148":{
+"product":"flood_catchment",
+"name":"Daintree River",
+"state":"QLD"
+},
+"QLD_RC149":{
+"product":"flood_catchment",
+"name":"Mossman River",
+"state":"QLD"
+},
+"QLD_RC150":{
+"product":"flood_catchment",
+"name":"Johnstone River",
+"state":"QLD"
+},
+"QLD_RC151":{
+"product":"flood_catchment",
+"name":"North Johnstone",
+"state":"QLD"
+},
+"QLD_RC152":{
+"product":"flood_catchment",
+"name":"South Johnstone",
+"state":"QLD"
+},
+"QLD_RC153":{
+"product":"flood_catchment",
+"name":"Haughton River",
+"state":"QLD"
+},
+"QLD_RC154":{
+"product":"flood_catchment",
+"name":"Major Creek",
+"state":"QLD"
+},
+"QLD_RC155":{
+"product":"flood_catchment",
+"name":"Wallam Creek",
+"state":"QLD"
+},
+"QLD_RC156":{
+"product":"flood_catchment",
+"name":"Mungallala Creek",
+"state":"QLD"
+},
+"QLD_RC157":{
+"product":"flood_catchment",
+"name":"Lockyer and Laidley Creeks",
+"state":"QLD"
+},
+"QLD_RC158":{
+"product":"flood_catchment",
+"name":"Lockyer Creek",
+"state":"QLD"
+},
+"QLD_RC159":{
+"product":"flood_catchment",
+"name":"Laidley Creek",
+"state":"QLD"
+},
+"QLD_RC160":{
+"product":"flood_catchment",
+"name":"Bremer River and Warrill Creek",
+"state":"QLD"
+},
+"QLD_RC161":{
+"product":"flood_catchment",
+"name":"Bremer River",
+"state":"QLD"
+},
+"QLD_RC162":{
+"product":"flood_catchment",
+"name":"Warrill Creek",
+"state":"QLD"
+},
+"QLD_RC164":{
+"product":"flood_catchment",
+"name":"Upper Condamine River",
+"state":"QLD"
+},
+"QLD_RC165":{
+"product":"flood_catchment",
+"name":"Condamine River to Warwick",
+"state":"QLD"
+},
+"QLD_RC167":{
+"product":"flood_catchment",
+"name":"Condamine River downstream of Warwick to Oakey Creek",
+"state":"QLD"
+},
+"QLD_RC168":{
+"product":"flood_catchment",
+"name":"Lower Condamine River",
+"state":"QLD"
+},
+"QLD_RC169":{
+"product":"flood_catchment",
+"name":"Myall Creek",
+"state":"QLD"
+},
+"QLD_RC170":{
+"product":"flood_catchment",
+"name":"Condamine River downstream of Oakey Creek to Cotswold",
+"state":"QLD"
+},
+"QLD_RC171":{
+"product":"flood_catchment",
+"name":"Charleys Creek",
+"state":"QLD"
+},
+"QLD_RC172":{
+"product":"flood_catchment",
+"name":"Upper Balonne and Maranoa Rivers",
+"state":"QLD"
+},
+"QLD_RC173":{
+"product":"flood_catchment",
+"name":"Dogwood Creek",
+"state":"QLD"
+},
+"QLD_RC174":{
+"product":"flood_catchment",
+"name":"Balonne River to Surat",
+"state":"QLD"
+},
+"QLD_RC175":{
+"product":"flood_catchment",
+"name":"Bungil Creek",
+"state":"QLD"
+},
+"QLD_RC176":{
+"product":"flood_catchment",
+"name":"Balonne River downstream of Surat to Beardmore Dam",
+"state":"QLD"
+},
+"QLD_RC177":{
+"product":"flood_catchment",
+"name":"Maranoa River",
+"state":"QLD"
+},
+"SA_FW001":{
+"product":"fire_weather_district",
+"name":"Adelaide Metropolitan",
+"state":"SA"
+},
+"SA_FW002":{
+"product":"fire_weather_district",
+"name":"Yorke Peninsula",
+"state":"SA"
+},
+"SA_FW003":{
+"product":"fire_weather_district",
+"name":"Kangaroo Island",
+"state":"SA"
+},
+"SA_FW004":{
+"product":"fire_weather_district",
+"name":"Upper South East",
+"state":"SA"
+},
+"SA_FW005":{
+"product":"fire_weather_district",
+"name":"Lower South East",
+"state":"SA"
+},
+"SA_FW006":{
+"product":"fire_weather_district",
+"name":"Riverland",
+"state":"SA"
+},
+"SA_FW007":{
+"product":"fire_weather_district",
+"name":"Murraylands",
+"state":"SA"
+},
+"SA_FW008":{
+"product":"fire_weather_district",
+"name":"Mid North",
+"state":"SA"
+},
+"SA_FW009":{
+"product":"fire_weather_district",
+"name":"Flinders",
+"state":"SA"
+},
+"SA_FW010":{
+"product":"fire_weather_district",
+"name":"West Coast",
+"state":"SA"
+},
+"SA_FW011":{
+"product":"fire_weather_district",
+"name":"Eastern Eyre Peninsula",
+"state":"SA"
+},
+"SA_FW012":{
+"product":"fire_weather_district",
+"name":"Lower Eyre Peninsula",
+"state":"SA"
+},
+"SA_FW013":{
+"product":"fire_weather_district",
+"name":"North West Pastoral",
+"state":"SA"
+},
+"SA_FW014":{
+"product":"fire_weather_district",
+"name":"North East Pastoral",
+"state":"SA"
+},
+"SA_FW015":{
+"product":"fire_weather_district",
+"name":"Mount Lofty Ranges",
+"state":"SA"
+},
+"SA_PW001":{
+"product":"forecast_district",
+"name":"Adelaide Metropolitan",
+"state":"SA"
+},
+"SA_PW002":{
+"product":"forecast_district",
+"name":"Yorke Peninsula",
+"state":"SA"
+},
+"SA_PW003":{
+"product":"forecast_district",
+"name":"Kangaroo Island",
+"state":"SA"
+},
+"SA_PW004":{
+"product":"forecast_district",
+"name":"Upper South East",
+"state":"SA"
+},
+"SA_PW005":{
+"product":"forecast_district",
+"name":"Lower South East",
+"state":"SA"
+},
+"SA_PW006":{
+"product":"forecast_district",
+"name":"Riverland",
+"state":"SA"
+},
+"SA_PW007":{
+"product":"forecast_district",
+"name":"Murraylands",
+"state":"SA"
+},
+"SA_PW008":{
+"product":"forecast_district",
+"name":"Mid North",
+"state":"SA"
+},
+"SA_PW009":{
+"product":"forecast_district",
+"name":"Flinders",
+"state":"SA"
+},
+"SA_PW010":{
+"product":"forecast_district",
+"name":"West Coast",
+"state":"SA"
+},
+"SA_PW011":{
+"product":"forecast_district",
+"name":"Eastern Eyre Peninsula",
+"state":"SA"
+},
+"SA_PW012":{
+"product":"forecast_district",
+"name":"Lower Eyre Peninsula",
+"state":"SA"
+},
+"SA_PW013":{
+"product":"forecast_district",
+"name":"North West Pastoral",
+"state":"SA"
+},
+"SA_PW014":{
+"product":"forecast_district",
+"name":"North East Pastoral",
+"state":"SA"
+},
+"SA_PW015":{
+"product":"forecast_district",
+"name":"Mount Lofty Ranges",
+"state":"SA"
+},
+"SA_RC001":{
+"product":"flood_catchment",
+"name":"Gawler River Catchment",
+"state":"SA"
+},
+"SA_RC002":{
+"product":"flood_catchment",
+"name":"Torrens River",
+"state":"SA"
+},
+"SA_RC003":{
+"product":"flood_catchment",
+"name":"Onkaparinga River",
+"state":"SA"
+},
+"SA_RC005":{
+"product":"flood_catchment",
+"name":"Inland Rivers SA",
+"state":"SA"
+},
+"SA_RC007":{
+"product":"flood_catchment",
+"name":"Light and Wakefield Rivers",
+"state":"SA"
+},
+"SA_RC008":{
+"product":"flood_catchment",
+"name":"Angas and Bremer Rivers",
+"state":"SA"
+},
+"SA_RC013":{
+"product":"flood_catchment",
+"name":"Gawler Township",
+"state":"SA"
+},
+"SA_RC014":{
+"product":"flood_catchment",
+"name":"Gawler River",
+"state":"SA"
+},
+"SA_RC015":{
+"product":"flood_catchment",
+"name":"North Para above Nuriootpa",
+"state":"SA"
+},
+"SA_RC016":{
+"product":"flood_catchment",
+"name":"North Para between Nuriootpa and Turretfield Dam",
+"state":"SA"
+},
+"SA_RC017":{
+"product":"flood_catchment",
+"name":"South Para above South East Gawler",
+"state":"SA"
+},
+"SA_RC018":{
+"product":"flood_catchment",
+"name":"Upper Torrens River above Gumeracha Weir",
+"state":"SA"
+},
+"SA_RC019":{
+"product":"flood_catchment",
+"name":"Middle Torrens River between Gumeracha Weir and Gorge Weir",
+"state":"SA"
+},
+"SA_RC020":{
+"product":"flood_catchment",
+"name":"Lower Torrens River including Adelaide",
+"state":"SA"
+},
+"SA_RC021":{
+"product":"flood_catchment",
+"name":"Upper Onkaparinga River above Verdun",
+"state":"SA"
+},
+"SA_RC022":{
+"product":"flood_catchment",
+"name":"Middle Onkaparinga River between Verdun and Mt Bold Reservoir",
+"state":"SA"
+},
+"SA_RC023":{
+"product":"flood_catchment",
+"name":"Lower Onkaparinga River below Mt Bold Reservoir",
+"state":"SA"
+},
+"SA_RC024":{
+"product":"flood_catchment",
+"name":"Light River",
+"state":"SA"
+},
+"SA_RC025":{
+"product":"flood_catchment",
+"name":"Wakefield River",
+"state":"SA"
+},
+"SA_RC026":{
+"product":"flood_catchment",
+"name":"Bremer River",
+"state":"SA"
+},
+"SA_RC027":{
+"product":"flood_catchment",
+"name":"Angas River",
+"state":"SA"
+},
+"SA_RC030":{
+"product":"flood_catchment",
+"name":"Warburton",
+"state":"SA"
+},
+"SA_RC031":{
+"product":"flood_catchment",
+"name":"Cooper Creek",
+"state":"SA"
+},
+"SA_RC032":{
+"product":"flood_catchment",
+"name":"River Murray upstream Loxton",
+"state":"SA"
+},
+"SA_RC033":{
+"product":"flood_catchment",
+"name":"River Murray between Loxton and Lock 2",
+"state":"SA"
+},
+"SA_RC034":{
+"product":"flood_catchment",
+"name":"River Murray between Lock 2 and Mannum",
+"state":"SA"
+},
+"SA_RC035":{
+"product":"flood_catchment",
+"name":"River Murray downstream Mannum",
+"state":"SA"
+},
+"SA_RC036":{
+"product":"flood_catchment",
+"name":"River Murray in SA",
+"state":"SA"
+},
+"TAS_FW001":{
+"product":"fire_weather_district",
+"name":"Furneaux Islands",
+"state":"TAS"
+},
+"TAS_FW002":{
+"product":"fire_weather_district",
+"name":"North East",
+"state":"TAS"
+},
+"TAS_FW003":{
+"product":"fire_weather_district",
+"name":"East Coast",
+"state":"TAS"
+},
+"TAS_FW004":{
+"product":"fire_weather_district",
+"name":"Central North",
+"state":"TAS"
+},
+"TAS_FW005":{
+"product":"fire_weather_district",
+"name":"Midlands",
+"state":"TAS"
+},
+"TAS_FW006":{
+"product":"fire_weather_district",
+"name":"South East",
+"state":"TAS"
+},
+"TAS_FW007":{
+"product":"fire_weather_district",
+"name":"Upper Derwent Valley",
+"state":"TAS"
+},
+"TAS_FW008":{
+"product":"fire_weather_district",
+"name":"Central Plateau",
+"state":"TAS"
+},
+"TAS_FW009":{
+"product":"fire_weather_district",
+"name":"Western",
+"state":"TAS"
+},
+"TAS_FW010":{
+"product":"fire_weather_district",
+"name":"North West Coast",
+"state":"TAS"
+},
+"TAS_FW011":{
+"product":"fire_weather_district",
+"name":"King Island",
+"state":"TAS"
+},
+"TAS_PW001":{
+"product":"forecast_district",
+"name":"Furneaux Islands",
+"state":"TAS"
+},
+"TAS_PW002":{
+"product":"forecast_district",
+"name":"North East",
+"state":"TAS"
+},
+"TAS_PW003":{
+"product":"forecast_district",
+"name":"East Coast",
+"state":"TAS"
+},
+"TAS_PW004":{
+"product":"forecast_district",
+"name":"Central North",
+"state":"TAS"
+},
+"TAS_PW005":{
+"product":"forecast_district",
+"name":"Midlands",
+"state":"TAS"
+},
+"TAS_PW006":{
+"product":"forecast_district",
+"name":"South East",
+"state":"TAS"
+},
+"TAS_PW007":{
+"product":"forecast_district",
+"name":"Upper Derwent Valley",
+"state":"TAS"
+},
+"TAS_PW008":{
+"product":"forecast_district",
+"name":"Central Plateau",
+"state":"TAS"
+},
+"TAS_PW009":{
+"product":"forecast_district",
+"name":"Western",
+"state":"TAS"
+},
+"TAS_PW010":{
+"product":"forecast_district",
+"name":"North West Coast",
+"state":"TAS"
+},
+"TAS_PW011":{
+"product":"forecast_district",
+"name":"King Island",
+"state":"TAS"
+},
+"TAS_RC002":{
+"product":"flood_catchment",
+"name":"Meander River",
+"state":"TAS"
+},
+"TAS_RC003":{
+"product":"flood_catchment",
+"name":"North Esk River",
+"state":"TAS"
+},
+"TAS_RC004":{
+"product":"flood_catchment",
+"name":"South Esk River",
+"state":"TAS"
+},
+"TAS_RC005":{
+"product":"flood_catchment",
+"name":"Macquarie River",
+"state":"TAS"
+},
+"TAS_RC006":{
+"product":"flood_catchment",
+"name":"River Derwent",
+"state":"TAS"
+},
+"TAS_RC007":{
+"product":"flood_catchment",
+"name":"Jordan River",
+"state":"TAS"
+},
+"TAS_RC008":{
+"product":"flood_catchment",
+"name":"Coal River",
+"state":"TAS"
+},
+"TAS_RC009":{
+"product":"flood_catchment",
+"name":"Huon River",
+"state":"TAS"
+},
+"TAS_RC010":{
+"product":"flood_catchment",
+"name":"Forth River",
+"state":"TAS"
+},
+"TAS_RC011":{
+"product":"flood_catchment",
+"name":"Mersey River",
+"state":"TAS"
+},
+"TAS_RC017":{
+"product":"flood_catchment",
+"name":"Meander River above Deloraine",
+"state":"TAS"
+},
+"TAS_RC018":{
+"product":"flood_catchment",
+"name":"Meander River - Deloraine to Strathbridge",
+"state":"TAS"
+},
+"TAS_RC019":{
+"product":"flood_catchment",
+"name":"Meander River below Strathbridge",
+"state":"TAS"
+},
+"TAS_RC020":{
+"product":"flood_catchment",
+"name":"Liffey River",
+"state":"TAS"
+},
+"TAS_RC021":{
+"product":"flood_catchment",
+"name":"St Patricks River",
+"state":"TAS"
+},
+"TAS_RC022":{
+"product":"flood_catchment",
+"name":"Upper North Esk River",
+"state":"TAS"
+},
+"TAS_RC023":{
+"product":"flood_catchment",
+"name":"Lower North Esk River around Corra Linn",
+"state":"TAS"
+},
+"TAS_RC024":{
+"product":"flood_catchment",
+"name":"Break O'Day River",
+"state":"TAS"
+},
+"TAS_RC025":{
+"product":"flood_catchment",
+"name":"South Esk River above Fingal",
+"state":"TAS"
+},
+"TAS_RC026":{
+"product":"flood_catchment",
+"name":"St Pauls River",
+"state":"TAS"
+},
+"TAS_RC027":{
+"product":"flood_catchment",
+"name":"South Esk River - Fingal to Llewellyn",
+"state":"TAS"
+},
+"TAS_RC028":{
+"product":"flood_catchment",
+"name":"Nile River",
+"state":"TAS"
+},
+"TAS_RC029":{
+"product":"flood_catchment",
+"name":"South Esk River - Llewellyn to Perth",
+"state":"TAS"
+},
+"TAS_RC030":{
+"product":"flood_catchment",
+"name":"South Esk River - Perth to Longford",
+"state":"TAS"
+},
+"TAS_RC031":{
+"product":"flood_catchment",
+"name":"South Esk River around Hadspen and Lake Trevallyn",
+"state":"TAS"
+},
+"TAS_RC032":{
+"product":"flood_catchment",
+"name":"Macquarie River above Mt Morriston",
+"state":"TAS"
+},
+"TAS_RC033":{
+"product":"flood_catchment",
+"name":"Macquarie River - Mt Morriston to Elizabeth River",
+"state":"TAS"
+},
+"TAS_RC034":{
+"product":"flood_catchment",
+"name":"Elizabeth River",
+"state":"TAS"
+},
+"TAS_RC035":{
+"product":"flood_catchment",
+"name":"Isis River",
+"state":"TAS"
+},
+"TAS_RC036":{
+"product":"flood_catchment",
+"name":"Macquarie River - Elizabeth River to Lake River",
+"state":"TAS"
+},
+"TAS_RC037":{
+"product":"flood_catchment",
+"name":"Lake River",
+"state":"TAS"
+},
+"TAS_RC038":{
+"product":"flood_catchment",
+"name":"Brumbys Creek",
+"state":"TAS"
+},
+"TAS_RC039":{
+"product":"flood_catchment",
+"name":"Macquarie River - Lake River to Longford",
+"state":"TAS"
+},
+"TAS_RC040":{
+"product":"flood_catchment",
+"name":"River Derwent above River Ouse",
+"state":"TAS"
+},
+"TAS_RC041":{
+"product":"flood_catchment",
+"name":"River Ouse",
+"state":"TAS"
+},
+"TAS_RC042":{
+"product":"flood_catchment",
+"name":"River Clyde",
+"state":"TAS"
+},
+"TAS_RC043":{
+"product":"flood_catchment",
+"name":"River Derwent above Meadowbank Dam",
+"state":"TAS"
+},
+"TAS_RC044":{
+"product":"flood_catchment",
+"name":"Tyenna River",
+"state":"TAS"
+},
+"TAS_RC045":{
+"product":"flood_catchment",
+"name":"Styx River",
+"state":"TAS"
+},
+"TAS_RC046":{
+"product":"flood_catchment",
+"name":"River Derwent below Meadowbank Dam",
+"state":"TAS"
+},
+"TAS_RC047":{
+"product":"flood_catchment",
+"name":"River Derwent around New Norfolk",
+"state":"TAS"
+},
+"TAS_RC048":{
+"product":"flood_catchment",
+"name":"Huon River above Tahune",
+"state":"TAS"
+},
+"TAS_RC049":{
+"product":"flood_catchment",
+"name":"Picton River",
+"state":"TAS"
+},
+"TAS_RC050":{
+"product":"flood_catchment",
+"name":"Huon River - Tahune to Judbury",
+"state":"TAS"
+},
+"TAS_RC051":{
+"product":"flood_catchment",
+"name":"Huon River around Huonville",
+"state":"TAS"
+},
+"TAS_RC052":{
+"product":"flood_catchment",
+"name":"Forth River above Paloona Dam",
+"state":"TAS"
+},
+"TAS_RC053":{
+"product":"flood_catchment",
+"name":"Wilmot River",
+"state":"TAS"
+},
+"TAS_RC054":{
+"product":"flood_catchment",
+"name":"Lower Forth River below Paloona Dam",
+"state":"TAS"
+},
+"TAS_RC055":{
+"product":"flood_catchment",
+"name":"Mersey River above Liena",
+"state":"TAS"
+},
+"TAS_RC056":{
+"product":"flood_catchment",
+"name":"Mersey River - Liena to Kimberley",
+"state":"TAS"
+},
+"TAS_RC057":{
+"product":"flood_catchment",
+"name":"Mersey River - Kimberley to Latrobe township",
+"state":"TAS"
+},
+"VIC_FW001":{
+"product":"fire_weather_district",
+"name":"Mallee",
+"state":"VIC"
+},
+"VIC_FW002":{
+"product":"fire_weather_district",
+"name":"Wimmera",
+"state":"VIC"
+},
+"VIC_FW003":{
+"product":"fire_weather_district",
+"name":"Northern Country",
+"state":"VIC"
+},
+"VIC_FW004":{
+"product":"fire_weather_district",
+"name":"North East",
+"state":"VIC"
+},
+"VIC_FW005":{
+"product":"fire_weather_district",
+"name":"East Gippsland",
+"state":"VIC"
+},
+"VIC_FW006":{
+"product":"fire_weather_district",
+"name":"West and South Gippsland",
+"state":"VIC"
+},
+"VIC_FW007":{
+"product":"fire_weather_district",
+"name":"Central",
+"state":"VIC"
+},
+"VIC_FW008":{
+"product":"fire_weather_district",
+"name":"North Central",
+"state":"VIC"
+},
+"VIC_FW009":{
+"product":"fire_weather_district",
+"name":"South West",
+"state":"VIC"
+},
+"VIC_PW001":{
+"product":"forecast_district",
+"name":"Mallee",
+"state":"VIC"
+},
+"VIC_PW002":{
+"product":"forecast_district",
+"name":"Wimmera",
+"state":"VIC"
+},
+"VIC_PW003":{
+"product":"forecast_district",
+"name":"Northern Country",
+"state":"VIC"
+},
+"VIC_PW004":{
+"product":"forecast_district",
+"name":"North East",
+"state":"VIC"
+},
+"VIC_PW005":{
+"product":"forecast_district",
+"name":"East Gippsland",
+"state":"VIC"
+},
+"VIC_PW006":{
+"product":"forecast_district",
+"name":"West and South Gippsland",
+"state":"VIC"
+},
+"VIC_PW007":{
+"product":"forecast_district",
+"name":"Central",
+"state":"VIC"
+},
+"VIC_PW008":{
+"product":"forecast_district",
+"name":"North Central",
+"state":"VIC"
+},
+"VIC_PW009":{
+"product":"forecast_district",
+"name":"South West",
+"state":"VIC"
+},
+"VIC_RC004":{
+"product":"flood_catchment",
+"name":"Barwon River",
+"state":"VIC"
+},
+"VIC_RC005":{
+"product":"flood_catchment",
+"name":"Glenelg River",
+"state":"VIC"
+},
+"VIC_RC009":{
+"product":"flood_catchment",
+"name":"Cann and Genoa Rivers",
+"state":"VIC"
+},
+"VIC_RC010":{
+"product":"flood_catchment",
+"name":"Snowy River",
+"state":"VIC"
+},
+"VIC_RC011":{
+"product":"flood_catchment",
+"name":"Tambo and Nicholson River",
+"state":"VIC"
+},
+"VIC_RC012":{
+"product":"flood_catchment",
+"name":"Mitchell River",
+"state":"VIC"
+},
+"VIC_RC014":{
+"product":"flood_catchment",
+"name":"Gippsland Lakes",
+"state":"VIC"
+},
+"VIC_RC015":{
+"product":"flood_catchment",
+"name":"Avon River",
+"state":"VIC"
+},
+"VIC_RC016":{
+"product":"flood_catchment",
+"name":"Macalister River",
+"state":"VIC"
+},
+"VIC_RC017":{
+"product":"flood_catchment",
+"name":"Thomson River",
+"state":"VIC"
+},
+"VIC_RC018":{
+"product":"flood_catchment",
+"name":"Latrobe River",
+"state":"VIC"
+},
+"VIC_RC019":{
+"product":"flood_catchment",
+"name":"Traralgon Creek",
+"state":"VIC"
+},
+"VIC_RC020":{
+"product":"flood_catchment",
+"name":"South Gippsland Catchments",
+"state":"VIC"
+},
+"VIC_RC021":{
+"product":"flood_catchment",
+"name":"Maribyrnong River",
+"state":"VIC"
+},
+"VIC_RC023":{
+"product":"flood_catchment",
+"name":"Dandenong Creek",
+"state":"VIC"
+},
+"VIC_RC024":{
+"product":"flood_catchment",
+"name":"Bunyip River",
+"state":"VIC"
+},
+"VIC_RC025":{
+"product":"flood_catchment",
+"name":"Diamond Creek",
+"state":"VIC"
+},
+"VIC_RC026":{
+"product":"flood_catchment",
+"name":"Merri Creek",
+"state":"VIC"
+},
+"VIC_RC027":{
+"product":"flood_catchment",
+"name":"Kororoit Creek",
+"state":"VIC"
+},
+"VIC_RC028":{
+"product":"flood_catchment",
+"name":"Werribee River",
+"state":"VIC"
+},
+"VIC_RC031":{
+"product":"flood_catchment",
+"name":"Hopkins River and Mt Emu Creek",
+"state":"VIC"
+},
+"VIC_RC033":{
+"product":"flood_catchment",
+"name":"Mitta Mitta River",
+"state":"VIC"
+},
+"VIC_RC034":{
+"product":"flood_catchment",
+"name":"Kiewa River",
+"state":"VIC"
+},
+"VIC_RC035":{
+"product":"flood_catchment",
+"name":"Ovens and King Rivers",
+"state":"VIC"
+},
+"VIC_RC036":{
+"product":"flood_catchment",
+"name":"Fifteen Mile Creek",
+"state":"VIC"
+},
+"VIC_RC037":{
+"product":"flood_catchment",
+"name":"Broken River",
+"state":"VIC"
+},
+"VIC_RC038":{
+"product":"flood_catchment",
+"name":"Seven and Castle Creeks",
+"state":"VIC"
+},
+"VIC_RC039":{
+"product":"flood_catchment",
+"name":"Goulburn River",
+"state":"VIC"
+},
+"VIC_RC040":{
+"product":"flood_catchment",
+"name":"Campaspe River",
+"state":"VIC"
+},
+"VIC_RC041":{
+"product":"flood_catchment",
+"name":"Loddon River",
+"state":"VIC"
+},
+"VIC_RC042":{
+"product":"flood_catchment",
+"name":"Avoca River",
+"state":"VIC"
+},
+"VIC_RC043":{
+"product":"flood_catchment",
+"name":"Wimmera River",
+"state":"VIC"
+},
+"VIC_RC045":{
+"product":"flood_catchment",
+"name":"Murray River upstream of Lake Hume",
+"state":"VIC"
+},
+"VIC_RC046":{
+"product":"flood_catchment",
+"name":"Plenty River",
+"state":"VIC"
+},
+"VIC_RC049":{
+"product":"flood_catchment",
+"name":"Moyne River",
+"state":"VIC"
+},
+"VIC_RC050":{
+"product":"flood_catchment",
+"name":"Broken Creek",
+"state":"VIC"
+},
+"VIC_RC051":{
+"product":"flood_catchment",
+"name":"Goulburn River upstream of Lake Eildon",
+"state":"VIC"
+},
+"VIC_RC052":{
+"product":"flood_catchment",
+"name":"Swampy Plains River",
+"state":"VIC"
+},
+"VIC_RC053":{
+"product":"flood_catchment",
+"name":"Acheron River",
+"state":"VIC"
+},
+"VIC_RC054":{
+"product":"flood_catchment",
+"name":"Yea River",
+"state":"VIC"
+},
+"VIC_RC055":{
+"product":"flood_catchment",
+"name":"King Parrot Creek",
+"state":"VIC"
+},
+"VIC_RC056":{
+"product":"flood_catchment",
+"name":"Sunday Creek",
+"state":"VIC"
+},
+"VIC_RC057":{
+"product":"flood_catchment",
+"name":"Murray River Biggara to Bringenbrong",
+"state":"VIC"
+},
+"VIC_RC058":{
+"product":"flood_catchment",
+"name":"Hughes Creek",
+"state":"VIC"
+},
+"VIC_RC059":{
+"product":"flood_catchment",
+"name":"Murray River Bringenbrong to Lake Hume",
+"state":"VIC"
+},
+"VIC_RC060":{
+"product":"flood_catchment",
+"name":"Murray River to Biggara",
+"state":"VIC"
+},
+"VIC_RC061":{
+"product":"flood_catchment",
+"name":"Wimmera River downstream of Horsham",
+"state":"VIC"
+},
+"VIC_RC062":{
+"product":"flood_catchment",
+"name":"Wimmera River Glenorchy to Horsham",
+"state":"VIC"
+},
+"VIC_RC063":{
+"product":"flood_catchment",
+"name":"Yarriambiack Creek",
+"state":"VIC"
+},
+"VIC_RC064":{
+"product":"flood_catchment",
+"name":"Goulburn River Lake Eildon to Seymour",
+"state":"VIC"
+},
+"VIC_RC065":{
+"product":"flood_catchment",
+"name":"Cann River",
+"state":"VIC"
+},
+"VIC_RC066":{
+"product":"flood_catchment",
+"name":"Genoa River",
+"state":"VIC"
+},
+"VIC_RC067":{
+"product":"flood_catchment",
+"name":"Bombala River",
+"state":"VIC"
+},
+"VIC_RC068":{
+"product":"flood_catchment",
+"name":"Snowy River to McKillops Bridge",
+"state":"VIC"
+},
+"VIC_RC069":{
+"product":"flood_catchment",
+"name":"Snowy River downstream of McKillops Bridge",
+"state":"VIC"
+},
+"VIC_RC070":{
+"product":"flood_catchment",
+"name":"Buchan River",
+"state":"VIC"
+},
+"VIC_RC071":{
+"product":"flood_catchment",
+"name":"Wonnangatta River",
+"state":"VIC"
+},
+"VIC_RC072":{
+"product":"flood_catchment",
+"name":"Mitchell River to Glenaladale",
+"state":"VIC"
+},
+"VIC_RC073":{
+"product":"flood_catchment",
+"name":"Mitchell River downstream of Glenaladale",
+"state":"VIC"
+},
+"VIC_RC074":{
+"product":"flood_catchment",
+"name":"Macalister River upstream of Lake Glenmaggie",
+"state":"VIC"
+},
+"VIC_RC075":{
+"product":"flood_catchment",
+"name":"Macalister River downstream of Lake Glenmaggie",
+"state":"VIC"
+},
+"VIC_RC076":{
+"product":"flood_catchment",
+"name":"Thomson River to Cowwarr Weir",
+"state":"VIC"
+},
+"VIC_RC077":{
+"product":"flood_catchment",
+"name":"Thomson River Cowwarr Weir to Wandocka",
+"state":"VIC"
+},
+"VIC_RC078":{
+"product":"flood_catchment",
+"name":"Thomson River downstream of Wandocka",
+"state":"VIC"
+},
+"VIC_RC079":{
+"product":"flood_catchment",
+"name":"Latrobe River upstream of Yallourn",
+"state":"VIC"
+},
+"VIC_RC080":{
+"product":"flood_catchment",
+"name":"Moe River",
+"state":"VIC"
+},
+"VIC_RC081":{
+"product":"flood_catchment",
+"name":"Tanjil River",
+"state":"VIC"
+},
+"VIC_RC082":{
+"product":"flood_catchment",
+"name":"Morwell River",
+"state":"VIC"
+},
+"VIC_RC083":{
+"product":"flood_catchment",
+"name":"Latrobe River Yallourn to Traralgon Creek",
+"state":"VIC"
+},
+"VIC_RC084":{
+"product":"flood_catchment",
+"name":"Latrobe River downstream of Traralgon",
+"state":"VIC"
+},
+"VIC_RC085":{
+"product":"flood_catchment",
+"name":"Hollands Landing",
+"state":"VIC"
+},
+"VIC_RC086":{
+"product":"flood_catchment",
+"name":"Barwon River to Inverleigh",
+"state":"VIC"
+},
+"VIC_RC087":{
+"product":"flood_catchment",
+"name":"Leigh River",
+"state":"VIC"
+},
+"VIC_RC088":{
+"product":"flood_catchment",
+"name":"Moorabool River",
+"state":"VIC"
+},
+"VIC_RC089":{
+"product":"flood_catchment",
+"name":"Barwon River downstream of Inverleigh",
+"state":"VIC"
+},
+"VIC_RC090":{
+"product":"flood_catchment",
+"name":"Mitta Mitta River upstream of Lake Dartmouth",
+"state":"VIC"
+},
+"VIC_RC091":{
+"product":"flood_catchment",
+"name":"Mitta Mitta River downstream of Lake Dartmouth",
+"state":"VIC"
+},
+"VIC_RC092":{
+"product":"flood_catchment",
+"name":"Tallangatta Creek",
+"state":"VIC"
+},
+"VIC_RC093":{
+"product":"flood_catchment",
+"name":"Kiewa River to Mongans Bridge",
+"state":"VIC"
+},
+"VIC_RC094":{
+"product":"flood_catchment",
+"name":"Loch Sport",
+"state":"VIC"
+},
+"VIC_RC095":{
+"product":"flood_catchment",
+"name":"Lakes Entrance",
+"state":"VIC"
+},
+"VIC_RC096":{
+"product":"flood_catchment",
+"name":"Wimmera River to Glenorchy",
+"state":"VIC"
+},
+"VIC_RC097":{
+"product":"flood_catchment",
+"name":"Avoca River downstream of Charlton Town",
+"state":"VIC"
+},
+"VIC_RC098":{
+"product":"flood_catchment",
+"name":"Avoca River to Charlton Town",
+"state":"VIC"
+},
+"VIC_RC099":{
+"product":"flood_catchment",
+"name":"Loddon River Loddon Weir to Kerang",
+"state":"VIC"
+},
+"VIC_RC100":{
+"product":"flood_catchment",
+"name":"Kiewa River downstream of Mongans Bridge",
+"state":"VIC"
+},
+"VIC_RC101":{
+"product":"flood_catchment",
+"name":"Ovens River to Bright",
+"state":"VIC"
+},
+"VIC_RC102":{
+"product":"flood_catchment",
+"name":"Buckland River",
+"state":"VIC"
+},
+"VIC_RC103":{
+"product":"flood_catchment",
+"name":"Buffalo River",
+"state":"VIC"
+},
+"VIC_RC104":{
+"product":"flood_catchment",
+"name":"Ovens River Bright to Rocky Point",
+"state":"VIC"
+},
+"VIC_RC105":{
+"product":"flood_catchment",
+"name":"King River",
+"state":"VIC"
+},
+"VIC_RC106":{
+"product":"flood_catchment",
+"name":"Paynesville",
+"state":"VIC"
+},
+"VIC_RC107":{
+"product":"flood_catchment",
+"name":"Ovens River downstream of Rocky Point",
+"state":"VIC"
+},
+"VIC_RC108":{
+"product":"flood_catchment",
+"name":"Broken River to Benalla",
+"state":"VIC"
+},
+"VIC_RC109":{
+"product":"flood_catchment",
+"name":"Broken River Benalla to Casey Weir",
+"state":"VIC"
+},
+"VIC_RC110":{
+"product":"flood_catchment",
+"name":"Broken River downstream of Casey Weir",
+"state":"VIC"
+},
+"VIC_RC111":{
+"product":"flood_catchment",
+"name":"Castle Creek",
+"state":"VIC"
+},
+"VIC_RC112":{
+"product":"flood_catchment",
+"name":"Seven Creeks to Euroa",
+"state":"VIC"
+},
+"VIC_RC113":{
+"product":"flood_catchment",
+"name":"Seven Creeks downstream of Euroa",
+"state":"VIC"
+},
+"VIC_RC114":{
+"product":"flood_catchment",
+"name":"Metung",
+"state":"VIC"
+},
+"VIC_RC115":{
+"product":"flood_catchment",
+"name":"Loddon River Laanecoorie to Loddon Weir",
+"state":"VIC"
+},
+"VIC_RC116":{
+"product":"flood_catchment",
+"name":"Loddon River upstream of Laanecoorie",
+"state":"VIC"
+},
+"VIC_RC117":{
+"product":"flood_catchment",
+"name":"Campaspe River downstream of Rochester",
+"state":"VIC"
+},
+"VIC_RC118":{
+"product":"flood_catchment",
+"name":"Campaspe River Barnadown to Rochester",
+"state":"VIC"
+},
+"VIC_RC119":{
+"product":"flood_catchment",
+"name":"Campaspe River Lake Eppalock to Barnadown",
+"state":"VIC"
+},
+"VIC_RC120":{
+"product":"flood_catchment",
+"name":"Goulburn River Seymour to Shepparton",
+"state":"VIC"
+},
+"VIC_RC121":{
+"product":"flood_catchment",
+"name":"Goulburn River downstream of Shepparton",
+"state":"VIC"
+},
+"VIC_RC122":{
+"product":"flood_catchment",
+"name":"Campaspe River upstream of Lake Eppalock",
+"state":"VIC"
+},
+"VIC_RC123":{
+"product":"flood_catchment",
+"name":"Bemm River",
+"state":"VIC"
+},
+"VIC_RC124":{
+"product":"flood_catchment",
+"name":"Natimuk Creek",
+"state":"VIC"
+},
+"VIC_RC125":{
+"product":"flood_catchment",
+"name":"Avon-Richardson Rivers",
+"state":"VIC"
+},
+"VIC_RC126":{
+"product":"flood_catchment",
+"name":"Bendigo and Bullock Creeks",
+"state":"VIC"
+},
+"VIC_RC127":{
+"product":"flood_catchment",
+"name":"Loddon River downstream of Kerang",
+"state":"VIC"
+},
+"VIC_RC128":{
+"product":"flood_catchment",
+"name":"Glenelg River to Casterton",
+"state":"VIC"
+},
+"VIC_RC129":{
+"product":"flood_catchment",
+"name":"Wannon River",
+"state":"VIC"
+},
+"VIC_RC130":{
+"product":"flood_catchment",
+"name":"Glenelg River downstream of Casterton",
+"state":"VIC"
+},
+"VIC_RC131":{
+"product":"flood_catchment",
+"name":"Nicholson River",
+"state":"VIC"
+},
+"VIC_RC132":{
+"product":"flood_catchment",
+"name":"Tambo River",
+"state":"VIC"
+},
+"VIC_RC133":{
+"product":"flood_catchment",
+"name":"Hopkins River",
+"state":"VIC"
+},
+"VIC_RC134":{
+"product":"flood_catchment",
+"name":"Mt Emu Creek to Skipton",
+"state":"VIC"
+},
+"VIC_RC135":{
+"product":"flood_catchment",
+"name":"Upper Yarra River - upstream of Warrandyte",
+"state":"VIC"
+},
+"VIC_RC136":{
+"product":"flood_catchment",
+"name":"Lower Yarra River - downstream of Warrandyte",
+"state":"VIC"
+},
+"VIC_RC137":{
+"product":"flood_catchment",
+"name":"Watts River",
+"state":"VIC"
+},
+"VIC_RC138":{
+"product":"flood_catchment",
+"name":"Upper Yarra River to Watts River",
+"state":"VIC"
+},
+"VIC_RC139":{
+"product":"flood_catchment",
+"name":"Upper Yarra River - Watts River to Warrandyte",
+"state":"VIC"
+},
+"VIC_RC140":{
+"product":"flood_catchment",
+"name":"Darebin Creek",
+"state":"VIC"
+},
+"VIC_RC141":{
+"product":"flood_catchment",
+"name":"Moonee Ponds Creek",
+"state":"VIC"
+},
+"VIC_RC142":{
+"product":"flood_catchment",
+"name":"Gardiners Creek",
+"state":"VIC"
+},
+"VIC_RC143":{
+"product":"flood_catchment",
+"name":"Lower Yarra River - Warrandyte to Plenty River",
+"state":"VIC"
+},
+"VIC_RC144":{
+"product":"flood_catchment",
+"name":"Lower Yarra River - Plenty River to Merri Creek",
+"state":"VIC"
+},
+"VIC_RC145":{
+"product":"flood_catchment",
+"name":"Lower Yarra River - downstream of Merri Creek",
+"state":"VIC"
+},
+"VIC_RC146":{
+"product":"flood_catchment",
+"name":"Deep Creek",
+"state":"VIC"
+},
+"VIC_RC147":{
+"product":"flood_catchment",
+"name":"Jacksons Creek",
+"state":"VIC"
+},
+"VIC_RC148":{
+"product":"flood_catchment",
+"name":"Lower Maribyrnong River",
+"state":"VIC"
+},
+"VIC_RC149":{
+"product":"flood_catchment",
+"name":"Upper Werribee River",
+"state":"VIC"
+},
+"VIC_RC150":{
+"product":"flood_catchment",
+"name":"Lower Werribee River - downstream of Lerderderg River",
+"state":"VIC"
+},
+"WA_FW041":{
+"product":"fire_weather_district",
+"name":"North Kimberley",
+"state":"WA"
+},
+"WA_FW042":{
+"product":"fire_weather_district",
+"name":"Dampier Derby Coast",
+"state":"WA"
+},
+"WA_FW043":{
+"product":"fire_weather_district",
+"name":"South Kimberley Coast",
+"state":"WA"
+},
+"WA_FW044":{
+"product":"fire_weather_district",
+"name":"Hedland",
+"state":"WA"
+},
+"WA_FW045":{
+"product":"fire_weather_district",
+"name":"Burrup",
+"state":"WA"
+},
+"WA_FW046":{
+"product":"fire_weather_district",
+"name":"Ashburton Coast",
+"state":"WA"
+},
+"WA_FW047":{
+"product":"fire_weather_district",
+"name":"Central Pilbara",
+"state":"WA"
+},
+"WA_FW048":{
+"product":"fire_weather_district",
+"name":"Gascoyne Coast",
+"state":"WA"
+},
+"WA_FW049":{
+"product":"fire_weather_district",
+"name":"Gascoyne Inland",
+"state":"WA"
+},
+"WA_FW050":{
+"product":"fire_weather_district",
+"name":"South Murchison",
+"state":"WA"
+},
+"WA_FW051":{
+"product":"fire_weather_district",
+"name":"West Interior",
+"state":"WA"
+},
+"WA_FW052":{
+"product":"fire_weather_district",
+"name":"Central Interior",
+"state":"WA"
+},
+"WA_FW053":{
+"product":"fire_weather_district",
+"name":"Mid West",
+"state":"WA"
+},
+"WA_FW054":{
+"product":"fire_weather_district",
+"name":"North Midlands",
+"state":"WA"
+},
+"WA_FW055":{
+"product":"fire_weather_district",
+"name":"Lesueur",
+"state":"WA"
+},
+"WA_FW056":{
+"product":"fire_weather_district",
+"name":"Watheroo",
+"state":"WA"
+},
+"WA_FW057":{
+"product":"fire_weather_district",
+"name":"Mortlock",
+"state":"WA"
+},
+"WA_FW058":{
+"product":"fire_weather_district",
+"name":"Karroun",
+"state":"WA"
+},
+"WA_FW059":{
+"product":"fire_weather_district",
+"name":"Lockwood",
+"state":"WA"
+},
+"WA_FW060":{
+"product":"fire_weather_district",
+"name":"North Goldfields",
+"state":"WA"
+},
+"WA_FW061":{
+"product":"fire_weather_district",
+"name":"South Goldfields",
+"state":"WA"
+},
+"WA_FW062":{
+"product":"fire_weather_district",
+"name":"South Interior",
+"state":"WA"
+},
+"WA_FW063":{
+"product":"fire_weather_district",
+"name":"Swan Coastal North",
+"state":"WA"
+},
+"WA_FW064":{
+"product":"fire_weather_district",
+"name":"Swan Inland North",
+"state":"WA"
+},
+"WA_FW066":{
+"product":"fire_weather_district",
+"name":"Swan Coastal South",
+"state":"WA"
+},
+"WA_FW067":{
+"product":"fire_weather_district",
+"name":"Swan Inland South",
+"state":"WA"
+},
+"WA_FW068":{
+"product":"fire_weather_district",
+"name":"Brockman",
+"state":"WA"
+},
+"WA_FW069":{
+"product":"fire_weather_district",
+"name":"Capes",
+"state":"WA"
+},
+"WA_FW070":{
+"product":"fire_weather_district",
+"name":"Southern Forests",
+"state":"WA"
+},
+"WA_FW071":{
+"product":"fire_weather_district",
+"name":"Blackwood",
+"state":"WA"
+},
+"WA_FW072":{
+"product":"fire_weather_district",
+"name":"Arthur",
+"state":"WA"
+},
+"WA_FW073":{
+"product":"fire_weather_district",
+"name":"Stirling West",
+"state":"WA"
+},
+"WA_FW074":{
+"product":"fire_weather_district",
+"name":"Stirling North",
+"state":"WA"
+},
+"WA_FW075":{
+"product":"fire_weather_district",
+"name":"Fitzgerald",
+"state":"WA"
+},
+"WA_FW077":{
+"product":"fire_weather_district",
+"name":"Esperance Coast",
+"state":"WA"
+},
+"WA_FW078":{
+"product":"fire_weather_district",
+"name":"Esperance Inland",
+"state":"WA"
+},
+"WA_FW080":{
+"product":"fire_weather_district",
+"name":"Ashburton Inland",
+"state":"WA"
+},
+"WA_FW081":{
+"product":"fire_weather_district",
+"name":"Exmouth Gulf Coast",
+"state":"WA"
+},
+"WA_FW082":{
+"product":"fire_weather_district",
+"name":"Eucla",
+"state":"WA"
+},
+"WA_FW083":{
+"product":"fire_weather_district",
+"name":"North Interior",
+"state":"WA"
+},
+"WA_FW084":{
+"product":"fire_weather_district",
+"name":"Geographe",
+"state":"WA"
+},
+"WA_FW085":{
+"product":"fire_weather_district",
+"name":"Stirling Coast",
+"state":"WA"
+},
+"WA_FW086":{
+"product":"fire_weather_district",
+"name":"Roe",
+"state":"WA"
+},
+"WA_FW087":{
+"product":"fire_weather_district",
+"name":"Lakes",
+"state":"WA"
+},
+"WA_FW088":{
+"product":"fire_weather_district",
+"name":"Avon",
+"state":"WA"
+},
+"WA_FW089":{
+"product":"fire_weather_district",
+"name":"Kimberley Inland North",
+"state":"WA"
+},
+"WA_FW090":{
+"product":"fire_weather_district",
+"name":"Kimberley Inland South",
+"state":"WA"
+},
+"WA_FW091":{
+"product":"fire_weather_district",
+"name":"Perth Inner",
+"state":"WA"
+},
+"WA_FW092":{
+"product":"fire_weather_district",
+"name":"Rottnest",
+"state":"WA"
+},
+"WA_PW001":{
+"product":"forecast_district",
+"name":"Kimberley",
+"state":"WA"
+},
+"WA_PW002":{
+"product":"forecast_district",
+"name":"Pilbara",
+"state":"WA"
+},
+"WA_PW003":{
+"product":"forecast_district",
+"name":"Gascoyne",
+"state":"WA"
+},
+"WA_PW004":{
+"product":"forecast_district",
+"name":"Goldfields",
+"state":"WA"
+},
+"WA_PW005":{
+"product":"forecast_district",
+"name":"Eucla",
+"state":"WA"
+},
+"WA_PW006":{
+"product":"forecast_district",
+"name":"North Interior",
+"state":"WA"
+},
+"WA_PW007":{
+"product":"forecast_district",
+"name":"South Interior",
+"state":"WA"
+},
+"WA_PW008":{
+"product":"forecast_district",
+"name":"Central West",
+"state":"WA"
+},
+"WA_PW009":{
+"product":"forecast_district",
+"name":"Lower West",
+"state":"WA"
+},
+"WA_PW010":{
+"product":"forecast_district",
+"name":"South West",
+"state":"WA"
+},
+"WA_PW011":{
+"product":"forecast_district",
+"name":"South Coastal",
+"state":"WA"
+},
+"WA_PW012":{
+"product":"forecast_district",
+"name":"South East Coastal",
+"state":"WA"
+},
+"WA_PW013":{
+"product":"forecast_district",
+"name":"Great Southern",
+"state":"WA"
+},
+"WA_PW014":{
+"product":"forecast_district",
+"name":"Central Wheat Belt",
+"state":"WA"
+},
+"WA_RC002":{
+"product":"flood_catchment",
+"name":"Nullarbor District",
+"state":"WA"
+},
+"WA_RC005":{
+"product":"flood_catchment",
+"name":"South Coastal District",
+"state":"WA"
+},
+"WA_RC006":{
+"product":"flood_catchment",
+"name":"South East Coastal District",
+"state":"WA"
+},
+"WA_RC007":{
+"product":"flood_catchment",
+"name":"Blackwood River",
+"state":"WA"
+},
+"WA_RC008":{
+"product":"flood_catchment",
+"name":"South West District",
+"state":"WA"
+},
+"WA_RC009":{
+"product":"flood_catchment",
+"name":"Preston River",
+"state":"WA"
+},
+"WA_RC010":{
+"product":"flood_catchment",
+"name":"Collie River",
+"state":"WA"
+},
+"WA_RC011":{
+"product":"flood_catchment",
+"name":"Harvey River",
+"state":"WA"
+},
+"WA_RC012":{
+"product":"flood_catchment",
+"name":"Murray River",
+"state":"WA"
+},
+"WA_RC013":{
+"product":"flood_catchment",
+"name":"Canning River",
+"state":"WA"
+},
+"WA_RC014":{
+"product":"flood_catchment",
+"name":"Swan River",
+"state":"WA"
+},
+"WA_RC015":{
+"product":"flood_catchment",
+"name":"Avon River",
+"state":"WA"
+},
+"WA_RC016":{
+"product":"flood_catchment",
+"name":"Moore and Hill Rivers",
+"state":"WA"
+},
+"WA_RC017":{
+"product":"flood_catchment",
+"name":"Irwin River",
+"state":"WA"
+},
+"WA_RC018":{
+"product":"flood_catchment",
+"name":"Greenough River Catchment",
+"state":"WA"
+},
+"WA_RC020":{
+"product":"flood_catchment",
+"name":"Wooramel River",
+"state":"WA"
+},
+"WA_RC021":{
+"product":"flood_catchment",
+"name":"Murchison River",
+"state":"WA"
+},
+"WA_RC022":{
+"product":"flood_catchment",
+"name":"Gascoyne River",
+"state":"WA"
+},
+"WA_RC023":{
+"product":"flood_catchment",
+"name":"Pilbara Coastal Rivers",
+"state":"WA"
+},
+"WA_RC024":{
+"product":"flood_catchment",
+"name":"Ashburton River",
+"state":"WA"
+},
+"WA_RC025":{
+"product":"flood_catchment",
+"name":"Fortescue River",
+"state":"WA"
+},
+"WA_RC026":{
+"product":"flood_catchment",
+"name":"De Grey River Catchment",
+"state":"WA"
+},
+"WA_RC028":{
+"product":"flood_catchment",
+"name":"North Kimberley District",
+"state":"WA"
+},
+"WA_RC029":{
+"product":"flood_catchment",
+"name":"West Kimberley District",
+"state":"WA"
+},
+"WA_RC030":{
+"product":"flood_catchment",
+"name":"Fitzroy River",
+"state":"WA"
+},
+"WA_RC031":{
+"product":"flood_catchment",
+"name":"Ord River",
+"state":"WA"
+},
+"WA_RC035":{
+"product":"flood_catchment",
+"name":"Lyndon-Minilya Rivers",
+"state":"WA"
+},
+"WA_RC036":{
+"product":"flood_catchment",
+"name":"Onslow Coast",
+"state":"WA"
+},
+"WA_RC037":{
+"product":"flood_catchment",
+"name":"Ord River downstream of Lake Argyle",
+"state":"WA"
+},
+"WA_RC038":{
+"product":"flood_catchment",
+"name":"Ord River upstream of Lake Argyle",
+"state":"WA"
+},
+"WA_RC039":{
+"product":"flood_catchment",
+"name":"Fitzroy River from Noonkanbah to Willare",
+"state":"WA"
+},
+"WA_RC040":{
+"product":"flood_catchment",
+"name":"Blackwood River upstream of Bridgetown",
+"state":"WA"
+},
+"WA_RC041":{
+"product":"flood_catchment",
+"name":"Blackwood River downstream of Bridgetown",
+"state":"WA"
+},
+"WA_RC042":{
+"product":"flood_catchment",
+"name":"Fitzroy River from Fitzroy Crossing to Noonkanbah",
+"state":"WA"
+},
+"WA_RC043":{
+"product":"flood_catchment",
+"name":"Fitzroy River to Fitzroy Crossing",
+"state":"WA"
+},
+"WA_RC044":{
+"product":"flood_catchment",
+"name":"De Grey River",
+"state":"WA"
+},
+"WA_RC045":{
+"product":"flood_catchment",
+"name":"Swan River upstream of Walyunga",
+"state":"WA"
+},
+"WA_RC046":{
+"product":"flood_catchment",
+"name":"Swan River downstream of Walyunga",
+"state":"WA"
+},
+"WA_RC047":{
+"product":"flood_catchment",
+"name":"Avon River to Beverley",
+"state":"WA"
+},
+"WA_RC048":{
+"product":"flood_catchment",
+"name":"Avon River from Beverley to Northam",
+"state":"WA"
+},
+"WA_RC049":{
+"product":"flood_catchment",
+"name":"Avon River from Northam to Toodyay",
+"state":"WA"
+},
+"WA_RC050":{
+"product":"flood_catchment",
+"name":"Hill River",
+"state":"WA"
+},
+"WA_RC051":{
+"product":"flood_catchment",
+"name":"Moore River",
+"state":"WA"
+},
+"WA_RC052":{
+"product":"flood_catchment",
+"name":"Chapman River",
+"state":"WA"
+},
+"WA_RC053":{
+"product":"flood_catchment",
+"name":"Greenough River",
+"state":"WA"
+},
+"WA_RC054":{
+"product":"flood_catchment",
+"name":"Shaw River",
+"state":"WA"
+},
+"WA_RC055":{
+"product":"flood_catchment",
+"name":"Gascoyne River to Jimba",
+"state":"WA"
+},
+"WA_RC056":{
+"product":"flood_catchment",
+"name":"Lyons River",
+"state":"WA"
+},
+"WA_RC057":{
+"product":"flood_catchment",
+"name":"Gascoyne River downstream of Jimba",
+"state":"WA"
+},
+"WA_RC058":{
+"product":"flood_catchment",
+"name":"Coongan River",
+"state":"WA"
+},
+"WA_RC059":{
+"product":"flood_catchment",
+"name":"Nullagine River",
+"state":"WA"
+},
+"WA_RC060":{
+"product":"flood_catchment",
+"name":"Oakover River",
+"state":"WA"
+},
+"WA_RC061":{
+"product":"flood_catchment",
+"name":"Sandy Desert",
+"state":"WA"
+},
+"WA_RC062":{
+"product":"flood_catchment",
+"name":"Warburton District Rivers",
+"state":"WA"
+},
+"WA_RC063":{
+"product":"flood_catchment",
+"name":"Salt Lakes District Rivers",
+"state":"WA"
+},
+"WA_RC064":{
+"product":"flood_catchment",
+"name":"Sturt Creek District",
+"state":"WA"
+},
+"WA_RC065":{
+"product":"flood_catchment",
+"name":"Yarra Yarra Lakes District",
+"state":"WA"
+}
+},
+"sites":{
+"014af5c5-e580-4304-9de2-53d3a6045d6f":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC004",
+"VIC_RC087"
+],
+"014f2ad8-5872-42b3-b26b-4313724bf69b":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"0158b3e2-ec45-4df2-b251-18dec6752de1":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"0227d80d-23b3-4168-96a3-56b5200d99ba":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"02d6a758-e2b3-4d1f-93c4-3a84b1e8255a":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC021",
+"VIC_RC148"
+],
+"03286918-6c5d-4ef8-9b46-bf9462ce3f5e":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"0352ee7f-1629-4049-ba43-3176d57ed0e1":[
+"WA_FW043",
+"WA_PW001",
+"WA_RC029"
+],
+"03a152f5-0fbd-4e14-bfe0-aa68c590e7d8":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC028",
+"VIC_RC150"
+],
+"03b38624-c678-4d3a-a911-609cfb9c862d":[
+"QLD_FW004",
+"QLD_PW004"
+],
+"046e1f2d-3e0f-4f49-b74b-946c6ee84bbd":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC164",
+"QLD_RC165"
+],
+"049922b7-408f-427f-83aa-149eedc63252":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC140"
+],
+"0555c733-9d2e-419b-9f1f-2fc81d738403":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"05ce526f-312f-4beb-888f-78517d09a49c":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"079047c9-d46a-452d-97d2-f9baadc44b86":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC004",
+"VIC_RC089"
+],
+"07faa389-648b-47dc-9a92-e30977754b50":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC017"
+],
+"080eb967-d05a-4583-b4b9-774c04c42de0":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC021",
+"QLD_RC092"
+],
+"0970264d-1c71-4379-bc96-628a404df6d5":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"097eb1d1-24ae-4057-b516-e5d6c9dddb71":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"09f81d41-28a3-4687-932f-db6e624fb47b":[
+"NSW_FW002",
+"NSW_PW002",
+"NSW_RC007",
+"NSW_RC056"
+],
+"0a1708c3-cb2e-42af-948c-3d304895df91":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"0b2bf81f-492b-49a6-bf91-40fbe14660c7":[
+"SA_FW010",
+"SA_PW010"
+],
+"0b3c1b35-0dc7-494c-b615-831810da2877":[
+"NSW_FW010",
+"NSW_PW008",
+"NSW_RC068"
+],
+"0b492bec-01d5-4f1f-ba06-b166f4cc5a8c":[
+"WA_FW043",
+"WA_PW001",
+"WA_RC029"
+],
+"0bcfe0ec-56da-4eb6-83bb-3f3df68c9916":[
+"QLD_FW014",
+"QLD_PW014"
+],
+"0c100989-df51-4fa5-93fd-7b6f43c164e2":[
+"NSW_FW005",
+"NSW_PW006"
+],
+"0cf81f62-761d-48a4-89b4-e98d14349a40":[
+"NSW_FW004",
+"NSW_PW003",
+"NSW_RC014",
+"NSW_RC062"
+],
+"0d6af908-e0c1-4f39-913e-a8eead959b9f":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"0dea3051-67a8-4fd3-8b43-20b7180231ff":[
+"SA_FW015",
+"SA_PW015"
+],
+"0ead22ee-d524-4cbd-9bfb-05e8dccccff2":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC009",
+"NSW_RC058"
+],
+"0f480046-290c-4e22-9949-c6ee50d01033":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"1034fd20-6c19-4d3d-8b2a-aa33998abaa9":[
+"SA_FW001",
+"SA_PW001"
+],
+"10eab160-63b8-4d4e-8bab-9f8bf96dfe3c":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"112ed82e-4f72-4235-b7ab-76cb96dfaee1":[
+"SA_FW005",
+"SA_PW005"
+],
+"1282f8a6-70a1-4aaf-89f7-ed0f850c8ab1":[
+"SA_FW005",
+"SA_PW005"
+],
+"12af9104-341c-4292-aaaf-775e0e518fce":[
+"WA_FW085",
+"WA_PW011",
+"WA_RC005"
+],
+"12ed72f6-1bb8-42b5-abca-7b4d73e8d3ac":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC021",
+"VIC_RC148"
+],
+"13871c95-d36f-4326-a83a-9143159c25fc":[
+"SA_FW015",
+"SA_PW015",
+"SA_RC008",
+"SA_RC026"
+],
+"14835d89-07e3-4b8d-95d9-80582c66286e":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"14b83e83-7ca7-4561-b11d-7c57019dedb2":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"172337cc-9e0d-423e-b71e-ae075a78360f":[
+"WA_FW053",
+"WA_PW008"
+],
+"1738301d-dadb-43f1-b1ad-2e87a1af6997":[
+"VIC_FW003",
+"VIC_PW003",
+"VIC_RC041",
+"VIC_RC126"
+],
+"187d21e3-a2ab-4b2e-9ba7-8e2b743ef2a3":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC142"
+],
+"18a75c81-a54c-4db1-b037-12636fa7676e":[
+"NSW_FW017",
+"NSW_PW014",
+"NSW_RC028",
+"NSW_RC074"
+],
+"19109ab6-35d2-4e85-a8d1-fed506ca99bb":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"19e8a2c5-90e4-4d7b-b231-7a337efd845f":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC144"
+],
+"1b085a94-e0f8-4d9f-b468-116dd74b5cf6":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC022",
+"QLD_RC093"
+],
+"1bc38a4f-453e-42a2-8723-2f4099c86600":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"1bc89ee7-2035-493f-a97b-db7d192243e2":[
+"QLD_FW007",
+"QLD_PW007"
+],
+"1bff7be0-709b-46b4-b19b-e3349f5e9ac1":[
+"WA_FW045",
+"WA_PW002",
+"WA_RC023"
+],
+"1c111105-a705-476b-99c3-00128b863f68":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"1c232deb-1ca4-46c1-8574-2acd27610545":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"1f6157c0-c242-4028-bf18-0e998efde33d":[
+"WA_FW061",
+"WA_PW004",
+"WA_RC063"
+],
+"1f91b38a-0f84-40ce-841f-cc1c88401bb7":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"2029fa3d-12ca-43d7-a761-43dac04bb64f":[
+"SA_FW008",
+"SA_PW008"
+],
+"2181d638-8101-4972-925d-7a742b5e1def":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"2193d679-41cf-429c-a4c1-2b1f613ac4c0":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"223d522d-157f-43c3-9430-d3b4deaeeedd":[
+"NSW_FW008",
+"NSW_PW017",
+"NSW_RC027",
+"NSW_RC072"
+],
+"22679e77-7add-4a0b-ae3a-be1f137f694c":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"239565f5-08d5-48bc-a615-2c08fac63ee8":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"249b55be-a56a-448d-acff-22554556e723":[
+"QLD_FW007",
+"QLD_PW007",
+"QLD_RC016",
+"QLD_RC072"
+],
+"24ecbe5f-003e-4830-a8c1-d02ff6a40dbf":[
+"SA_FW011",
+"SA_PW011"
+],
+"26007881-1465-47e2-8552-413016089673":[
+"SA_FW002",
+"SA_PW002"
+],
+"2789d7e5-7704-49d3-a51f-9cce3efea80b":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"279d73fc-1294-4139-ad34-7052d68696d7":[
+"NSW_FW001",
+"NSW_PW001",
+"NSW_RC052"
+],
+"282315c5-3285-4c84-9863-29cd98385882":[
+"WA_FW091",
+"WA_PW009"
+],
+"28c2e15d-33ee-48f8-88b5-91fe32ad5c39":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC009",
+"NSW_RC059"
+],
+"294d495d-be79-44db-a8fb-c14fc9e59abf":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"29501e9c-fdde-4e34-8326-14899fbf7c03":[
+"NSW_FW011",
+"NSW_PW004",
+"NSW_RC094"
+],
+"2b164ebd-b76f-4b52-b9e4-4a23c9b09fbc":[
+"QLD_FW004",
+"QLD_PW004",
+"QLD_RC006",
+"QLD_RC047"
+],
+"2b22669d-3fa8-4e24-891a-5e08bf6b8e3f":[
+"NSW_FW005",
+"NSW_PW006"
+],
+"2b653f21-8d87-4674-b971-80b1616bac6b":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC009",
+"NSW_RC059"
+],
+"2f1d8a4a-8c6d-48ee-a117-428fcace10a1":[
+"NSW_FW015",
+"NSW_PW012",
+"NSW_RC024",
+"NSW_RC089"
+],
+"2f74d11f-e9a3-4b8e-b80f-e7acab84c838":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"2f9e1692-4819-4e0a-9ab1-45b1768a6215":[
+"VIC_FW005",
+"VIC_PW005",
+"VIC_RC012",
+"VIC_RC073"
+],
+"3069935b-866c-4a89-b831-b29ce2829880":[
+"QLD_FW006",
+"QLD_PW006",
+"QLD_RC015"
+],
+"306ede16-bd51-4032-b0e7-7cef9c459cc1":[
+"SA_FW007",
+"SA_PW007",
+"SA_RC035",
+"SA_RC036"
+],
+"31199c65-bc9d-4f78-8385-fe8178f54189":[
+"NSW_RC029",
+"NSW_RC107",
+"VIC_FW001",
+"VIC_PW001"
+],
+"31d5a8fb-7902-4ea2-beb1-3604df9564b3":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"329c88ed-4cb0-4caf-ba56-0c11ab4d25c9":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"329ff1f2-18bd-4805-924a-d78337f3261e":[
+"NSW_FW009",
+"NSW_PW009",
+"NSW_RC009",
+"NSW_RC059"
+],
+"32eec4b8-e42d-45f6-9daa-a5eb7c5bc235":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC143"
+],
+"32f62b2c-e2d3-4d11-b968-d46ce9ceff7a":[
+"SA_FW015",
+"SA_PW015"
+],
+"33e4f0b7-d13b-490d-a2a4-24b1455b2379":[
+"NSW_FW002",
+"NSW_PW002",
+"NSW_RC042"
+],
+"34d84840-b541-4e38-b4f9-223b0bfe48b5":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC027"
+],
+"34d9ffc9-aa1d-4050-af42-27a7dffcee5a":[
+"QLD_FW004",
+"QLD_PW004"
+],
+"35c1d5b6-137c-44f0-a386-d6d361c2d2a4":[
+"NSW_FW001",
+"NSW_PW001",
+"NSW_RC051"
+],
+"3631aea1-5db3-4c91-b5d2-6c950b532bbd":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC142"
+],
+"3736e5f9-4273-4f1b-9ff1-579ef7a12708":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"3843cac5-2b42-4c77-8cc3-a36e0f93c6d8":[
+"TAS_FW004",
+"TAS_PW004",
+"TAS_RC003",
+"TAS_RC023"
+],
+"38b640ff-8dea-40f7-97c9-32d494d1e9e6":[
+"WA_FW091",
+"WA_PW009"
+],
+"3979186c-4063-46d7-8e35-9b72d4f34846":[
+"VIC_FW006",
+"VIC_PW006",
+"VIC_RC020"
+],
+"39a3d292-5bb5-48b0-a65e-cc46122141b4":[
+"WA_FW088",
+"WA_PW014",
+"WA_RC015",
+"WA_RC048"
+],
+"39d103a1-101c-4aff-ae06-8a84eb84775e":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC013"
+],
+"39d90aaf-616d-4829-909a-b4f05dd5d5f6":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"39d94baf-7b38-4ed6-a195-295ab78c8429":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC021",
+"QLD_RC089"
+],
+"3a2bb276-3ca5-40e5-ad3f-cb5d17d2945b":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"3aae3dfc-9088-4a19-895a-43a4ee223e82":[
+"QLD_FW012",
+"QLD_PW012",
+"QLD_RC172",
+"QLD_RC175"
+],
+"3b2316c0-9aa0-49d2-8872-8eb8ee10463b":[
+"NSW_FW004",
+"NSW_PW003",
+"NSW_RC014",
+"NSW_RC061"
+],
+"3ba93e99-78a0-4594-9a44-5bf8947fbcbe":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC008",
+"NSW_RC086"
+],
+"3bb1e410-d0a7-4b40-95b4-2f5e1700c33c":[
+"VIC_FW006",
+"VIC_PW006",
+"VIC_RC019"
+],
+"3c25d69e-b1f7-4c84-bf2f-d48e8b30cefb":[
+"NSW_FW001",
+"NSW_PW001"
+],
+"3c4acc74-a84c-4505-b51c-322cc08e33fb":[
+"QLD_FW004",
+"QLD_PW004"
+],
+"3ca20a47-5024-43ef-a9a4-6e162d7af197":[
+"WA_FW091",
+"WA_PW009"
+],
+"3cabcca5-82a5-40e5-838e-535230f7417e":[
+"WA_FW066",
+"WA_PW009"
+],
+"3cc4ba69-9a0e-48bd-b7ef-41badc9426ce":[
+"NSW_FW016",
+"NSW_PW013",
+"NSW_RC026",
+"NSW_RC115"
+],
+"3d10b477-f6e4-499d-b713-0ed7acc33ac1":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"3d220500-a23f-4aca-a691-4bbdaa7c3149":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC028",
+"QLD_RC117"
+],
+"3d72c39b-612c-4d2a-8fe4-23f011b6ca42":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC142"
+],
+"3d78e9cc-720e-49fd-89a5-8ed40bb4630e":[
+"SA_FW001",
+"SA_PW001",
+"SA_RC002",
+"SA_RC020"
+],
+"3d7f90e4-709a-4c09-975a-6b13bf7c2994":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"3e2aff4b-d587-4a7b-a3c0-5bb22e10171a":[
+"NSW_FW019",
+"NSW_PW014",
+"NSW_RC028",
+"NSW_RC111"
+],
+"3e737877-0e27-4516-ac72-51f1c785d135":[
+"SA_FW006",
+"SA_PW006",
+"SA_RC033",
+"SA_RC036"
+],
+"3e90d92e-fe85-447e-9917-7781d2b44602":[
+"WA_FW091",
+"WA_PW009"
+],
+"3eab8d3a-04e8-4dc9-803c-389eb7e865ec":[
+"QLD_FW014",
+"QLD_PW014",
+"QLD_RC017",
+"QLD_RC078"
+],
+"40fe68f8-e688-499d-b7f7-97faeb970a15":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"41b8608e-35bf-46bd-b207-60fc4427525c":[
+"VIC_FW002",
+"VIC_PW002",
+"VIC_RC043",
+"VIC_RC062"
+],
+"41dc7824-991c-4619-9692-f6a6213e5622":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC013"
+],
+"4314ed0a-186c-4fd3-ae35-7868b84f1e24":[
+"VIC_FW006",
+"VIC_PW006",
+"VIC_RC019"
+],
+"432d42d0-eba1-4522-9ae3-da095692a5ab":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC020"
+],
+"43460603-c127-4fb5-ad86-8a0d1e4e7b5b":[
+"SA_FW001",
+"SA_PW001",
+"SA_RC002",
+"SA_RC020"
+],
+"434c1370-44e8-46f9-a7c4-460deeff0102":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"436f4a55-e1f9-476a-8c9f-f122c9b49710":[
+"SA_FW003",
+"SA_PW003"
+],
+"43f0d7fa-8766-4b66-b88c-64bbf727e9c9":[
+"NT_FW001",
+"NT_PW001"
+],
+"4416bffb-7b01-4bfd-b1e2-e10017a944c4":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"4435cf9b-7b01-4abb-bc8d-00a08cdd5e47":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"444ef86f-47c6-441a-a518-48d595e8a028":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"45ffa64c-0312-4388-91e7-ef7ed01ec9d4":[
+"VIC_FW001",
+"VIC_PW001",
+"VIC_RC041",
+"VIC_RC099"
+],
+"465acc59-62a6-4728-93d2-a6b6b4bd34f5":[
+"WA_FW063",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"467eff6b-5fac-41bd-b01e-d7f70d9bcffc":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"468e32b2-3211-4ecf-b017-404aba9c1d7d":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC009",
+"NSW_RC059"
+],
+"46d80c91-ba91-4515-ab61-59bb39dd7ff3":[
+"NSW_FW006",
+"NSW_PW007",
+"NSW_RC013"
+],
+"474877d0-3bc7-45d5-b429-cf272906a1e0":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"476af490-a222-4e74-b777-865710f2dbe3":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"48a2c571-dfb9-482d-b6d7-de120bcf16d3":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"48f56cff-4f40-40d6-9a30-919dc0a93e38":[
+"TAS_FW006",
+"TAS_PW006"
+],
+"497729b8-a2ee-4e2c-a337-64ffe324693d":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC009",
+"NSW_RC059"
+],
+"4987a1b7-18ee-4407-b40c-391b717ec413":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC164",
+"QLD_RC167"
+],
+"49b01933-b55a-487c-b91a-88da25b06c05":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"4a388d0a-61b5-41a4-9424-db3bee00c3b7":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"4a77d6a0-c46f-44c6-92c5-3b7b18326a73":[
+"VIC_FW006",
+"VIC_PW006",
+"VIC_RC017",
+"VIC_RC078"
+],
+"4ad7ead7-9fc0-4639-bb00-df4c63f9107e":[
+"SA_FW001",
+"SA_PW001"
+],
+"4ae9311e-95dc-4af1-8af3-189ad921e419":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"4bb1c4e6-d03f-441c-8595-b88a1a37dd3d":[
+"VIC_FW003",
+"VIC_PW003",
+"VIC_RC039",
+"VIC_RC120"
+],
+"4bb6f02e-b296-429e-a838-d7db80423c91":[
+"NSW_FW012",
+"NSW_PW011",
+"NSW_RC022",
+"NSW_RC066"
+],
+"4c4b7d11-a557-4eec-9955-42aaaaab2c5b":[
+"NSW_RC029",
+"NSW_RC075",
+"VIC_FW003",
+"VIC_PW003"
+],
+"4cefecf2-bd07-4099-821c-6a3f28fa06e6":[
+"NSW_FW017",
+"NSW_PW014",
+"NSW_RC029",
+"NSW_RC075"
+],
+"4dd6577a-8939-46a4-80fb-61a7dd5aa74c":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC141"
+],
+"4dee5f8c-90ae-46eb-9ad3-0413053e0072":[
+"SA_FW010",
+"SA_PW010"
+],
+"4f47490c-5d82-44de-82a0-83f5d8a2ee79":[
+"QLD_FW006",
+"QLD_PW005"
+],
+"510feba7-78d9-487f-9397-93e071dd7f21":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC019"
+],
+"51d90ab9-25ef-4f16-a435-333502bc1f55":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"521657cf-a121-49e7-86bd-9dcd1cb6fc70":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"526be45c-e283-45bc-8882-876693963471":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"53e71cb5-c40d-4c79-a84e-d375af40f3bc":[
+"NSW_FW017",
+"NSW_PW014",
+"NSW_RC029",
+"NSW_RC075"
+],
+"5478e259-e7b2-4261-9c32-1012757a8fb6":[
+"WA_FW077",
+"WA_PW012",
+"WA_RC006"
+],
+"5525e478-5eba-4d9b-8364-c33e101891bd":[
+"SA_FW002",
+"SA_PW002"
+],
+"5569038b-c4ab-4abe-be3d-fdfabb1bf501":[
+"VIC_FW003",
+"VIC_PW003",
+"VIC_RC039",
+"VIC_RC120"
+],
+"558e708d-a1fd-4271-ac6e-7e436f637654":[
+"NSW_FW004",
+"NSW_PW003"
+],
+"5602a584-fad9-47de-b8c0-4c9104e3c64d":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"56983d62-4594-4936-9514-ddd8f19548b3":[
+"WA_FW084",
+"WA_PW010"
+],
+"5784ad77-6258-428b-a29a-8cf6200306e8":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"578fe234-8a84-4d59-a18f-f7a79d363002":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC144"
+],
+"579c4e27-5d0e-4946-9404-61475d647dea":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"57ac8ffa-e6c7-42c0-9911-204653458737":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"58691089-4b1c-4428-b54e-77ce6f196a9d":[
+"NSW_FW008",
+"NSW_PW017",
+"NSW_RC027",
+"NSW_RC072"
+],
+"58736c12-e69f-48db-bc92-6a27cf3acb37":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"59e14b0d-bd53-4e41-839b-aaae6328b577":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"5b48fed7-e4bf-4085-b838-25a630731263":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"5b847e2c-f1d1-482c-a9e9-76cb0d0fbe7a":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC142"
+],
+"5ce0536d-d190-4489-b861-60a1d19e5a04":[
+"SA_FW015",
+"SA_PW015"
+],
+"5e07f661-d46d-4944-92ea-579f879781b9":[
+"SA_FW001",
+"SA_PW001"
+],
+"5e4affdb-f9e1-4038-bbbc-1f2bce725fe5":[
+"NT_FW001",
+"NT_PW001"
+],
+"5e90aa84-54e2-4c48-9b63-8cbe5ffefe98":[
+"QLD_FW006",
+"QLD_PW006"
+],
+"5e950235-5ec2-4e28-a008-a90ca0cd961c":[
+"SA_FW008",
+"SA_PW008"
+],
+"5e9f0ee3-b83b-45e8-9196-d05f1446c47a":[
+"SA_FW007",
+"SA_PW007"
+],
+"5ec70a37-52c8-436e-b0ce-d5443d1fceb7":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"5ef9d07f-f41e-4496-97a3-d7e1b095c7df":[
+"SA_FW001",
+"SA_PW001"
+],
+"5f229c6a-7d3b-4cbf-ad3c-7d712fcae8e3":[
+"QLD_FW008",
+"QLD_PW008",
+"QLD_RC016",
+"QLD_RC069"
+],
+"5f56b7c3-be85-459f-bf17-a83b5263c82a":[
+"NSW_FW008",
+"NSW_PW017",
+"NSW_RC028",
+"NSW_RC123"
+],
+"5fa70f0e-e14a-4c9d-87e5-e3809bbae67d":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC026",
+"QLD_RC101"
+],
+"5fc50058-9a34-4f15-a193-8aada8ac8a79":[
+"NSW_FW015",
+"NSW_PW012",
+"NSW_RC024",
+"NSW_RC089"
+],
+"603e3419-4861-48ce-813d-7f1e50d5709a":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC046"
+],
+"6179f2ce-3968-4bc5-932f-71cae31e8da8":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"6218be3a-ecda-40b8-ba4a-b99b50052e6e":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC017"
+],
+"62243361-2575-4a10-9388-d7c78595e631":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC008",
+"NSW_RC124"
+],
+"62c03774-0174-46e2-bafa-4becfdbad42d":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC021",
+"QLD_RC089"
+],
+"62c35440-8bfe-4207-8892-5120137a502c":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"657dfab3-7d39-4118-8eb5-8ef5880b7fba":[
+"NSW_FW006",
+"NSW_PW007"
+],
+"65811d89-ce8a-4ce1-b2b8-cbf57d7e23e1":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"6593bab0-3779-45d8-aca1-f32b94d1898d":[
+"NSW_FW005",
+"NSW_PW006",
+"NSW_RC011"
+],
+"65a416d9-0039-46b8-8de1-bb2fc7ca1ad6":[
+"NSW_FW010",
+"NSW_PW008",
+"NSW_RC096"
+],
+"65c4f41b-a780-47be-9a5b-9e2312fcedcc":[
+"VIC_FW009",
+"VIC_PW009",
+"VIC_RC005",
+"VIC_RC129"
+],
+"65ced5e9-f781-4837-a219-2a2d3772d2f1":[
+"NSW_FW002",
+"NSW_PW002",
+"NSW_RC042"
+],
+"65f104a1-dd9b-432d-9a48-d877e5726150":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC025",
+"QLD_RC099"
+],
+"671f01e3-e124-4488-85be-a990deaa286e":[
+"VIC_FW006",
+"VIC_PW006",
+"VIC_RC018",
+"VIC_RC080"
+],
+"673c92b2-913a-4143-b1b2-29fd30df0e33":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC160",
+"QLD_RC161"
+],
+"676b564e-882c-4c71-88a3-16ccbc93bcfd":[
+"QLD_FW006",
+"QLD_PW006"
+],
+"679ea980-2133-4206-a2ba-d5e59136d51b":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"67b3bbea-bff3-4b84-9089-d511abe31d27":[
+"SA_FW001",
+"SA_PW001"
+],
+"67bacf04-2239-4019-a2d5-02f7af5cc477":[
+"VIC_FW006",
+"VIC_PW006",
+"VIC_RC017",
+"VIC_RC078"
+],
+"67c08d60-0e24-40dc-80fe-277d0900d7ed":[
+"QLD_FW014",
+"QLD_PW014",
+"QLD_RC020",
+"QLD_RC087"
+],
+"67eb38fe-ee5f-47ab-a5fa-7d026c5d81ad":[
+"SA_FW001",
+"SA_PW001"
+],
+"681595c0-e3a6-4cd9-8419-13a9662a27f2":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"682b9fc9-8863-428c-83cc-62d61bfa8a61":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"6868623a-2b32-4c04-b76b-00d952bbd26a":[
+"SA_FW015",
+"SA_PW015",
+"SA_RC001",
+"SA_RC016"
+],
+"68ed08db-2d97-4d3c-b7c4-5cd263dc7462":[
+"WA_FW044",
+"WA_PW002",
+"WA_RC023"
+],
+"691eeb41-1be3-4141-a7c4-d5b8df3a0460":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC026",
+"QLD_RC102"
+],
+"6945b289-8add-460a-b3cd-ceab21a0b02e":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"69e4bc59-4d93-4855-95d8-36fb22ccc6a4":[
+"TAS_FW010",
+"TAS_PW010",
+"TAS_RC011",
+"TAS_RC057"
+],
+"6a4c3d2c-1116-4f74-b8f5-aa0e460c3c3b":[
+"SA_FW008",
+"SA_PW008",
+"SA_RC007",
+"SA_RC025"
+],
+"6ac30775-febd-4ec2-91ce-4e8994f3bc63":[
+"SA_FW015",
+"SA_PW015"
+],
+"6ae3f7c4-3fdc-47eb-9287-7b47f71b8ff6":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"6b526b10-33f8-438f-8ded-8cf94d7cc548":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"6baf62c5-bbc8-4b80-9482-e501d93efb21":[
+"SA_FW012",
+"SA_PW012"
+],
+"6c07ccb9-4f5c-45e9-9e5f-b7e44bc9078f":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC008",
+"NSW_RC086"
+],
+"6cec8cfc-b242-4618-8f06-db3b414ac1cc":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"6da27799-1d0f-4e34-9c1f-41bcaff1eed4":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"6e51a651-cd42-479c-8cf8-80d674a20790":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"6e647494-34f7-4641-b9d4-f09850b3010e":[
+"NT_FW014",
+"NT_PW007"
+],
+"6e82f6ab-33f1-4297-924f-2e2d6301c75e":[
+"SA_FW015",
+"SA_PW015",
+"SA_RC001",
+"SA_RC013"
+],
+"6e9c58e5-5e10-402a-af76-3b056e165ef7":[
+"QLD_FW004",
+"QLD_PW004",
+"QLD_RC006",
+"QLD_RC047"
+],
+"6f8cc0ee-667a-45e1-be3a-4f44f8c59390":[
+"SA_FW001",
+"SA_PW001"
+],
+"6fa0215f-f19f-4a5c-b811-90c7dc587a20":[
+"SA_FW005",
+"SA_PW005"
+],
+"6fdcae52-c775-4872-868b-a505a1d91f82":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"700d9b5d-427e-43a6-9023-b6eb51e94260":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"71237070-c34c-4565-9872-d7e082a11fa7":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC021",
+"VIC_RC148"
+],
+"71533caa-eddb-42d8-b211-659d7827ec98":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"7283600a-7ba6-44ca-bd01-b885ae3a1356":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"73790150-eec1-4ff1-b880-7bf557bc650e":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"743ab4e5-3d8c-4dcd-bf74-8d3d8fb51a46":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"74d910af-ff1c-48ea-b5b6-a390f21cc861":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC142"
+],
+"750c6f41-6815-4a90-83e6-d3ee8e8fb6d6":[
+"TAS_FW010",
+"TAS_PW010",
+"TAS_RC011",
+"TAS_RC057"
+],
+"7596fa1c-d489-4fa3-a032-01a3de327791":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC020"
+],
+"7627184e-60af-4827-8914-4bb0fc0ad2c7":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"76b9deec-727b-407d-9c7f-c23b8c53fcd8":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC168",
+"QLD_RC169"
+],
+"76d2de78-6193-4a5e-8576-04dd07321cfd":[
+"NSW_FW001",
+"NSW_PW001",
+"NSW_RC001"
+],
+"7760715a-8230-4d53-8074-52da1024249a":[
+"NSW_RC029",
+"NSW_RC107",
+"VIC_FW001",
+"VIC_PW001"
+],
+"7767e8de-2fad-4664-9633-8ff1455e980f":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"77c3341d-1e38-4cd0-806d-d99330702ebf":[
+"VIC_FW009",
+"VIC_PW009",
+"VIC_RC031",
+"VIC_RC133"
+],
+"783e0c4f-dd5d-40ff-85c8-bcac649e1aa6":[
+"SA_FW001",
+"SA_PW001"
+],
+"788907ec-6d86-46b2-b01e-f6e76cfe3cf1":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC040",
+"VIC_RC122"
+],
+"7896b4db-64bf-4538-bd05-fd5df76d20f9":[
+"NSW_FW004",
+"NSW_PW003"
+],
+"78e8ece7-a9c0-4d7a-8c53-8dff421a1271":[
+"VIC_FW008",
+"VIC_PW008",
+"VIC_RC041",
+"VIC_RC116"
+],
+"79033b16-46c3-4b4f-8704-cd6478e55722":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC026",
+"QLD_RC102"
+],
+"792989e3-4f14-403e-adff-f4660a1e4833":[
+"QLD_FW006",
+"QLD_PW005"
+],
+"79a170ec-29c0-4d91-bc8f-e00b98308445":[
+"WA_FW085",
+"WA_PW011",
+"WA_RC005"
+],
+"7bc249b3-1277-44b8-9c79-ce67f61b8440":[
+"WA_FW066",
+"WA_PW009"
+],
+"7c0a62e5-1db1-4bfe-9e4a-fb60bc2a4a2c":[
+"NSW_FW017",
+"NSW_PW014",
+"NSW_RC028",
+"NSW_RC074"
+],
+"7c774d0a-9db0-4c39-928d-ea3999e3cec2":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"7d497f70-3fa9-4484-a7e9-f7c992a1faca":[
+"NSW_FW010",
+"NSW_PW008",
+"NSW_RC068"
+],
+"7d71c248-438b-44fd-a9c9-1b99aabbe0fd":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"7d871625-c7e0-47de-af2e-b8532c49dc96":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC026",
+"QLD_RC104"
+],
+"7da26124-5507-4980-bf37-d6d7cac4b945":[
+"SA_FW011",
+"SA_PW011"
+],
+"7e039804-27e7-41b6-9fe2-524e233284e4":[
+"QLD_FW006",
+"QLD_PW005",
+"QLD_RC011",
+"QLD_RC056"
+],
+"7e24c918-e4bd-4214-9a1f-13758000597f":[
+"SA_FW015",
+"SA_PW015",
+"SA_RC001",
+"SA_RC013"
+],
+"7f618ced-8dba-47b1-afae-3a128d2023dd":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"7f9689cf-f3b7-4dfe-9357-e6a9a0376db1":[
+"QLD_FW006",
+"QLD_PW006"
+],
+"7fa3282f-35a1-47b0-aaf3-5f2796752453":[
+"TAS_FW004",
+"TAS_PW004"
+],
+"804d3b94-b9fc-434f-8938-69cb59309472":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC142"
+],
+"8088fce3-a99a-4265-bee3-cd21acad33b9":[
+"NSW_FW008",
+"NSW_PW017",
+"NSW_RC027",
+"NSW_RC072"
+],
+"80b50b04-d397-4dd3-af03-506bd6289bea":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"80dde330-378f-46b3-9802-5a6659760cdd":[
+"VIC_FW004",
+"VIC_PW004",
+"VIC_RC035",
+"VIC_RC107"
+],
+"81089f1c-1fc9-4340-bbc0-608c4b9692a2":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"81308ba9-4632-427d-acb6-bbc625215aa6":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"82157daa-a437-4cf8-9a64-fbff8b553b3c":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"8233132e-31a5-4e86-8364-73c3ace6bf19":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC009",
+"NSW_RC059"
+],
+"823fbd23-213e-4183-98d7-e744adf62891":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"83227aaf-c4bb-43a7-89c2-4d5e52e99fa1":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"8337c109-cb17-4ebe-aed6-19a0f5bfc281":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"83b8f282-39ce-402f-8f61-95f5f25ae8e3":[
+"VIC_FW005",
+"VIC_PW005",
+"VIC_RC012",
+"VIC_RC073"
+],
+"8478ae17-982d-48c5-9687-3ca43a71220e":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC027"
+],
+"84a7296e-8a83-43de-8a74-3b5105d25ee7":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"84a93fdc-92ae-4234-8b5e-d076280cf441":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"84c1f0b6-9d95-41da-98d7-f850c26fe3dd":[
+"SA_FW002",
+"SA_PW002"
+],
+"84d1deff-ea66-48a7-a1ca-3c5cc98e3088":[
+"QLD_FW007",
+"QLD_PW007"
+],
+"8620ed03-20e2-49fc-b4d6-6745060f37d8":[
+"QLD_FW008",
+"QLD_PW008",
+"QLD_RC016",
+"QLD_RC071"
+],
+"86697759-1109-4a10-a533-3269532c4664":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"87b58731-3bb4-4088-983b-f028856839fa":[
+"NSW_FW013",
+"NSW_PW011",
+"NSW_RC022",
+"NSW_RC067"
+],
+"8823a9e2-3b81-4165-9a5e-ce8cf4b83ccd":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC140"
+],
+"88824865-560d-44d8-a2b3-225f933e969e":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"88854f40-bde2-4854-8b02-f9841d7feabc":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"89092bf5-ad8b-4b2f-8d6d-d8df1fbcbb4c":[
+"NSW_FW002",
+"NSW_PW002",
+"NSW_RC006"
+],
+"898e27d5-b8a5-4853-9925-f3b9ff78a5be":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"8a376529-26c9-402c-800c-ee9eb0c000a3":[
+"QLD_FW008",
+"QLD_PW008",
+"QLD_RC016",
+"QLD_RC069"
+],
+"8a3a4aa8-db77-4156-8dd8-a1d56fb1692d":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"8b2f9e61-ebf5-4321-b432-b11601abe21a":[
+"VIC_FW009",
+"VIC_PW009",
+"VIC_RC031",
+"VIC_RC133"
+],
+"8bbc09aa-5173-4158-8fc8-d62e0bf7a05a":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC028",
+"VIC_RC150"
+],
+"8c503466-997d-47a4-9864-f9da512ff233":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"8c917dee-06df-4b8b-970b-e8f950bbdb7d":[
+"QLD_FW003",
+"QLD_PW003",
+"QLD_RC013",
+"QLD_RC061"
+],
+"8ccbd0d1-a3bd-4833-bc13-9c7cdf5d6378":[
+"SA_FW001",
+"SA_PW001"
+],
+"8cf871f1-e10d-4548-bac0-b422f9c3c4cd":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"8e576a74-90fc-45ad-b4c9-5cc9a79d1746":[
+"VIC_FW009",
+"VIC_PW009",
+"VIC_RC005",
+"VIC_RC129"
+],
+"8fc0c8f3-48a7-41d3-83c2-8ca50e124353":[
+"WA_FW091",
+"WA_PW009"
+],
+"903aab87-4544-4f9f-9f30-be7c5a23a712":[
+"TAS_FW006",
+"TAS_PW006"
+],
+"903e384d-aa56-49f5-a4d2-4bc8ba67aaca":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"904bc296-c971-4721-af4b-b8b5cdd05d09":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"911884c6-67d6-4ce6-8005-f6d5d8e9f805":[
+"NSW_FW011",
+"NSW_PW004",
+"NSW_RC094"
+],
+"91c9d0ab-c4f3-4494-9615-1bb7d3dab13c":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"9205b998-9dd1-4e54-9646-f2ea79ae3852":[
+"WA_FW069",
+"WA_PW010",
+"WA_RC008"
+],
+"92d7480b-2018-4d24-9a66-e2f75da89ea8":[
+"QLD_FW012",
+"QLD_PW012",
+"QLD_RC172",
+"QLD_RC175"
+],
+"92e583d7-5584-4757-8e4a-9cc0332356e9":[
+"NSW_FW004",
+"NSW_PW003"
+],
+"93ba296a-2a99-4b0c-9f78-0890dce8e94d":[
+"NSW_FW008",
+"NSW_PW017",
+"NSW_RC027",
+"NSW_RC072"
+],
+"95586742-4495-458d-bf2c-db0699abf4d0":[
+"VIC_FW002",
+"VIC_PW002",
+"VIC_RC043",
+"VIC_RC062"
+],
+"95a8a567-0483-495a-9a36-300337a8540c":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"95e56d17-a43a-44b4-bd79-f8c7cefe2906":[
+"WA_FW066",
+"WA_PW009",
+"WA_RC012"
+],
+"96fe567e-7385-49e8-bd7e-8fe92aab82f8":[
+"NSW_FW016",
+"NSW_PW013",
+"NSW_RC026",
+"NSW_RC115"
+],
+"97c93c28-6fa9-4dd3-ac21-e37615796873":[
+"NSW_RC029",
+"NSW_RC075",
+"VIC_FW004",
+"VIC_PW004"
+],
+"98ae3e59-b41c-4fdd-a9d2-d8a3adbf5529":[
+"QLD_FW006",
+"QLD_PW005"
+],
+"9a206381-8191-4458-9b84-edc2a39a578c":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC142"
+],
+"9a52cfe7-5dca-4604-9736-07e8aeeabf4d":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"9ad7ff11-3711-4217-bb74-6b52c3389011":[
+"SA_FW009",
+"SA_PW009"
+],
+"9affb004-385b-460a-a062-5580f7c4ed8a":[
+"VIC_FW003",
+"VIC_PW003",
+"VIC_RC040",
+"VIC_RC117"
+],
+"9b60a85e-929e-4a73-bfb5-0c2328e69fa0":[
+"WA_FW088",
+"WA_PW014",
+"WA_RC015",
+"WA_RC048"
+],
+"9b6384ef-82bd-43bb-a409-80b423dec7b4":[
+"SA_FW001",
+"SA_PW001"
+],
+"9bc9669a-45b1-4582-a468-401e63f5b0b5":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"9bcc08e3-7b57-448d-92f6-53691bce5c56":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"9bd7d3c5-cf41-43dc-bdb2-8b195704dcea":[
+"NSW_FW001",
+"NSW_PW001",
+"NSW_RC001"
+],
+"9cbf43f0-6ddf-4862-ae11-b47740e4cd7f":[
+"WA_FW053",
+"WA_PW008"
+],
+"9d200061-cc40-4564-9b5b-844fada0d01e":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"9d9a0f01-160a-4286-9c4a-b5ce94106797":[
+"QLD_FW007",
+"QLD_PW007",
+"QLD_RC016",
+"QLD_RC072"
+],
+"9ebd7c6d-76c1-42de-aa7f-6817fed0f6b9":[
+"SA_FW007",
+"SA_PW007",
+"SA_RC035",
+"SA_RC036"
+],
+"9f82f7be-e21b-4514-8abf-b00b54467ddb":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"9f914e93-e348-46c1-9e31-409c19fcdf97":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC140"
+],
+"a1034bb6-5524-4185-81cc-64bc3d087f38":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC021",
+"VIC_RC147"
+],
+"a2161399-a803-4389-beca-3b9f1784cf7c":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"a3ae6383-8203-4d91-b9ec-43c8f6da04fb":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC004",
+"VIC_RC087"
+],
+"a3eee347-a79d-4682-8e2a-649820deb97f":[
+"NSW_FW005",
+"NSW_PW006"
+],
+"a4330114-cca1-419d-aa3d-2345df099c5a":[
+"WA_FW072",
+"WA_PW013",
+"WA_RC007",
+"WA_RC040"
+],
+"a541bd27-3615-44a3-b42b-15a2b25b4d0e":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"a5a711b9-55e4-4f75-bf02-9c19c565e0c1":[
+"QLD_FW004",
+"QLD_PW004"
+],
+"a5bcd4de-11eb-4d29-bb31-23f2329f5375":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC026"
+],
+"a5db7497-61e1-4bf6-b76e-5185ed20a77b":[
+"VIC_FW009",
+"VIC_PW009",
+"VIC_RC031",
+"VIC_RC133"
+],
+"a66edcc7-79b8-4425-9dc1-698aff551c09":[
+"QLD_FW004",
+"QLD_PW004"
+],
+"a6aa32da-47e3-47a8-8ec4-7784eab943bb":[
+"TAS_FW010",
+"TAS_PW010"
+],
+"a705a8de-d5e0-4e26-bba6-943416926dc2":[
+"SA_FW005",
+"SA_PW005"
+],
+"a760cd42-e4ad-44af-9290-591428ede6fd":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC031",
+"VIC_RC134"
+],
+"a7c3960f-e01e-4a1a-9520-1f934d111c28":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"a811cf5f-dbfb-4cdc-9fd0-bb10f99ba3fe":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC021",
+"VIC_RC148"
+],
+"a8df2481-9f4a-4d56-9eb1-7799b00d723e":[
+"SA_FW015",
+"SA_PW015",
+"SA_RC008",
+"SA_RC026"
+],
+"abb88511-e881-4f78-8334-be962cc18407":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC026"
+],
+"ad4a75fc-c130-4ef1-8ef5-3beb7d9bb3d9":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"adb507cf-4240-48ce-9c6b-89034ff455cc":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC008",
+"NSW_RC124"
+],
+"afdf14e5-b7b9-4602-8915-5388518bd486":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"b12b09c7-53f3-440f-b571-1b8984214f13":[
+"NSW_FW018",
+"NSW_PW014",
+"NSW_RC029",
+"NSW_RC076"
+],
+"b1bd0801-fb0f-4ba3-bd2e-bfc04389b698":[
+"NT_FW014",
+"NT_PW007"
+],
+"b1f187a8-c13f-40c3-ad7a-8052bc621979":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"b201995a-6202-4544-8d2e-be9938646306":[
+"TAS_FW010",
+"TAS_PW010"
+],
+"b28b1340-2b39-4ca6-b512-479f957794ce":[
+"SA_FW002",
+"SA_PW002"
+],
+"b307c3f2-470e-42d2-ba43-420b79444d12":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"b3a42bca-cde3-4810-aa92-a2c1df0e2c8d":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"b3c76717-e538-4501-808e-9f0c8f5dcbfd":[
+"WA_FW077",
+"WA_PW012",
+"WA_RC006"
+],
+"b3cd1c5d-f084-4be8-ad26-cb32ee282a6e":[
+"SA_FW001",
+"SA_PW001"
+],
+"b3d6cf35-3f9b-438c-ab39-06df0d1d9f18":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"b3e6742e-8a99-47de-b0b5-6299cbb58bb0":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"b4253d4a-3375-439c-a2a4-106c3d06825c":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"b584cd61-bc1c-42e2-b721-b35983d351dc":[
+"SA_FW008",
+"SA_PW008",
+"SA_RC007",
+"SA_RC025"
+],
+"b64606cf-2131-42fe-ad88-dda35a19267d":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"b7431fbd-9e4e-4417-af78-ece4c2e5e916":[
+"NSW_FW018",
+"NSW_PW014",
+"NSW_RC029",
+"NSW_RC076"
+],
+"b837c2d5-d7c8-4793-a827-7e789ea3e946":[
+"QLD_FW004",
+"QLD_PW004"
+],
+"b89e7b9d-ea46-457d-8674-92dd24577fca":[
+"NSW_FW006",
+"NSW_PW007"
+],
+"b8be0d6a-d3c3-4b1a-8e93-0762c0379d3a":[
+"VIC_FW006",
+"VIC_PW006",
+"VIC_RC018",
+"VIC_RC080"
+],
+"b9f364b8-6a5a-4417-943c-08d2c2c54733":[
+"SA_FW008",
+"SA_PW008"
+],
+"ba0e7029-e419-43da-b6d0-fef265933d62":[
+"NSW_FW002",
+"NSW_PW002",
+"NSW_RC006"
+],
+"ba1b1fb8-3fcd-4dc0-a140-87912d3bcdc8":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"bad29ffb-fb7b-4ff9-bb7a-e92b1f5c908e":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"bb2f47c8-96a0-431e-bd77-12a123fe6ae5":[
+"VIC_FW003",
+"VIC_PW003",
+"VIC_RC041",
+"VIC_RC126"
+],
+"bbbf3888-f0c9-45e4-aa3a-9268fc4ae7b0":[
+"NSW_FW008",
+"NSW_PW017",
+"NSW_RC028",
+"NSW_RC110"
+],
+"bdc43a6b-df8b-47c1-8057-2295d9106854":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"be0eb755-8b69-46d3-9ecb-a715ef4cf005":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC028",
+"QLD_RC117"
+],
+"be35df13-2625-4cfe-ac36-ace7bd057695":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"bea11eed-db31-4615-a579-3446bdc00c78":[
+"NSW_FW005",
+"NSW_PW006"
+],
+"bf5854b4-ff4d-44a8-8847-2f5e4abdd226":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"bffbd354-b607-4ac3-b349-7f32e28f297b":[
+"SA_FW001",
+"SA_PW001"
+],
+"c030c589-95cb-461a-8a17-e9397c012411":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"c0a2e137-0155-49b8-acee-7dd861c155ae":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"c1493ea8-f563-40dc-9e74-925bae1ba4f6":[
+"VIC_FW009",
+"VIC_PW009"
+],
+"c1a3db4d-e291-455b-849c-655168d732c2":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"c237d4b5-e123-40c5-8630-54029c8b478b":[
+"NSW_FW008",
+"NSW_PW017",
+"NSW_RC028",
+"NSW_RC110"
+],
+"c2893a6f-091e-4cd1-9137-f1829872f049":[
+"NSW_FW012",
+"NSW_PW004",
+"NSW_RC020",
+"NSW_RC105"
+],
+"c2e27cf9-3eb3-4a4e-8256-349226ebd76b":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"c396d962-6f81-4fae-a3f6-54cba575eac5":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC021",
+"VIC_RC148"
+],
+"c39a192b-6b87-40ea-bb0e-d7bc7609c383":[
+"WA_FW091",
+"WA_PW009"
+],
+"c3bbe798-38d2-4400-b8c6-ede63cf9ad5b":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"c3fc9896-d51c-4f91-abab-77348365020f":[
+"VIC_FW004",
+"VIC_PW004",
+"VIC_RC035",
+"VIC_RC107"
+],
+"c40337ca-c352-4a3f-9059-0fb66370359e":[
+"SA_FW011",
+"SA_PW011"
+],
+"c4824618-808d-4a22-bca5-1e15c609c2ad":[
+"SA_FW001",
+"SA_PW001"
+],
+"c4acba0f-467c-4d49-a7e2-160c5d2d7b1e":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"c60bf50d-fce6-4c3b-b34f-c81580b178d8":[
+"NT_FW001",
+"NT_PW001"
+],
+"c743a893-758d-45c9-b832-185b988a95ef":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"c837f351-44a0-4de8-b33f-f6f77b5fff22":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC140"
+],
+"c89eaaab-3730-4a32-9080-58799ea0bfb7":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC008",
+"NSW_RC086"
+],
+"caaa3e1c-3610-4818-8bb8-6cd9d3bcb40f":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"caeb74b7-9d94-4d37-a63e-e2ee32fa95fd":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"cc4a9040-84f8-4278-8d90-3a3914f25e6d":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"cce4fc75-f566-49f3-b0cd-81891c4b6f72":[
+"NSW_FW010",
+"NSW_PW008",
+"NSW_RC096"
+],
+"cdb2888d-4951-45bf-9cba-6f307d9a50e7":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"cdc743eb-d11d-48f6-90cd-3c2eade4eb68":[
+"SA_FW006",
+"SA_PW006",
+"SA_RC032",
+"SA_RC036"
+],
+"ce749b02-a0d2-4c03-8dc0-019acd38ff43":[
+"WA_FW063",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"cf1a9196-002b-4895-b437-a386e3ffaf8e":[
+"TAS_FW004",
+"TAS_PW004"
+],
+"d02b0257-a221-4f18-8c31-a7514054b345":[
+"QLD_FW014",
+"QLD_PW014",
+"QLD_RC017",
+"QLD_RC078"
+],
+"d02bd404-2ad1-4e5b-8f19-d9f95d6096c4":[
+"SA_FW012",
+"SA_PW012"
+],
+"d0c433ce-091a-4d2d-9975-8d4388aaa217":[
+"NSW_FW001",
+"NSW_PW001",
+"NSW_RC003"
+],
+"d125f233-b7c1-4c08-9056-05c90d6afb6c":[
+"QLD_FW014",
+"QLD_PW014",
+"QLD_RC020",
+"QLD_RC085"
+],
+"d190101b-6dd3-4761-a009-7808a8bdd954":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC021",
+"VIC_RC148"
+],
+"d1b8de22-5443-4949-9f4e-f6aac656b0c5":[
+"TAS_FW006",
+"TAS_PW006"
+],
+"d27955b7-b34c-43ae-ba0b-bbbf710cb92f":[
+"NSW_FW021",
+"NSW_PW015"
+],
+"d29a186d-f0c3-4178-84bf-ee25279f465e":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"d2c5fad6-7f8b-493d-a040-e12bee7dd92f":[
+"TAS_FW006",
+"TAS_PW006"
+],
+"d3401cd5-2aa2-4399-8aa0-f9492f732297":[
+"SA_FW004",
+"SA_PW004"
+],
+"d3471956-0e54-47cf-9cdf-9b92f2fceed8":[
+"WA_FW091",
+"WA_PW009"
+],
+"d3e326b2-67a5-445b-b573-92b9c7162b8f":[
+"NSW_FW019",
+"NSW_PW014",
+"NSW_RC028",
+"NSW_RC111"
+],
+"d420d66e-1c59-4702-9adb-e956f21238af":[
+"NSW_RC029",
+"NSW_RC107",
+"VIC_FW001",
+"VIC_PW001"
+],
+"d44d4aa4-5309-4f27-a86a-c02a3ed010ca":[
+"TAS_FW006",
+"TAS_PW006"
+],
+"d4793e5c-d2da-48f4-8ace-ba7982763000":[
+"VIC_FW003",
+"VIC_PW003",
+"VIC_RC040",
+"VIC_RC117"
+],
+"d4997b03-7e14-474a-9015-3dacd0b349f7":[
+"SA_FW001",
+"SA_PW001",
+"SA_RC002",
+"SA_RC020"
+],
+"d5619959-6ce3-449c-a582-e562d1ae8599":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"d727c9ff-8f23-4710-b9b6-7d71c2b442c4":[
+"WA_FW069",
+"WA_PW010",
+"WA_RC008"
+],
+"d73f5cd5-605e-49f7-bed6-c37f2a0ec073":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC141"
+],
+"d7859802-4f11-4b27-8c73-4fad29dd1348":[
+"SA_FW001",
+"SA_PW001"
+],
+"d7a67e1c-8594-42ca-bc6d-efb3fe7e264c":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"d8647007-771d-4ea0-9bc3-2baa44f99903":[
+"QLD_FW006",
+"QLD_PW006",
+"QLD_RC015"
+],
+"d9425020-698f-4f95-ac12-be8c929ce535":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"d954df26-7f8a-43d3-862b-87acac61f6f1":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"d96b02c6-c45d-4159-9eb0-4706ae7ed021":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC144"
+],
+"d9e58d94-9be7-4456-9052-e9dd7dd02e44":[
+"NSW_FW005",
+"NSW_PW006",
+"NSW_RC011"
+],
+"da0bbe60-d9f3-478d-bb2b-0b8a965b989e":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC010",
+"NSW_RC103"
+],
+"da0c78b4-6ebe-4dbd-8c51-26ad7d61e13a":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC164",
+"QLD_RC167"
+],
+"db83149a-d62c-4378-9a32-396a06457574":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC026",
+"QLD_RC101"
+],
+"dc4e906d-50b7-41af-8353-e57f2534ac45":[
+"NT_FW013",
+"NT_PW006"
+],
+"dc8f8de3-725f-4a8d-bba5-a371be0c660c":[
+"VIC_FW004",
+"VIC_PW004",
+"VIC_RC039",
+"VIC_RC051"
+],
+"dd68ef76-7501-47b0-9337-a983f5ef5b04":[
+"QLD_FW007",
+"QLD_PW007",
+"QLD_RC016",
+"QLD_RC072"
+],
+"dd8e35a6-7fe0-4732-81b5-13436b4951b4":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"ddc74f79-41b2-4f2c-9b71-4a3e93284ac1":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC021",
+"VIC_RC148"
+],
+"df203e24-3bfb-4ac5-b881-6bbf3ed9fd5e":[
+"NSW_FW012",
+"NSW_PW011",
+"NSW_RC022",
+"NSW_RC066"
+],
+"df9a757e-0423-426b-a211-9ece01a79cc4":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"e17e0b7d-4502-4965-b7c8-27f21265082a":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"e1d411b5-fd26-4047-856d-abab1a9f3bd6":[
+"VIC_FW001",
+"VIC_PW001",
+"VIC_RC041",
+"VIC_RC127"
+],
+"e1eafee8-0991-4a20-9539-e00c03179bbe":[
+"VIC_FW007",
+"VIC_PW007"
+],
+"e1f51c6e-f158-4961-8900-19ba5b16008e":[
+"WA_FW048",
+"WA_PW003"
+],
+"e1fdf141-9941-4f4c-85e9-4f6f7e43cac8":[
+"SA_FW009",
+"SA_PW009"
+],
+"e2bf7a91-0f51-4487-9a6a-091adcde2c51":[
+"NT_FW001",
+"NT_PW001"
+],
+"e383f73e-f064-49f2-a415-9c5a163b61bf":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"e3adf8c5-5d0f-4a0e-9909-a9f4729016d0":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"e4a75997-20af-41fc-b92e-716668dfff19":[
+"WA_FW074",
+"WA_PW013",
+"WA_RC007",
+"WA_RC040"
+],
+"e4b088e1-3caa-414c-9173-00c857edb589":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC027"
+],
+"e4e3e7f7-a5bb-4090-946e-84369e9c95b0":[
+"WA_FW042",
+"WA_PW001",
+"WA_RC029"
+],
+"e4f5e95b-f308-424c-972a-35771c82eaad":[
+"WA_FW072",
+"WA_PW013",
+"WA_RC007",
+"WA_RC040"
+],
+"e59c28f1-8446-4ffb-85ed-ec943791c54a":[
+"WA_FW063",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"e6aba0a2-6d64-48d2-b0e3-84bd5deb3d0a":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC008",
+"NSW_RC086"
+],
+"ea467546-7383-4f40-8401-ce60e85855bb":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC168",
+"QLD_RC171"
+],
+"ea5f6632-d5d5-44fb-a589-0a694125cb45":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC027"
+],
+"eaf5046e-4252-42e6-a657-cd2a7400a06b":[
+"SA_FW005",
+"SA_PW005"
+],
+"ec970127-638e-4d46-be20-7e3fbabc3452":[
+"WA_FW084",
+"WA_PW010"
+],
+"ece572ef-bb8a-4380-854c-fa5e5c93e2bd":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC168",
+"QLD_RC169"
+],
+"ed836207-4698-43eb-ac1d-ce2c44f1293b":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC097"
+],
+"ede71eb1-b80b-4c39-925b-10ec24ec7040":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"ee2ee4bd-a19c-41f5-a616-8248bd13af45":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"ee7f8cb1-298f-4e90-9fe5-fe5095b88a62":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC019"
+],
+"ee8aea2a-2232-4ef6-8f64-c62f0386a102":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"efe7dfba-84c3-4d91-9355-ae04cd4fda99":[
+"NSW_FW003",
+"NSW_PW003",
+"NSW_RC008",
+"NSW_RC124"
+],
+"f00fd871-f8c5-44b6-802a-0bd1cef2ef1d":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"f0fea767-015c-4836-9dac-ab94756d8672":[
+"SA_FW008",
+"SA_PW008"
+],
+"f1445fd8-e448-4b3b-9d2b-4c0e21a50220":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"f1577aae-65c9-4ffe-afa7-33cc9c8ed913":[
+"QLD_FW015",
+"QLD_PW015",
+"QLD_RC026",
+"QLD_RC103"
+],
+"f191b06f-d42e-4af5-87cd-bd9f385f4e0b":[
+"QLD_FW008",
+"QLD_PW007",
+"QLD_RC016",
+"QLD_RC067"
+],
+"f19d8f12-06d5-4f30-80d0-cecf1bd517ee":[
+"QLD_FW014",
+"QLD_PW014",
+"QLD_RC020",
+"QLD_RC087"
+],
+"f1b3d46e-e2c7-434c-aa72-43feb8865edf":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"f22bf40f-6125-47a2-8fd7-de46d857b8c6":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"f243cea3-6836-414c-9919-3e28f9fb0161":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC026"
+],
+"f248b5f5-c28b-4789-9e1b-b6cd094bf186":[
+"NT_FW007",
+"NT_PW004",
+"NT_RC001",
+"NT_RC022"
+],
+"f3454850-dc8c-4a47-a104-d2fc87f12746":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC023"
+],
+"f36d9541-63fb-4ecd-bc8d-9476bddd052c":[
+"WA_FW091",
+"WA_PW009"
+],
+"f397f001-9aaa-43fa-b0f4-50c842615869":[
+"WA_FW074",
+"WA_PW013",
+"WA_RC007",
+"WA_RC040"
+],
+"f3b4ca28-5784-44ba-8f1c-417a609f01f0":[
+"SA_FW008",
+"SA_PW008"
+],
+"f40046d0-c2d9-4654-adef-8f2d9fd9ed47":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"f4b72bf6-d208-4541-be2d-7f5672930c47":[
+"QLD_FW013",
+"QLD_PW013",
+"QLD_RC164",
+"QLD_RC167"
+],
+"f71fa1db-17f7-48a3-a441-0520fc22578e":[
+"QLD_FW010",
+"QLD_PW010",
+"QLD_RC040",
+"QLD_RC138"
+],
+"f72620b7-7d41-4bba-bdd6-34dc6bbfb646":[
+"WA_FW091",
+"WA_PW009"
+],
+"f73e8d13-f385-45ff-b230-4e4d6ed46367":[
+"QLD_FW015",
+"QLD_PW015"
+],
+"f766affb-7d06-404a-a0e2-59d741c6afea":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"f7ea2916-c44e-4d15-a394-a04857abf84e":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"f7fe23f0-a5fc-4956-aff9-5314ba2e4de3":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC013"
+],
+"f8cbc1f5-8bd6-40cf-a901-78af3d18a15b":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC009",
+"NSW_RC059"
+],
+"fab1f257-89b6-4616-95b0-f511eef22e76":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC028",
+"VIC_RC150"
+],
+"fc13c721-7c3b-4ff1-8358-5e0b9eaf9ebe":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"fc229861-02c5-4bca-9a1e-d2f9158d7168":[
+"VIC_FW007",
+"VIC_PW007",
+"VIC_RC136",
+"VIC_RC145"
+],
+"fc280f1e-6ca1-4d06-b04c-231b8e65714b":[
+"SA_FW002",
+"SA_PW002"
+],
+"fccfb543-a92e-4b2e-8258-2f77ab938b5a":[
+"QLD_FW007",
+"QLD_PW007"
+],
+"fd3b65a4-d5f0-486f-8639-07681c9eea70":[
+"VIC_FW009",
+"VIC_PW009"
+],
+"fd742909-bd56-4fa9-8fa3-19e1be92b8ad":[
+"NSW_FW004",
+"NSW_PW005",
+"NSW_RC016"
+],
+"fd85165a-ab64-4cb4-b2c7-0b3e79f80a84":[
+"NSW_FW009",
+"NSW_PW009",
+"NSW_RC009",
+"NSW_RC059"
+],
+"fe43bd8b-45e7-4648-be2e-fd33e7c463ae":[
+"NSW_FW004",
+"NSW_PW005"
+],
+"fede2018-70f3-46e5-8bf4-8f60fb76762b":[
+"WA_FW091",
+"WA_PW009",
+"WA_RC014",
+"WA_RC046"
+],
+"fffe217d-eb91-4d2d-a4af-155d7b9d0c39":[
+"NSW_FW005",
+"NSW_PW006",
+"NSW_RC009",
+"NSW_RC059"
+]
+}
+}
