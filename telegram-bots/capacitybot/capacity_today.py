@@ -891,6 +891,22 @@ EVENING_TRAJECTORY_SHORT = {"u": "Improved", "s": "About the same", "d": "Declin
 EVENING_DEBT_OPTIONS = [("n", "No"), ("m", "Maybe"), ("y", "Yes")]
 EVENING_DEBT_SHORT = {"n": "No", "m": "Maybe", "y": "Yes"}
 
+# Whole-day compensation (same four levels as the start-of-day question, plus Skip) and the
+# Captain's own "good day" answer (yes / kind of / no, plus Skip). "x" means skipped and stores
+# nothing: a missing answer is unknown, never bad. Stored in day_compensation_load / good_day
+# (migration 0247) on the evening row.
+EVENING_COMP_OPTIONS = COMPENSATION_OPTIONS + [("x", "Skip")]
+EVENING_COMP_SHORT = {**COMPENSATION_SHORT, "x": "Skip"}
+EVENING_GOOD_DAY_OPTIONS = [("y", "Yes"), ("k", "Kind of"), ("n", "No"), ("x", "Skip")]
+EVENING_GOOD_DAY_SHORT = {"y": "Yes", "k": "Kind of", "n": "No", "x": "Skip"}
+EVENING_GOOD_DAY_CODE_TO_STATE = {"y": "yes", "k": "kind_of", "n": "no"}
+_EVENING_KEY_ORDER = ("dt", "cp", "hf", "cd")
+
+
+def _evening_base(f: dict, keys: tuple[str, ...]) -> str:
+    """Callback prefix carrying the evening answers collected so far, in a fixed order."""
+    return "cte|" + "|".join(f"{k}={f[k]}" for k in keys if f.get(k) is not None)
+
 
 def q_evening_trajectory() -> str:
     return render_question("Did your capacity improve, stay the same, or decline today?",
@@ -902,12 +918,22 @@ def kb_evening_trajectory() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
+def q_evening_compensation() -> str:
+    return render_question("Looking back, how much did you have to push, mask, or compensate today?",
+                            [label for _, label in EVENING_COMP_OPTIONS])
+
+
+def kb_evening_compensation(f: dict) -> InlineKeyboardMarkup:
+    rows = _select_rows(_evening_base(f, ("dt",)), "cp", EVENING_COMP_OPTIONS, EVENING_COMP_SHORT, per_row=2)
+    return InlineKeyboardMarkup(rows)
+
+
 def q_evening_helpful() -> str:
     return render_question("What helped most?", DAY_WIN_HELPED_OPTIONS)
 
 
-def kb_evening_helpful(dt: str) -> InlineKeyboardMarkup:
-    base = f"cte|dt={dt}"
+def kb_evening_helpful(f: dict) -> InlineKeyboardMarkup:
+    base = _evening_base(f, ("dt", "cp"))
     buttons = [InlineKeyboardButton(f"{i} · {short}", callback_data=f"{base}|hf={i - 1}")
                for i, short in enumerate(DAY_WIN_HELPED_SHORT, 1)]
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
@@ -919,9 +945,18 @@ def q_evening_debt() -> str:
                             [label for _, label in EVENING_DEBT_OPTIONS])
 
 
-def kb_evening_debt(dt: str, hf: str) -> InlineKeyboardMarkup:
-    base = f"cte|dt={dt}|hf={hf}"
-    rows = _select_rows(base, "cd", EVENING_DEBT_OPTIONS, EVENING_DEBT_SHORT, per_row=3)
+def kb_evening_debt(f: dict) -> InlineKeyboardMarkup:
+    rows = _select_rows(_evening_base(f, ("dt", "cp", "hf")), "cd", EVENING_DEBT_OPTIONS, EVENING_DEBT_SHORT, per_row=3)
+    return InlineKeyboardMarkup(rows)
+
+
+def q_evening_good_day() -> str:
+    return render_question("Was today a good day?", [label for _, label in EVENING_GOOD_DAY_OPTIONS])
+
+
+def kb_evening_good_day(f: dict) -> InlineKeyboardMarkup:
+    rows = _select_rows(_evening_base(f, ("dt", "cp", "hf", "cd")), "gd",
+                        EVENING_GOOD_DAY_OPTIONS, EVENING_GOOD_DAY_SHORT, per_row=2)
     return InlineKeyboardMarkup(rows)
 
 
@@ -1220,6 +1255,11 @@ async def write_evening(db, f: dict) -> tuple[bool, str | None]:
         "helpful_factor": helpful_factor,
         "capacity_debt": {"n": "no", "m": "maybe", "y": "yes"}.get(f.get("cd")),
     }
+    # Skipped ("x") or missing answers store nothing: unknown, never bad.
+    if f.get("cp") in COMP_CODE_TO_STATE:
+        payload["day_compensation_load"] = COMP_CODE_TO_STATE[f["cp"]]
+    if f.get("gd") in EVENING_GOOD_DAY_CODE_TO_STATE:
+        payload["good_day"] = EVENING_GOOD_DAY_CODE_TO_STATE[f["gd"]]
     try:
         db.table(TABLE).insert(payload).execute()
         try:
