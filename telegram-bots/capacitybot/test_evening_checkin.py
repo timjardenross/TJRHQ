@@ -113,3 +113,19 @@ def test_handler_saves_after_the_good_day_answer():
     payload = db.table.return_value.insert.call_args[0][0]
     assert payload["good_day"] == "yes" and payload["day_compensation_load"] == "moderate"
     assert "saved" in q.edit_message_text.call_args[0][0].lower()
+
+
+def test_morning_push_asks_the_cpap_question_on_the_first_check_in():
+    """The 08:00 push must use the CPAP question; it used to call the removed sleep functions."""
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    from telegram_bots.capacitybot import app
+
+    context = MagicMock()
+    context.bot.send_message = AsyncMock()
+    with patch.object(app, "_get_supabase", return_value=MagicMock()), \
+         patch.object(app.ct, "fetch_recent", AsyncMock(return_value=[])):
+        asyncio.run(app._job_morning_push(context))
+    text = context.bot.send_message.call_args[0][1]
+    assert "CPAP" in text

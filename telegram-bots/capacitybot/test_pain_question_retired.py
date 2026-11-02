@@ -71,11 +71,12 @@ def test_old_in_flight_ps_button_still_continues_and_is_not_stored():
     app_module._supabase = None
 
 
-def test_chain_after_regulation_is_unchanged():
+def test_chain_after_regulation_goes_to_executive_function():
+    """Emotional load moved to "Go deeper", so regulation now leads straight to executive function."""
     app_module._supabase = MagicMock()
     update, context, query = _cb("ct|c=g|t=b|p=l|r=s")
     asyncio.run(handle_capacity_callback(update, context))
-    assert "emotional load" in query.edit_message_text.call_args[0][0].lower()
+    assert "think, decide" in query.edit_message_text.call_args[0][0].lower()
     app_module._supabase = None
 
 
