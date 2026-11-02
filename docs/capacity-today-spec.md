@@ -151,14 +151,25 @@ than two separate free-text questions.
 
 ## 5. Evening reflection
 
-Three questions only:
+Five questions; the second and fifth are skippable (a skipped answer stores nothing and is
+treated as unknown, never as bad):
 
 1. Did your capacity improve, stay the same, or decline today?
    (`day_trajectory`)
-2. What helped most? (`helpful_factor`)
-3. Did you borrow capacity from tomorrow? No/Maybe/Yes (`capacity_debt`) —
+2. Looking back, how much did you have to push, mask, or compensate today?
+   (`day_compensation_load`, same low / moderate / high / extreme scale as Q7; skippable)
+3. What helped most? (`helpful_factor`)
+4. Did you borrow capacity from tomorrow? No/Maybe/Yes (`capacity_debt`) —
    "borrowing" = maintaining output today at the cost of increased
    exhaustion, pain, overload, shutdown, or recovery needs afterwards.
+5. Was today a good day? Yes / Kind of / No (`good_day`; skippable). The Captain's own
+   answer always wins over the provisional rule in `core/health/good_day.py` (stayed the
+   same or improved, no borrowed capacity, whole-day compensation moderate or lower;
+   missing answers are not counted against the day).
+
+Migration `0247_capacity_checkins_evening_good_day.sql` adds `day_compensation_load` and
+`good_day`. The start-of-day `compensation_load` is unchanged and is never written by the
+evening flow.
 
 **Status**: implemented (`/evening`, `cte|` callback flow).
 

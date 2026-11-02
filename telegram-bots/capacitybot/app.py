@@ -795,23 +795,38 @@ async def handle_capacity_evening_callback(update: Update, context: ContextTypes
     f = ct.parse_cb(data)
     db = _get_supabase()
 
-    if f.get("cd") is not None:
+    # Latest answer first: dt -> cp (whole-day compensation) -> hf -> cd -> gd (good day) -> save.
+    if f.get("gd") is not None:
         saved, err = await ct.write_evening(db, f)
         text = "🌙 Evening reflection saved." if saved else f"⚠️ Could not save: {err}"
         await query.edit_message_text(text)
         return
 
+    if f.get("cd") is not None:
+        await query.edit_message_text(
+            ct.q_evening_good_day(),
+            reply_markup=ct.kb_evening_good_day(f),
+        )
+        return
+
     if f.get("hf") is not None:
         await query.edit_message_text(
             ct.q_evening_debt(),
-            reply_markup=ct.kb_evening_debt(f["dt"], f["hf"]),
+            reply_markup=ct.kb_evening_debt(f),
+        )
+        return
+
+    if f.get("cp") is not None:
+        await query.edit_message_text(
+            ct.q_evening_helpful(),
+            reply_markup=ct.kb_evening_helpful(f),
         )
         return
 
     if f.get("dt") is not None:
         await query.edit_message_text(
-            ct.q_evening_helpful(),
-            reply_markup=ct.kb_evening_helpful(f["dt"]),
+            ct.q_evening_compensation(),
+            reply_markup=ct.kb_evening_compensation(f),
         )
         return
 
@@ -1596,7 +1611,7 @@ _BOT_COMMANDS = [
     ("capacity",          "Quick capacity check-in (30-60s, tap buttons)"),
     ("deepcheck",         "Deeper reflection — what happened, what helped"),
     ("midcheck",          "Midday micro check-in (2 taps)"),
-    ("evening",           "Evening capacity reflection (3 questions)"),
+    ("evening",           "Evening capacity reflection (5 questions, two skippable)"),
     ("today",             "Show today's capacity check-ins"),
     ("week",              "Weekly capacity review"),
     ("month",             "Monthly capacity pattern review"),
@@ -1639,7 +1654,7 @@ async def _job_midday_push(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def _job_evening_push(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """20:00 push — same 3-question evening reflection as /evening."""
+    """20:00 push — same evening reflection as /evening."""
     await context.bot.send_message(
         TELEGRAM_CHAT_ID, f"🌙 Evening reflection\n\n{ct.q_evening_trajectory()}",
         reply_markup=ct.kb_evening_trajectory(),
