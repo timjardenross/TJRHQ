@@ -118,7 +118,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Track what your system needs today — not what diagnosis explains it.\n\n"
         "/capacity — quick check-in (30-60s)\n"
         "/deepcheck — deeper reflection\n"
-        "/midcheck — midday micro check-in (2 taps)\n"
+        "/midcheck — midday micro check-in (1 tap)\n"
         "/evening — evening reflection\n"
         "/today — today's check-ins\n"
         "/week, /month — trend reviews\n"
@@ -136,7 +136,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_capacity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Quick capacity check-in. See capacity_today.py for the full flow.
-    Sleep (spec: 2026-08-22 workbench review) is asked once per day only —
+    The CPAP question ("Did you use your CPAP last night?") is asked once per day only —
     on the first /capacity check-in, before capacity_state itself."""
     db = _get_supabase()
     today = datetime.now(_TZ).date().isoformat()
@@ -145,7 +145,7 @@ async def cmd_capacity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if already_checked_in:
         await update.message.reply_text(ct.q_capacity(), reply_markup=ct.kb_capacity())
     else:
-        await update.message.reply_text(ct.q_sleep(), reply_markup=ct.kb_sleep())
+        await update.message.reply_text(ct.q_cpap(), reply_markup=ct.kb_cpap())
 
 
 async def cmd_deepcheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -170,7 +170,7 @@ async def cmd_evening(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def cmd_midcheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Manual trigger for the midday micro check-in (2 taps, checkin_type=
+    """Manual trigger for the midday micro check-in (1 tap, checkin_type=
     'midday') — the same flow the 13:00 proactive push sends."""
     await update.message.reply_text(ct.q_midday(), reply_markup=ct.kb_midday())
 
@@ -373,7 +373,17 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
             return
 
         if f.get("cp") is not None:
+            # Compensation is the last required question. Needs and a suggested action are an
+            # optional extra behind a button, so the quick check-in ends here with its summary.
             await ct.write_quick_checkin(db, {"id": row_id, "cp": f["cp"]})
+            row = await ct.fetch_checkin(db, row_id)
+            await query.edit_message_text(
+                ct.render_summary(row or {}),
+                reply_markup=ct.kb_after_quick(row_id),
+            )
+            return
+
+        if f.get("sug") is not None:
             await query.edit_message_text(
                 ct.q_identified_needs(""),
                 reply_markup=ct.kb_multiselect(
@@ -393,8 +403,8 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
             saved, row, err = await ct.write_quick_checkin(db, {"id": row_id, "ld": f["ld"]})
             if f.get("next") == "1":
                 await query.edit_message_text(
-                    ct.q_social(),
-                    reply_markup=ct.kb_social(id_base),
+                    ct.q_compensation(),
+                    reply_markup=ct.kb_compensation(id_base),
                 )
             else:
                 await query.edit_message_text(
@@ -442,9 +452,10 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         return
 
     if f.get("r") is not None:
+        # Emotional load moved to "Go deeper"; regulation now leads straight to executive function.
         await query.edit_message_text(
-            ct.q_emotional(),
-            reply_markup=ct.kb_emotional(f),
+            ct.q_executive_function(),
+            reply_markup=ct.kb_executive_function(f),
         )
         return
 
@@ -481,8 +492,8 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         )
         return
 
-    # only the optional once-a-day sleep question answered so far — ask
-    # capacity next, carrying sl forward via kb_capacity(f).
+    # only the optional once-a-day CPAP question answered so far — ask
+    # capacity next, carrying cx forward via kb_capacity(f).
     await query.edit_message_text(
         ct.q_capacity(),
         reply_markup=ct.kb_capacity(f),
@@ -709,6 +720,24 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
             )
         return
 
+    if f.get("so") is not None:
+        # Social capacity (moved here from the quick check-in) -> burnout framing.
+        await ct.write_deep_checkin(db, row_id, {"so": f["so"]})
+        await query.edit_message_text(
+            ct.q_burnout_framing(),
+            reply_markup=ct.kb_burnout_framing(base),
+        )
+        return
+
+    if f.get("em") is not None:
+        # Emotional load (moved here from the quick check-in) -> social capacity.
+        await ct.write_deep_checkin(db, row_id, {"em": f["em"]})
+        await query.edit_message_text(
+            ct.q_social(),
+            reply_markup=ct.kb_deep_social(row_id),
+        )
+        return
+
     if f.get("bf") is not None:
         await ct.write_deep_checkin(db, row_id, {"bf": f["bf"]})
         await query.edit_message_text(
@@ -729,8 +758,8 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
             await query.edit_message_text(f"⚠️ Could not save: {err}")
             return
         await query.edit_message_text(
-            ct.q_burnout_framing(),
-            reply_markup=ct.kb_burnout_framing(base),
+            ct.q_emotional(),
+            reply_markup=ct.kb_deep_emotional(row_id),
         )
         return
 
@@ -840,17 +869,12 @@ async def handle_midday_callback(update: Update, context: ContextTypes.DEFAULT_T
     f = ct.parse_cb(data)
     db = _get_supabase()
 
-    if f.get("uc") is not None:
+    # One tap: the capacity answer is the whole midday check-in. (An old "anything changed?"
+    # button, if one is still in a chat, still saves.)
+    if f.get("c") is not None or f.get("uc") is not None:
         saved, err = await ct.write_midday_checkin(db, f)
         text = "🕐 Midday check-in saved." if saved else f"⚠️ Could not save: {err}"
         await query.edit_message_text(text)
-        return
-
-    if f.get("c") is not None:
-        await query.edit_message_text(
-            ct.q_midday_change(),
-            reply_markup=ct.kb_midday_change(f["c"]),
-        )
         return
 
 
@@ -1610,7 +1634,7 @@ _BOT_COMMANDS = [
     ("protocols",         "Step-by-step rescue protocols (office overload, etc.)"),
     ("capacity",          "Quick capacity check-in (30-60s, tap buttons)"),
     ("deepcheck",         "Deeper reflection — what happened, what helped"),
-    ("midcheck",          "Midday micro check-in (2 taps)"),
+    ("midcheck",          "Midday micro check-in (1 tap)"),
     ("evening",           "Evening capacity reflection (5 questions, two skippable)"),
     ("today",             "Show today's capacity check-ins"),
     ("week",              "Weekly capacity review"),
@@ -1631,7 +1655,7 @@ _BOT_COMMANDS = [
 # request, so no new write path or question set is introduced here.
 
 async def _job_morning_push(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """08:00 push. Mirrors cmd_capacity's own sleep-gate: sleep is asked
+    """08:00 push. Mirrors cmd_capacity's own first-check-in gate: the CPAP question is asked
     once per day, before capacity_state, only on the first capacity
     check-in — if the Captain already logged one before 08:00 fires (e.g.
     manually), this correctly skips straight to the capacity question."""
@@ -1643,12 +1667,12 @@ async def _job_morning_push(context: ContextTypes.DEFAULT_TYPE) -> None:
         await context.bot.send_message(TELEGRAM_CHAT_ID, ct.q_capacity(), reply_markup=ct.kb_capacity())
     else:
         await context.bot.send_message(
-            TELEGRAM_CHAT_ID, f"☀️ Morning check-in\n\n{ct.q_sleep()}", reply_markup=ct.kb_sleep()
+            TELEGRAM_CHAT_ID, f"☀️ Morning check-in\n\n{ct.q_cpap()}", reply_markup=ct.kb_cpap()
         )
 
 
 async def _job_midday_push(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """13:00 push — 2-tap midday micro check-in, see capacity_today.py's
+    """13:00 push — 1-tap midday micro check-in, see capacity_today.py's
     q_midday()/kb_midday()."""
     await context.bot.send_message(TELEGRAM_CHAT_ID, ct.q_midday(), reply_markup=ct.kb_midday())
 

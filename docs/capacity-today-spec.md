@@ -97,6 +97,19 @@ something else → `identified_needs`
 
 **Status**: fully implemented (`capacity_today.py` Q1-Q8 flow).
 
+**Changes (2026-11-02)**, from reviewing how often each question was actually answered:
+
+- **Sleep** (once a day, first check-in) is now one yes/no question, "Did you use your CPAP last
+  night?" (`cpap_used`, migration 0248; skippable). The five hour-bucket question and
+  `sleep_state` are no longer asked or written; old rows keep their `sleep_state`.
+- **Emotional load** (`emotional_state`) and **social capacity** (`social_state`) moved from the
+  quick check-in into "Go deeper" (section 4), each skippable. The quick check-in is now: capacity,
+  stimulation, pain, nervous system, executive function, loads, compensation.
+- **Needs and the suggested action** (Q8 and section 2) are no longer asked automatically. The quick
+  check-in ends after compensation with its summary and a "Want suggestions?" button that opens them.
+- **Midday check-in** is one tap (capacity only). The "anything changed since this morning?"
+  follow-up was dropped: it was "yes" in 3 of 12 and nothing read it.
+
 ---
 
 ## 2. Action selection
