@@ -10,10 +10,13 @@ Run it wherever the Resend settings are present (the ingestion host):
 
     python tools/emergency_alerts/send_test_email.py --to you@example.com
     python tools/emergency_alerts/send_test_email.py --to you@example.com --only EW,BOM-HIGH
+    python tools/emergency_alerts/send_test_email.py --to team@example.com --cc you@example.com   # the real arrangement
     python tools/emergency_alerts/send_test_email.py --to you@example.com --dry-run   # print only
 
 --to is required: it never falls back to the configured recipient, so a test can
-not reach the live team mailbox by accident.
+not reach the live team mailbox by accident. --cc copies a second address, which
+mirrors the planned live setup (team mailbox as To, the Captain on CC) and tests
+both addresses with one message.
 """
 
 from __future__ import annotations
@@ -95,6 +98,7 @@ def build_samples() -> list[tuple[str, str, str]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--to", required=True, help="recipient for the test messages (required)")
+    ap.add_argument("--cc", help="optional second recipient, copied on every test message")
     ap.add_argument("--only", help="comma-separated notice tags, e.g. EW,BOM-HIGH")
     ap.add_argument("--dry-run", action="store_true", help="print subjects, send nothing")
     args = ap.parse_args()
@@ -106,9 +110,9 @@ def main() -> int:
         body = _BANNER + html
         subject = f"[TEST] {subject}"
         if args.dry_run:
-            print(subject)
+            print(subject + (f"   (To: {args.to}, Cc: {args.cc})" if args.cc else f"   (To: {args.to})"))
             continue
-        if resend_email.send_email(to=args.to, subject=subject, html=body, text=alert_email.html_to_text(body)):
+        if resend_email.send_email(to=args.to, subject=subject, html=body, text=alert_email.html_to_text(body), cc=args.cc):
             sent += 1
             print(f"sent: {subject}")
         else:
