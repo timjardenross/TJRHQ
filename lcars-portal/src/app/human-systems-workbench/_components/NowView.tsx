@@ -17,10 +17,8 @@ import { GoodDaysCard } from './GoodDaysCard';
 import { KpiDashboard } from './KpiDashboard';
 import { CapacityTrendCard } from './CapacityTrendCard';
 import {
-  BurnoutRecoveryCard,
   CapacityTodayCard,
   MyNextMoveCard,
-  RevsPositionSection,
   WhatIsDrivingItCard,
   WhatMySystemNeedsCard,
 } from './RecoveryView';
@@ -85,16 +83,6 @@ export function NowView({ recovery, medical }: { recovery: RecoveryPayload; medi
         <GroupHeading>What May Help Now</GroupHeading>
         <WhatMySystemNeedsCard data={recovery} />
         <MyNextMoveCard data={recovery} />
-
-        {/* ── RECOVERY TRAJECTORY (kept a separate labelled block, never
-             folded into WHAT'S CONTRIBUTING) ── */}
-        <GroupHeading>Recovery Trajectory</GroupHeading>
-        <CollapsibleSection title="Recovery trajectory" className="md:col-span-2" defaultOpen={false}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <BurnoutRecoveryCard data={recovery} />
-            <RevsPositionSection data={recovery} />
-          </div>
-        </CollapsibleSection>
 
         {/* ── WHAT MAY NEED TO CHANGE ── */}
         {medical && medical.redesign_candidates.length > 0 && (

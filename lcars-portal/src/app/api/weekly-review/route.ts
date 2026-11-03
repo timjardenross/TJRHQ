@@ -21,7 +21,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type { Signal, SignalItem, SystemSummary, WorkbenchSection } from '@/lib/weeklyReview';
 import { buildSynthesis, flattenSignalCounts } from './synthesis';
-import { getAssessedContext } from '@/app/api/human-systems/assessed-context';
 import { errorDetail } from '@/lib/errorDetail';
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>;
@@ -297,29 +296,6 @@ function computeSummary(weekStartISO: string, weekEndISO: string, sections: Work
   };
 }
 
-// ── Capacity-adjusted posture (brief §6/§16/§39) ─────────────────────────────
-// Reuses Human Systems' own small assessed-context boundary rather than
-// inventing a competing taxonomy (brief §16) or re-querying capacity_checkins
-// itself (brief §39 — "do not import one workbench's implementation
-// machinery into another"). getAssessedContext() is the same read every
-// other consumer (Ready Room included) goes through.
-async function fetchStrategicPosture(sb: SB) {
-  try {
-    const context = await getAssessedContext(sb);
-    return {
-      posture: context.strain_or_recovery_context.strategic_posture,
-      message: context.strain_or_recovery_context.message,
-      hasSignal: context.strain_or_recovery_context.trajectory !== 'insufficient_data',
-    };
-  } catch {
-    // Human Systems couldn't be checked this run — fall back to a neutral
-    // posture rather than crash the whole review; hasStrategicSignal=false
-    // tells the synthesis layer to omit the recovery-trajectory learned
-    // item/watch line rather than fabricate one.
-    return { posture: 'steady' as const, message: 'Human Systems data was unavailable this run — posture defaults to steady.', hasSignal: false };
-  }
-}
-
 // Simple in-process TTL cache for the computed payload. `export const
 // revalidate` (Next's route-segment cache) does NOT apply here: requireSession()
 // calls cookies(), which forces this route into dynamic rendering and
@@ -343,7 +319,7 @@ export async function GET() {
     const sb = await createSupabaseServerClient();
     const { weekStartISO, weekEndISO } = weekWindow();
 
-    const [chair, osint, healthOsint, content, humanSystems, readyRoom, advisory, briefs, agentStatus, lastReview, posture] = await Promise.all([
+    const [chair, osint, healthOsint, content, humanSystems, readyRoom, advisory, briefs, agentStatus, lastReview] = await Promise.all([
       reviewChair(sb, weekStartISO),
       reviewOsint(sb, weekStartISO),
       reviewHealthOsint(sb, weekStartISO),
@@ -357,7 +333,6 @@ export async function GET() {
       // accepted next-week posture/carry-forward, and last week's
       // reflection all live inside it (brief §34/§36/§38's feedback loop).
       safe(() => sb.from('weekly_reviews').select('completed_at, summary, notes').not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(1)),
-      fetchStrategicPosture(sb),
     ]);
 
     const workbenches = [chair, osint, healthOsint, content, humanSystems, readyRoom, advisory, briefs, agentStatus];
@@ -371,7 +346,7 @@ export async function GET() {
       acceptedCarryForward?: string[];
     } | null;
     const priorSignalCounts = priorSummary?.signalCounts ?? null;
-    const synthesis = buildSynthesis(workbenches, priorSignalCounts, posture.posture, posture.message, posture.hasSignal);
+    const synthesis = buildSynthesis(workbenches, priorSignalCounts);
     const signalCounts = flattenSignalCounts(workbenches);
 
     // What was planned last week vs. what today's live evidence says now —

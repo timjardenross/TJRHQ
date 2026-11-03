@@ -44,7 +44,7 @@ describe('Weekly Review synthesis — carry-forward is an attention decision, no
       parked: sig('parked', 3, 'neutral', [{ id: 'p1', title: 'Low priority A' }]),
       'newly-waiting': sig('newly-waiting', 2, 'neutral', [{ id: 'w1', title: 'Waiting on accountant' }]),
     });
-    const synthesis = buildSynthesis(baseSections(readyRoom), null, 'steady', 'Steady.', true);
+    const synthesis = buildSynthesis(baseSections(readyRoom), null);
     const carryForwardTitles = synthesis.carryForward.map((c) => c.detail);
     expect(carryForwardTitles.some((d) => d.includes('Crisis-plan feedback'))).toBe(true);
     expect(carryForwardTitles.some((d) => d.includes('Low priority A'))).toBe(false);
@@ -53,31 +53,28 @@ describe('Weekly Review synthesis — carry-forward is an attention decision, no
 
   it('parked items appear in You Can Ignore, not carry-forward, and only when evidence supports it (brief §31)', () => {
     const readyRoom = readyRoomSection({ parked: sig('parked', 4, 'neutral') });
-    const synthesis = buildSynthesis(baseSections(readyRoom), null, 'steady', 'Steady.', true);
+    const synthesis = buildSynthesis(baseSections(readyRoom), null);
     expect(synthesis.youCanIgnore.some((l) => l.includes('4') && l.toLowerCase().includes('parked'))).toBe(true);
     expect(synthesis.carryForward.some((c) => c.title === 'Ready Room' && c.detail.includes('parked'))).toBe(false);
   });
 
   it('completed items (tone ok) never appear in What Mattered — routine completion is not treated as a headline event', () => {
     const readyRoom = readyRoomSection({ completed: sig('completed', 5, 'ok', [{ id: 'c1', title: 'Did a thing' }]) });
-    const synthesis = buildSynthesis(baseSections(readyRoom), null, 'steady', 'Steady.', true);
+    const synthesis = buildSynthesis(baseSections(readyRoom), null);
     expect(synthesis.whatMattered.some((m) => m.title.includes('Ready Room'))).toBe(false);
   });
 });
 
-describe('Weekly Review synthesis — cautious, non-causal learning (brief §27/§58)', () => {
-  it('notes completions during a constrained posture descriptively, without claiming causation', () => {
+describe('Weekly Review synthesis — capacity readings no longer shape the review', () => {
+  it('has no recovery/posture items, whatever the week looked like', () => {
     const readyRoom = readyRoomSection({ completed: sig('completed', 2, 'ok') });
-    const synthesis = buildSynthesis(baseSections(readyRoom), null, 'protect', 'Capacity is stretched.', true);
-    const item = synthesis.learned.find((l) => l.key === 'ready-room-progress-during-constraint');
-    expect(item).toBeDefined();
-    expect(item!.lesson.toLowerCase()).not.toMatch(/\bcaused\b|\bbecause of\b/);
-  });
-
-  it('does not fabricate the same learning item on a non-restrictive week even with completions', () => {
-    const readyRoom = readyRoomSection({ completed: sig('completed', 2, 'ok') });
-    const synthesis = buildSynthesis(baseSections(readyRoom), null, 'engage', 'Capacity is available.', true);
+    const synthesis = buildSynthesis(baseSections(readyRoom), null);
+    expect(synthesis.learned.find((l) => l.key === 'recovery-trajectory')).toBeUndefined();
     expect(synthesis.learned.find((l) => l.key === 'ready-room-progress-during-constraint')).toBeUndefined();
+    expect(synthesis.carryForward.find((c) => c.key === 'protect-capacity')).toBeUndefined();
+    expect(synthesis.watchNextWeek.find((w) => w.key === 'personal-trajectory')).toBeUndefined();
+    expect(synthesis.weekInReview.lines.find((l) => l.key === 'recovery')).toBeUndefined();
+    expect(synthesis.nextWeek.avoid).toBeUndefined();
   });
 });
 
@@ -87,7 +84,7 @@ describe('Weekly Review synthesis — Week in Review reflects real execution evi
       completed: sig('completed', 2, 'ok'),
       'important-open': sig('important-open', 1, 'warn'),
     });
-    const synthesis = buildSynthesis(baseSections(readyRoom), null, 'steady', 'Steady.', true);
+    const synthesis = buildSynthesis(baseSections(readyRoom), null);
     const execLine = synthesis.weekInReview.lines.find((l) => l.key === 'execution');
     expect(execLine).toBeDefined();
     expect(execLine!.detail).toContain('2 completed');
