@@ -212,6 +212,28 @@ def _timezone():
         return None
 
 
+def _disabled_jobs() -> set[str]:
+    """Jobs switched off via HS_DISABLED_JOBS (comma-separated, case-insensitive).
+
+    Lets one job be held (e.g. evening/midday while the capacity bot sends its
+    own check-ins) without a code change. Applies to the daemon only: --job,
+    --test and run_all() still run everything. Unknown names are logged and
+    ignored so a typo can't silently disable the wrong thing.
+    """
+    raw = os.environ.get("HS_DISABLED_JOBS", "")
+    names = {n.strip().lower() for n in raw.split(",") if n.strip()}
+    unknown = names - set(JOBS)
+    if unknown:
+        log.warning("[human-systems-scheduler] HS_DISABLED_JOBS has unknown job(s) %s (valid: %s)",
+                    ", ".join(sorted(unknown)), ", ".join(JOBS))
+    return names & set(JOBS)
+
+
+def _enabled_jobs() -> tuple[str, ...]:
+    disabled = _disabled_jobs()
+    return tuple(j for j in JOBS if j not in disabled)
+
+
 def _cron_expression(job: str) -> str:
     """Env-var-overridable cron string for `job`, in pgqueuer's cron syntax
     (identical 5-field crontab format to the old CronTrigger kwargs)."""
@@ -257,7 +279,11 @@ async def _start_daemon_async():
     # same FOR UPDATE SKIP LOCKED primitive as the main job queue (see
     # pgqueuer/adapters/persistence/qb.py) — two co-running daemons cannot
     # both dispatch the same due tick.
-    for job in JOBS:
+    jobs = _enabled_jobs()
+    held = [j for j in JOBS if j not in jobs]
+    if held:
+        log.info("[human-systems-scheduler] jobs held via HS_DISABLED_JOBS: %s", ", ".join(held))
+    for job in jobs:
         def _make_handler(job_name: str):
             async def _handler(_schedule) -> None:
                 await _run_job_async(job_name)
@@ -265,7 +291,7 @@ async def _start_daemon_async():
 
         pq.schedule(f"human_systems_{job}", _cron_expression(job))(_make_handler(job))
 
-    log.info("[human-systems-scheduler] pgqueuer daemon started (jobs=%s)", ", ".join(JOBS))
+    log.info("[human-systems-scheduler] pgqueuer daemon started (jobs=%s)", ", ".join(jobs))
     try:
         await pq.run()
     except (KeyboardInterrupt, SystemExit):
