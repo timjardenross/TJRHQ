@@ -280,6 +280,19 @@ jobs:
             pip install -r "${{ matrix.req }}"
           fi
 
+      # services/revs-content-agents shells out to the pandoc and ffmpeg CLIs
+      # (article -> docx via pypandoc, video muxing via subprocess), and its
+      # tests exercise both for real. ubuntu-latest has neither. This suite
+      # only runs when that directory changes, so the gap sat unnoticed until
+      # the first change to it (#536's dependency bumps). Installed for that
+      # matrix entry only; not skipping the tests, so green still means the
+      # code ran.
+      - name: Install system tools (revs-content-agents)
+        if: matrix.name == 'services-revs-content-agents'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pandoc ffmpeg
+
       # USS-TJR-MSN-0366 Stream 5 follow-up (flagged by review on PR #180):
       # all 9 tests in core/security/test_llm_guardrails.py — the platform's
       # highest-strategic-value new control — were skipping in this job,
