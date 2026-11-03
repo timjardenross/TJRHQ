@@ -105,15 +105,26 @@ def test_score_pain_compatible_not_excluded():
     check("pain-compatible action is not excluded", s is not None)
 
 
-def test_score_high_executive_effort_penalised_in_red():
-    print("\n── _score — high executive_effort penalised when capacity is red ─")
+def test_score_high_executive_effort_is_not_penalised_by_capacity_zone():
+    print("\n── _score — the capacity zone no longer reorders suggestions by effort ─")
     high_effort = _row(executive_effort="high")
-    s_red = _score(high_effort, help_state=None, stimulation_state=None, pain_state=None,
-                    capacity_state="red", executive_function=None, outcomes=None)
-    s_green = _score(high_effort, help_state=None, stimulation_state=None, pain_state=None,
-                      capacity_state="green", executive_function=None, outcomes=None)
-    check("high-effort action scores worse in red than in green (spec §10 — no productivity push in red)",
-          s_red < s_green)
+    scores = {
+        zone: _score(high_effort, help_state=None, stimulation_state=None, pain_state=None,
+                     capacity_state=zone, executive_function=None, outcomes=None)
+        for zone in ("green", "orange", "red")
+    }
+    check("high-effort action scores the same in green, orange and red (owner decision 2026-11-03)",
+          scores["green"] == scores["orange"] == scores["red"])
+
+
+def test_score_high_effort_still_penalised_when_executive_function_is_very_difficult():
+    print("\n── _score — the executive-function penalty is unchanged ─")
+    high_effort = _row(executive_effort="high")
+    s_hard = _score(high_effort, help_state=None, stimulation_state=None, pain_state=None,
+                    capacity_state="green", executive_function="very_difficult", outcomes=None)
+    s_ok = _score(high_effort, help_state=None, stimulation_state=None, pain_state=None,
+                  capacity_state="green", executive_function="good", outcomes=None)
+    check("high-effort action scores worse when executive function is very difficult", s_hard < s_ok)
 
 
 def test_score_personal_outcomes_below_sample_floor_ignored():
@@ -421,7 +432,8 @@ def main():
     test_score_stimulation_compatibility()
     test_score_pain_incompatible_is_hard_excluded()
     test_score_pain_compatible_not_excluded()
-    test_score_high_executive_effort_penalised_in_red()
+    test_score_high_executive_effort_is_not_penalised_by_capacity_zone()
+    test_score_high_effort_still_penalised_when_executive_function_is_very_difficult()
     test_score_personal_outcomes_below_sample_floor_ignored()
     test_score_recent_double_failure_penalised_even_below_floor()
     test_score_sufficient_sample_applies_weighting()

@@ -11,7 +11,7 @@ dependency for V02. Start deterministic."). Ranks by:
      productivity in red)
   3. stimulation-direction compatibility
   4. pain compatibility (hard filter when incompatible)
-  5. executive-effort penalty in orange/red
+  5. executive-effort penalty when executive function is very difficult
   6. personal success weighting from capacity_intervention_events, with a
      minimum-sample floor so a single lucky/unlucky trial can't dominate
      (spec §15/§31 — never claim certainty from a small sample)
@@ -153,12 +153,9 @@ def _score(
     if pain_state in ("elevated", "high") and row.get("pain_compatible"):
         score += 1.0
 
-    if capacity_state in ("orange", "red"):
-        effort = row.get("executive_effort", "low")
-        if effort == "high":
-            score -= 5.0
-        elif effort == "moderate":
-            score -= 2.0
+    # No penalty for effort on orange or red days (owner decision 2026-11-03): the capacity zone no
+    # longer reorders suggestions. The hard capacity-compatibility filter (_fetch_candidates) and the
+    # executive-function penalty below are unchanged.
 
     if executive_function == "very_difficult" and row.get("executive_effort") in ("moderate", "high"):
         score -= 3.0
