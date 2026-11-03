@@ -1,8 +1,8 @@
 // TypeScript mirror of the wording in telegram-bots/capacitybot/day_plan.py (the day plan): the zone
-// with plain reasons from the whole check-in, and one prompt per zone. Suggestions are NOT mirrored:
-// the bot ranks them with the Captain's personal outcome history, which the portal doesn't replicate,
-// so the portal points to Telegram for those. Keep the reasons and prompts in step with the Python
-// file; __tests__/day-plan.test.ts pins the wording.
+// with plain reasons from the whole check-in, and one prompt per zone. The ranked suggestions are in
+// ./suggestion-ranking.ts. Keep the reasons and prompts in step with the Python file;
+// __tests__/day-plan.test.ts pins the wording and __tests__/shared-cases.test.ts runs the example days
+// shared with the Python tests.
 //
 // Suggestions only: a capacity reading never defers, limits or blocks anything (owner decision
 // 2026-11-02). No diagnosis, no shame, no "should".
