@@ -61,12 +61,9 @@ _STIM_REASON = {
 }
 
 
-def day_reasons(row: dict[str, Any], recent_debt: tuple[int, int] | None = None) -> list[str]:
+def day_reasons(row: dict[str, Any]) -> list[str]:
     """Plain-language reasons from the whole check-in. Only things that were answered and are
     notable are listed; a missing answer is never treated as a problem.
-
-    ``recent_debt`` is (evenings that flagged borrowing capacity, evenings answered) over the
-    last few days, or None when there's nothing to report.
     """
     reasons: list[str] = []
     for key, table in (
@@ -79,9 +76,6 @@ def day_reasons(row: dict[str, Any], recent_debt: tuple[int, int] | None = None)
         text = table.get(row.get(key) or "")
         if text:
             reasons.append(text)
-    if recent_debt and recent_debt[1] > 0 and recent_debt[0] > 0:
-        flagged, answered = recent_debt
-        reasons.append(f"you marked borrowing capacity on {flagged} of your last {answered} evenings")
     return reasons
 
 
@@ -97,7 +91,6 @@ def _suggestion_line(index: int, intervention: dict[str, Any]) -> str:
 def render_day_plan(
     row: dict[str, Any],
     interventions: list[dict[str, Any]] | None = None,
-    recent_debt: tuple[int, int] | None = None,
 ) -> str:
     """The plan text, or "" when there's no capacity answer to build it on."""
     zone = row.get("capacity_state")
@@ -105,7 +98,7 @@ def render_day_plan(
         return ""
 
     lines = ["TODAY'S PLAN (suggestions only, nothing is held back)", ""]
-    reasons = day_reasons(row, recent_debt)
+    reasons = day_reasons(row)
     headline = ZONE_HEADLINE[zone]
     if reasons:
         lines.append(f"{headline}: " + "; ".join(reasons) + ".")
