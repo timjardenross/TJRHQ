@@ -84,11 +84,11 @@ export interface CommandStatusResult {
 }
 
 const POSTURE_LABEL: Record<SystemPostureBand, string> = {
-  ENGAGE: 'Engage',
+  ENGAGE: 'Good capacity',
   STEADY: 'Steady',
-  PROTECT: 'Protect',
-  RECOVER: 'Recover',
-  RESET: 'Reset',
+  PROTECT: 'Lower capacity',
+  RECOVER: 'Very low capacity',
+  RESET: 'Unsettled',
   UNKNOWN: 'Unknown',
 };
 
@@ -115,11 +115,10 @@ function environmentConcern(inputs: CommandStatusInputs): boolean {
 function personalLineFor(inputs: CommandStatusInputs): string {
   if (inputs.humanSystemsUnavailable) return 'Human Systems is unavailable — treat capacity as unknown, not clear.';
   if (!inputs.hasCheckinToday) return `No check-in today — ${inputs.postureMessage}`;
-  const label = POSTURE_LABEL[inputs.posture].toLowerCase();
-  if (inputs.posture === 'RECOVER') return `Capacity is depleted — recovery posture is ${label}.`;
-  if (inputs.posture === 'RESET') return `The system needs a regulation step — recovery posture is ${label}.`;
-  if (inputs.posture === 'PROTECT') return `Capacity is stretched — recovery posture is ${label}.`;
-  return `Capacity is available — recovery posture is ${label}.`;
+  if (inputs.posture === 'RECOVER') return `Capacity is very low today.`;
+  if (inputs.posture === 'RESET') return `Your system looks unsettled.`;
+  if (inputs.posture === 'PROTECT') return `Capacity is lower than usual.`;
+  return `Capacity is available.`;
 }
 
 function environmentLineFor(inputs: CommandStatusInputs): string {
@@ -155,9 +154,9 @@ function interpretationFor(hasPersonal: boolean, hasEnvironment: boolean, postur
     return 'Capacity is fine, but something in the environment needs attention — see Needs You.';
   }
   if (hasPersonal && !hasEnvironment) {
-    return `Capacity is constrained, but the external environment is stable. Protect ${posture === 'RECOVER' ? 'recovery' : 'capacity'}; nothing currently warrants overriding ${postureLabel}.`;
+    return `Capacity is lower than usual, and the external environment is stable. Easier options may suit today; nothing outside needs you to push past that.`;
   }
-  return `Capacity is constrained AND something external needs attention — this may warrant overriding ${postureLabel} posture. See Needs You.`;
+  return `Capacity is lower than usual and something external needs attention — you may want to deal with it anyway, in the smallest way that works. See Needs You.`;
 }
 
 export function deriveCommandStatus(inputs: CommandStatusInputs): CommandStatusResult {
