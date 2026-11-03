@@ -42,6 +42,7 @@ def _run_all(stale_rows):
          patch.object(ea, "supabase_get", return_value=stale_rows) as get, \
          patch.object(ea, "_supabase_request") as request, \
          patch.object(ea, "_send_emergency_warning_emails", return_value=1) as emails, \
+         patch.object(ea, "_send_follow_up_emails", return_value={"updates": 0, "lifted": 0}), \
          patch.object(ea, "_record_heartbeat") as single_heartbeat, \
          patch.object(ea, "record_heartbeats") as batch_heartbeats:
         results = ea.run_all()
@@ -113,6 +114,7 @@ def test_empty_feed_expiry_is_deferred_by_the_grace_window():
          patch.object(ea, "_upsert_batch"), \
          patch.object(ea, "supabase_get", side_effect=fake_get), \
          patch.object(ea, "_supabase_request"), \
+         patch.object(ea, "_send_follow_up_emails", return_value={"updates": 0, "lifted": 0}), \
          patch.object(ea, "record_heartbeats") as beats:
         ea.run_all()
 
