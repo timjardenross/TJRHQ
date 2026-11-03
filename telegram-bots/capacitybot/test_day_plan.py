@@ -37,13 +37,6 @@ def test_missing_or_fine_answers_are_never_listed_as_problems():
     assert day_reasons({"capacity_state": "green"}) == []
 
 
-def test_recent_borrowing_is_mentioned_only_when_there_was_some():
-    assert day_reasons({}, recent_debt=(2, 3)) == ["you marked borrowing capacity on 2 of your last 3 evenings"]
-    assert day_reasons({}, recent_debt=(0, 3)) == []
-    assert day_reasons({}, recent_debt=(0, 0)) == []
-    assert day_reasons({}, recent_debt=None) == []
-
-
 def test_each_zone_gets_its_own_prompt():
     for zone in ("green", "orange", "red"):
         assert ZONE_PROMPT[zone] in render_day_plan({"capacity_state": zone})
@@ -103,13 +96,10 @@ def _wired(row, interventions=None, recent=None, fail=False):
 
 def test_quick_check_in_ends_with_the_summary_then_the_plan():
     row = {"id": 42, "capacity_state": "orange", "pain_state": "elevated", "compensation_load": "moderate"}
-    text = _wired(row, SUGGESTIONS, recent=[
-        {"checkin_type": "evening", "capacity_debt": "yes"},
-        {"checkin_type": "evening", "capacity_debt": "no"},
-    ])
+    text = _wired(row, SUGGESTIONS)
     assert text.index("MY CAPACITY TODAY") < text.index("TODAY'S PLAN")
     assert "pain is above your usual" in text
-    assert "1 of your last 2 evenings" in text
+    assert "borrowing" not in text
     assert "(Recover, 10 min)" in text
 
 

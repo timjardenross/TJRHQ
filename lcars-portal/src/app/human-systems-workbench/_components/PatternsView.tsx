@@ -4,9 +4,9 @@
 // pass beyond the Phase 2 placeholder. The former "System Learning"
 // user-facing label is retitled to "Patterns" (RecoveryView.tsx's
 // SystemLearningSection, shared with the retired RecoveryView composite).
-// Adds two more real-data-backed pattern surfaces below it — Capacity Debt
-// and Recurring Loads (both already computed by the API for MedicalView,
-// medical.capacity_debt / medical.redesign_candidates) — worded as
+// Adds one more real-data-backed pattern surface below it — Recurring Loads
+// (already computed by the API for MedicalView, medical.redesign_candidates;
+// the Capacity Debt note was removed 2026-11-03 when the evening borrowed-capacity question was dropped) — worded as
 // association/trend language throughout, never causal certainty or a
 // fixed rule (spec §22-24). Nothing here is fabricated: every number
 // traces to a field the API already returns; "What May Need to Change" on
@@ -18,24 +18,6 @@ import { Badge } from '@/components/ui';
 import { CollapsibleSection } from './CollapsibleSection';
 import { SystemLearningSection } from './RecoveryView';
 import type { MedicalPayload, RecoveryPayload } from './types';
-
-/** Spec §19/§23 — capacity_debt (evening 'yes'/'maybe' debt flags over the
- *  last window_days) is a trend signal, not a hard prediction about
- *  tomorrow — "may already be partly spoken for" language keeps it
- *  qualitative, not a stated fact. */
-function CapacityDebtNote({ debt }: { debt: MedicalPayload['capacity_debt'] }) {
-  if (debt.days_total === 0) return null;
-  return (
-    <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-      <div className="text-wb-label uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
-      <p className="mt-1 text-wb-body leading-relaxed text-wb-ink">
-        {debt.days_with_debt} of {debt.days_total} evening reflections in the last {debt.window_days} days flagged
-        possible next-day debt. On days like that, tomorrow&rsquo;s capacity may already be partly spoken for before
-        the day even starts — an association worth watching, not a guarantee.
-      </p>
-    </div>
-  );
-}
 
 /** Spec §23 — redesign_candidates as a pattern: a load that keeps
  *  co-occurring with stretched/depleted days, presented explicitly as an
@@ -67,7 +49,7 @@ export function PatternsView({ recovery, medical }: { recovery: RecoveryPayload;
     recovery.wellness.risk_flags.length > 0 ||
     recovery.wellness.positive_flags.length > 0
   );
-  const hasLongerRunSignal = !!medical && (medical.capacity_debt.days_total > 0 || medical.redesign_candidates.length > 0);
+  const hasLongerRunSignal = !!medical && medical.redesign_candidates.length > 0;
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -81,7 +63,6 @@ export function PatternsView({ recovery, medical }: { recovery: RecoveryPayload;
       {hasLongerRunSignal && medical && (
         <CollapsibleSection title="Longer-Run Signals" className="md:col-span-2">
           <div className="flex flex-col gap-3">
-            <CapacityDebtNote debt={medical.capacity_debt} />
             <RecurringLoadsNote candidates={medical.redesign_candidates} />
           </div>
         </CollapsibleSection>

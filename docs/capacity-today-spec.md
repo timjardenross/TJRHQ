@@ -172,15 +172,12 @@ treated as unknown, never as bad):
 2. Looking back, how much did you have to push, mask, or compensate today?
    (`day_compensation_load`, same low / moderate / high / extreme scale as Q7; skippable)
 3. What helped most? (`helpful_factor`)
-4. Did you borrow capacity from tomorrow? No/Maybe/Yes (`capacity_debt`) —
-   "borrowing" = maintaining output today at the cost of increased
-   exhaustion, pain, overload, shutdown, or recovery needs afterwards.
+4. (Removed 2026-11-03: "Did you borrow capacity from tomorrow?" is no longer asked. The
+   `capacity_debt` column and its old answers are kept.)
 5. Was today a good day? Yes / Kind of / No (`good_day`; skippable). The Captain's own
    answer always wins over the provisional rule in `core/health/good_day.py`: the day stayed
    the same or improved, and whole-day compensation was moderate or lower (missing answers are
-   not counted against the day). Borrowed capacity (Q4) is deliberately not part of the rule
-   for now (2026-11-03); it is still asked and stored, and still feeds the burnout trend and
-   the day plan.
+   not counted against the day). Borrowed capacity is not part of the rule and is no longer asked.
 
    `/week`, `/month` and `/therapy` show a count from the latest evening of each day:
    "Good days: 3 of 5 evenings (longest run: 2 days)". A day with no evening answer is
@@ -210,8 +207,7 @@ previous entries.
 ## 7. Trend analysis
 
 Weekly/monthly summaries — zone percentages, most common loads, patterns
-preceding red-capacity states, most helpful actions/needs, capacity debt
-frequency. Language: "possible pattern," "appears associated," "worth
+preceding red-capacity states, most helpful actions/needs. Language: "possible pattern," "appears associated," "worth
 testing" — never causal claims.
 
 **Status**: implemented (`render_trend_summary()`, `/week`, `/month`,
@@ -222,8 +218,7 @@ testing" — never causal claims.
 ## 8. Therapy summary
 
 `/therapy` — 1/2/4-week window. Overall pattern, common contributors,
-compensation load, pain relationship, what helped, capacity-debt
-situations, 2-3 questions worth discussing in therapy.
+compensation load, pain relationship, what helped, 2-3 questions worth discussing in therapy.
 
 **Status**: implemented (`render_therapy_summary()`, `cty|` window
 selector callback).
@@ -241,7 +236,7 @@ and recover, no productivity optimisation.
 shown under the quick check-in summary. It is suggestions only: a capacity reading never
 defers, limits or blocks anything (owner decision 2026-11-02). It shows the zone with plain
 reasons from the whole check-in (pain above usual, executive function, compensation,
-regulation, stimulation, and borrowing capacity on recent evenings), then a zone prompt
+regulation, stimulation), then a zone prompt
 (green: "spend some, bank some"; orange: the early-intervention question above; red: the
 smallest workable day), then up to three ranked suggestions tagged Reduce / Regulate /
 Recover / Redesign (section 10). A missing answer is never listed as a problem.

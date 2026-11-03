@@ -50,10 +50,6 @@ const STIMULATION_STATE_LABEL: Record<string, string> = {
  *  that caller start it collapsed without changing this component's own
  *  always-open-on-desktop default used everywhere else. */
 export function CapacityConditionsSection({ data, defaultOpen = true }: { data: MedicalPayload; defaultOpen?: boolean }) {
-  const debtPct = data.capacity_debt.days_total > 0
-    ? Math.round((data.capacity_debt.days_with_debt / data.capacity_debt.days_total) * 100)
-    : null;
-
   // Merge domains + conditions, dropping the one exact duplicate: "sensory"
   // (domain) === "sensory_load" (condition) — same field, keep the
   // condition's version since its `detail` text is more descriptive than
@@ -96,20 +92,6 @@ export function CapacityConditionsSection({ data, defaultOpen = true }: { data: 
           isn&rsquo;t the only path to a better day.
         </p>
       )}
-
-      <div className="mt-4 rounded-md border border-wb-line bg-wb-bg p-3">
-        <div className="text-wb-label uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
-        <div className="mt-1 font-serif text-2xl text-wb-ink">
-          {data.capacity_debt.days_total === 0 ? '—' : `${data.capacity_debt.days_with_debt} of ${data.capacity_debt.days_total} days`}
-        </div>
-        <p className="mt-1 text-wb-label text-wb-ink2">
-          {data.capacity_debt.days_total === 0
-            ? 'No evening reflections logged in the last 7 days.'
-            : debtPct && debtPct >= 40
-              ? 'Maintaining output today appears to be increasing tomorrow’s recovery requirement.'
-              : `Last ${data.capacity_debt.window_days} days.`}
-        </p>
-      </div>
 
       <div className="mt-4 flex items-center justify-between rounded-md border border-wb-line bg-wb-bg p-3">
         <div>

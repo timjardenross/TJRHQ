@@ -286,10 +286,7 @@ async def _build_day_plan(db, row: dict) -> str:
             executive_function=row.get("executive_function"),
             limit=day_plan.MAX_SUGGESTIONS,
         )
-        recent = await ct.fetch_recent(db, days=3)
-        evenings = [r for r in recent if r.get("checkin_type") == "evening" and r.get("capacity_debt")]
-        flagged = sum(1 for r in evenings if r["capacity_debt"] in ("yes", "maybe"))
-        return day_plan.render_day_plan(row, interventions, (flagged, len(evenings)))
+        return day_plan.render_day_plan(row, interventions)
     except Exception as exc:  # noqa: BLE001 - the plan is optional; log and carry on without it
         log.warning("day plan failed (summary still sent): %s", exc)
         return ""
@@ -846,24 +843,18 @@ async def handle_capacity_evening_callback(update: Update, context: ContextTypes
     f = ct.parse_cb(data)
     db = _get_supabase()
 
-    # Latest answer first: dt -> cp (whole-day compensation) -> hf -> cd -> gd (good day) -> save.
+    # Latest answer first: dt -> cp (whole-day compensation) -> hf -> gd (good day) -> save.
     if f.get("gd") is not None:
         saved, err = await ct.write_evening(db, f)
         text = "🌙 Evening reflection saved." if saved else f"⚠️ Could not save: {err}"
         await query.edit_message_text(text)
         return
 
-    if f.get("cd") is not None:
+    # "cd" (borrowed capacity) is no longer asked; an old button still in a chat falls through to good day.
+    if f.get("hf") is not None or f.get("cd") is not None:
         await query.edit_message_text(
             ct.q_evening_good_day(),
             reply_markup=ct.kb_evening_good_day(f),
-        )
-        return
-
-    if f.get("hf") is not None:
-        await query.edit_message_text(
-            ct.q_evening_debt(),
-            reply_markup=ct.kb_evening_debt(f),
         )
         return
 

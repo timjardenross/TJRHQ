@@ -22,14 +22,14 @@ def _callbacks(markup):
 
 
 def test_every_evening_callback_fits_telegrams_64_byte_limit():
-    f = {"dt": "s", "cp": "e", "hf": "12", "cd": "m"}
-    for kb in (ct.kb_evening_compensation(f), ct.kb_evening_helpful(f), ct.kb_evening_debt(f), ct.kb_evening_good_day(f)):
+    f = {"dt": "s", "cp": "e", "hf": "12"}
+    for kb in (ct.kb_evening_compensation(f), ct.kb_evening_helpful(f), ct.kb_evening_good_day(f)):
         assert all(len(c.encode()) <= 64 for c in _callbacks(kb))
 
 
 def test_each_step_carries_the_answers_so_far_in_order():
-    f = {"dt": "s", "cp": "m", "hf": "3", "cd": "n"}
-    assert all(c.startswith("cte|dt=s|cp=m|hf=3|cd=n|gd=") for c in _callbacks(ct.kb_evening_good_day(f)))
+    f = {"dt": "s", "cp": "m", "hf": "3"}
+    assert all(c.startswith("cte|dt=s|cp=m|hf=3|gd=") for c in _callbacks(ct.kb_evening_good_day(f)))
     assert all(c.startswith("cte|dt=s|cp=m|hf=") for c in _callbacks(ct.kb_evening_helpful(f)))
     assert all(c.startswith("cte|dt=s|cp=") for c in _callbacks(ct.kb_evening_compensation(f)))
 
@@ -50,14 +50,15 @@ def _write(f):
 
 
 def test_answers_are_stored_in_the_evening_only_columns():
-    p = _write({"dt": "s", "cp": "m", "hf": "0", "cd": "n", "gd": "k"})
+    p = _write({"dt": "s", "cp": "m", "hf": "0", "gd": "k"})
     assert p["day_compensation_load"] == "moderate" and p["good_day"] == "kind_of"
     assert p["checkin_type"] == "evening"
+    assert "capacity_debt" not in p  # borrowed capacity is no longer asked or stored
     assert "compensation_load" not in p  # the start-of-day column is never written by the evening flow
 
 
 def test_skipped_answers_store_nothing():
-    p = _write({"dt": "d", "cp": "x", "hf": "0", "cd": "y", "gd": "x"})
+    p = _write({"dt": "d", "cp": "x", "hf": "0", "gd": "x"})
     assert "day_compensation_load" not in p and "good_day" not in p
 
 
@@ -87,8 +88,8 @@ def test_the_captains_own_answer_wins_over_the_rule():
 @pytest.mark.parametrize("data,expect_text", [
     ("cte|dt=s", "push, mask"),
     ("cte|dt=s|cp=m", "What helped most"),
-    ("cte|dt=s|cp=m|hf=1", "borrow capacity"),
-    ("cte|dt=s|cp=m|hf=1|cd=n", "good day"),
+    ("cte|dt=s|cp=m|hf=1", "good day"),
+    ("cte|dt=s|cp=m|hf=1|cd=n", "good day"),  # old button from before the question was dropped
 ])
 def test_handler_walks_the_questions_in_order(data, expect_text):
     import asyncio
