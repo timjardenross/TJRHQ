@@ -52,9 +52,9 @@ export interface CommandPostureResult {
 
 const POSTURE_HEADLINE: Record<CommandPosture, string> = {
   RESPOND: 'RESPOND',
-  RECOVER: 'RECOVER',
-  PROTECT: 'PROTECT',
-  FOCUS: 'FOCUS',
+  RECOVER: 'VERY LOW CAPACITY',
+  PROTECT: 'LOWER CAPACITY',
+  FOCUS: 'GOOD FOR FOCUS',
   STEADY: 'STEADY',
   UNKNOWN: 'UNKNOWN',
 };
@@ -81,10 +81,10 @@ export function deriveCommandPosture(inputs: CommandPostureInputs): CommandPostu
   }
 
   if (inputs.humanSystemsPosture === 'RECOVER') {
-    return { posture: 'RECOVER', headline: POSTURE_HEADLINE.RECOVER, explanation: 'Recovery conditions should dominate discretionary demand today. Nothing external overrides that.' };
+    return { posture: 'RECOVER', headline: POSTURE_HEADLINE.RECOVER, explanation: 'Capacity is very low today. Nothing external needs you to push past that.' };
   }
   if (inputs.humanSystemsPosture === 'PROTECT' || inputs.humanSystemsPosture === 'RESET') {
-    return { posture: 'PROTECT', headline: POSTURE_HEADLINE.PROTECT, explanation: 'Capacity is constrained; nothing external warrants overriding recovery.' };
+    return { posture: 'PROTECT', headline: POSTURE_HEADLINE.PROTECT, explanation: 'Capacity is lower than usual; nothing external needs you to push past it.' };
   }
 
   if (inputs.meaningfulCommitmentsToday > 0) {

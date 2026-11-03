@@ -97,7 +97,9 @@ _BATCH_STATUS_MAP = {
 # Raw statuses that are terminal/closed but NOT part of the 5-status active
 # vocabulary (a handoff that failed/was cancelled is not outstanding advisory
 # work in this model). Excluded from the active queue, same as Completed.
-_NON_ACTIVE_TERMINAL = {"FAILED", "CANCELLED", "CANCELED", "ARCHIVED"}
+# HELD = XO reviewed the generated edit and said Hold; nothing to sign off on
+# (batch_coding.run_sync_one stamps it; the artifact stays for reference).
+_NON_ACTIVE_TERMINAL = {"FAILED", "CANCELLED", "CANCELED", "ARCHIVED", "HELD"}
 
 # Lifecycle statuses that are terminal (not outstanding work → excluded).
 _TERMINAL_ENGINEERING_STATUSES = {EngineeringStatus.COMPLETED}

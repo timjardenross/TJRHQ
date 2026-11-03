@@ -6,10 +6,10 @@ Every fact in the original version is now stale:
 
 - Chief Engineer (`@Starship_ChiefEngineer_bot`) and Engineering Dept
   (`@starship_endeavour_bot`) were both retired 2026-09-15 — **XO is the
-  only bot with host/shell action capability** (REVS and CapacityBot are
-  separate, non-action, still-live bots — see `USS-TJR-Control/README.md`).
+  only bot with host/shell action capability** (CapacityBot is a
+  separate, non-action, still-live bot; REVS was decommissioned 2026-11-03 — see `USS-TJR-Control/README.md`).
 - The manual `python3 -m venv` / `bash start.sh` bootstrap steps are
-  superseded by systemd (`tg-xo.service`, `tg-revs.service`,
+  superseded by systemd (`tg-xo.service`,
   `tg-capacitybot.service`).
 - `/recovery_status`, `/recovery_pulse` are not registered commands in the
   live XO bot — `recovery_pulses` was retired in favor of

@@ -36,7 +36,6 @@ import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
 import { BrandMark } from '@/components/brand';
-import { AttentionControls } from '@/components/AttentionControls';
 import { ActionHistoryPanel } from '@/components/FocusLane';
 import { trackTaskEvent } from '@/lib/taskTelemetry';
 
@@ -235,7 +234,7 @@ export function WorkbenchShell({
           </header>
           <main id="wb-main" tabIndex={-1} className={`mx-auto ${shellWidth} px-4 py-6 pb-28 outline-none sm:px-6 sm:py-8 sm:pb-28 xl:pb-8`}>
             {!minimal && !quiet && primaryAction && <div className="mb-4"><Link href={primaryAction.href} onClick={() => trackTaskEvent(`${pathname}:primary`, 'started', { label: primaryAction.label })} className="inline-flex min-h-11 items-center rounded-md bg-wb-sage-deep px-4 py-2.5 text-wb-body font-semibold text-white transition hover:bg-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{primaryAction.label} →</Link></div>}
-            {!minimal && !quiet && <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><AttentionControls label="Attention" /><ActionHistoryPanel /></div>}
+            {!minimal && !quiet && <div className="mb-4 flex flex-wrap items-center justify-end gap-3"><ActionHistoryPanel /></div>}
             {originLabel && pathname !== originHref && (
               <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-wb-label text-wb-ink2" role="status">
                 <span>Opened from {originLabel}{item ? ` · item ${item}` : ''}</span>

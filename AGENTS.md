@@ -73,9 +73,13 @@ careful" isn't enough, run the actual grep:
   (`docs/decisions/` only holds reference material — the worked MADR example and other
   non-filed write-ups — not the filed registry itself; don't confuse the two.)
 - **Scheduled jobs (APScheduler)** — consolidation is in progress (USS-TJR-MSN-0368 Stream
-  6); real count as of that stream is 2 live instances (`intelligence/scheduler.py`,
-  `telegram-bots/revs/scheduler.py`). Ask before adding a new scheduler instance rather than
-  assuming one doesn't already cover your use case.
+  6). Verified 2026-11-03 from `journalctl -u <unit> --since "7 days ago"`: 3 live services
+  emit APScheduler activity — `intelligence-scheduler` (`intelligence/scheduler.py`, its own
+  `BlockingScheduler`), `tg-xo` (python-telegram-bot `JobQueue`, which is APScheduler
+  underneath) and `tg-capacitybot` (same `JobQueue` mechanism). `tg-revs` was decommissioned
+  2026-11-03 (code removed; archived on branch `archive/tg-revs-2026-11-03`). `human-systems-scheduler` runs on pgqueuer,
+  and `tg-resiliencebot` and `model-router` show no APScheduler activity. Ask before adding a
+  new scheduler instance rather than assuming one doesn't already cover your use case.
 - **Specialist registry** — `platform-runtime/prompt_loader.py`'s `SPECIALISTS` dict and
   `specialists/SPECIALIST-INVENTORY.md` (narrative, not code-loaded) both describe the same
   specialist roster from two angles; check both before adding a specialist so the two don't

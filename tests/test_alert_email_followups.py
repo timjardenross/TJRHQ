@@ -93,3 +93,47 @@ def test_failed_send_is_not_recorded_so_it_retries():
 def test_read_failure_never_raises():
     with patch.object(ea, "supabase_get", side_effect=RuntimeError("column does not exist")):
         assert ea._send_follow_up_emails(NOW) == {"updates": 0, "lifted": 0}
+
+
+def _bom(**o):
+    base = {"source_key": "bom_qld", "headline": "Moderate Flood Warning for the Barcoo River", "severity": "unknown",
+            "alert_type": "flood", "emergency_email_tier": "unknown", "description": "IDQ20001 issued 9:00 am"}
+    base.update(o)
+    return _row(**base)
+
+
+def test_bom_reissue_with_new_issue_time_is_not_an_update_but_a_new_headline_is():
+    stale = _bom()
+    reissued = {**stale, "description": "IDQ20001 issued 3:00 pm, next update 9:00 pm", "emergency_email_last_at": (NOW - timedelta(hours=3)).isoformat()}
+    assert _run([reissued])[0]["updates"] == 0
+    escalated = {**reissued, "headline": "Major Flood Warning for the Barcoo River"}
+    assert _run([escalated])[0]["updates"] == 1
+
+
+def test_old_style_hash_on_a_bom_row_is_rebaselined_silently_not_emailed():
+    old = {**_bom(), "emergency_email_hash": "abcdef0123456789", "description": "changed", "emergency_email_last_at": (NOW - timedelta(hours=3)).isoformat()}
+    out, send, req = _run([old])
+    assert out["updates"] == 0 and not send.called and "emergency_email_hash" in req.call_args.kwargs["body"]
+
+
+def test_bom_flood_warning_ending_is_closed_silently_but_a_thunderstorm_still_gets_lifted():
+    out, send, req = _run([_bom(is_active=False)])
+    assert out["lifted"] == 0 and not send.called and "emergency_email_lifted_at" in req.call_args.kwargs["body"]
+    storm = _bom(is_active=False, headline="Severe Thunderstorm Warning for the Hunter", alert_type="thunderstorm")
+    assert _run([storm])[0]["lifted"] == 1
+
+
+def test_duplicate_bom_product_row_gets_no_follow_ups():
+    assert _run([_bom(emergency_email_tier="duplicate", is_active=False)])[0] == {"updates": 0, "lifted": 0}
+
+
+def test_same_bom_product_in_another_state_feed_is_not_emailed_twice():
+    row = {"id": "r2", "headline": "Severe Thunderstorm Warning for the Hunter", "jurisdiction": "ACT", "alert_type": "thunderstorm",
+           "location": None, "description": "IDN21033 text", "raw_text": "", "issued_at": None, "latitude": None, "longitude": None}
+    with patch.object(ea, "supabase_get", side_effect=[[row], [{"id": "r1"}]]), \
+         patch.object(ea.alert_silences, "list_active_silences", return_value=[]), \
+         patch.object(ea.bom_attention, "attention_level", return_value=ea.bom_attention.HIGH), \
+         patch.object(ea, "_supabase_request") as req, \
+         patch.object(ea, "send_email", return_value=True) as send:
+        assert ea._send_bom_attention_emails("bom_act") == 0
+    assert not send.called and req.call_args.kwargs["body"]["emergency_email_tier"] == "duplicate"

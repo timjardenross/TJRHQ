@@ -28,7 +28,27 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/starship-endeavour
-ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python /opt/starship-endeavour/platform-runtime/human_systems_scheduler.py --daemon
+# 2026-11-03: Telegram delivery turned on. Until now this unit used the flat
+# run-with-infisical.sh, whose shared namespace has no TELEGRAM_BOT_TOKEN /
+# TELEGRAM_CHAT_ID (those are per-bot, in /bots/<bot> folders), so every job
+# logged "delivered=False dry_run=True" (reason: no_telegram_config). It now
+# starts through run-with-infisical-bot.sh capacitybot: shared secrets first,
+# then the capacity bot's folder on top, so the pushes arrive from the same
+# bot and chat as the capacity check-ins. Verified on the VM by comparing the
+# python process's environment before/after: only HS_DISABLED_JOBS,
+# TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID were added, nothing removed and no
+# shared value changed (INFISICAL_TOKEN differs per start by design).
+#
+# HS_DISABLED_JOBS holds midday and evening: they overlap the capacity bot's
+# own 13:00 and 20:00 check-ins. The scheduler registers only the other five
+# jobs (morning, eod, weekly, degradation, comms_weekly). Remove a name from
+# the list to turn that job back on, then restart this unit.
+#
+# This same configuration was first applied on the host as a drop-in,
+# /etc/systemd/system/human-systems-scheduler.service.d/capacity-bot-telegram.conf.
+# Once this file is installed over /etc/systemd/system/, delete that drop-in.
+Environment=HS_DISABLED_JOBS=midday,evening
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical-bot.sh capacitybot -- /opt/starship-endeavour/platform-runtime/.venv/bin/python /opt/starship-endeavour/platform-runtime/human_systems_scheduler.py --daemon
 Restart=always
 RestartSec=10
 StandardOutput=journal

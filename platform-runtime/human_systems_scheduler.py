@@ -57,7 +57,8 @@ from lib.human_systems import delivery, memory, push
 
 JOBS = ("morning", "midday", "eod", "evening", "weekly", "degradation", "comms_weekly")
 
-# Cron defaults (interpreted in HS_SCHEDULE_TZ, default the Captain's local tz).
+# Cron defaults, written in HS_SCHEDULE_TZ (default Australia/Sydney). The daemon matches
+# them against local time every minute; pgqueuer itself would read them as UTC.
 _CRON_DEFAULTS = {
     "morning": ("HS_MORNING_CRON", "0 7 * * *"),
     "midday":  ("HS_MIDDAY_CRON",  "0 12 * * *"),
@@ -204,12 +205,78 @@ def run_all(*, dry_run: bool = False) -> list[dict]:
 
 
 def _timezone():
-    tz_name = os.environ.get("HS_SCHEDULE_TZ", "Australia/Sydney")
-    try:
-        from zoneinfo import ZoneInfo
-        return ZoneInfo(tz_name)
-    except (ImportError, KeyError):  # pragma: no cover - fall back to scheduler default (UTC)
-        return None
+    """Zone the job cron expressions are written in (HS_SCHEDULE_TZ, default Sydney).
+
+    Strict on purpose: the pgqueuer daemon evaluates cron in UTC, so a silent
+    fallback to UTC is exactly the bug that fired "evening" at 07:00 local.
+    An unknown zone name raises (ZoneInfoNotFoundError) and the daemon refuses
+    to start.
+    """
+    from zoneinfo import ZoneInfo
+    return ZoneInfo(os.environ.get("HS_SCHEDULE_TZ", "Australia/Sydney"))
+
+
+def _now_in(tz):
+    """Current time in `tz`. A named function so tests can substitute the clock."""
+    from datetime import datetime
+    return datetime.now(tz)
+
+
+def _local_minute(now):
+    """`now` (any zone-aware datetime) as local wall-clock time, floored to the minute."""
+    return now.astimezone(_timezone()).replace(second=0, microsecond=0)
+
+
+def _jobs_due(now, jobs) -> list[str]:
+    """Jobs whose cron expression matches `now`, evaluated in HS_SCHEDULE_TZ.
+
+    `now` is converted to the configured zone first, so the answer does not
+    depend on which zone the caller built it in (a UTC datetime is no longer
+    mistaken for local time). Compared at minute resolution, so the Captain's
+    "07:00" means 07:00 local and survives daylight-saving changes.
+    """
+    from croniter import croniter
+    minute = _local_minute(now)
+    return [j for j in jobs if croniter.match(_cron_expression(j), minute)]
+
+
+def _fire_due(now_local, jobs, fired: dict, run) -> list[str]:
+    """Start every job due at `now_local` at most once per local minute.
+
+    `fired` maps job -> the minute it last started (in-process guard against a
+    late or repeated tick). `run(job)` starts the job. Returns the jobs started.
+    """
+    minute = _local_minute(now_local)
+    started = []
+    for job in _jobs_due(now_local, jobs):
+        if fired.get(job) == minute:
+            continue
+        fired[job] = minute
+        run(job)
+        started.append(job)
+    return started
+
+
+def _disabled_jobs() -> set[str]:
+    """Jobs switched off via HS_DISABLED_JOBS (comma-separated, case-insensitive).
+
+    Lets one job be held (e.g. evening/midday while the capacity bot sends its
+    own check-ins) without a code change. Applies to the daemon only: --job,
+    --test and run_all() still run everything. Unknown names are logged and
+    ignored so a typo can't silently disable the wrong thing.
+    """
+    raw = os.environ.get("HS_DISABLED_JOBS", "")
+    names = {n.strip().lower() for n in raw.split(",") if n.strip()}
+    unknown = names - set(JOBS)
+    if unknown:
+        log.warning("[human-systems-scheduler] HS_DISABLED_JOBS has unknown job(s) %s (valid: %s)",
+                    ", ".join(sorted(unknown)), ", ".join(JOBS))
+    return names & set(JOBS)
+
+
+def _enabled_jobs() -> tuple[str, ...]:
+    disabled = _disabled_jobs()
+    return tuple(j for j in JOBS if j not in disabled)
 
 
 def _cron_expression(job: str) -> str:
@@ -257,15 +324,38 @@ async def _start_daemon_async():
     # same FOR UPDATE SKIP LOCKED primitive as the main job queue (see
     # pgqueuer/adapters/persistence/qb.py) — two co-running daemons cannot
     # both dispatch the same due tick.
-    for job in JOBS:
-        def _make_handler(job_name: str):
-            async def _handler(_schedule) -> None:
-                await _run_job_async(job_name)
-            return _handler
+    jobs = _enabled_jobs()
+    held = [j for j in JOBS if j not in jobs]
+    if held:
+        log.info("[human-systems-scheduler] jobs held via HS_DISABLED_JOBS: %s", ", ".join(held))
 
-        pq.schedule(f"human_systems_{job}", _cron_expression(job))(_make_handler(job))
+    # pgqueuer evaluates cron expressions in UTC, so registering each job's cron
+    # directly made "0 7 * * *" fire at 07:00 UTC (18:00 Sydney). Instead, one
+    # every-minute tick (still one execution per minute across daemons, via the
+    # same SKIP LOCKED lock) checks which jobs are due in HS_SCHEDULE_TZ.
+    tz = _timezone()
+    fired: dict = {}
+    background: set = set()
 
-    log.info("[human-systems-scheduler] pgqueuer daemon started (jobs=%s)", ", ".join(JOBS))
+    def _start(job_name: str) -> None:
+        task = asyncio.get_running_loop().create_task(_run_job_async(job_name))
+        background.add(task)
+
+        def _done(t, name=job_name):
+            background.discard(t)
+            if not t.cancelled() and t.exception() is not None:
+                log.error("[human-systems-scheduler] job %s failed: %s", name, t.exception())
+
+        task.add_done_callback(_done)
+
+    async def _tick(_schedule) -> None:
+        for name in _fire_due(_now_in(tz), jobs, fired, _start):
+            log.info("[human-systems-scheduler] tick: started %s", name)
+
+    pq.schedule("human_systems_tick", "* * * * *")(_tick)
+
+    log.info("[human-systems-scheduler] pgqueuer daemon started (jobs=%s, timezone=%s)",
+             ", ".join(jobs), tz)
     try:
         await pq.run()
     except (KeyboardInterrupt, SystemExit):

@@ -27,6 +27,7 @@ from datetime import time as _dtime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import httpx
 from dotenv import load_dotenv
 
 _TZ = ZoneInfo("Australia/Melbourne")
@@ -63,6 +64,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 sys.path.insert(0, str(_REPO_ROOT))
 
 from telegram import Update
+from telegram.error import NetworkError as TelegramNetworkError
 from telegram.ext import (
     Application,
     ApplicationHandlerStop,
@@ -76,7 +78,7 @@ from telegram.ext import (
 
 from core.platform.telegram_access import is_allowed as _chat_is_allowed
 from telegram_bots.capacitybot import capacity_today as ct
-from telegram_bots.capacitybot import distract, guide, helpme
+from telegram_bots.capacitybot import day_plan, distract, guide, helpme
 from telegram_bots.capacitybot import experiments as exp
 from telegram_bots.capacitybot import intervention_engine as ie
 
@@ -274,6 +276,24 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # `pg` field (current button page) rides alongside a multi-select's other
 # fields — see capacity_today.kb_multiselect / _page() above.
 
+async def _build_day_plan(db, row: dict) -> str:
+    """The day plan shown under the quick check-in summary (day_plan.py). Best effort: a failure
+    here must never lose the summary, so any error just means no plan."""
+    try:
+        interventions = await ie.rank_interventions(
+            db,
+            capacity_state=row.get("capacity_state"),
+            stimulation_state=row.get("stimulation_state"),
+            pain_state=row.get("pain_state"),
+            executive_function=row.get("executive_function"),
+            limit=day_plan.MAX_SUGGESTIONS,
+        )
+        return day_plan.render_day_plan(row, interventions)
+    except Exception as exc:  # noqa: BLE001 - the plan is optional; log and carry on without it
+        log.warning("day plan failed (summary still sent): %s", exc)
+        return ""
+
+
 async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Two phases. Phase 1 (no `id` yet, Q1-Q5): state lives entirely in the
     callback string — cheap, these fields are all single-char codes, never
@@ -377,10 +397,11 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
             # optional extra behind a button, so the quick check-in ends here with its summary.
             await ct.write_quick_checkin(db, {"id": row_id, "cp": f["cp"]})
             row = await ct.fetch_checkin(db, row_id)
-            await query.edit_message_text(
-                ct.render_summary(row or {}),
-                reply_markup=ct.kb_after_quick(row_id),
-            )
+            text = ct.render_summary(row or {})
+            plan = await _build_day_plan(db, row or {})
+            if plan:
+                text += "\n\n" + plan
+            await query.edit_message_text(text, reply_markup=ct.kb_after_quick(row_id))
             return
 
         if f.get("sug") is not None:
@@ -824,24 +845,18 @@ async def handle_capacity_evening_callback(update: Update, context: ContextTypes
     f = ct.parse_cb(data)
     db = _get_supabase()
 
-    # Latest answer first: dt -> cp (whole-day compensation) -> hf -> cd -> gd (good day) -> save.
+    # Latest answer first: dt -> cp (whole-day compensation) -> hf -> gd (good day) -> save.
     if f.get("gd") is not None:
         saved, err = await ct.write_evening(db, f)
         text = "🌙 Evening reflection saved." if saved else f"⚠️ Could not save: {err}"
         await query.edit_message_text(text)
         return
 
-    if f.get("cd") is not None:
+    # "cd" (borrowed capacity) is no longer asked; an old button still in a chat falls through to good day.
+    if f.get("hf") is not None or f.get("cd") is not None:
         await query.edit_message_text(
             ct.q_evening_good_day(),
             reply_markup=ct.kb_evening_good_day(f),
-        )
-        return
-
-    if f.get("hf") is not None:
-        await query.edit_message_text(
-            ct.q_evening_debt(),
-            reply_markup=ct.kb_evening_debt(f),
         )
         return
 
@@ -1700,11 +1715,34 @@ async def _post_init(app) -> None:
     )
 
 
+def _is_transient_network_error(err: object) -> bool:
+    """A dropped or slow connection (Telegram long-poll, or a Supabase call, which also uses httpx).
+    These recover on their own, so they are logged as warnings, not errors."""
+    return isinstance(err, (TelegramNetworkError, httpx.TransportError))
+
+
+def _describe_update(update: object) -> str:
+    """Which update was being handled, in a few words, for the error log."""
+    if not isinstance(update, Update):
+        return "no update (background job or polling)"
+    if update.callback_query is not None:
+        return f"callback_query data={update.callback_query.data!r}"
+    if update.message is not None:
+        return f"message text={(update.message.text or '')[:40]!r}"
+    return f"update_id={update.update_id}"
+
+
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """One malformed callback or Supabase failure must not crash the
     process (spec §25) — the python-telegram-bot dispatcher already isolates
-    handler exceptions per-update, this is just the log backstop."""
-    log.exception("[unhandled] %s", context.error)
+    handler exceptions per-update, this is just the log backstop.
+
+    The traceback is passed explicitly: this runs outside an `except` block, so a bare
+    log.exception() printed "NoneType: None" and hid where the failure came from."""
+    err = context.error
+    exc_info = (type(err), err, err.__traceback__) if isinstance(err, BaseException) else None
+    level = logging.WARNING if _is_transient_network_error(err) else logging.ERROR
+    log.log(level, "[unhandled] %r while handling %s", err, _describe_update(update), exc_info=exc_info)
 
 
 async def _global_auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

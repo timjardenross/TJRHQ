@@ -99,10 +99,28 @@ def fields_block(tag: str, row: dict, extra: dict[str, object] | None = None) ->
     return f'<pre style="font-family:monospace;white-space:pre-wrap">{lines}</pre>'
 
 
+_BOM_PRODUCT_ID = re.compile(r"\bID[A-Z]\d{5}\b")
+HASH_V2 = "h2:"
+
+
+def bom_product_id(row: dict) -> str | None:
+    """The BOM product ID (e.g. IDN21033) in an alert's text. The same product is listed
+    by several state feeds, so this is what identifies one warning across them."""
+    match = _BOM_PRODUCT_ID.search(f"{row.get('description') or ''} {row.get('raw_text') or ''}")
+    return match.group(0) if match else None
+
+
 def content_hash(row: dict) -> str:
-    """Fingerprint of the words of an alert, for 'material update' detection."""
-    text = " ".join(str(row.get(k) or "") for k in ("headline", "location", "description"))
-    return hashlib.sha256(" ".join(text.split()).lower().encode("utf-8")).hexdigest()[:16]
+    """Fingerprint of an alert, for 'material update' detection. A BOM warning is re-issued
+    with a new issue time and boilerplate every few hours without meaning anything new, so
+    for BOM only the headline (which carries the warning type, level and area) counts."""
+    if str(row.get("source_key") or "").startswith("bom_"):
+        text = str(row.get("headline") or "")
+        prefix = HASH_V2
+    else:
+        text = " ".join(str(row.get(k) or "") for k in ("headline", "location", "description"))
+        prefix = ""
+    return prefix + hashlib.sha256(" ".join(text.split()).lower().encode("utf-8")).hexdigest()[:16]
 
 
 def html_to_text(markup: str) -> str:

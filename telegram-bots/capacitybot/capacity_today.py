@@ -641,7 +641,7 @@ BURNOUT_FRAMING_CODE_TO_STATE = {
 }
 
 # Canonical values match migration 0153's comment
-# (core/health/burnout_trajectory.py and api/human-systems/route.ts read
+# (api/human-systems/route.ts reads
 # these as plain frequency counts, not the display label text — unlike
 # active_loads/identified_needs, which store the label itself).
 COMPENSATION_TYPE_OPTIONS = [
@@ -902,8 +902,6 @@ def kb_deep_note_prompt(row_id: str) -> InlineKeyboardMarkup:
 EVENING_TRAJECTORY_OPTIONS = [("u", "⬆️ Improved"), ("s", "➡️ About the same"), ("d", "⬇️ Declined")]
 EVENING_TRAJECTORY_SHORT = {"u": "Improved", "s": "About the same", "d": "Declined"}
 
-EVENING_DEBT_OPTIONS = [("n", "No"), ("m", "Maybe"), ("y", "Yes")]
-EVENING_DEBT_SHORT = {"n": "No", "m": "Maybe", "y": "Yes"}
 
 # Whole-day compensation (same four levels as the start-of-day question, plus Skip) and the
 # Captain's own "good day" answer (yes / kind of / no, plus Skip). "x" means skipped and stores
@@ -954,22 +952,12 @@ def kb_evening_helpful(f: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def q_evening_debt() -> str:
-    return render_question("Did you borrow capacity from tomorrow?",
-                            [label for _, label in EVENING_DEBT_OPTIONS])
-
-
-def kb_evening_debt(f: dict) -> InlineKeyboardMarkup:
-    rows = _select_rows(_evening_base(f, ("dt", "cp", "hf")), "cd", EVENING_DEBT_OPTIONS, EVENING_DEBT_SHORT, per_row=3)
-    return InlineKeyboardMarkup(rows)
-
-
 def q_evening_good_day() -> str:
     return render_question("Was today a good day?", [label for _, label in EVENING_GOOD_DAY_OPTIONS])
 
 
 def kb_evening_good_day(f: dict) -> InlineKeyboardMarkup:
-    rows = _select_rows(_evening_base(f, ("dt", "cp", "hf", "cd")), "gd",
+    rows = _select_rows(_evening_base(f, ("dt", "cp", "hf")), "gd",
                         EVENING_GOOD_DAY_OPTIONS, EVENING_GOOD_DAY_SHORT, per_row=2)
     return InlineKeyboardMarkup(rows)
 
@@ -1259,7 +1247,6 @@ async def write_evening(db, f: dict) -> tuple[bool, str | None]:
         "time_of_day": _time_of_day_label(),
         "day_trajectory": {"u": "improved", "s": "same", "d": "declined"}.get(f.get("dt")),
         "helpful_factor": helpful_factor,
-        "capacity_debt": {"n": "no", "m": "maybe", "y": "yes"}.get(f.get("cd")),
     }
     # Skipped ("x") or missing answers store nothing: unknown, never bad.
     if f.get("cp") in COMP_CODE_TO_STATE:
@@ -1317,6 +1304,24 @@ def render_summary(row: dict) -> str:
 
 # ── Trend / pattern analysis (spec §7 — no causal language) ────────────────
 
+def good_day_line(rows: list[dict]) -> str | None:
+    """"Good days: 3 of 5 evenings (longest run: 2 days)" for a window of rows, or None when no
+    evening could be judged. The rule is provisional (core/health/good_day.py) and the Captain's own
+    "Was today a good day?" answer wins over it, so this is a count, never a score."""
+    try:
+        from core.health.good_day import summarize_good_days
+
+        s = summarize_good_days(rows)
+    except Exception as exc:  # noqa: BLE001 - the count is optional; never break a summary over it
+        log.debug("good-day count unavailable: %s", exc)
+        return None
+    if not s["judged"]:
+        return None
+    run = s["longest_run"]
+    run_text = f"{run} day{'' if run == 1 else 's'}"
+    return f"Good days: {s['good']} of {s['judged']} evenings (longest run: {run_text})"
+
+
 async def fetch_recent(db, days: int) -> list[dict]:
     if not db:
         return []
@@ -1346,7 +1351,6 @@ def render_trend_summary(rows: list[dict], label: str) -> str:
     load_counts = Counter(l for r in quick for l in (r.get("active_loads") or []))
     need_counts = Counter(n for r in quick for n in (r.get("identified_needs") or []))
     action_counts = Counter(r["selected_action"] for r in quick if r.get("selected_action"))
-    debt_counts = Counter(e["capacity_debt"] for e in evenings if e.get("capacity_debt"))
 
     lines = [label, ""]
     if zone_counts:
@@ -1390,10 +1394,9 @@ def render_trend_summary(rows: list[dict], label: str) -> str:
             lines.append(f"  {i}. {act}")
         lines.append("")
 
-    if debt_counts:
-        total_evenings = len(evenings)
-        yes_maybe = debt_counts.get("yes", 0) + debt_counts.get("maybe", 0)
-        lines.append(f"Capacity debt: {yes_maybe} of {total_evenings} evening reflections")
+    gd_line = good_day_line(rows)
+    if gd_line:
+        lines.append(gd_line)
         lines.append("")
 
     lines.append("(Patterns here are simple frequency counts, not clinical claims — worth testing, not treating as fact.)")
@@ -1402,7 +1405,6 @@ def render_trend_summary(rows: list[dict], label: str) -> str:
 
 def render_therapy_summary(rows: list[dict], weeks: int) -> str:
     quick = [r for r in rows if r.get("checkin_type") == "capacity"]
-    evenings = [r for r in rows if r.get("checkin_type") == "evening"]
     lines = [f"THERAPY SUMMARY — LAST {weeks} WEEK{'S' if weeks != 1 else ''}", ""]
 
     if not quick:
@@ -1443,9 +1445,9 @@ def render_therapy_summary(rows: list[dict], weeks: int) -> str:
             lines.append(f"  - {act}")
         lines.append("")
 
-    debt_yes = sum(1 for e in evenings if e.get("capacity_debt") in ("yes", "maybe"))
-    if evenings:
-        lines.append(f"Capacity debt: {debt_yes} of {len(evenings)} evening reflections flagged borrowing from tomorrow.")
+    gd_line = good_day_line(rows)
+    if gd_line:
+        lines.append(gd_line)
         lines.append("")
 
     lines.append("Questions to explore:")

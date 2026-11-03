@@ -164,6 +164,13 @@ def _stamp_handoff(path: Path, updates: dict[str, str]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+# Handoff `Batch Status` values the reconciler must never overwrite with MERGED.
+_TERMINAL_HANDOFF_STATUSES = frozenset({
+    "MERGED", "COMPLETED", "COMPLETE", "DONE", "CLOSED",
+    "CANCELLED", "CANCELED", "FAILED", "HELD", "ARCHIVED",
+})
+
+
 # --- classification -------------------------------------------------------
 
 def _pr_for(branch: str, pr_url: str, prs: dict[str, dict]) -> dict | None:
@@ -260,7 +267,13 @@ def reconcile(apply: bool = False) -> dict[str, Any]:
                 # checks GitHub itself. Left un-stamped, a handoff whose PR the
                 # Captain already merged keeps nagging as "Awaiting Review"
                 # forever. Stamp it the moment live GitHub state shows merged.
-                if pr["state"] == "merged" and raw_status.upper() != "MERGED" and apply:
+                # Never overwrite a terminal status a human or an upstream commit
+                # already set (COMPLETED / CANCELLED / FAILED / HELD / ...): the
+                # old `!= "MERGED"` test rewrote them to MERGED every cycle,
+                # re-dirtying committed handoff files and blocking auto-deploy.
+                if (pr["state"] == "merged"
+                        and raw_status.strip().upper() not in _TERMINAL_HANDOFF_STATUSES
+                        and apply):
                     try:
                         _stamp_handoff(p, {"Batch Status": "MERGED"})
                         actions_taken.append(

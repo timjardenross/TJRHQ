@@ -65,7 +65,10 @@ def _site(**o):
 
 
 def _send(rows, silences=None, send_ok=True):
-    with patch.object(ea, "supabase_get", return_value=rows), \
+    def fake_get(path):  # the duplicate-product lookup finds nothing already emailed
+        return [] if "emergency_email_sent_at=not.is.null" in path else rows
+
+    with patch.object(ea, "supabase_get", side_effect=fake_get), \
          patch.object(ea.alert_silences, "list_active_silences", return_value=silences or []), \
          patch.object(ea, "_supabase_request") as mark, \
          patch.object(ea, "send_email", return_value=send_ok) as send:

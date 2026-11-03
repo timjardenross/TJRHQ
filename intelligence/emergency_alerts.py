@@ -346,6 +346,26 @@ def _send_watch_and_act_emails(source_key: str) -> int:
 _BOM_EMAIL_DESCRIPTION_CHARS = 3500
 
 
+_DUPLICATE_TIER = "duplicate"
+
+
+def _already_emailed_elsewhere(row: dict) -> bool:
+    """True when another alert row (the same BOM product listed by another state feed) has
+    already been emailed. Fails open: if the check errors, the email is sent."""
+    product = alert_email.bom_product_id(row)
+    if not product:
+        return False
+    try:
+        found = supabase_get(
+            f"alerts?description=like.*{product}*&emergency_email_sent_at=not.is.null&id=neq.{row['id']}"
+            f"&emergency_email_tier=neq.{_DUPLICATE_TIER}&select=id&limit=1"
+        )
+    except Exception as exc:  # noqa: BLE001 - dedupe is an optimisation; never block a warning on it
+        log.warning("[emergency-alerts] duplicate check failed for alert %s: %s", row.get("id"), exc)
+        return False
+    return bool(found)
+
+
 def _send_bom_attention_emails(source_key: str) -> int:
     """Email for each active BOM warning whose platform-assigned attention
     level is "high" (core/platform/bom_attention.py) and that hasn't been
@@ -384,6 +404,11 @@ def _send_bom_attention_emails(source_key: str) -> int:
             log.info("[emergency-alerts] %s: BOM alert %s silenced (%s) — email suppressed", source_key, row["id"], silenced.get("reason"))
             continue
 
+        if _already_emailed_elsewhere(row):
+            log.info("[emergency-alerts] %s: BOM alert %s is the same product as one already emailed - not emailing again", source_key, row["id"])
+            _patch_alert(row["id"], {"emergency_email_sent_at": datetime.now(timezone.utc).isoformat(), "emergency_email_tier": _DUPLICATE_TIER})
+            continue
+
         subject = alert_email.build_subject(alert_email.BOM_HIGH, row["jurisdiction"], row["headline"])
         source_link = next((line.strip() for line in (row.get("raw_text") or "").splitlines()[::-1] if line.strip().startswith("http")), None)
         text = _clean_bom_text(row.get("description") or "")
@@ -404,7 +429,7 @@ def _send_bom_attention_emails(source_key: str) -> int:
         except Exception as exc:  # noqa: BLE001 - per-alert notification-flag write inside a loop — one bad write must not abort the batch, already logged with the alert id
             log.warning("[emergency-alerts] %s: sent BOM email but failed to mark alert %s notified — may re-send next run: %s", source_key, row["id"], exc)
             continue
-        _record_send_meta(row, "unknown")
+        _record_send_meta({**row, "source_key": source_key}, "unknown")
     return sent
 
 
@@ -624,10 +649,13 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
     stamp = now.isoformat()
     for row in rows:
         recorded = row.get("emergency_email_tier")
+        if recorded == _DUPLICATE_TIER:  # same BOM product as an alert already emailed: no follow-ups
+            continue
         if not row.get("is_active"):
             if row.get("emergency_email_lifted_at"):
                 continue
-            if not recorded:  # predates 0246: close it out silently
+            # predates 0246, or a BOM flood warning (re-issued and withdrawn constantly): close it out silently
+            if not recorded or (row["source_key"].startswith("bom_") and "flood" in (row.get("headline") or "").lower()):
                 _patch_alert(row["id"], {"emergency_email_lifted_at": stamp})
                 continue
             if _send_lifted(row, stamp):
@@ -641,6 +669,9 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
         change = None
         if alert_email.tier_rank(row["severity"]) > alert_email.tier_rank(recorded):
             change = f"Escalated from {alert_email.TIER_LABEL.get(recorded, recorded)} to {alert_email.TIER_LABEL.get(row['severity'], row['severity'])}"
+        elif row.get("emergency_email_hash") and alert_email.content_hash(row).startswith(alert_email.HASH_V2) and not row["emergency_email_hash"].startswith(alert_email.HASH_V2):
+            _record_send_meta(row, recorded)  # hash recipe changed: re-baseline silently, no email
+            continue
         elif row.get("emergency_email_hash") and alert_email.content_hash(row) != row["emergency_email_hash"]:
             last = _parse_ts(row.get("emergency_email_last_at"))
             if last is None or now - last >= _UPDATE_MIN_INTERVAL:

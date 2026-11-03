@@ -46,9 +46,8 @@ on:
 #   workflow's cwd.
 #
 # - telegram-bots/recovery_officer and telegram-bots/wellness_officer have
-#   neither a requirements.txt nor any tests today; telegram-bots/revs has
-#   a requirements.txt but no tests; services/transcription has a
-#   script-style test file but no requirements.txt. All four still get a
+#   neither a requirements.txt nor any tests today; services/transcription has a
+#   script-style test file but no requirements.txt. All three still get a
 #   `changes` filter (so the paths-filter output is accurate) and a matrix
 #   entry (so future tests there are picked up for free), they just have
 #   nothing to install / nothing to fail on today.
@@ -111,8 +110,6 @@ jobs:
               - 'telegram-bots/resiliencebot/**'
               - 'platform-runtime/lib/resilience/**'
               - 'knowledge/regulatory-corpus/**'
-            telegram_revs:
-              - 'telegram-bots/revs/**'
             telegram_wellness_officer:
               - 'telegram-bots/wellness_officer/**'
             telegram_xo:
@@ -192,11 +189,6 @@ jobs:
                   "name": "telegram-bots-resiliencebot",
                   "dir": "telegram-bots/resiliencebot",
                   "req": "telegram-bots/resiliencebot/requirements.txt",
-              },
-              "telegram_revs": {
-                  "name": "telegram-bots-revs",
-                  "dir": "telegram-bots/revs",
-                  "req": "telegram-bots/revs/requirements.txt",
               },
               "telegram_wellness_officer": {
                   "name": "telegram-bots-wellness_officer",
@@ -279,6 +271,19 @@ jobs:
           if [ -n "${{ matrix.req }}" ]; then
             pip install -r "${{ matrix.req }}"
           fi
+
+      # services/revs-content-agents shells out to the pandoc and ffmpeg CLIs
+      # (article -> docx via pypandoc, video muxing via subprocess), and its
+      # tests exercise both for real. ubuntu-latest has neither. This suite
+      # only runs when that directory changes, so the gap sat unnoticed until
+      # the first change to it (#536's dependency bumps). Installed for that
+      # matrix entry only; not skipping the tests, so green still means the
+      # code ran.
+      - name: Install system tools (revs-content-agents)
+        if: matrix.name == 'services-revs-content-agents'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pandoc ffmpeg
 
       # USS-TJR-MSN-0366 Stream 5 follow-up (flagged by review on PR #180):
       # all 9 tests in core/security/test_llm_guardrails.py — the platform's

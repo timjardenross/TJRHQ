@@ -58,11 +58,9 @@ const DEFAULT_HUMAN_SYSTEMS_CONTEXT = {
   stimulation_context: null,
   executive_function_context: null,
   regulation_context: null,
-  strain_or_recovery_context: { trajectory: 'stable', strategic_posture: 'steady', message: '' },
   active_loads: [],
   relevant_needs: [],
   freshness: { status: 'fresh', last_checkin_at: new Date().toISOString() },
-  confidence: 'moderate',
   has_checkin_today: true,
 };
 
@@ -153,7 +151,7 @@ describe('LifeOS Hub — command picture', () => {
 
     render(<LifeOSHub />);
 
-    expect(await screen.findByText('PROTECT TODAY')).toBeInTheDocument();
+    expect(await screen.findByText('LOWER CAPACITY TODAY')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('✓ Nothing needs your attention.')).toBeInTheDocument();
     });
@@ -177,7 +175,7 @@ describe('LifeOS Hub — command picture', () => {
 
     render(<LifeOSHub />);
 
-    expect(await screen.findByText('PROTECT TODAY')).toBeInTheDocument();
+    expect(await screen.findByText('LOWER CAPACITY TODAY')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('✓ Nothing needs your attention.')).toBeInTheDocument();
     });
