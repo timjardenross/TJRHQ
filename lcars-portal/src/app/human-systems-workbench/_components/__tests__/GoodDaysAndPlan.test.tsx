@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
@@ -67,6 +67,20 @@ describe('DayPlanCard', () => {
     expect(screen.getByText(/reduce, regulate or change before this becomes red/)).toBeInTheDocument();
     expect(screen.getByText(/nothing is held back/i)).toBeInTheDocument();
     expect(screen.getByText(/send \/capacity or \/helpme in Telegram/)).toBeInTheDocument();
+  });
+
+  it('lists the top suggestions when they load', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ suggestions: [
+        { intervention_id: 'a', title: 'Short walk', management_lever: 'regulate', estimated_minutes: 10 },
+        { intervention_id: 'b', title: 'Say no to one thing', management_lever: 'reduce_load', estimated_minutes: null },
+      ] }),
+    }));
+    render(<DayPlanCard data={recovery()} />);
+    expect(await screen.findByText('1. Short walk (Regulate, 10 min)')).toBeInTheDocument();
+    expect(screen.getByText('2. Say no to one thing (Reduce)')).toBeInTheDocument();
+    expect(screen.queryByText(/send \/capacity or \/helpme/)).toBeNull();
+    vi.unstubAllGlobals();
   });
 
   it('renders nothing without a capacity answer or check-in data', () => {

@@ -1,0 +1,105 @@
+{
+  "_about": "Example days and expected results read by BOTH the Python tests (telegram-bots/capacitybot/test_shared_cases.py) and the portal tests (lcars-portal/src/app/api/human-systems/__tests__/shared-cases.test.ts). If a rule changes in one language, change it here and in the other language too; a failing test on either side means the two have drifted apart.",
+  "good_day": [
+    {"name": "same + moderate is good", "input": {"day_trajectory": "same", "day_compensation_load": "moderate"}, "expected": true},
+    {"name": "missing compensation is not bad", "input": {"day_trajectory": "same"}, "expected": true},
+    {"name": "improved + low is good", "input": {"day_trajectory": "improved", "day_compensation_load": "low"}, "expected": true},
+    {"name": "declined is not good", "input": {"day_trajectory": "declined"}, "expected": false},
+    {"name": "extreme compensation is not good", "input": {"day_trajectory": "same", "day_compensation_load": "extreme"}, "expected": false},
+    {"name": "nothing answered is unknown", "input": {}, "expected": null},
+    {"name": "own yes wins", "input": {"day_trajectory": "declined", "day_compensation_load": "extreme", "good_day": "yes"}, "expected": true},
+    {"name": "own no wins", "input": {"day_trajectory": "same", "day_compensation_load": "low", "good_day": "no"}, "expected": false},
+    {"name": "kind_of falls through to the rule", "input": {"day_trajectory": "same", "day_compensation_load": "low", "good_day": "kind_of"}, "expected": true},
+    {"name": "borrowed capacity is ignored", "input": {"day_trajectory": "same", "day_compensation_load": "moderate", "capacity_debt": "yes"}, "expected": true}
+  ],
+  "day_reasons": [
+    {"name": "everything notable", "input": {"pain_state": "elevated", "executive_function": "very_difficult", "compensation_load": "extreme", "regulation_state": "overloaded", "stimulation_state": "high"},
+     "expected": ["pain is above your usual", "thinking and deciding is very difficult", "you're forcing yourself through", "your system feels overloaded", "stimulation is too high"]},
+    {"name": "fine or missing answers are never problems", "input": {"pain_state": "baseline", "executive_function": "good"}, "expected": []},
+    {"name": "empty", "input": {}, "expected": []}
+  ],
+  "ranking": [
+    {"name": "matching help state ranks first",
+     "context": {"help_state": "overwhelmed", "capacity_state": "red", "pain_state": "elevated"},
+     "candidates": [
+       {"intervention_id": "flat", "target_states": ["flat"], "capacity_allowed": ["green", "orange", "red"]},
+       {"intervention_id": "match", "target_states": ["overwhelmed"], "capacity_allowed": ["green", "orange", "red"]}
+     ],
+     "events": [], "preferences": {}, "limit": 3, "expected_ids": ["match", "flat"]},
+    {"name": "pain-incompatible is excluded when pain is up",
+     "context": {"help_state": "overwhelmed", "pain_state": "high", "capacity_state": "orange"},
+     "candidates": [
+       {"intervention_id": "painful", "target_states": ["overwhelmed"], "pain_compatible": false, "capacity_allowed": ["orange"]},
+       {"intervention_id": "gentle", "target_states": ["overwhelmed"], "capacity_allowed": ["orange"]}
+     ],
+     "events": [], "preferences": {}, "limit": 3, "expected_ids": ["gentle"]},
+    {"name": "zone does not penalise high effort",
+     "context": {"capacity_state": "red"},
+     "candidates": [
+       {"intervention_id": "hard", "executive_effort": "high", "stimulation_effect": null, "capacity_allowed": ["red"]},
+       {"intervention_id": "easy", "executive_effort": "low", "capacity_allowed": ["red"]}
+     ],
+     "events": [], "preferences": {}, "limit": 3, "expected_ids": ["hard", "easy"]},
+    {"name": "very difficult executive function penalises effort",
+     "context": {"executive_function": "very_difficult", "capacity_state": "green"},
+     "candidates": [
+       {"intervention_id": "hard", "executive_effort": "high", "capacity_allowed": ["green"]},
+       {"intervention_id": "easy", "executive_effort": "low", "capacity_allowed": ["green"]}
+     ],
+     "events": [], "preferences": {}, "limit": 3, "expected_ids": ["easy", "hard"]},
+    {"name": "stimulation match beats neutral beats mismatch",
+     "context": {"stimulation_state": "high", "capacity_state": "green"},
+     "candidates": [
+       {"intervention_id": "wrong", "stimulation_effect": "increase", "capacity_allowed": ["green"]},
+       {"intervention_id": "neutral", "stimulation_effect": "neutral", "capacity_allowed": ["green"]},
+       {"intervention_id": "right", "stimulation_effect": "decrease", "capacity_allowed": ["green"]}
+     ],
+     "events": [], "preferences": {}, "limit": 3, "expected_ids": ["right", "neutral", "wrong"]},
+    {"name": "a track record of better outcomes outranks no record",
+     "context": {"capacity_state": "green"},
+     "candidates": [
+       {"intervention_id": "untried", "capacity_allowed": ["green"]},
+       {"intervention_id": "proven", "capacity_allowed": ["green"]}
+     ],
+     "events": [
+       {"intervention_id": "proven", "outcome": "better", "started_at": "2026-10-03T00:00:00Z"},
+       {"intervention_id": "proven", "outcome": "better", "started_at": "2026-10-02T00:00:00Z"},
+       {"intervention_id": "proven", "outcome": "same", "started_at": "2026-10-01T00:00:00Z"},
+       {"intervention_id": "proven", "outcome": "better", "started_at": "2026-09-30T00:00:00Z"}
+     ],
+     "preferences": {}, "limit": 3, "expected_ids": ["proven", "untried"]},
+    {"name": "two fresh failures in a row are demoted even below the sample floor",
+     "context": {"capacity_state": "green"},
+     "candidates": [
+       {"intervention_id": "failed", "capacity_allowed": ["green"]},
+       {"intervention_id": "clean", "capacity_allowed": ["green"]}
+     ],
+     "events": [
+       {"intervention_id": "failed", "outcome": "worse", "started_at": "2026-10-03T00:00:00Z"},
+       {"intervention_id": "failed", "outcome": "worse", "started_at": "2026-10-02T00:00:00Z"}
+     ],
+     "preferences": {}, "limit": 3, "expected_ids": ["clean", "failed"]},
+    {"name": "do_not_suggest excludes despite strong evidence; preferred goes first",
+     "context": {"help_state": "overwhelmed", "capacity_state": "green"},
+     "candidates": [
+       {"intervention_id": "banned", "target_states": ["overwhelmed"], "capacity_allowed": ["green"]},
+       {"intervention_id": "best", "target_states": ["overwhelmed"], "capacity_allowed": ["green"]},
+       {"intervention_id": "liked", "target_states": [], "capacity_allowed": ["green"]}
+     ],
+     "events": [
+       {"intervention_id": "banned", "outcome": "better", "started_at": "2026-10-03T00:00:00Z"},
+       {"intervention_id": "banned", "outcome": "better", "started_at": "2026-10-02T00:00:00Z"},
+       {"intervention_id": "banned", "outcome": "better", "started_at": "2026-10-01T00:00:00Z"}
+     ],
+     "preferences": {"banned": "do_not_suggest", "liked": "preferred"},
+     "limit": 3, "expected_ids": ["liked", "best"]},
+    {"name": "limit and max_minutes apply; no fixed duration is never excluded",
+     "context": {"capacity_state": "green", "max_minutes": 10},
+     "candidates": [
+       {"intervention_id": "long", "estimated_minutes": 30, "capacity_allowed": ["green"]},
+       {"intervention_id": "short", "estimated_minutes": 5, "capacity_allowed": ["green"]},
+       {"intervention_id": "open", "estimated_minutes": null, "capacity_allowed": ["green"]}
+     ],
+     "events": [], "preferences": {}, "limit": 1, "expected_ids": ["short"]}
+  ]
+}
