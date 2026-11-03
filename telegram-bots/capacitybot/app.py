@@ -27,6 +27,7 @@ from datetime import time as _dtime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import httpx
 from dotenv import load_dotenv
 
 _TZ = ZoneInfo("Australia/Melbourne")
@@ -63,6 +64,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 sys.path.insert(0, str(_REPO_ROOT))
 
 from telegram import Update
+from telegram.error import NetworkError as TelegramNetworkError
 from telegram.ext import (
     Application,
     ApplicationHandlerStop,
@@ -1713,11 +1715,34 @@ async def _post_init(app) -> None:
     )
 
 
+def _is_transient_network_error(err: object) -> bool:
+    """A dropped or slow connection (Telegram long-poll, or a Supabase call, which also uses httpx).
+    These recover on their own, so they are logged as warnings, not errors."""
+    return isinstance(err, (TelegramNetworkError, httpx.TransportError))
+
+
+def _describe_update(update: object) -> str:
+    """Which update was being handled, in a few words, for the error log."""
+    if not isinstance(update, Update):
+        return "no update (background job or polling)"
+    if update.callback_query is not None:
+        return f"callback_query data={update.callback_query.data!r}"
+    if update.message is not None:
+        return f"message text={(update.message.text or '')[:40]!r}"
+    return f"update_id={update.update_id}"
+
+
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """One malformed callback or Supabase failure must not crash the
     process (spec §25) — the python-telegram-bot dispatcher already isolates
-    handler exceptions per-update, this is just the log backstop."""
-    log.exception("[unhandled] %s", context.error)
+    handler exceptions per-update, this is just the log backstop.
+
+    The traceback is passed explicitly: this runs outside an `except` block, so a bare
+    log.exception() printed "NoneType: None" and hid where the failure came from."""
+    err = context.error
+    exc_info = (type(err), err, err.__traceback__) if isinstance(err, BaseException) else None
+    level = logging.WARNING if _is_transient_network_error(err) else logging.ERROR
+    log.log(level, "[unhandled] %r while handling %s", err, _describe_update(update), exc_info=exc_info)
 
 
 async def _global_auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
