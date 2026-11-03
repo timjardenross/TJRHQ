@@ -10,10 +10,10 @@ from pathlib import Path
 
 import pytest
 
+from core.health.good_day import provisional_good_day
 from telegram_bots.capacitybot.day_plan import day_reasons
 from telegram_bots.capacitybot.intervention_engine import rank_interventions
 from telegram_bots.capacitybot.test_intervention_engine import _make_db
-from core.health.good_day import provisional_good_day
 
 CASES = json.loads(
     (Path(__file__).resolve().parents[2] / "core" / "health" / "shared_cases" / "capacity_cases.json").read_text()
