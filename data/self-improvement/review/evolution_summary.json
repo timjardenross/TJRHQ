@@ -1,24 +1,29 @@
 {
-  "run_id": "2026-11-02-160131",
-  "timestamp": "2026-11-02T16:05:55.479426+00:00",
+  "run_id": "2026-11-03-160017",
+  "timestamp": "2026-11-03T16:01:07.484588+00:00",
   "dry_run": false,
   "investigated_count": 42,
-  "cleared_relevance_gate_count": 0,
+  "cleared_relevance_gate_count": 1,
   "rejected_at_gate_count": 0,
-  "duplicate_count": 42,
-  "shortlisted_count": 0,
-  "deep_investigated_count": 0,
-  "worth_considering_count": 0,
-  "nothing_worth_changing": true,
-  "highest_value_opportunity": null,
-  "pending_decisions_count": 1,
-  "duration_ms": 263939,
+  "duplicate_count": 41,
+  "shortlisted_count": 1,
+  "deep_investigated_count": 1,
+  "worth_considering_count": 1,
+  "nothing_worth_changing": false,
+  "highest_value_opportunity": {
+    "opportunity_id": "EVO-0119",
+    "title": "RedHatAI/Qwen3.5-4B-quantized.w4a16",
+    "change_class": "cost_optimisation",
+    "summary": "Hugging Face model, 100824 downloads, 5 likes, license apache-2.0"
+  },
+  "pending_decisions_count": 2,
+  "duration_ms": 49880,
   "outcomes_completed_count": 0,
   "regressions_count": 0,
   "latest_material_learning": null,
   "implementations_confirmed_count": 0,
   "cycle_status": "ok",
-  "freshness": "2026-11-02T16:05:55.479426+00:00",
+  "freshness": "2026-11-03T16:01:07.484588+00:00",
   "cost_accounting": {
     "internal_candidates_checked": 2,
     "watchlist_topics_total": 5,
@@ -26,6 +31,6 @@
     "external_searches_made": 5,
     "external_candidates_found": 40,
     "investigation_model_calls": 0,
-    "investigation_template_fallbacks": 0
+    "investigation_template_fallbacks": 1
   }
 }
