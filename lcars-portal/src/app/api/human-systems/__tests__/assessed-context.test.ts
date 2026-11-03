@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildAssessedContext } from '../assessed-context';
-import type { BurnoutWindowRow } from '../strategic-posture';
 
 // Human Execution Loop mission — Human Systems' assessed-context contract
-// must (a) keep NOW and TRAJECTORY separate, (b) mark itself stale/absent
+// must (a) describe only today's reading (no multi-day trend), (b) mark itself stale/absent
 // rather than silently presenting old data as current, and (c) never
 // produce a "vetoing" shape — every field here is advisory context, there
 // is no boolean anywhere meaning "blocked" (brief §7/§8/§42/§43).
@@ -25,38 +24,20 @@ function todayRow(overrides: Partial<Parameters<typeof buildAssessedContext>[0]>
 }
 
 describe('buildAssessedContext — freshness', () => {
-  it('is fresh and high-confidence-eligible when today has a check-in', () => {
-    const ctx = buildAssessedContext(todayRow(), []);
+  it('is fresh when today has a check-in', () => {
+    const ctx = buildAssessedContext(todayRow());
     expect(ctx.freshness.status).toBe('fresh');
     expect(ctx.has_checkin_today).toBe(true);
   });
 
-  it('is "none" with low confidence when there is no check-in at all (no-check-in state, brief §43)', () => {
-    const ctx = buildAssessedContext(null, []);
+  it('is "none" when there is no check-in at all (no-check-in state, brief §43)', () => {
+    const ctx = buildAssessedContext(null);
     expect(ctx.freshness.status).toBe('none');
     expect(ctx.has_checkin_today).toBe(false);
-    expect(ctx.confidence).toBe('low');
     expect(ctx.posture).toBe('UNKNOWN');
     // No-check-in must never read as a constrained state — it's absence of
     // evidence, not evidence of PROTECT/RECOVER.
     expect(ctx.available_capacity).toBe('unknown');
-  });
-
-  it('a good trajectory history does not manufacture confidence about NOW when today has no check-in', () => {
-    const richWindow: BurnoutWindowRow[] = Array.from({ length: 15 }, (_, i) => ({
-      checkin_type: 'capacity',
-      log_date: `2026-08-${String(i + 1).padStart(2, '0')}`,
-      captured_at: `2026-08-${String(i + 1).padStart(2, '0')}T09:00:00Z`,
-      capacity_state: 'green',
-      executive_function: 'good',
-      stimulation_state: 'balanced',
-      compensation_load: 'low',
-      recovery_duration: null,
-      capacity_debt: null,
-    }));
-    const ctx = buildAssessedContext(null, richWindow);
-    expect(ctx.freshness.status).toBe('none');
-    expect(ctx.confidence).toBe('low');
   });
 
   it('reports "stale" with an honest last_checkin_at when a prior check-in exists but not today (brief §42 — Monday should not silently represent Thursday)', () => {
@@ -64,11 +45,10 @@ describe('buildAssessedContext — freshness', () => {
     // No row for today (null) — a stale prior check-in is supplied
     // separately, the way getAssessedContext() derives it from the window
     // query rather than a fabricated "today" row.
-    const ctx = buildAssessedContext(null, [], twoDaysAgo);
+    const ctx = buildAssessedContext(null, twoDaysAgo);
     expect(ctx.freshness.status).toBe('stale');
     expect(ctx.freshness.last_checkin_at).toBe(twoDaysAgo);
     expect(ctx.has_checkin_today).toBe(false);
-    expect(ctx.confidence).toBe('low');
     // Still no posture fabricated from the stale row — NOW stays UNKNOWN.
     expect(ctx.posture).toBe('UNKNOWN');
   });
@@ -80,30 +60,18 @@ describe('buildAssessedContext — freshness', () => {
     // recent), but has_checkin_today must not claim a check-in was logged
     // for today's date, since NOW posture derivation is calendar-day scoped.
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const ctx = buildAssessedContext(null, [], twoHoursAgo);
+    const ctx = buildAssessedContext(null, twoHoursAgo);
     expect(ctx.has_checkin_today).toBe(false);
     expect(ctx.posture).toBe('UNKNOWN');
   });
 });
 
-describe('buildAssessedContext — trajectory stays separate from NOW (brief §8)', () => {
-  it('a single good today does not collapse an accumulating-strain trajectory into ENGAGE', () => {
-    const strainWindow: BurnoutWindowRow[] = Array.from({ length: 10 }, (_, i) => ({
-      checkin_type: 'capacity',
-      log_date: `2026-08-${String(i + 1).padStart(2, '0')}`,
-      captured_at: `2026-08-${String(i + 1).padStart(2, '0')}T09:00:00Z`,
-      capacity_state: i < 8 ? 'orange' : 'green',
-      executive_function: 'strained',
-      stimulation_state: 'high',
-      compensation_load: 'high',
-      recovery_duration: null,
-      capacity_debt: 'yes',
-    }));
-    const ctx = buildAssessedContext(todayRow({ capacity_state: 'green' }), strainWindow);
+describe('buildAssessedContext — no multi-day trend', () => {
+  it('describes today only: no trajectory or confidence fields', () => {
+    const ctx = buildAssessedContext(todayRow({ capacity_state: 'green' }));
     expect(ctx.posture).toBe('ENGAGE');
-    // The trajectory read is reported alongside, not merged into, posture.
-    expect(ctx.strain_or_recovery_context.trajectory).not.toBe('stable');
-    expect(ctx.strain_or_recovery_context.strategic_posture).not.toBe('engage');
+    expect(ctx).not.toHaveProperty('strain_or_recovery_context');
+    expect(ctx).not.toHaveProperty('confidence');
   });
 });
 
@@ -111,7 +79,6 @@ describe('buildAssessedContext — this is context, never a veto (brief §7)', (
   it('a RECOVER-shaped day still returns advisory fields only, no blocking flag', () => {
     const ctx = buildAssessedContext(
       todayRow({ capacity_state: 'red', regulation_state: 'overloaded', executive_function: 'very_difficult' }),
-      [],
     );
     expect(ctx.posture).toBe('RECOVER');
     // The object is a plain data shape — asserting the known keys are all

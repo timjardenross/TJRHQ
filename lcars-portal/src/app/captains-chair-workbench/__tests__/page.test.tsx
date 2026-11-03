@@ -72,11 +72,9 @@ const DEFAULT_HUMAN_SYSTEMS_CONTEXT = {
   stimulation_context: null,
   executive_function_context: null,
   regulation_context: null,
-  strain_or_recovery_context: { trajectory: 'stable', strategic_posture: 'steady', message: '' },
   active_loads: [],
   relevant_needs: [],
   freshness: { status: 'fresh', last_checkin_at: new Date().toISOString() },
-  confidence: 'moderate',
   has_checkin_today: true,
 };
 
@@ -268,8 +266,7 @@ describe('Captain\'s Chair — Today (command posture)', () => {
         posture_message: 'No capacity check-in recorded for today yet.',
         available_capacity: 'unknown',
         freshness: { status: 'none', last_checkin_at: null },
-        confidence: 'low',
-        has_checkin_today: false,
+              has_checkin_today: false,
       },
     });
 

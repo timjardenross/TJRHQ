@@ -5,7 +5,7 @@
 // A day is a likely good day when it stayed the same or improved and the whole-day compensation was
 // moderate or lower. A missing answer is unknown and is never counted against the day. The Captain's
 // own "Was today a good day?" answer, when given, always wins. Borrowed capacity is deliberately not
-// part of the rule (still asked and stored; feeds the burnout trend and the day plan).
+// part of the rule (no longer asked).
 
 export interface EveningRow {
   log_date: string;

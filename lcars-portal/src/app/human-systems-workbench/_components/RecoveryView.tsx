@@ -7,16 +7,9 @@ import {
   CAPACITY_STATE_LABEL as CAPACITY_LABEL,
   capacityStateStatus,
   EXPERIMENT_STATUS_LABEL,
-  RECOVERY_STAGE_LABEL,
-  STRATEGIC_POSTURE_LABEL,
-  strategicPostureStatus,
-  SYSTEM_TRAJECTORY_LABEL,
-  systemTrajectoryStatus,
-  USER_BURNOUT_FRAMING_LABEL,
   type CapacityBalance,
   type CapacityExperiment,
   type RecoveryPayload,
-  type RecoveryStage,
 } from './types';
 
 const STIMULATION_LABEL: Record<string, string> = { low: '⬇ Not enough', balanced: '⚖ About right', high: '⬆ Too much' };
@@ -36,64 +29,6 @@ const LEVER_LABEL: Record<string, string> = {
   reduce_load: 'REDUCE LOAD', regulate: 'REGULATE', recover: 'RECOVER', redesign: 'REDESIGN',
 };
 
-// ── REVS V3 (V3 doc §9) — RECOGNISE -> REGULATE -> RECOVER -> REBUILD ->
-// REDESIGN. "These are not completion stages. They are management
-// orientations that can overlap." current_recovery_stage (from the
-// Burnout Trajectory engine, burnout_trajectory.py / computeStrategicPosture())
-// has 6 values (protect/stabilise/recover/re_engage/rebuild/redesign) —
-// more granular than REVS's 5 stages, so this maps each onto the REVS
-// stage it most directly corresponds to for the purpose of highlighting
-// "current priority": protect/stabilise are both early-stage load
-// reduction and condition-stabilising work, which REVS has no dedicated
-// stage for — REGULATE is the closest existing orientation. re_engage
-// sits between recover and rebuild; REBUILD is the closer of the two
-// (both gate against over-claiming readiness).
-const RECOVERY_STAGE_TO_REVS: Record<RecoveryStage, 'regulate' | 'recover' | 'rebuild' | 'redesign'> = {
-  protect: 'regulate',
-  stabilise: 'regulate',
-  recover: 'recover',
-  re_engage: 'rebuild',
-  rebuild: 'rebuild',
-  redesign: 'redesign',
-};
-
-type RevsKey = 'recognise' | 'regulate' | 'recover' | 'rebuild' | 'redesign';
-const REVS_STAGES: { key: RevsKey; label: string }[] = [
-  { key: 'recognise', label: 'Recognise' },
-  { key: 'regulate', label: 'Regulate' },
-  { key: 'recover', label: 'Recover' },
-  { key: 'rebuild', label: 'Rebuild' },
-  { key: 'redesign', label: 'Redesign' },
-];
-
-/** No active trajectory stage (system_trajectory 'stable' or
- *  'insufficient_data', current_recovery_stage null) — Regulate stays the
- *  default day-to-day orientation, same as this card's previous
- *  always-hardcoded behaviour, so the common no-sustained-strain case
- *  still reads exactly as it always has. */
-function activeRevsStage(stage: RecoveryStage | null): RevsKey {
-  return stage ? RECOVERY_STAGE_TO_REVS[stage] : 'regulate';
-}
-
-/** Status text per REVS tile (V3 doc §9 worked example during burnout:
- *  Recognise=Ongoing, Regulate=Supportive, Recover=Current priority,
- *  Rebuild=Gated, Redesign=Active where recurring strain is clear —
- *  simplified here to "As patterns emerge" for the non-active default
- *  since this view has no redesign-candidate count to ground a stronger
- *  claim; see MedicalPayload.redesign_candidates for that, a different
- *  tab). */
-function revsStatusText(key: RevsKey, active: RevsKey): string {
-  if (key === 'recognise') return 'Ongoing';
-  if (key === active) return 'Current priority';
-  switch (key) {
-    case 'regulate': return 'Supportive';
-    case 'recover': return 'Not the current focus';
-    case 'rebuild': return 'Not the current focus';
-    case 'redesign': return 'As patterns emerge';
-    default: return '';
-  }
-}
-
 function StateTile({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="rounded-md border border-wb-line bg-wb-bg p-3">
@@ -105,23 +40,14 @@ function StateTile({ label, value }: { label: string; value: string | null }) {
 
 /** No current-day check-in — a single consolidated message rather than a
  *  hero card plus a grid of five individually-"Not recorded" tiles (Human
- *  Systems redesign Phase 4). Distinguishes "no check-in today" from
- *  "insufficient history" (system_trajectory === 'insufficient_data' gets
- *  its own distinct sentence, never folded into "your recent pattern still
- *  suggests…" — that phrase requires an actual pattern to point to). When
- *  there IS a recent pattern, names it via strategic_posture_message so
- *  the honest claim is "HQ will not assume you're recovered just because
- *  you didn't check in" rather than fabricating a specific state. */
-function NoCurrentCheckinMessage({ data }: { data: RecoveryPayload }) {
-  const insufficientHistory = data.system_trajectory === 'insufficient_data';
+ *  Systems redesign Phase 4). Says plainly that there is no reading yet
+ *  today, rather than guessing a state. */
+function NoCurrentCheckinMessage() {
   return (
     <Card className="md:col-span-2">
       <div className="text-wb-label uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
       <p className="mt-2 text-wb-body leading-relaxed text-wb-ink">
-        No current check-in.{' '}
-        {insufficientHistory
-          ? "There isn't enough recent history yet to infer a pattern either — this is an early-data gap, not a settled read."
-          : `Your recent pattern still suggests: ${data.strategic_posture_message} HQ will not assume you are recovered simply because you have not checked in today.`}
+        No check-in yet today, so there is no reading to show.
       </p>
       <p className="mt-2 text-wb-body text-wb-ink2">
         Want a current read? Use <span className="font-medium text-wb-ink">/capacity</span> in Telegram.
@@ -136,7 +62,7 @@ function NoCurrentCheckinMessage({ data }: { data: RecoveryPayload }) {
  *  only ever shown once there IS a current check-in to ground it, so it
  *  never has to say "Not recorded" five times in a row. */
 export function CapacityTodayCard({ data }: { data: RecoveryPayload }) {
-  if (!data.data_available) return <NoCurrentCheckinMessage data={data} />;
+  if (!data.data_available) return <NoCurrentCheckinMessage />;
 
   return (
     <Card className="md:col-span-2">
@@ -160,59 +86,6 @@ export function CapacityTodayCard({ data }: { data: RecoveryPayload }) {
         <StateTile label="Executive Function" value={data.executive_function ? EF_LABEL[data.executive_function] ?? data.executive_function : null} />
         <StateTile label="Masking / Compensation" value={data.compensation_load ? COMPENSATION_LABEL[data.compensation_load] ?? data.compensation_load : null} />
       </div>
-    </Card>
-  );
-}
-
-/** ── BURNOUT & RECOVERY (V3 doc §5/§18) — the TRAJECTORY signal, never
- *  collapsed into the NOW capacity/posture above (V3 doc §2). Always
- *  rendered, even when trajectory_confidence is low/insufficient — Rule F
- *  requires SAYING so, not hiding the card. */
-export function BurnoutRecoveryCard({ data }: { data: RecoveryPayload }) {
-  return (
-    <Card className="md:col-span-2">
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-wb-label uppercase tracking-[0.12em] text-wb-ink2">Burnout &amp; Recovery</div>
-        <Badge status={strategicPostureStatus(data.strategic_posture)}>
-          {STRATEGIC_POSTURE_LABEL[data.strategic_posture]}
-        </Badge>
-      </div>
-
-      {data.user_burnout_framing && (
-        <p className="mt-2 text-wb-body text-wb-ink2">
-          <span className="font-medium text-wb-ink">User framing — </span>
-          {USER_BURNOUT_FRAMING_LABEL[data.user_burnout_framing]}
-        </p>
-      )}
-
-      {/* Phase 5 (health-context reframe) — "HQ observation" is labelled as
-          explicitly as "User framing" above it, so the two readings never
-          visually blur into one claim (V3 doc §5.1: "the system must never
-          silently convert its observation into a diagnosis"). */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-wb-body font-medium text-wb-ink">HQ observation —</span>
-        <Badge status={systemTrajectoryStatus(data.system_trajectory)}>
-          {SYSTEM_TRAJECTORY_LABEL[data.system_trajectory]}
-        </Badge>
-        {data.current_recovery_stage && (
-          <span className="text-wb-label text-wb-ink2">
-            Recovery stage: {RECOVERY_STAGE_LABEL[data.current_recovery_stage]}
-          </span>
-        )}
-      </div>
-
-      <p className="mt-3 text-wb-body leading-relaxed text-wb-ink">{data.strategic_posture_message}</p>
-
-      {/* Rule F — say "insufficient data" explicitly rather than hiding
-          the card or fabricating confidence. */}
-      <p className="mt-3 text-wb-label text-wb-ink2">
-        Confidence — {data.trajectory_confidence === 'low' ? 'Low' : data.trajectory_confidence === 'moderate' ? 'Moderate' : 'High'}
-        {data.system_trajectory === 'insufficient_data'
-          ? '. Not enough recent check-ins yet to read a sustained-strain trend.'
-          : data.trajectory_confidence === 'low'
-            ? '. Based on a small number of recent check-ins — an early read, not a settled pattern.'
-            : '.'}
-      </p>
     </Card>
   );
 }
@@ -257,7 +130,7 @@ export function CapacityBalanceCard({ data }: { data: RecoveryPayload }) {
 /** Phase 5 (health-context reframe) — qualitative cross-signal notes built
  *  only from fields RecoveryPayload already carries (pain_state/pain_score,
  *  executive_function, compensation_load, stimulation_state,
- *  system_trajectory, capacity_balance, latest_capacity_state). Framed as
+ *  capacity_balance, latest_capacity_state). Framed as
  *  association/decision-support, never a stop/go verdict, a diagnosis, or a
  *  fabricated combined score — each note only renders when its own real
  *  signal(s) actually support it, so an ordinary day (all fields
@@ -302,14 +175,13 @@ function contributingContextNotes(data: RecoveryPayload): { key: string; title: 
   const negativeSignalCount = [
     data.stimulation_state === 'high',
     data.pain_state === 'elevated' || data.pain_state === 'high',
-    data.system_trajectory === 'sustained_high_strain' || data.system_trajectory === 'burnout_like_depletion',
     highCompensation,
   ].filter(Boolean).length;
   if (negativeSignalCount >= 3) {
     notes.push({
       key: 'recovery-cost',
       title: 'Recovery Cost',
-      text: 'Several signals are pointing the same way today — sensory load, pain, strain, and/or compensation. Pushing through everything on the list today may cost more to recover from than usual. This is decision support, not a rule against acting.',
+      text: 'Several signals are pointing the same way today — sensory load, pain, and/or compensation. Pushing through everything on the list today may cost more to recover from than usual. This is decision support, not a rule against acting.',
     });
   }
 
@@ -493,47 +365,6 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
           </div>
         )}
       </div>
-    </CollapsibleSection>
-  );
-}
-
-/** ── MY REVS POSITION (V3 doc §9) — RECOGNISE -> REGULATE -> RECOVER ->
- *  REBUILD -> REDESIGN, dynamic from the Burnout Trajectory engine's
- *  current_recovery_stage instead of hardcoding Regulate as always-current.
- *  Orientation, not a maturity score. */
-export function RevsPositionSection({ data, className = 'md:col-span-2' }: { data: RecoveryPayload; className?: string }) {
-  const activeRevs = activeRevsStage(data.current_recovery_stage);
-  return (
-    <CollapsibleSection title="My REVS Position" className={className}>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        {REVS_STAGES.map(({ key, label }) => {
-          const status = revsStatusText(key, activeRevs);
-          const isCurrent = status === 'Current priority';
-          return (
-            <div
-              key={key}
-              className={
-                isCurrent
-                  ? 'rounded-md border-2 border-wb-sage-deep bg-wb-sage-deep/10 p-3 text-center'
-                  : 'rounded-md border border-wb-line bg-wb-bg p-3 text-center'
-              }
-            >
-              <div className={isCurrent ? 'text-wb-label font-semibold uppercase tracking-wide text-wb-sage-deep' : 'text-wb-label uppercase tracking-wide text-wb-ink2'}>
-                {label}
-              </div>
-              <div className={isCurrent ? 'mt-1 text-wb-label font-medium text-wb-ink' : 'mt-1 text-wb-label text-wb-ink2'}>
-                {status}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <p className="mt-3 text-wb-label text-wb-ink2">
-        This isn&rsquo;t a completion score or a ladder to climb — stages can overlap, and you may move between them in either direction as things change day to day. The highlighted tile is today&rsquo;s emphasis, not a milestone you&rsquo;ve reached or a rank you&rsquo;ve earned.
-      </p>
-      <p className="mt-2 text-wb-label text-wb-ink2">
-        Redesign-stage thinking (see &ldquo;What May Need to Change&rdquo;) isn&rsquo;t locked behind reaching Regulate, Recover, or Rebuild first — it can be relevant at any time, independent of which orientation is current right now.
-      </p>
     </CollapsibleSection>
   );
 }

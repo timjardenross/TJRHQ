@@ -35,10 +35,10 @@
  */
 
 import { deriveSystemPosture, type TodayCheckinInput } from './derive-system-posture';
-import { computeStrategicPosture, type BurnoutWindowRow, type StrategicPostureResult } from './strategic-posture';
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 
-export const TRAJECTORY_WINDOW_DAYS = 21;
+/** How far back to look for the last known check-in (freshness only). */
+export const RECENT_WINDOW_DAYS = 21;
 
 // Same field list fetchStrategicPosture() (weekly-review/route.ts) already
 // selected for "today's row" — extended with active_loads/identified_needs,
@@ -46,8 +46,12 @@ export const TRAJECTORY_WINDOW_DAYS = 21;
 // posture-only read never needed.
 const TODAY_FIELDS =
   'capacity_state,regulation_state,executive_function,compensation_load,stimulation_state,pain_state,active_loads,identified_needs,captured_at,log_date';
-const WINDOW_FIELDS =
-  'checkin_type,capacity_state,executive_function,stimulation_state,compensation_load,recovery_duration,capacity_debt,log_date,captured_at';
+const WINDOW_FIELDS = 'captured_at';
+
+/** The recent check-ins only need a timestamp: they tell us when we last heard from the Captain. */
+export interface RecentCheckinRow {
+  captured_at: string | null;
+}
 
 interface TodayRow extends TodayCheckinInput {
   active_loads: string[] | null;
@@ -84,23 +88,12 @@ export interface AssessedContext {
   stimulation_context: string | null;
   executive_function_context: string | null;
   regulation_context: string | null;
-  /** TRAJECTORY — a multi-day pattern, kept explicitly separate from NOW
-   * per brief §8 ("a relatively good day must not automatically mean
-   * recovery complete"). Callers should not fold this into `posture`. */
-  strain_or_recovery_context: {
-    trajectory: StrategicPostureResult['system_trajectory'];
-    strategic_posture: StrategicPostureResult['strategic_posture'];
-    message: string;
-  };
   active_loads: string[];
   relevant_needs: string[];
   freshness: {
     status: Freshness;
     last_checkin_at: string | null;
   };
-  /** Low whenever today has no check-in at all — a stale/absent check-in
-   * should never be presented with the same confidence as a fresh one. */
-  confidence: StrategicPostureResult['trajectory_confidence'];
   has_checkin_today: boolean;
 }
 
@@ -135,11 +128,9 @@ function latestCapturedAt(rows: { captured_at: string | null }[]): string | null
  * for the freshness/staleness read only — it never feeds posture. */
 export function buildAssessedContext(
   todayRow: TodayRow | null,
-  windowRows: BurnoutWindowRow[],
   lastKnownCheckinAt: string | null = todayRow?.captured_at ?? null,
 ): AssessedContext {
   const { posture, message } = deriveSystemPosture(todayRow);
-  const strategic = computeStrategicPosture(windowRows, TRAJECTORY_WINDOW_DAYS, posture);
   const lastCheckinAt = todayRow?.captured_at ?? lastKnownCheckinAt;
   const freshnessStatus = freshnessOf(lastCheckinAt);
 
@@ -151,18 +142,9 @@ export function buildAssessedContext(
     stimulation_context: todayRow?.stimulation_state ?? null,
     executive_function_context: todayRow?.executive_function ?? null,
     regulation_context: todayRow?.regulation_state ?? null,
-    strain_or_recovery_context: {
-      trajectory: strategic.system_trajectory,
-      strategic_posture: strategic.strategic_posture,
-      message: strategic.strategic_posture_message,
-    },
     active_loads: todayRow?.active_loads ?? [],
     relevant_needs: todayRow?.identified_needs ?? [],
     freshness: { status: freshnessStatus, last_checkin_at: lastCheckinAt },
-    // A stale/absent today check-in caps confidence at 'low' regardless of
-    // how much trajectory history exists — trajectory confidence describes
-    // the window, not whether NOW is current (brief §42/§43).
-    confidence: todayRow ? strategic.trajectory_confidence : 'low',
     // Deliberately keyed on todayRow's presence, not the freshness-by-age
     // check above — a check-in from 11pm yesterday is under 24h old (so
     // freshnessStatus reads 'fresh') but is still not a check-in FOR today.
@@ -171,7 +153,7 @@ export function buildAssessedContext(
 }
 
 // Matches the existing sb: any convention this domain's own route.ts already
-// uses for every server-query helper (computeCapacityDebt, fetchBurnoutWindow, etc).
+// uses for every server-query helper (computeCapacityDebt, fetchExperiments, etc).
 type SupabaseLike = { from: (table: string) => any };
 
 /**
@@ -183,7 +165,7 @@ type SupabaseLike = { from: (table: string) => any };
  */
 export async function getAssessedContext(sb: SupabaseLike): Promise<AssessedContext> {
   const today = new Date().toISOString().slice(0, 10);
-  const windowStart = new Date(Date.now() - (TRAJECTORY_WINDOW_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
+  const windowStart = new Date(Date.now() - (RECENT_WINDOW_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
 
   const [todayResult, windowResult] = await Promise.all([
     sb
@@ -201,7 +183,7 @@ export async function getAssessedContext(sb: SupabaseLike): Promise<AssessedCont
   ]);
 
   const todayRow: TodayRow | null = (todayResult?.data ?? [])[0] ?? null;
-  const windowRows: BurnoutWindowRow[] = windowResult?.data ?? [];
+  const windowRows: RecentCheckinRow[] = windowResult?.data ?? [];
   // windowRows already covers the last 21 days (the query above), so the
   // most recent captured_at in it is a free, honest "last known check-in"
   // read for freshness — no extra query needed. Anything older than the
@@ -209,5 +191,5 @@ export async function getAssessedContext(sb: SupabaseLike): Promise<AssessedCont
   // practice, so it isn't worth a further query to distinguish.
   const lastKnownCheckinAt = latestCapturedAt(windowRows);
 
-  return buildAssessedContext(todayRow, windowRows, lastKnownCheckinAt);
+  return buildAssessedContext(todayRow, lastKnownCheckinAt);
 }
