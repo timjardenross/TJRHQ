@@ -28,7 +28,6 @@ import type {
   WeeklyReviewSynthesis,
   WorkbenchSection,
 } from '@/lib/weeklyReview';
-import type { StrategicPosture } from '@/app/human-systems-workbench/_components/types';
 
 function findSection(sections: WorkbenchSection[], key: string): WorkbenchSection | undefined {
   return sections.find((s) => s.key === key);
@@ -123,21 +122,8 @@ function buildWhatMattered(sections: WorkbenchSection[]): MatteredItem[] {
     .slice(0, 5);
 }
 
-function buildLearned(
-  sections: WorkbenchSection[],
-  strategicMessage: string,
-  hasStrategicSignal: boolean,
-  strategicPosture: StrategicPosture,
-): LearnedItem[] {
+function buildLearned(sections: WorkbenchSection[]): LearnedItem[] {
   const learned: LearnedItem[] = [];
-
-  if (hasStrategicSignal) {
-    learned.push({
-      key: 'recovery-trajectory',
-      title: 'Recovery',
-      lesson: strategicMessage,
-    });
-  }
 
   const highConf = count(sections, 'osint', 'high-confidence');
   const escalated = count(sections, 'osint', 'escalated');
@@ -158,37 +144,11 @@ function buildLearned(
     });
   }
 
-  // Human Execution Loop mission (brief §27/§28/§58) — descriptive, not
-  // causal: this observes that progress and a constrained posture
-  // co-occurred this week, never that either one caused the other. Only
-  // surfaced when both facts are independently known this run (never
-  // fabricated, brief §26), and phrased to avoid implying causation
-  // (brief §27's "prefer this over... caused" example).
-  const readyRoomCompleted = count(sections, 'ready-room', 'completed');
-  const restrictivePosture = strategicPosture === 'protect' || strategicPosture === 'recover' || strategicPosture === 'stabilise';
-  if (readyRoomCompleted !== null && readyRoomCompleted > 0 && restrictivePosture) {
-    learned.push({
-      key: 'ready-room-progress-during-constraint',
-      title: 'Execution',
-      lesson: `${readyRoomCompleted} Ready Room item(s) were completed this week alongside a constrained capacity posture — progress and a limited-capacity week aren't mutually exclusive.`,
-    });
-  }
-
   return learned.slice(0, 3);
 }
 
-function buildCarryForward(sections: WorkbenchSection[], posture: StrategicPosture): CarryForwardItem[] {
+function buildCarryForward(sections: WorkbenchSection[]): CarryForwardItem[] {
   const items: CarryForwardItem[] = [];
-
-  if (posture === 'recover' || posture === 'protect') {
-    items.push({
-      key: 'protect-capacity',
-      title: 'Recovery',
-      detail: 'Recovery posture recommends protecting capacity into next week.',
-      recommendation: 'Continue reduced commitments until posture improves.',
-      href: '/human-systems-workbench',
-    });
-  }
 
   const contentBlockedSignal = findSignal(sections, 'content', 'blocked');
   if (contentBlockedSignal && !contentBlockedSignal.unavailable && contentBlockedSignal.count > 0) {
@@ -299,7 +259,7 @@ function buildYouCanIgnore(sections: WorkbenchSection[]): string[] {
   return lines;
 }
 
-function buildWatchNextWeek(sections: WorkbenchSection[], strategicMessage: string, hasStrategicSignal: boolean): WatchItem[] {
+function buildWatchNextWeek(sections: WorkbenchSection[]): WatchItem[] {
   const escalated = count(sections, 'osint', 'escalated');
   const items: WatchItem[] = [
     {
@@ -317,25 +277,14 @@ function buildWatchNextWeek(sections: WorkbenchSection[], strategicMessage: stri
       available: false,
     },
   ];
-  if (hasStrategicSignal) {
-    items.push({ key: 'personal-trajectory', label: 'Personal', detail: strategicMessage, available: true });
-  }
   return items;
 }
 
-const POSTURE_LABEL: Record<StrategicPosture, string> = {
-  recover: 'RECOVER', protect: 'PROTECT', stabilise: 'STABILISE',
-  steady: 'STEADY', re_engage: 'RE-ENGAGE', rebuild: 'REBUILD',
-  engage: 'ENGAGE', redesign: 'REDESIGN',
-};
-
-function buildNextWeek(posture: StrategicPosture, message: string, carryForward: CarryForwardItem[]): WeeklyReviewSynthesis['nextWeek'] {
-  const restrictive = posture === 'recover' || posture === 'protect' || posture === 'stabilise';
+function buildNextWeek(carryForward: CarryForwardItem[]): WeeklyReviewSynthesis['nextWeek'] {
   return {
-    posture: POSTURE_LABEL[posture],
-    message,
+    posture: carryForward.length > 0 ? 'Carry these items forward' : 'Nothing needs carrying forward',
+    message: '',
     priorities: carryForward.slice(0, 3).map((c) => c.detail),
-    avoid: restrictive ? 'Starting additional discretionary commitments unless capacity improves.' : undefined,
   };
 }
 
@@ -373,12 +322,10 @@ function buildHealth(sections: WorkbenchSection[]): DomainSynthesis {
 
 function buildWeekInReview(
   sections: WorkbenchSection[],
-  posture: StrategicPosture,
   technical: DomainSynthesis,
   health: DomainSynthesis,
   carryForwardCount: number,
 ): WeekInReview {
-  const restrictive = posture === 'recover' || posture === 'protect' || posture === 'stabilise';
   const blocked = count(sections, 'content', 'blocked');
   const repeated = count(sections, 'agent-status', 'repeated');
 
@@ -386,7 +333,6 @@ function buildWeekInReview(
   const readyRoomImportantOpen = count(sections, 'ready-room', 'important-open');
 
   const narrativeParts: string[] = [];
-  narrativeParts.push(restrictive ? 'A constrained week for personal capacity.' : 'A steady week for personal capacity.');
   if (readyRoomCompleted !== null) {
     narrativeParts.push(
       readyRoomCompleted > 0
@@ -395,14 +341,8 @@ function buildWeekInReview(
     );
   }
   narrativeParts.push(technical.noActionRequired ? 'The external technical environment remained stable.' : 'Technical signal activity required attention.');
-  if (restrictive) narrativeParts.push('Recommend reducing discretionary commitments next week.');
 
   const lines: WeekInReview['lines'] = [
-    {
-      key: 'recovery', label: 'Recovery',
-      glyph: restrictive ? 'down' : 'flat',
-      detail: POSTURE_LABEL[posture],
-    },
     {
       key: 'execution', label: 'Execution',
       glyph: readyRoomImportantOpen !== null && readyRoomImportantOpen > 0 ? 'warn' : 'ok',
@@ -438,24 +378,21 @@ function buildWeekInReview(
 export function buildSynthesis(
   sections: WorkbenchSection[],
   priorSignalCounts: Record<string, number> | null,
-  strategicPosture: StrategicPosture,
-  strategicPostureMessage: string,
-  hasStrategicSignal: boolean,
 ): WeeklyReviewSynthesis {
   const technical = buildTechnical(sections);
   const health = buildHealth(sections);
-  const carryForward = buildCarryForward(sections, strategicPosture);
-  const nextWeek = buildNextWeek(strategicPosture, strategicPostureMessage, carryForward);
-  const weekInReview = buildWeekInReview(sections, strategicPosture, technical, health, carryForward.length);
+  const carryForward = buildCarryForward(sections);
+  const nextWeek = buildNextWeek(carryForward);
+  const weekInReview = buildWeekInReview(sections, technical, health, carryForward.length);
 
   return {
     weekInReview,
     whatChanged: buildWhatChanged(sections, priorSignalCounts),
     whatMattered: buildWhatMattered(sections),
-    learned: buildLearned(sections, strategicPostureMessage, hasStrategicSignal, strategicPosture),
+    learned: buildLearned(sections),
     carryForward,
     youCanIgnore: buildYouCanIgnore(sections),
-    watchNextWeek: buildWatchNextWeek(sections, strategicPostureMessage, hasStrategicSignal),
+    watchNextWeek: buildWatchNextWeek(sections),
     nextWeek,
     technical,
     health,

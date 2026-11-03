@@ -641,7 +641,7 @@ BURNOUT_FRAMING_CODE_TO_STATE = {
 }
 
 # Canonical values match migration 0153's comment
-# (core/health/burnout_trajectory.py and api/human-systems/route.ts read
+# (api/human-systems/route.ts reads
 # these as plain frequency counts, not the display label text — unlike
 # active_loads/identified_needs, which store the label itself).
 COMPENSATION_TYPE_OPTIONS = [
