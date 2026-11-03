@@ -7,7 +7,7 @@ that warrant deeper examination. This is separate from improvement discovery
 Principle: questions are not missions. Officers ask questions before acting.
 
 Investigation triggers (per officer):
-  Human Systems  — persistent capacity constraint, unexplained health pattern
+  (Human Systems no longer opens investigations from a capacity reading — owner decision 2026-11-03)
   ORI            — elevated resilience risk, anomalous intelligence brief
   Number One     — escalation accumulation, mission coordination breakdown
   Engineering    — recurring technical blockers, delivery pattern anomaly
@@ -16,7 +16,6 @@ Investigation triggers (per officer):
   Knowledge      — knowledge gap accumulation, institutional memory erosion
 
 Public API:
-    investigate_human_systems(ctx)     -> list[str]  (inv_ids opened)
     investigate_ori(ctx)               -> list[str]
     investigate_number_one(ctx)        -> list[str]
     investigate_engineering(ctx)       -> list[str]
@@ -53,42 +52,6 @@ _N1_ESCALATION_THRESHOLD = 4  # escalation items before Number One investigates
 
 
 # ── Per-officer triggers ──────────────────────────────────────────────────────
-
-def investigate_human_systems(ctx: Any) -> list[str]:
-    """Open investigation if persistent capacity constraint is detected."""
-    opened: list[str] = []
-    try:
-        capacity = getattr(ctx, "capacity_status", "Unknown")
-        blocked  = getattr(ctx, "engineering_blocked", 0)
-
-        if capacity == "Red":
-            inv_id = open_investigation(
-                question="What is causing Red capacity status and how can it be resolved?",
-                investigation_type=InvestigationType.HEALTH,
-                source="human_systems_officer:auto_trigger",
-                officer="human_systems",
-                context=f"Capacity: {capacity} | Engineering blocked: {blocked}",
-            )
-            if inv_id:
-                opened.append(inv_id)
-                log.info("[investigation.officers] human_systems opened: %s (Red capacity)", inv_id)
-
-        elif capacity == "Amber" and blocked >= _BLOCKED_THRESHOLD:
-            inv_id = open_investigation(
-                question="Why is capacity Amber while engineering has concurrent blockers — is there a compound constraint?",
-                investigation_type=InvestigationType.OPERATIONAL,
-                source="human_systems_officer:auto_trigger",
-                officer="human_systems",
-                context=f"Capacity: Amber | Blocked: {blocked}",
-            )
-            if inv_id:
-                opened.append(inv_id)
-                log.info("[investigation.officers] human_systems opened: %s (Amber+blocked)", inv_id)
-
-    except Exception as exc:  # noqa: BLE001 - human_systems trigger, best-effort, already logged
-        log.warning("[investigation.officers] human_systems trigger failed: %s", exc)
-    return opened
-
 
 def investigate_ori(ctx: Any) -> list[str]:
     """Open investigation if elevated resilience risk is detected."""
@@ -279,7 +242,6 @@ def run_all_investigation_triggers(ctx: Any) -> list[str]:
 
     # Daily triggers
     for trigger_fn in [
-        investigate_human_systems,
         investigate_ori,
         investigate_number_one,
     ]:
@@ -313,7 +275,6 @@ def run_all_investigation_triggers(ctx: Any) -> list[str]:
 __all__ = [
     "investigate_communications",
     "investigate_engineering",
-    "investigate_human_systems",
     "investigate_knowledge",
     "investigate_number_one",
     "investigate_ori",

@@ -98,13 +98,7 @@ class ImprovementScoringEngine:
         else:
             base = 4
 
-        # Amplify if current capacity is stressed
-        status = ctx.get("capacity_status", "Unknown")
-        if status == "Red":
-            base = min(10, base + 2)
-        elif status == "Amber":
-            base = min(10, base + 1)
-
+        # Capacity does not change an improvement's priority (owner decision 2026-11-03).
         return base
 
     def _score_operational_risk_reduction(
