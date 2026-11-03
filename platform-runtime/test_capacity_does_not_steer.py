@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Owner decision 2026-11-03: a Red or Amber capacity reading no longer raises an improvement's
 priority and no longer opens an automatic Human Systems investigation. Pure/offline."""
 
