@@ -33,7 +33,6 @@ history if any of that needs to be reconstructed.
 ### Telegram bots (all systemd-managed, Telegram-polling — no inbound ports)
 - **XO** (`tg-xo.service`) — the *only* bot with host/shell action capability.
   Captain-only allowlist, plan-then-approve gate on anything destructive.
-- **REVS** (`tg-revs.service`) — public check-in bot, no action capability.
 - **CapacityBot** (`tg-capacitybot.service`) — capacity check-ins
   (`capacity_checkins` table), no action capability.
 - **Resilience Crosswalk** (`tg-resiliencebot.service`) — Operational

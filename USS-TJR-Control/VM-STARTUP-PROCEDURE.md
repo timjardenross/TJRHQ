@@ -24,7 +24,6 @@ intervention required.
 | Model Router | `model-router.service` | `:8891` |
 | Ollama | `ollama.service` | `:11434` |
 | XO Telegram Bot | `tg-xo.service` | Action-capable, Captain-only |
-| REVS Telegram Bot | `tg-revs.service` | Public check-in, no action capability |
 | CapacityBot Telegram Bot | `tg-capacitybot.service` | Capacity check-ins |
 | Human Systems Scheduler | `human-systems-scheduler.service` | |
 | Intelligence Scheduler | `intelligence-scheduler.service` | |
@@ -53,7 +52,7 @@ Dept bot, `control-engine.service`, Coolify, Dashy, `pm2-root.service`.
 ```bash
 # Core services
 systemctl is-active caddy lcars-portal command-centre command-bus \
-  context-service model-router ollama tg-xo tg-revs tg-capacitybot
+  context-service model-router ollama tg-xo tg-capacitybot
 
 # Check for anything failed
 systemctl --failed

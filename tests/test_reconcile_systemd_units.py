@@ -45,8 +45,8 @@ class TestGetAutoDeployConfig(unittest.TestCase):
     def test_strips_a_trailing_inline_comment_same_as_auto_deploy_sh(self):
         # deploy/auto-deploy.sh's own parsing loop does
         # `sed 's/#.*//' | xargs` - an inline trailing comment is legal.
-        config = self._read_with("tg-revs.service  # matches live name, not the repo filename\n")
-        self.assertEqual(config, {"tg-revs.service"})
+        config = self._read_with("tg-capacitybot.service  # matches live name, not the repo filename\n")
+        self.assertEqual(config, {"tg-capacitybot.service"})
 
     def test_missing_file_returns_empty_set_not_an_error(self):
         with patch.object(reconcile, "AUTO_DEPLOY_CONF", self.tmpdir / "does-not-exist.conf"):
@@ -77,7 +77,7 @@ class TestGetDeployedUnits(unittest.TestCase):
 
 class TestProjectUnitPattern(unittest.TestCase):
     def test_matches_known_project_units(self):
-        for unit in ("tg-xo.service", "tg-revs.service", "self-improvement-dashboard.service",
+        for unit in ("tg-xo.service", "starship-meilisearch.service", "self-improvement-dashboard.service",
                      "model-router.service", "context-service.service", "mint-server.service",
                      "lcars-portal.service", "intelligence-scheduler.service"):
             self.assertTrue(reconcile._PROJECT_UNIT_PATTERN.search(unit), f"{unit} should match")
