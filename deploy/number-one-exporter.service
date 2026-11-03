@@ -1,0 +1,12 @@
+[Unit]
+Description=Number One Exporter
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/usr/bin/python3 core/coordination/number_one_exporter.py --watch --interval 300
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
