@@ -31,19 +31,19 @@ export function deriveSystemPosture(c: TodayCheckinInput | null): { posture: Sys
   const painElevated = c.pain_state === 'elevated' || c.pain_state === 'high';
 
   if (cap === 'red' || (reg === 'overloaded' && ef === 'very_difficult')) {
-    return { posture: 'RECOVER', message: 'Capacity is depleted or recovery debt is high. Recovery is the primary objective.' };
+    return { posture: 'RECOVER', message: 'Capacity is very low today. Rest and the easiest options are likely to serve you best.' };
   }
   if ((stim === 'low' || stim === 'high') && (reg === 'overloaded' || reg === 'activated') && cap !== 'green') {
-    return { posture: 'RESET', message: 'The system appears mismatched or dysregulated — a short regulation step before deciding what comes next.' };
+    return { posture: 'RESET', message: 'Your system looks unsettled — a short settling step may help before deciding what comes next.' };
   }
   if (cap === 'orange' || comp === 'high' || comp === 'extreme' || reg === 'activated' || (painElevated && cap !== 'green')) {
-    return { posture: 'PROTECT', message: 'Capacity is stretched. Reduce unnecessary demand and intervene early.' };
+    return { posture: 'PROTECT', message: 'Capacity is lower than usual today. Lighter choices and early support may help.' };
   }
   if (cap === 'green' && (stim === 'balanced' || !stim) && !painElevated && comp !== 'high' && comp !== 'extreme') {
-    return { posture: 'ENGAGE', message: 'Capacity is available and the system can tolerate meaningful demand.' };
+    return { posture: 'ENGAGE', message: 'Capacity is good today and can take on meaningful demands.' };
   }
   if (cap === 'green') {
-    return { posture: 'STEADY', message: 'Maintain current pace. Avoid unnecessary load increases.' };
+    return { posture: 'STEADY', message: 'Capacity is steady today. A normal pace should work.' };
   }
-  return { posture: 'STEADY', message: 'Maintain current pace. Avoid unnecessary load increases.' };
+  return { posture: 'STEADY', message: 'Capacity is steady today. A normal pace should work.' };
 }

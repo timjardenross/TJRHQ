@@ -153,7 +153,7 @@ describe('LifeOS Hub — command picture', () => {
 
     render(<LifeOSHub />);
 
-    expect(await screen.findByText('PROTECT TODAY')).toBeInTheDocument();
+    expect(await screen.findByText('LOWER CAPACITY TODAY')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('✓ Nothing needs your attention.')).toBeInTheDocument();
     });
@@ -177,7 +177,7 @@ describe('LifeOS Hub — command picture', () => {
 
     render(<LifeOSHub />);
 
-    expect(await screen.findByText('PROTECT TODAY')).toBeInTheDocument();
+    expect(await screen.findByText('LOWER CAPACITY TODAY')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('✓ Nothing needs your attention.')).toBeInTheDocument();
     });

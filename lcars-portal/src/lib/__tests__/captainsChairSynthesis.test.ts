@@ -37,8 +37,8 @@ describe('deriveCommandStatus', () => {
     // this specific brief example only holds if nothing else is escalating.
     // Testing the actual personal-only branch instead.
     const result = deriveCommandStatus(baseInputs({ posture: 'RECOVER', availableCapacity: 'red' }));
-    expect(result.interpretation).toMatch(/constrained, but the external environment is stable/i);
-    expect(result.interpretation).toMatch(/Recover/);
+    expect(result.interpretation).toMatch(/lower than usual, and the external environment is stable/i);
+    expect(result.personalLine).toMatch(/very low today/);
     expect(result.hasUrgentException).toBe(false);
   });
 
@@ -49,7 +49,7 @@ describe('deriveCommandStatus', () => {
 
   it('flags both concerns as a possible override', () => {
     const result = deriveCommandStatus(baseInputs({ posture: 'RECOVER', availableCapacity: 'red', emergencyWorstTier: 'emergency_warning', emergencyCount: 1 }));
-    expect(result.interpretation).toMatch(/may warrant overriding/i);
+    expect(result.interpretation).toMatch(/deal with it anyway/i);
     expect(result.hasUrgentException).toBe(true);
   });
 
