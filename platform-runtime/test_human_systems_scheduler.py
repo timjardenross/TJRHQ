@@ -238,5 +238,34 @@ class TestPushPreview(unittest.TestCase):
         self.assertIn("preview", out.lower())
 
 
+class TestDisabledJobs(unittest.TestCase):
+    """HS_DISABLED_JOBS holds individual daemon jobs without a code change."""
+
+    def test_default_runs_every_job(self):
+        with patch.dict("os.environ", {}, clear=False):
+            import os
+            os.environ.pop("HS_DISABLED_JOBS", None)
+            self.assertEqual(hss._enabled_jobs(), hss.JOBS)
+
+    def test_listed_jobs_are_held_case_and_space_insensitive(self):
+        with patch.dict("os.environ", {"HS_DISABLED_JOBS": " Evening , midday "}):
+            enabled = hss._enabled_jobs()
+        self.assertNotIn("evening", enabled)
+        self.assertNotIn("midday", enabled)
+        for j in ("morning", "weekly", "degradation", "comms_weekly", "eod"):
+            self.assertIn(j, enabled)
+
+    def test_unknown_name_is_ignored_and_warned(self):
+        with patch.dict("os.environ", {"HS_DISABLED_JOBS": "eveningg"}), \
+                self.assertLogs("human-systems-scheduler", level="WARNING") as cm:
+            enabled = hss._enabled_jobs()
+        self.assertEqual(enabled, hss.JOBS)  # typo must not disable anything
+        self.assertTrue(any("unknown" in m for m in cm.output))
+
+    def test_manual_runs_ignore_the_setting(self):
+        with patch.dict("os.environ", {"HS_DISABLED_JOBS": "evening"}):
+            self.assertIn("evening", hss.JOBS)  # run_all()/--job iterate JOBS, not _enabled_jobs()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
