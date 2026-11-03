@@ -39,15 +39,22 @@ WorkingDirectory=/opt/starship-endeavour
 # TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID were added, nothing removed and no
 # shared value changed (INFISICAL_TOKEN differs per start by design).
 #
-# HS_DISABLED_JOBS holds midday and evening: they overlap the capacity bot's
-# own 13:00 and 20:00 check-ins. The scheduler registers only the other five
-# jobs (morning, eod, weekly, degradation, comms_weekly). Remove a name from
-# the list to turn that job back on, then restart this unit.
+# HS_DISABLED_JOBS holds midday, evening and eod. midday and evening overlap the
+# capacity bot's own 13:00 and 20:00 check-ins; eod (17:30 weekdays) overlaps the
+# 18:00 End-of-Day Summary the Captain already gets from the intelligence
+# scheduler's Captain's Brief (decision 2026-11-03: hold it permanently). The
+# scheduler registers only the other four jobs (morning, weekly, degradation,
+# comms_weekly). Remove a name from the list to turn that job back on, then
+# restart this unit.
+#
+# The host drop-in below currently also holds degradation, as a temporary
+# precaution until the first correctly timed delivery is confirmed. Install this
+# file and delete the drop-in to release it.
 #
 # This same configuration was first applied on the host as a drop-in,
 # /etc/systemd/system/human-systems-scheduler.service.d/capacity-bot-telegram.conf.
 # Once this file is installed over /etc/systemd/system/, delete that drop-in.
-Environment=HS_DISABLED_JOBS=midday,evening
+Environment=HS_DISABLED_JOBS=midday,evening,eod
 ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical-bot.sh capacitybot -- /opt/starship-endeavour/platform-runtime/.venv/bin/python /opt/starship-endeavour/platform-runtime/human_systems_scheduler.py --daemon
 Restart=always
 RestartSec=10
