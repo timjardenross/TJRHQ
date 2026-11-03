@@ -1,0 +1,18 @@
+[Unit]
+Description=USS TJR VM Knowledge Processing bounded retry sweep — hourly
+Requires=vm-processing-retry.service
+
+[Timer]
+# Retries are recovery, not routine throughput: a `failed` document already
+# went through the full pipeline once and lost, so there is no value in
+# re-attempting it every 10 minutes like the main vm-processing.timer.
+# Hourly is frequent enough that a transient failure (model router restart,
+# brief OCR binary hiccup) self-heals within an hour, without hammering the
+# same persistently-broken document 6x/hour before its retry_count even
+# has a chance to reflect a distinct, later attempt.
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

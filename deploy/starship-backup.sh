@@ -151,6 +151,10 @@ fi
 # --- small state captures
 ufw status numbered >"$STAGE/ufw-status.txt" 2>&1 || true
 crontab -l >"$STAGE/crontab-root.txt" 2>&1 || true
+# chatterbox-tts venv (core/voice/chatterbox-venv, ~6 GB, untracked + gitignored) is NOT backed up;
+# record its package set instead so it can be rebuilt.
+CB_PIP="$REPO_ROOT/core/voice/chatterbox-venv/bin/pip"
+if [ -x "$CB_PIP" ]; then "$CB_PIP" freeze >"$STAGE/chatterbox-venv-freeze.txt" 2>&1 || true; fi
 
 # --- 4. restic backup
 log "4/5 restic backup"
@@ -164,6 +168,10 @@ LIST="$STAGE/paths.txt"
     "$REPO_ROOT/.id-counters.json" \
     "$REPO_ROOT/platform-runtime/.infisical-auth.env" \
     /etc/caddy \
+    /etc/systemd/system \
+    /opt/deploy-guard \
+    /etc/sysstat \
+    /etc/systemd/journald.conf.d \
     /root/private-knowledge \
     /var/spool/cron/crontabs \
     /root/starship-branches-*.bundle; do
@@ -171,7 +179,7 @@ LIST="$STAGE/paths.txt"
   done
   find "$REPO_ROOT" -xdev \( -name node_modules -o -name .venv -o -name '.venv-*' -o -name .git -o -name .next -o -name chatterbox-venv \) -prune \
     -o -type f \( -name '.env' -o -name '.env.*' \) -print
-  find /etc/systemd/system -maxdepth 1 -type f \( -name '*.service' -o -name '*.timer' \) -print
+  # (/etc/systemd/system is now backed up whole above: units, timers, drop-ins and enable symlinks)
 } >"$LIST"
 log "paths to back up: $(wc -l <"$LIST") entries"
 
