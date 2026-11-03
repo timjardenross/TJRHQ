@@ -64,13 +64,6 @@ _ALLOWLIST = {
         "parse_mode) contract telegram-bots/xo/app.py's live bot exposes, "
         "so callers work identically against either. It's an interface "
         "implementation, not a notification call site.",
-    "telegram-bots/revs/escalate.py":
-        "PERMANENT exception — uses a separate bot identity "
-        "(XO_ESCALATION_BOT_TOKEN/CHAT_ID, not the default captain bot) "
-        "and is async/httpx-based while notify() is synchronous urllib; "
-        "this is the crisis-escalation path and its own docstring requires "
-        "it never block/delay the user's crisis-response send, which a "
-        "blocking sync call here would risk.",
     "core/command-centre/backend/connectors/telegram-connector.js":
         "KNOWN DUPLICATE, not yet reconciled (Mission 1, USS-TJR-MSN-1, "
         "item 9 — flagged for a follow-up mission, not fixed here). Command "

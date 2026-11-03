@@ -76,8 +76,8 @@ careful" isn't enough, run the actual grep:
   6). Verified 2026-11-03 from `journalctl -u <unit> --since "7 days ago"`: 3 live services
   emit APScheduler activity — `intelligence-scheduler` (`intelligence/scheduler.py`, its own
   `BlockingScheduler`), `tg-xo` (python-telegram-bot `JobQueue`, which is APScheduler
-  underneath) and `tg-capacitybot` (same `JobQueue` mechanism). `tg-revs` is masked, so
-  `telegram-bots/revs/scheduler.py` is not live. `human-systems-scheduler` runs on pgqueuer,
+  underneath) and `tg-capacitybot` (same `JobQueue` mechanism). `tg-revs` was decommissioned
+  2026-11-03 (code removed; archived on branch `archive/tg-revs-2026-11-03`). `human-systems-scheduler` runs on pgqueuer,
   and `tg-resiliencebot` and `model-router` show no APScheduler activity. Ask before adding a
   new scheduler instance rather than assuming one doesn't already cover your use case.
 - **Specialist registry** — `platform-runtime/prompt_loader.py`'s `SPECIALISTS` dict and

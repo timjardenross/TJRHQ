@@ -117,18 +117,6 @@ updates:
       python-dependencies:
         patterns: ["*"]
 
-  - package-ecosystem: "pip"
-    directory: "/telegram-bots/revs"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "03:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
-    groups:
-      python-dependencies:
-        patterns: ["*"]
-
   # --- Slot C: Fridays 03:00 UTC ---
   - package-ecosystem: "pip"
     directory: "/telegram-bots/xo"
