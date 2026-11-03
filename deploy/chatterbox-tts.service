@@ -1,6 +1,6 @@
 [Unit]
 Description=Starship Endeavour Chatterbox TTS (Nano, CPU)
-After=network.target
+After=network.target docker.service
 
 [Service]
 Type=simple
