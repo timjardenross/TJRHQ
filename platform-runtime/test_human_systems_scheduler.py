@@ -267,5 +267,103 @@ class TestDisabledJobs(unittest.TestCase):
             self.assertIn("evening", hss.JOBS)  # run_all()/--job iterate JOBS, not _enabled_jobs()
 
 
+class TestScheduleTimezone(unittest.TestCase):
+    """Jobs fire at their cron time in HS_SCHEDULE_TZ, not in UTC.
+
+    Regression: the pgqueuer daemon registered each plain cron, which pgqueuer
+    evaluates in UTC, so "evening" (0 20 * * *) fired at 07:00 Sydney and
+    "eod" (30 17 * * 1-5) at 04:30 Sydney.
+    """
+
+    def setUp(self):
+        import os
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        self.datetime, self.ZoneInfo = datetime, ZoneInfo
+        self.syd = ZoneInfo("Australia/Sydney")
+        self.utc = ZoneInfo("UTC")
+        self._env = patch.dict("os.environ", {}, clear=False)
+        self._env.start()
+        for k in ("HS_SCHEDULE_TZ", "HS_MORNING_CRON", "HS_EVENING_CRON", "HS_EOD_CRON"):
+            os.environ.pop(k, None)
+
+    def tearDown(self):
+        self._env.stop()
+
+    def _due(self, y, m, d, hh, mm, tz):
+        return hss._jobs_due(self.datetime(y, m, d, hh, mm, tzinfo=tz), hss.JOBS)
+
+    def test_morning_is_0700_local_in_daylight_saving(self):
+        # 2026-11-03 is AEDT (UTC+11)
+        self.assertEqual(self._due(2026, 11, 3, 7, 0, self.syd), ["morning"])
+
+    def test_0700_utc_is_not_morning(self):
+        # 07:00 UTC is 18:00 Sydney: the old daemon fired the morning job here
+        self.assertEqual(self._due(2026, 11, 3, 7, 0, self.utc), [])
+        self.assertEqual(
+            hss._jobs_due(self.datetime(2026, 11, 3, 7, 0, tzinfo=self.utc).astimezone(self.syd), hss.JOBS), [])
+
+    def test_morning_is_0700_local_in_standard_time(self):
+        # 2026-06-02 is AEST (UTC+10): same wall-clock time, different UTC instant
+        self.assertEqual(self._due(2026, 6, 2, 7, 0, self.syd), ["morning"])
+
+    def test_evening_and_midday_times(self):
+        self.assertEqual(self._due(2026, 11, 3, 20, 0, self.syd), ["evening"])
+        self.assertEqual(self._due(2026, 11, 3, 12, 0, self.syd), ["midday"])
+        self.assertEqual(self._due(2026, 11, 3, 15, 0, self.syd), ["degradation"])
+
+    def test_eod_is_weekdays_only_in_local_time(self):
+        self.assertEqual(self._due(2026, 11, 6, 17, 30, self.syd), ["eod"])   # Friday
+        self.assertEqual(self._due(2026, 11, 7, 17, 30, self.syd), [])        # Saturday
+
+    def test_weekly_and_comms_are_monday_local(self):
+        self.assertEqual(self._due(2026, 11, 2, 8, 0, self.syd), ["weekly"])        # Monday
+        self.assertEqual(self._due(2026, 11, 2, 8, 30, self.syd), ["comms_weekly"])
+        self.assertEqual(self._due(2026, 11, 3, 8, 0, self.syd), [])                # Tuesday
+
+    def test_nothing_due_off_the_minute(self):
+        self.assertEqual(self._due(2026, 11, 3, 7, 1, self.syd), [])
+        self.assertEqual(self._due(2026, 11, 3, 6, 59, self.syd), [])
+
+    def test_seconds_are_ignored(self):
+        t = self.datetime(2026, 11, 3, 7, 0, 41, tzinfo=self.syd)
+        self.assertEqual(hss._jobs_due(t, hss.JOBS), ["morning"])
+
+    def test_cron_env_override_is_respected(self):
+        with patch.dict("os.environ", {"HS_MORNING_CRON": "15 6 * * *"}):
+            self.assertEqual(self._due(2026, 11, 3, 6, 15, self.syd), ["morning"])
+            self.assertEqual(self._due(2026, 11, 3, 7, 0, self.syd), [])
+
+    def test_timezone_defaults_to_sydney_and_can_be_overridden(self):
+        self.assertEqual(str(hss._timezone()), "Australia/Sydney")
+        with patch.dict("os.environ", {"HS_SCHEDULE_TZ": "Australia/Brisbane"}):
+            self.assertEqual(str(hss._timezone()), "Australia/Brisbane")
+            # Brisbane has no daylight saving: 07:00 local in January is 21:00 UTC the day before
+            brisbane = hss._timezone()
+            self.assertEqual(hss._jobs_due(self.datetime(2027, 1, 15, 7, 0, tzinfo=brisbane), hss.JOBS), ["morning"])
+
+    def test_unknown_timezone_fails_loudly_not_silently_utc(self):
+        from zoneinfo import ZoneInfoNotFoundError
+        with patch.dict("os.environ", {"HS_SCHEDULE_TZ": "Not/AZone"}), \
+                self.assertRaises(ZoneInfoNotFoundError):
+            hss._timezone()
+
+    def test_a_job_starts_once_per_local_minute(self):
+        started, fired = [], {}
+        t = self.datetime(2026, 11, 3, 7, 0, 5, tzinfo=self.syd)
+        self.assertEqual(hss._fire_due(t, hss.JOBS, fired, started.append), ["morning"])
+        self.assertEqual(hss._fire_due(t.replace(second=40), hss.JOBS, fired, started.append), [])
+        self.assertEqual(started, ["morning"])
+        # the next day it fires again
+        nxt = self.datetime(2026, 11, 4, 7, 0, 5, tzinfo=self.syd)
+        self.assertEqual(hss._fire_due(nxt, hss.JOBS, fired, started.append), ["morning"])
+
+    def test_held_jobs_are_not_started(self):
+        started = []
+        with patch.dict("os.environ", {"HS_DISABLED_JOBS": "evening"}):
+            hss._fire_due(self.datetime(2026, 11, 3, 20, 0, tzinfo=self.syd), hss._enabled_jobs(), {}, started.append)
+        self.assertEqual(started, [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
