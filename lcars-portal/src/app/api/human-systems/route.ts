@@ -42,7 +42,6 @@ import { normalizeCapacityCode } from '@/lib/capacity-vocab';
 import { describePain } from '@/lib/pain-vocab';
 import { computeInterventionEffectiveness } from './intervention-effectiveness';
 import { fetchSensoryRegulation } from './sensory-regulation';
-import { computeStrategicPosture, type BurnoutWindowRow } from './strategic-posture';
 import { deriveSystemPosture } from './derive-system-posture';
 import { computeSleepTile } from './sleep-tile';
 import type {
@@ -463,27 +462,7 @@ async function computeRecoveryDuration(sb: any, windowDays: number): Promise<Rec
 // directly-testable helper has to sit in a sibling module. See that file's
 // header comment.
 
-// computeStrategicPosture() lives in ./strategic-posture.ts for the same
-// reason — see that file's header comment for the lock-step requirement
-// against core/health/burnout_trajectory.py.
-
-const BURNOUT_WINDOW_DAYS = 21; // V3 doc §18 worked example window
 const EXPERIMENT_COMPLETED_WINDOW_DAYS = 30; // how long a finished experiment still shows in "What Changed"
-
-/** V3 Mission 1 — every capacity_checkins row (both checkin_type='capacity'
- *  and 'evening') in the trajectory window, the raw input
- *  computeStrategicPosture() reads. A dedicated fetch rather than reusing
- *  loadCtx()'s existing queries: those are all TODAY-scoped or
- *  30-day-medical-trend-scoped, and this route's own doc comment insists
- *  NOW and TRAJECTORY data never share a query/cache path (V3 doc §2). */
-async function fetchBurnoutWindow(sb: any, windowDays: number): Promise<BurnoutWindowRow[]> {
-  const { data } = await sb
-    .from('capacity_checkins')
-    .select('checkin_type,capacity_state,executive_function,stimulation_state,compensation_load,recovery_duration,capacity_debt,log_date,captured_at')
-    .gte('log_date', daysAgo(windowDays - 1))
-    .lte('log_date', today());
-  return (data ?? []) as BurnoutWindowRow[];
-}
 
 /** The user's own framing (V3 doc §5.1) is a deep-check-tier field, not
  *  asked every check-in, so it may not exist on today's row even when the
@@ -714,16 +693,10 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     .eq('checkin_type', 'capacity')
     .gte('log_date', daysAgo(6));
 
-  // V3 Mission 1 — Burnout / Sustained-Strain Trajectory (§5-§8). Reads its
-  // own window independently of everything above; system_posture/
-  // system_posture_message (just computed) are passed in only as the
-  // strategic-posture ceiling/fallback (Rule A/F), never recomputed here.
-  const [burnoutWindowRows, userBurnoutFraming, experiments] = await Promise.all([
-    fetchBurnoutWindow(sb, BURNOUT_WINDOW_DAYS),
+  const [userBurnoutFraming, experiments] = await Promise.all([
     fetchLatestUserBurnoutFraming(sb),
     fetchExperiments(sb, EXPERIMENT_COMPLETED_WINDOW_DAYS),
   ]);
-  const trajectory = computeStrategicPosture(burnoutWindowRows, BURNOUT_WINDOW_DAYS, system_posture);
 
   return {
     domain: 'recovery',
@@ -771,12 +744,7 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     ),
     checkins_last_7d: checkins_last_7d ?? 0,
 
-    // ── V3 Mission 1 — Burnout / Sustained-Strain Trajectory ─────────────
-    system_trajectory: trajectory.system_trajectory,
-    trajectory_confidence: trajectory.trajectory_confidence,
-    strategic_posture: trajectory.strategic_posture,
-    strategic_posture_message: trajectory.strategic_posture_message,
-    current_recovery_stage: trajectory.current_recovery_stage,
+    // The user's own framing of this period, shown verbatim; no trend is computed from it.
     user_burnout_framing: (userBurnoutFraming as RecoveryPayload['user_burnout_framing']) ?? null,
 
     // ── V3 Mission 4 — Personal Experiment Engine ────────────────────────

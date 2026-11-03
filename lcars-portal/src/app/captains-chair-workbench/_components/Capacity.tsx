@@ -57,7 +57,6 @@ export function Capacity({
           <ul className="mt-1 space-y-0.5 text-sm text-wb-ink2">
             <li>Capacity {context ? (CAPACITY_STATE_LABEL[context.available_capacity] ?? context.available_capacity) : 'unknown'}</li>
             {context?.stimulation_context && <li>Stimulation {context.stimulation_context}</li>}
-            <li>Recovery trajectory {context?.strain_or_recovery_context.trajectory.replaceAll('_', ' ') ?? 'unknown'}</li>
           </ul>
           <p className="mt-2 text-sm text-wb-ink">{context?.posture_message}</p>
         </>
