@@ -1,8 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../config/osint_intelligence_missions.json",
   "git": {
     "deploymentEnabled": {
-      "dependabot/**": false
+      "dependabot/**": false,
+      "self-improvement": false
     }
   }
 }
