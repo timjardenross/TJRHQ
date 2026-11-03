@@ -94,6 +94,13 @@ and intentional (mission §15). `NON_LIVE_DOMAIN_KEYS` is derived from these
 flags, not maintained separately, so retirement/disablement is declared in
 exactly one place.
 
+> **Update 2026-11-03:** the "non-live" statements above and in §1 are out of date for
+> `human_systems` and `appointment_prep`. Both now write heartbeats daily
+> (`human_systems` via `human-systems-scheduler`, pgqueuer, currently `dry_run=True`;
+> `appointment_prep` via `intelligence/proactive_cadences.py`, status `skipped` when there are
+> no appointments). The `domain_registry.active` flags and the `disabled` flag in the portal
+> code have not been changed yet; see `reports/vm-audit/` for the proposed SQL.
+
 A canonical, non-duplicated registry (job metadata declared in the Python
 scheduler code itself, consumed here) was considered and rejected as
 out-of-scope for this uplift: it would require a cross-language contract
