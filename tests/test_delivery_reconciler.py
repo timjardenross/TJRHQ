@@ -130,3 +130,38 @@ def test_stamp_handoff_is_idempotent_when_called_directly(tmp_path):
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+def _terminal_case(tmp_path, status):
+    handoff = _write_handoff(tmp_path, "ENG-HANDOFF-TERMINAL", [
+        "# Engineering Handoff",
+        f"- Batch Status: {status}",
+        "- PR Branch: fix/handoff-t",
+        "- PR URL: https://github.com/timjardenross/TJRHQ/pull/462",
+    ])
+    prs = {"fix/handoff-t": {"number": 462, "state": "merged",
+                              "url": "https://github.com/timjardenross/TJRHQ/pull/462"}}
+    before = handoff.read_text(encoding="utf-8")
+    ledger = _reconcile_with(tmp_path, prs, apply=True)
+    return handoff, before, ledger
+
+
+def test_terminal_statuses_are_never_overwritten_with_merged(tmp_path):
+    # Regression: the reconciler used to rewrite COMPLETED/CANCELLED/... to
+    # MERGED every cycle when the PR was merged, re-dirtying committed handoff
+    # files and blocking auto-deploy's fast-forward.
+    for n, status in enumerate(("COMPLETED", "CANCELLED", "FAILED", "HELD", "completed", " Cancelled ")):
+        sub = tmp_path / f"case{n}"
+        sub.mkdir()
+        handoff, before, ledger = _terminal_case(sub, status)
+        assert handoff.read_text(encoding="utf-8") == before, status
+        assert not any("Batch Status → MERGED" in a for a in ledger["actions_taken"]), status
+
+
+def test_non_terminal_statuses_still_get_stamped_merged(tmp_path):
+    for n, status in enumerate(("DELIVERED", "SUBMITTED", "PENDING")):
+        sub = tmp_path / f"case{n}"
+        sub.mkdir()
+        handoff, _before, ledger = _terminal_case(sub, status)
+        assert "Batch Status: MERGED" in handoff.read_text(encoding="utf-8"), status
+        assert any("Batch Status → MERGED" in a for a in ledger["actions_taken"]), status
