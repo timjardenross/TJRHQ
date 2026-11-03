@@ -343,9 +343,10 @@ class TestScheduleTimezone(unittest.TestCase):
             self.assertEqual(hss._jobs_due(self.datetime(2027, 1, 15, 7, 0, tzinfo=brisbane), hss.JOBS), ["morning"])
 
     def test_unknown_timezone_fails_loudly_not_silently_utc(self):
-        with patch.dict("os.environ", {"HS_SCHEDULE_TZ": "Not/AZone"}):
-            with self.assertRaises(Exception):
-                hss._timezone()
+        from zoneinfo import ZoneInfoNotFoundError
+        with patch.dict("os.environ", {"HS_SCHEDULE_TZ": "Not/AZone"}), \
+                self.assertRaises(ZoneInfoNotFoundError):
+            hss._timezone()
 
     def test_a_job_starts_once_per_local_minute(self):
         started, fired = [], {}
