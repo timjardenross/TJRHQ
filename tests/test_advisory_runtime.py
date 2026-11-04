@@ -88,8 +88,17 @@ def test_score_confidence_blends_officers():
     assert high.value > low.value
 
 
-def test_gather_related_decisions_matches_known_topic():
-    # The decision logs contain "Slack ... Voice Core" decisions.
+def test_gather_related_decisions_matches_known_topic(tmp_path, monkeypatch):
+    # logs/ is gitignored, so a clean checkout (CI) has no decision logs.
+    # Build our own fixture log instead of depending on what is on disk.
+    import json
+    (tmp_path / "dec-001.json").write_text(json.dumps({
+        "decision_id": "dec-001",
+        "question": "Should we prioritise Slack over Voice Core?",
+        "recommended_action": "Voice Core first",
+        "timestamp": "2026-06-10T00:00:00Z",
+    }), encoding="utf-8")
+    monkeypatch.setattr(evidence_mod, "_DECISIONS_DIR", tmp_path)
     decisions = evidence_mod.gather_related_decisions("Should we prioritise Slack over Voice Core?")
     assert decisions, "expected at least one related decision"
     assert all(isinstance(d, schema.RelatedDecision) for d in decisions)
