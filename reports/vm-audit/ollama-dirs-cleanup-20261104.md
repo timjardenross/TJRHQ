@@ -47,3 +47,29 @@ Targets: `/root/ollama-0.30.10-backup` (2.1G), `/root/ollama-0.35.1-staging` (3.
 - (b) Edit the evidence report to drop the paths, then re-run.
 
 Nothing was removed, so `/usr/local/bin/ollama`, `/usr/share/ollama` and the models directory are untouched.
+
+---
+
+# Part 2: removal (Captain approved, 2026-11-04)
+
+Captain's decisions: 0.35.1 upgrade abandoned; removal of both dirs approved; the 2 reference hits in `vm-evidence-20261103-110813.md` accepted as benign (that report was not edited). Gate cleared by the Captain's decision, not by the original criteria.
+
+| # | Step | Command | Result | Label |
+|---|------|---------|--------|-------|
+| 1 | Pre-check | `systemctl is-active ollama`; `ollama --version`; `readlink -f $(command -v ollama)` | `active`; `0.30.10`; `/usr/local/bin/ollama` | VERIFIED |
+| 2 | Space before | `df -h /` | 140G used, 249G avail | VERIFIED |
+| 3 | Safety copy | `mkdir -p /root/ollama-dirs-removed-2026-11-04 && tar -C /root -cf .../ollama-dirs.tar ollama-0.30.10-backup ollama-0.35.1-staging` | 5,927,475,200 bytes (5.5G). `df`: 145G used while the tar existed | VERIFIED |
+| 4 | Verify tar | `tar -tf` and compare to `find` | `tar -tf` OK. Entries (incl. dirs): backup 63 vs 63, staging 71 vs 71. Non-dir entries: 55 vs 55 (38 files + 17 symlinks) and 63 vs 63 (46 + 17). Content was not extracted or checksummed | VERIFIED (listing); UNKNOWN (byte-level content) |
+| 5 | Remove staging | `rm -rf /root/ollama-0.35.1-staging` | rc=0; `is-active` = `active`; `ollama list` = 15 models | VERIFIED |
+| 6 | Remove backup | `rm -rf /root/ollama-0.30.10-backup` | rc=0; `is-active` = `active`; `ollama list` = 15 models; `ollama --version` = 0.30.10; `ls /root/ollama-0*` = no such file | VERIFIED |
+| 7 | Space after | `df -h /` | 140G used, 249G avail | VERIFIED |
+| 8 | Schedule cleanup | `systemd-run --on-calendar='2026-11-11 03:00' rm -rf /root/ollama-dirs-removed-2026-11-04` | Timer `run-rbe4844dbf16a467daf9c0cf0aa6cf94e.timer`, service `run-rbe4844dbf16a467daf9c0cf0aa6cf94e.service` | VERIFIED (created); fire not yet observed |
+
+## Result
+
+- **Removed:** `/root/ollama-0.35.1-staging` (3.5G) and `/root/ollama-0.30.10-backup` (2.1G).
+- **Space:** about 5.6G freed from the dirs, and about 5.5G taken by the safety tar, so `df` shows 140G used before and after (net zero until the tar is deleted). After deletion on 2026-11-11, about 5.6G is net reclaimed.
+- **Ollama:** active, 0.30.10, 15 models after each removal. `/usr/local/bin/ollama`, `/usr/share/ollama` and the models dir were not touched.
+- **Rollback:** `/root/ollama-dirs-removed-2026-11-04/ollama-dirs.tar`. Restore with `tar -C /root -xf /root/ollama-dirs-removed-2026-11-04/ollama-dirs.tar`. It is deleted automatically on 2026-11-11 03:00 by the timer above. To cancel: `systemctl stop run-rbe4844dbf16a467daf9c0cf0aa6cf94e.timer`.
+- **Not in restic:** the tar is local only (same disk), so it protects against a mistaken removal but not disk loss.
+- **Note:** `RESTORE.sh` and the 0.30.10 backup are gone from `/root` unless the tar is extracted. The tar is the only copy for 7 days.
