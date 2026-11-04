@@ -32,9 +32,10 @@ Method (names and hash-style equality only; no values printed): ran `run-with-in
 - **Values: not identical.**
   - `.env`: 37 identical, 6 differ (BRIGHTDATA_API_KEY, BRIGHTDATA_ZONE, GEMINI_API_KEY, GEMINI_BILLING_API_KEY, MISTRAL_API_KEY, MISTRAL_BATCH_API_KEY).
   - `platform-runtime/.env`: 43 identical, 8 differ (BRIEF_CHANNEL, BRIGHTDATA_API_KEY, EMBEDDING_PROVIDER, GEMINI_API_KEY, GEMINI_BILLING_API_KEY, MISTRAL_API_KEY, SUPABASE_ANON_KEY, TELEGRAM_BOT_TOKEN).
-- In the live process, 7 of the differing variables carry the Infisical value (the key/token ones), but **BRIGHTDATA_ZONE, BRIEF_CHANNEL and EMBEDDING_PROVIDER carry the `.env` value** (VERIFIED). So removing the `EnvironmentFile=` lines would very likely change those three on the next restart. Whether that is wanted: UNKNOWN. It may simply mean Infisical holds a stale value for them, or the process predates an Infisical edit (process start time not checked).
+- **Correction (2026-11-05, see installs report):** the first version of this section said BRIGHTDATA_ZONE, BRIEF_CHANNEL and EMBEDDING_PROVIDER carried the `.env` value in the live process and that removing the lines would change them. That was wrong: I compared the live process against each `.env` separately, but the two `.env` files **disagree with each other** on those three, and systemd layers them in order. Comparing all three sources, the **live process value equals the Infisical value for all three** (VERIFIED), so removing the `EnvironmentFile=` lines changes none of them today.
+- The 7 other differing variables (API keys/tokens) also carry the Infisical value in the live process.
 
-Conclusion: wrapper covers every variable *name*; it does not guarantee the same *values* for 3 non-secret settings. Before removing the lines, decide the right value for BRIGHTDATA_ZONE, BRIEF_CHANNEL and EMBEDDING_PROVIDER and set it in Infisical. The `.env.bak-*` and `.env` files stay in the backup either way.
+Conclusion: the wrapper covers every variable name and, for every differing one, the live process already uses the wrapper's (Infisical) value. Removing the lines looks safe for these variables; the `.env` files hold conflicting stale values (e.g. EMBEDDING_PROVIDER `ollama` vs `mistral`) and are a hazard if someone relies on them. `command-bus` was started 2026-11-01; a restart would re-read Infisical at that time (UNKNOWN whether Infisical changed since).
 
 ## 3. Venv freeze (PR #576)
 
@@ -60,6 +61,6 @@ Notes:
 ## Open decisions for the Captain
 
 1. Tell me when #572 is merged to run section 1.
-2. command-bus: allowlist the three `EnvironmentFile=` lines in the hook with justification, or remove them after fixing the three differing values in Infisical.
+2. command-bus: allowlist the three `EnvironmentFile=` lines in the hook with justification, or remove them from the live unit (the live values already come from Infisical; see correction above).
 3. Installing the backup change means copying `deploy/starship-backup.sh` to `/opt/starship-backup/backup.sh` (not done).
 4. Still-open from the drift report: 17 units lacking `After=docker.service`, human-systems-scheduler, starship-meilisearch inline master key.
