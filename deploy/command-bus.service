@@ -10,12 +10,12 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/starship-endeavour
-# Live unit also lists these optional raw .env files (the "-" prefix makes them non-fatal).
-# Commented out in the tracked copy so it passes the no-raw-env-secrets hook; secrets come from
-# Infisical via run-with-infisical-bot.sh below. Live files may be absent.
-# EnvironmentFile=-/opt/starship-endeavour/.env
-# EnvironmentFile=-/opt/starship-endeavour/platform-runtime/.env
-# EnvironmentFile=-/opt/starship-endeavour/telegram-bot/.env
+# No EnvironmentFile= on purpose: secrets and shared config come from Infisical via
+# run-with-infisical-bot.sh below. The live unit used to also load /opt/starship-endeavour/.env,
+# platform-runtime/.env and telegram-bot/.env; on 2026-11-05 every variable whose value differed
+# between those files and Infisical was checked and the running process already used the Infisical
+# value for all of them (telegram-bot/.env does not exist). Those files hold stale, conflicting
+# values (e.g. EMBEDDING_PROVIDER mistral vs ollama), so do not re-add them.
 ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical-bot.sh xo -- /opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.coordination.command_bus run
 Restart=always
 RestartSec=30
