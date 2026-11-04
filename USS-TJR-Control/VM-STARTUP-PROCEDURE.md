@@ -60,6 +60,9 @@ systemctl --failed
 # Docker stack
 docker ps --format "table {{.Names}}\t{{.Status}}"
 
+# LLM-security venv (model-router guardrails fail closed without it)
+/opt/starship-endeavour/deploy/provision-llmsec-venv.sh --check
+
 # End-to-end through Caddy
 curl -sk https://109.123.227.196/health
 curl -sk -o /dev/null -w "%{http_code}\n" https://109.123.227.196/
@@ -85,6 +88,11 @@ every wrapped unit — check `systemctl cat <unit>`'s `ExecStart` before
 assuming a `.env` file is what a given service actually reads.
 
 ## Critical rules
+
+0. `platform-runtime/.venv-llmsec` is gitignored and hand-provisioned, but
+   `model-router` and `self-improving-system` depend on it by path. Never delete
+   it in a clean-up; rebuild with `deploy/provision-llmsec-venv.sh` after a
+   rebuild or if `--check` fails.
 
 1. Every backend process is systemd-managed. There is no pm2 anymore — if
    you find yourself reaching for `pm2 restart`, that's a sign this doc (or
