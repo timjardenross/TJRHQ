@@ -108,3 +108,17 @@ Rollback root: `/root/unit-rollback-2026-11-05b/etc/systemd/system/<file>`; to r
 2. self-improving-system.timer: 07:00 on the VM vs 04:30 in the repo; not changed.
 3. Still-untouched drift from the earlier report: human-systems-scheduler (repo ahead, installed uses a drop-in), starship-meilisearch (inline master key on the VM), and the units not on this list.
 4. Pending from the previous brief: `/root/verify-backup-after-0245.sh` after 02:45 Fri, and the self-improving-system check after its next run (now ~07:03 Fri, not 07:04).
+
+## Addendum: self-improving-system.timer switched to 04:30 (Captain approved), 2026-11-05 ~09:46
+
+| Step | Result | Status |
+|---|---|---|
+| Backup | `/root/unit-rollback-2026-11-05b/self-improving-system.timer.pre-0430` (state just before install, `Requires=` already removed). The original with `Requires=` is at `.../etc/systemd/system/self-improving-system.timer` | VERIFIED |
+| Diff vs `deploy/self-improving-system.timer` (main @ `09ace768b`) | only `OnCalendar` (07:00 -> 04:30) plus comments. `Persistent=true`, `RandomizedDelaySec=5min`, `[Install]` identical | VERIFIED |
+| Install | repo file installed, 644 root:root, `cmp` equal; `daemon-reload` done (`NeedDaemonReload=no`) | VERIFIED |
+| `systemctl restart self-improving-system.timer` | timer `active`, service stays `inactive`, no new service journal entries | VERIFIED |
+| Next run | `systemctl list-timers`: **Fri 2026-11-06 04:30:55 AEDT** (04:30 + up to 5 min random delay) | VERIFIED |
+| No immediate catch-up | persistence stamp `stamp-self-improving-system.timer` unchanged at 2026-11-05 07:03:45, later than today's 04:30 slot, so `Persistent=true` had nothing to catch up; service not started | VERIFIED |
+| The 04:30 run itself, finishing before the 05:00 downdetector recompute and 07:00 brief | not yet observed | UNKNOWN |
+
+Checks for tomorrow are in `/root/tomorrow-checks-2026-11-06.md`: the run is now looked at about 04:35 (not 07:03) and must have exited before 05:00 (`ExecMainExitTimestamp`) and the 07:00 brief. The worst-case runtime to compare against is the unit's 30 min `TimeoutStartSec`, which would end 05:05 at the latest, so a slow run could still overlap the 05:00 job: check the actual duration (the 2026-11-05 manual cycle took about 50 s).
