@@ -1,0 +1,11 @@
+[Unit]
+Description=USS TJR Capture Enrichment Worker — every 15 min
+Requires=capture-enrichment.service
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

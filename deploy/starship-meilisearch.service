@@ -1,0 +1,21 @@
+[Unit]
+Description=Starship Endeavour — Meilisearch unified search backend
+After=network.target
+Documentation=https://www.meilisearch.com/docs
+
+# NOTE (sanitized copy): the live unit passes --master-key inline in ExecStart. The value is
+# deliberately not committed. Before deploying this file, supply the key via an EnvironmentFile=
+# (MEILI_MASTER_KEY) and drop the --master-key flag, or substitute it on the host.
+[Service]
+Type=simple
+WorkingDirectory=/var/lib/meilisearch
+ExecStart=/usr/local/bin/meilisearch \
+    --master-key <set via Infisical or EnvironmentFile> \
+    --db-path /var/lib/meilisearch
+StandardOutput=append:/var/log/starship/meilisearch.log
+StandardError=append:/var/log/starship/meilisearch.log
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

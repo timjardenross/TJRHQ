@@ -1,0 +1,21 @@
+[Unit]
+Description=Starfleet Command Centre — Backend API (Express, was PM2-managed)
+Documentation=file:///opt/starship-endeavour/core/command-centre/backend/ecosystem.config.js
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour/core/command-centre/backend
+Environment=NODE_ENV=production
+Environment=PORT=5000
+# app.js does its own dotenv loading (repo-root .env + local backend/.env
+# fallback) — same as it did under PM2, no EnvironmentFile= needed here.
+ExecStart=/root/.nvm/versions/node/v24.18.0/bin/node app.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=command-centre
+
+[Install]
+WantedBy=multi-user.target

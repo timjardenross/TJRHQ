@@ -1,0 +1,26 @@
+[Unit]
+# Command Operations Bus — cross-service routing and health orchestration.
+# Polls Supabase and systemd state every COMMAND_BUS_INTERVAL seconds (default 300).
+# Rules: executor_stuck | service_health | executor_needs_restart | new_missions
+# Routes alerts to Slack + Telegram; self-heals executor when approved work is queued.
+Description=Starship Command Operations Bus
+After=network-online.target docker.service starfleet-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour
+# Live unit also lists these optional raw .env files (the "-" prefix makes them non-fatal).
+# Commented out in the tracked copy so it passes the no-raw-env-secrets hook; secrets come from
+# Infisical via run-with-infisical-bot.sh below. Live files may be absent.
+# EnvironmentFile=-/opt/starship-endeavour/.env
+# EnvironmentFile=-/opt/starship-endeavour/platform-runtime/.env
+# EnvironmentFile=-/opt/starship-endeavour/telegram-bot/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical-bot.sh xo -- /opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.coordination.command_bus run
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

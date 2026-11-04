@@ -1,0 +1,21 @@
+[Unit]
+Description=Starship Endeavour Chatterbox TTS (Nano, CPU)
+After=network.target docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour/core/voice
+Environment=CHATTERBOX_PORT=8893
+Environment=HF_HUB_DISABLE_XET=1
+# 2026-09-05: wrapped with run-with-infisical.sh (same pattern as
+# intelligence-scheduler.service) to pull TTS_SERVICE_SECRET from
+# Infisical (project USSTJR/prod) instead of a raw .env file — this
+# service is now reachable from the public internet via Caddy, so a
+# real shared secret is required, not optional.
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/core/voice/chatterbox-venv/bin/python /opt/starship-endeavour/core/voice/tts_chatterbox.py
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
