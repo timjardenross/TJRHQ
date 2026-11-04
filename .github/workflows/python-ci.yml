@@ -343,6 +343,33 @@ jobs:
           fi
           exit "$code"
 
+  # Root tests/ folder (186 files, ~2,000 tests). The per-directory matrix above
+  # never ran it, so a change in deploy/ or core/ could break tests/ unseen
+  # (found 2026-11-04: merging deploy/ units broke tests/test_infisical_unit_ordering.py
+  # on main with CI green). Advisory first (continue-on-error): a local run
+  # showed ~37 failures that look like missing optional deps (python-telegram-bot,
+  # flask) plus a few possibly-real ones (test_xo_review_gate). Triage those,
+  # then drop continue-on-error to make it a gate.
+  root-tests:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-timeout
+          pip install -r platform-runtime/requirements.txt
+          pip install -r telegram-bots/xo/requirements.txt
+
+      - name: Run pytest (root tests/)
+        run: python -m pytest tests -q --continue-on-collection-errors
+
   # USS-TJR-MSN-0366 Stream 8. Advisory only (continue-on-error) — this repo
   # already has a hand-rolled dead-code checker (tools/verify_dead_code.py,
   # a per-path evidence report a human/agent runs on demand) but nothing
