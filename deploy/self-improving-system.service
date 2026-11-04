@@ -1,7 +1,7 @@
 [Unit]
 Description=USS TJR Self-Improving System
 Documentation=file:///opt/starship-endeavour/docs/self-improvement/DECISION-REMEDIATION-WORKFLOW.md
-After=network.target
+After=network.target docker.service
 # 2026-09-15 adversarial review: the live deployed unit had drifted from
 # this file (still ran orchestrator.py directly, pre-MSN-0377) and was
 # crash-looping every ~5.5min for 3+ days (518 restarts) because the
@@ -29,6 +29,11 @@ Environment="PATH=/opt/starship-endeavour/scripts/self_improvement/.venv/bin:/us
 # anyone noticed. run_daily_cycle.sh gives this its own dedicated worktree,
 # permanently on `self-improvement`, so the branch check now passes by
 # construction. See knowledge/missions/USS-TJR-MSN-0377-knowledge-record.md.
+# 2026-09-18: heartbeat.py needs SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY to
+# record_heartbeat(); this unit never had them (no EnvironmentFile=, no
+# infisical wrapper), so every cycle's heartbeat silently dropped. Wrapped
+# with the same run-with-infisical.sh every other deploy/*.service unit
+# uses (see model-router.service) to inject prod secrets.
 #
 # Wait up to 30s for the model-router (127.0.0.1:8891) to answer /health
 # before the cycle starts. A router restart takes ~7s to begin listening;
@@ -37,7 +42,7 @@ Environment="PATH=/opt/starship-endeavour/scripts/self_improvement/.venv/bin:/us
 # orchestrator still reports its own, clearer "router unavailable" error.
 # ($$ because systemd would otherwise expand $i / $(...) itself.)
 ExecStartPre=/bin/sh -c 'for i in $$(seq 30); do curl -fs -o /dev/null http://127.0.0.1:8891/health && exit 0; sleep 1; done; echo "model-router not healthy after 30s, continuing" >&2'
-ExecStart=/opt/starship-endeavour/scripts/self_improvement/run_daily_cycle.sh
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/scripts/self_improvement/run_daily_cycle.sh
 
 # Logging
 StandardOutput=journal
