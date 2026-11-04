@@ -1,7 +1,6 @@
 [Unit]
 Description=USS TJR Daily Operating Cycle Timer
 Documentation=file:///opt/starship-endeavour/Missions/Active/USS-TJR-MSN-0390-officer-cycle-adoption.md
-Requires=daily-ops-cycle.service
 
 [Timer]
 # USS-TJR-MSN-0210L/M convergence (2026-09-26). Picked 06:50 Australia/

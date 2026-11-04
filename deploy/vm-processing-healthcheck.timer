@@ -1,6 +1,5 @@
 [Unit]
 Description=USS TJR VM Knowledge Processing health check — every 30 min
-Requires=vm-processing-healthcheck.service
 
 [Timer]
 OnCalendar=*:0/30

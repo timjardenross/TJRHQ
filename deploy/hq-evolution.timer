@@ -1,7 +1,6 @@
 [Unit]
 Description=USS TJR HQ Evolution Timer
 Documentation=file:///opt/starship-endeavour/docs/self-improvement/HQ-EVOLUTION.md
-Requires=hq-evolution.service
 
 [Timer]
 # Run daily at 03:00 Melbourne local time (host TZ Australia/Melbourne,

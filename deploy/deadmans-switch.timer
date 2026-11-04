@@ -1,6 +1,5 @@
 [Unit]
 Description=Run the Starship dead-man's switch every 10 minutes
-Requires=deadmans-switch.service
 
 [Timer]
 OnBootSec=5min

@@ -1,7 +1,6 @@
 [Unit]
 Description=Run Mission Engineering Auto-Dispatch every 15 minutes
 Documentation=file:///opt/starship-endeavour/core/engineering/mission_dispatch.py
-Requires=mission-engineering-dispatch.service
 
 [Timer]
 # Same cadence convention as verification-engine.timer (OnBootSec +

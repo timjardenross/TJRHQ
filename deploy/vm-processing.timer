@@ -1,6 +1,5 @@
 [Unit]
 Description=USS TJR VM Knowledge Processing Worker — every 10 min
-Requires=vm-processing.service
 
 [Timer]
 OnCalendar=*:0/10

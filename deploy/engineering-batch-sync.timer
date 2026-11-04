@@ -1,6 +1,5 @@
 [Unit]
 Description=Run engineering handoff batch sync every 30 minutes
-Requires=engineering-batch-sync.service
 
 [Timer]
 OnBootSec=5min
