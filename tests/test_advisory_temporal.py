@@ -56,13 +56,22 @@ def seeded(tmp_path, monkeypatch):
 
 # --- Timeline / Temporal (WP1) --------------------------------------------
 
-def test_timeline_loads_events():
+def test_timeline_loads_events(tmp_path, monkeypatch):
+    import json
+
     import timeline
     importlib.reload(timeline)
+    # logs/ is gitignored, so a clean checkout (CI) has no decision logs.
+    # Build our own fixture log instead of depending on what is on disk.
+    (tmp_path / "dec-001.json").write_text(json.dumps({
+        "decision_id": "dec-001",
+        "question": "Should we prioritise Slack over Voice Core?",
+        "timestamp": "2026-06-10T00:00:00Z",
+    }), encoding="utf-8")
+    monkeypatch.setattr(timeline, "_DECISIONS_DIR", tmp_path)
     events = timeline.load_events()
     assert isinstance(events, list)
-    # repo has decision logs even with empty advisory store
-    assert any(e.kind == "decision" for e in events)
+    assert any(e.kind == "decision" and e.ref == "dec-001" for e in events)
 
 
 def test_temporal_queries_return_narratives():

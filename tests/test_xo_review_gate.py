@@ -45,6 +45,18 @@ class TestOpenFilesPrConditionalAllowExisting(unittest.TestCase):
     def setUp(self):
         self.patchers = [
             patch.object(batch_coding, "_env_value", side_effect=self._env),
+            # 2026-11-01: _open_files_pr now runs version_bump_guard on every
+            # version-bump title and rejects files that aren't an existing
+            # manifest with only the package version changed. These tests are
+            # about the allow_existing flag and the XO review hook, not the
+            # guard (covered by its own tests), and they pass a stand-in
+            # "requirements.txt" that doesn't exist at the repo root, so
+            # without this the guard rejects it before the code under test runs.
+            patch.object(
+                batch_coding.version_bump_guard,
+                "filter_version_bump_files",
+                side_effect=lambda title, files, read_existing: (dict(files), {}),
+            ),
         ]
         for p in self.patchers:
             p.start()
