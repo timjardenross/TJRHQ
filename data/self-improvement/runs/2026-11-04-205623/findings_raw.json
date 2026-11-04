@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model Router Call Log Missing",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Model router status reports call_log_exists as false and call_log_size_mb as null despite router being reachable.",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router service properly creates and writes to the configured call log path (/opt/starship-endeavour/core/model-router/call_log.jsonl)."
+      },
+      "expected_benefit": "Restores visibility into routing metrics, token usage, latency, and failure rates."
+    },
+    {
+      "category": "operational_failure",
+      "title": "Recent Model Router Invocations Failing",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Model router reports 5 recent failed calls with null recent_avg_ms.",
+          "location": "model_router_audit.router_status.recent_failed"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "high",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Investigate routing daemon failure modes and verify downstream endpoints including Ollama and cloud provider credentials."
+      },
+      "expected_benefit": "Eliminates call dropouts and prevents upstream service degradation."
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct API Calls Bypass Model Router in Emergency Alert Service",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Hardcoded calls to call_gemini and call_mistral accessing GEMINI_API_KEY and MISTRAL_API_KEY directly rather than routing through port 8891.",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency alert generation to invoke the centralized model router endpoint rather than invoking vendor SDKs directly."
+      },
+      "expected_benefit": "Ensures uniform telemetry, centralized fallback handling, and policy adherence for LLM usage."
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 Stubs in Research Commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO comments referencing Phase 5 implementation for Supabase authorization checking and decision_to_memory integration.",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "TODO comment: recent_anomalies = [] # TODO: Query quality_anomalies table.",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Complete Phase 5 authorization and decision_to_memory integration or document them in trackable issues."
+      },
+      "expected_benefit": "Prevents missing authorization enforcement and completes downstream quality forecasting integration."
+    }
+  ]
+}
