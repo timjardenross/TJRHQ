@@ -343,16 +343,13 @@ jobs:
           fi
           exit "$code"
 
-  # Root tests/ folder (186 files, ~2,000 tests). The per-directory matrix above
-  # never ran it, so a change in deploy/ or core/ could break tests/ unseen
-  # (found 2026-11-04: merging deploy/ units broke tests/test_infisical_unit_ordering.py
-  # on main with CI green). Advisory first (continue-on-error): a local run
-  # showed ~37 failures that look like missing optional deps (python-telegram-bot,
-  # flask) plus a few possibly-real ones (test_xo_review_gate). Triage those,
-  # then drop continue-on-error to make it a gate.
+  # Root tests/ folder (~2,000 tests). The per-directory matrix above never ran
+  # it, so a change in deploy/ or core/ could break tests/ unseen (found
+  # 2026-11-04: merging deploy/ units broke tests/test_infisical_unit_ordering.py
+  # on main with CI green). Advisory first (#566); the 4 failing tests were fixed
+  # in #583, and this job is now a required input to merge-gate.
   root-tests:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -805,7 +802,7 @@ jobs:
   # decision, by design (unchanged from before this mission).
   merge-gate:
     needs:
-      [changes, actionlint, precommit-secrets, precommit-security, precommit-lint, test]
+      [changes, actionlint, precommit-secrets, precommit-security, precommit-lint, root-tests, test]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -816,6 +813,7 @@ jobs:
           R_SECRETS: ${{ needs['precommit-secrets'].result }}
           R_SECURITY: ${{ needs['precommit-security'].result }}
           R_LINT: ${{ needs['precommit-lint'].result }}
+          R_ROOT_TESTS: ${{ needs['root-tests'].result }}
           R_TEST: ${{ needs.test.result }}
           MATRIX_JSON: ${{ needs.changes.outputs.matrix }}
         run: |
@@ -837,6 +835,7 @@ jobs:
           check_required "precommit-secrets" "$R_SECRETS"
           check_required "precommit-security" "$R_SECURITY"
           check_required "precommit-lint" "$R_LINT"
+          check_required "root-tests" "$R_ROOT_TESTS"
 
           # `test` only runs when `changes`' matrix is non-empty (see the
           # `test` job's own `if:`). `success` always passes. `skipped`

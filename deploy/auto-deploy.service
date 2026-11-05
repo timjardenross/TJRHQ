@@ -12,14 +12,18 @@
 Description=Pull-based auto-deploy (git pull --ff-only + scoped service restarts)
 After=network-online.target
 Wants=network-online.target
-# OnFailure alerting was added 2026-09-15 after this unit failed silently
-# for 3+ days straight, but turned out too aggressive in practice: it
-# pages on every 5-minute retry for as long as the tree is legitimately
-# dirty mid-edit (a normal, expected state during active development on
-# this checkout), not just on a real failure. Disabled per explicit
-# request (2026-09-15) rather than tuned — dirty-tree aborts are visible
-# in `systemctl status auto-deploy.service` / journalctl on demand.
-#OnFailure=alert-on-failure@%n.service
+# OnFailure alerting was added 2026-09-15, then disabled the same day
+# after it paged on every 5-minute retry for as long as the tree is
+# legitimately dirty mid-edit (a normal, expected state during active
+# development on this checkout) — that also silenced paging for every
+# genuine failure (diverged history, npm build failure, restart failure).
+# 2026-09-15 second pass: re-enabled with the noise filtered at the
+# source instead of removed outright — tools/alert_on_systemd_failure.py
+# now recognises this unit's specific "ABORT: working tree is dirty"
+# message and skips paging only for that one expected condition, so a
+# real failure still pages while the routine dirty-tree case stays
+# silent (still visible on demand via `systemctl status` / journalctl).
+OnFailure=alert-on-failure@%n.service
 
 [Service]
 Type=oneshot
@@ -34,15 +38,6 @@ Type=oneshot
 User=deploy
 Environment=AUTO_DEPLOY_SYSTEMCTL=/opt/starship-endeavour/deploy/sudo-scoped-restart.sh
 WorkingDirectory=/opt/starship-endeavour
-# 2026-09-23: root-run jobs sharing this tree kept creating .git/objects/xx/
-# dirs as mode 2755, so fetches as `deploy` failed roughly daily with
-# "insufficient permission for adding an object to repository database".
-# `+` runs this one step as root (User= ignored) to set
-# core.sharedRepository=group and repair anything already wrong - see
-# deploy/repair-git-perms.sh. Points at the promoted /opt/deploy-guard copy,
-# never the in-repo source, which `deploy` can write to. `-` so a missing
-# (not yet promoted) copy doesn't block deploys by itself.
-ExecStartPre=-+/opt/deploy-guard/repair-git-perms.sh
 ExecStart=/opt/starship-endeavour/deploy/auto-deploy.sh
 StandardOutput=journal
 StandardError=journal

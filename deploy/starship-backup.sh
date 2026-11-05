@@ -151,10 +151,52 @@ fi
 # --- small state captures
 ufw status numbered >"$STAGE/ufw-status.txt" 2>&1 || true
 crontab -l >"$STAGE/crontab-root.txt" 2>&1 || true
-# chatterbox-tts venv (core/voice/chatterbox-venv, ~6 GB, untracked + gitignored) is NOT backed up;
-# record its package set instead so it can be rebuilt.
-CB_PIP="$REPO_ROOT/core/voice/chatterbox-venv/bin/pip"
-if [ -x "$CB_PIP" ]; then "$CB_PIP" freeze >"$STAGE/chatterbox-venv-freeze.txt" 2>&1 || true; fi
+# --- venv freezes
+# None of the Python venvs below is backed up (they are untracked + gitignored, 0.1-6.7 GB each).
+# Record what is needed to rebuild each one instead: the exact package set (pip freeze), the
+# interpreter version and a copy of pyvenv.cfg (the venvs link to the OS python, so an OS upgrade
+# breaks all of them at once and the freeze alone does not say which interpreter to rebuild with).
+#
+# NOT captured by `pip freeze`: the extra index URL used for the torch / CUDA wheels in
+# platform-runtime/.venv and core/infrastructure/vm-processing/.venv. A rebuild must pass the
+# same --extra-index-url (or use the matching requirements*.txt) to get the same wheels.
+#
+# A missing venv or a failed freeze is logged as "venv freeze failed for <path>" and skipped. It is
+# deliberately NOT passed to fail(): losing a freeze must never make the nightly backup fail.
+VENVS=(
+  platform-runtime/.venv
+  core/infrastructure/vm-processing/.venv
+  scripts/self_improvement/.venv
+  tools/supabase/.venv
+  core/voice/chatterbox-venv
+)
+mkdir -p "$STAGE/venv-freeze"
+for v in "${VENVS[@]}"; do
+  vslug="${v//\//_}"
+  vdir="$REPO_ROOT/$v"
+  vout="$STAGE/venv-freeze/$vslug"
+  if [ ! -x "$vdir/bin/pip" ]; then
+    log "venv freeze failed for $v: $vdir/bin/pip not found"
+    continue
+  fi
+  # stderr goes to its own file so a pip error can never end up inside the freeze file
+  if ! "$vdir/bin/pip" freeze >"$vout.freeze.txt" 2>"$vout.pip-stderr.txt"; then
+    log "venv freeze failed for $v: pip freeze exited non-zero"
+    rm -f "$vout.freeze.txt"
+    continue
+  fi
+  if [ ! -s "$vout.freeze.txt" ]; then
+    log "venv freeze failed for $v: pip freeze produced no packages"
+    rm -f "$vout.freeze.txt"
+    continue
+  fi
+  "$vdir/bin/python3" --version >"$vout.python.txt" 2>&1 \
+    || log "venv freeze failed for $v: python3 --version did not run"
+  cp "$vdir/pyvenv.cfg" "$vout.pyvenv.cfg" 2>/dev/null \
+    || log "venv freeze failed for $v: pyvenv.cfg not copied"
+  [ -s "$vout.pip-stderr.txt" ] || rm -f "$vout.pip-stderr.txt"
+  log "venv freeze ok: $v ($(wc -l <"$vout.freeze.txt") packages, $(cat "$vout.python.txt" 2>/dev/null))"
+done
 
 # --- 4. restic backup
 log "4/5 restic backup"

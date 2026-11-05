@@ -1,6 +1,5 @@
 [Unit]
 Description=USS TJR Capture Enrichment Worker — every 15 min
-Requires=capture-enrichment.service
 
 [Timer]
 OnCalendar=*:0/15

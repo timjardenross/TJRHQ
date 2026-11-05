@@ -1,7 +1,6 @@
 [Unit]
 Description=USS TJR Self-Improving System Timer
 Documentation=file:///opt/starship-endeavour/docs/self-improvement/DECISION-REMEDIATION-WORKFLOW.md
-Requires=self-improving-system.service
 
 [Timer]
 # HQ V1 Integration QA §23 fix (Deferred Gap I5): previously ran at 07:00,

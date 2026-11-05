@@ -1,6 +1,5 @@
 [Unit]
 Description=Run the Starship verification engine every 5 minutes
-Requires=verification-engine.service
 
 [Timer]
 OnBootSec=2min

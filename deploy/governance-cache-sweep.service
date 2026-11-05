@@ -6,11 +6,21 @@
 # re-processing, so they went stale indefinitely instead of being
 # refreshed. This gives it the same polling-timer pattern every other
 # periodic job on this VM uses (see delivery-reconciler.timer).
+#
+# 2026-09-15 SECOND adversarial pass: the unit above ran with no
+# SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY in its environment (no
+# EnvironmentFile=, no Infisical wrapper, unlike every other credentialed
+# oneshot on this host) — event_listeners.py's _get_client() returned
+# None every run, so sweep_expired_governance_cache() unconditionally
+# returned [] and logged "Re-queued 0 item(s)", indistinguishable from a
+# healthy zero-backlog run. Wired through run-with-infisical.sh (the
+# repo's canonical live-secrets source, per platform-runtime/.env's own
+# migration note) so it actually gets real credentials.
 Description=Re-queue captured_items with expired governance cache for re-assessment
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/starship-endeavour
-ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.inbox.event_listeners >> /opt/starship-endeavour/outputs/governance_cache_sweep.log 2>&1'
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.inbox.event_listeners >> /opt/starship-endeavour/outputs/governance_cache_sweep.log 2>&1'
