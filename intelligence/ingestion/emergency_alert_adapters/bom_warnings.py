@@ -116,7 +116,7 @@ SOURCE_INFO = {
         "No AWS tier (Advice / Watch and Act / Emergency Warning) exists in BOM's feed, so every BOM row is severity 'unknown'; BOM's own flood intensity words (Minor / Moderate / Major) are a different scale and are not mapped. High-attention emails use the platform's own bom_attention label.",
         "Products whose name matches no keyword are dropped (counted excluded_unmatched_product), so a NEW BOM warning product is invisible until a keyword is added.",
         "Needs a browser-shaped User-Agent (BOM 403s the shared default); detail pages are best-effort and fall back to a title-only alert.",
-        "The detail-page 'Issued at' line varies by state (AEST, bare EST/EDT, long 'Australian Eastern Daylight Time', trailing full stop, or no timezone at all on bom_wa); fixed 2026-11-06 after 57 of 91 stored rows had issued_at NULL. A line with no timezone is read as the state's local time only for states without daylight saving (WA +8, QLD +10, NT +9:30); NSW/VIC/SA/TAS/ACT lines with no timezone stay unparsed (issued_at NULL) rather than guessed. emergency_alerts._issued_text still reads the stored text as a fallback.",
+        "The detail-page 'Issued at' line varies by state (AEST, bare EST/EDT, long 'Australian Eastern Daylight Time', trailing full stop, or no timezone at all on bom_wa); fixed 2026-11-06 after 57 of 91 stored rows had issued_at NULL. A line with no timezone is read as the state's local time: a constant offset for states without daylight saving (WA +8, QLD +10, NT +9:30) and the IANA zone for NSW/ACT (Sydney), VIC (Melbourne), SA (Adelaide) and TAS (Hobart), so the daylight-saving offset for that date is applied (before 2026-11-06 these lines were left NULL; the 15 stored rows were backfilled that day and each lands 0-1 minute before its RSS pubDate). emergency_alerts._issued_text still reads the stored text as a fallback.",
         "CAP fields (cap_event / cap_urgency / cap_certainty / cap_severity) come from the WMO mirror of BoM's CAP-AU stream (bom_cap.py), matched to each RSS alert by warning type plus location words, or by a unique same-type message sent within 90 s of the RSS pubDate for the same state. The RSS items and bulletin pages carry no product code, so the match is conservative: ambiguous or unmatched alerts keep no CAP fields (18 of 24 non-marine items matched when measured 2026-11-06, none wrongly; unmatched were older QLD flood warnings beyond the index's ~8-day window). BoM CAP severity is a different scale from our tier and is never used for it; urgency and certainty are often 'Unknown'. Measured 2026-11-06: 120 of 120 sampled CAP messages validate against the OASIS CAP 1.2 XSD and 115 of 120 against the CAP-AU v3.0 XSD (the 5 are Bushwalkers Weather Alerts whose <event> 'Exposure' is outside the CAP-AU event list); fixtures are checked in tests/test_cap_schema_conformance.py. There are no polygons (BoM area codes only). Personal-use only (BoM's RSS terms limit reuse); set EMERGENCY_ALERTS_BOM_CAP=0 to switch the enrichment off. An outage keeps the RSS-only alerts and logs a warning (no FIELD DRIFT check, since coverage is partial by design).",
         "BOM cross-lists some border-river warnings in neighbouring states' feeds, so one product can appear under two source_keys (canonical_url is left empty to avoid the unique-index clash).",
     ],
@@ -181,6 +181,26 @@ _FIXED_STATE_OFFSETS = {
     "QLD": timedelta(hours=10),
     "NT": timedelta(hours=9, minutes=30),
 }
+
+# States WITH daylight saving: a no-timezone line is the state's local time, and the zone
+# database picks the right offset for that date (measured 2026-11-06: all 15 stored rows of
+# this kind land 0-1 minute before the RSS pubDate when read this way, in both DST seasons).
+# NSW and ACT share Sydney's rules. Without zone data on the host the issue time stays
+# unparsed (None); an offset-less timestamp would be stored as UTC.
+_DST_STATE_ZONES = {
+    "NSW": "Australia/Sydney", "ACT": "Australia/Sydney", "VIC": "Australia/Melbourne",
+    "SA": "Australia/Adelaide", "TAS": "Australia/Hobart",
+}
+
+
+def _issued_in_state_zone(issued_local: str, jurisdiction: str) -> str | None:
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        return datetime.fromisoformat(issued_local).replace(tzinfo=ZoneInfo(_DST_STATE_ZONES[jurisdiction])).isoformat()
+    except Exception as exc:  # noqa: BLE001 - missing tzdata must not break ingestion; the issue time just stays unparsed
+        log.warning("[bom_warnings] timezone data unavailable for %s (%s): issued_at left unparsed", jurisdiction, type(exc).__name__)
+        return None
 
 _MONTHS = {m: i for i, m in enumerate(
     ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"], 1)}
@@ -379,6 +399,8 @@ def _to_alert(item, source_key: str, jurisdiction: str, detail_for, ledger: Drop
         # The line named no timezone: use the state's constant (no-DST) offset.
         from datetime import datetime
         issued_at = datetime.fromisoformat(detail["issued_local"]).replace(tzinfo=timezone(_FIXED_STATE_OFFSETS[jurisdiction])).isoformat()
+    elif issued_at is None and detail.get("issued_local") and jurisdiction in _DST_STATE_ZONES:
+        issued_at = _issued_in_state_zone(detail["issued_local"], jurisdiction)
 
     return CanonicalAlert(
         source_key=source_key,

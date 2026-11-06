@@ -144,9 +144,21 @@ def test_other_no_dst_states_get_their_constant_offset(state, offset):
     assert alert.issued_at == f"2026-11-06T14:42:00{offset}"
 
 
-@pytest.mark.parametrize("state", ["NSW", "VIC", "SA", "TAS", "ACT"])
-def test_dst_states_with_no_timezone_stay_unparsed(state):
+@pytest.mark.parametrize("state,offset", [("NSW", "+11:00"), ("ACT", "+11:00"), ("VIC", "+11:00"), ("SA", "+10:30"), ("TAS", "+11:00")])
+def test_dst_states_with_no_timezone_use_the_zone_offset_for_that_date(state, offset):
     (alert,) = bom_warnings.parse_state_feed(state, _item_feed("Flood Warning for X"), detail_for=_detail("Issued at 2:42 pm Friday, 6 November 2026."))
+    assert alert.issued_at == f"2026-11-06T14:42:00{offset}"
+
+
+@pytest.mark.parametrize("state,date,offset", [("SA", "5 September 2026", "+09:30"), ("SA", "11 October 2026", "+10:30"), ("NSW", "3 July 2026", "+10:00")])
+def test_the_zone_offset_follows_daylight_saving_by_date(state, date, offset):
+    (alert,) = bom_warnings.parse_state_feed(state, _item_feed("Flood Warning for X"), detail_for=_detail(f"Issued at 7:00 pm Saturday, {date}."))
+    assert alert.issued_at.endswith(offset)
+
+
+def test_missing_zone_data_leaves_issued_at_unparsed(monkeypatch):
+    monkeypatch.setitem(bom_warnings._DST_STATE_ZONES, "NSW", "Not/AZone")
+    (alert,) = bom_warnings.parse_state_feed("NSW", _item_feed("Flood Warning for X"), detail_for=_detail("Issued at 2:42 pm Friday, 6 November 2026."))
     assert alert.issued_at is None
 
 
