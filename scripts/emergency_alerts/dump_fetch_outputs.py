@@ -74,6 +74,9 @@ def main() -> int:
         tas_fire._LAYER_URL: fx["tas_fire"]["feed.json"],
         bom_warnings._STATE_FEEDS["NSW"][1]: fx["bom_nsw"]["feed.xml"],
     }
+    nsw_cap = getattr(nsw_rfs, "nsw_rfs_cap", None)  # absent on checkouts that predate the CAP enrichment
+    if nsw_cap is not None:
+        by_url[nsw_cap._CAP_URL] = fx["nsw_rfs"]["cap.xml"]
     detail_html = fx["bom_nsw"]["detail.html"]
 
     def fake_get(url: str, timeout: int = 20) -> bytes:
@@ -89,9 +92,9 @@ def main() -> int:
 
     base.http_get = fake_get
     base.http_get_json = fake_get_json
-    for mod in (nsw_rfs, qld_fire, act_esa, wa_dfes, vic_emergency, sa_cfs, tas_fire):
+    for mod in (nsw_rfs, nsw_cap, qld_fire, act_esa, wa_dfes, vic_emergency, sa_cfs, tas_fire):
         for name, fn in (("http_get", fake_get), ("http_get_json", fake_get_json)):
-            if hasattr(mod, name):
+            if mod is not None and hasattr(mod, name):
                 setattr(mod, name, fn)
     bom_warnings._http_get_bom = fake_bom_get
     bom_warnings._detail_cache.clear()

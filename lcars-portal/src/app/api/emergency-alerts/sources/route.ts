@@ -32,6 +32,19 @@ const SOURCE_DOMAIN_KEYS: Record<string, string> = {
   bom_act: 'emergency_alert_bom_act',
 };
 
+/** What the latest ingestion run saw for a source (emergency_alert_source_integrity, migration 0252). */
+export interface SourceIntegrity {
+  checkedAt: string;
+  status: 'ok' | 'failed';
+  itemsSeen: number;
+  accepted: number;
+  excluded: Record<string, number>;
+  invalid: Record<string, number>;
+  unmapped: Record<string, number>;
+  newestItemAt: string | null;
+  warnings: string[];
+}
+
 export interface EmergencyAlertSourceEntry {
   sourceKey: string;
   jurisdiction: string;
@@ -46,6 +59,23 @@ export interface EmergencyAlertSourceEntry {
   lastRun: string | null;
   lastAction: string | null;
   alertCount: number;
+  /** null until migration 0252 is applied and the source has run once. */
+  integrity?: SourceIntegrity | null;
+}
+
+function toIntegrity(row: Record<string, unknown> | undefined): SourceIntegrity | null {
+  if (!row) return null;
+  return {
+    checkedAt: String(row.checked_at),
+    status: row.status === 'failed' ? 'failed' : 'ok',
+    itemsSeen: Number(row.items_seen ?? 0),
+    accepted: Number(row.accepted ?? 0),
+    excluded: (row.excluded ?? {}) as Record<string, number>,
+    invalid: (row.invalid ?? {}) as Record<string, number>,
+    unmapped: (row.unmapped ?? {}) as Record<string, number>,
+    newestItemAt: row.newest_item_at ? String(row.newest_item_at) : null,
+    warnings: Array.isArray(row.warnings) ? row.warnings.map(String) : [],
+  };
 }
 
 export async function GET() {
@@ -57,17 +87,24 @@ export async function GET() {
   try {
     const sb = await createSupabaseServerClient();
 
-    const [sourcesRes, heartbeatsRes, countsRes] = await Promise.all([
+    const [sourcesRes, heartbeatsRes, countsRes, integrityRes] = await Promise.all([
       sb.from('alert_sources').select('*').order('jurisdiction', { ascending: true }),
       sb.from('domain_heartbeats_latest')
         .select('domain_key, status, detail, error_message, checked_at')
         .in('domain_key', Object.values(SOURCE_DOMAIN_KEYS)),
       sb.from('alerts').select('source_key').eq('is_active', true),
+      sb.from('emergency_alert_source_integrity')
+        .select('source_key, checked_at, status, items_seen, accepted, excluded, invalid, unmapped, newest_item_at, warnings'),
     ]);
 
     if (sourcesRes.error) throw sourcesRes.error;
     if (heartbeatsRes.error) throw heartbeatsRes.error;
     if (countsRes.error) throw countsRes.error;
+    // Optional: the table only exists once migration 0252 is applied. Never fail the
+    // whole source-health response over it - the panel just shows no integrity detail.
+    const integrityBySource = new Map(
+      (integrityRes.error ? [] : integrityRes.data ?? []).map((row) => [row.source_key as string, row])
+    );
 
     const heartbeatByDomainKey = new Map(
       (heartbeatsRes.data ?? []).map((row) => [row.domain_key, row])
@@ -98,6 +135,7 @@ export async function GET() {
         lastRun: heartbeat?.checked_at ?? null,
         lastAction: status === 'failed' ? (heartbeat?.error_message ?? heartbeat?.detail ?? null) : (heartbeat?.detail ?? null),
         alertCount: activeCountBySource.get(src.source_key) ?? 0,
+        integrity: toIntegrity(integrityBySource.get(src.source_key)),
       };
     });
 

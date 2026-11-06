@@ -65,6 +65,12 @@ Per [[suoc-universal-concept-duplication]], bolting a second, incompatible schem
 2. Confirm reusing `agent-status-workbench` for source health is acceptable instead of the brief's own bespoke "source health view" — same information, zero duplicate UI, consistent with the just-shipped Platform Health P1-only change (don't build a second alarming dashboard).
 3. New workbench nav slot — where does this sit in the LCARS Portal nav (own top-level workbench vs. folded into Intelligence Workbench as a filtered view)?
 
-## 7. Not started
+## 7. Status (updated 2026-11-06)
 
-This is scope only. No migration applied, no code written. Awaiting Captain go-ahead on §6 before implementation.
+The §7 "not started" position above is superseded: the workbench, the eight source adapters, the alerts schema and source-health panel are built and live. The 2026-11 ingestion-integrity uplift (PRs #587-#591 and follow-up) added drop accounting, per-row isolation, freshness and field-drift checks, a generated mapping register (`docs/emergency-alerts/mapping-register.md`), real snapshot tests, CAP fields, measured source timezones, a per-source integrity table (migration 0252, authored; applied only on Captain approval), a digest section on what the hub is dropping, and portal integrity / CAP display. Full detail: `knowledge/missions/EMERGENCY-ALERT-INGESTION-INTEGRITY-20261106-knowledge-record.md`.
+
+Known coverage limits (shown in the portal, not hidden):
+- ACT is incidents only (no warning levels); NT is a stub (`securent.nt.gov.au` is never touched).
+- AEMO NEMweb and myID are retired.
+- Failed emergency heartbeats do not page in real time (all `emergency_alert_*` domains are `critical = false`): decision pending.
+- NT and ACT warnings work is on hold by the Captain.

@@ -34,6 +34,7 @@ import os
 import sys
 import time
 import urllib.request
+from html import escape as _esc
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
@@ -150,6 +151,56 @@ def _verbatim_urgent_section(alerts: list[dict]) -> str:
     return f"<hr><p><strong>Official alert wording (verbatim):</strong></p><ul>{rows}</ul>"
 
 
+_DROPPED_SAMPLES_PER_REASON = 2
+
+
+def _dropped_section() -> str:
+    """Feed health and what the hub is deliberately dropping, from the latest per-source drop
+    ledger (emergency_alert_source_integrity, migration 0252). Verbatim counts and public feed
+    titles, no LLM: so a reviewer can SEE what is excluded (e.g. WA Smoke Alerts, a new BOM
+    product) instead of it only existing as a count inside a heartbeat. Empty string when
+    the table is unavailable or nothing is noteworthy; never raises."""
+    try:
+        rows = supabase_get(
+            "emergency_alert_source_integrity?order=source_key.asc"
+            "&select=source_key,status,items_seen,accepted,excluded,invalid,unmapped,samples,warnings"
+        )
+    except Exception as exc:  # noqa: BLE001 - optional digest section; a read failure must never block the digest
+        log.warning("[emergency-alert-summary] could not read source integrity (migration 0252 not applied?): %s", exc)
+        return ""
+    items = []
+    for row in rows or []:
+        excluded, invalid, unmapped = row.get("excluded") or {}, row.get("invalid") or {}, row.get("unmapped") or {}
+        warnings = row.get("warnings") or []
+        if not (sum(excluded.values()) or sum(invalid.values()) or unmapped or warnings or row.get("status") == "failed"):
+            continue
+        samples = row.get("samples") or {}
+        parts = []
+        for label, counts, prefix in (("excluded", excluded, "excluded_"), ("invalid", invalid, "invalid_")):
+            bits = []
+            for reason, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+                shown = samples.get(f"{prefix}{reason}", [])[:_DROPPED_SAMPLES_PER_REASON]
+                example = " (e.g. " + "; ".join(f"“{_esc(s)}”" for s in shown) + ")" if shown else ""
+                bits.append(f"{_esc(reason)} {n}{example}")
+            if bits:
+                parts.append(f"{label}: " + ", ".join(bits))
+        if unmapped:
+            parts.append("unrecognised: " + ", ".join(f"{_esc(k)} {v}" for k, v in sorted(unmapped.items(), key=lambda kv: (-kv[1], kv[0]))[:3]))
+        flags = "".join(f" <strong>{_esc(str(w))}</strong>" for w in warnings)
+        failed = " <strong>FAILED</strong>" if row.get("status") == "failed" else ""
+        items.append(
+            f"<li><strong>{_esc(str(row['source_key']))}</strong>{failed}: saw {row.get('items_seen', 0)}, kept {row.get('accepted', 0)}"
+            + ("; " + "; ".join(parts) if parts else "") + flags + "</li>"
+        )
+    if not items:
+        return ""
+    return (
+        "<hr><p><strong>Feed health and what the hub is dropping (latest run per source):</strong></p>"
+        "<p>Counts are deliberate exclusions, not errors. Anything flagged STALE, FIELD DRIFT or FAILED needs a look.</p>"
+        f"<ul>{''.join(items)}</ul>"
+    )
+
+
 def _generate_summary(alerts: list[dict]) -> tuple[str, str] | None:
     prompt = _build_prompt(alerts)
     try:
@@ -228,6 +279,7 @@ def run() -> dict:
     html = '<pre style="font-family:monospace;white-space:pre-wrap">Notice: DIGEST\nActive-Alerts: ' + str(len(alerts)) + "</pre>"
     html += "<p>" + summary_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
     html += _verbatim_urgent_section(alerts)
+    html += _dropped_section()
 
     sent = send_email(to=_EMAIL_TO, subject=subject, html=html, cc=_EMAIL_CC) if _EMAIL_CC else send_email(to=_EMAIL_TO, subject=subject, html=html)
     now_iso = None

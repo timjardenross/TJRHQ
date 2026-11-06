@@ -1,0 +1,905 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?><?xml-stylesheet href="lib/RFS_EDXL_simple.xsl" type="text/xsl"?>
+<EDXLDistribution xmlns="urn:oasis:names:tc:emergency:EDXL:DE:1.0">
+	<distributionID>RFSUniqueID:2026-11-06T09:00:40.5697298Z</distributionID>
+	<senderID>redacted@example.invalid</senderID>
+	<dateTimeSent>2026-11-06T20:00:40+11:00</dateTimeSent>
+	<distributionStatus>Actual</distributionStatus>
+	<distributionType>Report</distributionType>
+	<combinedConfidentiality>UNCLASSIFIED AND NOT SENSITIVE</combinedConfidentiality>
+	<language>en-AU</language>
+	<targetArea>
+		<subdivision>AU-NSW</subdivision>
+	</targetArea>
+	<contentObject>
+		<contentDescription>Information on BOYD LANE, BUNDURE</contentDescription>
+		<xmlContent>
+			<embeddedXMLContent>
+				<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+					<identifier>2026-11-06T12:48:00.0000000:684485</identifier>
+					<sender>redacted@example.invalid</sender>
+					<sent>2026-11-06T12:48:00+11:00</sent>
+					<status>Actual</status>
+					<msgType>Alert</msgType>
+					<scope>Public</scope>
+					<code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+					<incidents>684485</incidents>
+					<info>
+						<language>en-AU</language>
+						<category>Other</category>
+						<event>Other Non-Urgent Alerts</event>
+						<responseType>Monitor</responseType>
+						<urgency>Unknown</urgency>
+						<severity>Minor</severity>
+						<certainty>Observed</certainty>
+						<eventCode>
+							<valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+							<value>other</value>
+						</eventCode>
+						<effective>2026-11-06T12:48:00+11:00</effective>
+						<expires>2026-11-07T20:00:40+11:00</expires>
+						<senderName>NSW Rural Fire Service</senderName>
+						<headline>BOYD LANE, BUNDURE</headline>
+						<description>ALERT LEVEL: Not Applicable&lt;br /&gt;LOCATION: BOYD LANE, BUNDURE 2700&lt;br /&gt;COUNCIL AREA: Murrumbidgee&lt;br /&gt;STATUS: Under control&lt;br /&gt;TYPE: Burn off&lt;br /&gt;FIRE: Yes&lt;br /&gt;SIZE: 0 ha&lt;br /&gt;RESPONSIBLE AGENCY: Rural Fire Service&lt;br /&gt;UPDATED: 6 Nov 2026 12:48&lt;a href='https://www.rfs.nsw.gov.au/fire-information/fires-near-me' target='_blank'&gt; More information&lt;/a&gt; </description>
+						<instruction>Unknown</instruction>
+						<web>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</web>
+						<contact>redacted@example.invalid</contact>
+						<parameter>
+							<valueName>FuelType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>Location</valueName>
+							<value>Murrumbidgee</value>
+						</parameter>
+						<parameter>
+							<valueName>FireDangerClass</valueName>
+							<value>1</value>
+						</parameter>
+						<parameter>
+							<valueName>Status</valueName>
+							<value>Under control</value>
+						</parameter>
+						<parameter>
+							<valueName>Fireground</valueName>
+							<value>0 ha</value>
+						</parameter>
+						<parameter>
+							<valueName>AllocatedResources</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>ControlAuthority</valueName>
+							<value>Rural Fire Service</value>
+						</parameter>
+						<parameter>
+							<valueName>AlertLevel</valueName>
+							<value>Not Applicable</value>
+						</parameter>
+						<parameter>
+							<valueName>CouncilArea</valueName>
+							<value>Murrumbidgee</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentName</valueName>
+							<value>BOYD LANE, BUNDURE</value>
+						</parameter>
+						<parameter>
+							<valueName>Evacuation</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentType</valueName>
+							<value>Burn off</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentFullType</valueName>
+							<value>PileBurn</value>
+						</parameter>
+						<parameter>
+							<valueName>MfuUrl</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IsFire</valueName>
+							<value>Yes</value>
+						</parameter>
+						<resource>
+							<resourceDesc>map</resourceDesc>
+							<mimeType>text/html</mimeType>
+							<uri>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</uri>
+						</resource>
+						<area>
+							<areaDesc>BOYD LANE, BUNDURE 2700</areaDesc>
+							<circle>-35.146827816,145.811877251 0</circle>
+							<geocode>
+								<valueName>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:ISO3166-2</valueName>
+								<value>AU-NSW</value>
+							</geocode>
+						</area>
+					</info>
+				</alert>
+			</embeddedXMLContent>
+		</xmlContent>
+	</contentObject>
+	<contentObject>
+		<contentDescription>Information on BURLEY GRIFFIN WAY, ARIAH PARK</contentDescription>
+		<xmlContent>
+			<embeddedXMLContent>
+				<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+					<identifier>2026-11-06T19:51:00.0000000:684521</identifier>
+					<sender>redacted@example.invalid</sender>
+					<sent>2026-11-06T19:51:00+11:00</sent>
+					<status>Actual</status>
+					<msgType>Alert</msgType>
+					<scope>Public</scope>
+					<code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+					<incidents>684521</incidents>
+					<info>
+						<language>en-AU</language>
+						<category>Other</category>
+						<event>Other Non-Urgent Alerts</event>
+						<responseType>Monitor</responseType>
+						<urgency>Unknown</urgency>
+						<severity>Minor</severity>
+						<certainty>Observed</certainty>
+						<eventCode>
+							<valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+							<value>other</value>
+						</eventCode>
+						<effective>2026-11-06T19:51:00+11:00</effective>
+						<expires>2026-11-07T20:00:40+11:00</expires>
+						<senderName>NSW Rural Fire Service</senderName>
+						<headline>BURLEY GRIFFIN WAY, ARIAH PARK</headline>
+						<description>ALERT LEVEL: Not Applicable&lt;br /&gt;LOCATION: BURLEY GRIFFIN WAY, ARIAH PARK 2665&lt;br /&gt;COUNCIL AREA: Temora&lt;br /&gt;STATUS: Under control&lt;br /&gt;TYPE: Vehicle/Equipment Fire&lt;br /&gt;FIRE: Yes&lt;br /&gt;SIZE: 0 ha&lt;br /&gt;RESPONSIBLE AGENCY: Rural Fire Service&lt;br /&gt;UPDATED: 6 Nov 2026 19:51&lt;a href='https://www.rfs.nsw.gov.au/fire-information/fires-near-me' target='_blank'&gt; More information&lt;/a&gt; </description>
+						<instruction>Unknown</instruction>
+						<web>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</web>
+						<contact>redacted@example.invalid</contact>
+						<parameter>
+							<valueName>FuelType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>Location</valueName>
+							<value>Temora</value>
+						</parameter>
+						<parameter>
+							<valueName>FireDangerClass</valueName>
+							<value>1</value>
+						</parameter>
+						<parameter>
+							<valueName>Status</valueName>
+							<value>Under control</value>
+						</parameter>
+						<parameter>
+							<valueName>Fireground</valueName>
+							<value>0 ha</value>
+						</parameter>
+						<parameter>
+							<valueName>AllocatedResources</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>ControlAuthority</valueName>
+							<value>Rural Fire Service</value>
+						</parameter>
+						<parameter>
+							<valueName>AlertLevel</valueName>
+							<value>Not Applicable</value>
+						</parameter>
+						<parameter>
+							<valueName>CouncilArea</valueName>
+							<value>Temora</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentName</valueName>
+							<value>BURLEY GRIFFIN WAY, ARIAH PARK</value>
+						</parameter>
+						<parameter>
+							<valueName>Evacuation</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentType</valueName>
+							<value>Vehicle/Equipment Fire</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentFullType</valueName>
+							<value>MachineryFire</value>
+						</parameter>
+						<parameter>
+							<valueName>MfuUrl</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IsFire</valueName>
+							<value>Yes</value>
+						</parameter>
+						<resource>
+							<resourceDesc>map</resourceDesc>
+							<mimeType>text/html</mimeType>
+							<uri>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</uri>
+						</resource>
+						<area>
+							<areaDesc>BURLEY GRIFFIN WAY, ARIAH PARK 2665</areaDesc>
+							<circle>-34.3551699999999,147.177509 0</circle>
+							<geocode>
+								<valueName>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:ISO3166-2</valueName>
+								<value>AU-NSW</value>
+							</geocode>
+						</area>
+					</info>
+				</alert>
+			</embeddedXMLContent>
+		</xmlContent>
+	</contentObject>
+	<contentObject>
+		<contentDescription>Information on BURROWAY RD, BURROWAY</contentDescription>
+		<xmlContent>
+			<embeddedXMLContent>
+				<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+					<identifier>2026-11-06T12:59:00.0000000:684014</identifier>
+					<sender>redacted@example.invalid</sender>
+					<sent>2026-11-06T12:59:00+11:00</sent>
+					<status>Actual</status>
+					<msgType>Alert</msgType>
+					<scope>Public</scope>
+					<code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+					<incidents>684014</incidents>
+					<info>
+						<language>en-AU</language>
+						<category>Other</category>
+						<event>Other Non-Urgent Alerts</event>
+						<responseType>Monitor</responseType>
+						<urgency>Unknown</urgency>
+						<severity>Minor</severity>
+						<certainty>Observed</certainty>
+						<eventCode>
+							<valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+							<value>other</value>
+						</eventCode>
+						<effective>2026-11-06T12:59:00+11:00</effective>
+						<expires>2026-11-07T20:00:40+11:00</expires>
+						<senderName>NSW Rural Fire Service</senderName>
+						<headline>BURROWAY RD, BURROWAY</headline>
+						<description>ALERT LEVEL: Not Applicable&lt;br /&gt;LOCATION: BURROWAY RD, BURROWAY 2821&lt;br /&gt;COUNCIL AREA: Narromine&lt;br /&gt;STATUS: Under control&lt;br /&gt;TYPE: Haystack fire&lt;br /&gt;FIRE: Yes&lt;br /&gt;SIZE: 0 ha&lt;br /&gt;RESPONSIBLE AGENCY: Rural Fire Service&lt;br /&gt;UPDATED: 6 Nov 2026 12:59&lt;a href='https://www.rfs.nsw.gov.au/fire-information/fires-near-me' target='_blank'&gt; More information&lt;/a&gt; </description>
+						<instruction>Unknown</instruction>
+						<web>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</web>
+						<contact>redacted@example.invalid</contact>
+						<parameter>
+							<valueName>FuelType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>Location</valueName>
+							<value>Narromine</value>
+						</parameter>
+						<parameter>
+							<valueName>FireDangerClass</valueName>
+							<value>1</value>
+						</parameter>
+						<parameter>
+							<valueName>Status</valueName>
+							<value>Under control</value>
+						</parameter>
+						<parameter>
+							<valueName>Fireground</valueName>
+							<value>0 ha</value>
+						</parameter>
+						<parameter>
+							<valueName>AllocatedResources</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>ControlAuthority</valueName>
+							<value>Rural Fire Service</value>
+						</parameter>
+						<parameter>
+							<valueName>AlertLevel</valueName>
+							<value>Not Applicable</value>
+						</parameter>
+						<parameter>
+							<valueName>CouncilArea</valueName>
+							<value>Narromine</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentName</valueName>
+							<value>BURROWAY RD, BURROWAY</value>
+						</parameter>
+						<parameter>
+							<valueName>Evacuation</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentType</valueName>
+							<value>Haystack fire</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentFullType</valueName>
+							<value>HaystackFire</value>
+						</parameter>
+						<parameter>
+							<valueName>MfuUrl</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IsFire</valueName>
+							<value>Yes</value>
+						</parameter>
+						<resource>
+							<resourceDesc>map</resourceDesc>
+							<mimeType>text/html</mimeType>
+							<uri>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</uri>
+						</resource>
+						<area>
+							<areaDesc>BURROWAY RD, BURROWAY 2821</areaDesc>
+							<circle>-32.0380299999999,148.276573 0</circle>
+							<geocode>
+								<valueName>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:ISO3166-2</valueName>
+								<value>AU-NSW</value>
+							</geocode>
+						</area>
+					</info>
+				</alert>
+			</embeddedXMLContent>
+		</xmlContent>
+	</contentObject>
+	<contentObject>
+		<contentDescription>Information on CASTLEROCK RD, CASTLE ROCK</contentDescription>
+		<xmlContent>
+			<embeddedXMLContent>
+				<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+					<identifier>2026-11-06T17:58:00.0000000:684405</identifier>
+					<sender>redacted@example.invalid</sender>
+					<sent>2026-11-06T17:58:00+11:00</sent>
+					<status>Actual</status>
+					<msgType>Alert</msgType>
+					<scope>Public</scope>
+					<code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+					<incidents>684405</incidents>
+					<info>
+						<language>en-AU</language>
+						<category>Fire</category>
+						<event>Grass Fire</event>
+						<responseType>Monitor</responseType>
+						<urgency>Expected</urgency>
+						<severity>Moderate</severity>
+						<certainty>Observed</certainty>
+						<eventCode>
+							<valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+							<value>grassFire</value>
+						</eventCode>
+						<effective>2026-11-06T17:58:00+11:00</effective>
+						<expires>2026-11-07T20:00:40+11:00</expires>
+						<senderName>NSW Rural Fire Service</senderName>
+						<headline>CASTLEROCK RD, CASTLE ROCK</headline>
+						<description>ALERT LEVEL: Advice&lt;br /&gt;LOCATION: CASTLEROCK RD, CASTLE ROCK 2333&lt;br /&gt;COUNCIL AREA: Muswellbrook&lt;br /&gt;STATUS: Under control&lt;br /&gt;TYPE: Grass Fire&lt;br /&gt;FIRE: Yes&lt;br /&gt;SIZE: 12 ha&lt;br /&gt;RESPONSIBLE AGENCY: Rural Fire Service&lt;br /&gt;UPDATED: 6 Nov 2026 17:58&lt;a href='https://www.rfs.nsw.gov.au/fire-information/fires-near-me' target='_blank'&gt; More information&lt;/a&gt; </description>
+						<instruction>A fire has started There is no immediate danger. Stay up to date in case the situation changes</instruction>
+						<web>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</web>
+						<contact>redacted@example.invalid</contact>
+						<parameter>
+							<valueName>FuelType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>Location</valueName>
+							<value>Muswellbrook</value>
+						</parameter>
+						<parameter>
+							<valueName>FireDangerClass</valueName>
+							<value>1</value>
+						</parameter>
+						<parameter>
+							<valueName>Status</valueName>
+							<value>Under control</value>
+						</parameter>
+						<parameter>
+							<valueName>Fireground</valueName>
+							<value>12 ha</value>
+						</parameter>
+						<parameter>
+							<valueName>AllocatedResources</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>ControlAuthority</valueName>
+							<value>Rural Fire Service</value>
+						</parameter>
+						<parameter>
+							<valueName>AlertLevel</valueName>
+							<value>Advice</value>
+						</parameter>
+						<parameter>
+							<valueName>CouncilArea</valueName>
+							<value>Muswellbrook</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentName</valueName>
+							<value>CASTLEROCK RD, CASTLE ROCK</value>
+						</parameter>
+						<parameter>
+							<valueName>Evacuation</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentType</valueName>
+							<value>Grass Fire</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentFullType</valueName>
+							<value>Grass</value>
+						</parameter>
+						<parameter>
+							<valueName>MfuUrl</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IsFire</valueName>
+							<value>Yes</value>
+						</parameter>
+						<resource>
+							<resourceDesc>map</resourceDesc>
+							<mimeType>text/html</mimeType>
+							<uri>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</uri>
+						</resource>
+						<area>
+							<areaDesc>CASTLEROCK RD, CASTLE ROCK 2333</areaDesc>
+							<polygon>-32.250263622,150.728556785 -32.250263622,150.728782835 -32.250251724,150.729234932 -32.250263622,150.729472878 -32.250299314,150.729651338 -32.250323108,150.729877386 -32.2503112109999,150.7302581 -32.2503112109999,150.730484149 -32.2503112109999,150.730888657 -32.2503112109999,150.731031425 -32.250239827,150.731150398 -32.250287417,150.731209885 -32.25040639,150.731245576 -32.2505372589999,150.731269371 -32.250680028,150.731281268 -32.250810897,150.731328857 -32.2509774599999,150.731376447 -32.2511202269999,150.731412139 -32.251405763,150.731531111 -32.251500941,150.731566804 -32.251608017,150.731685777 -32.2516437089999,150.731840441 -32.251691298,150.731947517 -32.251810271,150.731947517 -32.251881655,150.731876134 -32.2520720119999,150.731780955 -32.252357547,150.731661982 -32.252500315,150.731590599 -32.252631186,150.731519214 -32.252809645,150.731412139 -32.252904824,150.731352652 -32.25296431,150.731340754 -32.253023797,150.731352652 -32.253023797,150.731305063 -32.253047591,150.731269371 -32.2531546669999,150.731257473 -32.253214154,150.731209885 -32.2532379469999,150.731162295 -32.25332123,150.731090912 -32.253499689,150.731090912 -32.2535472779999,150.731067117 -32.2535710729999,150.731043322 -32.25353538,150.730948143 -32.253523483,150.730733993 -32.253499689,150.730543636 -32.253475894,150.730377073 -32.253440202,150.730210511 -32.253428304,150.730103435 -32.253380716,150.729972564 -32.253368818,150.729841695 -32.253356921,150.729591851 -32.253309332,150.7293777 -32.253285537,150.729092164 -32.253285537,150.728901807 -32.2532379469999,150.728640066 -32.253202256,150.728473505 -32.253166564,150.728235558 -32.253142769,150.728045201 -32.2531308719999,150.727914331 -32.253083283,150.727759666 -32.2530951799999,150.727616899 -32.2530951799999,150.72752172 -32.253083283,150.727474131 -32.253047591,150.727426542 -32.252940515,150.727355157 -32.252869131,150.727307569 -32.252809645,150.727259979 -32.252714467,150.727176698 -32.2526787739999,150.727117212 -32.252643083,150.727093417 -32.252547904,150.727069622 -32.252500315,150.727022033 -32.252440829,150.726950649 -32.252357547,150.72685547 -32.252286163,150.726795984 -32.252250472,150.726760292 -32.2522028819999,150.726748396 -32.252143396,150.726748396 -32.252131499,150.726784087 -32.2520958059999,150.726795984 -32.252048218,150.726795984 -32.252048218,150.726926855 -32.252024423,150.7271648 -32.251976833,150.727307569 -32.2519292449999,150.727450336 -32.251845964,150.727545514 -32.2516437089999,150.727676385 -32.251572326,150.727688282 -32.251405763,150.727688282 -32.2512867889999,150.727712077 -32.2512035079999,150.727723975 -32.2511202269999,150.727735871 -32.251084536,150.727854844 -32.251048844,150.727985715 -32.251072639,150.728104688 -32.2510607409999,150.728211764 -32.251048844,150.728235558 -32.251001254,150.728259353 -32.250917973,150.72827125 -32.250822795,150.728259353 -32.250739514,150.728283148 -32.250656233,150.728283148 -32.250596747,150.728330736 -32.2505610539999,150.728378326 -32.2505372589999,150.728402121 -32.250430184,150.728402121 -32.250370698,150.728402121 -32.250335005,150.728437812 -32.250342937,150.728441779 -32.250263622,150.728556785</polygon>
+							<circle>-32.2603609999999,150.729978 0</circle>
+							<geocode>
+								<valueName>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:ISO3166-2</valueName>
+								<value>AU-NSW</value>
+							</geocode>
+						</area>
+					</info>
+				</alert>
+			</embeddedXMLContent>
+		</xmlContent>
+	</contentObject>
+	<contentObject>
+		<contentDescription>Information on CUNNINYEUK RD, MALLAN</contentDescription>
+		<xmlContent>
+			<embeddedXMLContent>
+				<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+					<identifier>2026-11-06T18:00:00.0000000:684427</identifier>
+					<sender>redacted@example.invalid</sender>
+					<sent>2026-11-06T18:00:00+11:00</sent>
+					<status>Actual</status>
+					<msgType>Alert</msgType>
+					<scope>Public</scope>
+					<code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+					<incidents>684427</incidents>
+					<info>
+						<language>en-AU</language>
+						<category>Fire</category>
+						<event>Grass Fire</event>
+						<responseType>Monitor</responseType>
+						<urgency>Expected</urgency>
+						<severity>Moderate</severity>
+						<certainty>Observed</certainty>
+						<eventCode>
+							<valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+							<value>grassFire</value>
+						</eventCode>
+						<effective>2026-11-06T18:00:00+11:00</effective>
+						<expires>2026-11-07T20:00:40+11:00</expires>
+						<senderName>NSW Rural Fire Service</senderName>
+						<headline>CUNNINYEUK RD, MALLAN</headline>
+						<description>ALERT LEVEL: Advice&lt;br /&gt;LOCATION: CUNNINYEUK RD, MALLAN 2734&lt;br /&gt;COUNCIL AREA: Murray River&lt;br /&gt;STATUS: Under control&lt;br /&gt;TYPE: Grass Fire&lt;br /&gt;FIRE: Yes&lt;br /&gt;SIZE: 112 ha&lt;br /&gt;RESPONSIBLE AGENCY: Rural Fire Service&lt;br /&gt;UPDATED: 6 Nov 2026 18:00&lt;a href='https://www.rfs.nsw.gov.au/fire-information/fires-near-me' target='_blank'&gt; More information&lt;/a&gt; </description>
+						<instruction>A fire has started There is no immediate danger. Stay up to date in case the situation changes</instruction>
+						<web>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</web>
+						<contact>redacted@example.invalid</contact>
+						<parameter>
+							<valueName>FuelType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>Location</valueName>
+							<value>Murray River</value>
+						</parameter>
+						<parameter>
+							<valueName>FireDangerClass</valueName>
+							<value>1</value>
+						</parameter>
+						<parameter>
+							<valueName>Status</valueName>
+							<value>Under control</value>
+						</parameter>
+						<parameter>
+							<valueName>Fireground</valueName>
+							<value>112 ha</value>
+						</parameter>
+						<parameter>
+							<valueName>AllocatedResources</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>ControlAuthority</valueName>
+							<value>Rural Fire Service</value>
+						</parameter>
+						<parameter>
+							<valueName>AlertLevel</valueName>
+							<value>Advice</value>
+						</parameter>
+						<parameter>
+							<valueName>CouncilArea</valueName>
+							<value>Murray River</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentName</valueName>
+							<value>CUNNINYEUK RD, MALLAN</value>
+						</parameter>
+						<parameter>
+							<valueName>Evacuation</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentType</valueName>
+							<value>Grass Fire</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentFullType</valueName>
+							<value>Grass</value>
+						</parameter>
+						<parameter>
+							<valueName>MfuUrl</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IsFire</valueName>
+							<value>Yes</value>
+						</parameter>
+						<resource>
+							<resourceDesc>map</resourceDesc>
+							<mimeType>text/html</mimeType>
+							<uri>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</uri>
+						</resource>
+						<area>
+							<areaDesc>CUNNINYEUK RD, MALLAN 2734</areaDesc>
+							<polygon>-35.142320001,143.84569 -35.145070001,143.84749 -35.14561,143.84777 -35.1460000009999,143.847760001 -35.1474200009999,143.84739 -35.148080001,143.84756 -35.148310001,143.84759 -35.148520001,143.847540001 -35.1486800009999,143.84737 -35.1489000019999,143.846969999 -35.149340001,143.845469999 -35.1497200009999,143.8436 -35.149840001,143.84199 -35.150040001,143.8409 -35.150200002,143.84039 -35.151350001,143.837319999 -35.15287,143.835509999 -35.1529800019999,143.83529 -35.152970001,143.83499 -35.152830001,143.834839999 -35.1526200009999,143.83481 -35.152190001,143.834969999 -35.1519900019999,143.834960001 -35.151660001,143.83472 -35.151240001,143.83464 -35.1508600019999,143.83466 -35.14984,143.83488 -35.1493600009999,143.83478 -35.148760001,143.83452 -35.148530001,143.834520001 -35.148350001,143.83443 -35.1468800009999,143.83431 -35.1465000009999,143.834329999 -35.145490001,143.834719999 -35.1451900009999,143.83489 -35.145179911,143.834902842 -35.1451797029999,143.834903107 -35.14508,143.83503 -35.144730001,143.83573 -35.144220001,143.836579999 -35.143510001,143.836790001 -35.143330001,143.83697 -35.1428700009999,143.83783 -35.142440001,143.838490001 -35.142390001,143.83864 -35.1424000009999,143.83903 -35.14235,143.83915 -35.141980001,143.83932 -35.14154,143.83977 -35.141110001,143.84066 -35.140640001,143.84129 -35.1406699999999,143.84275 -35.1404400009999,143.84314 -35.139080001,143.84352 -35.138850001,143.843510001 -35.138040001,143.8456 -35.1379900009999,143.84584 -35.138140001,143.84598 -35.1388000009999,143.845930001 -35.139460001,143.84563 -35.140660001,143.845370001 -35.1408900009999,143.84537 -35.1412799999999,143.84549 -35.14212,143.8456 -35.142320001,143.84569</polygon>
+							<circle>-35.145424164,143.841998577 0</circle>
+							<geocode>
+								<valueName>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:ISO3166-2</valueName>
+								<value>AU-NSW</value>
+							</geocode>
+						</area>
+					</info>
+				</alert>
+			</embeddedXMLContent>
+		</xmlContent>
+	</contentObject>
+	<contentObject>
+		<contentDescription>Information on DANEHURST RD, BENDEMEER</contentDescription>
+		<xmlContent>
+			<embeddedXMLContent>
+				<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+					<identifier>2026-11-06T15:28:00.0000000:684326</identifier>
+					<sender>redacted@example.invalid</sender>
+					<sent>2026-11-06T15:28:00+11:00</sent>
+					<status>Actual</status>
+					<msgType>Alert</msgType>
+					<scope>Public</scope>
+					<code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+					<incidents>684326</incidents>
+					<info>
+						<language>en-AU</language>
+						<category>Fire</category>
+						<event>Bushfire</event>
+						<responseType>Monitor</responseType>
+						<urgency>Expected</urgency>
+						<severity>Moderate</severity>
+						<certainty>Observed</certainty>
+						<eventCode>
+							<valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+							<value>bushFire</value>
+						</eventCode>
+						<effective>2026-11-06T15:28:00+11:00</effective>
+						<expires>2026-11-07T20:00:40+11:00</expires>
+						<senderName>NSW Rural Fire Service</senderName>
+						<headline>DANEHURST RD, BENDEMEER</headline>
+						<description>ALERT LEVEL: Advice&lt;br /&gt;LOCATION: ROSEBANK, DANEHURST RD, BENDEMEER 2355&lt;br /&gt;COUNCIL AREA: Tamworth&lt;br /&gt;STATUS: Being controlled&lt;br /&gt;TYPE: Bush Fire&lt;br /&gt;FIRE: Yes&lt;br /&gt;SIZE: 26 ha&lt;br /&gt;RESPONSIBLE AGENCY: Rural Fire Service&lt;br /&gt;UPDATED: 6 Nov 2026 15:28&lt;a href='https://www.rfs.nsw.gov.au/fire-information/fires-near-me' target='_blank'&gt; More information&lt;/a&gt; </description>
+						<instruction>A fire has started There is no immediate danger. Stay up to date in case the situation changes</instruction>
+						<web>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</web>
+						<contact>redacted@example.invalid</contact>
+						<parameter>
+							<valueName>FuelType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>Location</valueName>
+							<value>Tamworth</value>
+						</parameter>
+						<parameter>
+							<valueName>FireDangerClass</valueName>
+							<value>1</value>
+						</parameter>
+						<parameter>
+							<valueName>Status</valueName>
+							<value>Being controlled</value>
+						</parameter>
+						<parameter>
+							<valueName>Fireground</valueName>
+							<value>26 ha</value>
+						</parameter>
+						<parameter>
+							<valueName>AllocatedResources</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>ControlAuthority</valueName>
+							<value>Rural Fire Service</value>
+						</parameter>
+						<parameter>
+							<valueName>AlertLevel</valueName>
+							<value>Advice</value>
+						</parameter>
+						<parameter>
+							<valueName>CouncilArea</valueName>
+							<value>Tamworth</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentName</valueName>
+							<value>DANEHURST RD, BENDEMEER</value>
+						</parameter>
+						<parameter>
+							<valueName>Evacuation</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentType</valueName>
+							<value>Bush Fire</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentFullType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>MfuUrl</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IsFire</valueName>
+							<value>Yes</value>
+						</parameter>
+						<resource>
+							<resourceDesc>map</resourceDesc>
+							<mimeType>text/html</mimeType>
+							<uri>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</uri>
+						</resource>
+						<area>
+							<areaDesc>ROSEBANK, DANEHURST RD, BENDEMEER 2355</areaDesc>
+							<polygon>-30.620924959,151.143142486 -30.626150276,151.144010872 -30.6270078809999,151.144102616 -30.6281544669999,151.142374108 -30.6283766619999,151.141179417 -30.627685243,151.140204757 -30.623129401,151.139629186 -30.622496159,151.139600155 -30.621685971,151.14076781 -30.6217114679999,151.141345186 -30.6215452719999,151.142228064 -30.6211636789999,151.142786763 -30.620924959,151.143142486</polygon>
+							<circle>-30.62417511,151.141654014 0</circle>
+							<geocode>
+								<valueName>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:ISO3166-2</valueName>
+								<value>AU-NSW</value>
+							</geocode>
+						</area>
+					</info>
+				</alert>
+			</embeddedXMLContent>
+		</xmlContent>
+	</contentObject>
+	<contentObject>
+		<contentDescription>Information on DUNDAS RD, KIKOIRA</contentDescription>
+		<xmlContent>
+			<embeddedXMLContent>
+				<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+					<identifier>2026-11-06T16:37:00.0000000:684501</identifier>
+					<sender>redacted@example.invalid</sender>
+					<sent>2026-11-06T16:37:00+11:00</sent>
+					<status>Actual</status>
+					<msgType>Alert</msgType>
+					<scope>Public</scope>
+					<code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+					<incidents>684501</incidents>
+					<info>
+						<language>en-AU</language>
+						<category>Fire</category>
+						<event>Grass Fire</event>
+						<responseType>Monitor</responseType>
+						<urgency>Expected</urgency>
+						<severity>Moderate</severity>
+						<certainty>Observed</certainty>
+						<eventCode>
+							<valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+							<value>grassFire</value>
+						</eventCode>
+						<effective>2026-11-06T16:37:00+11:00</effective>
+						<expires>2026-11-07T20:00:40+11:00</expires>
+						<senderName>NSW Rural Fire Service</senderName>
+						<headline>DUNDAS RD, KIKOIRA</headline>
+						<description>ALERT LEVEL: Advice&lt;br /&gt;LOCATION: DUNDAS RD, KIKOIRA 2669&lt;br /&gt;COUNCIL AREA: Bland&lt;br /&gt;STATUS: Under control&lt;br /&gt;TYPE: Grass Fire&lt;br /&gt;FIRE: Yes&lt;br /&gt;SIZE: 0 ha&lt;br /&gt;RESPONSIBLE AGENCY: Rural Fire Service&lt;br /&gt;UPDATED: 6 Nov 2026 16:37&lt;a href='https://www.rfs.nsw.gov.au/fire-information/fires-near-me' target='_blank'&gt; More information&lt;/a&gt; </description>
+						<instruction>A fire has started There is no immediate danger. Stay up to date in case the situation changes</instruction>
+						<web>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</web>
+						<contact>redacted@example.invalid</contact>
+						<parameter>
+							<valueName>FuelType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>Location</valueName>
+							<value>Bland</value>
+						</parameter>
+						<parameter>
+							<valueName>FireDangerClass</valueName>
+							<value>1</value>
+						</parameter>
+						<parameter>
+							<valueName>Status</valueName>
+							<value>Under control</value>
+						</parameter>
+						<parameter>
+							<valueName>Fireground</valueName>
+							<value>0 ha</value>
+						</parameter>
+						<parameter>
+							<valueName>AllocatedResources</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>ControlAuthority</valueName>
+							<value>Rural Fire Service</value>
+						</parameter>
+						<parameter>
+							<valueName>AlertLevel</valueName>
+							<value>Advice</value>
+						</parameter>
+						<parameter>
+							<valueName>CouncilArea</valueName>
+							<value>Bland</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentName</valueName>
+							<value>DUNDAS RD, KIKOIRA</value>
+						</parameter>
+						<parameter>
+							<valueName>Evacuation</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentType</valueName>
+							<value>Grass Fire</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentFullType</valueName>
+							<value>Grass</value>
+						</parameter>
+						<parameter>
+							<valueName>MfuUrl</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IsFire</valueName>
+							<value>Yes</value>
+						</parameter>
+						<resource>
+							<resourceDesc>map</resourceDesc>
+							<mimeType>text/html</mimeType>
+							<uri>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</uri>
+						</resource>
+						<area>
+							<areaDesc>DUNDAS RD, KIKOIRA 2669</areaDesc>
+							<circle>-33.694328308,146.655319214 0</circle>
+							<geocode>
+								<valueName>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:ISO3166-2</valueName>
+								<value>AU-NSW</value>
+							</geocode>
+						</area>
+					</info>
+				</alert>
+			</embeddedXMLContent>
+		</xmlContent>
+	</contentObject>
+	<contentObject>
+		<contentDescription>Information on EAGLEVIEW RD, MINTO</contentDescription>
+		<xmlContent>
+			<embeddedXMLContent>
+				<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+					<identifier>2026-11-06T17:57:00.0000000:684400</identifier>
+					<sender>redacted@example.invalid</sender>
+					<sent>2026-11-06T17:57:00+11:00</sent>
+					<status>Actual</status>
+					<msgType>Alert</msgType>
+					<scope>Public</scope>
+					<code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+					<incidents>684400</incidents>
+					<info>
+						<language>en-AU</language>
+						<category>Fire</category>
+						<event>Bushfire</event>
+						<responseType>Monitor</responseType>
+						<urgency>Expected</urgency>
+						<severity>Moderate</severity>
+						<certainty>Observed</certainty>
+						<eventCode>
+							<valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+							<value>bushFire</value>
+						</eventCode>
+						<effective>2026-11-06T17:57:00+11:00</effective>
+						<expires>2026-11-07T20:00:40+11:00</expires>
+						<senderName>NSW Rural Fire Service</senderName>
+						<headline>EAGLEVIEW RD, MINTO</headline>
+						<description>ALERT LEVEL: Advice&lt;br /&gt;LOCATION: EAGLEVIEW RD, MINTO 2566&lt;br /&gt;COUNCIL AREA: Campbelltown&lt;br /&gt;STATUS: Under control&lt;br /&gt;TYPE: Bush Fire&lt;br /&gt;FIRE: Yes&lt;br /&gt;SIZE: 3 ha&lt;br /&gt;RESPONSIBLE AGENCY: Rural Fire Service&lt;br /&gt;UPDATED: 6 Nov 2026 17:57&lt;a href='https://www.rfs.nsw.gov.au/fire-information/fires-near-me' target='_blank'&gt; More information&lt;/a&gt; </description>
+						<instruction>A fire has started There is no immediate danger. Stay up to date in case the situation changes</instruction>
+						<web>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</web>
+						<contact>redacted@example.invalid</contact>
+						<parameter>
+							<valueName>FuelType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>Location</valueName>
+							<value>Campbelltown</value>
+						</parameter>
+						<parameter>
+							<valueName>FireDangerClass</valueName>
+							<value>1</value>
+						</parameter>
+						<parameter>
+							<valueName>Status</valueName>
+							<value>Under control</value>
+						</parameter>
+						<parameter>
+							<valueName>Fireground</valueName>
+							<value>3 ha</value>
+						</parameter>
+						<parameter>
+							<valueName>AllocatedResources</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>ControlAuthority</valueName>
+							<value>Rural Fire Service</value>
+						</parameter>
+						<parameter>
+							<valueName>AlertLevel</valueName>
+							<value>Advice</value>
+						</parameter>
+						<parameter>
+							<valueName>CouncilArea</valueName>
+							<value>Campbelltown</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentName</valueName>
+							<value>EAGLEVIEW RD, MINTO</value>
+						</parameter>
+						<parameter>
+							<valueName>Evacuation</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentType</valueName>
+							<value>Bush Fire</value>
+						</parameter>
+						<parameter>
+							<valueName>IncidentFullType</valueName>
+							<value>Forest</value>
+						</parameter>
+						<parameter>
+							<valueName>MfuUrl</valueName>
+							<value></value>
+						</parameter>
+						<parameter>
+							<valueName>IsFire</valueName>
+							<value>Yes</value>
+						</parameter>
+						<resource>
+							<resourceDesc>map</resourceDesc>
+							<mimeType>text/html</mimeType>
+							<uri>https://www.rfs.nsw.gov.au/fire-information/fires-near-me</uri>
+						</resource>
+						<area>
+							<areaDesc>EAGLEVIEW RD, MINTO 2566</areaDesc>
+							<polygon>-34.035034921,150.863617238 -34.035217663,150.863645792 -34.0354689329999,150.86355442 -34.035668808,150.863508735 -34.035748758,150.863503025 -34.035800154,150.863577263 -34.035891525,150.86356013 -34.0359200789999,150.86347447 -34.0359543439999,150.863451628 -34.0360742679999,150.863445916 -34.036102822,150.863383099 -34.036051426,150.863343123 -34.0359828969999,150.863263174 -34.0358801039999,150.863280307 -34.0358287079999,150.863246042 -34.0357773109999,150.863194645 -34.035783023,150.862931953 -34.035794444,150.862572179 -34.0358058639999,150.862509361 -34.035816768,150.862461078 -34.035822998,150.862492228 -34.0359486319999,150.862332329 -34.035914368,150.862269511 -34.0359486319999,150.862183851 -34.0359600539999,150.862103901 -34.0359429219999,150.861995398 -34.035937211,150.861944 -34.035822997,150.861904026 -34.0357878309999,150.861904026 -34.0358058649999,150.861869762 -34.0358458389999,150.861835497 -34.035891525,150.861761257 -34.035885814,150.861652754 -34.0358058649999,150.86161849 -34.035800154,150.861527119 -34.035760179,150.861470012 -34.035754469,150.861395772 -34.0357373369999,150.86129869 -34.035737336,150.86121303 -34.035674518,150.861173054 -34.0356117009999,150.86112737 -34.035566016,150.861127371 -34.0355089079999,150.861218742 -34.035486066,150.861270138 -34.0354974869999,150.861321534 -34.035434669,150.861384352 -34.0354860649999,150.861458591 -34.035423247,150.861538541 -34.0353946939999,150.86161849 -34.035320456,150.8616242 -34.03528048,150.861572804 -34.035246216,150.861527119 -34.0352747699999,150.861475722 -34.035257637,150.861407195 -34.035206241,150.861418616 -34.035143423,150.861430036 -34.035103448,150.861401484 -34.035052052,150.861447168 -34.034977812,150.861515697 -34.034914995,150.861612779 -34.034852176,150.861715572 -34.034846466,150.861818366 -34.034823624,150.861898315 -34.0347379629999,150.861944002 -34.034669434,150.861961133 -34.034600906,150.861978265 -34.0344809809999,150.862509361 -34.035208229,150.862204703 -34.035137713,150.862275221 -34.035103449,150.862366593 -34.035177688,150.862400856 -34.03519482,150.86249794 -34.0351605549999,150.862583599 -34.0350977379999,150.862657839 -34.035052052,150.862732078 -34.0349949449999,150.86274921 -34.0349207049999,150.862800607 -34.0348407549999,150.862817739 -34.034760805,150.862846293 -34.034692278,150.862846292 -34.034680856,150.862800606 -34.034675146,150.862777764 -34.0346123269999,150.862720658 -34.034560932,150.862663549 -34.0345495089999,150.862606443 -34.0344924029999,150.862537914 -34.034452428,150.86249223 -34.034338213,150.86250936 -34.0342525529999,150.862537914 -34.03421829,150.862629285 -34.034166892,150.862726368 -34.034178314,150.862840581 -34.034189735,150.862983349 -34.034189735,150.863051878 -34.034189735,150.86322891 -34.034246842,150.863388809 -34.034343924,150.863497312 -34.034446718,150.863565841 -34.034669434,150.863542998 -34.0347779379999,150.863497314 -34.03487502,150.863440205 -34.034914995,150.863440206 -34.034977812,150.863525866 -34.035034921,150.863617238</polygon>
+							<circle>-34.034099,150.860751 0</circle>
+							<geocode>
+								<valueName>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:ISO3166-2</valueName>
+								<value>AU-NSW</value>
+							</geocode>
+						</area>
+					</info>
+				</alert>
+			</embeddedXMLContent>
+		</xmlContent>
+	</contentObject>
+</EDXLDistribution>

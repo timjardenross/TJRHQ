@@ -2134,3 +2134,23 @@ spacing/radius tokens never formalised; (7) `focus-visible` gaps in
 code review/tests — production user testing is the real check;
 SUOC registry entry undecided; branch not yet promoted to `main`.
 ---
+---
+## LL-201
+### Title
+A feed that returns nothing and a feed that is broken look identical unless every skipped item is counted
+### Date
+2026-11-06
+### Lesson
+For an alerting pipeline "no alerts" is only reassuring if the pipeline can show what it looked at and why it dropped each item. Counting `items_seen` and every excluded / invalid / unmapped item with a reason (plus a few example titles) turned silent filtering into something a reviewer can read, and made three real problems visible that status-code health checks had missed: a source whose timestamps were stored hours in the future, a column that was NULL on every row, and a product type the hub was not recognising.
+### Future Guidance
+Give every ingestion adapter a drop ledger and assert `seen == accepted + excluded + invalid` on real captured fixtures. Add a freshness check (newest item vs the feed's own expected cadence) and a field-drift check, since a feed can return 200 with well-formed XML and still have gone quiet or changed shape.
+---
+## LL-202
+### Title
+Measure a suspected timezone or field bug against the live feed before fixing it
+### Date
+2026-11-06
+### Lesson
+Assuming all sources behave like the one already understood would have been wrong in three different ways: NSW is UTC, ACT and VIC are local time stored as UTC, and TAS epochs are wall-clock-as-UTC. Comparing each source's own timestamps to the capture time showed the offset directly. Similarly an earlier "migration not applied" inference was wrong because the migration tracker lists Supabase-tool applications under a different name than the file.
+### Future Guidance
+Per source, compare the feed's stated times with the capture time before choosing a timezone rule, and record the measured result in `SOURCE_INFO` (the generated register then documents it). Check the real schema, not the migration tracker, before concluding a migration is or is not applied. Fix forward and say plainly which historic rows are left as they were.

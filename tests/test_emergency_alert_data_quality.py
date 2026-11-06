@@ -43,8 +43,15 @@ pytestmark = pytest.mark.usefixtures("block_network")
 CAPTURE = datetime(2026, 11, 6, 5, 52, tzinfo=timezone.utc)  # when the fixtures were captured
 TAS_NOW_MS = 1793944320000
 
+def _nsw_with_cap(ledger):
+    """GeoJSON parse plus the CAP enrichment from the CAP fixture, as fetch_with_ledger() does live."""
+    alerts = nsw_rfs.parse(fixture_json("nsw_rfs", "feed.json"), ledger)
+    nsw_rfs.nsw_rfs_cap.enrich(alerts, fixture_bytes("nsw_rfs", "cap.xml"))
+    return alerts
+
+
 RUNS = {
-    "nsw_rfs": (nsw_rfs, lambda lg: nsw_rfs.parse(fixture_json("nsw_rfs", "feed.json"), lg)),
+    "nsw_rfs": (nsw_rfs, lambda lg: _nsw_with_cap(lg)),
     "qld_fire": (qld_fire, lambda lg: qld_fire.parse(fixture_json("qld_fire", "feed.json"), lg)),
     "act_esa": (act_esa, lambda lg: act_esa.parse(fixture_bytes("act_esa", "feed.xml"), lg)),
     "wa_dfes": (wa_dfes, lambda lg: wa_dfes.parse(fixture_bytes("wa_dfes", "warnings.xml"), fixture_bytes("wa_dfes", "incidents.xml"), lg)),
