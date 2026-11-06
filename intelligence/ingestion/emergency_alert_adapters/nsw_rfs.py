@@ -13,7 +13,13 @@ from __future__ import annotations
 import logging
 import re
 
-from .base import CanonicalAlert, http_get_json, parse_dmy_datetime
+from .base import (
+    CanonicalAlert,
+    DropLedger,
+    convert_items,
+    http_get_json,
+    parse_dmy_datetime,
+)
 
 log = logging.getLogger(__name__)
 
@@ -43,56 +49,74 @@ def fetch() -> list[CanonicalAlert]:
     return parse(http_get_json(_FEED_URL))
 
 
-def parse(data: dict) -> list[CanonicalAlert]:
+def fetch_with_ledger() -> tuple[list[CanonicalAlert], DropLedger]:
+    """fetch() plus an account of every item skipped, and why (see base.DropLedger)."""
+    ledger = DropLedger()
+    return parse(http_get_json(_FEED_URL), ledger), ledger
+
+
+def parse(data: dict, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
     """Pure parse of the Major Incidents GeoJSON FeatureCollection; separate
-    from fetch() so it can be tested against a captured snapshot offline."""
-    out: list[CanonicalAlert] = []
-    for feature in data.get("features", []):
-        props = feature.get("properties", {}) or {}
-        title = props.get("title") or "—"
-        guid = props.get("guid")
-        category = (props.get("category") or "").strip().lower()
-        fields = _parse_description_fields(props.get("description") or "")
+    from fetch() so it can be tested against a captured snapshot offline.
+    Passing a ledger records every skipped item and makes one malformed
+    feature count as invalid_unparseable_item instead of failing the parse."""
+    guard = ledger is not None
+    ledger = ledger if ledger is not None else DropLedger()
+    return convert_items(data.get("features", []), lambda feature: _to_alert(feature, ledger), ledger, guard)
 
-        # Captain-directed exclusion 2026-08-26: Hazard Reduction / prescribed
-        # burns are planned, not emergencies — drop at the source rather than
-        # filtering downstream, using NSW RFS's own TYPE field (confirmed
-        # live: "Hazard Reduction" vs "Bush Fire"), not a title-text guess.
-        if fields.get("TYPE") == "Hazard Reduction":
-            continue
 
-        # Found 2026-08-26 investigating why so many NSW rows sat at
-        # severity=unknown: NSW RFS has a real 4th tier below its own
-        # Advice/Watch and Act/Emergency Warning vocabulary —
-        # category="Not Applicable" (confirmed live) — same "FYI, not a
-        # real warning" class as QLD's WarningLevel="Information", already
-        # excluded above. Drop it here too rather than let it sit as an
-        # unclassifiable "unknown"-severity row.
-        if category == "not applicable":
-            continue
+def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
+    props = feature.get("properties", {}) or {}
+    title = props.get("title") or "—"
+    guid = props.get("guid")
+    category = (props.get("category") or "").strip().lower()
+    fields = _parse_description_fields(props.get("description") or "")
 
-        lat = lon = None
-        geom = feature.get("geometry") or {}
-        if geom.get("type") == "GeometryCollection":
-            for g in geom.get("geometries", []):
-                if g.get("type") == "Point":
-                    lon, lat = g["coordinates"][0], g["coordinates"][1]
-                    break
+    # Captain-directed exclusion 2026-08-26: Hazard Reduction / prescribed
+    # burns are planned, not emergencies — drop at the source rather than
+    # filtering downstream, using NSW RFS's own TYPE field (confirmed
+    # live: "Hazard Reduction" vs "Bush Fire"), not a title-text guess.
+    if fields.get("TYPE") == "Hazard Reduction":
+        ledger.exclude("hazard_reduction")
+        return None
 
-        out.append(CanonicalAlert(
-            source_key="nsw_rfs",
-            jurisdiction="NSW",
-            headline=title,
-            event_key=guid or title,
-            alert_type="bushfire",
-            severity=_SEVERITY_MAP.get(category, "unknown"),
-            description=fields.get("STATUS") and f"{fields.get('TYPE', 'Bush Fire')} — {fields['STATUS']}" or None,
-            location=fields.get("LOCATION") or title,
-            issued_at=None,  # pubDate is last-update, not first-issued; see updated_at_src
-            updated_at_src=parse_dmy_datetime(props.get("pubDate")),
-            canonical_url=guid or props.get("link"),
-            raw_text=props.get("description"),
-            latitude=lat,
-            longitude=lon,
-        ))
-    return out
+    # Found 2026-08-26 investigating why so many NSW rows sat at
+    # severity=unknown: NSW RFS has a real 4th tier below its own
+    # Advice/Watch and Act/Emergency Warning vocabulary —
+    # category="Not Applicable" (confirmed live) — same "FYI, not a
+    # real warning" class as QLD's WarningLevel="Information", already
+    # excluded above. Drop it here too rather than let it sit as an
+    # unclassifiable "unknown"-severity row.
+    if category == "not applicable":
+        ledger.exclude("not_applicable")
+        return None
+
+    lat = lon = None
+    geom = feature.get("geometry") or {}
+    if geom.get("type") == "GeometryCollection":
+        for g in geom.get("geometries", []):
+            if g.get("type") == "Point":
+                lon, lat = g["coordinates"][0], g["coordinates"][1]
+                break
+
+    severity = _SEVERITY_MAP.get(category)
+    if severity is None:
+        ledger.unmapped(category or "blank")
+        severity = "unknown"
+
+    return CanonicalAlert(
+        source_key="nsw_rfs",
+        jurisdiction="NSW",
+        headline=title,
+        event_key=guid or title,
+        alert_type="bushfire",
+        severity=severity,
+        description=fields.get("STATUS") and f"{fields.get('TYPE', 'Bush Fire')} — {fields['STATUS']}" or None,
+        location=fields.get("LOCATION") or title,
+        issued_at=None,  # pubDate is last-update, not first-issued; see updated_at_src
+        updated_at_src=parse_dmy_datetime(props.get("pubDate")),
+        canonical_url=guid or props.get("link"),
+        raw_text=props.get("description"),
+        latitude=lat,
+        longitude=lon,
+    )

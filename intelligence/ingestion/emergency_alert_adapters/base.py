@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import re
 import urllib.error
 import urllib.request
+from collections import Counter
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
+
+log = logging.getLogger(__name__)
 
 _USER_AGENT = "USS-TJR-EmergencyAlertHub/1.0 (Starship Endeavour platform)"
 
@@ -45,6 +51,126 @@ class CanonicalAlert:
     lifecycle never catches it). None (default) means "no closure signal
     in this source" — the default absence-based lifecycle still applies.
     Never invent this for a source that doesn't actually expose it."""
+
+
+class FeedRetiredError(RuntimeError):
+    """The feed itself says it is retired (e.g. SA CFS's retirement notice).
+    A RuntimeError so existing callers keep working, but a distinct type so
+    the per-item guard (see convert_items) never swallows it as a bad row."""
+
+
+_UNMAPPED_MAX_LABELS = 20
+
+
+def _slug(label: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", (label or "").lower()).strip("_")[:40] or "blank"
+
+
+class DropLedger:
+    """Every item an adapter looked at and did not turn into an alert, counted
+    by reason, so "no alerts" can be told apart from "broken".
+
+    Two namespaces, deliberately never mixed:
+      excluded_<reason>  deliberate, Captain-directed filters (hazard reduction
+                         burns, Information tier, ambulance calls, ...). A feed
+                         where everything is excluded is legitimately quiet.
+      invalid_<reason>   structural failures (missing id/headline/content, an
+                         item that could not be parsed at all). A feed where
+                         items are seen but ALL were invalid is broken.
+    Plus items_seen (raw items before any skip) and unmapped_<label>: kept
+    alerts whose tier label the adapter did not recognise (severity 'unknown').
+
+    Invariant for adapters: items_seen == accepted + excluded_total +
+    invalid_total (tests assert it on every fixture).
+    """
+
+    __slots__ = ("counts", "items_seen")
+
+    def __init__(self) -> None:
+        self.items_seen = 0
+        self.counts: Counter[str] = Counter()
+
+    def seen(self, n: int = 1) -> None:
+        self.items_seen += n
+
+    def exclude(self, reason: str) -> None:
+        self.counts[f"excluded_{reason}"] += 1
+
+    def invalid(self, reason: str) -> None:
+        self.counts[f"invalid_{reason}"] += 1
+
+    def unmapped(self, label: str) -> None:
+        """An unrecognised tier label mapped to 'unknown'. Distinct labels are
+        capped so a free-text field cannot grow the ledger without bound."""
+        key = f"unmapped_{_slug(label)}"
+        if key not in self.counts and sum(1 for k in self.counts if k.startswith("unmapped_")) >= _UNMAPPED_MAX_LABELS:
+            key = "unmapped_other"
+        self.counts[key] += 1
+
+    def _total(self, prefix: str) -> int:
+        return sum(n for k, n in self.counts.items() if k.startswith(prefix))
+
+    @property
+    def excluded_total(self) -> int:
+        return self._total("excluded_")
+
+    @property
+    def invalid_total(self) -> int:
+        return self._total("invalid_")
+
+    def breakdown(self, prefix: str) -> list[tuple[str, int]]:
+        """(reason-without-prefix, count), biggest first, ties by name."""
+        items = [(k[len(prefix):], n) for k, n in self.counts.items() if k.startswith(prefix)]
+        return sorted(items, key=lambda kv: (-kv[1], kv[0]))
+
+    def top_invalid(self, n: int = 3) -> str:
+        return ", ".join(f"{r} {c}" for r, c in self.breakdown("invalid_")[:n])
+
+    def top_unmapped(self, n: int = 3) -> list[tuple[str, int]]:
+        return self.breakdown("unmapped_")[:n]
+
+    def summary(self) -> str:
+        """Compact one-line form for the heartbeat detail, e.g.
+        "seen 30, excluded 17 (hazard_reduction 15, not_applicable 2), invalid 1 (missing_id 1)"."""
+        parts = [f"seen {self.items_seen}"]
+        for label, prefix, total in (("excluded", "excluded_", self.excluded_total), ("invalid", "invalid_", self.invalid_total)):
+            if total:
+                parts.append(f"{label} {total} ({', '.join(f'{r} {c}' for r, c in self.breakdown(prefix))})")
+        unmapped = self.top_unmapped()
+        if unmapped:
+            parts.append("unmapped " + ", ".join(f"{r} {c}" for r, c in unmapped))
+        return ", ".join(parts)
+
+    def as_dict(self) -> dict:
+        return {"items_seen": self.items_seen, **dict(sorted(self.counts.items()))}
+
+
+def convert_items(items: Iterable, convert: Callable, ledger: DropLedger, guard: bool) -> list[CanonicalAlert]:
+    """Run convert(item) over every raw item. convert returns a CanonicalAlert,
+    or None after recording why it skipped the item on the ledger.
+
+    guard=False (the plain fetch()/parse() path) lets an exception propagate,
+    exactly as before. guard=True (the ledger path used by the orchestrator)
+    turns an exception on ONE item into invalid_unparseable_item so a single
+    bad row cannot black out the whole source. FeedRetiredError always
+    propagates. Only the exception type is logged, never item content."""
+    out: list[CanonicalAlert] = []
+    for item in items:
+        ledger.seen()
+        if guard:
+            try:
+                alert = convert(item)
+            except FeedRetiredError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - per-item isolation is the point: one malformed row must not fail the source; counted as invalid_unparseable_item
+                log.warning("[emergency-alert-adapters] unparseable item skipped (%s)", type(exc).__name__)
+                ledger.invalid("unparseable_item")
+                continue
+        else:
+            alert = convert(item)
+        if alert is not None:
+            out.append(alert)
+    return out
 
 
 def stable_event_key(*parts: str) -> str:

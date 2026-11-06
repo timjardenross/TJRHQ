@@ -31,7 +31,13 @@ import re
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
-from .base import CanonicalAlert, http_get, parse_rfc822_datetime
+from .base import (
+    CanonicalAlert,
+    DropLedger,
+    convert_items,
+    http_get,
+    parse_rfc822_datetime,
+)
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +48,20 @@ _DFES_NS = "{https://emergency.wa.gov.au/xmlns/dfes}"
 _GEO_NS = "{https://www.w3.org/2003/01/geo/wgs84_pos#}"
 
 _EXCLUDED_TYPE_KEYWORDS = ("BURN OFF", "HAZMAT", "FACILITY OR PARK CLOSURE", "PARK CLOSURE")
+
+# keyword -> drop-ledger reason, same order as _EXCLUDED_TYPE_KEYWORDS ("Burn
+# Off" is DFES's word for a Hazard Reduction burn; both park-closure phrasings
+# are one reason). First match wins, so each dropped item is counted once.
+_EXCLUDED_REASONS = (
+    ("BURN OFF", "hazard_reduction"),
+    ("HAZMAT", "hazmat"),
+    ("FACILITY OR PARK CLOSURE", "park_closure"),
+    ("PARK CLOSURE", "park_closure"),
+)
+
+
+def _excluded_reason(text_upper: str) -> str | None:
+    return next((reason for kw, reason in _EXCLUDED_REASONS if kw in text_upper), None)
 
 _SEVERITY_MAP = {
     "emergency warning": "emergency_warning",
@@ -74,139 +94,165 @@ def _geo(item: ET.Element) -> tuple[float | None, float | None]:
     return lat, lon
 
 
-def parse_warnings(raw: bytes) -> tuple[list[CanonicalAlert], dict[str, str]]:
+def parse_warnings(raw: bytes, ledger: DropLedger | None = None) -> tuple[list[CanonicalAlert], dict[str, str]]:
     """Pure parse of the warnings RSS. Returns (alerts, incident_number_to_severity)
-    — the second is used by parse_incidents to enrich CAD incidents whose dfes:incidentNumber
-    matches a warning already issued for the same real event (confirmed
-    live 2026-08-26: WA's incidents feed has no severity field of its own,
-    but some CAD-IDs do appear in the warnings feed's own
+    — the second is used by parse_incidents to enrich CAD incidents whose
+    dfes:incidentNumber matches a warning already issued for the same real
+    event (confirmed live 2026-08-26: WA's incidents feed has no severity
+    field of its own, but some CAD-IDs do appear in the warnings feed's own
     dfes:incidentNumber, e.g. 812369/812893) — real cross-reference via a
-    shared ID both feeds already carry, not an inferred value."""
-    out: list[CanonicalAlert] = []
+    shared ID both feeds already carry, not an inferred value. Passing a
+    ledger records every skipped item and makes one malformed item count as
+    invalid_unparseable_item instead of failing the parse."""
+    guard = ledger is not None
+    ledger = ledger if ledger is not None else DropLedger()
     incident_severity: dict[str, str] = {}
-    for item in _rss_items(raw):
-        title_el = item.find("title")
-        title = title_el.text.strip() if title_el is not None and title_el.text else "—"
-        title_upper = title.upper()
+    out = convert_items(_rss_items(raw), lambda item: _warning_to_alert(item, incident_severity, ledger), ledger, guard)
+    return out, incident_severity
 
-        if any(kw in title_upper for kw in _EXCLUDED_TYPE_KEYWORDS):
-            continue
 
-        severity = "unknown"
-        for phrase, mapped in _SEVERITY_MAP.items():
-            if phrase.upper() in title_upper:
-                severity = mapped
-                break
+def _warning_to_alert(item: ET.Element, incident_severity: dict[str, str], ledger: DropLedger) -> CanonicalAlert | None:
+    title_el = item.find("title")
+    title = title_el.text.strip() if title_el is not None and title_el.text else "—"
+    title_upper = title.upper()
 
-        alert_type = "bushfire" if "BUSHFIRE" in title_upper else (
-            "storm" if "STORM" in title_upper else (
-                "cyclone" if "CYCLONE" in title_upper else (
-                    "flood" if "FLOOD" in title_upper else "other"
-                )
+    reason = _excluded_reason(title_upper)
+    if reason:
+        ledger.exclude(reason)
+        return None
+
+    severity = "unknown"
+    for phrase, mapped in _SEVERITY_MAP.items():
+        if phrase.upper() in title_upper:
+            severity = mapped
+            break
+
+    alert_type = "bushfire" if "BUSHFIRE" in title_upper else (
+        "storm" if "STORM" in title_upper else (
+            "cyclone" if "CYCLONE" in title_upper else (
+                "flood" if "FLOOD" in title_upper else "other"
             )
         )
-        if alert_type == "other":
-            # Not one of the categories this hub wants (matches the
-            # platform-wide "Other" exclusion) — genuinely unclassifiable
-            # warning type, not worth a guess.
-            continue
+    )
+    if alert_type == "other":
+        # Not one of the categories this hub wants (matches the
+        # platform-wide "Other" exclusion) — genuinely unclassifiable
+        # warning type, not worth a guess. (Live 2026-11: Smoke Alert and
+        # Heatwave Advice warnings land here.)
+        ledger.exclude("other_type")
+        return None
 
-        guid_el = item.find("guid")
-        link_el = item.find("link")
-        pubdate_el = item.find("pubDate")
-        region_el = item.find(f"{_DFES_NS}region")
-        incident_no_el = item.find(f"{_DFES_NS}incidentNumber")
-        desc_el = item.find("description")
-        lat, lon = _geo(item)
+    if severity == "unknown":
+        ledger.unmapped(title.split(" - ")[0])
 
-        location = region_el.text.strip() if region_el is not None and region_el.text else None
+    guid_el = item.find("guid")
+    link_el = item.find("link")
+    pubdate_el = item.find("pubDate")
+    region_el = item.find(f"{_DFES_NS}region")
+    incident_no_el = item.find(f"{_DFES_NS}incidentNumber")
+    desc_el = item.find("description")
+    lat, lon = _geo(item)
 
-        if incident_no_el is not None and incident_no_el.text:
-            incident_severity[incident_no_el.text.strip()] = severity
+    location = region_el.text.strip() if region_el is not None and region_el.text else None
 
-        out.append(CanonicalAlert(
-            source_key="wa_dfes",
-            jurisdiction="WA",
-            headline=title,
-            event_key=(guid_el.text.strip() if guid_el is not None and guid_el.text else title),
-            alert_type=alert_type,
-            severity=severity,
-            description=_strip_html(desc_el.text if desc_el is not None else None),
-            location=location,
-            updated_at_src=parse_rfc822_datetime(pubdate_el.text.strip() if pubdate_el is not None and pubdate_el.text else None),
-            canonical_url=link_el.text.strip() if link_el is not None and link_el.text else None,
-            raw_text=_strip_html(desc_el.text if desc_el is not None else None),
-            latitude=lat,
-            longitude=lon,
-        ))
-    return out, incident_severity
+    if incident_no_el is not None and incident_no_el.text:
+        incident_severity[incident_no_el.text.strip()] = severity
+
+    return CanonicalAlert(
+        source_key="wa_dfes",
+        jurisdiction="WA",
+        headline=title,
+        event_key=(guid_el.text.strip() if guid_el is not None and guid_el.text else title),
+        alert_type=alert_type,
+        severity=severity,
+        description=_strip_html(desc_el.text if desc_el is not None else None),
+        location=location,
+        updated_at_src=parse_rfc822_datetime(pubdate_el.text.strip() if pubdate_el is not None and pubdate_el.text else None),
+        canonical_url=link_el.text.strip() if link_el is not None and link_el.text else None,
+        raw_text=_strip_html(desc_el.text if desc_el is not None else None),
+        latitude=lat,
+        longitude=lon,
+    )
 
 
 _INCIDENT_TITLE_RE = re.compile(r"^(?P<type>[^(]+?)\s*\((?P<rest>.*)\)$")
 
 
-def parse_incidents(raw: bytes, incident_severity: dict[str, str]) -> list[CanonicalAlert]:
+def parse_incidents(raw: bytes, incident_severity: dict[str, str], ledger: DropLedger | None = None) -> list[CanonicalAlert]:
     """Pure parse of the incidents RSS (bushfire CAD incidents only)."""
-    out: list[CanonicalAlert] = []
-    for item in _rss_items(raw):
-        title_el = item.find("title")
-        title = title_el.text.strip() if title_el is not None and title_el.text else "—"
-
-        m = _INCIDENT_TITLE_RE.match(title)
-        incident_type = (m.group("type").strip() if m else "").upper()
-
-        if any(kw in incident_type for kw in _EXCLUDED_TYPE_KEYWORDS):
-            continue
-
-        # region/incidentNumber/publicationTime are embedded as raw
-        # (non-namespaced) tags inside the <description> CDATA on this
-        # feed, not real sibling XML elements (confirmed live 2026-08-26 —
-        # unlike the warnings feed's real dfes:region sibling) — extracted
-        # from the title's own "(LOCATION, ..., CAD-ID: n)" tail instead,
-        # which is real structured text either way.
-        location = re.sub(r",?\s*CAD-ID:\s*\d+\s*$", "", m.group("rest")).strip() if m else None
-        cad_id_match = re.search(r"CAD-ID:\s*(\d+)", title)
-        cad_id = cad_id_match.group(1) if cad_id_match else None
-
-        # Captain-directed exclusion, widened 2026-08-26 to also drop
-        # Structure Fire — kept: bushfire only.
-        if "BUSHFIRE" in incident_type:
-            alert_type = "bushfire"
-        else:
-            continue
-
-        guid_el = item.find("guid")
-        link_el = item.find("link")
-        pubdate_el = item.find("pubDate")
-        lat, lon = _geo(item)
-
-        out.append(CanonicalAlert(
-            source_key="wa_dfes",
-            jurisdiction="WA",
-            headline=title,
-            event_key=(guid_el.text.strip() if guid_el is not None and guid_el.text else title),
-            alert_type=alert_type,
-            # incidents feed has no warning-level field of its own (same
-            # caveat as vic_emergency.py/act_esa.py) — enriched from the
-            # matching warning's real severity when this CAD-ID also has an
-            # active warning (see _fetch_warnings' incident_severity map).
-            severity=incident_severity.get(cad_id, "unknown") if cad_id else "unknown",
-            description=None,
-            location=location,
-            updated_at_src=parse_rfc822_datetime(pubdate_el.text.strip() if pubdate_el is not None and pubdate_el.text else None),
-            canonical_url=link_el.text.strip() if link_el is not None and link_el.text else None,
-            raw_text=None,
-            latitude=lat,
-            longitude=lon,
-        ))
-    return out
+    guard = ledger is not None
+    ledger = ledger if ledger is not None else DropLedger()
+    return convert_items(_rss_items(raw), lambda item: _incident_to_alert(item, incident_severity, ledger), ledger, guard)
 
 
-def parse(warnings_raw: bytes, incidents_raw: bytes) -> list[CanonicalAlert]:
-    warnings, incident_severity = parse_warnings(warnings_raw)
-    return warnings + parse_incidents(incidents_raw, incident_severity)
+def _incident_to_alert(item: ET.Element, incident_severity: dict[str, str], ledger: DropLedger) -> CanonicalAlert | None:
+    title_el = item.find("title")
+    title = title_el.text.strip() if title_el is not None and title_el.text else "—"
+
+    m = _INCIDENT_TITLE_RE.match(title)
+    incident_type = (m.group("type").strip() if m else "").upper()
+
+    reason = _excluded_reason(incident_type)
+    if reason:
+        ledger.exclude(reason)
+        return None
+
+    # region/incidentNumber/publicationTime are embedded as raw
+    # (non-namespaced) tags inside the <description> CDATA on this
+    # feed, not real sibling XML elements (confirmed live 2026-08-26 —
+    # unlike the warnings feed's real dfes:region sibling) — extracted
+    # from the title's own "(LOCATION, ..., CAD-ID: n)" tail instead,
+    # which is real structured text either way.
+    location = re.sub(r",?\s*CAD-ID:\s*\d+\s*$", "", m.group("rest")).strip() if m else None
+    cad_id_match = re.search(r"CAD-ID:\s*(\d+)", title)
+    cad_id = cad_id_match.group(1) if cad_id_match else None
+
+    # Captain-directed exclusion, widened 2026-08-26 to also drop
+    # Structure Fire — kept: bushfire only.
+    if "BUSHFIRE" in incident_type:
+        alert_type = "bushfire"
+    else:
+        ledger.exclude("not_bushfire")
+        return None
+
+    guid_el = item.find("guid")
+    link_el = item.find("link")
+    pubdate_el = item.find("pubDate")
+    lat, lon = _geo(item)
+
+    return CanonicalAlert(
+        source_key="wa_dfes",
+        jurisdiction="WA",
+        headline=title,
+        event_key=(guid_el.text.strip() if guid_el is not None and guid_el.text else title),
+        alert_type=alert_type,
+        # incidents feed has no warning-level field of its own (same
+        # caveat as vic_emergency.py/act_esa.py) — enriched from the
+        # matching warning's real severity when this CAD-ID also has an
+        # active warning (see parse_warnings' incident_severity map).
+        severity=incident_severity.get(cad_id, "unknown") if cad_id else "unknown",
+        description=None,
+        location=location,
+        updated_at_src=parse_rfc822_datetime(pubdate_el.text.strip() if pubdate_el is not None and pubdate_el.text else None),
+        canonical_url=link_el.text.strip() if link_el is not None and link_el.text else None,
+        raw_text=None,
+        latitude=lat,
+        longitude=lon,
+    )
+
+
+def parse(warnings_raw: bytes, incidents_raw: bytes, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
+    warnings, incident_severity = parse_warnings(warnings_raw, ledger)
+    return warnings + parse_incidents(incidents_raw, incident_severity, ledger)
 
 
 def fetch() -> list[CanonicalAlert]:
     warnings, incident_severity = parse_warnings(http_get(_WARNINGS_URL))
     return warnings + parse_incidents(http_get(_INCIDENTS_URL), incident_severity)
+
+
+def fetch_with_ledger() -> tuple[list[CanonicalAlert], DropLedger]:
+    """fetch() plus an account of every item skipped across both feeds, and why."""
+    ledger = DropLedger()
+    warnings, incident_severity = parse_warnings(http_get(_WARNINGS_URL), ledger)
+    return warnings + parse_incidents(http_get(_INCIDENTS_URL), incident_severity, ledger), ledger

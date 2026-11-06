@@ -539,8 +539,15 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         else:
             _record_heartbeat(domain_key, **fields)
 
+    # Adapters that can account for what they skip expose fetch_with_ledger();
+    # the rest (and test doubles) keep the plain fetch() contract.
+    ledger = None
     try:
-        alerts = adapter.fetch()
+        with_ledger = getattr(adapter, "fetch_with_ledger", None)
+        if with_ledger is not None:
+            alerts, ledger = with_ledger()
+        else:
+            alerts = adapter.fetch()
     except Exception as exc:  # noqa: BLE001 - per-source fetch job boundary — already logged + heartbeat-recorded with latency
         latency_ms = int((time.monotonic() - t0) * 1000)
         record_heartbeat(domain_key, status="failed", error_message=str(exc)[:500], latency_ms=latency_ms)
@@ -563,6 +570,17 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         # (nothing actually errored).
         record_heartbeat(domain_key, status="skipped", detail=adapter.NOT_YET_IMPLEMENTED)
         return {"source_key": source_key, "count": 0, "skipped": True}
+
+    # Integrity gate (before coercion and upsert, and so before any expiry): a
+    # feed whose every item failed structural parsing is BROKEN, not quiet.
+    # Failing here leaves existing alerts untouched - no expiry is scheduled -
+    # so a parser break can never turn live alerts into false "lifted" notices.
+    failure, integrity_warning = _ledger_verdict(ledger, accepted=len(alerts))
+    if failure:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        record_heartbeat(domain_key, status="failed", error_message=failure[:500], latency_ms=latency_ms)
+        log.warning("[emergency-alerts] %s: %s", source_key, failure)
+        return {"source_key": source_key, "error": failure, "count": 0}
 
     rows = []
     for a in alerts:
@@ -615,14 +633,21 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         # run_all() fills in detail once its single expiry pass has the count.
         heartbeats.append({
             "domain_key": domain_key, "status": "ok", "latency_ms": latency_ms,
-            "_counts": (len(rows), unknown_count, emails_sent, {"coerced": coerced}),
+            "_counts": (len(rows), unknown_count, emails_sent, {"coerced": coerced, "ledger": ledger, "warning": integrity_warning}),
         })
     else:
-        record_heartbeat(domain_key, status="ok", detail=_ok_detail(len(rows), unknown_count, expired, emails_sent, coerced=coerced), latency_ms=latency_ms)
-    return {
+        record_heartbeat(
+            domain_key, status="ok",
+            detail=_ok_detail(len(rows), unknown_count, expired, emails_sent, coerced=coerced, ledger=ledger, warning=integrity_warning),
+            latency_ms=latency_ms,
+        )
+    result = {
         "source_key": source_key, "count": len(rows), "unknown_severity": unknown_count,
         "expired": expired, "emails_sent": emails_sent, "pending_expiry": batched,
     }
+    if ledger is not None:
+        result["drops"] = ledger.as_dict()
+    return result
 
 
 _FOLLOW_UP_WINDOW = timedelta(hours=6)
@@ -780,14 +805,57 @@ def run_all() -> dict:
     return results
 
 
-def _ok_detail(n_rows: int, unknown_count: int, expired: int, emails_sent: int, *, coerced: tuple[int, int] | None = None) -> str:
+# A source is only "broken" for parsing reasons above this share of invalid
+# items (with some accepted): flagged in the heartbeat detail, status stays ok.
+_INVALID_WARN_RATIO = 0.20
+
+# Heartbeat detail is free text (domain_heartbeats.detail, migration 0071); keep
+# it bounded like error_message (500). The headline counts come first so a long
+# drop breakdown is what gets cut, never the alert counts.
+_DETAIL_MAX_CHARS = 500
+
+
+def _ledger_verdict(ledger, accepted: int) -> tuple[str | None, str | None]:
+    """(failure message, warning text) for one run's drop ledger.
+
+    - items seen, none accepted, some invalid  -> failure: the feed is broken.
+    - items seen, none accepted, none invalid  -> (None, None): everything was
+      a deliberate exclusion, which is a legitimately quiet feed.
+    - more than 20% invalid with some accepted -> warning only (status ok).
+    No ledger (adapter has no fetch_with_ledger) -> (None, None)."""
+    if ledger is None or ledger.items_seen <= 0:
+        return None, None
+    invalid = ledger.invalid_total
+    if accepted == 0 and invalid > 0:
+        if invalid == ledger.items_seen:
+            return f"all {ledger.items_seen} items failed structural parsing: {ledger.top_invalid()}", None
+        message = (
+            f"no items accepted - {invalid} of {ledger.items_seen} failed structural parsing: {ledger.top_invalid()} "
+            f"({ledger.excluded_total} deliberately excluded)"
+        )
+        return message, None
+    if accepted > 0 and invalid / ledger.items_seen > _INVALID_WARN_RATIO:
+        return None, f"WARNING: {round(100 * invalid / ledger.items_seen)}% invalid ({invalid} of {ledger.items_seen} items)"
+    return None, None
+
+
+def _ok_detail(
+    n_rows: int, unknown_count: int, expired: int, emails_sent: int, *,
+    coerced: tuple[int, int] | None = None, ledger=None, warning: str | None = None,
+) -> str:
     detail = f"{n_rows} alert(s), {unknown_count} unknown severity, {expired} expired"
     if n_rows == 0:
         detail += " (empty feed — earlier alerts held up to 2h before expiring)"
     if emails_sent:
         detail += f", {emails_sent} emergency email(s) sent"
+    if warning:
+        detail += f" | {warning}"
+    if ledger is not None:
+        detail += f" | {ledger.summary()}"
     if coerced and any(coerced):
         detail += f" | coerced {sum(coerced)} (alert_type {coerced[0]}, severity {coerced[1]})"
+    if len(detail) > _DETAIL_MAX_CHARS:
+        detail = detail[: _DETAIL_MAX_CHARS - 1] + "…"
     return detail
 
 
