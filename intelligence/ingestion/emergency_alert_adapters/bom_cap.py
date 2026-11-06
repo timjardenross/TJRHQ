@@ -2,8 +2,8 @@
 
 https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/rss.xml is the WMO's mirror of the Bureau of
 Meteorology's CAP-AU alert stream: an RSS index (500 items, ~8 days) whose items link to one CAP 1.2
-message each. Measured 2026-11-06: 120/120 sampled messages validate against the OASIS CAP 1.2 XSD and
-carry the CAP-AU profile markers; there are no polygons (geography is BoM area codes only), and the
+message each. Measured 2026-11-06: 120/120 sampled messages validate against the OASIS CAP 1.2 XSD and 115/120 against
+the CAP-AU v3.0 XSD (the 5 are Bushwalkers alerts with an <event> outside the CAP-AU list); there are no polygons (geography is BoM area codes only), and the
 index is a STREAM of every issue/update/cancel, not a list of what is currently active.
 
 This is an enrichment, not a source. The BoM state RSS feeds (bom_warnings.py) stay the source of truth
