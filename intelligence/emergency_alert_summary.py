@@ -154,16 +154,41 @@ def _verbatim_urgent_section(alerts: list[dict]) -> str:
 _DROPPED_SAMPLES_PER_REASON = 2
 
 
+_PIPELINE_FRESH_FOR = 2 * 3600  # seconds: a source "reported" if its integrity row is newer than this
+
+
+def _pipeline_check(rows: list[dict]) -> str:
+    """"Pipeline check: 16 of 16 sources reported in the last 2 hours; saw 214 items, kept 52."
+    The dead-man's-switch line: if the hub stopped running, this is where it shows."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    fresh = 0
+    for row in rows:
+        try:
+            checked = datetime.fromisoformat(str(row.get("checked_at")).replace("Z", "+00:00"))
+            if (now - checked).total_seconds() <= _PIPELINE_FRESH_FOR:
+                fresh += 1
+        except (TypeError, ValueError):
+            pass
+    seen = sum(int(row.get("items_seen") or 0) for row in rows)
+    kept = sum(int(row.get("accepted") or 0) for row in rows)
+    verdict = "" if fresh == len(rows) else " <strong>Some sources have not reported: the hub may not be running.</strong>"
+    return f"<strong>Pipeline check:</strong> {fresh} of {len(rows)} sources reported in the last 2 hours; saw {seen} items, kept {kept}.{verdict}"
+
+
 def _dropped_section() -> str:
     """Feed health and what the hub is deliberately dropping, from the latest per-source drop
     ledger (emergency_alert_source_integrity, migration 0252). Verbatim counts and public feed
     titles, no LLM: so a reviewer can SEE what is excluded (e.g. WA Smoke Alerts, a new BOM
-    product) instead of it only existing as a count inside a heartbeat. Empty string when
-    the table is unavailable or nothing is noteworthy; never raises."""
+    product) instead of it only existing as a count inside a heartbeat. Always opens with a
+    one-line pipeline check (how many sources reported recently, items seen / kept), so a quiet
+    digest is distinguishable from a broken pipeline. Empty string only when the table is
+    unavailable or empty; never raises."""
     try:
         rows = supabase_get(
             "emergency_alert_source_integrity?order=source_key.asc"
-            "&select=source_key,status,items_seen,accepted,excluded,invalid,unmapped,samples,warnings"
+            "&select=source_key,checked_at,status,items_seen,accepted,excluded,invalid,unmapped,samples,warnings"
         )
     except Exception as exc:  # noqa: BLE001 - optional digest section; a read failure must never block the digest
         log.warning("[emergency-alert-summary] could not read source integrity (migration 0252 not applied?): %s", exc)
@@ -192,12 +217,17 @@ def _dropped_section() -> str:
             f"<li><strong>{_esc(str(row['source_key']))}</strong>{failed}: saw {row.get('items_seen', 0)}, kept {row.get('accepted', 0)}"
             + ("; " + "; ".join(parts) if parts else "") + flags + "</li>"
         )
-    if not items:
+    if not rows:
         return ""
     return (
         "<hr><p><strong>Feed health and what the hub is dropping (latest run per source):</strong></p>"
-        "<p>Counts are deliberate exclusions, not errors. Anything flagged STALE, FIELD DRIFT or FAILED needs a look.</p>"
-        f"<ul>{''.join(items)}</ul>"
+        f"<p>{_pipeline_check(rows)}</p>"
+        + (
+            "<p>Counts are deliberate exclusions, not errors. Anything flagged STALE, FIELD DRIFT or FAILED needs a look.</p>"
+            f"<ul>{''.join(items)}</ul>"
+            if items
+            else "<p>Nothing is being dropped and nothing is flagged.</p>"
+        )
     )
 
 
