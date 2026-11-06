@@ -101,7 +101,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 - No AWS tier (Advice / Watch and Act / Emergency Warning) exists in BOM's feed, so every BOM row is severity 'unknown'; BOM's own flood intensity words (Minor / Moderate / Major) are a different scale and are not mapped. High-attention emails use the platform's own bom_attention label.
 - Products whose name matches no keyword are dropped (counted excluded_unmatched_product), so a NEW BOM warning product is invisible until a keyword is added.
 - Needs a browser-shaped User-Agent (BOM 403s the shared default); detail pages are best-effort and fall back to a title-only alert.
-- Detail-page 'Issued at' is parsed as '9:34 am AEST on Thursday 27 August 2026' (bom_warnings._parse_bom_issued_at) while emergency_alerts._issued_text reads 'Issued at 2:38 pm Monday, 2 November 2026.' from the stored text; the two formats are not reconciled and no live detail page could be captured to check which is current.
+- The detail-page 'Issued at' line varies by state (AEST, bare EST/EDT, long 'Australian Eastern Daylight Time', trailing full stop, or no timezone at all on bom_wa); fixed 2026-11-06 after 57 of 91 stored rows had issued_at NULL. A line with no timezone is read as the state's local time only for states without daylight saving (WA +8, QLD +10, NT +9:30); NSW/VIC/SA/TAS/ACT lines with no timezone stay unparsed (issued_at NULL) rather than guessed. emergency_alerts._issued_text still reads the stored text as a fallback.
 - BOM cross-lists some border-river warnings in neighbouring states' feeds, so one product can appear under two source_keys (canonical_url is left empty to avoid the unique-index clash).
 
 ## nsw_rfs
@@ -392,7 +392,7 @@ Carried on `CanonicalAlert` (never inferred for other sources); only written to 
 
 ### Alert type
 
-warnings: BUSHFIRE / STORM / CYCLONE / FLOOD in the title (first match), anything else dropped; incidents: 'bushfire' only.
+warnings: BUSHFIRE / STORM / CYCLONE / FLOOD / HEATWAVE in the title (first match, Heatwave added 2026-11-06), anything else dropped; incidents: 'bushfire' only.
 
 ### Deliberate exclusions
 
@@ -403,11 +403,11 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 | `excluded_hazard_reduction` | title type (warnings and incidents) | contains 'BURN OFF' | Captain-directed 2026-08-26 (Burn Off = Hazard Reduction) |
 | `excluded_hazmat` | title type (warnings and incidents) | contains 'HAZMAT' | Captain-directed 2026-08-26 |
 | `excluded_not_bushfire` | incidents title type | does not contain 'BUSHFIRE' (e.g. Structure Fire, Vehicle Fire) | Captain-directed 2026-08-26 (widened to bushfire only) |
-| `excluded_other_type` | warnings title | none of BUSHFIRE / STORM / CYCLONE / FLOOD (e.g. Smoke Alert, Heatwave Advice) | Captain-directed 2026-08-26 (platform-wide 'Other' exclusion) |
+| `excluded_other_type` | warnings title | none of BUSHFIRE / STORM / CYCLONE / FLOOD / HEATWAVE (e.g. Smoke Alert) | Captain-directed 2026-08-26 (platform-wide 'Other' exclusion) |
 | `excluded_park_closure` | title type (warnings and incidents) | contains 'FACILITY OR PARK CLOSURE' or 'PARK CLOSURE' | Captain-directed 2026-08-26 |
 
 ### Known gaps
 
-- Warning types outside bushfire / storm / cyclone / flood are dropped by design, which includes real public warnings such as Smoke Alert and Heatwave Advice (seen live 2026-11-06). Recorded as excluded_other_type, not as unmapped.
+- Warning types outside bushfire / storm / cyclone / flood / heatwave are dropped by design, which includes real public Smoke Alert warnings (seen live 2026-11-06; Captain chose to keep dropping them while ingesting Heatwave Advice). Recorded as excluded_other_type, not as unmapped.
 - Incidents carry no warning level; severity is only known when the CAD-ID also appears as dfes:incidentNumber on a warning.
 - A warning title with no recognised level phrase is kept at severity 'unknown' and counted as unmapped_&lt;label&gt;.

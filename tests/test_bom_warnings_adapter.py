@@ -75,10 +75,81 @@ def test_list_with_detail_enrichment(raw):
 
 
 def test_detail_without_content_div_degrades_to_title_only():
-    assert bom_warnings.parse_detail("<html><body>nope</body></html>") == {"issued_at": None, "body": None}
+    assert bom_warnings.parse_detail("<html><body>nope</body></html>") == {"issued_at": None, "issued_local": None, "body": None}
 
 
 def test_fetch_is_http_get_plus_parse(raw, monkeypatch):
     monkeypatch.setattr(bom_warnings, "_http_get_bom", lambda url: raw if url.endswith(".xml") else fixture_bytes("bom_nsw", "detail.html"))
     monkeypatch.setattr(bom_warnings, "_detail_cache", {})
     assert bom_warnings.nsw.fetch() == bom_warnings.parse_state_feed("NSW", raw, detail_for=_detail_for)
+
+
+# ---- "Issued at" wordings seen in production (bom_* rows, 2026-11-06): 57 of 91 had issued_at NULL ----
+
+@pytest.mark.parametrize("line,aware,local", [
+    ("Issued at 9:34 am AEST on Thursday 27 August 2026", "2026-08-27T09:34:00+10:00", "2026-08-27T09:34:00"),
+    ("Issued at 10:59 am AEST on Thursday 5 November 2026", "2026-11-05T10:59:00+10:00", "2026-11-05T10:59:00"),
+    # bom_nsw / bom_act: bare EDT (= Australian Eastern Daylight Time) and a trailing full stop
+    ("Issued at 4:08 pm EDT on Friday 6 November 2026.", "2026-11-06T16:08:00+11:00", "2026-11-06T16:08:00"),
+    ("Issued at 7:15 am EST on Monday 6 July 2026.", "2026-07-06T07:15:00+10:00", "2026-07-06T07:15:00"),
+    # long timezone name
+    ("Issued at 11:51 am Australian Eastern Daylight Time on Friday 6 November 2026", "2026-11-06T11:51:00+11:00", "2026-11-06T11:51:00"),
+    ("Issued at 12:05 am Australian Central Daylight Time on Monday 2 November 2026", "2026-11-02T00:05:00+10:30", "2026-11-02T00:05:00"),
+    ("Issued at 9:00 pm ACST on Monday 2 November 2026", "2026-11-02T21:00:00+09:30", "2026-11-02T21:00:00"),
+    ("Issued at 12:30 pm AWST on Friday 6 November 2026", "2026-11-06T12:30:00+08:00", "2026-11-06T12:30:00"),
+    # bom_wa: no timezone at all, weekday with a comma -> naive only
+    ("Issued at 2:42 pm Friday, 6 November 2026.", None, "2026-11-06T14:42:00"),
+])
+def test_issued_line_wordings(line, aware, local):
+    assert bom_warnings._parse_issued(f"<p>{line}</p>") == (aware, local)
+    assert bom_warnings._parse_bom_issued_at(f"<p>{line}</p>") == aware
+
+
+@pytest.mark.parametrize("line", [
+    "Issued at 13:05 pm AEST on Friday 6 November 2026",
+    "Issued at 9:34 am AEST on Friday 31 Smarch 2026",
+    "Issued at 9:34 am AEST on Friday 31 February 2026",
+    "Issued soon",
+])
+def test_unparseable_issued_lines_are_none_not_guessed(line):
+    assert bom_warnings._parse_issued(f"<p>{line}</p>") == (None, None)
+
+
+def test_unknown_timezone_word_is_not_guessed():
+    aware, local = bom_warnings._parse_issued("<p>Issued at 9:34 am XYZT on Friday 6 November 2026</p>")
+    assert aware is None and local == "2026-11-06T09:34:00"
+
+
+def test_tags_inside_the_issued_line_are_ignored():
+    assert bom_warnings._parse_issued("<p>Issued at <b>4:08 pm</b> EDT on Friday 6 November 2026.</p>")[0] == "2026-11-06T16:08:00+11:00"
+
+
+def _item_feed(title):
+    return (f'<rss><channel><item><title>{title}</title><link>http://reg.bom.gov.au/x/y.shtml</link>'
+            f"<guid>g1</guid><pubDate>Fri, 06 Nov 2026 06:43:10 GMT</pubDate></item></channel></rss>").encode()
+
+
+def _detail(line):
+    return lambda link, pub: bom_warnings.parse_detail(f'<div id="content"><p>{line}</p><p>Body</p><!-- End: Content --></div>')
+
+
+def test_wa_line_without_timezone_uses_the_states_fixed_offset():
+    (alert,) = bom_warnings.parse_state_feed("WA", _item_feed("Flood Warning for X"), detail_for=_detail("Issued at 2:42 pm Friday, 6 November 2026."))
+    assert alert.issued_at == "2026-11-06T14:42:00+08:00"  # matches that alert's pubDate, 06:43Z = 14:43 AWST
+
+
+@pytest.mark.parametrize("state,offset", [("QLD", "+10:00"), ("NT", "+09:30")])
+def test_other_no_dst_states_get_their_constant_offset(state, offset):
+    (alert,) = bom_warnings.parse_state_feed(state, _item_feed("Flood Warning for X"), detail_for=_detail("Issued at 2:42 pm Friday, 6 November 2026."))
+    assert alert.issued_at == f"2026-11-06T14:42:00{offset}"
+
+
+@pytest.mark.parametrize("state", ["NSW", "VIC", "SA", "TAS", "ACT"])
+def test_dst_states_with_no_timezone_stay_unparsed(state):
+    (alert,) = bom_warnings.parse_state_feed(state, _item_feed("Flood Warning for X"), detail_for=_detail("Issued at 2:42 pm Friday, 6 November 2026."))
+    assert alert.issued_at is None
+
+
+def test_a_named_timezone_wins_over_the_state_default():
+    (alert,) = bom_warnings.parse_state_feed("WA", _item_feed("Flood Warning for X"), detail_for=_detail("Issued at 2:42 pm AEDT on Friday 6 November 2026"))
+    assert alert.issued_at == "2026-11-06T14:42:00+11:00"

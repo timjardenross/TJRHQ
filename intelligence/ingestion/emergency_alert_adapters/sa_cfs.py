@@ -27,7 +27,14 @@ import re
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
-from .base import CanonicalAlert, DropLedger, FeedRetiredError, convert_items, http_get
+from .base import (
+    CanonicalAlert,
+    DropLedger,
+    FeedRetiredError,
+    FeedShapeError,
+    convert_items,
+    http_get,
+)
 
 log = logging.getLogger(__name__)
 
@@ -122,6 +129,8 @@ def parse(raw: bytes, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
     guard = ledger is not None
     ledger = ledger if ledger is not None else DropLedger()
     root = ET.fromstring(raw)
+    if guard and root.tag != f"{_ATOM_NS}feed":
+        raise FeedShapeError(f"sa_cfs: response root is {root.tag!r}, not an Atom <feed> - unexpected feed shape, not an empty feed")
     return convert_items(root.findall(f"{_ATOM_NS}entry"), lambda entry: _to_alert(entry, ledger), ledger, guard)
 
 

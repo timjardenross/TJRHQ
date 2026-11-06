@@ -33,8 +33,10 @@ from datetime import datetime, timezone
 from .base import (
     CanonicalAlert,
     DropLedger,
+    FeedShapeError,
     convert_items,
     http_get_json,
+    json_items,
     stable_event_key,
 )
 
@@ -110,12 +112,14 @@ def parse(payload: dict, now_ms: int | None = None, ledger: DropLedger | None = 
     can be tested without the network. Passing a ledger records every skipped
     record and makes one malformed record count as invalid_unparseable_item
     instead of failing the parse."""
+    guard = ledger is not None
+    if guard and not isinstance(payload, dict):
+        raise FeedShapeError("tas_fire: response is not a JSON object - unexpected feed shape, not an empty feed")
     if payload.get("error"):
         raise RuntimeError(f"TasAlert layer error: {payload['error']}")
     now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
-    guard = ledger is not None
     ledger = ledger if ledger is not None else DropLedger()
-    return convert_items(payload.get("features", []), lambda feature: _to_alert(feature, now_ms, ledger), ledger, guard)
+    return convert_items(json_items(payload, "features", "tas_fire", guard), lambda feature: _to_alert(feature, now_ms, ledger), ledger, guard)
 
 
 def _to_alert(feature: dict, now_ms: int, ledger: DropLedger) -> CanonicalAlert | None:

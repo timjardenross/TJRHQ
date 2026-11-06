@@ -16,7 +16,13 @@ import re
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
-from .base import CanonicalAlert, DropLedger, convert_items, http_get
+from .base import (
+    CanonicalAlert,
+    DropLedger,
+    convert_items,
+    http_get,
+    require_rss_channel,
+)
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +88,7 @@ def parse(raw: bytes, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
     guard = ledger is not None
     ledger = ledger if ledger is not None else DropLedger()
     root = ET.fromstring(raw)
+    require_rss_channel(root, "act_esa", guard)
     return convert_items(root.findall(".//item"), lambda item: _to_alert(item, ledger), ledger, guard)
 
 

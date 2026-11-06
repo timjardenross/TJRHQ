@@ -24,17 +24,17 @@ def test_snapshot_totals(raws):
     warnings_raw, incidents_raw = raws
     assert warnings_raw.count(b"<item>") == 12 and incidents_raw.count(b"<item>") == 69
     alerts = wa_dfes.parse(*raws)
-    assert len(alerts) == 42
-    assert by(alerts, "severity") == {"advice": 11, "unknown": 31}
-    assert by(alerts, "alert_type") == {"bushfire": 42}
+    assert len(alerts) == 43
+    assert by(alerts, "severity") == {"advice": 12, "unknown": 31}
+    assert by(alerts, "alert_type") == {"bushfire": 42, "heatwave": 1}
     assert_in_schema(alerts)
 
 
 def test_warnings_and_incidents_halves(raws):
     warnings, incident_severity = wa_dfes.parse_warnings(raws[0])
     incidents = wa_dfes.parse_incidents(raws[1], incident_severity)
-    assert (len(warnings), len(incidents)) == (6, 36)
-    assert by(warnings, "severity") == {"advice": 6}
+    assert (len(warnings), len(incidents)) == (7, 36)
+    assert by(warnings, "severity") == {"advice": 7}
     assert by(incidents, "severity") == {"unknown": 31, "advice": 5}  # 5 enriched via a shared CAD-ID with a warning
     assert len(incident_severity) == 5
 
@@ -52,11 +52,19 @@ def test_deliberate_exclusions_are_excluded(raws):
     assert not [h for h in headlines if h.startswith(("STRUCTURE FIRE", "VEHICLE FIRE", "FIRE ("))]
 
 
-def test_unclassifiable_warning_types_are_dropped_not_kept_as_other(raws):
-    """Smoke Alert / Heatwave Advice warnings are not bushfire/storm/cyclone/flood: dropped by design (see wa_dfes._fetch_warnings)."""
+def test_heatwave_advice_is_ingested_as_heatwave(raws):
+    """Captain-approved 2026-11-06: Heatwave Advice warnings were dropped as 'other'; now kept."""
+    (alert,) = [a for a in wa_dfes.parse_warnings(raws[0])[0] if a.alert_type == "heatwave"]
+    assert alert.headline.startswith("Heatwave Advice STAY INFORMED")
+    assert alert.severity == "advice" and alert.jurisdiction == "WA"
+    assert alert.event_key == "6ae96f1231ee163feeebed11"
+
+
+def test_smoke_alert_warnings_are_still_dropped(raws):
+    """Captain chose 'Heatwave only': Smoke Alerts stay excluded (excluded_other_type)."""
     titles = [a.headline for a in wa_dfes.parse_warnings(raws[0])[0]]
-    assert not [t for t in titles if t.startswith(("Smoke Alert", "Heatwave"))]
-    assert b"Smoke Alert" in raws[0] and b"Heatwave Advice" in raws[0]
+    assert not [t for t in titles if t.startswith("Smoke Alert")]
+    assert raws[0].count(b"Smoke Alert") >= 4
 
 
 def test_fetch_is_http_get_plus_parse(raws, monkeypatch):
