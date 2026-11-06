@@ -110,7 +110,7 @@ def _expiry_cutoff(run_started_at: str, empty_feed: bool) -> str:
     return (started - _EMPTY_FEED_EXPIRY_GRACE).isoformat()
 
 
-def _supabase_request(method: str, path: str, body: dict | None = None, extra_headers: dict | None = None, timeout: int = 15) -> None:
+def _supabase_request(method: str, path: str, body: dict | list | None = None, extra_headers: dict | None = None, timeout: int = 15) -> None:
     if not _URL or not _KEY:
         raise RuntimeError("Supabase credentials not configured")
     url = f"{_URL.rstrip('/')}/rest/v1/{path}"
@@ -596,14 +596,21 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         latency_ms = int((time.monotonic() - t0) * 1000)
         record_heartbeat(domain_key, status="failed", error_message=failure[:500], latency_ms=latency_ms)
         log.warning("[emergency-alerts] %s: %s", source_key, failure)
-        return {"source_key": source_key, "error": failure, "count": 0}
+        failed = {"source_key": source_key, "error": failure, "count": 0}
+        row = _integrity_row(source_key, "failed", ledger, 0, [failure])
+        if row and batched:
+            failed["_integrity"] = row  # run_all() writes every source's row in one request
+        elif row:
+            _upsert_integrity([row])
+        return failed
 
     keep_cap = _cap_fields_enabled()
     notes = _integrity_notes(adapter, alerts, ledger)
     for note in notes:
         log.warning("[emergency-alerts] %s: %s", source_key, note)
+    warnings = [w for w in (integrity_warning, *notes) if w]
     if notes:
-        integrity_warning = " | ".join([w for w in (integrity_warning, *notes) if w])
+        integrity_warning = " | ".join(warnings)
 
     rows = []
     for a in alerts:
@@ -673,6 +680,11 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
     }
     if ledger is not None:
         result["drops"] = ledger.as_dict()
+        row = _integrity_row(source_key, "ok", ledger, len(rows), warnings)
+        if batched:
+            result["_integrity"] = row
+        else:
+            _upsert_integrity([row])
     return result
 
 
@@ -827,6 +839,7 @@ def run_all() -> dict:
             hb["detail"] = _ok_detail(n_rows, unknown_count, expired_by_domain.get(hb["domain_key"], 0), emails_sent, **extras)
 
     record_heartbeats(heartbeats)
+    _upsert_integrity([row for row in (result.pop("_integrity", None) for result in results.values()) if row])
     results["_follow_up"] = _send_follow_up_emails()
     return results
 
@@ -866,6 +879,41 @@ def _integrity_notes(adapter, alerts: list, ledger, now: datetime | None = None)
             if all(getattr(a, field, None) in (None, "") for a in alerts):
                 notes.append(f"FIELD DRIFT: {field} missing on all {len(alerts)} alerts")
     return notes
+
+
+def _integrity_row(source_key: str, status: str, ledger, accepted: int, warnings: list[str]) -> dict | None:
+    """The row for emergency_alert_source_integrity (migration 0252): what this run's drop
+    ledger saw, as queryable data. None when the adapter has no ledger."""
+    if ledger is None:
+        return None
+
+    def by(prefix: str) -> dict:
+        return {k[len(prefix):]: n for k, n in sorted(ledger.counts.items()) if k.startswith(prefix)}
+
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "source_key": source_key, "checked_at": now, "updated_at": now, "status": status,
+        "items_seen": ledger.items_seen, "accepted": accepted,
+        "excluded": by("excluded_"), "invalid": by("invalid_"), "unmapped": by("unmapped_"),
+        "samples": ledger.samples,
+        "newest_item_at": ledger.newest_item_at.isoformat() if ledger.newest_item_at else None,
+        "warnings": warnings,
+    }
+
+
+def _upsert_integrity(rows: list[dict]) -> None:
+    """One batched upsert of the latest per-source integrity rows. Best effort and never
+    raises: the table only exists once migration 0252 is applied, and a failed write here
+    must never affect the alerts, the heartbeats or the emails."""
+    if not rows:
+        return
+    try:
+        _supabase_request(
+            "POST", "emergency_alert_source_integrity?on_conflict=source_key", body=rows,
+            extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+        )
+    except Exception as exc:  # noqa: BLE001 - best-effort observability write (migration 0252 may not be applied yet); must never break ingestion
+        log.warning("[emergency-alerts] could not record source integrity (migration 0252 not applied yet?): %s", exc)
 
 
 def _ledger_verdict(ledger, accepted: int) -> tuple[str | None, str | None]:
