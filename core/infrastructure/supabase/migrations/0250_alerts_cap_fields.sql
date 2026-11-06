@@ -1,8 +1,8 @@
 -- 0250_alerts_cap_fields.sql
 --
--- AUTHORED, NOT APPLIED. Do not apply from an agent session: the Captain
--- reviews and applies this, then sets EMERGENCY_ALERTS_CAP_FIELDS=1 on the
--- host that runs intelligence/emergency_alerts.py.
+-- APPLIED 2026-11-06 to the USSTJR Supabase project (Captain-approved), via the
+-- Supabase tool, so the migration tracker lists it as `alerts_cap_fields`, not
+-- under this file name. The SQL below is exactly what ran.
 --
 -- Keep the CAP (Common Alerting Protocol) urgency / certainty / severity /
 -- event that some sources already provide, instead of discarding them at
@@ -10,10 +10,11 @@
 -- and vic_emergency warnings (embedded `cap` object); NULL for every other
 -- source, never inferred.
 --
--- Until this migration is applied the orchestrator strips these four keys from
--- every upsert (EMERGENCY_ALERTS_CAP_FIELDS unset or != "1"), because sending a
--- column PostgREST does not know about would fail the whole source's upsert.
--- Apply this migration BEFORE setting the flag.
+-- The orchestrator stores these four keys by default now that the columns exist.
+-- Setting EMERGENCY_ALERTS_CAP_FIELDS to 0/false/off/no strips them from every
+-- upsert again, for a database WITHOUT these columns (sending a column PostgREST
+-- does not know about fails the whole source's upsert). When the migration was
+-- first authored the default was the other way round (off until the flag was 1).
 --
 -- Additive, nullable, no backfill, no constraint (values are the source's own
 -- free vocabulary, e.g. Expected / Likely / Unknown), no index.
