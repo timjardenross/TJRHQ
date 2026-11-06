@@ -101,15 +101,23 @@ def main() -> int:
         "nsw_rfs": nsw_rfs, "qld_fire": qld_fire, "act_esa": act_esa, "wa_dfes": wa_dfes,
         "vic_emergency": vic_emergency, "sa_cfs": sa_cfs, "tas_fire": tas_fire, "bom_nsw": bom_warnings.nsw,
     }
-    out: dict[str, list[dict]] = {}
-    for key, adapter in adapters.items():
+    def dump(adapter) -> list[dict]:
         rows = []
         for alert in adapter.fetch():
             d = asdict(alert)
             if not args.keep_cap:
                 d = {k: v for k, v in d.items() if not k.startswith("cap_")}
             rows.append(d)
-        out[key] = rows
+        return rows
+
+    out: dict[str, list[dict]] = {key: dump(adapter) for key, adapter in adapters.items()}
+
+    # The live ACT snapshot is all (excluded) ambulance calls, so also run the
+    # marked-synthetic kept-path supplement through the same fetch().
+    live_act = by_url[act_esa._FEED_URL]
+    by_url[act_esa._FEED_URL] = fx["act_esa"]["synthetic_kept.xml"]
+    out["act_esa_synthetic"] = dump(act_esa)
+    by_url[act_esa._FEED_URL] = live_act
     Path(args.out).write_text(json.dumps(out, indent=1, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
     print({k: len(v) for k, v in out.items()})
     return 0
