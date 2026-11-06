@@ -20,7 +20,7 @@ recognised (severity `unknown`).
 | --- | --- | --- | --- | --- |
 | `act_esa` | none - the ESA incident feed carries no warning level | 2 | 2 | 2026-08-26 |
 | `bom_*` | none - the BOM feed carries no AWS tier (always 'unknown') | 3 | 5 | 2026-08-27 |
-| `nsw_rfs` | properties.category (Advice / Watch and Act / Emergency Warning) | 2 | 2 | 2026-08-26 |
+| `nsw_rfs` | properties.category (Advice / Watch and Act / Emergency Warning) | 2 | 3 | 2026-08-26 |
 | `nt_securent` | none - NT fire/emergency alerts are not monitored | 0 | 2 | 2026-11-01 |
 | `qld_fire` | properties.WarningLevel (Advice / Watch and Act / Emergency Warning) | 2 | 2 | 2026-08-26 |
 | `sa_cfs` | CAP &lt;parameter valueName='WarningLevel'&gt; (not CAP &lt;severity&gt;, which is often literally 'Unknown') | 3 | 3 | 2026-11-02 |
@@ -117,9 +117,10 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 ## nsw_rfs
 
 - **Jurisdiction:** NSW
-- **Format:** GeoJSON FeatureCollection
+- **Format:** GeoJSON FeatureCollection (primary) + CAP-AU 1.2 in an EDXL-DE wrapper (enrichment: event, urgency, certainty, severity)
 - **Feed URL(s):**
   - https://www.rfs.nsw.gov.au/feeds/majorIncidents.json
+  - https://www.rfs.nsw.gov.au/feeds/majorIncidentsCAP.xml
 - **Last verified:** 2026-08-26 (from the adapter's own docstring)
 - **Snapshot fixture:** `tests/fixtures/emergency_alerts/nsw_rfs/`
 
@@ -141,7 +142,7 @@ Always 'bushfire' (Major Incidents feed).
 ### Data-quality checks
 
 - **Freshness:** the heartbeat warns `STALE` if the newest source-side timestamp across everything the feed lists is older than 72 h.
-- **Expected on every kept alert:** `updated_at_src`, `canonical_url`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
+- **Expected on every kept alert:** `updated_at_src`, `canonical_url`, `cap_urgency`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
 
 ### Deliberate exclusions
 
@@ -154,6 +155,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 
 ### Known gaps
 
+- CAP fields come from majorIncidentsCAP.xml (nsw_rfs_cap.py), joined on the RFS incident id. They are an enrichment only: the GeoJSON decides which alerts exist and their tier. If the CAP feed is down the alerts are kept without CAP fields and a FIELD DRIFT warning (cap_urgency missing on every alert) is raised. The CAP feed has no tier mapping of its own that we use: its severity/urgency are stored as given (cap_severity is not the AWS tier).
 - Timestamps (properties.pubDate) are DD/MM/YYYY H:MM:SS AM/PM with no timezone/offset. MEASURED 2026-11-06 against stored rows: they behave as UTC (no row ahead of the time it was seen; freshest ~0.1 h old), so they are stored as written. If NSW ever starts sending local time this would show as rows hours in the future.
 - A category label outside Advice / Watch and Act / Emergency Warning / Not Applicable is kept at severity 'unknown' and counted as unmapped_&lt;label&gt;.
 

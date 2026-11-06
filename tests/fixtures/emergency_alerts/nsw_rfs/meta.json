@@ -9,7 +9,13 @@
       "captured_at": "2026-11-06T05:52:39.200719+00:00",
       "synthetic": false,
       "redactions": 0
+    },
+    "cap.xml": {
+      "url": "https://www.rfs.nsw.gov.au/feeds/majorIncidentsCAP.xml",
+      "captured_at": "2026-11-06T09:02:00+00:00",
+      "synthetic": false,
+      "redactions": 17
     }
   },
-  "notes": "Untrimmed live snapshot (single fetch via base.http_get). No redaction needed. "
+  "notes": "Untrimmed live snapshot (single fetch via base.http_get). No redaction needed. cap.xml is a separate live fetch taken ~3 h after feed.json (so incident sets differ slightly) and trimmed to 8 of the 22 <contentObject>s (3 'Other', 5 'Fire'); sender/contact addresses redacted."
 }

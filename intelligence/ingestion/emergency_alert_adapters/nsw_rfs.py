@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import re
 
+from . import nsw_rfs_cap
 from .base import (
     CanonicalAlert,
     DropLedger,
@@ -35,8 +36,8 @@ _SEVERITY_MAP = {
 SOURCE_INFO = {
     "source_key": "nsw_rfs",
     "jurisdiction": "NSW",
-    "feed_urls": [_FEED_URL],
-    "format": "GeoJSON FeatureCollection",
+    "feed_urls": [_FEED_URL, nsw_rfs_cap._CAP_URL],
+    "format": "GeoJSON FeatureCollection (primary) + CAP-AU 1.2 in an EDXL-DE wrapper (enrichment: event, urgency, certainty, severity)",
     "fixture_dir": "tests/fixtures/emergency_alerts/nsw_rfs",
     "severity_field": "properties.category (Advice / Watch and Act / Emergency Warning)",
     "severity_map": _SEVERITY_MAP,
@@ -47,8 +48,9 @@ SOURCE_INFO = {
     ],
     "invalid_reasons": [],
     "stale_after_hours": 72,
-    "expected_fields": ['updated_at_src', 'canonical_url'],
+    "expected_fields": ['updated_at_src', 'canonical_url', 'cap_urgency'],
     "known_gaps": [
+        "CAP fields come from majorIncidentsCAP.xml (nsw_rfs_cap.py), joined on the RFS incident id. They are an enrichment only: the GeoJSON decides which alerts exist and their tier. If the CAP feed is down the alerts are kept without CAP fields and a FIELD DRIFT warning (cap_urgency missing on every alert) is raised. The CAP feed has no tier mapping of its own that we use: its severity/urgency are stored as given (cap_severity is not the AWS tier).",
         "Timestamps (properties.pubDate) are DD/MM/YYYY H:MM:SS AM/PM with no timezone/offset. MEASURED 2026-11-06 against stored rows: they behave as UTC (no row ahead of the time it was seen; freshest ~0.1 h old), so they are stored as written. If NSW ever starts sending local time this would show as rows hours in the future.",
         "A category label outside Advice / Watch and Act / Emergency Warning / Not Applicable is kept at severity 'unknown' and counted as unmapped_<label>.",
     ],
@@ -70,13 +72,17 @@ def _parse_description_fields(description: str) -> dict:
 
 
 def fetch() -> list[CanonicalAlert]:
-    return parse(http_get_json(_FEED_URL))
+    alerts = parse(http_get_json(_FEED_URL))
+    nsw_rfs_cap.enrich(alerts)
+    return alerts
 
 
 def fetch_with_ledger() -> tuple[list[CanonicalAlert], DropLedger]:
     """fetch() plus an account of every item skipped, and why (see base.DropLedger)."""
     ledger = DropLedger()
-    return parse(http_get_json(_FEED_URL), ledger), ledger
+    alerts = parse(http_get_json(_FEED_URL), ledger)
+    nsw_rfs_cap.enrich(alerts)  # best effort: CAP fields only; never changes which alerts exist
+    return alerts, ledger
 
 
 def parse(data: dict, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
