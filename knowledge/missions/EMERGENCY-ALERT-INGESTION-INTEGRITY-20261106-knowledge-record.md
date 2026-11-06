@@ -34,6 +34,12 @@ Delivered in PRs #587-#591 and the persistence follow-up (migrations 0250, 0251 
 - **Measured conformance (real XSDs, kept in `tests/fixtures/cap_schemas/`):** against OASIS CAP 1.2, 120/120 sampled BoM messages and 8/8 NSW messages are valid. Against the CAP-AU v3.0 XSD (fetched from bom.gov.au), NSW 8/8 and SA 7/7 are valid and BoM is 115/120 (the 5 failures are Bushwalkers Weather Alerts whose `<event>` 'Exposure' is outside the CAP-AU event list). The QLD storm / flood / cyclone feed fails both: its `<sent>` / `<expires>` read `...+00:00+10:00`, and `expires` is a year ahead. `tests/test_cap_schema_conformance.py` validates the fixtures (skipped without lxml).
 - **Not done:** QLD CAP enrichment (needs a tolerant timestamp parser and cannot be used for expiry); WA, ACT and TAS have no confirmed CAP feed; BoM geography (area codes only, no polygons).
 
+## Addendum 2026-11-06 (later): backfill and paging
+
+- **Timezone backfill (run, with backup).** Expired rows kept the old wrong times after #591: 3,485 VIC incident rows, 527 ACT rows and 1 TAS row were corrected by reading the stored digits as local time and converting (zone database, per-row date). Before: 3,477 of the VIC rows claimed to be issued after we last saw them; after: 0, average issued-minus-first-seen -0.31 h. 15 BOM rows whose "Issued at" line had no timezone (NSW/ACT/VIC/SA/TAS) were filled in from that line; each lands 0-1 minute before its RSS pubDate. All 4,028 changed rows are in `alerts_tz_backfill_backup_20261106` (drop it once accepted). Record and reversal: `scripts/emergency_alerts/backfill_timezones_20261106.sql`. The adapter now reads those no-timezone lines with the state's zone, so new rows are no longer left NULL.
+- **Not recoverable:** SA `updated_at_src` is still NULL on every row written before #591 (the `<sent>` value was never read, so nothing stored to derive it from), and 18 BOM rows with no "Issued at" line (cyclone advices, flood watches) have no issue time to derive.
+- **Failed-heartbeat paging.** All 17 `emergency_alert_*` domains are now `critical = true` (migration 0253), so a stale or failing collector appears in the morning-brief Platform Health card. `critical` does NOT page in real time; a feed-down email would be a separate change.
+
 ## Lesson
 
 See LL-201 and LL-202 in `knowledge/Lessons-Learned.md`.
