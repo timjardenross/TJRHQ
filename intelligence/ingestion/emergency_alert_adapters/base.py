@@ -69,6 +69,29 @@ class FeedRetiredError(RuntimeError):
     the per-item guard (see convert_items) never swallows it as a bad row."""
 
 
+class FeedShapeError(RuntimeError):
+    """The response parsed, but lacks the container the feed is documented to
+    have (e.g. no `features` list, no RSS <channel>). That is a broken feed or a
+    changed schema, NOT an empty one, so on the ledger path it fails the
+    source loudly (heartbeat 'failed', nothing expired) instead of reading as
+    "no alerts". Only raised when a ledger is passed; plain parse()/fetch()
+    keep their historical lenient behaviour."""
+
+
+def json_items(data, key: str, source: str, guard: bool) -> list:
+    """data[key] as a list. Lenient (historical `data.get(key, [])`) unless guard,
+    where a missing/non-list container raises FeedShapeError."""
+    if guard and not (isinstance(data, dict) and isinstance(data.get(key), list)):
+        raise FeedShapeError(f"{source}: response has no '{key}' list - unexpected feed shape, not an empty feed")
+    return data.get(key, [])
+
+
+def require_rss_channel(root, source: str, guard: bool) -> None:
+    """RSS: a legitimately empty feed still has <channel>; no <channel> is a broken feed."""
+    if guard and root.find("channel") is None:
+        raise FeedShapeError(f"{source}: RSS response has no <channel> - unexpected feed shape, not an empty feed")
+
+
 _UNMAPPED_MAX_LABELS = 20
 
 

@@ -37,6 +37,7 @@ from .base import (
     convert_items,
     http_get,
     parse_rfc822_datetime,
+    require_rss_channel,
 )
 
 log = logging.getLogger(__name__)
@@ -79,17 +80,17 @@ SOURCE_INFO = {
     "fixture_dir": "tests/fixtures/emergency_alerts/wa_dfes",
     "severity_field": "warnings: phrase in the item title; incidents: none of its own, enriched from a warning sharing the CAD incident number",
     "severity_map": _SEVERITY_MAP,
-    "alert_type_rule": "warnings: BUSHFIRE / STORM / CYCLONE / FLOOD in the title (first match), anything else dropped; incidents: 'bushfire' only.",
+    "alert_type_rule": "warnings: BUSHFIRE / STORM / CYCLONE / FLOOD / HEATWAVE in the title (first match, Heatwave added 2026-11-06), anything else dropped; incidents: 'bushfire' only.",
     "exclusions": [
         {"reason": "excluded_hazard_reduction", "field": "title type (warnings and incidents)", "match": "contains 'BURN OFF'", "decided": "Captain-directed 2026-08-26 (Burn Off = Hazard Reduction)"},
         {"reason": "excluded_hazmat", "field": "title type (warnings and incidents)", "match": "contains 'HAZMAT'", "decided": "Captain-directed 2026-08-26"},
         {"reason": "excluded_park_closure", "field": "title type (warnings and incidents)", "match": "contains 'FACILITY OR PARK CLOSURE' or 'PARK CLOSURE'", "decided": "Captain-directed 2026-08-26"},
-        {"reason": "excluded_other_type", "field": "warnings title", "match": "none of BUSHFIRE / STORM / CYCLONE / FLOOD (e.g. Smoke Alert, Heatwave Advice)", "decided": "Captain-directed 2026-08-26 (platform-wide 'Other' exclusion)"},
+        {"reason": "excluded_other_type", "field": "warnings title", "match": "none of BUSHFIRE / STORM / CYCLONE / FLOOD / HEATWAVE (e.g. Smoke Alert)", "decided": "Captain-directed 2026-08-26 (platform-wide 'Other' exclusion)"},
         {"reason": "excluded_not_bushfire", "field": "incidents title type", "match": "does not contain 'BUSHFIRE' (e.g. Structure Fire, Vehicle Fire)", "decided": "Captain-directed 2026-08-26 (widened to bushfire only)"},
     ],
     "invalid_reasons": [],
     "known_gaps": [
-        "Warning types outside bushfire / storm / cyclone / flood are dropped by design, which includes real public warnings such as Smoke Alert and Heatwave Advice (seen live 2026-11-06). Recorded as excluded_other_type, not as unmapped.",
+        "Warning types outside bushfire / storm / cyclone / flood / heatwave are dropped by design, which includes real public Smoke Alert warnings (seen live 2026-11-06; Captain chose to keep dropping them while ingesting Heatwave Advice). Recorded as excluded_other_type, not as unmapped.",
         "Incidents carry no warning level; severity is only known when the CAD-ID also appears as dfes:incidentNumber on a warning.",
         "A warning title with no recognised level phrase is kept at severity 'unknown' and counted as unmapped_<label>.",
     ],
@@ -103,8 +104,9 @@ def _strip_html(text: str | None) -> str | None:
     return re.sub(r"\s+", " ", _TAG_RE.sub(" ", text)).strip() or None
 
 
-def _rss_items(xml_bytes: bytes) -> list[ET.Element]:
+def _rss_items(xml_bytes: bytes, source: str = "wa_dfes", guard: bool = False) -> list[ET.Element]:
     root = ET.fromstring(xml_bytes)
+    require_rss_channel(root, source, guard)
     return root.findall(".//item")
 
 
@@ -132,7 +134,7 @@ def parse_warnings(raw: bytes, ledger: DropLedger | None = None) -> tuple[list[C
     guard = ledger is not None
     ledger = ledger if ledger is not None else DropLedger()
     incident_severity: dict[str, str] = {}
-    out = convert_items(_rss_items(raw), lambda item: _warning_to_alert(item, incident_severity, ledger), ledger, guard)
+    out = convert_items(_rss_items(raw, "wa_dfes warnings", guard), lambda item: _warning_to_alert(item, incident_severity, ledger), ledger, guard)
     return out, incident_severity
 
 
@@ -155,15 +157,18 @@ def _warning_to_alert(item: ET.Element, incident_severity: dict[str, str], ledge
     alert_type = "bushfire" if "BUSHFIRE" in title_upper else (
         "storm" if "STORM" in title_upper else (
             "cyclone" if "CYCLONE" in title_upper else (
-                "flood" if "FLOOD" in title_upper else "other"
+                "flood" if "FLOOD" in title_upper else (
+                    "heatwave" if "HEATWAVE" in title_upper else "other"
+                )
             )
         )
     )
     if alert_type == "other":
         # Not one of the categories this hub wants (matches the
         # platform-wide "Other" exclusion) — genuinely unclassifiable
-        # warning type, not worth a guess. (Live 2026-11: Smoke Alert and
-        # Heatwave Advice warnings land here.)
+        # warning type, not worth a guess. (Live 2026-11: Smoke Alert warnings
+        # land here. Heatwave Advice no longer does: Captain-approved
+        # 2026-11-06, ingested as 'heatwave'.)
         ledger.exclude("other_type")
         return None
 
@@ -207,7 +212,7 @@ def parse_incidents(raw: bytes, incident_severity: dict[str, str], ledger: DropL
     """Pure parse of the incidents RSS (bushfire CAD incidents only)."""
     guard = ledger is not None
     ledger = ledger if ledger is not None else DropLedger()
-    return convert_items(_rss_items(raw), lambda item: _incident_to_alert(item, incident_severity, ledger), ledger, guard)
+    return convert_items(_rss_items(raw, "wa_dfes incidents", guard), lambda item: _incident_to_alert(item, incident_severity, ledger), ledger, guard)
 
 
 def _incident_to_alert(item: ET.Element, incident_severity: dict[str, str], ledger: DropLedger) -> CanonicalAlert | None:

@@ -54,7 +54,13 @@ from email.utils import parsedate_to_datetime
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
-from .base import CanonicalAlert, DropLedger, convert_items, stable_event_key
+from .base import (
+    CanonicalAlert,
+    DropLedger,
+    convert_items,
+    require_rss_channel,
+    stable_event_key,
+)
 
 log = logging.getLogger(__name__)
 
@@ -107,7 +113,7 @@ SOURCE_INFO = {
         "No AWS tier (Advice / Watch and Act / Emergency Warning) exists in BOM's feed, so every BOM row is severity 'unknown'; BOM's own flood intensity words (Minor / Moderate / Major) are a different scale and are not mapped. High-attention emails use the platform's own bom_attention label.",
         "Products whose name matches no keyword are dropped (counted excluded_unmatched_product), so a NEW BOM warning product is invisible until a keyword is added.",
         "Needs a browser-shaped User-Agent (BOM 403s the shared default); detail pages are best-effort and fall back to a title-only alert.",
-        "Detail-page 'Issued at' is parsed as '9:34 am AEST on Thursday 27 August 2026' (bom_warnings._parse_bom_issued_at) while emergency_alerts._issued_text reads 'Issued at 2:38 pm Monday, 2 November 2026.' from the stored text; the two formats are not reconciled and no live detail page could be captured to check which is current.",
+        "The detail-page 'Issued at' line varies by state (AEST, bare EST/EDT, long 'Australian Eastern Daylight Time', trailing full stop, or no timezone at all on bom_wa); fixed 2026-11-06 after 57 of 91 stored rows had issued_at NULL. A line with no timezone is read as the state's local time only for states without daylight saving (WA +8, QLD +10, NT +9:30); NSW/VIC/SA/TAS/ACT lines with no timezone stay unparsed (issued_at NULL) rather than guessed. emergency_alerts._issued_text still reads the stored text as a fallback.",
         "BOM cross-lists some border-river warnings in neighbouring states' feeds, so one product can appear under two source_keys (canonical_url is left empty to avoid the unique-index clash).",
     ],
     "last_verified": "2026-08-27",
@@ -139,62 +145,116 @@ _BLANK_LINES_RE = re.compile(r"\n{3,}")
 _detail_cache: dict[str, tuple[str, dict]] = {}
 
 
-# Fixed UTC offsets for Australia's timezone abbreviations. AEST/ACST/AWST
-# are the (southern-hemisphere) winter names; AEDT/ACDT are daylight-saving
-# — both real, both appear in BOM bulletins depending on time of year, so
-# both must be handled, not just whichever is in season right now.
-_AU_TZ_OFFSETS = {
+# Fixed UTC offsets for the timezone words BOM prints in "Issued at ..." lines.
+# Observed in production (2026-11-06, bom_* rows): the AEST/AEDT family, the
+# bare "EST"/"EDT" BOM uses for the Eastern states (NSW/ACT/VIC/TAS bulletins),
+# and the long form "Australian Eastern Daylight Time". In this feed EST/EDT
+# mean Australian Eastern Standard/Daylight time (UTC+10/+11), not US Eastern.
+# Both standard and daylight names are handled whatever the season, so a
+# bulletin is never read with the wrong offset. Anything not listed is left
+# unparsed (None) rather than guessed.
+_TZ_OFFSETS = {
     "AEST": timedelta(hours=10), "AEDT": timedelta(hours=11),
+    "EST": timedelta(hours=10), "EDT": timedelta(hours=11),
     "ACST": timedelta(hours=9, minutes=30), "ACDT": timedelta(hours=10, minutes=30),
-    "AWST": timedelta(hours=8),
+    "CST": timedelta(hours=9, minutes=30), "CDT": timedelta(hours=10, minutes=30),
+    "AWST": timedelta(hours=8), "WST": timedelta(hours=8),
 }
+_AU_TZ_OFFSETS = _TZ_OFFSETS  # old name, kept for compatibility
+
+_TZ_LONG_NAMES = {
+    "AUSTRALIAN EASTERN STANDARD TIME": "AEST", "AUSTRALIAN EASTERN DAYLIGHT TIME": "AEDT",
+    "AUSTRALIAN CENTRAL STANDARD TIME": "ACST", "AUSTRALIAN CENTRAL DAYLIGHT TIME": "ACDT",
+    "AUSTRALIAN WESTERN STANDARD TIME": "AWST",
+}
+
+# When the line carries NO timezone at all (seen on bom_wa: "Issued at 2:42 pm
+# Friday, 6 November 2026."), the time is the state's local time. Only states
+# WITHOUT daylight saving get a default, because their offset is a constant and
+# needs no season guess; every other state stays unparsed (None) as before.
+_FIXED_STATE_OFFSETS = {
+    "WA": timedelta(hours=8),
+    "QLD": timedelta(hours=10),
+    "NT": timedelta(hours=9, minutes=30),
+}
+
+_MONTHS = {m: i for i, m in enumerate(
+    ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"], 1)}
+_ISSUED_PARTS_RE = re.compile(
+    r"(?P<hour>\d{1,2}):(?P<minute>\d{2})\s*(?P<ampm>[ap]m)\b(?P<middle>.*?)"
+    r"\b(?P<day>\d{1,2})\s+(?P<month>[A-Za-z]+)\s+(?P<year>\d{4})",
+    re.IGNORECASE | re.DOTALL,
+)
+_TZ_ABBR_RE = re.compile(r"\b(" + "|".join(sorted(_TZ_OFFSETS, key=len, reverse=True)) + r")\b")
+
+
+def _parse_issued(text: str) -> tuple[str | None, str | None]:
+    """BOM's "Issued at ..." line -> (offset-aware ISO string | None, naive local ISO string | None).
+
+    Wordings seen in production (2026-11-06), all handled:
+      "Issued at 9:34 am AEST on Thursday 27 August 2026"
+      "Issued at 4:08 pm EDT on Friday 6 November 2026."        (trailing full stop)
+      "Issued at 11:51 am Australian Eastern Daylight Time on Friday 6 November 2026"
+      "Issued at 2:42 pm Friday, 6 November 2026."              (no timezone: WA)
+    The first value is set only when the line names a timezone BOM prints; the second
+    is the same wall-clock time with no offset, for the caller to resolve from the
+    state when the line has none. Bug history: stripping a timezone without applying
+    its offset once stored local time as UTC (10 h off, 2026-08-27)."""
+    m = _ISSUED_RE.search(text)
+    if not m:
+        return None, None
+    raw = re.sub(r"\s+", " ", _TAG_RE.sub(" ", m.group(1))).strip()
+    parts = _ISSUED_PARTS_RE.search(raw)
+    if not parts:
+        return None, None
+    month = _MONTHS.get(parts["month"].lower())
+    if month is None:
+        return None, None
+    hour = int(parts["hour"])
+    if not 1 <= hour <= 12:
+        return None, None
+    hour = hour % 12 + (12 if parts["ampm"].lower() == "pm" else 0)
+    try:
+        from datetime import datetime
+        naive = datetime(int(parts["year"]), month, int(parts["day"]), hour, int(parts["minute"]))  # noqa: DTZ001 - offset applied explicitly below, or the caller resolves a fixed-offset state
+    except ValueError:
+        return None, None
+    middle = parts["middle"].upper()
+    tz_word = next((abbr for long_name, abbr in _TZ_LONG_NAMES.items() if long_name in middle), None)
+    if tz_word is None:
+        found = _TZ_ABBR_RE.search(middle)
+        tz_word = found.group(1) if found else None
+    if tz_word is None:
+        return None, naive.isoformat()
+    return naive.replace(tzinfo=timezone(_TZ_OFFSETS[tz_word])).isoformat(), naive.isoformat()
 
 
 def _parse_bom_issued_at(text: str) -> str | None:
-    """BOM's own "Issued at 9:34 am AEST on Thursday 27 August 2026" —
-    confirmed live, more precise than the RSS pubDate (which is a fetch/
-    build timestamp, not necessarily the original issue time). Bug fixed
-    2026-08-27 (Captain-flagged, found while extending this adapter):
-    stripping the timezone abbreviation without applying its offset first
-    silently stored local wall-clock time as if it were UTC — a real
-    alert timestamped 2:14pm AEST was landing in the DB as 14:14 UTC,
-    10 hours off. Now applies the correct fixed offset before dropping
-    the abbreviation text."""
-    m = _ISSUED_RE.search(text)
-    if not m:
-        return None
-    raw = re.sub(r"\s+", " ", m.group(1)).strip()
-    tz_match = re.search(r"\b(AEST|AEDT|ACST|ACDT|AWST)\b", raw)
-    if not tz_match:
-        return None
-    offset = _AU_TZ_OFFSETS[tz_match.group(1)]
-    cleaned = raw.replace(f" {tz_match.group(1)}", "")
-    try:
-        from datetime import datetime
-        naive = datetime.strptime(cleaned, "%I:%M %p on %A %d %B %Y")  # noqa: DTZ007 - offset applied explicitly on the next line from the parsed abbreviation
-        return naive.replace(tzinfo=timezone(offset)).isoformat()
-    except ValueError:
-        return None
+    """Offset-aware issue time from BOM's "Issued at ..." line, or None when it names no
+    timezone (see _parse_issued; the per-state default is applied by the caller)."""
+    return _parse_issued(text)[0]
 
 
 def parse_detail(html: str) -> dict:
-    """Pure parse of a BOM bulletin page -> {"issued_at": str|None, "body": str|None}.
+    """Pure parse of a BOM bulletin page -> {"issued_at", "issued_local", "body"}:
+    issued_at is offset-aware when the line names a timezone; issued_local is the same
+    wall-clock time without an offset, for states whose line has none (see _parse_issued).
     Separate from _fetch_detail() so it can be tested against a page fixture."""
     m = _CONTENT_RE.search(html)
     if not m:
-        return {"issued_at": None, "body": None}
+        return {"issued_at": None, "issued_local": None, "body": None}
     content_html = _TABLE_RE.sub("", m.group(1))
-    issued_at = _parse_bom_issued_at(content_html)
+    issued_at, issued_local = _parse_issued(content_html)
     text = _TAG_BREAK_RE.sub("\n", content_html)
     text = _TAG_RE.sub("", text)
     text = (text.replace("&amp;", "&").replace("&nbsp;", " ")
                 .replace("&lt;", "<").replace("&gt;", ">"))
     text = _BLANK_LINES_RE.sub("\n\n", text).strip()
-    return {"issued_at": issued_at, "body": text or None}
+    return {"issued_at": issued_at, "issued_local": issued_local, "body": text or None}
 
 
 def _fetch_detail(link: str, pubdate_raw: str) -> dict:
-    """Returns {"issued_at": str|None, "body": str|None}. Never raises —
+    """Returns {"issued_at", "issued_local", "body"} (see parse_detail). Never raises —
     the detail page is an enrichment, not a requirement; the RSS title
     alone is still a usable alert if this fails."""
     cached = _detail_cache.get(link)
@@ -205,7 +265,7 @@ def _fetch_detail(link: str, pubdate_raw: str) -> dict:
         result = parse_detail(_http_get_bom(link).decode("utf-8", errors="replace"))
     except Exception as exc:  # noqa: BLE001 - best-effort detail-page fetch, already logged; caller falls back to the documented {issued_at: None, body: None} shape
         log.warning("[bom_warnings] detail fetch failed for %s: %s", link, exc)
-        result = {"issued_at": None, "body": None}
+        result = {"issued_at": None, "issued_local": None, "body": None}
 
     _detail_cache[link] = (pubdate_raw, result)
     return result
@@ -236,6 +296,7 @@ def parse_state_feed(jurisdiction: str, raw: bytes, detail_for=None, ledger: Dro
     ledger = ledger if ledger is not None else DropLedger()
     source_key, _url = _STATE_FEEDS[jurisdiction]
     root = ET.fromstring(raw)
+    require_rss_channel(root, source_key, guard)
     return convert_items(root.findall(".//item"), lambda item: _to_alert(item, source_key, jurisdiction, detail_for, ledger), ledger, guard)
 
 
@@ -296,6 +357,10 @@ def _to_alert(item, source_key: str, jurisdiction: str, detail_for, ledger: Drop
     # still leaves a usable, title-only alert.
     detail = detail_for(link, pubdate_raw) if (link and detail_for) else {"issued_at": None, "body": None}
     issued_at = detail["issued_at"]
+    if issued_at is None and detail.get("issued_local") and jurisdiction in _FIXED_STATE_OFFSETS:
+        # The line named no timezone: use the state's constant (no-DST) offset.
+        from datetime import datetime
+        issued_at = datetime.fromisoformat(detail["issued_local"]).replace(tzinfo=timezone(_FIXED_STATE_OFFSETS[jurisdiction])).isoformat()
 
     return CanonicalAlert(
         source_key=source_key,

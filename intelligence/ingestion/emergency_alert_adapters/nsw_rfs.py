@@ -18,6 +18,7 @@ from .base import (
     DropLedger,
     convert_items,
     http_get_json,
+    json_items,
     parse_dmy_datetime,
 )
 
@@ -83,7 +84,7 @@ def parse(data: dict, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
     feature count as invalid_unparseable_item instead of failing the parse."""
     guard = ledger is not None
     ledger = ledger if ledger is not None else DropLedger()
-    return convert_items(data.get("features", []), lambda feature: _to_alert(feature, ledger), ledger, guard)
+    return convert_items(json_items(data, "features", "nsw_rfs", guard), lambda feature: _to_alert(feature, ledger), ledger, guard)
 
 
 def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
