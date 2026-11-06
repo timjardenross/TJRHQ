@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from intelligence.ingestion.emergency_alert_adapters import bom_warnings
+from intelligence.ingestion.emergency_alert_adapters.base import DropLedger
 from tests.emergency_alert_helpers import (  # noqa: F401
     assert_in_schema,
     block_network,
@@ -165,3 +166,11 @@ def test_missing_zone_data_leaves_issued_at_unparsed(monkeypatch):
 def test_a_named_timezone_wins_over_the_state_default():
     (alert,) = bom_warnings.parse_state_feed("WA", _item_feed("Flood Warning for X"), detail_for=_detail("Issued at 2:42 pm AEDT on Friday 6 November 2026"))
     assert alert.issued_at == "2026-11-06T14:42:00+11:00"
+
+
+@pytest.mark.parametrize("state,title", [("NT", "06/13:45 CST Heatwave Warning (NT)"), ("QLD", "06/13:48 EST Heatwave Warning (QLD)"), ("WA", "06/12:34 WST Heatwave Warning (WA)")])
+def test_heatwave_warnings_are_kept_as_heatwave_alerts(state, title):
+    ledger = DropLedger()
+    (alert,) = bom_warnings.parse_state_feed(state, _item_feed(title), ledger=ledger)
+    assert alert.alert_type == "heatwave" and alert.severity == "unknown" and alert.headline.startswith("Heatwave Warning")
+    assert ledger.excluded_total == 0 and not ledger.top_unmapped()

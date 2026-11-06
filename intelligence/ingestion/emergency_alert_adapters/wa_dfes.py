@@ -31,6 +31,7 @@ import re
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
+from . import wa_json
 from .base import (
     CanonicalAlert,
     DropLedger,
@@ -75,8 +76,8 @@ _TAG_RE = re.compile(r"<[^>]+>")
 SOURCE_INFO = {
     "source_key": "wa_dfes",
     "jurisdiction": "WA",
-    "feed_urls": [_WARNINGS_URL, _INCIDENTS_URL],
-    "format": "RSS 2.0 (dfes:/geo:/georss: extensions); two feeds",
+    "feed_urls": [_WARNINGS_URL, _INCIDENTS_URL, wa_json._WARNINGS_JSON_URL, wa_json._INCIDENTS_JSON_URL],
+    "format": "RSS 2.0 (dfes:/geo:/georss: extensions); two feeds, enriched from the matching DFES JSON API (issue time, CAP fields, incident status)",
     "fixture_dir": "tests/fixtures/emergency_alerts/wa_dfes",
     "severity_field": "warnings: phrase in the item title; incidents: none of its own, enriched from a warning sharing the CAD incident number",
     "severity_map": _SEVERITY_MAP,
@@ -90,8 +91,9 @@ SOURCE_INFO = {
     ],
     "invalid_reasons": [],
     "stale_after_hours": 48,
-    "expected_fields": ['updated_at_src', 'canonical_url'],
+    "expected_fields": ['updated_at_src', 'canonical_url', 'issued_at'],
     "known_gaps": [
+        "The RSS carries no issue time, status or CAP data. wa_json.py joins each RSS item to the DFES JSON API entry with the same id (the RSS guid) and fills issued_at (both feeds), cap_urgency / cap_certainty / cap_severity / cap_event (warnings) and an 'Active / Monitoring / On scene' status plus street and suburbs in the description (incidents). Only empty fields are filled, and alerts the JSON does not list stay RSS-only. If the JSON API is down the alerts are kept and a FIELD DRIFT warning (issued_at missing on every alert) is raised. Incidents still have no warning tier of their own: severity stays 'unknown' unless a warning shares their CAD-ID.",
         "Warning types outside bushfire / storm / cyclone / flood / heatwave are dropped by design, which includes real public Smoke Alert warnings (seen live 2026-11-06; Captain chose to keep dropping them while ingesting Heatwave Advice). Recorded as excluded_other_type, not as unmapped.",
         "Incidents carry no warning level; severity is only known when the CAD-ID also appears as dfes:incidentNumber on a warning.",
         "A warning title with no recognised level phrase is kept at severity 'unknown' and counted as unmapped_<label>.",
@@ -284,11 +286,15 @@ def parse(warnings_raw: bytes, incidents_raw: bytes, ledger: DropLedger | None =
 
 def fetch() -> list[CanonicalAlert]:
     warnings, incident_severity = parse_warnings(http_get(_WARNINGS_URL))
-    return warnings + parse_incidents(http_get(_INCIDENTS_URL), incident_severity)
+    alerts = warnings + parse_incidents(http_get(_INCIDENTS_URL), incident_severity)
+    wa_json.enrich(alerts)
+    return alerts
 
 
 def fetch_with_ledger() -> tuple[list[CanonicalAlert], DropLedger]:
     """fetch() plus an account of every item skipped across both feeds, and why."""
     ledger = DropLedger()
     warnings, incident_severity = parse_warnings(http_get(_WARNINGS_URL), ledger)
-    return warnings + parse_incidents(http_get(_INCIDENTS_URL), incident_severity, ledger), ledger
+    alerts = warnings + parse_incidents(http_get(_INCIDENTS_URL), incident_severity, ledger)
+    wa_json.enrich(alerts)  # best effort: fills issue time, CAP fields and incident status; never changes which alerts exist
+    return alerts, ledger

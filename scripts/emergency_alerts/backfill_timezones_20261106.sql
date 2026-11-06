@@ -64,3 +64,15 @@ insert into alerts_tz_backfill_backup_20261106 select a.* from alerts a join _bo
 update alerts a set issued_at = f.issued_calc from _bom_fix f where a.id = f.id and a.issued_at is null;
 commit;
 -- The 18 remaining BOM rows with a NULL issued_at have no "Issued at" line at all (cyclone advices, flood watches, track maps): nothing to derive.
+
+-- SA CFS (run 2026-11-06, later): updated_at_src was NULL on every row written before PR #591 (the <sent> time was read
+-- from the wrong element). 87 of the 541 NULL rows carry that same <sent> time as the suffix of their event_key
+-- ("F2611060145-2026-11-06T19:41:44+10:30"), which matched the stored value on all 4 rows that had both. Filled from the
+-- key, after backing the rows up. Verified: none ahead of last_seen_at; median 9.5 min between sent and first seen, none
+-- first seen before sent. The other 454 rows' keys carry no time, so they stay NULL.
+begin;
+insert into alerts_tz_backfill_backup_20261106
+select * from alerts where source_key='sa_cfs' and updated_at_src is null and event_key ~ '-\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$';
+update alerts set updated_at_src = (substring(event_key from '-(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d)$'))::timestamptz
+where source_key='sa_cfs' and updated_at_src is null and event_key ~ '-\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$';
+commit;

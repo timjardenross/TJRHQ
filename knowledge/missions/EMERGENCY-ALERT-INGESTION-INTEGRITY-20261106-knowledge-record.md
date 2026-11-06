@@ -51,6 +51,15 @@ All defaults leave existing behaviour unchanged except the additions to the head
 - **LIFTED:** says how long the source listed the alert (`Listed-For: 3h 20m`).
 - **Daily digest:** always opens its feed-health section with a pipeline check ("16 of 16 sources reported in the last 2 hours; saw N items, kept M"), and warns when sources have not reported.
 
+## Addendum 2026-11-06 (holistic review follow-ups)
+
+- **NSW coordinates:** about 81% of stored NSW rows had no latitude/longitude because only a Point inside a GeometryCollection was read; a bare Point (most features) is now read too (PR #598).
+- **BoM heatwave:** `Heatwave Warning (NT/QLD/WA)` were dropped as an unmatched product; they are now ingested as `heatwave` (Captain-approved; WA already did). BoM does not state a level in the title, so they stay severity unknown at standard attention (no BOM-HIGH email).
+- **QLD identity:** the QLD feed gives each re-issue of a warning a new UniqueID, so one fire (Teelah, 21-25 Sep) made 12 rows, and a live email each. `event_key` is now the warning area plus the local date, with two same-area same-day warnings collapsed to the highest tier (`excluded_superseded`), and the QLD content hash ignores the "as at <time>" part of the title (hash version `h3:`; a changed recipe is baselined silently). One-off effects at deploy: any currently active QLD Watch and Act / Emergency Warning gets one new row and so one repeat email, and a fire that crosses local midnight gets one new row at the date change.
+- **WA enrichment:** the DFES JSON API (`/v1/warnings`, `/v1/incidents`) shares ids with the RSS guids, so `wa_json.py` fills `issued_at` (the RSS has none), the CAP urgency/certainty/severity/event for warnings, and incident status (Active / Monitoring / On scene) plus street and suburbs. Only empty fields are filled; an outage keeps RSS-only alerts and raises FIELD DRIFT (`issued_at`).
+- **VIC:** incident rows already carry status, agency and size in the description; their tier is unknown because the VIC incident feed has no warning level.
+- **SA backfill:** `updated_at_src` filled for 87 of the 541 NULL rows from the timestamp in their `event_key` (backed up); the other 454 keys carry no time and stay NULL.
+
 ## Lesson
 
 See LL-201 and LL-202 in `knowledge/Lessons-Learned.md`.

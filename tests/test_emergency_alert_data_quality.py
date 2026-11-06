@@ -43,6 +43,13 @@ pytestmark = pytest.mark.usefixtures("block_network")
 CAPTURE = datetime(2026, 11, 6, 5, 52, tzinfo=timezone.utc)  # when the fixtures were captured
 TAS_NOW_MS = 1793944320000
 
+def _wa_with_json(ledger):
+    """RSS parse plus the DFES JSON enrichment from its fixtures, as fetch_with_ledger() does live."""
+    alerts = wa_dfes.parse(fixture_bytes("wa_dfes", "warnings.xml"), fixture_bytes("wa_dfes", "incidents.xml"), ledger)
+    wa_dfes.wa_json.enrich(alerts, fixture_bytes("wa_dfes", "warnings_api.json"), fixture_bytes("wa_dfes", "incidents_api.json"))
+    return alerts
+
+
 def _nsw_with_cap(ledger):
     """GeoJSON parse plus the CAP enrichment from the CAP fixture, as fetch_with_ledger() does live."""
     alerts = nsw_rfs.parse(fixture_json("nsw_rfs", "feed.json"), ledger)
@@ -54,7 +61,7 @@ RUNS = {
     "nsw_rfs": (nsw_rfs, lambda lg: _nsw_with_cap(lg)),
     "qld_fire": (qld_fire, lambda lg: qld_fire.parse(fixture_json("qld_fire", "feed.json"), lg)),
     "act_esa": (act_esa, lambda lg: act_esa.parse(fixture_bytes("act_esa", "feed.xml"), lg)),
-    "wa_dfes": (wa_dfes, lambda lg: wa_dfes.parse(fixture_bytes("wa_dfes", "warnings.xml"), fixture_bytes("wa_dfes", "incidents.xml"), lg)),
+    "wa_dfes": (wa_dfes, lambda lg: _wa_with_json(lg)),
     "vic_emergency": (vic_emergency, lambda lg: vic_emergency.parse_incidents(fixture_json("vic_emergency", "incidents.json"), lg) + vic_emergency.parse_warnings(fixture_json("vic_emergency", "warnings.json"), lg)),
     "sa_cfs": (sa_cfs, lambda lg: sa_cfs.parse(fixture_bytes("sa_cfs", "feed.xml"), lg)),
     "tas_fire": (tas_fire, lambda lg: tas_fire.parse(fixture_json("tas_fire", "feed.json"), TAS_NOW_MS, lg)),

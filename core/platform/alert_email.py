@@ -188,6 +188,14 @@ def feed_block(row: dict, extra: dict[str, object] | None = None) -> str:
 
 _BOM_PRODUCT_ID = re.compile(r"\bID[A-Z]\d{5}\b")
 HASH_V2 = "h2:"
+HASH_V3 = "h3:"
+_AS_AT = re.compile(r"\s*-?\s*\bas at \d{1,2}:\d{2}\s*[ap]m.*$", re.IGNORECASE)
+
+
+def hash_version(value: str | None) -> str:
+    """"h2:" / "h3:" prefix of a stored content hash, or "" for the original recipe."""
+    match = re.match(r"^h\d+:", value or "")
+    return match.group(0) if match else ""
 
 
 def bom_product_id(row: dict) -> str | None:
@@ -204,6 +212,11 @@ def content_hash(row: dict) -> str:
     if str(row.get("source_key") or "").startswith("bom_"):
         text = str(row.get("headline") or "")
         prefix = HASH_V2
+    elif row.get("source_key") == "qld_fire":
+        # QLD titles end "... - fire as at 3:57pm Friday, 6 November": the time changes on every re-issue and means
+        # nothing new, while the call to action and area (the rest of the title) do.
+        text = " ".join(str(row.get(k) or "") for k in ("location", "description")) + " " + _AS_AT.sub("", str(row.get("headline") or ""))
+        prefix = HASH_V3
     else:
         text = " ".join(str(row.get(k) or "") for k in ("headline", "location", "description"))
         prefix = ""

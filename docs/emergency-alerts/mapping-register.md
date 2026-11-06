@@ -22,11 +22,11 @@ recognised (severity `unknown`).
 | `bom_*` | none - the BOM feed carries no AWS tier (always 'unknown') | 3 | 6 | 2026-08-27 |
 | `nsw_rfs` | properties.category (Advice / Watch and Act / Emergency Warning) | 2 | 3 | 2026-08-26 |
 | `nt_securent` | none - NT fire/emergency alerts are not monitored | 0 | 2 | 2026-11-01 |
-| `qld_fire` | properties.WarningLevel (Advice / Watch and Act / Emergency Warning) | 2 | 2 | 2026-08-26 |
+| `qld_fire` | properties.WarningLevel (Advice / Watch and Act / Emergency Warning) | 3 | 3 | 2026-08-26 |
 | `sa_cfs` | CAP &lt;parameter valueName='WarningLevel'&gt; (not CAP &lt;severity&gt;, which is often literally 'Unknown') | 3 | 3 | 2026-11-02 |
 | `tas_fire` | phrase in ALERT_TYPE / EVENT / ALERT_SUMMARY text | 2 | 3 | 2026-11-01 |
 | `vic_emergency` | warnings: properties.category1; incidents: none (always 'unknown') | 5 | 3 | 2026-11-02 |
-| `wa_dfes` | warnings: phrase in the item title; incidents: none of its own, enriched from a warning sharing the CAD incident number | 5 | 3 | 2026-08-26 |
+| `wa_dfes` | warnings: phrase in the item title; incidents: none of its own, enriched from a warning sharing the CAD incident number | 5 | 4 | 2026-08-26 |
 
 ## act_esa
 
@@ -90,7 +90,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 
 ### Alert type
 
-product name in the title, first match: FLOOD -&gt; flood; FIRE WEATHER -&gt; bushfire; TROPICAL CYCLONE -&gt; cyclone; TSUNAMI -&gt; tsunami; SEVERE THUNDERSTORM / DAMAGING WIND / GALE / STORM -&gt; storm; SEVERE WEATHER -&gt; severe_weather.
+product name in the title, first match: FLOOD -&gt; flood; FIRE WEATHER -&gt; bushfire; TROPICAL CYCLONE -&gt; cyclone; TSUNAMI -&gt; tsunami; SEVERE THUNDERSTORM / DAMAGING WIND / GALE / STORM -&gt; storm; SEVERE WEATHER -&gt; severe_weather; HEATWAVE -&gt; heatwave (Captain-approved 2026-11-06, as WA already did; BOM does not state a level in the title, so these stay severity 'unknown' at standard attention).
 
 ### Data-quality checks
 
@@ -228,10 +228,12 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 | --- | --- | --- | --- |
 | `excluded_hazard_reduction` | properties.CallToAction | contains 'hazard reduction' (case-insensitive) | Captain-directed 2026-08-26 (widened) |
 | `excluded_information` | properties.WarningLevel | == 'Information' (case-insensitive) | Captain-directed 2026-08-26 |
+| `excluded_superseded` | event_key (area + local date) | a second warning for the same area on the same local day; the highest tier is kept | 2026-11-06, with the stable incident key |
 
 ### Known gaps
 
 - No per-item URL in the feed (every warning shares one dashboard page), so canonical_url is left empty and dedupe relies on (source_key, event_key) only.
+- The feed gives every RE-ISSUE of a warning a new UniqueID and warnings carry no stable incident id (MIN_ID is only on 'Information' items). From 2026-11-06 event_key is the warning AREA plus the local date, so one fire's re-issues update one row (an escalation emails an UPDATE) instead of creating a row, and an email, each time. Two warnings for the same area on the same day are collapsed to the highest tier (counted excluded_superseded). A fire that runs past midnight local time gets one new row, and one new email, at the date change.
 - A WarningLevel outside Advice / Watch and Act / Emergency Warning / Information is kept at severity 'unknown' and counted as unmapped_&lt;label&gt;.
 
 ## sa_cfs
@@ -417,10 +419,12 @@ Carried on `CanonicalAlert` (never inferred for other sources); stored in the `a
 ## wa_dfes
 
 - **Jurisdiction:** WA
-- **Format:** RSS 2.0 (dfes:/geo:/georss: extensions); two feeds
+- **Format:** RSS 2.0 (dfes:/geo:/georss: extensions); two feeds, enriched from the matching DFES JSON API (issue time, CAP fields, incident status)
 - **Feed URL(s):**
   - https://api.emergency.wa.gov.au/v1/rss/warnings
   - https://api.emergency.wa.gov.au/v1/rss/incidents
+  - https://api.emergency.wa.gov.au/v1/warnings
+  - https://api.emergency.wa.gov.au/v1/incidents
 - **Last verified:** 2026-08-26 (from the adapter's own docstring)
 - **Snapshot fixture:** `tests/fixtures/emergency_alerts/wa_dfes/`
 
@@ -442,7 +446,7 @@ warnings: BUSHFIRE / STORM / CYCLONE / FLOOD / HEATWAVE in the title (first matc
 ### Data-quality checks
 
 - **Freshness:** the heartbeat warns `STALE` if the newest source-side timestamp across everything the feed lists is older than 48 h.
-- **Expected on every kept alert:** `updated_at_src`, `canonical_url`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
+- **Expected on every kept alert:** `updated_at_src`, `canonical_url`, `issued_at`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
 
 ### Deliberate exclusions
 
@@ -458,6 +462,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 
 ### Known gaps
 
+- The RSS carries no issue time, status or CAP data. wa_json.py joins each RSS item to the DFES JSON API entry with the same id (the RSS guid) and fills issued_at (both feeds), cap_urgency / cap_certainty / cap_severity / cap_event (warnings) and an 'Active / Monitoring / On scene' status plus street and suburbs in the description (incidents). Only empty fields are filled, and alerts the JSON does not list stay RSS-only. If the JSON API is down the alerts are kept and a FIELD DRIFT warning (issued_at missing on every alert) is raised. Incidents still have no warning tier of their own: severity stays 'unknown' unless a warning shares their CAD-ID.
 - Warning types outside bushfire / storm / cyclone / flood / heatwave are dropped by design, which includes real public Smoke Alert warnings (seen live 2026-11-06; Captain chose to keep dropping them while ingesting Heatwave Advice). Recorded as excluded_other_type, not as unmapped.
 - Incidents carry no warning level; severity is only known when the CAD-ID also appears as dfes:incidentNumber on a warning.
 - A warning title with no recognised level phrase is kept at severity 'unknown' and counted as unmapped_&lt;label&gt;.

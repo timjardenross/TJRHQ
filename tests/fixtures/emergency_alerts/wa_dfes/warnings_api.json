@@ -1,0 +1,313 @@
+{
+ "warnings": [
+  {
+   "suburbs": [
+    "ST GEORGE RANGES"
+   ],
+   "lga": [
+    "SHIRE OF DERBY/WEST KIMBERLEY"
+   ],
+   "sorting-priority": 30,
+   "published-date-time": "2026-11-06T15:27:58.340+08:00",
+   "alert-level-note": "",
+   "id": "6ae834ec2628ddf3b8f9146f",
+   "event": "6adabff8bb91a009fb535362",
+   "action-statement--type": "Escalating",
+   "headline": "ST GEORGE RANGES",
+   "action-statement": "Monitor conditions",
+   "cap-category": "Fire",
+   "updatedAt": "2026-11-06T07:27:58.722Z",
+   "warning-type": "Bushfire Advice",
+   "entityType": "warnings",
+   "entitySubType": "warnings_bushfire--advice",
+   "cap-urgency": "Future - act in near future",
+   "publishing-status": "Published",
+   "cap-event-type": [
+    "Bushfire"
+   ],
+   "cap-certainty": "Observed - occurred or ongoing",
+   "cap-severity": "Minor - minimal threat",
+   "name": "Bushfire Advice",
+   "location": {
+    "latitude": -18.80194,
+    "value": "St George Ranges, Western Australia",
+    "longitude": 124.1653
+   },
+   "title": "MONITOR CONDITIONS - ST GEORGE RANGES",
+   "issued-date-time": "2026-11-06T15:27:58.340+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "KUNUNURRA",
+    "LAKE ARGYLE"
+   ],
+   "entityType": "warnings",
+   "entitySubType": "warnings_bushfire--advice",
+   "lga": [
+    "SHIRE OF WYNDHAM-EAST KIMBERLEY"
+   ],
+   "sorting-priority": 32,
+   "cap-urgency": "Future - act in near future",
+   "publishing-status": "Published",
+   "cap-event-type": [
+    "Bushfire"
+   ],
+   "cap-certainty": "Observed - occurred or ongoing",
+   "published-date-time": "2026-11-03T11:48:28.058+08:00",
+   "cap-severity": "Minor - minimal threat",
+   "name": "Bushfire Advice",
+   "location": {
+    "latitude": -16.42,
+    "value": "Lake Argyle, Western Australia",
+    "longitude": 128.7364
+   },
+   "id": "6ae95498b54b764863c882e5",
+   "event": "6ae7b3bae4037efede92c856",
+   "action-statement--type": "Escalating",
+   "headline": "NGAMOOWALEM RESERVE",
+   "action-statement": "Stay informed",
+   "cap-category": "Fire",
+   "updatedAt": "2026-11-03T03:48:28.895Z",
+   "warning-type": "Bushfire Advice",
+   "title": "STAY INFORMED - NGAMOOWALEM RESERVE",
+   "issued-date-time": "2026-11-06T15:50:00.758+08:00"
+  },
+  {
+   "suburbs": [
+    "GIBB"
+   ],
+   "lga": [
+    "SHIRE OF WYNDHAM-EAST KIMBERLEY"
+   ],
+   "sorting-priority": 33,
+   "published-date-time": "2026-11-06T15:31:09.007+08:00",
+   "alert-level-note": "<ul><li><p>The alert level for this fire has been downgraded as fire activity has decreased.</p></li></ul>",
+   "id": "6aea8bea1a5cad77dce827c7",
+   "event": "6aea88991a5cad77dce82762",
+   "action-statement--type": "De-escalating",
+   "headline": "GIBB",
+   "action-statement": "Threat is reduced",
+   "cap-category": "Fire",
+   "updatedAt": "2026-11-06T07:31:09.568Z",
+   "warning-type": "Bushfire Advice",
+   "entityType": "warnings",
+   "entitySubType": "warnings_bushfire--advice",
+   "cap-urgency": "Future - act in near future",
+   "publishing-status": "Published",
+   "cap-event-type": [
+    "Bushfire"
+   ],
+   "cap-certainty": "Observed - occurred or ongoing",
+   "cap-severity": "Minor - minimal threat",
+   "name": "Bushfire Advice",
+   "location": {
+    "latitude": -16.51,
+    "value": "Gibb, Western Australia",
+    "longitude": 126.4156
+   },
+   "title": "THREAT IS REDUCED - GIBB",
+   "issued-date-time": "2026-11-06T15:31:09.007+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "ANTONYMYRE",
+    "BAYNTON",
+    "BULGARRA",
+    "BURRUP",
+    "CLEAVERVILLE",
+    "COOYA POOYA",
+    "COSSACK",
+    "DAMPIER",
+    "DAMPIER ARCHIPELAGO",
+    "GAP RIDGE",
+    "KARRATHA",
+    "KARRATHA INDUSTRIAL ESTATE",
+    "MAITLAND",
+    "MILLARS WELL",
+    "MOUNT ANKETELL",
+    "MULATAGA",
+    "NICKOL",
+    "PEGS CREEK",
+    "POINT SAMSON",
+    "ROEBOURNE",
+    "SHERLOCK",
+    "STOVE HILL",
+    "WICKHAM"
+   ],
+   "entityType": "warnings",
+   "entitySubType": "warnings_heatwave--advice",
+   "lga": [
+    "CITY OF KARRATHA"
+   ],
+   "sorting-priority": 33,
+   "cap-urgency": "Future - act in near future",
+   "publishing-status": "Published",
+   "cap-event-type": [
+    "Extreme Heat"
+   ],
+   "cap-certainty": "Observed - occurred or ongoing",
+   "published-date-time": "2026-11-06T14:27:14.149+08:00",
+   "cap-severity": "Minor - minimal threat",
+   "name": "Heatwave Advice",
+   "location": {
+    "latitude": -20.71056,
+    "value": "Mount Anketell, Western Australia",
+    "longitude": 117.0192
+   },
+   "id": "6ae96f1231ee163feeebed11",
+   "event": "6ae96ea031ee163feeebecee",
+   "action-statement--type": "Emergency",
+   "headline": "Locations between Roebourne and Wickham, to Karratha and Dampier.",
+   "action-statement": "Threat is reduced",
+   "cap-category": "Met",
+   "updatedAt": "2026-11-06T06:27:14.745Z",
+   "warning-type": "Heatwave Advice",
+   "title": "THREAT IS REDUCED - LOCATIONS BETWEEN ROEBOURNE AND WICKHAM, TO KARRATHA AND DAMPIER.",
+   "issued-date-time": "2026-11-06T14:27:14.149+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "MUNDARING"
+   ],
+   "entityType": "warnings",
+   "entitySubType": "warnings_smoke-alert",
+   "lga": [
+    "SHIRE OF MUNDARING"
+   ],
+   "cap-urgency": "Immediate - act now",
+   "publishing-status": "Published",
+   "cap-event-type": [
+    "Smoke"
+   ],
+   "cap-certainty": "Observed - occurred or ongoing",
+   "published-date-time": "2026-11-06T10:14:21.105+08:00",
+   "description-note": "<ul><li><p>A Smoke Alert has been issued for people in MUNDARING, SAWYERS VALLEY, PARKERVILLE and surrounding areas in the SHIRE OF MUNDARING.</p></li><li><p>The smoke is the result of a Parks and Wildlife Service prescribed burn being carried out south-east of Mundaring.</p></li><li><p>Smoke may settle in low lying areas before clearing Saturday morning.</p></li></ul>",
+   "cap-severity": "Minor - minimal threat",
+   "name": "Smoke Alert",
+   "location": {
+    "latitude": -31.901876,
+    "value": "Mundaring, Western Australia",
+    "longitude": 116.166374
+   },
+   "id": "6aed3744f40c0f2d9960253b",
+   "event": "6aed36c1f40c0f2d99602523",
+   "headline": "for MUNDARING, SAWYERS VALLEY, PARKERVILLE and surrounding areas in the SHIRE OF MUNDARING",
+   "cap-category": "Fire",
+   "updatedAt": "2026-11-06T02:14:21.348Z",
+   "warning-type": "Smoke Alert",
+   "title": "FOR MUNDARING, SAWYERS VALLEY, PARKERVILLE AND SURROUNDING AREAS IN THE SHIRE OF MUNDARING",
+   "issued-date-time": "2026-11-06T10:14:21.105+08:00"
+  },
+  {
+   "suburbs": [
+    "TREETON"
+   ],
+   "entityType": "warnings",
+   "entitySubType": "warnings_smoke-alert",
+   "lga": [
+    "SHIRE OF AUGUSTA MARGARET RIVER"
+   ],
+   "cap-urgency": "Immediate - act now",
+   "publishing-status": "Published",
+   "cap-event-type": [
+    "Smoke"
+   ],
+   "cap-certainty": "Observed - occurred or ongoing",
+   "published-date-time": "2026-11-06T09:24:38.172+08:00",
+   "description-note": "<ul><li><p>A Smoke Alert has been issued for people in areas between TREETON and the coast, including COWARAMUP and Jindong-Treeton Road, in the SHIRE OF AUGUSTA MARGARET RIVER.</p></li><li><p>Motorists travelling on Jindong-Treeton Road are advised smoke may impact visibility. Please drive to conditions.</p></li><li><p>The smoke is the result of a Parks and Wildlife Service prescribed burn near Treeton.</p></li><li><p>The smoke is expected to clear tomorrow.</p></li></ul>",
+   "cap-severity": "Minor - minimal threat",
+   "name": "Smoke Alert",
+   "location": {
+    "latitude": -33.860058,
+    "value": "Treeton, Western Australia, Australia",
+    "longitude": 115.199394
+   },
+   "id": "6aed2ad80f97b29043328acc",
+   "event": "6aed2a8e42630c0bbd4978bf",
+   "headline": "for areas between TREETON and the coast, including COWARAMUP and Jindong-Treeton Road, in the SHIRE OF AUGUSTA MARGARET RIVER",
+   "cap-category": "Fire",
+   "updatedAt": "2026-11-06T01:24:38.449Z",
+   "warning-type": "Smoke Alert",
+   "title": "FOR AREAS BETWEEN TREETON AND THE COAST, INCLUDING COWARAMUP AND JINDONG-TREETON ROAD, IN THE SHIRE OF AUGUSTA MARGARET RIVER",
+   "issued-date-time": "2026-11-06T09:24:38.172+08:00"
+  },
+  {
+   "suburbs": [
+    "DENBARKER"
+   ],
+   "entityType": "warnings",
+   "entitySubType": "warnings_smoke-alert",
+   "lga": [
+    "SHIRE OF PLANTAGENET"
+   ],
+   "cap-urgency": "Immediate - act now",
+   "publishing-status": "Published",
+   "cap-event-type": [
+    "Smoke"
+   ],
+   "cap-certainty": "Observed - occurred or ongoing",
+   "published-date-time": "2026-11-05T12:02:14.220+08:00",
+   "description-note": "<ul><li><p>A Smoke Alert has been issued for people in MOUNT BARKER and surrounding areas, including the Denmark-Mount Barker Road, in in the SHIRE OF PLANTAGENET and CITY OF DENMARK.</p></li><li><p>The smoke is the result of a Parks and Wildlife Service prescribed burn being carried out in the area.</p></li><li><p>The smoke is expected to persist over the coming days, as burning operations continue.</p></li></ul>",
+   "cap-severity": "Minor - minimal threat",
+   "name": "Smoke Alert",
+   "location": {
+    "latitude": -34.68917,
+    "value": "Denbarker, Western Australia",
+    "longitude": 117.4789
+   },
+   "id": "6aebfcce30f825bcdfb0366c",
+   "event": "6aebfc7230f825bcdfb0365c",
+   "headline": "for MOUNT BARKER and surrounding areas, including the Denmark-Mount Barker Road, in in the SHIRE OF PLANTAGENET and CITY OF DENMARK",
+   "cap-category": "Fire",
+   "updatedAt": "2026-11-05T04:02:14.001Z",
+   "warning-type": "Smoke Alert",
+   "title": "FOR MOUNT BARKER AND SURROUNDING AREAS, INCLUDING THE DENMARK-MOUNT BARKER ROAD, IN IN THE SHIRE OF PLANTAGENET AND CITY OF DENMARK",
+   "issued-date-time": "2026-11-05T12:02:14.220+08:00"
+  },
+  {
+   "suburbs": [
+    "DAADENNING CREEK",
+    "MOUNT CAROLINE",
+    "MOUNT STIRLING",
+    "PANTAPIN",
+    "SOUTH TAMMIN"
+   ],
+   "entityType": "warnings",
+   "entitySubType": "warnings_bushfire--advice",
+   "lga": [
+    "SHIRE OF KELLERBERRIN",
+    "SHIRE OF QUAIRADING",
+    "SHIRE OF TAMMIN"
+   ],
+   "sorting-priority": 30,
+   "cap-urgency": "Future - act in near future",
+   "publishing-status": "Published",
+   "cap-event-type": [
+    "Bushfire"
+   ],
+   "cap-certainty": "Observed - occurred or ongoing",
+   "published-date-time": "2026-11-06T16:40:00.783+08:00",
+   "cap-severity": "Minor - minimal threat",
+   "name": "Bushfire Advice",
+   "location": {
+    "latitude": -31.86222,
+    "value": "Mount Stirling, Western Australia",
+    "longitude": 117.5867
+   },
+   "id": "6aed69e3fc655a31480813ff",
+   "event": "6aed513450b235c965f3eaf0",
+   "action-statement--type": "Escalating",
+   "headline": "DAADENNING CREEK, MOUNT CAROLINE, MOUNT STIRLING, PANTAPIN and SOUTH TAMMIN",
+   "action-statement": "Monitor conditions",
+   "cap-category": "Fire",
+   "updatedAt": "2026-11-06T08:40:01.199Z",
+   "warning-type": "Bushfire Advice",
+   "title": "MONITOR CONDITIONS - DAADENNING CREEK, MOUNT CAROLINE, MOUNT STIRLING, PANTAPIN AND SOUTH TAMMIN",
+   "issued-date-time": "2026-11-06T16:40:00.783+08:00",
+   "issue-status": "New"
+  }
+ ]
+}

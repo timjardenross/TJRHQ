@@ -13,7 +13,14 @@ from __future__ import annotations
 
 import logging
 
-from .base import CanonicalAlert, DropLedger, convert_items, http_get_json, json_items
+from .base import (
+    CanonicalAlert,
+    DropLedger,
+    convert_items,
+    http_get_json,
+    json_items,
+    stable_event_key,
+)
 
 log = logging.getLogger(__name__)
 
@@ -38,12 +45,14 @@ SOURCE_INFO = {
     "exclusions": [
         {"reason": "excluded_information", "field": "properties.WarningLevel", "match": "== 'Information' (case-insensitive)", "decided": "Captain-directed 2026-08-26"},
         {"reason": "excluded_hazard_reduction", "field": "properties.CallToAction", "match": "contains 'hazard reduction' (case-insensitive)", "decided": "Captain-directed 2026-08-26 (widened)"},
+        {"reason": "excluded_superseded", "field": "event_key (area + local date)", "match": "a second warning for the same area on the same local day; the highest tier is kept", "decided": "2026-11-06, with the stable incident key"},
     ],
     "invalid_reasons": [],
     "stale_after_hours": None,
     "expected_fields": ['issued_at', 'updated_at_src'],
     "known_gaps": [
         "No per-item URL in the feed (every warning shares one dashboard page), so canonical_url is left empty and dedupe relies on (source_key, event_key) only.",
+        "The feed gives every RE-ISSUE of a warning a new UniqueID and warnings carry no stable incident id (MIN_ID is only on 'Information' items). From 2026-11-06 event_key is the warning AREA plus the local date, so one fire's re-issues update one row (an escalation emails an UPDATE) instead of creating a row, and an email, each time. Two warnings for the same area on the same day are collapsed to the highest tier (counted excluded_superseded). A fire that runs past midnight local time gets one new row, and one new email, at the date change.",
         "A WarningLevel outside Advice / Watch and Act / Emergency Warning / Information is kept at severity 'unknown' and counted as unmapped_<label>.",
     ],
     "last_verified": "2026-08-26",
@@ -67,7 +76,38 @@ def parse(data: dict, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
     feature count as invalid_unparseable_item instead of failing the parse."""
     guard = ledger is not None
     ledger = ledger if ledger is not None else DropLedger()
-    return convert_items(json_items(data, "features", "qld_fire", guard), lambda feature: _to_alert(feature, ledger), ledger, guard)
+    alerts = convert_items(json_items(data, "features", "qld_fire", guard), lambda feature: _to_alert(feature, ledger), ledger, guard)
+    return _collapse_by_incident(alerts, ledger)
+
+
+_TIER_RANK = {"unknown": 0, "advice": 1, "watch_and_act": 2, "emergency_warning": 3}
+
+
+def _collapse_by_incident(alerts: list[CanonicalAlert], ledger: DropLedger) -> list[CanonicalAlert]:
+    """One alert per event_key. Two features can share a key (same area, same local day); the upsert is one request
+    per source and a duplicated key would fail every row in it, so keep the highest tier (then the newest) and
+    count the rest as excluded_superseded, which keeps items_seen == accepted + excluded + invalid."""
+    best: dict[str, CanonicalAlert] = {}
+    for alert in alerts:
+        kept = best.get(alert.event_key)
+        if kept is None:
+            best[alert.event_key] = alert
+            continue
+        wins = (_TIER_RANK.get(alert.severity, 0), alert.issued_at or "") > (_TIER_RANK.get(kept.severity, 0), kept.issued_at or "")
+        loser = kept if wins else alert
+        ledger.exclude("superseded", sample=loser.headline)
+        if wins:
+            best[alert.event_key] = alert
+    return list(best.values())
+
+
+def _incident_key(p: dict) -> str:
+    """Stable across re-issues of the same warning: the area plus the local calendar date of the item time."""
+    area = " ".join((p.get("WarningArea") or "").lower().split())
+    day = (p.get("ItemDateTimeLocal_ISO") or "")[:10]
+    if not area or not day:
+        return p.get("UniqueID") or str(p.get("OBJECTID"))
+    return "qld:" + stable_event_key(area, day)
 
 
 def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
@@ -103,7 +143,7 @@ def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
         source_key="qld_fire",
         jurisdiction="QLD",
         headline=p.get("WarningTitle") or p.get("Header") or "—",
-        event_key=p.get("UniqueID") or str(p.get("OBJECTID")),
+        event_key=_incident_key(p),
         alert_type="bushfire",
         severity=severity,
         description=p.get("WarningText"),
