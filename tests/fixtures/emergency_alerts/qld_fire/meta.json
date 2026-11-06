@@ -1,0 +1,15 @@
+{
+  "source_key": "qld_fire",
+  "url": "https://publiccontent-gis-psba-qld-gov-au.s3.amazonaws.com/content/Feeds/BushfireCurrentIncidents/bushfireAlert.json",
+  "captured_at": "2026-11-06T05:51:56.241701+00:00",
+  "captured_by": "claude-code",
+  "feeds": {
+    "feed.json": {
+      "url": "https://publiccontent-gis-psba-qld-gov-au.s3.amazonaws.com/content/Feeds/BushfireCurrentIncidents/bushfireAlert.json",
+      "captured_at": "2026-11-06T05:51:56.241701+00:00",
+      "synthetic": false,
+      "redactions": 0
+    }
+  },
+  "notes": "Untrimmed live snapshot (single fetch via base.http_get). No redaction needed. "
+}

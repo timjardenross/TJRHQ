@@ -1,0 +1,21 @@
+{
+  "source_key": "wa_dfes",
+  "url": "https://api.emergency.wa.gov.au/v1/rss/warnings",
+  "captured_at": "2026-11-06T05:52:42.189224+00:00",
+  "captured_by": "claude-code",
+  "feeds": {
+    "warnings.xml": {
+      "url": "https://api.emergency.wa.gov.au/v1/rss/warnings",
+      "captured_at": "2026-11-06T05:52:42.189224+00:00",
+      "synthetic": false,
+      "redactions": 2
+    },
+    "incidents.xml": {
+      "url": "https://api.emergency.wa.gov.au/v1/rss/incidents",
+      "captured_at": "2026-11-06T05:52:43.419192+00:00",
+      "synthetic": false,
+      "redactions": 2
+    }
+  },
+  "notes": "Untrimmed live snapshot (single fetch via base.http_get). 4 email address(es) replaced with redacted@example.invalid. Two feed URLs: warnings and incidents (both read by wa_dfes.fetch())."
+}

@@ -23,7 +23,13 @@ from __future__ import annotations
 import logging
 import re
 
-from .base import CanonicalAlert, http_get_json, parse_dmy_datetime
+from .base import (
+    CanonicalAlert,
+    DropLedger,
+    convert_items,
+    http_get_json,
+    parse_dmy_datetime,
+)
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +51,37 @@ _TYPE_MAP = {
     "NON STRUCTURE": "other",
 }
 
+
+SOURCE_INFO = {
+    "source_key": "vic_emergency",
+    "jurisdiction": "VIC",
+    "feed_urls": [_FEED_URL, _WARNINGS_URL],
+    "format": "incidents: JSON (results[]); warnings: GeoJSON FeatureCollection (events feed)",
+    "fixture_dir": "tests/fixtures/emergency_alerts/vic_emergency",
+    "severity_field": "warnings: properties.category1; incidents: none (always 'unknown')",
+    "severity_map": _TIER_MAP,
+    "alert_type_rule": "incidents: incidentType (BUSH/GRASS -> bushfire; STRUCTURE -> structure_fire; else other, then dropped); warnings: CAP event (fire/flood/cyclone/storm/heat/tsunami/thunderstorm asthma).",
+    "exclusions": [
+        {"reason": "excluded_hazard_reduction", "field": "incidents incidentType / name", "match": "planned burn / burn-off / hazard reduction / prescribed burn", "decided": "Captain-directed 2026-08-26 (planned burns, applied here as a guard)"},
+        {"reason": "excluded_false_alarm", "field": "incidents incidentType", "match": "contains 'FALSE ALARM'", "decided": "adapter rule (date not recorded in source)"},
+        {"reason": "excluded_other_type", "field": "incidents incidentType / category1", "match": "classified 'other' (Non-Structure, Accident / Rescue, ...)", "decided": "Captain-directed 2026-08-26"},
+        {"reason": "excluded_structure_fire", "field": "incidents incidentType", "match": "classified 'structure_fire'", "decided": "Captain-directed 2026-08-26 (widened to bushfire only)"},
+        {"reason": "excluded_not_warning_feedtype", "field": "events feed properties.feedType", "match": "!= 'warning' (incident / planned burn / earthquake features)", "decided": "design (module docstring): only warnings are taken from the events feed"},
+    ],
+    "invalid_reasons": ["invalid_missing_id"],
+    "cap_fields": {
+        "cap_urgency": "warnings: properties.cap.urgency",
+        "cap_certainty": "warnings: properties.cap.certainty",
+        "cap_severity": "warnings: properties.cap.severity",
+        "cap_event": "warnings: properties.cap.event (incident rows carry no CAP block: all four are null)",
+    },
+    "known_gaps": [
+        "Incident timestamps are DD/MM/YYYY with no timezone/offset; presumed local Australian time but UNVERIFIED (base.parse_dmy_datetime).",
+        "The incidents feed has no warning level, so incident rows are always severity 'unknown'; only the events feed's warning features carry a real tier.",
+        "A warning's category1 outside Advice / Watch and Act / Emergency Warning is kept at severity 'unknown' and counted as unmapped_<label>.",
+    ],
+    "last_verified": "2026-11-02",
+}
 
 # Planned burns are dropped in every other jurisdiction (planned, not
 # emergencies); the VIC feed had none live when this was added, so this is a
@@ -94,48 +131,64 @@ def _first_point(geometry: dict | None) -> tuple[float | None, float | None]:
     return None, None
 
 
-def parse_warnings(data: dict) -> list[CanonicalAlert]:
+def parse_warnings(data: dict, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
     """Warning features of the VicEmergency events feed -> canonical alerts.
     Tier comes only from the feed's own category1; an unrecognised label stays
-    'unknown' rather than being guessed. A warning with no id is skipped."""
-    out: list[CanonicalAlert] = []
-    for feature in data.get("features", []):
-        props = feature.get("properties") or {}
-        if props.get("feedType") != "warning":
-            continue
-        warning_id = props.get("id") or props.get("sourceId")
-        if not warning_id:
-            continue
-        cap = props.get("cap") or {}
-        if isinstance(cap, str):
-            cap = {}
-        tier_label = (props.get("category1") or "").strip()
-        severity = _TIER_MAP.get(tier_label.lower(), "unknown")
-        alert_type = _warning_alert_type(cap)
-        event = cap.get("event") or props.get("category2") or "Warning"
-        location = props.get("location") or None
-        headline = f"{tier_label or 'Warning'}: {event}" + (f" — {location}" if location else "")
-        text = re.sub(r"[ \t]+", " ", _TAG_RE.sub("", props.get("text") or "")).strip() or None
-        # A district-wide health advice has no meaningful point; leave it off so
-        # it cannot be matched to sites by distance from a district centroid.
-        lat, lon = (None, None) if alert_type == "thunderstorm_asthma" else _first_point(feature.get("geometry"))
-        out.append(CanonicalAlert(
-            source_key="vic_emergency",
-            jurisdiction="VIC",
-            headline=headline,
-            event_key=f"warning-{warning_id}",
-            alert_type=alert_type,
-            severity=severity,
-            description=text,
-            location=location,
-            issued_at=props.get("created"),
-            updated_at_src=props.get("updated"),
-            canonical_url=f"https://emergency.vic.gov.au/respond/#!/warning/{warning_id}/moreinfo",
-            raw_text=text,
-            latitude=lat,
-            longitude=lon,
-        ))
-    return out
+    'unknown' rather than being guessed. A warning with no id is skipped.
+    Passing a ledger records every skipped feature and makes one malformed
+    feature count as invalid_unparseable_item instead of failing the parse."""
+    guard = ledger is not None
+    ledger = ledger if ledger is not None else DropLedger()
+    return convert_items(data.get("features", []), lambda feature: _warning_to_alert(feature, ledger), ledger, guard)
+
+
+def _warning_to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
+    props = feature.get("properties") or {}
+    if props.get("feedType") != "warning":
+        # The events feed also carries incident / planned-burn / earthquake
+        # features; only warnings are taken from it (module docstring).
+        ledger.exclude("not_warning_feedtype")
+        return None
+    warning_id = props.get("id") or props.get("sourceId")
+    if not warning_id:
+        ledger.invalid("missing_id")
+        return None
+    cap = props.get("cap") or {}
+    if isinstance(cap, str):
+        cap = {}
+    tier_label = (props.get("category1") or "").strip()
+    severity = _TIER_MAP.get(tier_label.lower())
+    if severity is None:
+        ledger.unmapped(tier_label or "blank")
+        severity = "unknown"
+    alert_type = _warning_alert_type(cap)
+    event = cap.get("event") or props.get("category2") or "Warning"
+    location = props.get("location") or None
+    headline = f"{tier_label or 'Warning'}: {event}" + (f" — {location}" if location else "")
+    text = re.sub(r"[ \t]+", " ", _TAG_RE.sub("", props.get("text") or "")).strip() or None
+    # A district-wide health advice has no meaningful point; leave it off so
+    # it cannot be matched to sites by distance from a district centroid.
+    lat, lon = (None, None) if alert_type == "thunderstorm_asthma" else _first_point(feature.get("geometry"))
+    return CanonicalAlert(
+        source_key="vic_emergency",
+        jurisdiction="VIC",
+        headline=headline,
+        event_key=f"warning-{warning_id}",
+        alert_type=alert_type,
+        severity=severity,
+        description=text,
+        location=location,
+        issued_at=props.get("created"),
+        updated_at_src=props.get("updated"),
+        canonical_url=f"https://emergency.vic.gov.au/respond/#!/warning/{warning_id}/moreinfo",
+        raw_text=text,
+        latitude=lat,
+        longitude=lon,
+        cap_urgency=cap.get("urgency") or None,
+        cap_certainty=cap.get("certainty") or None,
+        cap_severity=cap.get("severity") or None,
+        cap_event=cap.get("event") or None,
+    )
 
 
 def fetch() -> list[CanonicalAlert]:
@@ -145,38 +198,64 @@ def fetch() -> list[CanonicalAlert]:
     return _fetch_incidents() + parse_warnings(http_get_json(_WARNINGS_URL))
 
 
+def fetch_with_ledger() -> tuple[list[CanonicalAlert], DropLedger]:
+    """fetch() plus an account of every item skipped across both feeds, and why.
+    Same ordering and failure behaviour as fetch()."""
+    ledger = DropLedger()
+    incidents = parse_incidents(http_get_json(_FEED_URL), ledger)
+    return incidents + parse_warnings(http_get_json(_WARNINGS_URL), ledger), ledger
+
+
 def _fetch_incidents() -> list[CanonicalAlert]:
-    data = http_get_json(_FEED_URL)
-    out: list[CanonicalAlert] = []
-    for row in data.get("results", []):
-        if _is_planned_burn(row) or _is_false_alarm(row):
-            continue
-        alert_type = _alert_type(row)
+    return parse_incidents(http_get_json(_FEED_URL))
 
-        # Captain-directed exclusion 2026-08-26 (Other/Non-Structure), widened
-        # 2026-08-26 (Structure Fire too) — drop using the same structured
-        # incidentType/category1 classification _alert_type already derives,
-        # not a separate heuristic. Kept: bushfire only.
-        if alert_type in ("other", "structure_fire"):
-            continue
 
-        incident_no = row.get("incidentNo")
-        headline = row.get("name") or row.get("incidentLocation") or f"Incident {incident_no}"
-        location = ", ".join(p for p in (row.get("incidentLocation"), row.get("municipality")) if p)
-        out.append(CanonicalAlert(
-            source_key="vic_emergency",
-            jurisdiction="VIC",
-            headline=headline,
-            event_key=str(incident_no) if incident_no is not None else headline,
-            alert_type=alert_type,
-            severity="unknown",
-            description=f"{row.get('incidentStatus', '?')} · {row.get('agency', '?')} · size {row.get('incidentSizeFmt', '?')}",
-            location=location or None,
-            issued_at=parse_dmy_datetime(row.get("originDateTime")),
-            updated_at_src=parse_dmy_datetime(row.get("lastUpdateDateTime")),
-            canonical_url=f"https://emergency.vic.gov.au/respond/#!/warning/{incident_no}/moreinfo" if incident_no else None,
-            raw_text=None,
-            latitude=row.get("latitude"),
-            longitude=row.get("longitude"),
-        ))
-    return out
+def parse_incidents(data: dict, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
+    """Pure parse of the getIncidentJSON response (results[] array); bushfire
+    incidents only. Separate from fetch() so it can be tested offline.
+    Passing a ledger records every skipped row and makes one malformed row
+    count as invalid_unparseable_item instead of failing the parse."""
+    guard = ledger is not None
+    ledger = ledger if ledger is not None else DropLedger()
+    return convert_items(data.get("results", []), lambda row: _incident_to_alert(row, ledger), ledger, guard)
+
+
+def _incident_to_alert(row: dict, ledger: DropLedger) -> CanonicalAlert | None:
+    if _is_planned_burn(row):
+        ledger.exclude("hazard_reduction")
+        return None
+    if _is_false_alarm(row):
+        ledger.exclude("false_alarm")
+        return None
+    alert_type = _alert_type(row)
+
+    # Captain-directed exclusion 2026-08-26 (Other/Non-Structure), widened
+    # 2026-08-26 (Structure Fire too) — drop using the same structured
+    # incidentType/category1 classification _alert_type already derives,
+    # not a separate heuristic. Kept: bushfire only.
+    if alert_type == "other":
+        ledger.exclude("other_type")
+        return None
+    if alert_type == "structure_fire":
+        ledger.exclude("structure_fire")
+        return None
+
+    incident_no = row.get("incidentNo")
+    headline = row.get("name") or row.get("incidentLocation") or f"Incident {incident_no}"
+    location = ", ".join(p for p in (row.get("incidentLocation"), row.get("municipality")) if p)
+    return CanonicalAlert(
+        source_key="vic_emergency",
+        jurisdiction="VIC",
+        headline=headline,
+        event_key=str(incident_no) if incident_no is not None else headline,
+        alert_type=alert_type,
+        severity="unknown",
+        description=f"{row.get('incidentStatus', '?')} · {row.get('agency', '?')} · size {row.get('incidentSizeFmt', '?')}",
+        location=location or None,
+        issued_at=parse_dmy_datetime(row.get("originDateTime")),
+        updated_at_src=parse_dmy_datetime(row.get("lastUpdateDateTime")),
+        canonical_url=f"https://emergency.vic.gov.au/respond/#!/warning/{incident_no}/moreinfo" if incident_no else None,
+        raw_text=None,
+        latitude=row.get("latitude"),
+        longitude=row.get("longitude"),
+    )

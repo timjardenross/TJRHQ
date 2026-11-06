@@ -54,7 +54,7 @@ from email.utils import parsedate_to_datetime
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
-from .base import CanonicalAlert, stable_event_key
+from .base import CanonicalAlert, DropLedger, convert_items, stable_event_key
 
 log = logging.getLogger(__name__)
 
@@ -86,6 +86,32 @@ _TYPE_KEYWORDS: tuple[tuple[str, str], ...] = (
 )
 
 _EXCLUDED_KEYWORDS = ("FROST", "SHEEP GRAZIERS", "MARINE")
+
+SOURCE_INFO = {
+    "source_key": "bom_*",
+    "source_keys": [key for key, _url in _STATE_FEEDS.values()],
+    "jurisdiction": "NSW, NT, QLD, SA, TAS, VIC, WA, ACT (one feed each)",
+    "feed_urls": [url for _key, url in _STATE_FEEDS.values()],
+    "format": "RSS 2.0 per state, plus one HTML bulletin page per item (detail)",
+    "fixture_dir": "tests/fixtures/emergency_alerts/bom_nsw",
+    "severity_field": "none - the BOM feed carries no AWS tier (always 'unknown')",
+    "severity_map": None,
+    "alert_type_rule": "product name in the title, first match: FLOOD -> flood; FIRE WEATHER -> bushfire; TROPICAL CYCLONE -> cyclone; TSUNAMI -> tsunami; SEVERE THUNDERSTORM / DAMAGING WIND / GALE / STORM -> storm; SEVERE WEATHER -> severe_weather.",
+    "exclusions": [
+        {"reason": "excluded_agricultural", "field": "title", "match": "contains FROST or SHEEP GRAZIERS", "decided": "adapter rule 2026-08-27 (agricultural, not public emergency)"},
+        {"reason": "excluded_marine", "field": "title", "match": "contains MARINE", "decided": "adapter rule 2026-08-27 (mariner-specific, out of land-based scope)"},
+        {"reason": "excluded_unmatched_product", "field": "title", "match": "no product keyword matches (e.g. Hazardous Surf Warning)", "decided": "adapter rule 2026-08-27 ('never guessed into a bucket')"},
+    ],
+    "invalid_reasons": [],
+    "known_gaps": [
+        "No AWS tier (Advice / Watch and Act / Emergency Warning) exists in BOM's feed, so every BOM row is severity 'unknown'; BOM's own flood intensity words (Minor / Moderate / Major) are a different scale and are not mapped. High-attention emails use the platform's own bom_attention label.",
+        "Products whose name matches no keyword are dropped (counted excluded_unmatched_product), so a NEW BOM warning product is invisible until a keyword is added.",
+        "Needs a browser-shaped User-Agent (BOM 403s the shared default); detail pages are best-effort and fall back to a title-only alert.",
+        "Detail-page 'Issued at' is parsed as '9:34 am AEST on Thursday 27 August 2026' (bom_warnings._parse_bom_issued_at) while emergency_alerts._issued_text reads 'Issued at 2:38 pm Monday, 2 November 2026.' from the stored text; the two formats are not reconciled and no live detail page could be captured to check which is current.",
+        "BOM cross-lists some border-river warnings in neighbouring states' feeds, so one product can appear under two source_keys (canonical_url is left empty to avoid the unique-index clash).",
+    ],
+    "last_verified": "2026-08-27",
+}
 
 _TITLE_RE = re.compile(r"^\d{2}/\d{2}:\d{2}\s+\w+\s+(.*)$")
 
@@ -151,6 +177,22 @@ def _parse_bom_issued_at(text: str) -> str | None:
         return None
 
 
+def parse_detail(html: str) -> dict:
+    """Pure parse of a BOM bulletin page -> {"issued_at": str|None, "body": str|None}.
+    Separate from _fetch_detail() so it can be tested against a page fixture."""
+    m = _CONTENT_RE.search(html)
+    if not m:
+        return {"issued_at": None, "body": None}
+    content_html = _TABLE_RE.sub("", m.group(1))
+    issued_at = _parse_bom_issued_at(content_html)
+    text = _TAG_BREAK_RE.sub("\n", content_html)
+    text = _TAG_RE.sub("", text)
+    text = (text.replace("&amp;", "&").replace("&nbsp;", " ")
+                .replace("&lt;", "<").replace("&gt;", ">"))
+    text = _BLANK_LINES_RE.sub("\n\n", text).strip()
+    return {"issued_at": issued_at, "body": text or None}
+
+
 def _fetch_detail(link: str, pubdate_raw: str) -> dict:
     """Returns {"issued_at": str|None, "body": str|None}. Never raises —
     the detail page is an enrichment, not a requirement; the RSS title
@@ -160,19 +202,7 @@ def _fetch_detail(link: str, pubdate_raw: str) -> dict:
         return cached[1]
 
     try:
-        html = _http_get_bom(link).decode("utf-8", errors="replace")
-        m = _CONTENT_RE.search(html)
-        if not m:
-            result = {"issued_at": None, "body": None}
-        else:
-            content_html = _TABLE_RE.sub("", m.group(1))
-            issued_at = _parse_bom_issued_at(content_html)
-            text = _TAG_BREAK_RE.sub("\n", content_html)
-            text = _TAG_RE.sub("", text)
-            text = (text.replace("&amp;", "&").replace("&nbsp;", " ")
-                        .replace("&lt;", "<").replace("&gt;", ">"))
-            text = _BLANK_LINES_RE.sub("\n\n", text).strip()
-            result = {"issued_at": issued_at, "body": text or None}
+        result = parse_detail(_http_get_bom(link).decode("utf-8", errors="replace"))
     except Exception as exc:  # noqa: BLE001 - best-effort detail-page fetch, already logged; caller falls back to the documented {issued_at: None, body: None} shape
         log.warning("[bom_warnings] detail fetch failed for %s: %s", link, exc)
         result = {"issued_at": None, "body": None}
@@ -181,91 +211,118 @@ def _fetch_detail(link: str, pubdate_raw: str) -> dict:
     return result
 
 
-def _fetch_state(jurisdiction: str) -> list[CanonicalAlert]:
-    source_key, url = _STATE_FEEDS[jurisdiction]
-    raw = _http_get_bom(url)
+def _fetch_state(jurisdiction: str, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
+    _source_key, url = _STATE_FEEDS[jurisdiction]
+    return parse_state_feed(jurisdiction, _http_get_bom(url), detail_for=_fetch_detail, ledger=ledger)
+
+
+# keyword -> drop-ledger reason for _EXCLUDED_KEYWORDS (frost and sheep
+# graziers are both agricultural products). First match wins.
+_EXCLUDED_REASONS = (
+    ("FROST", "agricultural"),
+    ("SHEEP GRAZIERS", "agricultural"),
+    ("MARINE", "marine"),
+)
+
+
+def parse_state_feed(jurisdiction: str, raw: bytes, detail_for=None, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
+    """Pure parse of one state's warnings RSS. `detail_for(link, pubdate_raw)`
+    returns the {"issued_at", "body"} dict for an item's bulletin page; the
+    live path passes _fetch_detail (network, cached). None means title-only
+    alerts, which is also what a failed detail fetch degrades to. Passing a
+    ledger records every skipped item and makes one malformed item count as
+    invalid_unparseable_item instead of failing the parse."""
+    guard = ledger is not None
+    ledger = ledger if ledger is not None else DropLedger()
+    source_key, _url = _STATE_FEEDS[jurisdiction]
     root = ET.fromstring(raw)
-    out: list[CanonicalAlert] = []
+    return convert_items(root.findall(".//item"), lambda item: _to_alert(item, source_key, jurisdiction, detail_for, ledger), ledger, guard)
 
-    for item in root.findall(".//item"):
-        title_el = item.find("title")
-        link_el = item.find("link")
-        pubdate_el = item.find("pubDate")
-        guid_el = item.find("guid")
 
-        title = title_el.text.strip() if title_el is not None and title_el.text else "—"
-        title_upper = title.upper()
+def _to_alert(item, source_key: str, jurisdiction: str, detail_for, ledger: DropLedger) -> CanonicalAlert | None:
+    title_el = item.find("title")
+    link_el = item.find("link")
+    pubdate_el = item.find("pubDate")
+    guid_el = item.find("guid")
 
-        if any(kw in title_upper for kw in _EXCLUDED_KEYWORDS):
-            continue
+    title = title_el.text.strip() if title_el is not None and title_el.text else "—"
+    title_upper = title.upper()
 
-        alert_type = next((v for kw, v in _TYPE_KEYWORDS if kw in title_upper), None)
-        if alert_type is None:
-            continue
+    excluded = next((reason for kw, reason in _EXCLUDED_REASONS if kw in title_upper), None)
+    if excluded:
+        ledger.exclude(excluded)
+        return None
 
-        # Collapse embedded whitespace/newlines first (confirmed live: some
-        # states, e.g. WA, wrap the title across lines) — needed before the
-        # timestamp-prefix regex, which otherwise fails to match and leaves
-        # the raw multi-line mess as the headline.
-        title_flat = re.sub(r"\s+", " ", title).strip()
+    alert_type = next((v for kw, v in _TYPE_KEYWORDS if kw in title_upper), None)
+    if alert_type is None:
+        # Deliberate, per the module docstring: "any product name that
+        # doesn't match a real kept category — never guessed into a bucket".
+        # (Live 2026-11: Hazardous Surf Warning lands here.)
+        ledger.exclude("unmatched_product")
+        return None
 
-        # Strip BOM's "DD/HH:MM TZ " time prefix for a cleaner headline —
-        # the real issue timestamp is already carried in pubDate. Not every
-        # item has the prefix (confirmed live: ACT's items sometimes don't).
-        m = _TITLE_RE.match(title_flat)
-        headline = m.group(1) if m else title_flat
+    # Collapse embedded whitespace/newlines first (confirmed live: some
+    # states, e.g. WA, wrap the title across lines) — needed before the
+    # timestamp-prefix regex, which otherwise fails to match and leaves
+    # the raw multi-line mess as the headline.
+    title_flat = re.sub(r"\s+", " ", title).strip()
 
-        # "Final " is BOM's own cancel/supersede marker — must be checked
-        # on the prefix-stripped headline (confirmed live: checking the raw
-        # title missed every NSW item, since "Final" sits after the time
-        # prefix, not at the very start).
-        closed = headline.upper().startswith("FINAL ")
+    # Strip BOM's "DD/HH:MM TZ " time prefix for a cleaner headline —
+    # the real issue timestamp is already carried in pubDate. Not every
+    # item has the prefix (confirmed live: ACT's items sometimes don't).
+    m = _TITLE_RE.match(title_flat)
+    headline = m.group(1) if m else title_flat
 
-        updated_at_src = None
-        if pubdate_el is not None and pubdate_el.text:
-            try:
-                updated_at_src = parsedate_to_datetime(pubdate_el.text.strip()).isoformat()
-            except (TypeError, ValueError):
-                pass
+    # "Final " is BOM's own cancel/supersede marker — must be checked
+    # on the prefix-stripped headline (confirmed live: checking the raw
+    # title missed every NSW item, since "Final" sits after the time
+    # prefix, not at the very start).
+    closed = headline.upper().startswith("FINAL ")
 
-        link = link_el.text.strip() if link_el is not None and link_el.text else None
-        guid = guid_el.text.strip() if guid_el is not None and guid_el.text else None
-        pubdate_raw = pubdate_el.text.strip() if pubdate_el is not None and pubdate_el.text else ""
+    updated_at_src = None
+    if pubdate_el is not None and pubdate_el.text:
+        try:
+            updated_at_src = parsedate_to_datetime(pubdate_el.text.strip()).isoformat()
+        except (TypeError, ValueError):
+            pass
 
-        # Real warning body text from the detail page (Captain: "bring
-        # more of the content of the warning across") — see module
-        # docstring and _fetch_detail. Best-effort: a failed detail fetch
-        # still leaves a usable, title-only alert.
-        detail = _fetch_detail(link, pubdate_raw) if link else {"issued_at": None, "body": None}
-        issued_at = detail["issued_at"]
+    link = link_el.text.strip() if link_el is not None and link_el.text else None
+    guid = guid_el.text.strip() if guid_el is not None and guid_el.text else None
+    pubdate_raw = pubdate_el.text.strip() if pubdate_el is not None and pubdate_el.text else ""
 
-        out.append(CanonicalAlert(
-            source_key=source_key,
-            jurisdiction=jurisdiction,
-            headline=headline,
-            event_key=guid or link or stable_event_key(jurisdiction, headline),
-            alert_type=alert_type,
-            severity="unknown",  # see module docstring — no AWS-tier data in this feed
-            description=detail["body"],
-            location=None,  # not present as its own field; only embedded in free-text headline
-            issued_at=issued_at,
-            updated_at_src=updated_at_src,
-            # Not canonical_url: confirmed live (2026-08-27, bom_vic/bom_act
-            # 409s) that BOM cross-lists the same warning link across
-            # neighbouring jurisdictions' feeds for border rivers (e.g. the
-            # Tumut River warning appears identically in both the NSW and
-            # ACT feeds) — a genuinely shared URL across two different
-            # source_keys, which collides with alerts.idx_alerts_canonical_url
-            # (global unique). Same fix as qld_fire.py/sa_cfs.py's shared-URL
-            # case; dedupe here relies on (source_key, event_key) only.
-            canonical_url=None,
-            # Full warning body when the detail fetch succeeded, else just
-            # the title + link (the real per-item link is preserved here
-            # either way — it can't be the DB's canonical_url, see above).
-            raw_text=(detail["body"] + f"\n\n{link}") if detail["body"] else (f"{title}\n{link}" if link else title),
-            closed=closed,
-        ))
-    return out
+    # Real warning body text from the detail page (Captain: "bring
+    # more of the content of the warning across") — see module
+    # docstring and _fetch_detail. Best-effort: a failed detail fetch
+    # still leaves a usable, title-only alert.
+    detail = detail_for(link, pubdate_raw) if (link and detail_for) else {"issued_at": None, "body": None}
+    issued_at = detail["issued_at"]
+
+    return CanonicalAlert(
+        source_key=source_key,
+        jurisdiction=jurisdiction,
+        headline=headline,
+        event_key=guid or link or stable_event_key(jurisdiction, headline),
+        alert_type=alert_type,
+        severity="unknown",  # see module docstring — no AWS-tier data in this feed
+        description=detail["body"],
+        location=None,  # not present as its own field; only embedded in free-text headline
+        issued_at=issued_at,
+        updated_at_src=updated_at_src,
+        # Not canonical_url: confirmed live (2026-08-27, bom_vic/bom_act
+        # 409s) that BOM cross-lists the same warning link across
+        # neighbouring jurisdictions' feeds for border rivers (e.g. the
+        # Tumut River warning appears identically in both the NSW and
+        # ACT feeds) — a genuinely shared URL across two different
+        # source_keys, which collides with alerts.idx_alerts_canonical_url
+        # (global unique). Same fix as qld_fire.py/sa_cfs.py's shared-URL
+        # case; dedupe here relies on (source_key, event_key) only.
+        canonical_url=None,
+        # Full warning body when the detail fetch succeeded, else just
+        # the title + link (the real per-item link is preserved here
+        # either way — it can't be the DB's canonical_url, see above).
+        raw_text=(detail["body"] + f"\n\n{link}") if detail["body"] else (f"{title}\n{link}" if link else title),
+        closed=closed,
+    )
 
 
 class _StateAdapter:
@@ -278,6 +335,11 @@ class _StateAdapter:
 
     def fetch(self) -> list[CanonicalAlert]:
         return _fetch_state(self._jurisdiction)
+
+    def fetch_with_ledger(self) -> tuple[list[CanonicalAlert], DropLedger]:
+        """fetch() plus an account of every item skipped, and why (see base.DropLedger)."""
+        ledger = DropLedger()
+        return _fetch_state(self._jurisdiction, ledger), ledger
 
 
 nsw = _StateAdapter("NSW")

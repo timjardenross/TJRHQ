@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
 import alert_email
+import alert_schema
 import alert_silences
 import bom_attention
 from heartbeat import _KEY, _URL, record_heartbeats, supabase_get
@@ -125,6 +126,41 @@ def _supabase_request(method: str, path: str, body: dict | None = None, extra_he
     req = urllib.request.Request(url, data=data, method=method, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout):  # nosec B310 - url is built from SUPABASE_URL env var (_URL), always https - reviewed 2026-09-12
         return
+
+
+# CAP fields CanonicalAlert carries for sources that provide them (SA, VIC
+# warnings). They only exist as alerts columns once migration 0250 is applied
+# (authored, NOT applied by the integrity-uplift mission). Sending an unknown
+# column to PostgREST fails the whole source's upsert, so they are stripped
+# unless the host has opted in with EMERGENCY_ALERTS_CAP_FIELDS=1.
+_CAP_FIELDS = ("cap_urgency", "cap_certainty", "cap_severity", "cap_event")
+
+
+def _cap_fields_enabled() -> bool:
+    """Read per run (not at import) so the flag takes effect without code changes."""
+    return os.environ.get("EMERGENCY_ALERTS_CAP_FIELDS") == "1"
+
+
+def _coerce_rows(source_key: str, rows: list[dict]) -> tuple[int, int]:
+    """Make every row safe for the alerts CHECK constraints (alert_schema).
+
+    An out-of-set alert_type becomes 'other' and an out-of-set severity
+    'unknown'. The row is NEVER dropped: _upsert_batch is one request per
+    source, so one invalid value would fail every row in it, and dropping the
+    row instead would make a live alert look gone (-> expired -> false
+    "lifted"). Logs source_key and the bad value only (no other row content).
+    Returns (alert_type_coerced, severity_coerced)."""
+    n_type = n_severity = 0
+    for row in rows:
+        if row.get("alert_type") not in alert_schema.ALLOWED_ALERT_TYPE:
+            log.warning("[emergency-alerts] %s: alert_type %r is not in the alerts schema - coerced to %r", source_key, str(row.get("alert_type"))[:60], alert_schema.DEFAULT_ALERT_TYPE)
+            row["alert_type"] = alert_schema.DEFAULT_ALERT_TYPE
+            n_type += 1
+        if row.get("severity") not in alert_schema.ALLOWED_SEVERITY:
+            log.warning("[emergency-alerts] %s: severity %r is not in the alerts schema - coerced to %r", source_key, str(row.get("severity"))[:60], alert_schema.DEFAULT_SEVERITY)
+            row["severity"] = alert_schema.DEFAULT_SEVERITY
+            n_severity += 1
+    return n_type, n_severity
 
 
 def _upsert_batch(rows: list[dict]) -> None:
@@ -516,8 +552,15 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         else:
             _record_heartbeat(domain_key, **fields)
 
+    # Adapters that can account for what they skip expose fetch_with_ledger();
+    # the rest (and test doubles) keep the plain fetch() contract.
+    ledger = None
     try:
-        alerts = adapter.fetch()
+        with_ledger = getattr(adapter, "fetch_with_ledger", None)
+        if with_ledger is not None:
+            alerts, ledger = with_ledger()
+        else:
+            alerts = adapter.fetch()
     except Exception as exc:  # noqa: BLE001 - per-source fetch job boundary — already logged + heartbeat-recorded with latency
         latency_ms = int((time.monotonic() - t0) * 1000)
         record_heartbeat(domain_key, status="failed", error_message=str(exc)[:500], latency_ms=latency_ms)
@@ -541,14 +584,33 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         record_heartbeat(domain_key, status="skipped", detail=adapter.NOT_YET_IMPLEMENTED)
         return {"source_key": source_key, "count": 0, "skipped": True}
 
+    # Integrity gate (before coercion and upsert, and so before any expiry): a
+    # feed whose every item failed structural parsing is BROKEN, not quiet.
+    # Failing here leaves existing alerts untouched - no expiry is scheduled -
+    # so a parser break can never turn live alerts into false "lifted" notices.
+    failure, integrity_warning = _ledger_verdict(ledger, accepted=len(alerts))
+    if failure:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        record_heartbeat(domain_key, status="failed", error_message=failure[:500], latency_ms=latency_ms)
+        log.warning("[emergency-alerts] %s: %s", source_key, failure)
+        return {"source_key": source_key, "error": failure, "count": 0}
+
+    keep_cap = _cap_fields_enabled()
     rows = []
     for a in alerts:
         row = asdict(a)
         closed = row.pop("closed")  # not a DB column — CanonicalAlert-only signal, see base.py
+        if not keep_cap:
+            for field in _CAP_FIELDS:  # not alerts columns until migration 0250 is applied; an unknown column fails the whole upsert
+                row.pop(field, None)
         row["status"] = "expired" if closed else "active"
         row["is_active"] = not closed
         row["last_seen_at"] = run_started_at
         rows.append(row)
+
+    # After any drop accounting, before the upsert: make every row valid for
+    # the CHECK constraints rather than let one bad value fail the batch.
+    coerced = _coerce_rows(source_key, rows)
 
     try:
         _upsert_batch(rows)
@@ -582,20 +644,27 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
     # unclassified alerts — like SA CFS's HAYBOROUGH, caught 2026-08-26 by
     # spotting it in the UI — shows up on every run instead of needing a
     # manual audit each time.
-    unknown_count = sum(1 for a in alerts if a.severity == "unknown")
+    unknown_count = sum(1 for r in rows if r["severity"] == "unknown")
     latency_ms = int((time.monotonic() - t0) * 1000)
     if batched:
         # run_all() fills in detail once its single expiry pass has the count.
         heartbeats.append({
             "domain_key": domain_key, "status": "ok", "latency_ms": latency_ms,
-            "_counts": (len(rows), unknown_count, emails_sent),
+            "_counts": (len(rows), unknown_count, emails_sent, {"coerced": coerced, "ledger": ledger, "warning": integrity_warning}),
         })
     else:
-        record_heartbeat(domain_key, status="ok", detail=_ok_detail(len(rows), unknown_count, expired, emails_sent), latency_ms=latency_ms)
-    return {
+        record_heartbeat(
+            domain_key, status="ok",
+            detail=_ok_detail(len(rows), unknown_count, expired, emails_sent, coerced=coerced, ledger=ledger, warning=integrity_warning),
+            latency_ms=latency_ms,
+        )
+    result = {
         "source_key": source_key, "count": len(rows), "unknown_severity": unknown_count,
         "expired": expired, "emails_sent": emails_sent, "pending_expiry": batched,
     }
+    if ledger is not None:
+        result["drops"] = ledger.as_dict()
+    return result
 
 
 _FOLLOW_UP_WINDOW = timedelta(hours=6)
@@ -745,20 +814,65 @@ def run_all() -> dict:
     for hb in heartbeats:
         counts = hb.pop("_counts", None)
         if counts is not None:
-            n_rows, unknown_count, emails_sent = counts
-            hb["detail"] = _ok_detail(n_rows, unknown_count, expired_by_domain.get(hb["domain_key"], 0), emails_sent)
+            n_rows, unknown_count, emails_sent, extras = counts
+            hb["detail"] = _ok_detail(n_rows, unknown_count, expired_by_domain.get(hb["domain_key"], 0), emails_sent, **extras)
 
     record_heartbeats(heartbeats)
     results["_follow_up"] = _send_follow_up_emails()
     return results
 
 
-def _ok_detail(n_rows: int, unknown_count: int, expired: int, emails_sent: int) -> str:
+# A source is only "broken" for parsing reasons above this share of invalid
+# items (with some accepted): flagged in the heartbeat detail, status stays ok.
+_INVALID_WARN_RATIO = 0.20
+
+# Heartbeat detail is free text (domain_heartbeats.detail, migration 0071); keep
+# it bounded like error_message (500). The headline counts come first so a long
+# drop breakdown is what gets cut, never the alert counts.
+_DETAIL_MAX_CHARS = 500
+
+
+def _ledger_verdict(ledger, accepted: int) -> tuple[str | None, str | None]:
+    """(failure message, warning text) for one run's drop ledger.
+
+    - items seen, none accepted, some invalid  -> failure: the feed is broken.
+    - items seen, none accepted, none invalid  -> (None, None): everything was
+      a deliberate exclusion, which is a legitimately quiet feed.
+    - more than 20% invalid with some accepted -> warning only (status ok).
+    No ledger (adapter has no fetch_with_ledger) -> (None, None)."""
+    if ledger is None or ledger.items_seen <= 0:
+        return None, None
+    invalid = ledger.invalid_total
+    if accepted == 0 and invalid > 0:
+        if invalid == ledger.items_seen:
+            return f"all {ledger.items_seen} items failed structural parsing: {ledger.top_invalid()}", None
+        message = (
+            f"no items accepted - {invalid} of {ledger.items_seen} failed structural parsing: {ledger.top_invalid()} "
+            f"({ledger.excluded_total} deliberately excluded)"
+        )
+        return message, None
+    if accepted > 0 and invalid / ledger.items_seen > _INVALID_WARN_RATIO:
+        return None, f"WARNING: {round(100 * invalid / ledger.items_seen)}% invalid ({invalid} of {ledger.items_seen} items)"
+    return None, None
+
+
+def _ok_detail(
+    n_rows: int, unknown_count: int, expired: int, emails_sent: int, *,
+    coerced: tuple[int, int] | None = None, ledger=None, warning: str | None = None,
+) -> str:
     detail = f"{n_rows} alert(s), {unknown_count} unknown severity, {expired} expired"
     if n_rows == 0:
         detail += " (empty feed — earlier alerts held up to 2h before expiring)"
     if emails_sent:
         detail += f", {emails_sent} emergency email(s) sent"
+    if warning:
+        detail += f" | {warning}"
+    if ledger is not None:
+        detail += f" | {ledger.summary()}"
+    if coerced and any(coerced):
+        detail += f" | coerced {sum(coerced)} (alert_type {coerced[0]}, severity {coerced[1]})"
+    if len(detail) > _DETAIL_MAX_CHARS:
+        detail = detail[: _DETAIL_MAX_CHARS - 1] + "…"
     return detail
 
 

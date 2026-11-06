@@ -1,0 +1,22 @@
+{
+  "source_key": "bom_nsw",
+  "url": "https://www.bom.gov.au/fwo/IDZ00054.warnings_nsw.xml",
+  "captured_at": "2026-11-06T05:52:55.932508+00:00",
+  "captured_by": "claude-code",
+  "feeds": {
+    "feed.xml": {
+      "url": "https://www.bom.gov.au/fwo/IDZ00054.warnings_nsw.xml",
+      "captured_at": "2026-11-06T05:52:55.932508+00:00",
+      "synthetic": false,
+      "redactions": 1
+    },
+    "detail.html": {
+      "url": "http://reg.bom.gov.au/nsw/warnings/fire.shtml",
+      "captured_at": "2026-11-06T05:53:18.932613+00:00",
+      "synthetic": true,
+      "redactions": 0,
+      "capture_attempt": "Live detail-page fetch failed in the capture sandbox: the feed's detail links are plain http://reg.bom.gov.au/..., which does not resolve from the sandbox (DNS error). The one allowed retry, https://www.bom.gov.au/nsw/warnings/fire.shtml, failed with the same DNS error (a redirect to the unresolvable host is the likely cause; not confirmed). Attempt plus retry used; no further fetches."
+    }
+  },
+  "notes": "feed.xml is an untrimmed live snapshot of the NSW state warnings list, fetched with bom_warnings' own browser-User-Agent helper (base.http_get's UA is 403'd by BOM, see bom_warnings.py docstring) - one fetch. detail.html is SYNTHETIC: a minimal page built from the adapter's documented shape (div id=content ... End: Content, 'Issued at ... AEDT on ...', a river-height table that must be stripped, a safety-advice list). 1 email address(es) replaced with redacted@example.invalid in feed.xml."
+}

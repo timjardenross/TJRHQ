@@ -16,12 +16,34 @@ import re
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
-from .base import CanonicalAlert, http_get
+from .base import CanonicalAlert, DropLedger, convert_items, http_get
 
 log = logging.getLogger(__name__)
 
 _FEED_URL = "https://esa.act.gov.au/feeds/currentincidents.xml"
 _GEORSS_NS = "{http://www.georss.org/georss}"
+
+
+SOURCE_INFO = {
+    "source_key": "act_esa",
+    "jurisdiction": "ACT",
+    "feed_urls": [_FEED_URL],
+    "format": "RSS 2.0 + georss:point",
+    "fixture_dir": "tests/fixtures/emergency_alerts/act_esa",
+    "severity_field": "none - the ESA incident feed carries no warning level",
+    "severity_map": None,
+    "alert_type_rule": "'bushfire' when the incident <type> contains BUSHFIRE, else 'other'.",
+    "exclusions": [
+        {"reason": "excluded_ambulance_mva", "field": "<type>", "match": "in ('AMBULANCE RESPONSE', 'MOTOR VEHICLE ACCIDENT')", "decided": "Captain-directed 2026-08-26"},
+        {"reason": "excluded_hazard_reduction", "field": "<type>", "match": "contains 'HAZARD REDUCTION'", "decided": "Captain-directed 2026-08-26"},
+    ],
+    "invalid_reasons": [],
+    "known_gaps": [
+        "INCIDENTS ONLY: per ESA this feed 'does not include warning and alert information', so no Advice / Watch and Act / Emergency Warning is monitored for ACT and severity is always 'unknown'. The portal shows ACT coverage as partial (alertCoverage.ts INCIDENTS_ONLY_SOURCES).",
+        "Updated timestamps ('19 Aug 2026 23:24:36.053') carry no timezone/offset; presumed local Canberra time (AEST/AEDT) but UNVERIFIED (act_esa._act_datetime).",
+    ],
+    "last_verified": "2026-08-26",
+}
 
 
 def _act_datetime(value: str | None) -> str | None:
@@ -43,55 +65,75 @@ def _act_datetime(value: str | None) -> str | None:
 
 
 def fetch() -> list[CanonicalAlert]:
-    raw = http_get(_FEED_URL)
+    return parse(http_get(_FEED_URL))
+
+
+def fetch_with_ledger() -> tuple[list[CanonicalAlert], DropLedger]:
+    """fetch() plus an account of every item skipped, and why (see base.DropLedger)."""
+    ledger = DropLedger()
+    return parse(http_get(_FEED_URL), ledger), ledger
+
+
+def parse(raw: bytes, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
+    """Pure parse of the ESA GeoRSS incidents feed; separate from fetch() so
+    it can be tested against a captured snapshot offline. Passing a ledger
+    records every skipped item and makes one malformed item count as
+    invalid_unparseable_item instead of failing the parse."""
+    guard = ledger is not None
+    ledger = ledger if ledger is not None else DropLedger()
     root = ET.fromstring(raw)
-    out: list[CanonicalAlert] = []
-    for item in root.findall(".//item"):
-        title_el = item.find("title")
-        guid_el = item.find("guid")
-        type_el = item.find("type")
-        desc_el = item.find("description")
-        point_el = item.find(f"{_GEORSS_NS}point")
+    return convert_items(root.findall(".//item"), lambda item: _to_alert(item, ledger), ledger, guard)
 
-        title = title_el.text.strip() if title_el is not None and title_el.text else "—"
-        guid = guid_el.text.strip() if guid_el is not None and guid_el.text else title
-        incident_type = type_el.text.strip() if type_el is not None and type_el.text else ""
-        incident_type_upper = incident_type.upper()
 
-        # Captain-directed exclusion 2026-08-26: Ambulance Response, Motor
-        # Vehicle Accident, and Hazard Reduction Burn are not the emergency
-        # types this hub wants — dropped using the feed's own <type> field
-        # (structured, not a headline-text guess).
-        if incident_type_upper in ("AMBULANCE RESPONSE", "MOTOR VEHICLE ACCIDENT") or "HAZARD REDUCTION" in incident_type_upper:
-            continue
+def _to_alert(item, ledger: DropLedger) -> CanonicalAlert | None:
+    title_el = item.find("title")
+    guid_el = item.find("guid")
+    type_el = item.find("type")
+    desc_el = item.find("description")
+    point_el = item.find(f"{_GEORSS_NS}point")
 
-        updated_match = location_match = None
-        if desc_el is not None and desc_el.text:
-            updated_match = re.search(r"Updated:\s*([^\r\n]+)", desc_el.text)
-            location_match = re.search(r"Location:\s*([^\r\n]+)", desc_el.text)
+    title = title_el.text.strip() if title_el is not None and title_el.text else "—"
+    guid = guid_el.text.strip() if guid_el is not None and guid_el.text else title
+    incident_type = type_el.text.strip() if type_el is not None and type_el.text else ""
+    incident_type_upper = incident_type.upper()
 
-        lat = lon = None
-        if point_el is not None and point_el.text:
-            parts = point_el.text.split()
-            if len(parts) == 2:
-                try:
-                    lat, lon = float(parts[0]), float(parts[1])
-                except ValueError:
-                    pass
+    # Captain-directed exclusion 2026-08-26: Ambulance Response, Motor
+    # Vehicle Accident, and Hazard Reduction Burn are not the emergency
+    # types this hub wants — dropped using the feed's own <type> field
+    # (structured, not a headline-text guess).
+    if incident_type_upper in ("AMBULANCE RESPONSE", "MOTOR VEHICLE ACCIDENT"):
+        ledger.exclude("ambulance_mva")
+        return None
+    if "HAZARD REDUCTION" in incident_type_upper:
+        ledger.exclude("hazard_reduction")
+        return None
 
-        out.append(CanonicalAlert(
-            source_key="act_esa",
-            jurisdiction="ACT",
-            headline=title,
-            event_key=guid,
-            alert_type="bushfire" if "BUSHFIRE" in incident_type_upper else "other",
-            severity="unknown",
-            description=desc_el.text.strip() if desc_el is not None and desc_el.text else None,
-            location=location_match.group(1).strip() if location_match else title,
-            updated_at_src=_act_datetime(updated_match.group(1).strip()) if updated_match else None,
-            canonical_url=f"https://esa.act.gov.au/feeds/currentincidents.xml#{guid}",
-            raw_text=desc_el.text if desc_el is not None else None,
-            latitude=lat,
-            longitude=lon,
-        ))
-    return out
+    updated_match = location_match = None
+    if desc_el is not None and desc_el.text:
+        updated_match = re.search(r"Updated:\s*([^\r\n]+)", desc_el.text)
+        location_match = re.search(r"Location:\s*([^\r\n]+)", desc_el.text)
+
+    lat = lon = None
+    if point_el is not None and point_el.text:
+        parts = point_el.text.split()
+        if len(parts) == 2:
+            try:
+                lat, lon = float(parts[0]), float(parts[1])
+            except ValueError:
+                pass
+
+    return CanonicalAlert(
+        source_key="act_esa",
+        jurisdiction="ACT",
+        headline=title,
+        event_key=guid,
+        alert_type="bushfire" if "BUSHFIRE" in incident_type_upper else "other",
+        severity="unknown",
+        description=desc_el.text.strip() if desc_el is not None and desc_el.text else None,
+        location=location_match.group(1).strip() if location_match else title,
+        updated_at_src=_act_datetime(updated_match.group(1).strip()) if updated_match else None,
+        canonical_url=f"https://esa.act.gov.au/feeds/currentincidents.xml#{guid}",
+        raw_text=desc_el.text if desc_el is not None else None,
+        latitude=lat,
+        longitude=lon,
+    )

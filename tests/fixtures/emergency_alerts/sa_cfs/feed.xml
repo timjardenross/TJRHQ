@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:georss="http://www.georss.org/georss">
+  <id>https://www.cfs.sa.gov.au</id>
+  <title>SA Emergency Services Fire Incident Information</title>
+  <updated>2026-11-06T16:22:32+10:30</updated>
+  <entry>
+    <id>F2611060039-2026-11-06T08:58:07+10:30</id>
+    <title type="text">BURNOFF PRESCRIBED : CHERRY GARDENS</title>
+    <updated>2026-11-06T08:58:07+10:30</updated>
+    <content type="text/xml">
+      <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+        <identifier>F2611060039-2026-11-06T08:58:07+10:30</identifier>
+        <sender>redacted@example.invalid</sender>
+        <sent>2026-11-06T08:58:07+10:30</sent>
+        <status>Actual</status>
+        <msgType>Alert</msgType>
+        <scope>Public</scope>
+        <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+        <incidents>F-261106-0039 CHERRY GARDENS, 57  (BURNOFF PRESCRIBED)</incidents>
+        <info>
+          <language>en-AU</language>
+          <category>Fire</category>
+          <event>Fire</event>
+          <responseType>Monitor</responseType>
+          <urgency>Unknown</urgency>
+          <severity>Unknown</severity>
+          <certainty>Observed</certainty>
+          <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>fire</value>
+          </eventCode>
+          <effective>2026-11-06T08:58:07+10:30</effective>
+          <senderName>South Australian Country Fire Service</senderName>
+          <headline>CHERRY GARDENS : BURNOFF PRESCRIBED</headline>
+          <description>Not Available</description>
+          <instruction>An incident has occurred. Stay up to date in case the situation changes</instruction>
+          <web>https://www.cfs.sa.gov.au/incidents</web>
+          <parameter>
+            <valueName>IncidentName</valueName>
+            <value>CHERRY GARDENS</value>
+          </parameter>
+          <parameter>
+            <valueName>Location</valueName>
+            <value>57, CHERRY GARDENS</value>
+          </parameter>
+          <parameter>
+            <valueName>IncidentLevel</valueName>
+            <value>1</value>
+          </parameter>
+          <parameter>
+            <valueName>Status</valueName>
+            <value>Controlled</value>
+          </parameter>
+          <parameter>
+            <valueName>WarningLevel</valueName>
+            <value>Incident</value>
+          </parameter>
+          <parameter>
+            <valueName>ControlAuthority</valueName>
+            <value>South Australian Country Fire Service</value>
+          </parameter>
+          <parameter>
+            <valueName>FireBanDistrict</valueName>
+            <value>MOUNT LOFTY RANGES</value>
+          </parameter>
+          <parameter>
+            <valueName>CallToAction</valueName>
+            <value/>
+          </parameter>
+          <parameter>
+            <valueName>Category</valueName>
+            <value>Burn off</value>
+          </parameter>
+          <parameter>
+            <valueName>SubCategory</valueName>
+            <value>Burn Off Prescribed</value>
+          </parameter>
+          <area>
+            <areaDesc>57  CHERRY GARDENS</areaDesc>
+            <circle>-35.089636,138.646876 0.0</circle>
+            <geocode>
+              <valueName>ISO 3166-2</valueName>
+              <value>AU_SA</value>
+            </geocode>
+          </area>
+        </info>
+      </alert>
+    </content>
+  </entry>
+  <entry>
+    <id>F2611060111-2026-11-06T16:17:43+10:30</id>
+    <title type="text">GRASS FIRE : CRAIGMORE</title>
+    <updated>2026-11-06T16:17:43+10:30</updated>
+    <content type="text/xml">
+      <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+        <identifier>F2611060111-2026-11-06T16:17:43+10:30</identifier>
+        <sender>redacted@example.invalid</sender>
+        <sent>2026-11-06T16:17:43+10:30</sent>
+        <status>Actual</status>
+        <msgType>Alert</msgType>
+        <scope>Public</scope>
+        <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+        <incidents>F-261106-0111 CRAIGMORE, VENICE CT (GRASS FIRE)</incidents>
+        <info>
+          <language>en-AU</language>
+          <category>Fire</category>
+          <event>Grass Fire</event>
+          <responseType>Monitor</responseType>
+          <urgency>Unknown</urgency>
+          <severity>Unknown</severity>
+          <certainty>Observed</certainty>
+          <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>grassFire</value>
+          </eventCode>
+          <effective>2026-11-06T16:17:43+10:30</effective>
+          <senderName>South Australian Metropolitan Fire Service</senderName>
+          <headline>CRAIGMORE : GRASS FIRE</headline>
+          <description>Not Available</description>
+          <instruction>An incident has occurred. Stay up to date in case the situation changes</instruction>
+          <web>https://www.cfs.sa.gov.au/incidents</web>
+          <parameter>
+            <valueName>IncidentName</valueName>
+            <value>CRAIGMORE</value>
+          </parameter>
+          <parameter>
+            <valueName>Location</valueName>
+            <value>VENICE, CRAIGMORE</value>
+          </parameter>
+          <parameter>
+            <valueName>IncidentLevel</valueName>
+            <value>1</value>
+          </parameter>
+          <parameter>
+            <valueName>Status</valueName>
+            <value>Going</value>
+          </parameter>
+          <parameter>
+            <valueName>WarningLevel</valueName>
+            <value>Incident</value>
+          </parameter>
+          <parameter>
+            <valueName>ControlAuthority</valueName>
+            <value>South Australian Metropolitan Fire Service</value>
+          </parameter>
+          <parameter>
+            <valueName>FireBanDistrict</valueName>
+            <value>ADELAIDE METROPOLITAN</value>
+          </parameter>
+          <parameter>
+            <valueName>CallToAction</valueName>
+            <value/>
+          </parameter>
+          <parameter>
+            <valueName>Category</valueName>
+            <value>Fire</value>
+          </parameter>
+          <parameter>
+            <valueName>SubCategory</valueName>
+            <value>Grass Fire</value>
+          </parameter>
+          <area>
+            <areaDesc>VENICE CT CRAIGMORE</areaDesc>
+            <circle>-34.688575,138.705009 0.0</circle>
+            <geocode>
+              <valueName>ISO 3166-2</valueName>
+              <value>AU_SA</value>
+            </geocode>
+          </area>
+        </info>
+      </alert>
+    </content>
+  </entry>
+  <entry>
+    <id>F2611060088-2026-11-06T14:36:42+10:30</id>
+    <title type="text">GRASS FIRE : YACKA</title>
+    <updated>2026-11-06T14:36:42+10:30</updated>
+    <content type="text/xml">
+      <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+        <identifier>F2611060088-2026-11-06T14:36:42+10:30</identifier>
+        <sender>redacted@example.invalid</sender>
+        <sent>2026-11-06T14:36:42+10:30</sent>
+        <status>Actual</status>
+        <msgType>Alert</msgType>
+        <scope>Public</scope>
+        <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+        <incidents>F-261106-0088 Yacka, Collinsfield Rd (Grass Fire)</incidents>
+        <info>
+          <language>en-AU</language>
+          <category>Fire</category>
+          <event>Grass Fire</event>
+          <responseType>Monitor</responseType>
+          <urgency>Unknown</urgency>
+          <severity>Unknown</severity>
+          <certainty>Observed</certainty>
+          <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>grassFire</value>
+          </eventCode>
+          <effective>2026-11-06T14:36:42+10:30</effective>
+          <senderName>South Australian Country Fire Service</senderName>
+          <headline>YACKA : GRASS FIRE</headline>
+          <description>Not Available</description>
+          <instruction>An incident has occurred. Stay up to date in case the situation changes</instruction>
+          <web>https://www.cfs.sa.gov.au/incidents</web>
+          <parameter>
+            <valueName>IncidentName</valueName>
+            <value>YACKA</value>
+          </parameter>
+          <parameter>
+            <valueName>Location</valueName>
+            <value>COLLINSFIELD, YACKA</value>
+          </parameter>
+          <parameter>
+            <valueName>IncidentLevel</valueName>
+            <value>1</value>
+          </parameter>
+          <parameter>
+            <valueName>Status</valueName>
+            <value>Going</value>
+          </parameter>
+          <parameter>
+            <valueName>WarningLevel</valueName>
+            <value>Incident</value>
+          </parameter>
+          <parameter>
+            <valueName>ControlAuthority</valueName>
+            <value>South Australian Country Fire Service</value>
+          </parameter>
+          <parameter>
+            <valueName>FireBanDistrict</valueName>
+            <value>MID NORTH</value>
+          </parameter>
+          <parameter>
+            <valueName>CallToAction</valueName>
+            <value/>
+          </parameter>
+          <parameter>
+            <valueName>Category</valueName>
+            <value>Fire</value>
+          </parameter>
+          <parameter>
+            <valueName>SubCategory</valueName>
+            <value>Grass Fire</value>
+          </parameter>
+          <area>
+            <areaDesc>1721 COLLINSFIELD RD YACKA</areaDesc>
+            <circle>-33.616851,138.407897 0.0</circle>
+            <geocode>
+              <valueName>ISO 3166-2</valueName>
+              <value>AU_SA</value>
+            </geocode>
+          </area>
+        </info>
+      </alert>
+    </content>
+  </entry>
+  <entry>
+    <id>F2610300025-2026-10-30T07:24:53+10:30</id>
+    <title type="text">STRUCTURE FIRE : LAMEROO</title>
+    <updated>2026-10-30T07:24:53+10:30</updated>
+    <content type="text/xml">
+      <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+        <identifier>F2610300025-2026-10-30T07:24:53+10:30</identifier>
+        <sender>redacted@example.invalid</sender>
+        <sent>2026-10-30T07:24:53+10:30</sent>
+        <status>Actual</status>
+        <msgType>Alert</msgType>
+        <scope>Public</scope>
+        <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+        <incidents>F-261030-0025 LAMEROO, MALLEE HWY (STRUCTURE FIRE)</incidents>
+        <info>
+          <language>en-AU</language>
+          <category>Fire</category>
+          <event>Structure Fire</event>
+          <responseType>Monitor</responseType>
+          <urgency>Unknown</urgency>
+          <severity>Unknown</severity>
+          <certainty>Observed</certainty>
+          <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>structurFire</value>
+          </eventCode>
+          <effective>2026-10-30T07:24:53+10:30</effective>
+          <senderName>South Australian Country Fire Service</senderName>
+          <headline>LAMEROO : STRUCTURE FIRE</headline>
+          <description>Not Available</description>
+          <instruction>An incident has occurred. Stay up to date in case the situation changes</instruction>
+          <web>https://www.cfs.sa.gov.au/incidents</web>
+          <parameter>
+            <valueName>IncidentName</valueName>
+            <value>LAMEROO</value>
+          </parameter>
+          <parameter>
+            <valueName>Location</valueName>
+            <value>MALLEE, LAMEROO</value>
+          </parameter>
+          <parameter>
+            <valueName>IncidentLevel</valueName>
+            <value>1</value>
+          </parameter>
+          <parameter>
+            <valueName>Status</valueName>
+            <value>Going</value>
+          </parameter>
+          <parameter>
+            <valueName>WarningLevel</valueName>
+            <value>Incident</value>
+          </parameter>
+          <parameter>
+            <valueName>ControlAuthority</valueName>
+            <value>South Australian Country Fire Service</value>
+          </parameter>
+          <parameter>
+            <valueName>FireBanDistrict</valueName>
+            <value>MURRAYLANDS</value>
+          </parameter>
+          <parameter>
+            <valueName>CallToAction</valueName>
+            <value/>
+          </parameter>
+          <parameter>
+            <valueName>Category</valueName>
+            <value>Fire</value>
+          </parameter>
+          <parameter>
+            <valueName>SubCategory</valueName>
+            <value>Structure Fire</value>
+          </parameter>
+          <area>
+            <areaDesc>8529 MALLEE HWY LAMEROO</areaDesc>
+            <circle>-35.334804,140.384666 0.0</circle>
+            <geocode>
+              <valueName>ISO 3166-2</valueName>
+              <value>AU_SA</value>
+            </geocode>
+          </area>
+        </info>
+      </alert>
+    </content>
+  </entry>
+  <entry>
+    <id>F2611060061-2026-11-06T12:15:08+10:30</id>
+    <title type="text">STRUCTURE FIRE : RENMARK</title>
+    <updated>2026-11-06T12:15:08+10:30</updated>
+    <content type="text/xml">
+      <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+        <identifier>F2611060061-2026-11-06T12:15:08+10:30</identifier>
+        <sender>redacted@example.invalid</sender>
+        <sent>2026-11-06T12:15:08+10:30</sent>
+        <status>Actual</status>
+        <msgType>Alert</msgType>
+        <scope>Public</scope>
+        <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+        <incidents>F-261106-0061 RENMARK, DRIDAN AV (STRUCTURE FIRE)</incidents>
+        <info>
+          <language>en-AU</language>
+          <category>Fire</category>
+          <event>Structure Fire</event>
+          <responseType>Monitor</responseType>
+          <urgency>Unknown</urgency>
+          <severity>Unknown</severity>
+          <certainty>Observed</certainty>
+          <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>structurFire</value>
+          </eventCode>
+          <effective>2026-11-06T12:15:08+10:30</effective>
+          <senderName>South Australian Metropolitan Fire Service</senderName>
+          <headline>RENMARK : STRUCTURE FIRE</headline>
+          <description>Not Available</description>
+          <instruction>An incident has occurred. Stay up to date in case the situation changes</instruction>
+          <web>https://www.cfs.sa.gov.au/incidents</web>
+          <parameter>
+            <valueName>IncidentName</valueName>
+            <value>RENMARK</value>
+          </parameter>
+          <parameter>
+            <valueName>Location</valueName>
+            <value>DRIDAN, RENMARK</value>
+          </parameter>
+          <parameter>
+            <valueName>IncidentLevel</valueName>
+            <value>1</value>
+          </parameter>
+          <parameter>
+            <valueName>Status</valueName>
+            <value>Going</value>
+          </parameter>
+          <parameter>
+            <valueName>WarningLevel</valueName>
+            <value>Incident</value>
+          </parameter>
+          <parameter>
+            <valueName>ControlAuthority</valueName>
+            <value>South Australian Metropolitan Fire Service</value>
+          </parameter>
+          <parameter>
+            <valueName>FireBanDistrict</valueName>
+            <value>RIVERLAND</value>
+          </parameter>
+          <parameter>
+            <valueName>CallToAction</valueName>
+            <value/>
+          </parameter>
+          <parameter>
+            <valueName>Category</valueName>
+            <value>Fire</value>
+          </parameter>
+          <parameter>
+            <valueName>SubCategory</valueName>
+            <value>Structure Fire</value>
+          </parameter>
+          <area>
+            <areaDesc>15 DRIDAN AV RENMARK</areaDesc>
+            <circle>-34.180656,140.742713 0.0</circle>
+            <geocode>
+              <valueName>ISO 3166-2</valueName>
+              <value>AU_SA</value>
+            </geocode>
+          </area>
+        </info>
+      </alert>
+    </content>
+  </entry>
+  <entry>
+    <id>F2611060065-2026-11-06T12:28:17+10:30</id>
+    <title type="text">GRASS FIRE : SEVENHILL</title>
+    <updated>2026-11-06T12:28:17+10:30</updated>
+    <content type="text/xml">
+      <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+        <identifier>F2611060065-2026-11-06T12:28:17+10:30</identifier>
+        <sender>redacted@example.invalid</sender>
+        <sent>2026-11-06T12:28:17+10:30</sent>
+        <status>Actual</status>
+        <msgType>Alert</msgType>
+        <scope>Public</scope>
+        <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+        <incidents>F-261106-0065 SEVENHILL, QUARRY RD (GRASS FIRE)</incidents>
+        <info>
+          <language>en-AU</language>
+          <category>Fire</category>
+          <event>Grass Fire</event>
+          <responseType>Monitor</responseType>
+          <urgency>Unknown</urgency>
+          <severity>Unknown</severity>
+          <certainty>Observed</certainty>
+          <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>grassFire</value>
+          </eventCode>
+          <effective>2026-11-06T12:28:17+10:30</effective>
+          <senderName>South Australian Country Fire Service</senderName>
+          <headline>SEVENHILL : GRASS FIRE</headline>
+          <description>Not Available</description>
+          <instruction>An incident has occurred. Stay up to date in case the situation changes</instruction>
+          <web>https://www.cfs.sa.gov.au/incidents</web>
+          <parameter>
+            <valueName>IncidentName</valueName>
+            <value>SEVENHILL</value>
+          </parameter>
+          <parameter>
+            <valueName>Location</valueName>
+            <value>QUARRY, SEVENHILL</value>
+          </parameter>
+          <parameter>
+            <valueName>IncidentLevel</valueName>
+            <value>1</value>
+          </parameter>
+          <parameter>
+            <valueName>Status</valueName>
+            <value>Going</value>
+          </parameter>
+          <parameter>
+            <valueName>WarningLevel</valueName>
+            <value>Incident</value>
+          </parameter>
+          <parameter>
+            <valueName>ControlAuthority</valueName>
+            <value>South Australian Country Fire Service</value>
+          </parameter>
+          <parameter>
+            <valueName>FireBanDistrict</valueName>
+            <value>MID NORTH</value>
+          </parameter>
+          <parameter>
+            <valueName>CallToAction</valueName>
+            <value/>
+          </parameter>
+          <parameter>
+            <valueName>Category</valueName>
+            <value>Fire</value>
+          </parameter>
+          <parameter>
+            <valueName>SubCategory</valueName>
+            <value>Grass Fire</value>
+          </parameter>
+          <area>
+            <areaDesc>QUARRY RD SEVENHILL</areaDesc>
+            <circle>-33.874837,138.63711 0.0</circle>
+            <geocode>
+              <valueName>ISO 3166-2</valueName>
+              <value>AU_SA</value>
+            </geocode>
+          </area>
+        </info>
+      </alert>
+    </content>
+  </entry>
+  <entry>
+    <id>F2611020005-2026-11-02T03:00:01+10:30</id>
+    <title type="text">BURN OFF : MOUNT BARKER</title>
+    <updated>2026-11-02T03:00:01+10:30</updated>
+    <content type="text/xml">
+      <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+        <identifier>F2611020005-2026-11-02T03:00:01+10:30</identifier>
+        <sender>redacted@example.invalid</sender>
+        <sent>2026-11-02T03:00:01+10:30</sent>
+        <status>Actual</status>
+        <msgType>Alert</msgType>
+        <scope>Public</scope>
+        <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+        <incidents>F-261102-0005 MOUNT BARKER, PAECH RD (BURN OFF)</incidents>
+        <info>
+          <language>en-AU</language>
+          <category>Fire</category>
+          <event>Fire</event>
+          <responseType>Monitor</responseType>
+          <urgency>Unknown</urgency>
+          <severity>Unknown</severity>
+          <certainty>Observed</certainty>
+          <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>fire</value>
+          </eventCode>
+          <effective>2026-11-02T03:00:01+10:30</effective>
+          <senderName>South Australian Metropolitan Fire Service</senderName>
+          <headline>MOUNT BARKER : BURN OFF</headline>
+          <description>Not Available</description>
+          <instruction>An incident has occurred. Stay up to date in case the situation changes</instruction>
+          <web>https://www.cfs.sa.gov.au/incidents</web>
+          <parameter>
+            <valueName>IncidentName</valueName>
+            <value>MOUNT BARKER</value>
+          </parameter>
+          <parameter>
+            <valueName>Location</valueName>
+            <value>PAECH, MOUNT BARKER</value>
+          </parameter>
+          <parameter>
+            <valueName>IncidentLevel</valueName>
+            <value>1</value>
+          </parameter>
+          <parameter>
+            <valueName>Status</valueName>
+            <value>Controlled</value>
+          </parameter>
+          <parameter>
+            <valueName>WarningLevel</valueName>
+            <value>Incident</value>
+          </parameter>
+          <parameter>
+            <valueName>ControlAuthority</valueName>
+            <value>South Australian Metropolitan Fire Service</value>
+          </parameter>
+          <parameter>
+            <valueName>FireBanDistrict</valueName>
+            <value>MOUNT LOFTY RANGES</value>
+          </parameter>
+          <parameter>
+            <valueName>CallToAction</valueName>
+            <value/>
+          </parameter>
+          <parameter>
+            <valueName>Category</valueName>
+            <value>Burn off</value>
+          </parameter>
+          <parameter>
+            <valueName>SubCategory</valueName>
+            <value>Burn Off</value>
+          </parameter>
+          <area>
+            <areaDesc>128 PAECH RD MOUNT BARKER</areaDesc>
+            <circle>-35.098176,138.885028 0.0</circle>
+            <geocode>
+              <valueName>ISO 3166-2</valueName>
+              <value>AU_SA</value>
+            </geocode>
+          </area>
+        </info>
+      </alert>
+    </content>
+  </entry>
+</feed>

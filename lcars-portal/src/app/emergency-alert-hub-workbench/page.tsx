@@ -354,7 +354,7 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
   const { level, gaps, newestCheckedAt, oldestCheckedAt } = coverage;
   const allStale = gaps.length > 0 && gaps.every((g) => g.issue === 'stale');
   const gapLines = describeGaps(gaps);
-  const real = gaps.filter((g) => g.issue !== 'not_implemented');
+  const real = gaps.filter((g) => g.issue !== 'not_implemented' && g.issue !== 'incidents_only');
 
   return (
     <section aria-label={`Alert coverage: ${level}`} data-alert-state={level === 'degraded' ? 'unavailable' : level}>
@@ -367,7 +367,7 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
           )}
           {level === 'partial' && (
             <p className="mt-1 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
-              Coverage is partial — some official sources are not monitored yet, so “none detected” does not cover them.
+              Coverage is partial — some official sources are not monitored yet, or only partly (incidents without warning levels), so “none detected” does not cover them.
             </p>
           )}
           {level === 'degraded' && (
