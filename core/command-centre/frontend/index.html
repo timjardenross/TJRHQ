@@ -1019,18 +1019,27 @@
       return 'var(--sf-text-secondary)';
     }
 
+    // The backend no longer hands out its key (/api/config removed) and no
+    // longer accepts it as a query parameter. Enter the key once per browser
+    // tab; it is kept in sessionStorage only and sent in the X-Api-Key header.
     let _apiKey = '';
     async function _initApiKey() {
-      try {
-        const r = await fetch(API_BASE + '/api/config');
-        if (r.ok) { const d = await r.json(); _apiKey = d.apiKey || ''; }
-      } catch(e) { console.warn('Could not fetch API config:', e); }
+      try { _apiKey = sessionStorage.getItem('cc-api-key') || ''; } catch (e) { _apiKey = ''; }
+      if (!_apiKey) {
+        const entered = window.prompt('Command Centre API key (kept for this browser tab only):');
+        if (entered) {
+          _apiKey = entered.trim();
+          try { sessionStorage.setItem('cc-api-key', _apiKey); } catch (e) { /* storage unavailable */ }
+        }
+      }
+    }
+    function _authHeaders(extra) {
+      return _apiKey ? { ...(extra || {}), 'X-Api-Key': _apiKey } : { ...(extra || {}) };
     }
 
     async function fetchJSON(path) {
-      const sep = path.includes('?') ? '&' : '?';
-      const url = API_BASE + path + (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
-      const r = await fetch(url);
+      const url = API_BASE + path;
+      const r = await fetch(url, { headers: _authHeaders() });
       if (!r.ok) throw new Error(r.status);
       const json = await r.json();
       return (json && json.data !== undefined) ? json.data : json;
@@ -1455,12 +1464,10 @@
     }
 
     async function changeMissionStatus(missionId, newStatus) {
-      const sep = `/api/v1/missions/${encodeURIComponent(missionId)}/status`.includes('?') ? '&' : '?';
-      const url = API_BASE + `/api/v1/missions/${encodeURIComponent(missionId)}/status` +
-        (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+      const url = API_BASE + `/api/v1/missions/${encodeURIComponent(missionId)}/status`;
       const r = await fetch(url, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: _authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ status: newStatus, actor: 'Captain' }),
       });
       if (!r.ok) {
@@ -1536,10 +1543,8 @@
       if (btn) { btn.textContent = '⟳ Generating…'; btn.disabled = true; }
       if (briefEl) briefEl.innerHTML = '<p class="intel-loading">Generating new intelligence brief — this may take 30–60s…</p>';
       try {
-        const sep = '/api/v1/intelligence/generate'.includes('?') ? '&' : '?';
-        const url = API_BASE + '/api/v1/intelligence/generate' +
-          (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
-        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const url = API_BASE + '/api/v1/intelligence/generate';
+        const r = await fetch(url, { method: 'POST', headers: _authHeaders({ 'Content-Type': 'application/json' }) });
         if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `HTTP ${r.status}`); }
         const result = await r.json();
         // Reload astrometrics with fresh data
@@ -1924,14 +1929,13 @@
           const row = btn.closest('.capture-triage-row');
           btn.disabled = true; btn.textContent = '…';
           try {
-            const sep = `?api_key=${encodeURIComponent(_apiKey || '')}`;
             let url, opts;
             if (action === 'dismiss') {
-              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/dismiss${sep}`;
-              opts = { method: 'PATCH', headers: {'Content-Type':'application/json'} };
+              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/dismiss`;
+              opts = { method: 'PATCH', headers: _authHeaders({'Content-Type':'application/json'}) };
             } else {
-              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/route${sep}`;
-              opts = { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ type: btn.dataset.type }) };
+              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/route`;
+              opts = { method: 'POST', headers: _authHeaders({'Content-Type':'application/json'}), body: JSON.stringify({ type: btn.dataset.type }) };
             }
             const r = await fetch(url, opts);
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -2264,9 +2268,8 @@
 
       try {
         const body = { pulse_type, ...(pain_score !== '' && { pain_score: Number(pain_score) }), energy, nervous_system, readiness, notes };
-        const sep = '/api/v1/personal-health/pulse'.includes('?') ? '&' : '?';
-        const url = API_BASE + '/api/v1/personal-health/pulse' + (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
-        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const url = API_BASE + '/api/v1/personal-health/pulse';
+        const r = await fetch(url, { method: 'POST', headers: _authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
         if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `HTTP ${r.status}`); }
         if (statusEl) statusEl.textContent = '✓ Pulse logged';
         if (statusEl) statusEl.style.color = 'var(--sf-status-ok-text)';

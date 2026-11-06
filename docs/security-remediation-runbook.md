@@ -34,7 +34,11 @@ stat -f '%Sp %N' .env core/command-centre/.env slack-bot/.env slack-bot/.env.com
 
 - `BACKEND_API_KEY` is mandatory.
 - Backend startup fails fast if `BACKEND_API_KEY` is missing.
-- All `/api` and `/api/v1/*` routes require the `X-Api-Key` header or `api_key` query parameter.
+- All `/api/v1/*` routes require the `X-Api-Key` header. The `api_key` query parameter is rejected
+  (set `ALLOW_QUERY_API_KEY=1` and restart only as a short-lived rollback). The backend no longer
+  exposes `/api/config`.
+- To rotate the key without downtime, set `BACKEND_API_KEY` to the new value and
+  `BACKEND_API_KEY_PREVIOUS` to the old one, update every caller, then remove the previous key.
 - The `/health` endpoint remains public for process liveness checks.
 - Do not expose the backend through ngrok or any public tunnel unless the key is set and verified.
 

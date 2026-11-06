@@ -41,6 +41,7 @@ const searchRoutes = require('./api/search');
 const timelineRoutes = require('./api/timeline');
 const verificationRoutes = require('./api/verification');
 const { errorHandler } = require('./middleware/error-handling');
+const { createApiKeyAuth } = require('./middleware/api-key-auth');
 const notificationEngine = require('./services/notification-engine');
 
 // Initialize Express app
@@ -60,16 +61,17 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Optional API key authentication (D-007 security baseline).
-// Set BACKEND_API_KEY in .env to enforce.
-// SUOC Wave 1 (MSN-0210E): an unset key used to silently skip auth on every
-// request regardless of environment ("dev mode by default"). It now only
-// skips in non-production; a production process with no key configured
-// fails closed instead, since that combination is a misconfiguration, not
-// an intentional dev mode.
-const _apiKey = process.env.BACKEND_API_KEY;
+// API key authentication (D-007 security baseline). Logic lives in
+// middleware/api-key-auth.js so it can be unit-tested.
+// SUOC Wave 1 (MSN-0210E): an unset key only skips auth outside production; a
+// production process with no key configured fails closed (503).
+// - Key goes in the X-Api-Key header. The api_key query parameter is rejected
+//   unless ALLOW_QUERY_API_KEY=1 (temporary rollback lever; restart only).
+// - BACKEND_API_KEY_PREVIOUS (optional) is also accepted, to rotate the key
+//   without downtime; remove it once all callers use the new key.
 const _isProduction = process.env.NODE_ENV === 'production';
-if (!_apiKey) {
+const _apiKeys = [process.env.BACKEND_API_KEY, process.env.BACKEND_API_KEY_PREVIOUS].filter(Boolean);
+if (!process.env.BACKEND_API_KEY) {
   if (_isProduction) {
     console.error('[SECURITY] BACKEND_API_KEY is not set in a production environment — ' +
       'all non-public API requests will be rejected until it is configured.');
@@ -77,20 +79,14 @@ if (!_apiKey) {
     console.warn('[dev-mode] BACKEND_API_KEY not set — API auth is disabled (non-production only).');
   }
 }
-app.use((req, res, next) => {
-  if (req.path === '/health' || req.path === '/api/config') return next(); // public endpoints
-  if (!_apiKey) {
-    if (_isProduction) {
-      return res.status(503).json({ error: 'misconfigured', message: 'BACKEND_API_KEY is not configured' });
-    }
-    return next(); // dev mode: no key configured, non-production only
-  }
-  const provided = req.headers['x-api-key'] || req.query.api_key;
-  if (provided !== _apiKey) {
-    return res.status(401).json({ error: 'unauthorised', message: 'Valid X-Api-Key header required' });
-  }
-  next();
-});
+app.use(createApiKeyAuth({
+  keys: _apiKeys,
+  isProduction: _isProduction,
+  publicPaths: ['/health'],
+  allowQueryKey: ['1', 'true'].includes(String(process.env.ALLOW_QUERY_API_KEY || '').toLowerCase()),
+  // Logs the path only, never the key or the query string.
+  onQueryKeyUse: (path, outcome) => console.warn(`[auth] api_key query parameter ${outcome} on ${path}; use the X-Api-Key header`),
+}));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -100,11 +96,6 @@ app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
   });
   next();
-});
-
-// Config endpoint — public, returns API key for frontend self-authentication (local-only)
-app.get('/api/config', (req, res) => {
-  res.json({ apiKey: _apiKey || '' });
 });
 
 // Health check endpoint (always available)
