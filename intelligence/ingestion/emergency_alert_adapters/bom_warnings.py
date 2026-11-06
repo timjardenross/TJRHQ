@@ -87,6 +87,32 @@ _TYPE_KEYWORDS: tuple[tuple[str, str], ...] = (
 
 _EXCLUDED_KEYWORDS = ("FROST", "SHEEP GRAZIERS", "MARINE")
 
+SOURCE_INFO = {
+    "source_key": "bom_*",
+    "source_keys": [key for key, _url in _STATE_FEEDS.values()],
+    "jurisdiction": "NSW, NT, QLD, SA, TAS, VIC, WA, ACT (one feed each)",
+    "feed_urls": [url for _key, url in _STATE_FEEDS.values()],
+    "format": "RSS 2.0 per state, plus one HTML bulletin page per item (detail)",
+    "fixture_dir": "tests/fixtures/emergency_alerts/bom_nsw",
+    "severity_field": "none - the BOM feed carries no AWS tier (always 'unknown')",
+    "severity_map": None,
+    "alert_type_rule": "product name in the title, first match: FLOOD -> flood; FIRE WEATHER -> bushfire; TROPICAL CYCLONE -> cyclone; TSUNAMI -> tsunami; SEVERE THUNDERSTORM / DAMAGING WIND / GALE / STORM -> storm; SEVERE WEATHER -> severe_weather.",
+    "exclusions": [
+        {"reason": "excluded_agricultural", "field": "title", "match": "contains FROST or SHEEP GRAZIERS", "decided": "adapter rule 2026-08-27 (agricultural, not public emergency)"},
+        {"reason": "excluded_marine", "field": "title", "match": "contains MARINE", "decided": "adapter rule 2026-08-27 (mariner-specific, out of land-based scope)"},
+        {"reason": "excluded_unmatched_product", "field": "title", "match": "no product keyword matches (e.g. Hazardous Surf Warning)", "decided": "adapter rule 2026-08-27 ('never guessed into a bucket')"},
+    ],
+    "invalid_reasons": [],
+    "known_gaps": [
+        "No AWS tier (Advice / Watch and Act / Emergency Warning) exists in BOM's feed, so every BOM row is severity 'unknown'; BOM's own flood intensity words (Minor / Moderate / Major) are a different scale and are not mapped. High-attention emails use the platform's own bom_attention label.",
+        "Products whose name matches no keyword are dropped (counted excluded_unmatched_product), so a NEW BOM warning product is invisible until a keyword is added.",
+        "Needs a browser-shaped User-Agent (BOM 403s the shared default); detail pages are best-effort and fall back to a title-only alert.",
+        "Detail-page 'Issued at' is parsed as '9:34 am AEST on Thursday 27 August 2026' (bom_warnings._parse_bom_issued_at) while emergency_alerts._issued_text reads 'Issued at 2:38 pm Monday, 2 November 2026.' from the stored text; the two formats are not reconciled and no live detail page could be captured to check which is current.",
+        "BOM cross-lists some border-river warnings in neighbouring states' feeds, so one product can appear under two source_keys (canonical_url is left empty to avoid the unique-index clash).",
+    ],
+    "last_verified": "2026-08-27",
+}
+
 _TITLE_RE = re.compile(r"^\d{2}/\d{2}:\d{2}\s+\w+\s+(.*)$")
 
 

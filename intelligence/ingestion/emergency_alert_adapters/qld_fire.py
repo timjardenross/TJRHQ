@@ -26,6 +26,28 @@ _SEVERITY_MAP = {
 }
 
 
+SOURCE_INFO = {
+    "source_key": "qld_fire",
+    "jurisdiction": "QLD",
+    "feed_urls": [_FEED_URL],
+    "format": "GeoJSON FeatureCollection",
+    "fixture_dir": "tests/fixtures/emergency_alerts/qld_fire",
+    "severity_field": "properties.WarningLevel (Advice / Watch and Act / Emergency Warning)",
+    "severity_map": _SEVERITY_MAP,
+    "alert_type_rule": "Always 'bushfire' (Bushfire Warnings feed).",
+    "exclusions": [
+        {"reason": "excluded_information", "field": "properties.WarningLevel", "match": "== 'Information' (case-insensitive)", "decided": "Captain-directed 2026-08-26"},
+        {"reason": "excluded_hazard_reduction", "field": "properties.CallToAction", "match": "contains 'hazard reduction' (case-insensitive)", "decided": "Captain-directed 2026-08-26 (widened)"},
+    ],
+    "invalid_reasons": [],
+    "known_gaps": [
+        "No per-item URL in the feed (every warning shares one dashboard page), so canonical_url is left empty and dedupe relies on (source_key, event_key) only.",
+        "A WarningLevel outside Advice / Watch and Act / Emergency Warning / Information is kept at severity 'unknown' and counted as unmapped_<label>.",
+    ],
+    "last_verified": "2026-08-26",
+}
+
+
 def fetch() -> list[CanonicalAlert]:
     return parse(http_get_json(_FEED_URL))
 

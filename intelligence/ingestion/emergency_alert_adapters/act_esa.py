@@ -24,6 +24,28 @@ _FEED_URL = "https://esa.act.gov.au/feeds/currentincidents.xml"
 _GEORSS_NS = "{http://www.georss.org/georss}"
 
 
+SOURCE_INFO = {
+    "source_key": "act_esa",
+    "jurisdiction": "ACT",
+    "feed_urls": [_FEED_URL],
+    "format": "RSS 2.0 + georss:point",
+    "fixture_dir": "tests/fixtures/emergency_alerts/act_esa",
+    "severity_field": "none - the ESA incident feed carries no warning level",
+    "severity_map": None,
+    "alert_type_rule": "'bushfire' when the incident <type> contains BUSHFIRE, else 'other'.",
+    "exclusions": [
+        {"reason": "excluded_ambulance_mva", "field": "<type>", "match": "in ('AMBULANCE RESPONSE', 'MOTOR VEHICLE ACCIDENT')", "decided": "Captain-directed 2026-08-26"},
+        {"reason": "excluded_hazard_reduction", "field": "<type>", "match": "contains 'HAZARD REDUCTION'", "decided": "Captain-directed 2026-08-26"},
+    ],
+    "invalid_reasons": [],
+    "known_gaps": [
+        "INCIDENTS ONLY: per ESA this feed 'does not include warning and alert information', so no Advice / Watch and Act / Emergency Warning is monitored for ACT and severity is always 'unknown'. The portal shows ACT coverage as partial (alertCoverage.ts INCIDENTS_ONLY_SOURCES).",
+        "Updated timestamps ('19 Aug 2026 23:24:36.053') carry no timezone/offset; presumed local Canberra time (AEST/AEDT) but UNVERIFIED (act_esa._act_datetime).",
+    ],
+    "last_verified": "2026-08-26",
+}
+
+
 def _act_datetime(value: str | None) -> str | None:
     """ACT's own format: "19 Aug 2026 23:24:36.053" — not covered by
     parse_dmy_datetime's DD/MM/YYYY forms, handled separately."""

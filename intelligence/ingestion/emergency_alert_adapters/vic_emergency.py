@@ -52,6 +52,31 @@ _TYPE_MAP = {
 }
 
 
+SOURCE_INFO = {
+    "source_key": "vic_emergency",
+    "jurisdiction": "VIC",
+    "feed_urls": [_FEED_URL, _WARNINGS_URL],
+    "format": "incidents: JSON (results[]); warnings: GeoJSON FeatureCollection (events feed)",
+    "fixture_dir": "tests/fixtures/emergency_alerts/vic_emergency",
+    "severity_field": "warnings: properties.category1; incidents: none (always 'unknown')",
+    "severity_map": _TIER_MAP,
+    "alert_type_rule": "incidents: incidentType (BUSH/GRASS -> bushfire; STRUCTURE -> structure_fire; else other, then dropped); warnings: CAP event (fire/flood/cyclone/storm/heat/tsunami/thunderstorm asthma).",
+    "exclusions": [
+        {"reason": "excluded_hazard_reduction", "field": "incidents incidentType / name", "match": "planned burn / burn-off / hazard reduction / prescribed burn", "decided": "Captain-directed 2026-08-26 (planned burns, applied here as a guard)"},
+        {"reason": "excluded_false_alarm", "field": "incidents incidentType", "match": "contains 'FALSE ALARM'", "decided": "adapter rule (date not recorded in source)"},
+        {"reason": "excluded_other_type", "field": "incidents incidentType / category1", "match": "classified 'other' (Non-Structure, Accident / Rescue, ...)", "decided": "Captain-directed 2026-08-26"},
+        {"reason": "excluded_structure_fire", "field": "incidents incidentType", "match": "classified 'structure_fire'", "decided": "Captain-directed 2026-08-26 (widened to bushfire only)"},
+        {"reason": "excluded_not_warning_feedtype", "field": "events feed properties.feedType", "match": "!= 'warning' (incident / planned burn / earthquake features)", "decided": "design (module docstring): only warnings are taken from the events feed"},
+    ],
+    "invalid_reasons": ["invalid_missing_id"],
+    "known_gaps": [
+        "Incident timestamps are DD/MM/YYYY with no timezone/offset; presumed local Australian time but UNVERIFIED (base.parse_dmy_datetime).",
+        "The incidents feed has no warning level, so incident rows are always severity 'unknown'; only the events feed's warning features carry a real tier.",
+        "A warning's category1 outside Advice / Watch and Act / Emergency Warning is kept at severity 'unknown' and counted as unmapped_<label>.",
+    ],
+    "last_verified": "2026-11-02",
+}
+
 # Planned burns are dropped in every other jurisdiction (planned, not
 # emergencies); the VIC feed had none live when this was added, so this is a
 # guard on the incident type/name rather than a response to a seen record.

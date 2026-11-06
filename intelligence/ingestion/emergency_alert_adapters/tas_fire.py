@@ -53,6 +53,27 @@ _SEVERITY_PHRASES = (
     ("advice", "advice"),
 )
 
+SOURCE_INFO = {
+    "source_key": "tas_fire",
+    "jurisdiction": "TAS",
+    "feed_urls": [_LAYER_URL],
+    "format": "ArcGIS REST layer query (JSON, WGS84)",
+    "fixture_dir": "tests/fixtures/emergency_alerts/tas_fire",
+    "severity_field": "phrase in ALERT_TYPE / EVENT / ALERT_SUMMARY text",
+    "severity_map": _SEVERITY_PHRASES,
+    "alert_type_rule": "keyword in the same text: flood / cyclone / storm / heat -> heatwave / fire or smoke -> bushfire, else 'other'.",
+    "exclusions": [
+        {"reason": "excluded_expired_at_source", "field": "EXPIRES_DATE", "match": "< now", "decided": "adapter rule: already expired at the source (absence ends any prior record)"},
+        {"reason": "excluded_hazard_reduction", "field": "ALERT_TYPE / EVENT / ALERT_SUMMARY / FULL_DESCRIPTION", "match": "planned burn / back-burn / fuel reduction / hazard reduction / prescribed burn", "decided": "Captain-directed (same rule as nsw_rfs); date not recorded in source"},
+    ],
+    "invalid_reasons": ["invalid_missing_headline"],
+    "known_gaps": [
+        "Only one record (a 'Smoke Alert') was live when the adapter was written, so the full ALERT_TYPE vocabulary is NOT confirmed; wording that states no AWS tier stays 'unknown' and is counted as unmapped_<ALERT_TYPE>.",
+        "A layer-level error object in the response raises (heartbeat fails) rather than reading as 'no alerts'.",
+    ],
+    "last_verified": "2026-11-01",
+}
+
 _PLANNED_BURN_RE = re.compile(r"planned\s+(?:burn|back-?burn|fuel\s+reduction)|back-?burn|hazard\s+reduction|prescribed\s+burn", re.IGNORECASE)
 
 _TYPE_KEYWORDS = (

@@ -47,6 +47,29 @@ _SEVERITY_MAP = {
     "emergency warning": "emergency_warning",
 }
 
+SOURCE_INFO = {
+    "source_key": "sa_cfs",
+    "jurisdiction": "SA",
+    "feed_urls": [_FEED_URL],
+    "format": "Atom feed embedding CAP 1.2 (CAP-AU) <alert> blocks",
+    "fixture_dir": "tests/fixtures/emergency_alerts/sa_cfs",
+    "severity_field": "CAP <parameter valueName='WarningLevel'> (not CAP <severity>, which is often literally 'Unknown')",
+    "severity_map": _SEVERITY_MAP,
+    "alert_type_rule": "Always 'bushfire'.",
+    "exclusions": [
+        {"reason": "excluded_hazard_reduction", "field": "CAP <headline>", "match": "burn off / planned burn / hazard reduction / prescribed burn", "decided": "Captain-directed 2026-08-26 (planned burns)"},
+        {"reason": "excluded_structure_fire", "field": "CAP <event>", "match": "== 'structure fire'", "decided": "Captain-directed 2026-08-26 (widened to bushfire only)"},
+        {"reason": "excluded_hazmat", "field": "CAP <category> / <event> / <headline>", "match": "category CBRNE, or 'hazardous materials' in event/headline", "decided": "Captain-directed 2026-08-26"},
+    ],
+    "invalid_reasons": ["invalid_missing_content", "invalid_missing_cap_alert"],
+    "known_gaps": [
+        "The live WarningLevel is 'Incident' on every entry (2026-11-06), which is not an AWS tier, so SA rows are severity 'unknown' in practice. 'Incident' is treated as a known non-tier label, not counted as unmapped.",
+        "The feed keeps closed incidents with Status COMPLETE; this is read into `closed` so they expire (absence-based expiry would never see them).",
+        "A feed-retirement notice raises (FeedRetiredError) so a dead feed fails the heartbeat; the earlier URL was retired this way.",
+    ],
+    "last_verified": "2026-11-02",
+}
+
 # WarningLevel values observed live that are a known "not an AWS tier" label,
 # not unrecognised vocabulary: the feed's own word for a plain incident (seen
 # on every live entry 2026-11-06). They stay severity 'unknown' but are not

@@ -31,6 +31,27 @@ _SEVERITY_MAP = {
     "emergency warning": "emergency_warning",
 }
 
+SOURCE_INFO = {
+    "source_key": "nsw_rfs",
+    "jurisdiction": "NSW",
+    "feed_urls": [_FEED_URL],
+    "format": "GeoJSON FeatureCollection",
+    "fixture_dir": "tests/fixtures/emergency_alerts/nsw_rfs",
+    "severity_field": "properties.category (Advice / Watch and Act / Emergency Warning)",
+    "severity_map": _SEVERITY_MAP,
+    "alert_type_rule": "Always 'bushfire' (Major Incidents feed).",
+    "exclusions": [
+        {"reason": "excluded_hazard_reduction", "field": "properties.description TYPE", "match": "== 'Hazard Reduction'", "decided": "Captain-directed 2026-08-26"},
+        {"reason": "excluded_not_applicable", "field": "properties.category", "match": "== 'Not Applicable' (case-insensitive)", "decided": "2026-08-26, same class as QLD 'Information' (Captain-directed)"},
+    ],
+    "invalid_reasons": [],
+    "known_gaps": [
+        "Timestamps (properties.pubDate) are DD/MM/YYYY H:MM:SS AM/PM with no timezone/offset; presumed local Australian time but UNVERIFIED (base.parse_dmy_datetime).",
+        "A category label outside Advice / Watch and Act / Emergency Warning / Not Applicable is kept at severity 'unknown' and counted as unmapped_<label>.",
+    ],
+    "last_verified": "2026-08-26",
+}
+
 _DESC_FIELD_RE = re.compile(r"([A-Z ]+?):\s*(.*?)(?:<br\s*/?>|$)")
 
 

@@ -71,6 +71,31 @@ _SEVERITY_MAP = {
 
 _TAG_RE = re.compile(r"<[^>]+>")
 
+SOURCE_INFO = {
+    "source_key": "wa_dfes",
+    "jurisdiction": "WA",
+    "feed_urls": [_WARNINGS_URL, _INCIDENTS_URL],
+    "format": "RSS 2.0 (dfes:/geo:/georss: extensions); two feeds",
+    "fixture_dir": "tests/fixtures/emergency_alerts/wa_dfes",
+    "severity_field": "warnings: phrase in the item title; incidents: none of its own, enriched from a warning sharing the CAD incident number",
+    "severity_map": _SEVERITY_MAP,
+    "alert_type_rule": "warnings: BUSHFIRE / STORM / CYCLONE / FLOOD in the title (first match), anything else dropped; incidents: 'bushfire' only.",
+    "exclusions": [
+        {"reason": "excluded_hazard_reduction", "field": "title type (warnings and incidents)", "match": "contains 'BURN OFF'", "decided": "Captain-directed 2026-08-26 (Burn Off = Hazard Reduction)"},
+        {"reason": "excluded_hazmat", "field": "title type (warnings and incidents)", "match": "contains 'HAZMAT'", "decided": "Captain-directed 2026-08-26"},
+        {"reason": "excluded_park_closure", "field": "title type (warnings and incidents)", "match": "contains 'FACILITY OR PARK CLOSURE' or 'PARK CLOSURE'", "decided": "Captain-directed 2026-08-26"},
+        {"reason": "excluded_other_type", "field": "warnings title", "match": "none of BUSHFIRE / STORM / CYCLONE / FLOOD (e.g. Smoke Alert, Heatwave Advice)", "decided": "Captain-directed 2026-08-26 (platform-wide 'Other' exclusion)"},
+        {"reason": "excluded_not_bushfire", "field": "incidents title type", "match": "does not contain 'BUSHFIRE' (e.g. Structure Fire, Vehicle Fire)", "decided": "Captain-directed 2026-08-26 (widened to bushfire only)"},
+    ],
+    "invalid_reasons": [],
+    "known_gaps": [
+        "Warning types outside bushfire / storm / cyclone / flood are dropped by design, which includes real public warnings such as Smoke Alert and Heatwave Advice (seen live 2026-11-06). Recorded as excluded_other_type, not as unmapped.",
+        "Incidents carry no warning level; severity is only known when the CAD-ID also appears as dfes:incidentNumber on a warning.",
+        "A warning title with no recognised level phrase is kept at severity 'unknown' and counted as unmapped_<label>.",
+    ],
+    "last_verified": "2026-08-26",
+}
+
 
 def _strip_html(text: str | None) -> str | None:
     if not text:
