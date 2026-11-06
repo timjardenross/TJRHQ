@@ -24,7 +24,7 @@ recognised (severity `unknown`).
 | `nt_securent` | none - NT fire/emergency alerts are not monitored | 0 | 2 | 2026-11-01 |
 | `qld_fire` | properties.WarningLevel (Advice / Watch and Act / Emergency Warning) | 2 | 2 | 2026-08-26 |
 | `sa_cfs` | CAP &lt;parameter valueName='WarningLevel'&gt; (not CAP &lt;severity&gt;, which is often literally 'Unknown') | 3 | 3 | 2026-11-02 |
-| `tas_fire` | phrase in ALERT_TYPE / EVENT / ALERT_SUMMARY text | 2 | 2 | 2026-11-01 |
+| `tas_fire` | phrase in ALERT_TYPE / EVENT / ALERT_SUMMARY text | 2 | 3 | 2026-11-01 |
 | `vic_emergency` | warnings: properties.category1; incidents: none (always 'unknown') | 5 | 3 | 2026-11-02 |
 | `wa_dfes` | warnings: phrase in the item title; incidents: none of its own, enriched from a warning sharing the CAD incident number | 5 | 3 | 2026-08-26 |
 
@@ -46,6 +46,11 @@ recognised (severity `unknown`).
 
 'bushfire' when the incident &lt;type&gt; contains BUSHFIRE, else 'other'.
 
+### Data-quality checks
+
+- **Freshness:** the heartbeat warns `STALE` if the newest source-side timestamp across everything the feed lists is older than 24 h.
+- **Expected on every kept alert:** `updated_at_src`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
+
 ### Deliberate exclusions
 
 Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is reported as quiet (`ok`), not broken.
@@ -58,7 +63,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 ### Known gaps
 
 - INCIDENTS ONLY: per ESA this feed 'does not include warning and alert information', so no Advice / Watch and Act / Emergency Warning is monitored for ACT and severity is always 'unknown'. The portal shows ACT coverage as partial (alertCoverage.ts INCIDENTS_ONLY_SOURCES).
-- Updated timestamps ('19 Aug 2026 23:24:36.053') carry no timezone/offset; presumed local Canberra time (AEST/AEDT) but UNVERIFIED (act_esa._act_datetime).
+- Updated timestamps ('19 Aug 2026 23:24:36.053') carry no timezone/offset. MEASURED 2026-11-06: they are local Canberra time (stored as UTC they landed ~11 h in the future), so they are read in Australia/Sydney (same daylight-saving rules) from that date. Rows written before then stay ~10-11 h ahead until re-written; expired ones are not backfilled.
 
 ## bom_*
 
@@ -85,6 +90,11 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 ### Alert type
 
 product name in the title, first match: FLOOD -&gt; flood; FIRE WEATHER -&gt; bushfire; TROPICAL CYCLONE -&gt; cyclone; TSUNAMI -&gt; tsunami; SEVERE THUNDERSTORM / DAMAGING WIND / GALE / STORM -&gt; storm; SEVERE WEATHER -&gt; severe_weather.
+
+### Data-quality checks
+
+- **Freshness:** not checked (this source can legitimately go quiet for days).
+- **Expected on every kept alert:** `updated_at_src`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
 
 ### Deliberate exclusions
 
@@ -128,6 +138,11 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 
 Always 'bushfire' (Major Incidents feed).
 
+### Data-quality checks
+
+- **Freshness:** the heartbeat warns `STALE` if the newest source-side timestamp across everything the feed lists is older than 72 h.
+- **Expected on every kept alert:** `updated_at_src`, `canonical_url`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
+
 ### Deliberate exclusions
 
 Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is reported as quiet (`ok`), not broken.
@@ -139,7 +154,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 
 ### Known gaps
 
-- Timestamps (properties.pubDate) are DD/MM/YYYY H:MM:SS AM/PM with no timezone/offset; presumed local Australian time but UNVERIFIED (base.parse_dmy_datetime).
+- Timestamps (properties.pubDate) are DD/MM/YYYY H:MM:SS AM/PM with no timezone/offset. MEASURED 2026-11-06 against stored rows: they behave as UTC (no row ahead of the time it was seen; freshest ~0.1 h old), so they are stored as written. If NSW ever starts sending local time this would show as rows hours in the future.
 - A category label outside Advice / Watch and Act / Emergency Warning / Not Applicable is kept at severity 'unknown' and counted as unmapped_&lt;label&gt;.
 
 ## nt_securent
@@ -157,6 +172,11 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 ### Alert type
 
 n/a (stub returns no alerts; heartbeat is 'skipped').
+
+### Data-quality checks
+
+- **Freshness:** not checked (this source can legitimately go quiet for days).
+- **Expected fields:** none checked.
 
 ### Deliberate exclusions
 
@@ -190,6 +210,11 @@ None.
 ### Alert type
 
 Always 'bushfire' (Bushfire Warnings feed).
+
+### Data-quality checks
+
+- **Freshness:** not checked (this source can legitimately go quiet for days).
+- **Expected on every kept alert:** `issued_at`, `updated_at_src`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
 
 ### Deliberate exclusions
 
@@ -228,6 +253,11 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 ### Alert type
 
 Always 'bushfire'.
+
+### Data-quality checks
+
+- **Freshness:** the heartbeat warns `STALE` if the newest source-side timestamp across everything the feed lists is older than 72 h.
+- **Expected on every kept alert:** `issued_at`, `location`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
 
 ### Deliberate exclusions
 
@@ -288,6 +318,11 @@ Carried on `CanonicalAlert` (never inferred for other sources); stored in the `a
 
 keyword in the same text: flood / cyclone / storm / heat -&gt; heatwave / fire or smoke -&gt; bushfire, else 'other'.
 
+### Data-quality checks
+
+- **Freshness:** not checked (this source can legitimately go quiet for days).
+- **Expected on every kept alert:** `issued_at`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
+
 ### Deliberate exclusions
 
 Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is reported as quiet (`ok`), not broken.
@@ -307,6 +342,7 @@ Counted as `invalid_<reason>`; if items were seen and ALL failed this way the so
 
 - Only one record (a 'Smoke Alert') was live when the adapter was written, so the full ALERT_TYPE vocabulary is NOT confirmed; wording that states no AWS tier stays 'unknown' and is counted as unmapped_&lt;ALERT_TYPE&gt;.
 - A layer-level error object in the response raises (heartbeat fails) rather than reading as 'no alerts'.
+- Timezone: the epoch-ms date fields are LOCAL Hobart wall-clock time written as UTC. MEASURED 2026-11-06 (stored issued_at ~10.8 h after first seen). Read in Australia/Hobart from that date, which also corrects the 'already expired at source' check that used to lag ~11 h. Rows written before then stay ahead until re-written.
 
 ## vic_emergency
 
@@ -333,6 +369,11 @@ Counted as `invalid_<reason>`; if items were seen and ALL failed this way the so
 ### Alert type
 
 incidents: incidentType (BUSH/GRASS -&gt; bushfire; STRUCTURE -&gt; structure_fire; else other, then dropped); warnings: CAP event (fire/flood/cyclone/storm/heat/tsunami/thunderstorm asthma).
+
+### Data-quality checks
+
+- **Freshness:** the heartbeat warns `STALE` if the newest source-side timestamp across everything the feed lists is older than 48 h.
+- **Expected on every kept alert:** `updated_at_src`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
 
 ### Deliberate exclusions
 
@@ -365,7 +406,7 @@ Carried on `CanonicalAlert` (never inferred for other sources); stored in the `a
 
 ### Known gaps
 
-- Incident timestamps are DD/MM/YYYY with no timezone/offset; presumed local Australian time but UNVERIFIED (base.parse_dmy_datetime).
+- Incident timestamps are DD/MM/YYYY with no timezone/offset. MEASURED 2026-11-06: they are local Melbourne time (stored as UTC they landed ~11 h in the future), so they are read in Australia/Melbourne from that date. Rows written before then stay ~10-11 h ahead until re-written (active alerts are re-written every run; expired ones are not backfilled).
 - The incidents feed has no warning level, so incident rows are always severity 'unknown'; only the events feed's warning features carry a real tier.
 - A warning's category1 outside Advice / Watch and Act / Emergency Warning is kept at severity 'unknown' and counted as unmapped_&lt;label&gt;.
 
@@ -393,6 +434,11 @@ Carried on `CanonicalAlert` (never inferred for other sources); stored in the `a
 ### Alert type
 
 warnings: BUSHFIRE / STORM / CYCLONE / FLOOD / HEATWAVE in the title (first match, Heatwave added 2026-11-06), anything else dropped; incidents: 'bushfire' only.
+
+### Data-quality checks
+
+- **Freshness:** the heartbeat warns `STALE` if the newest source-side timestamp across everything the feed lists is older than 48 h.
+- **Expected on every kept alert:** `updated_at_src`, `canonical_url`. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).
 
 ### Deliberate exclusions
 

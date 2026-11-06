@@ -42,7 +42,7 @@ def test_synthetic_kept_item_fields():
     bush = act_esa.parse(fixture_bytes("act_esa", "synthetic_kept.xml"))[0]
     assert (bush.latitude, bush.longitude) == (-35.3, 149.1)
     assert bush.location == "EXAMPLE VALLEY"
-    assert bush.updated_at_src == "2026-08-19T23:24:36"  # no tz in source: KNOWN GAP, see act_esa._act_datetime
+    assert bush.updated_at_src == "2026-08-19T23:24:36+10:00"  # local Canberra time (AEST in August), measured 2026-11-06
     assert bush.canonical_url.endswith("#900001-19082026")
 
 

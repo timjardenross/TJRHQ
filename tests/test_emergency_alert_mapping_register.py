@@ -121,7 +121,7 @@ def test_every_ledger_key_seen_on_the_fixtures_is_documented():
 def test_source_info_shape(key):
     info = MODULES[key].SOURCE_INFO
     for field in ("source_key", "jurisdiction", "feed_urls", "format", "severity_field", "severity_map", "alert_type_rule",
-                  "exclusions", "invalid_reasons", "known_gaps", "last_verified"):
+                  "exclusions", "invalid_reasons", "known_gaps", "last_verified", "stale_after_hours", "expected_fields"):
         assert field in info, f"{key} SOURCE_INFO missing {field}"
     assert info["source_key"] == key
     assert info["known_gaps"] and all(isinstance(g, str) for g in info["known_gaps"])
@@ -150,7 +150,7 @@ def test_source_keys_cover_the_orchestrator_registry():
 def test_required_known_gaps_are_recorded():
     gaps = {k: " ".join(MODULES[k].SOURCE_INFO["known_gaps"]) for k in MODULES}
     for key in ("nsw_rfs", "vic_emergency", "act_esa"):
-        assert "UNVERIFIED" in gaps[key] and "timezone" in gaps[key], f"{key}: unverified timezone note missing"
+        assert "MEASURED" in gaps[key] and "timezone" in gaps[key], f"{key}: measured timezone note missing"
     assert "INCIDENTS ONLY" in gaps["act_esa"]
     assert "No AWS tier" in gaps["bom_*"]
     assert "NOT MONITORED" in gaps["nt_securent"] and "NOT bypassed" in gaps["nt_securent"]

@@ -40,6 +40,8 @@ SOURCE_INFO = {
         {"reason": "excluded_hazard_reduction", "field": "properties.CallToAction", "match": "contains 'hazard reduction' (case-insensitive)", "decided": "Captain-directed 2026-08-26 (widened)"},
     ],
     "invalid_reasons": [],
+    "stale_after_hours": None,
+    "expected_fields": ['issued_at', 'updated_at_src'],
     "known_gaps": [
         "No per-item URL in the feed (every warning shares one dashboard page), so canonical_url is left empty and dedupe relies on (source_key, event_key) only.",
         "A WarningLevel outside Advice / Watch and Act / Emergency Warning / Information is kept at severity 'unknown' and counted as unmapped_<label>.",
@@ -71,6 +73,8 @@ def parse(data: dict, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
 def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
     p = feature.get("properties", {}) or {}
     level = (p.get("WarningLevel") or "").strip().lower()
+    ledger.observe(p.get("PublishDateLocal_ISO"))
+    title = p.get("WarningTitle") or p.get("Header")
 
     # Captain-directed exclusion 2026-08-26: QLD's own WarningLevel has a
     # 4th real tier below the 3-tier Advice/Watch and Act/Emergency
@@ -78,7 +82,7 @@ def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
     # Drop at the source using that real field, not a "Information -"
     # title-text guess.
     if level == "information":
-        ledger.exclude("information")
+        ledger.exclude("information", sample=title)
         return None
 
     # Captain-directed exclusion 2026-08-26, widened: Hazard Reduction
@@ -87,7 +91,7 @@ def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
     # "Avoid Smoke (Hazard Reduction Burn)") flags these Advice-level
     # smoke warnings distinctly from a real bushfire Advice.
     if "hazard reduction" in (p.get("CallToAction") or "").lower():
-        ledger.exclude("hazard_reduction")
+        ledger.exclude("hazard_reduction", sample=title)
         return None
 
     severity = _SEVERITY_MAP.get(level)

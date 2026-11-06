@@ -46,8 +46,10 @@ SOURCE_INFO = {
         {"reason": "excluded_not_applicable", "field": "properties.category", "match": "== 'Not Applicable' (case-insensitive)", "decided": "2026-08-26, same class as QLD 'Information' (Captain-directed)"},
     ],
     "invalid_reasons": [],
+    "stale_after_hours": 72,
+    "expected_fields": ['updated_at_src', 'canonical_url'],
     "known_gaps": [
-        "Timestamps (properties.pubDate) are DD/MM/YYYY H:MM:SS AM/PM with no timezone/offset; presumed local Australian time but UNVERIFIED (base.parse_dmy_datetime).",
+        "Timestamps (properties.pubDate) are DD/MM/YYYY H:MM:SS AM/PM with no timezone/offset. MEASURED 2026-11-06 against stored rows: they behave as UTC (no row ahead of the time it was seen; freshest ~0.1 h old), so they are stored as written. If NSW ever starts sending local time this would show as rows hours in the future.",
         "A category label outside Advice / Watch and Act / Emergency Warning / Not Applicable is kept at severity 'unknown' and counted as unmapped_<label>.",
     ],
     "last_verified": "2026-08-26",
@@ -93,13 +95,15 @@ def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
     guid = props.get("guid")
     category = (props.get("category") or "").strip().lower()
     fields = _parse_description_fields(props.get("description") or "")
+    updated_at_src = parse_dmy_datetime(props.get("pubDate"))
+    ledger.observe(updated_at_src)
 
     # Captain-directed exclusion 2026-08-26: Hazard Reduction / prescribed
     # burns are planned, not emergencies — drop at the source rather than
     # filtering downstream, using NSW RFS's own TYPE field (confirmed
     # live: "Hazard Reduction" vs "Bush Fire"), not a title-text guess.
     if fields.get("TYPE") == "Hazard Reduction":
-        ledger.exclude("hazard_reduction")
+        ledger.exclude("hazard_reduction", sample=title)
         return None
 
     # Found 2026-08-26 investigating why so many NSW rows sat at
@@ -110,7 +114,7 @@ def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
     # excluded above. Drop it here too rather than let it sit as an
     # unclassifiable "unknown"-severity row.
     if category == "not applicable":
-        ledger.exclude("not_applicable")
+        ledger.exclude("not_applicable", sample=title)
         return None
 
     lat = lon = None
@@ -136,7 +140,7 @@ def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
         description=fields.get("STATUS") and f"{fields.get('TYPE', 'Bush Fire')} — {fields['STATUS']}" or None,
         location=fields.get("LOCATION") or title,
         issued_at=None,  # pubDate is last-update, not first-issued; see updated_at_src
-        updated_at_src=parse_dmy_datetime(props.get("pubDate")),
+        updated_at_src=updated_at_src,
         canonical_url=guid or props.get("link"),
         raw_text=props.get("description"),
         latitude=lat,

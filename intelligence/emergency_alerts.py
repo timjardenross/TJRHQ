@@ -599,6 +599,12 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         return {"source_key": source_key, "error": failure, "count": 0}
 
     keep_cap = _cap_fields_enabled()
+    notes = _integrity_notes(adapter, alerts, ledger)
+    for note in notes:
+        log.warning("[emergency-alerts] %s: %s", source_key, note)
+    if notes:
+        integrity_warning = " | ".join([w for w in (integrity_warning, *notes) if w])
+
     rows = []
     for a in alerts:
         row = asdict(a)
@@ -833,6 +839,33 @@ _INVALID_WARN_RATIO = 0.20
 # it bounded like error_message (500). The headline counts come first so a long
 # drop breakdown is what gets cut, never the alert counts.
 _DETAIL_MAX_CHARS = 500
+
+
+# A field every kept alert should carry (SOURCE_INFO["expected_fields"]) that is missing
+# on ALL of them, across at least this many alerts, means the feed's shape changed under
+# the parser (a renamed key quietly reads as None). Below this the sample is too small.
+_FIELD_DRIFT_MIN_ALERTS = 3
+
+
+def _integrity_notes(adapter, alerts: list, ledger, now: datetime | None = None) -> list[str]:
+    """Warnings that do NOT fail a source but say its data may be going quiet or changing shape:
+      STALE        the newest source-side timestamp across every item looked at (before any
+                   exclusion) is older than SOURCE_INFO["stale_after_hours"] - a feed that is
+                   fetched and parsed fine but has stopped producing anything new.
+      FIELD DRIFT  an expected field is missing on every kept alert.
+    Sources with no threshold (quiet by nature) are never flagged stale."""
+    info = getattr(adapter, "SOURCE_INFO", None) or {}
+    notes: list[str] = []
+    threshold = info.get("stale_after_hours")
+    if ledger is not None and threshold and ledger.items_seen > 0 and ledger.newest_item_at is not None:
+        age_hours = ((now or datetime.now(timezone.utc)) - ledger.newest_item_at).total_seconds() / 3600
+        if age_hours > threshold:
+            notes.append(f"STALE: newest item {int(age_hours)}h old (expected under {threshold}h)")
+    if len(alerts) >= _FIELD_DRIFT_MIN_ALERTS:
+        for field in info.get("expected_fields") or []:
+            if all(getattr(a, field, None) in (None, "") for a in alerts):
+                notes.append(f"FIELD DRIFT: {field} missing on all {len(alerts)} alerts")
+    return notes
 
 
 def _ledger_verdict(ledger, accepted: int) -> tuple[str | None, str | None]:

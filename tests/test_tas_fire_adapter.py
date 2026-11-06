@@ -22,7 +22,10 @@ def _feature(**attrs) -> dict:
         "AREA_DESCRIPTION": "Test Town and surrounds", "ALERT_INSTRUCTIONS": "Prepare to leave",
         "FULL_DESCRIPTION": "A fire is burning near Test Town.", "IDENTIFIER": "id-1",
         "TASALERT_LINK": "https://alert.tas.gov.au/?id=abc",
-        "EFFECTIVE_FROM_DATE": NOW_MS - 3_600_000, "EXPIRES_DATE": NOW_MS + 3_600_000,
+        # The layer's dates are Hobart wall-clock written as UTC (measured 2026-11-06), so a
+        # record that is really live for another hour is written ~11 h further ahead than the
+        # real instant: give the synthetic record a full day so it is unambiguously live.
+        "EFFECTIVE_FROM_DATE": NOW_MS - 3_600_000, "EXPIRES_DATE": NOW_MS + 86_400_000,
     }
     base.update(attrs)
     return {"attributes": base, "geometry": {"x": 146.9856, "y": -42.9727}}
@@ -85,3 +88,21 @@ def test_live_record_shape_parses_to_nothing_because_it_is_a_planned_burn():
         "TASALERT_LINK": "https://alert.tas.gov.au/?id=3f6b4c7d", "EFFECTIVE_FROM_DATE": 1793552370000,
         "EXPIRES_DATE": 1793649367000}, "geometry": {"x": 146.98556, "y": -42.97268}}]}
     assert tas_fire.parse(live, now_ms=1793560000000) == []
+
+
+def test_layer_dates_are_hobart_wall_clock_not_utc_instants():
+    """MEASURED 2026-11-06: the layer stores local Hobart time as if it were UTC (issued_at landed ~10.8 h
+    after first seen). Epoch 2026-11-06T16:18:14 'UTC' is really 16:18:14 AEDT (+11:00)."""
+    epoch_ms = 1_793_981_894_000  # 2026-11-06T16:18:14 read as a UTC instant
+    assert tas_fire._iso(epoch_ms) == "2026-11-06T16:18:14+11:00"
+    assert tas_fire._iso(1_783_000_000_000).endswith("+10:00")  # July: AEST, daylight saving handled by the zone
+    assert tas_fire._iso(None) is None
+
+
+def test_expiry_check_uses_the_real_instant_so_it_no_longer_lags_by_eleven_hours():
+    """A record whose wall-clock expiry is 10 h after 'now' (as UTC) is really expired already in November
+    (AEDT is +11): the old check kept it for ~11 more hours."""
+    feature = _feature(EXPIRES_DATE=NOW_MS + 10 * 3_600_000)
+    assert tas_fire.parse({"features": [feature]}, now_ms=NOW_MS) == []
+    live = _feature(EXPIRES_DATE=NOW_MS + 12 * 3_600_000)
+    assert len(tas_fire.parse({"features": [live]}, now_ms=NOW_MS)) == 1

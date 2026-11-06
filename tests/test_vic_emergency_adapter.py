@@ -37,8 +37,8 @@ def test_incidents_path_totals(incidents):
 def test_incidents_stable_event_key(incidents):
     alert = next(a for a in vic_emergency.parse_incidents(incidents) if a.event_key == "300972")
     assert alert.headline == "SHIRE DAM RD"
-    assert alert.issued_at == "2026-11-06T14:48:00"  # no tz in source: KNOWN GAP, see base.parse_dmy_datetime
-    assert alert.updated_at_src == "2026-11-06T15:39:00"
+    assert alert.issued_at == "2026-11-06T14:48:00+11:00"  # local Melbourne time (AEDT), measured 2026-11-06
+    assert alert.updated_at_src == "2026-11-06T15:39:00+11:00"
 
 
 def test_incident_exclusions(incidents):

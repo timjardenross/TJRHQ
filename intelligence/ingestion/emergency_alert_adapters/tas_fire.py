@@ -34,6 +34,7 @@ from .base import (
     CanonicalAlert,
     DropLedger,
     FeedShapeError,
+    _localize,
     convert_items,
     http_get_json,
     json_items,
@@ -69,9 +70,12 @@ SOURCE_INFO = {
         {"reason": "excluded_hazard_reduction", "field": "ALERT_TYPE / EVENT / ALERT_SUMMARY / FULL_DESCRIPTION", "match": "planned burn / back-burn / fuel reduction / hazard reduction / prescribed burn", "decided": "Captain-directed (same rule as nsw_rfs); date not recorded in source"},
     ],
     "invalid_reasons": ["invalid_missing_headline"],
+    "stale_after_hours": None,
+    "expected_fields": ['issued_at'],
     "known_gaps": [
         "Only one record (a 'Smoke Alert') was live when the adapter was written, so the full ALERT_TYPE vocabulary is NOT confirmed; wording that states no AWS tier stays 'unknown' and is counted as unmapped_<ALERT_TYPE>.",
         "A layer-level error object in the response raises (heartbeat fails) rather than reading as 'no alerts'.",
+        "Timezone: the epoch-ms date fields are LOCAL Hobart wall-clock time written as UTC. MEASURED 2026-11-06 (stored issued_at ~10.8 h after first seen). Read in Australia/Hobart from that date, which also corrects the 'already expired at source' check that used to lag ~11 h. Rows written before then stay ahead until re-written.",
     ],
     "last_verified": "2026-11-01",
 }
@@ -88,10 +92,27 @@ _TYPE_KEYWORDS = (
 )
 
 
+# MEASURED 2026-11-06: the layer's epoch-ms date fields hold LOCAL Hobart wall-clock time
+# written as if it were UTC (the stored issued_at landed ~10.8 h AFTER the moment we first
+# saw the alert). Read the epoch as a wall clock and attach Australia/Hobart (which handles
+# daylight saving), instead of trusting it as a UTC instant. Same convention applies to
+# EXPIRES_DATE, so the "already expired at the source" check used to lag by ~11 h.
+_TAS_TZ = "Australia/Hobart"
+
+
 def _iso(epoch_ms: int | None) -> str | None:
     if not epoch_ms:
         return None
-    return datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc).isoformat()
+    wall_clock = datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc).replace(tzinfo=None)
+    return _localize(wall_clock, _TAS_TZ)
+
+
+def _real_epoch_ms(epoch_ms: int) -> float:
+    """The true instant, in epoch ms, of a layer date (see _iso)."""
+    moment = datetime.fromisoformat(_iso(epoch_ms))
+    if moment.tzinfo is None:  # no zone data on this host: the old UTC reading
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.timestamp() * 1000
 
 
 def _severity(text: str) -> str:
@@ -130,15 +151,16 @@ def _to_alert(feature: dict, now_ms: int, ledger: DropLedger) -> CanonicalAlert 
         ledger.invalid("missing_headline")
         return None
 
+    ledger.observe(_iso(a.get("EFFECTIVE_FROM_DATE")))
     expires = a.get("EXPIRES_DATE")
-    if expires and expires < now_ms:
-        ledger.exclude("expired_at_source")
+    if expires and _real_epoch_ms(expires) < now_ms:
+        ledger.exclude("expired_at_source", sample=headline)
         return None  # already expired at the source; absence ends any prior record
 
     description = (a.get("FULL_DESCRIPTION") or "").strip() or None
     label = " ".join(str(a.get(k) or "") for k in ("ALERT_TYPE", "EVENT", "ALERT_SUMMARY"))
     if _PLANNED_BURN_RE.search(f"{label} {description or ''}"):
-        ledger.exclude("hazard_reduction")
+        ledger.exclude("hazard_reduction", sample=headline)
         return None
 
     severity = _severity(label)

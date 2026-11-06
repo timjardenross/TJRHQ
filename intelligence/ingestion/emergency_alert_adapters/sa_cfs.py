@@ -69,6 +69,8 @@ SOURCE_INFO = {
         {"reason": "excluded_hazmat", "field": "CAP <category> / <event> / <headline>", "match": "category CBRNE, or 'hazardous materials' in event/headline", "decided": "Captain-directed 2026-08-26"},
     ],
     "invalid_reasons": ["invalid_missing_content", "invalid_missing_cap_alert"],
+    "stale_after_hours": 72,
+    "expected_fields": ['issued_at', 'location'],
     "cap_fields": {
         "cap_urgency": "CAP <info><urgency>",
         "cap_certainty": "CAP <info><certainty>",
@@ -95,6 +97,14 @@ def _cap_text(alert_el, tag: str) -> str | None:
     if info is None:
         return None
     el = info.find(f"{_CAP_NS}{tag}")
+    return el.text.strip() if el is not None and el.text else None
+
+
+def _cap_root_text(alert_el, tag: str) -> str | None:
+    """Text of a direct child of <alert> (e.g. <sent>, <identifier>). _cap_text only
+    looks inside <info>, which is why updated_at_src was empty on every SA row until
+    2026-11-06: <sent> lives on <alert>, not <info>."""
+    el = alert_el.find(f"{_CAP_NS}{tag}")
     return el.text.strip() if el is not None and el.text else None
 
 
@@ -144,6 +154,7 @@ def _to_alert(entry, ledger: DropLedger) -> CanonicalAlert | None:
         ledger.invalid("missing_cap_alert")
         return None
 
+    ledger.observe(_cap_root_text(alert_el, "sent"))
     if "feed retirement" in (_cap_text(alert_el, "headline") or "").lower():
         raise FeedRetiredError(f"sa_cfs: feed retired - {_cap_text(alert_el, 'description')}")
 
@@ -164,16 +175,16 @@ def _to_alert(entry, ledger: DropLedger) -> CanonicalAlert | None:
     # already reads "HAYBOROUGH : Hazardous Materials" — SA's own
     # display categorisation, not a title guess we invented.
     if _PLANNED_BURN_RE.search(headline):
-        ledger.exclude("hazard_reduction")
+        ledger.exclude("hazard_reduction", sample=headline)
         return None
     # Structure fires are not this hub's scope: VIC and WA already keep
     # "bushfire only" (Captain-directed 2026-08-26). SA carries them under
     # CAP event "Structure Fire", which is the structured signal used here.
     if (_cap_text(alert_el, "event") or "").strip().lower() == "structure fire":
-        ledger.exclude("structure_fire")
+        ledger.exclude("structure_fire", sample=headline)
         return None
     if cap_category == "cbrne" or "hazardous materials" in cap_event or "hazardous materials" in headline.lower():
-        ledger.exclude("hazmat")
+        ledger.exclude("hazmat", sample=headline)
         return None
 
     # Captain-flagged 2026-08-26: this feed keeps closed incidents in
@@ -213,8 +224,8 @@ def _to_alert(entry, ledger: DropLedger) -> CanonicalAlert | None:
         severity=severity,
         description=_cap_text(alert_el, "description"),
         location=location,
-        issued_at=_cap_text(alert_el, "effective") or _cap_text(alert_el, "sent"),
-        updated_at_src=_cap_text(alert_el, "sent"),
+        issued_at=_cap_text(alert_el, "effective") or _cap_root_text(alert_el, "sent"),
+        updated_at_src=_cap_root_text(alert_el, "sent"),
         expiry=_cap_text(alert_el, "expires"),
         # <web> in this feed is the CFS/MFS public-warnings landing page,
         # identical across every incident — not a real per-item URL (same
