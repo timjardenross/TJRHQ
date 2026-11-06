@@ -109,6 +109,8 @@ SOURCE_INFO = {
         {"reason": "excluded_unmatched_product", "field": "title", "match": "no product keyword matches (e.g. Hazardous Surf Warning)", "decided": "adapter rule 2026-08-27 ('never guessed into a bucket')"},
     ],
     "invalid_reasons": [],
+    "stale_after_hours": None,
+    "expected_fields": ['updated_at_src'],
     "known_gaps": [
         "No AWS tier (Advice / Watch and Act / Emergency Warning) exists in BOM's feed, so every BOM row is severity 'unknown'; BOM's own flood intensity words (Minor / Moderate / Major) are a different scale and are not mapped. High-attention emails use the platform's own bom_attention label.",
         "Products whose name matches no keyword are dropped (counted excluded_unmatched_product), so a NEW BOM warning product is invisible until a keyword is added.",
@@ -308,10 +310,15 @@ def _to_alert(item, source_key: str, jurisdiction: str, detail_for, ledger: Drop
 
     title = title_el.text.strip() if title_el is not None and title_el.text else "—"
     title_upper = title.upper()
+    if pubdate_el is not None and pubdate_el.text:
+        try:
+            ledger.observe(parsedate_to_datetime(pubdate_el.text.strip()))
+        except (TypeError, ValueError):
+            pass
 
     excluded = next((reason for kw, reason in _EXCLUDED_REASONS if kw in title_upper), None)
     if excluded:
-        ledger.exclude(excluded)
+        ledger.exclude(excluded, sample=title)
         return None
 
     alert_type = next((v for kw, v in _TYPE_KEYWORDS if kw in title_upper), None)
@@ -319,7 +326,14 @@ def _to_alert(item, source_key: str, jurisdiction: str, detail_for, ledger: Drop
         # Deliberate, per the module docstring: "any product name that
         # doesn't match a real kept category — never guessed into a bucket".
         # (Live 2026-11: Hazardous Surf Warning lands here.)
-        ledger.exclude("unmatched_product")
+        # Name the product (title minus BOM's time prefix, up to " for <area>") so a NEW
+        # BOM warning type shows up in the heartbeat as an unmapped product, not just
+        # as an anonymous count.
+        flat = re.sub(r"\s+", " ", title).strip()
+        prefix = _TITLE_RE.match(flat)
+        product = (prefix.group(1) if prefix else flat).split(" for ")[0][:60]
+        ledger.exclude("unmatched_product", sample=flat)
+        ledger.unmapped(f"product {product}")
         return None
 
     # Collapse embedded whitespace/newlines first (confirmed live: some
@@ -394,6 +408,8 @@ class _StateAdapter:
     """Thin per-state adapter object matching the `.fetch()` interface
     intelligence/emergency_alerts.py expects — one BOM module serves all 8
     jurisdictions rather than 8 near-identical files."""
+
+    SOURCE_INFO = SOURCE_INFO  # shared by all 8 states (expected_fields etc.)
 
     def __init__(self, jurisdiction: str):
         self._jurisdiction = jurisdiction

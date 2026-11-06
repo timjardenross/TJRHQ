@@ -89,6 +89,8 @@ SOURCE_INFO = {
         {"reason": "excluded_not_bushfire", "field": "incidents title type", "match": "does not contain 'BUSHFIRE' (e.g. Structure Fire, Vehicle Fire)", "decided": "Captain-directed 2026-08-26 (widened to bushfire only)"},
     ],
     "invalid_reasons": [],
+    "stale_after_hours": 48,
+    "expected_fields": ['updated_at_src', 'canonical_url'],
     "known_gaps": [
         "Warning types outside bushfire / storm / cyclone / flood / heatwave are dropped by design, which includes real public Smoke Alert warnings (seen live 2026-11-06; Captain chose to keep dropping them while ingesting Heatwave Advice). Recorded as excluded_other_type, not as unmapped.",
         "Incidents carry no warning level; severity is only known when the CAD-ID also appears as dfes:incidentNumber on a warning.",
@@ -142,10 +144,12 @@ def _warning_to_alert(item: ET.Element, incident_severity: dict[str, str], ledge
     title_el = item.find("title")
     title = title_el.text.strip() if title_el is not None and title_el.text else "—"
     title_upper = title.upper()
+    pubdate_for_clock = item.find("pubDate")
+    ledger.observe(parse_rfc822_datetime(pubdate_for_clock.text.strip() if pubdate_for_clock is not None and pubdate_for_clock.text else None))
 
     reason = _excluded_reason(title_upper)
     if reason:
-        ledger.exclude(reason)
+        ledger.exclude(reason, sample=title)
         return None
 
     severity = "unknown"
@@ -169,7 +173,7 @@ def _warning_to_alert(item: ET.Element, incident_severity: dict[str, str], ledge
         # warning type, not worth a guess. (Live 2026-11: Smoke Alert warnings
         # land here. Heatwave Advice no longer does: Captain-approved
         # 2026-11-06, ingested as 'heatwave'.)
-        ledger.exclude("other_type")
+        ledger.exclude("other_type", sample=title)
         return None
 
     if severity == "unknown":
@@ -221,10 +225,12 @@ def _incident_to_alert(item: ET.Element, incident_severity: dict[str, str], ledg
 
     m = _INCIDENT_TITLE_RE.match(title)
     incident_type = (m.group("type").strip() if m else "").upper()
+    pubdate_for_clock = item.find("pubDate")
+    ledger.observe(parse_rfc822_datetime(pubdate_for_clock.text.strip() if pubdate_for_clock is not None and pubdate_for_clock.text else None))
 
     reason = _excluded_reason(incident_type)
     if reason:
-        ledger.exclude(reason)
+        ledger.exclude(reason, sample=title)
         return None
 
     # region/incidentNumber/publicationTime are embedded as raw
@@ -242,7 +248,7 @@ def _incident_to_alert(item: ET.Element, incident_severity: dict[str, str], ledg
     if "BUSHFIRE" in incident_type:
         alert_type = "bushfire"
     else:
-        ledger.exclude("not_bushfire")
+        ledger.exclude("not_bushfire", sample=title)
         return None
 
     guid_el = item.find("guid")

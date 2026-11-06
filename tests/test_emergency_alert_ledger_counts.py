@@ -70,7 +70,8 @@ EXPECTED = {
                           "excluded_other_type": 7, "excluded_structure_fire": 2}),
     "sa_cfs": (3, {"items_seen": 7, "excluded_hazard_reduction": 2, "excluded_structure_fire": 2}),
     "tas_fire": (1, {"items_seen": 1, "unmapped_smoke_alert": 1}),
-    "bom_nsw": (4, {"items_seen": 7, "excluded_agricultural": 1, "excluded_marine": 1, "excluded_unmatched_product": 1}),
+    "bom_nsw": (4, {"items_seen": 7, "excluded_agricultural": 1, "excluded_marine": 1, "excluded_unmatched_product": 1,
+                    "unmapped_product_hazardous_surf_warning": 1}),
 }
 
 

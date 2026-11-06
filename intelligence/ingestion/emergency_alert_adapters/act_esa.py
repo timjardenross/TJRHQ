@@ -19,6 +19,7 @@ import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against
 from .base import (
     CanonicalAlert,
     DropLedger,
+    _localize,
     convert_items,
     http_get,
     require_rss_channel,
@@ -28,6 +29,7 @@ log = logging.getLogger(__name__)
 
 _FEED_URL = "https://esa.act.gov.au/feeds/currentincidents.xml"
 _GEORSS_NS = "{http://www.georss.org/georss}"
+_ACT_TZ = "Australia/Sydney"
 
 
 SOURCE_INFO = {
@@ -44,9 +46,11 @@ SOURCE_INFO = {
         {"reason": "excluded_hazard_reduction", "field": "<type>", "match": "contains 'HAZARD REDUCTION'", "decided": "Captain-directed 2026-08-26"},
     ],
     "invalid_reasons": [],
+    "stale_after_hours": 24,
+    "expected_fields": ['updated_at_src'],
     "known_gaps": [
         "INCIDENTS ONLY: per ESA this feed 'does not include warning and alert information', so no Advice / Watch and Act / Emergency Warning is monitored for ACT and severity is always 'unknown'. The portal shows ACT coverage as partial (alertCoverage.ts INCIDENTS_ONLY_SOURCES).",
-        "Updated timestamps ('19 Aug 2026 23:24:36.053') carry no timezone/offset; presumed local Canberra time (AEST/AEDT) but UNVERIFIED (act_esa._act_datetime).",
+        "Updated timestamps ('19 Aug 2026 23:24:36.053') carry no timezone/offset. MEASURED 2026-11-06: they are local Canberra time (stored as UTC they landed ~11 h in the future), so they are read in Australia/Sydney (same daylight-saving rules) from that date. Rows written before then stay ~10-11 h ahead until re-written; expired ones are not backfilled.",
     ],
     "last_verified": "2026-08-26",
 }
@@ -59,13 +63,11 @@ def _act_datetime(value: str | None) -> str | None:
         return None
     try:
         from datetime import datetime
-        # KNOWN GAP (flagged, not guessed): ACT's own feed format carries no
-        # timezone/offset at all. It is presumed local Canberra time (AEST/
-        # AEDT, DST-observing) but that is unverified against the feed's own
-        # docs — bom_warnings.py hit a real 10h-off bug from a similar
-        # assumption (see its 2026-08-27 comment) before its offset could be
-        # confirmed from the text. Do not silently reinterpret this as UTC.
-        return datetime.strptime(value.split(".")[0], "%d %b %Y %H:%M:%S").isoformat()  # noqa: DTZ007 - source has no offset info; flagged above, not resolved
+        # MEASURED 2026-11-06 against stored rows: ACT's "Updated:" time is local
+        # Canberra time (stored as UTC it landed ~11 h in the future), so it is read
+        # in Australia/Sydney (Canberra shares NSW's daylight-saving rules).
+        naive = datetime.strptime(value.split(".")[0], "%d %b %Y %H:%M:%S")  # noqa: DTZ007 - localised on the next line
+        return _localize(naive, _ACT_TZ)
     except ValueError:
         return None
 
@@ -103,16 +105,18 @@ def _to_alert(item, ledger: DropLedger) -> CanonicalAlert | None:
     guid = guid_el.text.strip() if guid_el is not None and guid_el.text else title
     incident_type = type_el.text.strip() if type_el is not None and type_el.text else ""
     incident_type_upper = incident_type.upper()
+    updated_for_clock = re.search(r"Updated:\s*([^\r\n]+)", desc_el.text) if desc_el is not None and desc_el.text else None
+    ledger.observe(_act_datetime(updated_for_clock.group(1).strip()) if updated_for_clock else None)
 
     # Captain-directed exclusion 2026-08-26: Ambulance Response, Motor
     # Vehicle Accident, and Hazard Reduction Burn are not the emergency
     # types this hub wants — dropped using the feed's own <type> field
     # (structured, not a headline-text guess).
     if incident_type_upper in ("AMBULANCE RESPONSE", "MOTOR VEHICLE ACCIDENT"):
-        ledger.exclude("ambulance_mva")
+        ledger.exclude("ambulance_mva", sample=title)
         return None
     if "HAZARD REDUCTION" in incident_type_upper:
-        ledger.exclude("hazard_reduction")
+        ledger.exclude("hazard_reduction", sample=title)
         return None
 
     updated_match = location_match = None

@@ -105,6 +105,20 @@ def _section(info: dict) -> str:
     lines.append(_md(info["alert_type_rule"]))
     lines.append("")
 
+    lines.append("### Data-quality checks")
+    lines.append("")
+    hours = info.get("stale_after_hours")
+    if hours:
+        lines.append(f"- **Freshness:** the heartbeat warns `STALE` if the newest source-side timestamp across everything the feed lists is older than {hours} h.")
+    else:
+        lines.append("- **Freshness:** not checked (this source can legitimately go quiet for days).")
+    expected = info.get("expected_fields") or []
+    if expected:
+        lines.append(f"- **Expected on every kept alert:** {', '.join(f'`{f}`' for f in expected)}. The heartbeat warns `FIELD DRIFT` if one is missing on all of them (3 or more alerts).")
+    else:
+        lines.append("- **Expected fields:** none checked.")
+    lines.append("")
+
     lines.append("### Deliberate exclusions")
     lines.append("")
     if info["exclusions"]:

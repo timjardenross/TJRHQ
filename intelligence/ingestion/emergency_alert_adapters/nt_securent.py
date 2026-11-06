@@ -44,6 +44,8 @@ SOURCE_INFO = {
     "alert_type_rule": "n/a (stub returns no alerts; heartbeat is 'skipped').",
     "exclusions": [],
     "invalid_reasons": [],
+    "stale_after_hours": None,
+    "expected_fields": [],
     "known_gaps": [
         "NOT MONITORED: securent.nt.gov.au answers automated requests with a Cloudflare challenge (HTTP 403) and no public API/RSS/CAP feed was found. The challenge is a bot check and is deliberately NOT bypassed; the route is a sanctioned feed or allowlisted fetch from NT Government (PFES / Bushfires NT / Secure NT) or BoM's CAP-AU.",
         "BOM weather warnings for NT (bom_nt) are still monitored.",

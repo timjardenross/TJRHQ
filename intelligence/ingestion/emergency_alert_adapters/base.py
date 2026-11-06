@@ -11,7 +11,8 @@ import urllib.request
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +101,30 @@ def _slug(label: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", (label or "").lower()).strip("_")[:40] or "blank"
 
 
+_SAMPLES_PER_REASON = 3
+_SAMPLE_MAX_CHARS = 80
+
+
+def _as_aware_utc(value: str | datetime | None) -> datetime | None:
+    """Best-effort timestamp -> aware datetime. ISO 8601 or RFC 822 strings. A value
+    with no offset is read as UTC: that can only make an item look NEWER than it is
+    (by up to the local offset), so staleness is under-reported, never over-reported."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        text = str(value).strip()
+        try:
+            dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            try:
+                dt = parsedate_to_datetime(text)
+            except (TypeError, ValueError):
+                return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 class DropLedger:
     """Every item an adapter looked at and did not turn into an alert, counted
     by reason, so "no alerts" can be told apart from "broken".
@@ -118,20 +143,42 @@ class DropLedger:
     invalid_total (tests assert it on every fixture).
     """
 
-    __slots__ = ("counts", "items_seen")
+    __slots__ = ("counts", "items_seen", "newest_item_at", "samples")
 
     def __init__(self) -> None:
         self.items_seen = 0
         self.counts: Counter[str] = Counter()
+        # Newest source-side timestamp across EVERY item looked at (before any
+        # exclusion), so a feed that churns but is all-excluded still counts as fresh.
+        self.newest_item_at: datetime | None = None
+        # A few example headlines per ledger key, so a reviewer can see WHAT is
+        # being dropped, not just how many. Public feed titles only.
+        self.samples: dict[str, list[str]] = {}
 
     def seen(self, n: int = 1) -> None:
         self.items_seen += n
 
-    def exclude(self, reason: str) -> None:
-        self.counts[f"excluded_{reason}"] += 1
+    def observe(self, when: str | datetime | None) -> None:
+        """Record an item's own last-updated time (ISO / RFC 822 string or datetime)."""
+        dt = _as_aware_utc(when)
+        if dt is not None and (self.newest_item_at is None or dt > self.newest_item_at):
+            self.newest_item_at = dt
 
-    def invalid(self, reason: str) -> None:
+    def _sample(self, key: str, text: str | None) -> None:
+        if not text:
+            return
+        bucket = self.samples.setdefault(key, [])
+        snippet = " ".join(str(text).split())[:_SAMPLE_MAX_CHARS]
+        if len(bucket) < _SAMPLES_PER_REASON and snippet not in bucket:
+            bucket.append(snippet)
+
+    def exclude(self, reason: str, sample: str | None = None) -> None:
+        self.counts[f"excluded_{reason}"] += 1
+        self._sample(f"excluded_{reason}", sample)
+
+    def invalid(self, reason: str, sample: str | None = None) -> None:
         self.counts[f"invalid_{reason}"] += 1
+        self._sample(f"invalid_{reason}", sample)
 
     def unmapped(self, label: str) -> None:
         """An unrecognised tier label mapped to 'unknown'. Distinct labels are
@@ -243,20 +290,35 @@ def parse_rfc822_datetime(value: str | None) -> str | None:
         return None
 
 
-def parse_dmy_datetime(value: str | None) -> str | None:
+def _localize(naive: datetime, tz_name: str | None) -> str:
+    """ISO string for `naive`, with the named IANA zone's offset for that date (DST
+    handled by the zone database, never guessed). No zone, or no zone data on this
+    host, keeps the historical offset-less string."""
+    if tz_name:
+        try:
+            from zoneinfo import ZoneInfo
+            return naive.replace(tzinfo=ZoneInfo(tz_name)).isoformat()
+        except Exception as exc:  # noqa: BLE001 - missing tzdata must not break ingestion; falls back to the old offset-less string
+            log.warning("[emergency-alert-adapters] timezone %s unavailable (%s): leaving timestamps offset-less", tz_name, type(exc).__name__)
+    return naive.isoformat()
+
+
+def parse_dmy_datetime(value: str | None, tz: str | None = None) -> str | None:
     """Several sources (NSW RFS) emit "DD/MM/YYYY H:MM:SS AM/PM" —
     ambiguous to Postgres's timestamptz parser (could read as MM/DD).
     Converts to ISO 8601; returns None (never invents a time) if the
     source's own format doesn't match what its docs describe."""
     if not value:
         return None
-    # KNOWN GAP (flagged, not guessed): these DD/MM/YYYY sources (NSW RFS,
-    # VIC Emergency) carry no timezone/offset in the string either — same
-    # unresolved ambiguity as act_esa.py's ACT format. Presumed local
-    # Australian time but unverified per-source; do not silently treat as UTC.
+    # These DD/MM/YYYY strings carry no offset, so the caller must say which zone the
+    # SOURCE writes them in. MEASURED against stored rows 2026-11-06: VIC Emergency
+    # incidents are local Melbourne time (stored as UTC they landed ~11 h in the
+    # future), so VIC passes tz="Australia/Melbourne". NSW RFS pubDate behaves as UTC
+    # (nothing in the future, freshest row ~0.1 h old), so NSW passes no tz and keeps
+    # the offset-less string, which Postgres reads as UTC.
     for fmt in ("%d/%m/%Y %I:%M:%S %p", "%d/%m/%Y %H:%M:%S"):
         try:
-            return datetime.strptime(value.strip(), fmt).isoformat()  # noqa: DTZ007 - source has no offset info; flagged above, not resolved
+            return _localize(datetime.strptime(value.strip(), fmt), tz)  # noqa: DTZ007 - localised just above when the caller names the source zone
         except ValueError:
             continue
     return None

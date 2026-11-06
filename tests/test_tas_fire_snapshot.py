@@ -36,7 +36,7 @@ def test_stable_event_key_for_a_known_item(payload):
     alert = tas_fire.parse(payload, now_ms=NOW_MS)[0]
     assert alert.event_key == "0-90439"
     assert alert.headline == "Vehicle Fire - Smoke Alert - Tasman Highway Buckland - Avoid smoke"
-    assert alert.expiry and alert.expiry.endswith("+00:00")
+    assert alert.expiry and alert.expiry.endswith("+11:00")  # Hobart wall-clock, AEDT
 
 
 def test_a_record_already_expired_at_the_source_is_excluded(payload):
