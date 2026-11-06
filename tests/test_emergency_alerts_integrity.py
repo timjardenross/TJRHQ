@@ -92,7 +92,8 @@ def test_all_invalid_in_run_all_schedules_no_expiry_for_that_source():
     assert r.beat["status"] == "failed" and "failed structural parsing" in r.beat["error_message"]
     r.upsert.assert_not_called()
     r.get.assert_not_called()  # no expiry read at all
-    r.request.assert_not_called()  # and so no PATCH that could expire a live alert
+    # and so no PATCH that could expire a live alert: the only write is the integrity row
+    assert [c.args[:2] for c in r.request.call_args_list] == [("POST", "emergency_alert_source_integrity?on_conflict=source_key")]
     assert "pending_expiry" not in r.results["x_src"]
 
 
