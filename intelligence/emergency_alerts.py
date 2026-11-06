@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
 import alert_email
+import alert_schema
 import alert_silences
 import bom_attention
 from heartbeat import _KEY, _URL, record_heartbeats, supabase_get
@@ -125,6 +126,28 @@ def _supabase_request(method: str, path: str, body: dict | None = None, extra_he
     req = urllib.request.Request(url, data=data, method=method, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout):  # nosec B310 - url is built from SUPABASE_URL env var (_URL), always https - reviewed 2026-09-12
         return
+
+
+def _coerce_rows(source_key: str, rows: list[dict]) -> tuple[int, int]:
+    """Make every row safe for the alerts CHECK constraints (alert_schema).
+
+    An out-of-set alert_type becomes 'other' and an out-of-set severity
+    'unknown'. The row is NEVER dropped: _upsert_batch is one request per
+    source, so one invalid value would fail every row in it, and dropping the
+    row instead would make a live alert look gone (-> expired -> false
+    "lifted"). Logs source_key and the bad value only (no other row content).
+    Returns (alert_type_coerced, severity_coerced)."""
+    n_type = n_severity = 0
+    for row in rows:
+        if row.get("alert_type") not in alert_schema.ALLOWED_ALERT_TYPE:
+            log.warning("[emergency-alerts] %s: alert_type %r is not in the alerts schema - coerced to %r", source_key, str(row.get("alert_type"))[:60], alert_schema.DEFAULT_ALERT_TYPE)
+            row["alert_type"] = alert_schema.DEFAULT_ALERT_TYPE
+            n_type += 1
+        if row.get("severity") not in alert_schema.ALLOWED_SEVERITY:
+            log.warning("[emergency-alerts] %s: severity %r is not in the alerts schema - coerced to %r", source_key, str(row.get("severity"))[:60], alert_schema.DEFAULT_SEVERITY)
+            row["severity"] = alert_schema.DEFAULT_SEVERITY
+            n_severity += 1
+    return n_type, n_severity
 
 
 def _upsert_batch(rows: list[dict]) -> None:
@@ -550,6 +573,10 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         row["last_seen_at"] = run_started_at
         rows.append(row)
 
+    # After any drop accounting, before the upsert: make every row valid for
+    # the CHECK constraints rather than let one bad value fail the batch.
+    coerced = _coerce_rows(source_key, rows)
+
     try:
         _upsert_batch(rows)
     except Exception as exc:  # noqa: BLE001 - per-source upsert job boundary — already logged + heartbeat-recorded with latency
@@ -582,16 +609,16 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
     # unclassified alerts — like SA CFS's HAYBOROUGH, caught 2026-08-26 by
     # spotting it in the UI — shows up on every run instead of needing a
     # manual audit each time.
-    unknown_count = sum(1 for a in alerts if a.severity == "unknown")
+    unknown_count = sum(1 for r in rows if r["severity"] == "unknown")
     latency_ms = int((time.monotonic() - t0) * 1000)
     if batched:
         # run_all() fills in detail once its single expiry pass has the count.
         heartbeats.append({
             "domain_key": domain_key, "status": "ok", "latency_ms": latency_ms,
-            "_counts": (len(rows), unknown_count, emails_sent),
+            "_counts": (len(rows), unknown_count, emails_sent, {"coerced": coerced}),
         })
     else:
-        record_heartbeat(domain_key, status="ok", detail=_ok_detail(len(rows), unknown_count, expired, emails_sent), latency_ms=latency_ms)
+        record_heartbeat(domain_key, status="ok", detail=_ok_detail(len(rows), unknown_count, expired, emails_sent, coerced=coerced), latency_ms=latency_ms)
     return {
         "source_key": source_key, "count": len(rows), "unknown_severity": unknown_count,
         "expired": expired, "emails_sent": emails_sent, "pending_expiry": batched,
@@ -745,20 +772,22 @@ def run_all() -> dict:
     for hb in heartbeats:
         counts = hb.pop("_counts", None)
         if counts is not None:
-            n_rows, unknown_count, emails_sent = counts
-            hb["detail"] = _ok_detail(n_rows, unknown_count, expired_by_domain.get(hb["domain_key"], 0), emails_sent)
+            n_rows, unknown_count, emails_sent, extras = counts
+            hb["detail"] = _ok_detail(n_rows, unknown_count, expired_by_domain.get(hb["domain_key"], 0), emails_sent, **extras)
 
     record_heartbeats(heartbeats)
     results["_follow_up"] = _send_follow_up_emails()
     return results
 
 
-def _ok_detail(n_rows: int, unknown_count: int, expired: int, emails_sent: int) -> str:
+def _ok_detail(n_rows: int, unknown_count: int, expired: int, emails_sent: int, *, coerced: tuple[int, int] | None = None) -> str:
     detail = f"{n_rows} alert(s), {unknown_count} unknown severity, {expired} expired"
     if n_rows == 0:
         detail += " (empty feed — earlier alerts held up to 2h before expiring)"
     if emails_sent:
         detail += f", {emails_sent} emergency email(s) sent"
+    if coerced and any(coerced):
+        detail += f" | coerced {sum(coerced)} (alert_type {coerced[0]}, severity {coerced[1]})"
     return detail
 
 
