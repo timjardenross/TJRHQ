@@ -129,7 +129,7 @@ def _section(info: dict) -> str:
     if info.get("cap_fields"):
         lines.append("### CAP fields retained")
         lines.append("")
-        lines.append("Carried on `CanonicalAlert` (never inferred for other sources); only written to the database when `EMERGENCY_ALERTS_CAP_FIELDS=1` and migration 0250 is applied.")
+        lines.append("Carried on `CanonicalAlert` (never inferred for other sources); stored in the `alerts` cap_* columns (migration 0250) by default; set `EMERGENCY_ALERTS_CAP_FIELDS=0` only for a database without those columns.")
         lines.append("")
         lines.append("| Field | Source |")
         lines.append("| --- | --- |")

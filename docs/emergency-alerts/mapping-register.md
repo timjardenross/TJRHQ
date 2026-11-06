@@ -248,7 +248,7 @@ Counted as `invalid_<reason>`; if items were seen and ALL failed this way the so
 
 ### CAP fields retained
 
-Carried on `CanonicalAlert` (never inferred for other sources); only written to the database when `EMERGENCY_ALERTS_CAP_FIELDS=1` and migration 0250 is applied.
+Carried on `CanonicalAlert` (never inferred for other sources); stored in the `alerts` cap_* columns (migration 0250) by default; set `EMERGENCY_ALERTS_CAP_FIELDS=0` only for a database without those columns.
 
 | Field | Source |
 | --- | --- |
@@ -354,7 +354,7 @@ Counted as `invalid_<reason>`; if items were seen and ALL failed this way the so
 
 ### CAP fields retained
 
-Carried on `CanonicalAlert` (never inferred for other sources); only written to the database when `EMERGENCY_ALERTS_CAP_FIELDS=1` and migration 0250 is applied.
+Carried on `CanonicalAlert` (never inferred for other sources); stored in the `alerts` cap_* columns (migration 0250) by default; set `EMERGENCY_ALERTS_CAP_FIELDS=0` only for a database without those columns.
 
 | Field | Source |
 | --- | --- |

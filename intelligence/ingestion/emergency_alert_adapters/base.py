@@ -58,9 +58,10 @@ class CanonicalAlert:
     """CAP (Common Alerting Protocol) fields, kept verbatim ONLY for sources
     that actually carry them: SA CFS (CAP-AU <info>) and VIC Emergency
     warnings (embedded `cap` object). None everywhere else - never inferred
-    from another field. They are not alerts-table columns until migration 0250
-    is applied, so the orchestrator strips them from the upsert unless
-    EMERGENCY_ALERTS_CAP_FIELDS=1."""
+    from another field. They are alerts-table columns since migration 0250
+    (applied 2026-11-06) and are stored by default; the orchestrator strips
+    them from the upsert only if EMERGENCY_ALERTS_CAP_FIELDS is set to
+    0/false/off/no (for a database without the columns)."""
 
 
 class FeedRetiredError(RuntimeError):

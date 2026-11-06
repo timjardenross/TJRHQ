@@ -1,4 +1,4 @@
-"""CAP urgency/certainty/severity/event retention, behind EMERGENCY_ALERTS_CAP_FIELDS (default off)."""
+"""CAP urgency/certainty/severity/event retention. On by default (migration 0250 is applied); EMERGENCY_ALERTS_CAP_FIELDS=0/false/off/no strips them."""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ def test_empty_cap_values_become_none_not_empty_strings():
     assert alert.cap_urgency is None and alert.cap_event == "Flood"
 
 
-# ---- orchestrator: stripped unless the flag is "1" --------------------------------------
+# ---- orchestrator: stored by default, stripped only when explicitly switched off ----------
 
 def _upsert_body(alerts, monkeypatch, flag):
     if flag is None:
@@ -116,31 +116,41 @@ def _cap_alert():
                           cap_urgency="Expected", cap_certainty="Likely", cap_severity="Minor", cap_event="Flood")
 
 
-@pytest.mark.parametrize("flag", [None, "", "0", "true", "yes", "2"])
-def test_cap_keys_are_stripped_from_the_upsert_unless_the_flag_is_exactly_1(monkeypatch, flag):
+@pytest.mark.parametrize("flag", ["0", "false", "FALSE", "off", "Off", "no", " 0 "])
+def test_cap_keys_are_stripped_from_the_upsert_only_when_explicitly_switched_off(monkeypatch, flag):
     (row,) = _upsert_body([_cap_alert()], monkeypatch, flag)
-    assert not set(CAP) & set(row), "an unknown column would fail the whole source's upsert"
+    assert not set(CAP) & set(row), "an unknown column would fail the whole source's upsert on a database without 0250"
 
 
-def test_cap_keys_are_included_when_the_flag_is_set(monkeypatch):
-    (row,) = _upsert_body([_cap_alert()], monkeypatch, "1")
+@pytest.mark.parametrize("flag", [None, "", "1", "true", "yes", "on", "2", "anything"])
+def test_cap_keys_are_stored_by_default_and_for_any_non_off_value(monkeypatch, flag):
+    (row,) = _upsert_body([_cap_alert()], monkeypatch, flag)
     assert [row[f] for f in CAP] == ["Expected", "Likely", "Minor", "Flood"]
 
 
 def test_other_columns_are_identical_with_the_flag_on_or_off(monkeypatch):
-    off = _upsert_body([_cap_alert()], monkeypatch, None)[0]
-    on = _upsert_body([_cap_alert()], monkeypatch, "1")[0]
+    off = _upsert_body([_cap_alert()], monkeypatch, "0")[0]
+    on = _upsert_body([_cap_alert()], monkeypatch, None)[0]
     assert {k: v for k, v in on.items() if k not in CAP and k != "last_seen_at"} == {k: v for k, v in off.items() if k != "last_seen_at"}
 
 
 def test_flag_is_read_per_run_not_at_import(monkeypatch):
-    assert "cap_event" not in _upsert_body([_cap_alert()], monkeypatch, None)[0]
-    assert "cap_event" in _upsert_body([_cap_alert()], monkeypatch, "1")[0]
+    assert "cap_event" in _upsert_body([_cap_alert()], monkeypatch, None)[0]
+    assert "cap_event" not in _upsert_body([_cap_alert()], monkeypatch, "0")[0]
+    assert "cap_event" in _upsert_body([_cap_alert()], monkeypatch, None)[0]
 
 
-def test_default_row_keys_have_no_cap_with_the_flag_unset(monkeypatch):
-    """Full-suite guard: with the flag unset the upsert body has exactly the pre-WS6 columns."""
+def test_default_row_keys_include_all_four_cap_columns_for_a_source_without_cap(monkeypatch):
+    """Sources with no CAP data send the four keys as null, which the columns accept."""
     (row,) = _upsert_body([CanonicalAlert(source_key="x_src", jurisdiction="NSW", headline="h", event_key="e")], monkeypatch, None)
+    assert set(row) == {"source_key", "jurisdiction", "headline", "event_key", "alert_type", "severity", "description", "location",
+                        "issued_at", "updated_at_src", "expiry", "canonical_url", "raw_text", "latitude", "longitude",
+                        "status", "is_active", "last_seen_at", *CAP}
+    assert [row[f] for f in CAP] == [None] * 4
+
+
+def test_switched_off_row_keys_are_exactly_the_pre_cap_columns(monkeypatch):
+    (row,) = _upsert_body([CanonicalAlert(source_key="x_src", jurisdiction="NSW", headline="h", event_key="e")], monkeypatch, "0")
     assert set(row) == {"source_key", "jurisdiction", "headline", "event_key", "alert_type", "severity", "description", "location",
                         "issued_at", "updated_at_src", "expiry", "canonical_url", "raw_text", "latitude", "longitude",
                         "status", "is_active", "last_seen_at"}
@@ -165,10 +175,11 @@ def test_migration_adds_four_nullable_text_columns_and_nothing_else():
     assert not re.search(r"\b(drop|delete|update|insert|truncate)\b", code, re.IGNORECASE)
 
 
-def test_migration_is_the_next_number_and_marked_unapplied():
+def test_migration_is_the_next_number_and_recorded_as_applied():
     assert sorted(p.name for p in MIGRATIONS.glob("0250_*.sql")) == ["0250_alerts_cap_fields.sql"]
-    assert "NOT APPLIED" in _migration_text()
-    assert "EMERGENCY_ALERTS_CAP_FIELDS" in _migration_text()
+    text = _migration_text()
+    assert "NOT APPLIED" not in text and "APPLIED 2026-11-06" in text
+    assert "EMERGENCY_ALERTS_CAP_FIELDS" in text
 
 
 def test_alert_schema_drift_guard_is_unaffected_by_the_migration():

@@ -129,16 +129,19 @@ def _supabase_request(method: str, path: str, body: dict | None = None, extra_he
 
 
 # CAP fields CanonicalAlert carries for sources that provide them (SA, VIC
-# warnings). They only exist as alerts columns once migration 0250 is applied
-# (authored, NOT applied by the integrity-uplift mission). Sending an unknown
-# column to PostgREST fails the whole source's upsert, so they are stripped
-# unless the host has opted in with EMERGENCY_ALERTS_CAP_FIELDS=1.
+# warnings). They are alerts columns since migration 0250, applied to the
+# USSTJR project 2026-11-06, so they are stored by default. Setting
+# EMERGENCY_ALERTS_CAP_FIELDS to 0/false/off/no strips them from the upsert
+# again: an escape hatch for a database that does NOT have the columns (an
+# unknown column fails the whole source's upsert in PostgREST).
 _CAP_FIELDS = ("cap_urgency", "cap_certainty", "cap_severity", "cap_event")
+_CAP_FIELDS_OFF_VALUES = frozenset({"0", "false", "off", "no"})
 
 
 def _cap_fields_enabled() -> bool:
-    """Read per run (not at import) so the flag takes effect without code changes."""
-    return os.environ.get("EMERGENCY_ALERTS_CAP_FIELDS") == "1"
+    """On unless explicitly switched off. Read per run (not at import) so it takes
+    effect without code changes. Unset or empty means on."""
+    return os.environ.get("EMERGENCY_ALERTS_CAP_FIELDS", "").strip().lower() not in _CAP_FIELDS_OFF_VALUES
 
 
 def _coerce_rows(source_key: str, rows: list[dict]) -> tuple[int, int]:
