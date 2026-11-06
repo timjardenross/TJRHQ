@@ -9,12 +9,25 @@
  *
  * Per source, in order: failed (last run errored), not_implemented (the
  * adapter has no feed yet — heartbeats "skipped" permanently), no_data (never
- * ran / no heartbeat), stale (last run older than its own threshold), else ok.
+ * ran / no heartbeat), stale (last run older than its own threshold),
+ * stale_content (runs fine, but the feed's newest item is older than that
+ * feed's expected cadence — the ingestion's own STALE integrity warning),
+ * incidents_only (healthy, but the feed carries incidents and not warning
+ * levels), else ok.
  */
 
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
 
-export type SourceIssue = 'failed' | 'not_implemented' | 'no_data' | 'stale';
+export type SourceIssue = 'failed' | 'not_implemented' | 'no_data' | 'stale' | 'stale_content' | 'incidents_only';
+
+/** Sources that are healthy but only carry incident data, not warning levels
+ * (Advice / Watch and Act / Emergency Warning). They are real, working feeds,
+ * so they never go red for this - but they cap coverage at 'partial' so "none
+ * detected" is not read as covering warnings we cannot see. Keyed by
+ * source_key. */
+export const INCIDENTS_ONLY_SOURCES: Record<string, string> = {
+  act_esa: 'ESA incident feed only - no warning levels (Advice / Watch and Act / Emergency Warning) are monitored for ACT',
+};
 
 export interface CoverageGap {
   sourceKey: string;
@@ -25,7 +38,7 @@ export interface CoverageGap {
 }
 
 /** good: every source healthy. partial: healthy, but some source has no feed
- * yet. degraded: a source failed, is stale, or never reported. unknown: no
+ * yet or carries incidents only. degraded: a source failed, is stale, or never reported. unknown: no
  * source has reported at all. */
 export type CoverageLevel = 'good' | 'partial' | 'degraded' | 'unknown';
 
@@ -53,7 +66,18 @@ export function issueLabel(issue: SourceIssue): string {
     case 'not_implemented': return 'not monitored (no feed yet)';
     case 'no_data': return 'no data yet';
     case 'stale': return 'not refreshed recently';
+    case 'stale_content': return 'feed has gone quiet (no new items for longer than expected)';
+    case 'incidents_only': return 'incidents only (no warning levels monitored)';
   }
+}
+
+/** The ingestion's own "STALE: newest item Nh old (expected under Mh)" warning, if the
+ * integrity row is itself fresh (an old row says nothing about now - the heartbeat checks
+ * above already cover a run that stopped). */
+function staleContentWarning(s: EmergencyAlertSourceEntry, nowMs: number): string | null {
+  const row = s.integrity;
+  if (!row || nowMs - new Date(row.checkedAt).getTime() > staleThresholdMs(s.fetchIntervalMinutes)) return null;
+  return row.warnings.find((w) => w.startsWith('STALE')) ?? null;
 }
 
 export function assessCoverage(sources: EmergencyAlertSourceEntry[], nowMs: number = Date.now()): CoverageAssessment {
@@ -74,13 +98,19 @@ export function assessCoverage(sources: EmergencyAlertSourceEntry[], nowMs: numb
       gaps.push({ ...base, issue: 'no_data', detail: 'no collection recorded' });
     } else if (nowMs - last > staleThresholdMs(s.fetchIntervalMinutes)) {
       gaps.push({ ...base, issue: 'stale', detail: `last checked ${new Date(last).toISOString()}` });
+    } else if (staleContentWarning(s, nowMs)) {
+      gaps.push({ ...base, issue: 'stale_content', detail: staleContentWarning(s, nowMs) as string });
+    } else if (s.sourceKey in INCIDENTS_ONLY_SOURCES) {
+      // Healthy and recent: failed / skipped / no_data / stale all took
+      // precedence above. Only the coverage ceiling is affected.
+      gaps.push({ ...base, issue: 'incidents_only', detail: INCIDENTS_ONLY_SOURCES[s.sourceKey] });
     }
   }
 
   const reported = active.filter((s) => s.lastRun !== null).length;
   let level: CoverageLevel;
   if (active.length === 0 || reported === 0) level = 'unknown';
-  else if (gaps.some((g) => g.issue !== 'not_implemented')) level = 'degraded';
+  else if (gaps.some((g) => g.issue !== 'not_implemented' && g.issue !== 'incidents_only')) level = 'degraded';
   else if (gaps.length > 0) level = 'partial';
   else level = 'good';
 

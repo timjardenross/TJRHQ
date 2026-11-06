@@ -32,6 +32,11 @@ export interface EmergencyAlertEntry {
   emailSentAt: string | null;
   emailFailedAt: string | null;
   emailFailureReason: string | null;
+  /** CAP fields as given by the source (SA CFS and VIC warnings only; null elsewhere). Not the AWS severity tier. */
+  capUrgency: string | null;
+  capCertainty: string | null;
+  capSeverity: string | null;
+  capEvent: string | null;
 }
 
 const MAX_ROWS = 500;
@@ -53,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     let query = sb
       .from('alerts')
-      .select('id, source_key, jurisdiction, alert_type, severity, headline, description, location, issued_at, updated_at_src, expiry, status, is_active, canonical_url, raw_text, latitude, longitude, last_seen_at, emergency_email_sent_at, emergency_email_failed_at, emergency_email_failure_reason')
+      .select('id, source_key, jurisdiction, alert_type, severity, headline, description, location, issued_at, updated_at_src, expiry, status, is_active, canonical_url, raw_text, latitude, longitude, last_seen_at, emergency_email_sent_at, emergency_email_failed_at, emergency_email_failure_reason, cap_urgency, cap_certainty, cap_severity, cap_event')
       .order('last_seen_at', { ascending: false })
       .limit(MAX_ROWS);
 
@@ -87,6 +92,10 @@ export async function GET(request: NextRequest) {
       emailSentAt: row.emergency_email_sent_at,
       emailFailedAt: row.emergency_email_failed_at,
       emailFailureReason: row.emergency_email_failure_reason,
+      capUrgency: row.cap_urgency ?? null,
+      capCertainty: row.cap_certainty ?? null,
+      capSeverity: row.cap_severity ?? null,
+      capEvent: row.cap_event ?? null,
     }));
 
     return NextResponse.json({ alerts, fetchedAt: new Date().toISOString() });

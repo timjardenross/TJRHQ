@@ -1,0 +1,458 @@
+<!--
+
+This is an extended version of the CAP 1.2 Specification for the Australian CAP standard.
+
+Further restrictions on CAP 1.2 for CAP-AU 1.0:
+
+- <code> required, and the first instance of <code> must be
+  urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0
+- <language> required
+- <event><value> string value derived from Tier I or Tier II column of
+  urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0:AUeventLIST:2.0
+
+Copyright © Commonwealth of Australia Attorney-General's Department [2013]. All Rights Reserved.
+
+The Commonwealth of Australia as represented by the Attorney-General's Department recognises the
+contribution made by OASIS Open to the development of this Australian Government Standard for the
+Common Alerting Protocol - Australia Profile (Standard), and by Noggin (www.noggin.com.au) to the
+development of this CAP-AU XML Schema Definition (XSD) file.
+
+The Commonwealth of Australia as represented by the Attorney-General's Department grants the user a 
+royalty-free, world-wide, non-exclusive licence to use, reproduce, perform, distribute, communicate
+and exploit the Standard in whole or in part, provided that where only a part of the standard is
+used, that part is accurately reproduced without alteration in each case.  All copyright notices
+appearing in connection with the Standard must be retained in connection with your use of the
+Standard.
+
+The Standard is provided for general information only. While persons involved in emergency
+management in the private and public sectors, industry and the general public may refer to the
+Standard to assist them with emergency warning and emergency protocol considerations and/or the
+development of common alerting protocol products, the Standard is provided on the understanding
+that it does not constitute advice.
+
+You should seek your own independent advice before relying on the Standard. The Commonwealth of
+Australia is not liable for any loss or damage howsoever caused (including through negligence) which
+you may directly or indirectly suffer or incur which is the result of any action taken in reliance
+by you on the information provided.
+
+In addition, compliance with the Standard does not indicate compliance with any other standard 
+including in particular the Common Alerting Protocol Version 1.2 (available at 
+http://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2-os.pdf).
+
+The Standard is subject to change from time to time and will contain information that has been
+obtained from third party sources. It is therefore provided on an 'as is' basis and may not be
+accurate, current, reliable or complete.  The Standard does not indicate any future policy approach 
+or a commitment to a particular course of action on the part of the Australian Government.
+
+VERSION COMPATIBILITY MATRIX
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+| CAP-AU-STD version    | XSD CAP-AU     | CAP version | Backwards compatibility *               |
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+| Pre-release           | 1.0            | 1.2         |                                         |
+| 1.0                   | 2.0            | 1.2         | CAP-AU-STD (pre-release)                |
+| 2.0                   | 2.0            | 1.2         | CAP-AU-STD 1.0                          |
+| 3.0                   | 3.0            | 1.2         | CAP-AU-STD 2.0                          |
+| 3.0                   | 3.1 (this XSD) | 1.2         | CAP-AU-STD 3.0                          |
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     * the older specified CAP-AU-STD version will validate with that XSD CAP-AU version.
+       
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:oasis:names:tc:emergency:cap:1.2" elementFormDefault="qualified" attributeFormDefault="unqualified" version="3.0">
+	<element name="alert">
+		<annotation>
+			<documentation>CAP Alert Message (version 1.2) - Further restricted to CAP-AU_Profile:1.0</documentation>
+		</annotation>
+		<complexType>
+			<sequence>
+				<element name="identifier" type="xs:string"/>
+				<element name="sender" type="xs:string"/>
+				<element name="sent">
+					<simpleType>
+						<restriction base="xs:dateTime">
+							<pattern value="\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d[-,+]\d\d:\d\d"/>
+						</restriction>
+					</simpleType>
+				</element>
+				<element name="status">
+					<simpleType>
+						<restriction base="xs:string">
+							<enumeration value="Actual"/>
+							<enumeration value="Exercise"/>
+							<enumeration value="System"/>
+							<enumeration value="Test"/>
+							<enumeration value="Draft"/>
+						</restriction>
+					</simpleType>
+				</element>
+				<element name="msgType">
+					<simpleType>
+						<restriction base="xs:string">
+							<enumeration value="Alert"/>
+							<enumeration value="Update"/>
+							<enumeration value="Cancel"/>
+							<enumeration value="Ack"/>
+							<enumeration value="Error"/>
+						</restriction>
+					</simpleType>
+				</element>
+				<element name="source" type="xs:string" minOccurs="0"/>
+				<element name="scope">
+					<simpleType>
+						<restriction base="xs:string">
+							<enumeration value="Public"/>
+							<enumeration value="Restricted"/>
+							<enumeration value="Private"/>
+						</restriction>
+					</simpleType>
+				</element>
+				<element name="restriction" type="xs:string" minOccurs="0"/>
+				<element name="addresses" type="xs:string" minOccurs="0"/>
+				<element name="code" minOccurs="1" maxOccurs="1">
+					<simpleType>
+						<restriction base="xs:string">
+							<enumeration value="urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0"/>
+						</restriction>
+					</simpleType>
+				</element>
+				<element name="code" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+				<element name="note" type="xs:string" minOccurs="0"/>
+				<element name="references" type="xs:string" minOccurs="0"/>
+				<element name="incidents" type="xs:string" minOccurs="0"/>
+				<element name="info" minOccurs="0" maxOccurs="unbounded">
+					<complexType>
+						<sequence>
+							<element name="language" type="xs:language" default="en-US" minOccurs="1"/>
+							<element name="category" maxOccurs="unbounded">
+								<simpleType>
+									<restriction base="xs:string">
+										<enumeration value="Geo"/>
+										<enumeration value="Met"/>
+										<enumeration value="Safety"/>
+										<enumeration value="Security"/>
+										<enumeration value="Rescue"/>
+										<enumeration value="Fire"/>
+										<enumeration value="Health"/>
+										<enumeration value="Env"/>
+										<enumeration value="Transport"/>
+										<enumeration value="Infra"/>
+										<enumeration value="CBRNE"/>
+										<enumeration value="Other"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="event">
+								<simpleType>
+									<restriction base="xs:string">
+										<enumeration value="Administration"/>
+										<enumeration value="Air Quality"/>
+										<enumeration value="Animal Health"/>
+										<enumeration value="Animal Disease"/>
+										<enumeration value="Animal Feed"/>
+										<enumeration value="Animal Pest"/>
+										<enumeration value="Animal Quarantine"/>
+										<enumeration value="Animal Welfare"/>
+										<enumeration value="Aquatic Animal Disease"/>
+										<enumeration value="Aquatic Animal Pest"/>
+										<enumeration value="Marine Disease"/>
+										<enumeration value="Marine Pest"/>
+										<enumeration value="Plague"/>
+										<enumeration value="Sheep Grazier Warning"/>
+										<enumeration value="Animals"/>
+										<enumeration value="Animal Attack"/>
+										<enumeration value="Dangerous Animal"/>
+										<enumeration value="Aviation"/>
+										<enumeration value="Aircraft Crash"/>
+										<enumeration value="Aircraft Incident"/>
+										<enumeration value="Airport Closure"/>
+										<enumeration value="Airport Lightning Threat"/>
+										<enumeration value="Airport Thunder Threat"/>
+										<enumeration value="Airspace Closure"/>
+										<enumeration value="Aviation Security"/>
+										<enumeration value="Falling Object"/>
+										<enumeration value="Notice To Airmen"/>
+										<enumeration value="Satellite / Space Re-entry Debris"/>
+										<enumeration value="Civil"/>
+										<enumeration value="Building Collapse"/>
+										<enumeration value="Civil Emergency"/>
+										<enumeration value="Demonstration"/>
+										<enumeration value="Public Event"/>
+										<enumeration value="Volunteer Request"/>
+										<enumeration value="Criminal Activity"/>
+										<enumeration value="Cyber Crime"/>
+										<enumeration value="Dangerous Person"/>
+										<enumeration value="Terrorism"/>
+										<enumeration value="Fire"/>
+										<enumeration value="Bushfire"/>
+										<enumeration value="Fire Ban"/>
+										<enumeration value="Fire Danger Level"/>
+										<enumeration value="Forest Fire"/>
+										<enumeration value="Fire Weather"/>
+										<enumeration value="Grass Fire"/>
+										<enumeration value="Industrial Fire"/>
+										<enumeration value="Smoke Alert"/>
+										<enumeration value="Structure Fire"/>
+										<enumeration value="Total Fire Ban"/>
+										<enumeration value="Flood"/>
+										<enumeration value="Dam Failure"/>
+										<enumeration value="Flash Flood"/>
+										<enumeration value="High Water Level"/>
+										<enumeration value="King Tide"/>
+										<enumeration value="Levee Failure"/>
+										<enumeration value="Storm Surge"/>
+										<enumeration value="Riverine Flood"/>
+										<enumeration value="Geological"/>
+										<enumeration value="Avalanche"/>
+										<enumeration value="Earthquake"/>
+										<enumeration value="Karst Hazard"/>
+										<enumeration value="Lahar"/>
+										<enumeration value="Landslide"/>
+										<enumeration value="Lava Flow"/>
+										<enumeration value="Magnetic Storm"/>
+										<enumeration value="Meteorite"/>
+										<enumeration value="Pyroclastic Flow"/>
+										<enumeration value="Pyroclastic Surge"/>
+										<enumeration value="Tsunami"/>
+										<enumeration value="Volcanic Ash Cloud"/>
+										<enumeration value="Volcano"/>
+										<enumeration value="Hazardous Materials"/>
+										<enumeration value="Asbestos"/>
+										<enumeration value="Biological Hazard"/>
+										<enumeration value="Chemical Hazard"/>
+										<enumeration value="Explosive Hazard"/>
+										<enumeration value="Major Pollution"/>
+										<enumeration value="Radiological Hazard"/>
+										<enumeration value="Toxic Plume"/>
+										<enumeration value="Health"/>
+										<enumeration value="Ambulance"/>
+										<enumeration value="Blood Supply"/>
+										<enumeration value="Communicable Disease"/>
+										<enumeration value="Drinking Water"/>
+										<enumeration value="Drug Safety"/>
+										<enumeration value="Drug Supply"/>
+										<enumeration value="Food Safety"/>
+										<enumeration value="Food Supply"/>
+										<enumeration value="Hospital"/>
+										<enumeration value="Human Quarantine"/>
+										<enumeration value="Zoonotic Disease"/>
+										<enumeration value="Marine"/>
+										<enumeration value="Freezing Spray"/>
+										<enumeration value="Gale Wind"/>
+										<enumeration value="Hurricane Force Wind"/>
+										<enumeration value="Iceberg"/>
+										<enumeration value="Large Coastal Surf"/>
+										<enumeration value="Large Swell Waves"/>
+										<enumeration value="Maritime / Marine Security"/>
+										<enumeration value="Nautical Incident"/>
+										<enumeration value="Oil Spill"/>
+										<enumeration value="Squall"/>
+										<enumeration value="Storm Force Wind"/>
+										<enumeration value="Strong Wind"/>
+										<enumeration value="Waterspout"/>
+										<enumeration value="Missing Person"/>
+										<enumeration value="Missing Vulnerable Person"/>
+										<enumeration value="Other Non-Urgent Alerts"/>
+										<enumeration value="Other Urgent Alerts"/>
+										<enumeration value="Plant Health"/>
+										<enumeration value="Plant Disease"/>
+										<enumeration value="Plant Pest"/>
+										<enumeration value="Plant Quarantine"/>
+										<enumeration value="Preparedness Reminders"/>
+										<enumeration value="Emergency Preparedness Reminder"/>
+										<enumeration value="Product Safety"/>
+										<enumeration value="Public Services"/>
+										<enumeration value="Facility Closure"/>
+										<enumeration value="Facility Lockdown"/>
+										<enumeration value="Service or Facility"/>
+										<enumeration value="Transit"/>
+										<enumeration value="Railway"/>
+										<enumeration value="Railway Incident"/>
+										<enumeration value="Train / Rail Crash"/>
+										<enumeration value="Rescue"/>
+										<enumeration value="Distress Beacon"/>
+										<enumeration value="Roadway"/>
+										<enumeration value="Bridge Closure"/>
+										<enumeration value="Bridge Collapse"/>
+										<enumeration value="Hazardous Road Conditions"/>
+										<enumeration value="Motor Vehicle Accident"/>
+										<enumeration value="Roadway Closure"/>
+										<enumeration value="Roadway Delay"/>
+										<enumeration value="Roadway Incident"/>
+										<enumeration value="Roadway Usage Condition"/>
+										<enumeration value="Traffic Report"/>
+										<enumeration value="Search"/>
+										<enumeration value="Over Water Search"/>
+										<enumeration value="Over Land Search"/>
+										<enumeration value="Air Search"/>
+										<enumeration value="Storm"/>
+										<enumeration value="Blizzard"/>
+										<enumeration value="Dust Storm"/>
+										<enumeration value="Hail"/>
+										<enumeration value="Rainfall"/>
+										<enumeration value="Snowfall"/>
+										<enumeration value="Thunderstorm"/>
+										<enumeration value="Tornado"/>
+										<enumeration value="Tropical Cyclone"/>
+										<enumeration value="Weather"/>
+										<enumeration value="Temperature"/>
+										<enumeration value="Extreme Heat"/>
+										<enumeration value="Frost"/>
+										<enumeration value="Wind Chill"/>
+										<enumeration value="Test Message"/>
+										<enumeration value="Utility"/>
+										<enumeration value="Cable Service"/>
+										<enumeration value="Communications Service"/>
+										<enumeration value="Diesel Supply"/>
+										<enumeration value="Electricity Supply"/>
+										<enumeration value="Heating Oil Supply"/>
+										<enumeration value="Internet Service"/>
+										<enumeration value="Landline Service"/>
+										<enumeration value="Mobile Service"/>
+										<enumeration value="Natural Gas Supply"/>
+										<enumeration value="Petrol Supply"/>
+										<enumeration value="Pipeline Rupture"/>
+										<enumeration value="Satellite Service"/>
+										<enumeration value="Sewer System"/>
+										<enumeration value="Telephone Service"/>
+										<enumeration value="Triple Zero"/>
+										<enumeration value="Waste Management"/>
+										<enumeration value="Water Supply"/>
+										<enumeration value="Wind"/>
+										<enumeration value="Water Quality"/>
+										<enumeration value="Wind Change"/>
+										<enumeration value="Blue Green Algae"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="responseType" minOccurs="0" maxOccurs="unbounded">
+								<simpleType>
+									<restriction base="xs:string">
+										<enumeration value="Shelter"/>
+										<enumeration value="Evacuate"/>
+										<enumeration value="Prepare"/>
+										<enumeration value="Execute"/>
+										<enumeration value="Avoid"/>
+										<enumeration value="Monitor"/>
+										<enumeration value="Assess"/>
+										<enumeration value="AllClear"/>
+										<enumeration value="None"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="urgency">
+								<simpleType>
+									<restriction base="xs:string">
+										<enumeration value="Immediate"/>
+										<enumeration value="Expected"/>
+										<enumeration value="Future"/>
+										<enumeration value="Past"/>
+										<enumeration value="Unknown"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="severity">
+								<simpleType>
+									<restriction base="xs:string">
+										<enumeration value="Extreme"/>
+										<enumeration value="Severe"/>
+										<enumeration value="Moderate"/>
+										<enumeration value="Minor"/>
+										<enumeration value="Unknown"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="certainty">
+								<simpleType>
+									<restriction base="xs:string">
+										<enumeration value="Observed"/>
+										<enumeration value="Likely"/>
+										<enumeration value="Possible"/>
+										<enumeration value="Unlikely"/>
+										<enumeration value="Unknown"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="audience" type="xs:string" minOccurs="0"/>
+							<element name="eventCode" minOccurs="0" maxOccurs="unbounded">
+								<complexType>
+									<sequence>
+										<element ref="cap:valueName"/>
+										<element ref="cap:value"/>
+									</sequence>
+								</complexType>
+							</element>
+							<element name="effective" minOccurs="0">
+								<simpleType>
+									<restriction base="xs:dateTime">
+										<pattern value="\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d[-,+]\d\d:\d\d"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="onset" minOccurs="0">
+								<simpleType>
+									<restriction base="xs:dateTime">
+										<pattern value="\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d[-,+]\d\d:\d\d"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="expires" minOccurs="0">
+								<simpleType>
+									<restriction base="xs:dateTime">
+										<pattern value="\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d[-,+]\d\d:\d\d"/>
+									</restriction>
+								</simpleType>
+							</element>
+							<element name="senderName" type="xs:string" minOccurs="0"/>
+							<element name="headline" type="xs:string" minOccurs="0"/>
+							<element name="description" type="xs:string" minOccurs="0"/>
+							<element name="instruction" type="xs:string" minOccurs="0"/>
+							<element name="web" type="xs:anyURI" minOccurs="0"/>
+							<element name="contact" type="xs:string" minOccurs="0"/>
+							<element name="parameter" minOccurs="0" maxOccurs="unbounded">
+								<complexType>
+									<sequence>
+										<element ref="cap:valueName"/>
+										<element ref="cap:value"/>
+									</sequence>
+								</complexType>
+							</element>
+							<element name="resource" minOccurs="0" maxOccurs="unbounded">
+								<complexType>
+									<sequence>
+										<element name="resourceDesc" type="xs:string"/>
+										<element name="mimeType" type="xs:string"/>
+										<element name="size" type="xs:integer" minOccurs="0"/>
+										<element name="uri" type="xs:anyURI" minOccurs="0"/>
+										<element name="derefUri" type="xs:string" minOccurs="0"/>
+										<element name="digest" type="xs:string" minOccurs="0"/>
+									</sequence>
+								</complexType>
+							</element>
+							<element name="area" minOccurs="0" maxOccurs="unbounded">
+								<complexType>
+									<sequence>
+										<element name="areaDesc" type="xs:string" minOccurs="1" maxOccurs="1"/>
+										<element name="polygon" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+										<element name="circle" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+										<element name="geocode" minOccurs="0" maxOccurs="unbounded">
+											<complexType>
+												<sequence>
+													<element ref="cap:valueName"/>
+													<element ref="cap:value"/>
+												</sequence>
+											</complexType>
+										</element>
+										<element name="altitude" type="xs:decimal" minOccurs="0"/>
+										<element name="ceiling" type="xs:decimal" minOccurs="0"/>
+									</sequence>
+								</complexType>
+							</element>
+						</sequence>
+					</complexType>
+				</element>
+				<any namespace="http://www.w3.org/2000/09/xmldsig#" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+			</sequence>
+		</complexType>
+	</element>
+	<element name="valueName" type="xs:string"/>
+	<element name="value" type="xs:string"/>
+</schema>

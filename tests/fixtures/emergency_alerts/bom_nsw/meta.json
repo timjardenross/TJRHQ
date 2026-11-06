@@ -1,0 +1,83 @@
+{
+  "source_key": "bom_nsw",
+  "url": "https://www.bom.gov.au/fwo/IDZ00054.warnings_nsw.xml",
+  "captured_at": "2026-11-06T05:52:55.932508+00:00",
+  "captured_by": "claude-code",
+  "feeds": {
+    "feed.xml": {
+      "url": "https://www.bom.gov.au/fwo/IDZ00054.warnings_nsw.xml",
+      "captured_at": "2026-11-06T05:52:55.932508+00:00",
+      "synthetic": false,
+      "redactions": 1
+    },
+    "detail.html": {
+      "url": "http://reg.bom.gov.au/nsw/warnings/fire.shtml",
+      "captured_at": "2026-11-06T05:53:18.932613+00:00",
+      "synthetic": true,
+      "redactions": 0,
+      "capture_attempt": "Live detail-page fetch failed in the capture sandbox: the feed's detail links are plain http://reg.bom.gov.au/..., which does not resolve from the sandbox (DNS error). The one allowed retry, https://www.bom.gov.au/nsw/warnings/fire.shtml, failed with the same DNS error (a redirect to the unresolvable host is the likely cause; not confirmed). Attempt plus retry used; no further fetches."
+    },
+    "wmo_index.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/rss.xml",
+      "captured_at": "2026-11-06T09:36:00+00:00",
+      "synthetic": false,
+      "redactions": 0,
+      "note": "WMO mirror of BoM CAP-AU; trimmed to the items matching this directory's feed.xml plus two decoys"
+    },
+    "cap_AusBoM_IDQ21033_2026_11_06T08_39_17_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDQ21033-2026-11-06T08:39:17+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 2
+    },
+    "cap_AusBoM_IDQ21033_2026_11_06T06_25_23_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDQ21033-2026-11-06T06:25:23+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 1
+    },
+    "cap_AusBoM_IDN28522_2026_11_06T05_44_18_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDN28522-2026-11-06T05:44:18+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 1
+    },
+    "cap_AusBoM_IDN20400_2026_11_06T05_05_01_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDN20400-2026-11-06T05:05:01+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 8
+    },
+    "cap_AusBoM_IDN22000_2026_11_06T05_08_15_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDN22000-2026-11-06T05:08:15+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 1
+    },
+    "cap_AusBoM_IDT20100_2026_11_06T05_05_04_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDT20100-2026-11-06T05:05:04+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 7
+    },
+    "cap_AusBoM_IDW21013_2026_11_06T04_33_49_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDW21013-2026-11-06T04:33:49+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 1
+    },
+    "cap_AusBoM_IDQ20845_2026_11_06T00_54_22_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDQ20845-2026-11-06T00:54:22+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 1
+    },
+    "cap_AusBoM_IDW21013_2026_11_05T05_00_42_00_00.xml": {
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/ (link of item AusBoM-IDW21013-2026-11-05T05:00:42+00:00)",
+      "captured_at": "2026-11-06T09:37:00+00:00",
+      "synthetic": false,
+      "redactions": 1
+    }
+  },
+  "notes": "feed.xml is an untrimmed live snapshot of the NSW state warnings list, fetched with bom_warnings' own browser-User-Agent helper (base.http_get's UA is 403'd by BOM, see bom_warnings.py docstring) - one fetch. detail.html is SYNTHETIC: a minimal page built from the adapter's documented shape (div id=content ... End: Content, 'Issued at ... AEDT on ...', a river-height table that must be stripped, a safety-advice list). 1 email address(es) replaced with redacted@example.invalid in feed.xml. wmo_index.xml and cap_*.xml are live WMO/BoM CAP-AU captures taken ~3.5 h after feed.xml (so a few feed items have no CAP counterpart); sender addresses redacted."
+}

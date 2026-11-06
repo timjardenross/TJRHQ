@@ -1,0 +1,1307 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<rss xmlns:georss="https://www.ogc.org/standard/georss/" xmlns:dfes="https://emergency.wa.gov.au/xmlns/dfes" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:geo="https://www.w3.org/2003/01/geo/wgs84_pos#" version="2.0">
+  <channel>
+    <title>DFES Warnings (All Regions)</title>
+    <link>https://emergency.wa.gov.au</link>
+    <description/>
+    <language>en-us</language>
+    <pubDate>Fri, 06 Nov 2026 13:52:40 +0800</pubDate>
+    <lastBuildDate>Fri, 06 Nov 2026 13:52:40 +0800</lastBuildDate>
+    <docs>https://cyber.harvard.edu/rss/</docs>
+    <generator>DFES WA</generator>
+    <managingEditor>redacted@example.invalid</managingEditor>
+    <webMaster>redacted@example.invalid</webMaster>
+    <ttl>1</ttl>
+    <item>
+      <title>Bushfire Advice THREAT IS REDUCED - MUELLER RANGES AND ORD RIVER</title>
+      <link>https://emergency.wa.gov.au/warnings/6aec15815d73d091544fe038</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Department of Fire and Emergency Services (DFES).
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        Please note that this alert is now Bushfire Advice - Threat is Reduced as the fire is no longer impacting Great Northern Highway.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        10:26 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6aec15815d73d091544fe038" data-hazard-type="Warnings" data-warning-type="Bushfire Advice">
+                          <strong style="font-weight: 600;">
+                            Bushfire Advice - THREAT IS REDUCED - MUELLER RANGES and ORD RIVER
+                          </strong>
+                        </p>
+                        <p>A Bushfire Advice is in place for people travelling along Great Northern Highway between Banjo's Bore and Palm Creek, including people at the Fletcher Family block, in MUELLER RANGES and ORD RIVER in the SHIRE OF HALLS CREEK.</p>
+                        
+                        <ul><li><p>There is no threat to lives or homes.</p></li></ul>
+                        
+                        
+                        
+                        
+                          <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                          <ul><li><p>The threat of the fire has reduced however you should take care in the area.</p></li><li><p>Stay alert for potential dangers such as smoke and fallen trees and power poles.</p></li><li><p>If you do not have a plan, make one now on <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/plan">Emergency WA</a>, or in the <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/app/plan">Emergency WA app</a> to stay safe in future emergencies.</p></li></ul>
+                          </p>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                    <p class="subtitle" style="font-weight: 600; color: #777777">WHAT FIREFIGHTERS ARE DOING</p>
+                    <ul><li><p>Firefighters are monitoring the situation.</p></li></ul>
+                    
+                    
+                  
+                    
+                      <p class="subtitle" style="font-weight: 600; color: #777777">ANIMAL WELFARE</p>
+                        <p>Owners or carers of livestock, pets and companion animals should activate their own animal welfare plan.</p><p>For more information, please see the <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.dpird.wa.gov.au/businesses/animal-welfare-businesses/animal-welfare-in-emergencies/?accordion=accordioncff0382f8d9443568d7cd5f401ec7887" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Department of Primary Industries and Regional Development</a> website.</p>
+                    
+                    
+                    
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">EXTRA INFORMATION</p>
+                        <ul><li><p>The incident was reported at 11:45 AM on 05 November 2026.</p></li></ul>
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>This is the final update for this incident.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DFES Media on 9395 9543.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:26:22 +0800</pubDate>
+      <dfes:region>KIMBERLEY</dfes:region>
+      <dfes:incidentNumber>829045</dfes:incidentNumber>
+      <dfes:publicationTime>Fri, 06 Nov 2026 10:26:22 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6aec15815d73d091544fe038</guid>
+      <geo:long>127.79218474497881</geo:long>
+      <geo:lat>-18.08969564759748</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon>-18.036879988643662,127.80052793151765 -18.037808271893397,127.81098787857428 -18.076314774893845,127.80436463259485 -18.088985510239908,127.80233138602853 -18.092733532828305,127.79576888952641 -18.1351507806515,127.7352342493125 -18.190135913384808,127.69483385188579 -18.18951225993439,127.69015658644082 -18.16992586378241,127.68963656344192 -18.128378440881036,127.72708754488684 -18.08994953897313,127.7795908380769 -18.08279049473606,127.79493209376119 -18.036879988643662,127.80052793151765</georss:polygon>
+    </item>
+    <item>
+      <title>Bushfire Advice THREAT IS REDUCED - FORTESCUE</title>
+      <link>https://emergency.wa.gov.au/warnings/6aec4d0f329ce2154d556fad</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Department of Fire and Emergency Services (DFES).
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        Please note this warning is now Bushfire Advice - Threat is Reduced as the fire is no longer impacting Pannawonica Road.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        10:24 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6aec4d0f329ce2154d556fad" data-hazard-type="Warnings" data-warning-type="Bushfire Advice">
+                          <strong style="font-weight: 600;">
+                            Bushfire Advice - THREAT IS REDUCED - FORTESCUE
+                          </strong>
+                        </p>
+                        <p>A Bushfire Advice is in place for people travelling along Pannawonica Road near the intersection of North West Coastal Highway in FORTESCUE in the SHIRE OF ASHBURTON.</p>
+                        <ul><li><p>The alert level for this fire has been downgraded as fire activity has decreased.</p></li></ul>
+                        <ul><li><p>There is no threat to lives or homes.</p></li></ul>
+                        
+                        
+                        
+                        
+                          <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                          <ul><li><p>The threat of the fire has reduced however you should take care in the area.</p></li><li><p>Stay alert for potential dangers such as smoke and fallen trees and power poles.</p></li><li><p>If you do not have a plan, make one now on <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/plan">Emergency WA</a>, or in the <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/app/plan">Emergency WA app</a> to stay safe in future emergencies.</p></li></ul>
+                          </p>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">WHAT FIREFIGHTERS ARE DOING</p>
+                    <ul><li><p>Firefighters are monitoring the situation.</p></li></ul>
+                    
+                    
+                  
+                    
+                      <p class="subtitle" style="font-weight: 600; color: #777777">ANIMAL WELFARE</p>
+                        <p>Owners or carers of livestock, pets and companion animals should activate their own animal welfare plan.</p><p>For more information, please see the <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.dpird.wa.gov.au/businesses/animal-welfare-businesses/animal-welfare-in-emergencies/?accordion=accordioncff0382f8d9443568d7cd5f401ec7887" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Department of Primary Industries and Regional Development</a> website.</p>
+                    
+                    
+                    
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">EXTRA INFORMATION</p>
+                        <ul><li><p>The incident was reported at 04:26 PM on 05 November 2026.</p></li></ul>
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>This is the final update for this incident.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DFES Media on 9395 9543.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:24:06 +0800</pubDate>
+      <dfes:region>PILBARA</dfes:region>
+      <dfes:incidentNumber/>
+      <dfes:publicationTime>Fri, 06 Nov 2026 10:24:06 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6aec4d0f329ce2154d556fad</guid>
+      <geo:long>116.05208270399172</geo:long>
+      <geo:lat>-21.652401935633627</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon>-21.60576844534704,115.98663863146396 -21.699035425920215,115.98692949400868 -21.698494921557938,116.11752677651947 -21.60928394548222,116.1111278005393 -21.60901352542801,116.1111278005393 -21.60576844534704,115.98663863146396</georss:polygon>
+    </item>
+    <item>
+      <title>Bushfire Advice THREAT IS REDUCED - TANAMI</title>
+      <link>https://emergency.wa.gov.au/warnings/6aea8a0a1a5cad77dce827a5</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Department of Fire and Emergency Services (DFES).
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        Please note that this alert is now Bushfire Advice - Threat is Reduced as the fire is no longer impacting Tanami Road.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        10:23 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6aea8a0a1a5cad77dce827a5" data-hazard-type="Warnings" data-warning-type="Bushfire Advice">
+                          <strong style="font-weight: 600;">
+                            Bushfire Advice - THREAT IS REDUCED - TANAMI
+                          </strong>
+                        </p>
+                        <p>A Bushfire Advice is in place for people travelling along Tanami Road between Sturt Creek and Canning Stock Route in parts of TANAMI in the SHIRE OF HALLS CREEK.</p>
+                        
+                        <ul><li><p>There is no threat to lives or homes.</p></li></ul>
+                        
+                        
+                        <ul><li><p>There is a lot of smoke in the area.</p></li></ul>
+                        
+                          <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                          <ul><li><p>The threat of the fire has reduced however you should take care in the area.</p></li><li><p>Stay alert for potential dangers such as smoke and fallen trees and power poles.</p></li><li><p>If you do not have a plan, make one now on <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/plan">Emergency WA</a>, or in the <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/app/plan">Emergency WA app</a> to stay safe in future emergencies.</p></li></ul>
+                          </p>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                      <p>Roads have not been closed.</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                    <p class="subtitle" style="font-weight: 600; color: #777777">WHAT FIREFIGHTERS ARE DOING</p>
+                    <ul><li><p>Firefighters are monitoring the situation.</p></li></ul>
+                    
+                    
+                  
+                    
+                      <p class="subtitle" style="font-weight: 600; color: #777777">ANIMAL WELFARE</p>
+                        <p>Owners or carers of livestock, pets and companion animals should activate their own animal welfare plan.</p><p>For more information, please see the <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.dpird.wa.gov.au/businesses/animal-welfare-businesses/animal-welfare-in-emergencies/?accordion=accordioncff0382f8d9443568d7cd5f401ec7887" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Department of Primary Industries and Regional Development</a> website.</p>
+                    
+                    
+                    
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">EXTRA INFORMATION</p>
+                      <ul><li><p>DFES is managing the fire.</p></li></ul>
+                        <ul><li><p>The incident was reported at 09:18 AM on 04 November 2026.</p></li></ul>
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>This is the final update for this incident.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DFES Media on 9395 9543.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:23:47 +0800</pubDate>
+      <dfes:region>KIMBERLEY</dfes:region>
+      <dfes:incidentNumber>828856</dfes:incidentNumber>
+      <dfes:publicationTime>Fri, 06 Nov 2026 10:23:47 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6aea8a0a1a5cad77dce827a5</guid>
+      <geo:long>128.04378289582306</geo:long>
+      <geo:lat>-19.780896086849992</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon>-19.575436515639822,127.76890685685663 -19.76052147302302,127.7523966662232 -19.878277276279334,128.0112230890967 -19.976672650272633,128.29055761651597 -19.821140901517396,128.37837369697127 -19.668171684678725,128.00175444448973 -19.575436515639822,127.76890685685663</georss:polygon>
+    </item>
+    <item>
+      <title>Smoke Alert FOR MUNDARING, SAWYERS VALLEY, PARKERVILLE AND SURROUNDING AREAS IN THE SHIRE OF MUNDARING</title>
+      <link>https://emergency.wa.gov.au/warnings/6aed3744f40c0f2d9960253b</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Parks and Wildlife Service at the Department of Biodiversity, Conservation and Attractions.
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        This is a new alert.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        10:14 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6aed3744f40c0f2d9960253b" data-hazard-type="Warnings" data-warning-type="Smoke Alert">
+                          <strong style="font-weight: 600;">
+                            Smoke Alert
+                            for MUNDARING, SAWYERS VALLEY, PARKERVILLE and surrounding areas in the SHIRE OF MUNDARING
+                          </strong>
+                        </p>
+                        <ul><li><p>A Smoke Alert has been issued for people in MUNDARING, SAWYERS VALLEY, PARKERVILLE and surrounding areas in the SHIRE OF MUNDARING.</p></li><li><p>The smoke is the result of a Parks and Wildlife Service prescribed burn being carried out south-east of Mundaring.</p></li><li><p>Smoke may settle in low lying areas before clearing Saturday morning.</p></li></ul>
+                        <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                        <ul><li>Shut doors and windows and turn off air-conditioners.</li><li>If driving through the area, turn on headlights and drive slowly. If you cannot see clearly, pull over to the left, keep your headlights and hazard lights on, and wait until the smoke clears.</li><li>People with asthma and pre-existing respiratory or cardiovascular illnesses should follow their pre-prepared treatment plan.</li><li>If affected by smoke contact your doctor or call 1800MEDICARE (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800633422" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">1800 633 422</a>).</li><li>Watch for emergency services personnel and follow their directions.</li></ul>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                  
+                  
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>Updates will be provided when the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DBCA Media on 9219 9999.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:14:21 +0800</pubDate>
+      <dfes:region>METRO NORTH EAST</dfes:region>
+      <dfes:incidentNumber/>
+      <dfes:publicationTime>Fri, 06 Nov 2026 10:14:21 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6aed3744f40c0f2d9960253b</guid>
+      <geo:long>116.16725451493835</geo:long>
+      <geo:lat>-31.900912950575957</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Smoke Alert FOR PARTS OF WATEROUS AND LANE POOLE RESERVE IN THE SHIRE OF WAROONA</title>
+      <link>https://emergency.wa.gov.au/warnings/6aebe6f28b7bf91d20511a9d</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Parks and Wildlife Service at the Department of Biodiversity, Conservation and Attractions.
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        This is a new alert.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        10:08 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6aebe6f28b7bf91d20511a9d" data-hazard-type="Warnings" data-warning-type="Smoke Alert">
+                          <strong style="font-weight: 600;">
+                            Smoke Alert
+                            for parts of WATEROUS and LANE POOLE RESERVE in the SHIRE OF WAROONA
+                          </strong>
+                        </p>
+                        <ul><li><p>A Smoke Alert has been issued for people in WATEROUS and forest users in LANE POOLE RESERVE in the SHIRE OF WAROONA.</p></li><li><p>The smoke is the result of prescribed burning being carried out east of Waterous.</p></li><li><p>Smoke may settle in low lying areas before clearing Saturday morning.</p></li></ul>
+                        <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                        <ul><li>Shut doors and windows and turn off air-conditioners.</li><li>If driving through the area, turn on headlights and drive slowly. If you cannot see clearly, pull over to the left, keep your headlights and hazard lights on, and wait until the smoke clears.</li><li>People with asthma and pre-existing respiratory or cardiovascular illnesses should follow their pre-prepared treatment plan.</li><li>If affected by smoke contact your doctor or call 1800MEDICARE (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800633422" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">1800 633 422</a>).</li><li>Watch for emergency services personnel and follow their directions.</li></ul>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                  
+                  
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>Updates will be provided when the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DBCA Media on 9219 9999.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:08:19 +0800</pubDate>
+      <dfes:region>SOUTH WEST</dfes:region>
+      <dfes:incidentNumber/>
+      <dfes:publicationTime>Fri, 06 Nov 2026 10:08:19 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6aebe6f28b7bf91d20511a9d</guid>
+      <geo:long>116.14776445</geo:long>
+      <geo:lat>-32.78901263</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Smoke Alert FOR AREAS BETWEEN TREETON AND THE COAST, INCLUDING COWARAMUP AND JINDONG-TREETON ROAD, IN THE SHIRE OF AUGUSTA MARGARET RIVER</title>
+      <link>https://emergency.wa.gov.au/warnings/6aed2ad80f97b29043328acc</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Parks and Wildlife Service at the Department of Biodiversity, Conservation and Attractions.
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        This is a new alert.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        09:24 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6aed2ad80f97b29043328acc" data-hazard-type="Warnings" data-warning-type="Smoke Alert">
+                          <strong style="font-weight: 600;">
+                            Smoke Alert
+                            for areas between TREETON and the coast, including COWARAMUP and Jindong-Treeton Road, in the SHIRE OF AUGUSTA MARGARET RIVER
+                          </strong>
+                        </p>
+                        <ul><li><p>A Smoke Alert has been issued for people in areas between TREETON and the coast, including COWARAMUP and Jindong-Treeton Road, in the SHIRE OF AUGUSTA MARGARET RIVER.</p></li><li><p>Motorists travelling on Jindong-Treeton Road are advised smoke may impact visibility. Please drive to conditions.</p></li><li><p>The smoke is the result of a Parks and Wildlife Service prescribed burn near Treeton.</p></li><li><p>The smoke is expected to clear tomorrow.</p></li></ul>
+                        <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                        <ul><li>Shut doors and windows and turn off air-conditioners.</li><li>If driving through the area, turn on headlights and drive slowly. If you cannot see clearly, pull over to the left, keep your headlights and hazard lights on, and wait until the smoke clears.</li><li>People with asthma and pre-existing respiratory or cardiovascular illnesses should follow their pre-prepared treatment plan.</li><li>If affected by smoke contact your doctor or call 1800MEDICARE (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800633422" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">1800 633 422</a>).</li><li>Watch for emergency services personnel and follow their directions.</li></ul>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                  
+                  
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>Updates will be provided when the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DBCA Media on 9219 9999.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Fri, 06 Nov 2026 09:24:38 +0800</pubDate>
+      <dfes:region>LOWER SOUTH WEST</dfes:region>
+      <dfes:incidentNumber/>
+      <dfes:publicationTime>Fri, 06 Nov 2026 09:24:38 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6aed2ad80f97b29043328acc</guid>
+      <geo:long>115.199394</geo:long>
+      <geo:lat>-33.860058</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire Advice MONITOR CONDITIONS - GIBB</title>
+      <link>https://emergency.wa.gov.au/warnings/6aea8bea1a5cad77dce827c7</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Department of Fire and Emergency Services (DFES).
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        There is no change to the previous alert.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        10:29 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6aea8bea1a5cad77dce827c7" data-hazard-type="Warnings" data-warning-type="Bushfire Advice">
+                          <strong style="font-weight: 600;">
+                            Bushfire Advice - MONITOR CONDITIONS - GIBB
+                          </strong>
+                        </p>
+                        <p>A Bushfire Advice is in place for people travelling along Gibb River Road between Nullagunda Community and Gibb-Kalumburu Road Turn off in parts of GIBB in the SHIRE OF WYNDHAM-EAST KIMBERLEY.</p>
+                        
+                        <ul><li><p>There is no threat to lives or homes.</p></li></ul>
+                        
+                        
+                        <ul><li><p>There is a lot of smoke in the area.</p></li></ul>
+                        
+                          <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                          <ul><li><p>Stay alert and monitor your surroundings.</p></li><li><p>Read through your plan and decide what you will do if the situation gets worse. If you do not have a plan, make one now on <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/plan">Emergency WA</a>, or in the <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/app/plan">Emergency WA app</a>.</p></li><li><p>Watch for signs of a bushfire, especially smoke and flames.</p></li><li><p>Close all doors and windows, and turn off evaporative air conditioners but keep water running through the system if possible.</p></li><li><p>If you have a respiratory condition and you have been affected by smoke you should contact your local doctor or call 1800MEDICARE (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800633422">1800 633 422</a>).</p></li></ul><b>If driving</b><ul><li><p>Turn your headlights on and drive slowly.</p></li><li><p>Watch for emergency services personnel and follow their directions.</p></li><li><p>If you cannot see clearly, pull over, keep your headlights and hazard lights on, and wait until the smoke clears.</p></li></ul>
+                          </p>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">BUSHFIRE BEHAVIOUR</p>
+                    
+                    
+                    
+                    <ul><li><p>It is not contained or controlled.</p></li></ul>
+                    
+                    
+                    
+                    
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                      <p>Roads have not been closed.</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                    <p class="subtitle" style="font-weight: 600; color: #777777">WHAT FIREFIGHTERS ARE DOING</p>
+                    <ul><li><p>Firefighters are monitoring the situation.</p></li></ul>
+                    
+                    
+                  
+                    
+                      <p class="subtitle" style="font-weight: 600; color: #777777">ANIMAL WELFARE</p>
+                        <p>Owners or carers of livestock, pets and companion animals should activate their own animal welfare plan.</p><p>For more information, please see the <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.dpird.wa.gov.au/businesses/animal-welfare-businesses/animal-welfare-in-emergencies/?accordion=accordioncff0382f8d9443568d7cd5f401ec7887" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Department of Primary Industries and Regional Development</a> website.</p>
+                    
+                    
+                    
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">EXTRA INFORMATION</p>
+                      <ul><li><p>DFES is managing the fire.</p></li></ul>
+                        <ul><li><p>The incident was reported at 09:20 AM on 04 November 2026.</p></li></ul>
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>The next update will be provided by 4pm today unless the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DFES Media on 9395 9543.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Thu, 05 Nov 2026 15:27:12 +0800</pubDate>
+      <dfes:region>KIMBERLEY</dfes:region>
+      <dfes:incidentNumber>828857</dfes:incidentNumber>
+      <dfes:publicationTime>Thu, 05 Nov 2026 15:27:12 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6aea8bea1a5cad77dce827c7</guid>
+      <geo:long>126.49290862053067</geo:long>
+      <geo:lat>-16.272136148577076</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon>-16.109822625531393,126.49202053950665 -16.107200343903855,126.55582132222844 -16.207848445916994,126.59443214735188 -16.425826501543185,126.53061097749492 -16.447635347284404,126.42949658126457 -16.437071953250296,126.4211843179583 -16.37802607700742,126.39138509370946 -16.31192972222594,126.42753497230711 -16.12289323086152,126.46856996963237 -16.109822625531393,126.49202053950665</georss:polygon>
+    </item>
+    <item>
+      <title>Heatwave Advice STAY INFORMED - LOCATIONS BETWEEN ROEBOURNE AND WICKHAM, TO KARRATHA AND DAMPIER.</title>
+      <link>https://emergency.wa.gov.au/warnings/6ae96f1231ee163feeebed11</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Department of Health.
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        Changes to weather outlook.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        02:56 PM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        05 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6ae96f1231ee163feeebed11" data-hazard-type="Warnings" data-warning-type="Heatwave Advice">
+                          <strong style="font-weight: 600;">
+                            Heatwave Advice - STAY INFORMED - Locations between Roebourne and Wickham, to Karratha and Dampier.
+                          </strong>
+                        </p>
+                        <p>Higher temperatures are forecast for today (Thursday 5 November) and Friday, with typical temperature conditions returning from Saturday.</p>
+                        
+                        
+                        
+                        
+                        
+                        
+                          <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                          <p>People travelling in this area should be prepared for extreme heat.</p><ul><li><p>Avoid travelling in the hottest part of the day where possible.</p></li><li><p>Drink water frequently unless your doctor normally limits your fluids.</p></li><li><p>Never leave a person or pet in a vehicle.</p></li><li><p>Avoid exercise and outdoor work in the hottest part of the day.</p></li><li><p>If you must go out, wear a hat and sunscreen and take sufficient water with you.</p></li><li><p>Take shelter in a cool place.</p></li><li><p>If available, use fans or air-conditioners to keep cool.</p></li><li><p>Check in regularly with elderly neighbours and other vulnerable people.</p></li><li><p>Provide shelter and plenty of cool water for pets and other animals.</p></li></ul>
+                          </p>
+
+
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">EXTRA INFORMATION</p>
+                        <p>The Bureau of Meteorology is forecasting a severe heatwave to impact West Pilbara towns today.</p><p>Heatwaves are dangerous. Take extra care to prevent heat stress and heat stroke. In extreme circumstances you could be hospitalised or die.</p><p>Heatwaves can affect everyone however the following groups are more at risk:</p><ul><li><p>Babies and young children</p></li><li><p>Older children and teenagers</p></li><li><p>Pregnant women</p></li><li><p>Older people</p></li><li><p>People with existing physical/mental health conditions or on certain medications</p></li><li><p>People that exercise in the heat</p></li></ul>
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">SUPPORT INFORMATION</p>
+                      <p>A heatwave is more than just hot weather. When it is hot during the day and it does not cool down at night, it is hard for your body to cool itself.</p><p>If you feel unwell:</p><ul><li><p>Call 1800MEDICARE (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800633422" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">1800 633 422</a>) for free health advice.</p></li><li><p>See your GP or <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.healthdirect.gov.au/australian-health-services/urgent-care" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Health Clinic</a>.</p></li><li><p>For severe or life-threatening symptoms call <a target="_blank" rel="noopener noreferrer nofollow" href="tel:000" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">000</a> for an ambulance.</p></li></ul><p>Further support:</p><ul><li><p>For more information on heatwaves and how you can plan ahead visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.healthywa.wa.gov.au/Articles/F_I/Heatwave-be-prepared-for-extreme-heat" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Healthy WA</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.ahcwa.org.au/wp-content/uploads/2024/02/PHCQI_ClimateHealthBrochure_Generic_SEP23_WEB.pdf" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Aboriginal Health Council of Western Australia</a>.</p></li><li><p>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.healthdirect.gov.au/blog/how-to-handle-the-heatwave" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Health Direct How To Handle Heatwave</a>.</p></li><li><p>For information on working in the heat visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.commerce.wa.gov.au/worksafe/working-safely-hot-conditions" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Working Safely in Hot Conditions</a>.</p></li><li><p>For the latest heatwave forecast visit <a target="_blank" rel="noopener noreferrer nofollow" href="http://www.bom.gov.au/australia/heatwave/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Bureau of Meteorology</a>.</p></li><li><p>To receive wellbeing phone calls during heatwaves register for the Australian Red Cross free <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.redcross.org.au/teleredi/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">TeleRedi</a> service or call <a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800188071" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">1800 188 071</a>.</p></li></ul>
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ACCESSIBILITY</p>
+                      <ul><li>Translated heatwave resources are available on the <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.healthywa.wa.gov.au/Articles/S_T/Stay-healthy-when-its-hot-translated-fact-sheets" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Healthy WA Translated Fact Sheets</a></li><li>If you are deaf, hard of hearing, or have a speech/communication impairment contact the National Relay Service on <a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800555677" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">1800 555 677</a></li></ul>
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Follow <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/HealthyWA" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">HealthyWA</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/wacountryhealthservice/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">WA Country Health</a> (for regional areas) on Facebook.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>The next update will be provided tomorrow unless the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: Department of Health Media 9222 4333.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Thu, 05 Nov 2026 14:56:55 +0800</pubDate>
+      <dfes:region>PILBARA</dfes:region>
+      <dfes:incidentNumber/>
+      <dfes:publicationTime>Thu, 05 Nov 2026 14:56:55 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6ae96f1231ee163feeebed11</guid>
+      <geo:long>116.94955100405986</geo:long>
+      <geo:lat>-20.76649209688717</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon>-20.728889070885828,117.28688726485586 -20.678035514103613,117.1982498883794 -20.617209982622796,117.1923407299463 -20.59287296185255,117.17461325465143 -20.62716491896485,117.0364923289128 -20.70567543588254,116.9206728236503 -20.71009735542404,116.86394490270544 -20.679141210470135,116.80839881344582 -20.624952764927485,116.80958063488674 -20.620528366147937,116.73157974358668 -20.69904231184266,116.61221474326385 -20.79434191015288,116.6585764687951 -20.876078489580692,116.74839567695915 -20.94011123192179,116.97885285580122 -20.892641301917223,117.15730944044168 -20.80428521483742,117.24476498523296 -20.728889070885828,117.28688726485586</georss:polygon>
+    </item>
+    <item>
+      <title>Smoke Alert FOR MOUNT BARKER AND SURROUNDING AREAS, INCLUDING THE DENMARK-MOUNT BARKER ROAD, IN IN THE SHIRE OF PLANTAGENET AND CITY OF DENMARK</title>
+      <link>https://emergency.wa.gov.au/warnings/6aebfcce30f825bcdfb0366c</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Parks and Wildlife Service at the Department of Biodiversity, Conservation and Attractions.
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        This is a new alert.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        12:02 PM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        05 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6aebfcce30f825bcdfb0366c" data-hazard-type="Warnings" data-warning-type="Smoke Alert">
+                          <strong style="font-weight: 600;">
+                            Smoke Alert
+                            for MOUNT BARKER and surrounding areas, including the Denmark-Mount Barker Road, in in the SHIRE OF PLANTAGENET and CITY OF DENMARK
+                          </strong>
+                        </p>
+                        <ul><li><p>A Smoke Alert has been issued for people in MOUNT BARKER and surrounding areas, including the Denmark-Mount Barker Road, in in the SHIRE OF PLANTAGENET and CITY OF DENMARK.</p></li><li><p>The smoke is the result of a Parks and Wildlife Service prescribed burn being carried out in the area.</p></li><li><p>The smoke is expected to persist over the coming days, as burning operations continue.</p></li></ul>
+                        <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                        <ul><li>Shut doors and windows and turn off air-conditioners.</li><li>If driving through the area, turn on headlights and drive slowly. If you cannot see clearly, pull over to the left, keep your headlights and hazard lights on, and wait until the smoke clears.</li><li>People with asthma and pre-existing respiratory or cardiovascular illnesses should follow their pre-prepared treatment plan.</li><li>If affected by smoke contact your doctor or call 1800MEDICARE (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800633422" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">1800 633 422</a>).</li><li>Watch for emergency services personnel and follow their directions.</li></ul>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                  
+                  
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>Updates will be provided when the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DBCA Media on 9219 9999.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Thu, 05 Nov 2026 12:02:14 +0800</pubDate>
+      <dfes:region>LOWER SOUTH WEST</dfes:region>
+      <dfes:incidentNumber/>
+      <dfes:publicationTime>Thu, 05 Nov 2026 12:02:14 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6aebfcce30f825bcdfb0366c</guid>
+      <geo:long>117.47676823743555</geo:long>
+      <geo:lat>-34.759254877325745</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire Advice MONITOR CONDITIONS - ST GEORGE RANGES</title>
+      <link>https://emergency.wa.gov.au/warnings/6ae834ec2628ddf3b8f9146f</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Department of Fire and Emergency Services (DFES).
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        There is no change to the previous alert.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        10:27 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6ae834ec2628ddf3b8f9146f" data-hazard-type="Warnings" data-warning-type="Bushfire Advice">
+                          <strong style="font-weight: 600;">
+                            Bushfire Advice - MONITOR CONDITIONS - ST GEORGE RANGES
+                          </strong>
+                        </p>
+                        <p>A Bushfire Advice is in place for people in the vicinity of Kadjina and Djilimbardi communities in ST GEORGE RANGES in the SHIRE OF DERBY/WEST KIMBERLEY.</p>
+                        
+                        <ul><li><p>There is no threat to lives or homes.</p></li></ul>
+                        
+                        
+                        
+                        
+                          <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                          <ul><li><p>Stay alert and monitor your surroundings.</p></li><li><p>Read through your plan and decide what you will do if the situation gets worse. If you do not have a plan, make one now on <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/plan">Emergency WA</a>, or in the <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/app/plan">Emergency WA app</a>.</p></li><li><p>Watch for signs of a bushfire, especially smoke and flames.</p></li><li><p>Close all doors and windows, and turn off evaporative air conditioners but keep water running through the system if possible.</p></li><li><p>If you have a respiratory condition and you have been affected by smoke you should contact your local doctor or call 1800MEDICARE (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800633422">1800 633 422</a>).</p></li></ul><b>If driving</b><ul><li><p>Turn your headlights on and drive slowly.</p></li><li><p>Watch for emergency services personnel and follow their directions.</p></li><li><p>If you cannot see clearly, pull over, keep your headlights and hazard lights on, and wait until the smoke clears.</p></li></ul>
+                          </p>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">BUSHFIRE BEHAVIOUR</p>
+                    
+                    
+                    <ul><li><p>The bushfire is moving rapidly in a southerly direction.</p></li></ul>
+                    <ul><li><p>It is not contained or controlled.</p></li></ul>
+                    
+                    
+                    
+                    
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                      <p>Some roads may be closed.</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                    <p class="subtitle" style="font-weight: 600; color: #777777">WHAT FIREFIGHTERS ARE DOING</p>
+                    <ul><li><p>Rangers and station workers are actively fighting the fire.</p></li></ul>
+                    
+                    
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">EXTRA INFORMATION</p>
+                        <ul><li><p>The incident was reported at 10:00 AM on 23 October 2026.</p></li></ul>
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>The next update will be provided by 4pm today unless the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DFES Media on 9395 9543.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:55:51 +0800</pubDate>
+      <dfes:region>KIMBERLEY</dfes:region>
+      <dfes:incidentNumber>825891</dfes:incidentNumber>
+      <dfes:publicationTime>Thu, 05 Nov 2026 10:55:51 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6ae834ec2628ddf3b8f9146f</guid>
+      <geo:long>124.89938182354555</geo:long>
+      <geo:lat>-18.927856036142238</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon>-18.79226503599591,124.92290789540357 -18.788068254343585,124.94299511984332 -18.804979453810105,124.95410683661083 -19.061761368380104,124.86973491609086 -19.05502419775553,124.85118794388814 -18.79226503599591,124.92290789540357</georss:polygon>
+    </item>
+    <item>
+      <title>Bushfire Advice STAY INFORMED - NGAMOOWALEM RESERVE</title>
+      <link>https://emergency.wa.gov.au/warnings/6ae95498b54b764863c882e5</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Parks and Wildlife Service at the Department of Biodiversity, Conservation and Attractions.
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        There is no change to the previous alert.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        10:54 AM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        06 Nov 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="6ae95498b54b764863c882e5" data-hazard-type="Warnings" data-warning-type="Bushfire Advice">
+                          <strong style="font-weight: 600;">
+                            Bushfire Advice - STAY INFORMED - NGAMOOWALEM RESERVE
+                          </strong>
+                        </p>
+                        <p>A Bushfire Advice is in place for people travelling along Valentine Springs Road and Parry Creek Road between Valentine Springs and Secret Springs including Black Rock Falls and Middle Springs in parts of NGAMOOWALEM RESERVE in the SHIRE OF WYNDHAM-EAST KIMBERLEY.</p>
+                        
+                        <ul><li><p>There is no threat to lives or homes.</p></li></ul>
+                        
+                        
+                        <ul><li><p>There is a lot of smoke in the area.</p></li></ul>
+                        
+                          <p class="subtitle" style="font-weight: 600; color: #777777">WHAT TO DO</p>
+                          <ul><li><p>Stay alert and monitor your surroundings.</p></li><li><p>Read through your plan and decide what you will do if the situation gets worse. If you do not have a plan, make one now on <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/plan">Emergency WA</a>, or in the <a target="_blank" rel="noopener noreferrer nofollow" href="https://emergency.wa.gov.au/app/plan">Emergency WA app</a>.</p></li><li><p>Watch for signs of a bushfire, especially smoke and flames.</p></li><li><p>Close all doors and windows, and turn off evaporative air conditioners but keep water running through the system if possible.</p></li><li><p>If you have a respiratory condition and you have been affected by smoke you should contact your local doctor or call 1800MEDICARE (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:1800633422">1800 633 422</a>).</p></li></ul><b>If driving</b><ul><li><p>Turn your headlights on and drive slowly.</p></li><li><p>Watch for emergency services personnel and follow their directions.</p></li><li><p>If you cannot see clearly, pull over, keep your headlights and hazard lights on, and wait until the smoke clears.</p></li></ul>
+                          </p>
+
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">BUSHFIRE BEHAVIOUR</p>
+                    
+                    
+                    <ul><li><p>The bushfire is moving in a south-westerly direction. </p></li></ul>
+                    <ul><li><p>It is not contained or controlled.</p></li></ul>
+                    
+                    
+                    
+                    
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                      <p>A number of roads have been closed including:</p><ul><li><p>Middle Springs Road</p></li><li><p>Black Rock Falls Road </p></li></ul>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                    <p class="subtitle" style="font-weight: 600; color: #777777">WHAT FIREFIGHTERS ARE DOING</p>
+                    <ul><li><p>Firefighters are monitoring the situation. </p></li></ul>
+                    
+                    
+                  
+                    
+                      <p class="subtitle" style="font-weight: 600; color: #777777">ANIMAL WELFARE</p>
+                        <p>Owners or carers of livestock, pets and companion animals should activate their own animal welfare plan.</p><p>For more information, please see the <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.dpird.wa.gov.au/businesses/animal-welfare-businesses/animal-welfare-in-emergencies/?accordion=accordioncff0382f8d9443568d7cd5f401ec7887" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Department of Primary Industries and Regional Development</a> website.</p>
+                    
+                    
+                    
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">EXTRA INFORMATION</p>
+                      <ul><li><p>Parks and Wildlife Service is managing the fire.</p></li></ul>
+                        <ul><li><p>The incident was reported at 05:45 AM on 02 November 2026.</p></li><li><p>The cause of the incident is lightning. </p></li></ul>
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</li><li>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</li><li>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</li><li>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a> or news bulletins.</li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>The next update will be provided by 4pm today unless the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DBCA Media on 9219 9999.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Tue, 03 Nov 2026 11:48:28 +0800</pubDate>
+      <dfes:region>KIMBERLEY</dfes:region>
+      <dfes:incidentNumber>828501</dfes:incidentNumber>
+      <dfes:publicationTime>Tue, 03 Nov 2026 11:48:28 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">6ae95498b54b764863c882e5</guid>
+      <geo:long>128.6600819172398</geo:long>
+      <geo:lat>-15.662223208794671</geo:lat>
+      <georss:alertLevel/>
+      <georss:polygon>-15.719369184657367,128.64897353658336 -15.700146043704095,128.6585344866008 -15.66491543692031,128.66695737805463 -15.655243259860669,128.68680542619364 -15.647784883147878,128.68704747556035 -15.639344022478667,128.68164737391027 -15.623376895365652,128.68588312104163 -15.612886842807995,128.68249442989713 -15.610672207530499,128.6787426646997 -15.608340986662796,128.67474885013536 -15.609390039332993,128.67232835645996 -15.607874739309878,128.66518790011799 -15.609506600409134,128.65683719693828 -15.60670911628928,128.6526013330053 -15.607874739309878,128.64993878996302 -15.605077232931976,128.64376653109014 -15.641937116614699,128.63047112887824 -15.719601469831161,128.61990317090283 -15.719369184657367,128.64897353658336</georss:polygon>
+    </item>
+    <item>
+      <title>Facility or Park Closure Park Closure for Nyinggulara National Park (Ex-Ningaloo) in the SHIRE OF EXMOUTH.</title>
+      <link>https://emergency.wa.gov.au/closures/69c3670c8ecdafcd633709bf</link>
+      <description><![CDATA[<div class="container--email">
+  <centre>
+    <table>
+      <tr>
+        <td style="width: 600px;">
+          <table style="width:100%; border:0;">
+            <tr>
+              <td style="padding: 10px 20px; text-align: Left;">
+                <img src="https://genvis.com/assets/ewa-logo.png" width="100%"
+                  alt="Government of Western Australia | Emergency WA" />
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%; border: 0;" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0px 20px 0px;">
+                <div style="font-family: Arial, Helvetica, sans-serif;font-size: 12pt">
+                  
+                  
+                  
+
+                  <p>
+                    <strong style="font-weight: 600;">The following alert has been issued by 
+                        the Parks and Wildlife Service at the Department of Biodiversity, Conservation and Attractions.
+                    </strong>
+                  </p>
+                    <p>
+                      <strong class="event-note" style="font-weight: 600; color: #C2020D;">
+                        This is a new alert.
+                      </strong>
+                    </p>
+                  <p style="margin-bottom: 0;">
+                    <span style="color:#45444F">
+                      Time of issue:
+                        01:39 PM
+                    </span>
+                  </p>
+                  <p style="margin-top: 0;">
+                    <span style="color:#45444F">
+                      Date of issue:
+                        30 Mar 2026
+                    </span>
+                  </p>
+                  
+                  
+                        <p id="69c3670c8ecdafcd633709bf" data-hazard-type="Centres and Closures" data-centre-or-closure-type="Facility or Park Closure" class="subtitle"
+                          style="font-weight: 600; color: #777777">FACILITY OR PARK CLOSURE
+                        </p>
+                        <p><strong>Park Closure for Nyinggulara National Park (Ex-Ningaloo) in the SHIRE OF EXMOUTH.</strong></p>
+                          <p>The Parks and Wildlife Service has issued a park closure for Nyinggulara National Park (Ex-Ningaloo) in the SHIRE OF EXMOUTH due to impacts from Tropical Cyclone Narelle.</p><p>The park will be closed from 4.30pm on Wednesday 25 March until further notice.</p>
+                          <strong style="font-weight: 600; color: #777777"> WHAT TO DO </strong>
+                          <ul><li>People are urged to avoid the area, follow the advice of Parks and Wildlife Service staff and observe signage.</li><li>People already in the area should leave for a safer place.</li><li>For more information, contact your local Parks and Wildlife Service office.</li></ul>
+
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">ROAD CLOSURES AND CONDITIONS</p>
+                        <p>Motorists are asked to avoid the area, reduce speed and drive carefully. Road information may also be available from Main Roads WA by visiting the <a target="_blank" rel="noopener noreferrer nofollow" href="https://travelmap.mainroads.wa.gov.au/Home/Map" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Main Roads Travel Map</a>, calling <a target="_blank" rel="noopener noreferrer nofollow" href="tel:138138" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">138 138</a> or by contacting your Local Government Authority.</p>
+                  
+                  
+                  
+                  
+                  
+                    <p class="subtitle" style="font-weight: 600; color: #777777">
+                      KEEP UP TO DATE
+                    </p>
+                    <ul><li><p>Visit <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.emergency.wa.gov.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Emergency WA</a> or download the Emergency WA app from the <a target="_blank" rel="noopener noreferrer nofollow" href="https://apps.apple.com/au/app/emergency-wa/id6738075801/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">App Store</a> or <a target="_blank" rel="noopener noreferrer nofollow" href="https://play.google.com/store/apps/details?id=au.gov.wa.dfes.emergencywa" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Google Play</a>.</p></li><li><p>Call 13 DFES (<a target="_blank" rel="noopener noreferrer nofollow" href="tel:133337" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">13 3337</a>).</p></li><li><p>Follow DFES on <a target="_blank" rel="noopener noreferrer nofollow" href="https://www.facebook.com/dfeswa/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">Facebook</a>.</p></li><li><p>Listen to <a target="_blank" rel="noopener noreferrer nofollow" href="https://reception.abc.net.au/" style="color: #0070f3; text-decoration: underline; word-wrap: break-word; white-space: normal;">ABC Local Radio</a>, 6PR, or news bulletins.</p></li></ul><p>During a power outage, your home phone, computer or other electronic devices connected to the NBN will not work. Include a battery powered radio in your emergency kit.</p>
+                      <p>Updates will be provided when the situation changes.</p>
+                  
+                  <p class="subtitle" style="font-weight: 600; color: #777777">
+                    END
+                  </p>
+                    Media Contact: DBCA Media on 9219 9999.
+                                  </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </centre>
+</div>]]></description>
+      <pubDate>Mon, 30 Mar 2026 13:39:20 +0800</pubDate>
+      <dfes:region>PILBARA</dfes:region>
+      <dfes:publicationTime>Mon, 30 Mar 2026 13:39:20 +0800</dfes:publicationTime>
+      <guid isPermaLink="false">69c3670c8ecdafcd633709bf</guid>
+      <geo:long>113.72833900605667</geo:long>
+      <geo:lat>-22.57225252389948</geo:lat>
+      <georss:polygon/>
+    </item>
+  </channel>
+</rss>

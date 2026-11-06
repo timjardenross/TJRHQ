@@ -36,7 +36,7 @@ def _feature(alert_type, summary, x, y, ident):
             "AREA_DESCRIPTION": "Near Hobart", "FULL_DESCRIPTION": "Fire burning.",
             "ALERT_INSTRUCTIONS": "Leave now", "IDENTIFIER": ident,
             "TASALERT_LINK": f"https://alert.tas.gov.au/?id={ident}",
-            "EFFECTIVE_FROM_DATE": NOW_MS - 600_000, "EXPIRES_DATE": NOW_MS + 3_600_000,
+            "EFFECTIVE_FROM_DATE": NOW_MS - 600_000, "EXPIRES_DATE": NOW_MS + 86_400_000,  # wall-clock-as-UTC: a day ahead is unambiguously live
         },
         "geometry": {"x": x, "y": y},
     }

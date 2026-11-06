@@ -33,5 +33,26 @@ NOT_YET_IMPLEMENTED = (
 )
 
 
+SOURCE_INFO = {
+    "source_key": "nt_securent",
+    "jurisdiction": "NT",
+    "feed_urls": [],
+    "format": "none (not monitored)",
+    "fixture_dir": None,
+    "severity_field": "none - NT fire/emergency alerts are not monitored",
+    "severity_map": None,
+    "alert_type_rule": "n/a (stub returns no alerts; heartbeat is 'skipped').",
+    "exclusions": [],
+    "invalid_reasons": [],
+    "stale_after_hours": None,
+    "expected_fields": [],
+    "known_gaps": [
+        "NOT MONITORED: securent.nt.gov.au answers automated requests with a Cloudflare challenge (HTTP 403) and no public API/RSS/CAP feed was found. The challenge is a bot check and is deliberately NOT bypassed; the route is a sanctioned feed or allowlisted fetch from NT Government (PFES / Bushfires NT / Secure NT) or BoM's CAP-AU.",
+        "BOM weather warnings for NT (bom_nt) are still monitored.",
+    ],
+    "last_verified": "2026-11-01",
+}
+
+
 def fetch() -> list[CanonicalAlert]:
     return []

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Weather Warnings for New South Wales / Australian Capital Territory. Issued by the Australian Bureau of Meteorology</title>
+		<link>https://reg.bom.gov.au/fwo/IDZ00054.warnings_nsw.xml</link>
+		<atom:link href="https://reg.bom.gov.au/fwo/IDZ00054.warnings_nsw.xml" rel="self" type="application/rss+xml" />
+		<description>Current weather warnings for New South Wales / Australian Capital Territory, Australia including strong wind, gale, storm force and hurricane force wind warnings; tsunami; damaging waves; abnormally high tides; tropical cyclones; severe thunderstorms; severe weather; fire weather; flood; frost; driving; bushwalking; sheep graziers and other agricultural warnings.</description>
+		<language>en-au</language>
+		<copyright>Copyright: (C) Copyright Commonwealth of Australia 2010, Bureau of Meteorology (ABN 92637 533532), see https://reg.bom.gov.au/other/copyright.shtml for terms and conditions of reuse.</copyright>
+		<webMaster>redacted@example.invalid (Help desk)</webMaster>
+		<pubDate>Fri, 06 Nov 2026 05:51:00 GMT</pubDate>
+		<lastBuildDate>Fri, 06 Nov 2026 05:51:00 GMT</lastBuildDate>
+		<generator>Australian Bureau of Meteorology</generator>
+		<ttl>10</ttl>
+		<image>
+			<url>https://reg.bom.gov.au/images/bom_logo_inline.gif</url>
+			<title>Weather Warnings for New South Wales / Australian Capital Territory. Issued by the Australian Bureau of Meteorology</title>
+			<link>https://reg.bom.gov.au/fwo/IDZ00054.warnings_nsw.xml</link>
+		</image>
+		<item>
+			<title>06/16:05 EDT Marine Wind Warning Summary for New South Wales</title>
+			<link>http://reg.bom.gov.au/nsw/warnings/marinewind.shtml</link>
+			<pubDate>Fri, 06 Nov 2026 05:05:10 GMT</pubDate>
+			<guid isPermaLink="false">http://reg.bom.gov.au/nsw/warnings/marinewind.shtml</guid>
+		</item>
+		<item>
+			<title>06/16:08 EDT Fire Weather Warning
+for Greater Hunter and Upper Central West Plains fire weather districts</title>
+			<link>http://reg.bom.gov.au/nsw/warnings/fire.shtml</link>
+			<pubDate>Fri, 06 Nov 2026 05:08:23 GMT</pubDate>
+			<guid isPermaLink="false">http://reg.bom.gov.au/nsw/warnings/fire.shtml</guid>
+		</item>
+		<item>
+			<title>06/16:44 EDT Hazardous Surf Warning for New South Wales</title>
+			<link>http://reg.bom.gov.au/nsw/warnings/hazardoussurf.shtml</link>
+			<pubDate>Fri, 06 Nov 2026 05:44:26 GMT</pubDate>
+			<guid isPermaLink="false">http://reg.bom.gov.au/nsw/warnings/hazardoussurf.shtml</guid>
+		</item>
+		<item>
+			<title>06/10:09 EDT Warning to Sheep Graziers
+for Illawarra, South Coast, Southern Tablelands, Snowy Mountains and Australian Capital Territory forecast districts</title>
+			<link>http://reg.bom.gov.au/nsw/warnings/sheep.shtml</link>
+			<pubDate>Thu, 05 Nov 2026 23:09:16 GMT</pubDate>
+			<guid isPermaLink="false">http://reg.bom.gov.au/nsw/warnings/sheep.shtml</guid>
+		</item>
+		<item>
+			<title>06/12:50 EDT Minor Flood Warning for the Warrego River (NSW)</title>
+			<link>http://reg.bom.gov.au/nsw/warnings/flood/warregoriver.shtml</link>
+			<pubDate>Fri, 06 Nov 2026 01:50:45 GMT</pubDate>
+			<guid isPermaLink="false">http://reg.bom.gov.au/nsw/warnings/flood/warregoriver.shtml</guid>
+		</item>
+		<item>
+			<title>06/11:53 EDT Minor Flood Warning for the Paroo River (NSW)</title>
+			<link>http://reg.bom.gov.au/nsw/warnings/flood/parooriver.shtml</link>
+			<pubDate>Fri, 06 Nov 2026 00:53:42 GMT</pubDate>
+			<guid isPermaLink="false">http://reg.bom.gov.au/nsw/warnings/flood/parooriver.shtml</guid>
+		</item>
+		<item>
+			<title>04/08:39 EDT Final Flood Warning for the Macintyre Brook</title>
+			<link>http://reg.bom.gov.au/qld/warnings/flood/border-rivers.shtml</link>
+			<pubDate>Tue, 03 Nov 2026 21:39:47 GMT</pubDate>
+			<guid isPermaLink="false">http://reg.bom.gov.au/qld/warnings/flood/border-rivers.shtml</guid>
+		</item>
+	</channel>
+</rss>

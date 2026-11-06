@@ -58,6 +58,38 @@ describe('assessCoverage', () => {
     expect(assessCoverage([src({ active: false })], NOW).level).toBe('unknown');
   });
 
+  it('a healthy incidents-only source (ACT) makes coverage partial with an incidents_only gap', () => {
+    const a = assessCoverage([src(), src({ sourceKey: 'act_esa', jurisdiction: 'ACT', sourceName: 'ACT ESA — Current Incidents' })], NOW);
+    expect(a.level).toBe('partial');
+    expect(a.gaps).toHaveLength(1);
+    expect(a.gaps[0]).toMatchObject({ sourceKey: 'act_esa', issue: 'incidents_only' });
+    expect(a.gaps[0].detail).toContain('no warning levels');
+  });
+
+  it('a failed incidents-only source is degraded, reported as failed (not incidents_only)', () => {
+    const a = assessCoverage([src(), src({ sourceKey: 'act_esa', jurisdiction: 'ACT', status: 'failed', lastAction: 'HTTP 503' })], NOW);
+    expect(a.level).toBe('degraded');
+    expect(a.gaps.map((g) => [g.sourceKey, g.issue])).toEqual([['act_esa', 'failed']]);
+  });
+
+  it('a stale incidents-only source is degraded, reported as stale', () => {
+    const a = assessCoverage([src(), src({ sourceKey: 'act_esa', jurisdiction: 'ACT', lastRun: minsAgo(300) })], NOW);
+    expect(a.level).toBe('degraded');
+    expect(a.gaps.map((g) => g.issue)).toEqual(['stale']);
+  });
+
+  it('a real failure elsewhere outranks incidents_only', () => {
+    const a = assessCoverage([src({ status: 'failed' }), src({ sourceKey: 'act_esa', jurisdiction: 'ACT' })], NOW);
+    expect(a.level).toBe('degraded');
+    expect(a.gaps.map((g) => g.issue).sort()).toEqual(['failed', 'incidents_only']);
+  });
+
+  it('other sources are unaffected by the incidents-only map', () => {
+    for (const key of ['nsw_rfs', 'vic_emergency', 'qld_fire', 'sa_cfs', 'wa_dfes', 'tas_fire']) {
+      expect(assessCoverage([src({ sourceKey: key })], NOW).level).toBe('good');
+    }
+  });
+
   it('inactive sources are ignored', () => {
     expect(assessCoverage([src(), src({ sourceKey: 'x', active: false, status: 'failed' })], NOW).level).toBe('good');
   });
@@ -72,6 +104,11 @@ describe('staleThresholdMs', () => {
 });
 
 describe('describeGaps', () => {
+  it('labels incidents-only gaps', () => {
+    const a = assessCoverage([src({ sourceKey: 'act_esa', jurisdiction: 'ACT', sourceName: 'ACT ESA — Current Incidents' })], NOW);
+    expect(describeGaps(a.gaps)).toEqual(['ACT ACT ESA — incidents only (no warning levels monitored)']);
+  });
+
   it('groups by issue and names the jurisdiction', () => {
     const a = assessCoverage([
       src({ sourceKey: 'tas_fire', jurisdiction: 'TAS', sourceName: 'TasALERT — Current Warnings', status: 'skipped' }),

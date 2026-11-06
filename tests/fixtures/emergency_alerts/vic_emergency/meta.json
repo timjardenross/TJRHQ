@@ -1,0 +1,21 @@
+{
+  "source_key": "vic_emergency",
+  "url": "https://data.emergency.vic.gov.au/Show?pageId=getIncidentJSON",
+  "captured_at": "2026-11-06T05:52:44.191607+00:00",
+  "captured_by": "claude-code",
+  "feeds": {
+    "incidents.json": {
+      "url": "https://data.emergency.vic.gov.au/Show?pageId=getIncidentJSON",
+      "captured_at": "2026-11-06T05:52:44.191607+00:00",
+      "synthetic": false,
+      "redactions": 0
+    },
+    "warnings.json": {
+      "url": "https://www.emergency.vic.gov.au/public/events-geojson.json",
+      "captured_at": "2026-11-06T05:52:45.544296+00:00",
+      "synthetic": false,
+      "redactions": 1
+    }
+  },
+  "notes": "Untrimmed live snapshot (single fetch via base.http_get). 1 email address(es) replaced with redacted@example.invalid. Two feed URLs: incidents (getIncidentJSON) and the public events feed (warnings)."
+}

@@ -52,6 +52,7 @@ import { newlyAppeared } from '@/lib/alertAnnounce';
 import { matchAreas, type AreaResult } from '@/lib/bomAreas';
 import { alertEmailStatus, type EmailState, type EmailStatus } from '@/lib/alertEmailStatus';
 import { assessCoverage, describeGaps, type CoverageAssessment } from '@/lib/alertCoverage';
+import { capDetails, integrityLines } from '@/lib/alertIntegrity';
 
 // Backend ingests every 15min 24/7 (intelligence/scheduler.py,
 // EMERGENCY_ALERT_INTERVAL_MINUTES), so a few minutes is the right UI cadence:
@@ -338,6 +339,13 @@ function AlertDetailPanel({ alert, isMuted, onClose }: { alert: EmergencyAlertEn
         {EMAIL_STATE_ICON[email.state]}{email.label}
         <span className="ml-2 font-normal text-wb-ink2">{email.detail}</span>
       </p>
+      {capDetails(alert).length > 0 && (
+        <dl className="mt-3 grid grid-cols-2 gap-3 text-wb-label text-wb-ink2 sm:grid-cols-4" aria-label="CAP fields from the source">
+          {capDetails(alert).map((d) => (
+            <div key={d.label}><dt className="uppercase tracking-wide">{d.label}</dt><dd className="text-wb-ink">{d.value}</dd></div>
+          ))}
+        </dl>
+      )}
       {alert.rawText && (
         <p className="mt-4 whitespace-pre-wrap text-wb-body text-wb-ink2">{alert.rawText}</p>
       )}
@@ -350,11 +358,12 @@ function AlertDetailPanel({ alert, isMuted, onClose }: { alert: EmergencyAlertEn
   );
 }
 
-function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment; sourceCount: number }) {
+function CoveragePanel({ coverage, sourceCount, sources }: { coverage: CoverageAssessment; sourceCount: number; sources: EmergencyAlertSourceEntry[] }) {
   const { level, gaps, newestCheckedAt, oldestCheckedAt } = coverage;
   const allStale = gaps.length > 0 && gaps.every((g) => g.issue === 'stale');
   const gapLines = describeGaps(gaps);
-  const real = gaps.filter((g) => g.issue !== 'not_implemented');
+  const real = gaps.filter((g) => g.issue !== 'not_implemented' && g.issue !== 'incidents_only');
+  const integrity = integrityLines(sources);
 
   return (
     <section aria-label={`Alert coverage: ${level}`} data-alert-state={level === 'degraded' ? 'unavailable' : level}>
@@ -367,7 +376,7 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
           )}
           {level === 'partial' && (
             <p className="mt-1 rounded border border-l-4 border-wb-line border-l-state-warn bg-wb-surface px-3 py-2 text-wb-label text-wb-ink">
-              Coverage is partial — some official sources are not monitored yet, so “none detected” does not cover them.
+              Coverage is partial — some official sources are not monitored yet, or only partly (incidents without warning levels), so “none detected” does not cover them.
             </p>
           )}
           {level === 'degraded' && (
@@ -382,6 +391,21 @@ function CoveragePanel({ coverage, sourceCount }: { coverage: CoverageAssessment
             <ul className="mt-1 list-disc pl-4 text-wb-label text-wb-ink2">
               {gapLines.map((line) => <li key={line}>{line}</li>)}
             </ul>
+          )}
+          {integrity.length > 0 && (
+            <details className="mt-2 text-wb-label text-wb-ink2">
+              <summary className="cursor-pointer font-semibold text-wb-ink">What the feeds are dropping ({integrity.length} source{integrity.length === 1 ? '' : 's'}){integrity.some((l) => l.attention) ? ' — needs a look' : ''}</summary>
+              <p className="mt-1">Latest run per source. Exclusions are deliberate filters, not errors.</p>
+              <ul className="mt-1 list-disc pl-4">
+                {integrity.map((l) => (
+                  <li key={l.sourceKey}>
+                    <span className="font-semibold text-wb-ink">{l.jurisdiction} {l.sourceName}</span>: {l.summary}
+                    {l.drops.length > 0 && <> · {l.drops.join(' · ')}</>}
+                    {l.warnings.map((w) => <span key={w} className="ml-1 font-semibold text-wb-ink">· {w}</span>)}
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
           <p className="mt-1 text-wb-label text-wb-ink2">
             {newestCheckedAt ? `Last checked ${relativeTime(newestCheckedAt)}` : 'No collection recorded yet.'}
@@ -1220,7 +1244,7 @@ export default function EmergencyAlertsWorkbench() {
                     </Card>
                   )}
 
-                  <CoveragePanel coverage={coverage} sourceCount={sources.filter((x) => x.active).length} />
+                  <CoveragePanel coverage={coverage} sourceCount={sources.filter((x) => x.active).length} sources={sources} />
                 </div>
               </>
             )}

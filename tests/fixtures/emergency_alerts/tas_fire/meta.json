@@ -1,0 +1,15 @@
+{
+  "source_key": "tas_fire",
+  "url": "https://services.thelist.tas.gov.au/arcgis/rest/services/Public/EmergencyManagementPublic/MapServer/72/query?where=1%3D1&outFields=*&outSR=4326&f=json",
+  "captured_at": "2026-11-06T05:52:47.585874+00:00",
+  "captured_by": "claude-code",
+  "feeds": {
+    "feed.json": {
+      "url": "https://services.thelist.tas.gov.au/arcgis/rest/services/Public/EmergencyManagementPublic/MapServer/72/query?where=1%3D1&outFields=*&outSR=4326&f=json",
+      "captured_at": "2026-11-06T05:52:47.585874+00:00",
+      "synthetic": false,
+      "redactions": 0
+    }
+  },
+  "notes": "Untrimmed live snapshot (single fetch via base.http_get). No redaction needed. Only one record live at capture time (a Smoke Alert), so the full ALERT_TYPE vocabulary is not exercised by this snapshot."
+}

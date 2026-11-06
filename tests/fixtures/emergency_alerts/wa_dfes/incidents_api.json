@@ -1,0 +1,424 @@
+{
+ "incidents": [
+  {
+   "suburbs": [
+    "MUNGALUP"
+   ],
+   "start-date-time": "2026-11-06T10:50:01.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF COLLIE"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T17:32:30.000+08:00",
+   "published-date-time": "2026-11-06T17:32:53.064+08:00",
+   "dfes-regions": [
+    "SOUTH WEST"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "829176",
+   "nearest-cross-street": {
+    "latitude": -33.34772,
+    "value": "PALMER RD",
+    "longitude": 116.08952
+   },
+   "name": "Bushfire",
+   "location": {
+    "latitude": -33.34772,
+    "value": "FERGUSON RD",
+    "longitude": 116.08952
+   },
+   "id": "6aed4098f40c0f2d99602650",
+   "event": "6aed4097f40c0f2d99602648",
+   "updatedAt": "2026-11-06T09:32:53.818Z",
+   "issued-date-time": "2026-11-06T17:32:30.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "YALLINGUP"
+   ],
+   "start-date-time": "2026-11-06T13:36:14.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_other",
+   "lga": [
+    "CITY OF BUSSELTON"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T16:53:02.000+08:00",
+   "published-date-time": "2026-11-06T16:53:30.896+08:00",
+   "dfes-regions": [
+    "LOWER SOUTH WEST"
+   ],
+   "incident-type": "Other Incident",
+   "incident-icon": "ew-other-burn-off",
+   "incident-status": "Active",
+   "cad-id": "829210",
+   "name": "Burn Off",
+   "location": {
+    "latitude": -33.67807754,
+    "value": "BRUSHWOOD BROOK DR",
+    "longitude": 115.07860039
+   },
+   "id": "6aed6773fc655a314808138b",
+   "event": "6aed6772fc655a3148081383",
+   "updatedAt": "2026-11-06T08:53:31.281Z",
+   "issued-date-time": "2026-11-06T16:53:02.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "BULARL DI WUNAMI"
+   ],
+   "start-date-time": "2026-11-03T11:27:17.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF DERBY/WEST KIMBERLEY"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T16:02:14.000+08:00",
+   "published-date-time": "2026-11-06T16:03:36.526+08:00",
+   "dfes-regions": [
+    "KIMBERLEY"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "828733",
+   "name": "Bushfire",
+   "location": {
+    "latitude": -17.004,
+    "value": "BULARL DI WUNAMI",
+    "longitude": 126.102
+   },
+   "id": "6ae954d7b54b764863c882f6",
+   "event": "6ae954d6b54b764863c882ee",
+   "updatedAt": "2026-11-06T08:03:37.012Z",
+   "issued-date-time": "2026-11-06T16:02:14.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "MOUNT STIRLING"
+   ],
+   "start-date-time": "2026-11-06T11:59:16.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF QUAIRADING"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T14:15:44.000+08:00",
+   "published-date-time": "2026-11-06T14:16:22.652+08:00",
+   "dfes-regions": [
+    "GOLDFIELDS MIDLANDS"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "On scene",
+   "cad-id": "829192",
+   "name": "Bushfire",
+   "location": {
+    "latitude": -31.83646283,
+    "value": "KELLERBERRIN-YOTING RD",
+    "longitude": 117.60681753
+   },
+   "id": "6aed513550b235c965f3eaf8",
+   "event": "6aed513450b235c965f3eaf0",
+   "updatedAt": "2026-11-06T06:16:23.181Z",
+   "issued-date-time": "2026-11-06T14:15:44.000+08:00"
+  },
+  {
+   "suburbs": [
+    "GREENBUSHES"
+   ],
+   "start-date-time": "2026-11-04T10:07:47.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_other",
+   "lga": [
+    "SHIRE OF BRIDGETOWN-GREENBUSHES"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T14:11:30.000+08:00",
+   "published-date-time": "2026-11-06T14:11:55.313+08:00",
+   "dfes-regions": [
+    "LOWER SOUTH WEST"
+   ],
+   "incident-type": "Other Incident",
+   "incident-icon": "ew-other-burn-off",
+   "incident-status": "Active",
+   "cad-id": "828869",
+   "nearest-cross-street": {
+    "latitude": -33.83659,
+    "value": "BLACKWOOD RD",
+    "longitude": 116.05117
+   },
+   "name": "Burn Off",
+   "location": {
+    "latitude": -33.83659,
+    "value": "SOUTH WESTERN HWY",
+    "longitude": 116.05117
+   },
+   "id": "6aea93951a5cad77dce82903",
+   "event": "6aea93941a5cad77dce828fb",
+   "updatedAt": "2026-11-06T06:11:55.960Z",
+   "issued-date-time": "2026-11-06T14:11:30.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "STURT CREEK"
+   ],
+   "start-date-time": "2026-11-06T13:49:02.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF HALLS CREEK"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T13:50:17.000+08:00",
+   "published-date-time": "2026-11-06T13:51:24.521+08:00",
+   "dfes-regions": [
+    "KIMBERLEY"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "829215",
+   "name": "Bushfire",
+   "location": {
+    "latitude": -19.478,
+    "value": "STURT CREEK",
+    "longitude": 127.147
+   },
+   "id": "6aed6ab0fc655a3148081442",
+   "event": "6aed6aaffc655a314808143a",
+   "updatedAt": "2026-11-06T05:51:24.995Z",
+   "issued-date-time": "2026-11-06T13:50:17.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "STRELLEY"
+   ],
+   "start-date-time": "2026-11-06T10:44:09.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "TOWN OF PORT HEDLAND"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T13:41:53.000+08:00",
+   "published-date-time": "2026-11-06T13:42:42.246+08:00",
+   "dfes-regions": [
+    "PILBARA"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "829175",
+   "nearest-cross-street": {
+    "latitude": -20.38238,
+    "value": "GREAT NORTHERN HWY",
+    "longitude": 118.97393
+   },
+   "name": "Bushfire",
+   "location": {
+    "latitude": -20.38238,
+    "value": "MARBLE BAR RD",
+    "longitude": 118.97393
+   },
+   "id": "6aed3fdcf40c0f2d9960263f",
+   "event": "6aed3fdbf40c0f2d99602637",
+   "updatedAt": "2026-11-06T05:42:42.731Z",
+   "issued-date-time": "2026-11-06T13:41:53.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "ORD RIVER"
+   ],
+   "start-date-time": "2026-11-06T11:52:32.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF HALLS CREEK"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T11:53:35.000+08:00",
+   "published-date-time": "2026-11-06T11:54:20.966+08:00",
+   "dfes-regions": [
+    "KIMBERLEY"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "829189",
+   "name": "Bushfire",
+   "location": {
+    "latitude": -19.087,
+    "value": "ORD RIVER",
+    "longitude": 126.78
+   },
+   "id": "6aed4f5550b235c965f3eabc",
+   "event": "6aed4f5450b235c965f3eab4",
+   "updatedAt": "2026-11-06T03:54:21.419Z",
+   "issued-date-time": "2026-11-06T11:53:35.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "ORD RIVER"
+   ],
+   "start-date-time": "2026-11-06T11:49:54.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF HALLS CREEK"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T11:51:00.000+08:00",
+   "published-date-time": "2026-11-06T11:51:51.722+08:00",
+   "dfes-regions": [
+    "KIMBERLEY"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "829188",
+   "name": "Bushfire",
+   "location": {
+    "latitude": -17.555,
+    "value": "ORD RIVER",
+    "longitude": 127.314
+   },
+   "id": "6aed4ec550b235c965f3eaab",
+   "event": "6aed4ec450b235c965f3eaa3",
+   "updatedAt": "2026-11-06T03:51:52.174Z",
+   "issued-date-time": "2026-11-06T11:51:00.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "MUELLER RANGES"
+   ],
+   "start-date-time": "2026-11-06T11:43:14.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF HALLS CREEK"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T11:44:27.000+08:00",
+   "published-date-time": "2026-11-06T11:45:00.211+08:00",
+   "dfes-regions": [
+    "KIMBERLEY"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "829186",
+   "name": "Bushfire",
+   "location": {
+    "latitude": -18.972,
+    "value": "MUELLER RANGES",
+    "longitude": 126.853
+   },
+   "id": "6aed4d1450b235c965f3ea79",
+   "event": "6aed4d1350b235c965f3ea71",
+   "updatedAt": "2026-11-06T03:45:00.711Z",
+   "issued-date-time": "2026-11-06T11:44:27.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "ST GEORGE RANGES"
+   ],
+   "start-date-time": "2026-11-06T11:40:28.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF DERBY/WEST KIMBERLEY"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T11:41:05.000+08:00",
+   "published-date-time": "2026-11-06T11:41:54.971+08:00",
+   "dfes-regions": [
+    "KIMBERLEY"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "829185",
+   "name": "Bushfire",
+   "location": {
+    "latitude": -18.134,
+    "value": "ST GEORGE RANGES",
+    "longitude": 125.694
+   },
+   "id": "6aed4c8050b235c965f3ea58",
+   "event": "6aed4c7f50b235c965f3ea50",
+   "updatedAt": "2026-11-06T03:41:55.389Z",
+   "issued-date-time": "2026-11-06T11:41:05.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "ST GEORGE RANGES"
+   ],
+   "start-date-time": "2026-11-06T11:37:18.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_bushfire",
+   "lga": [
+    "SHIRE OF DERBY/WEST KIMBERLEY"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T11:38:47.000+08:00",
+   "published-date-time": "2026-11-06T11:39:33.803+08:00",
+   "dfes-regions": [
+    "KIMBERLEY"
+   ],
+   "incident-type": "Bushfire",
+   "incident-status": "Monitoring",
+   "cad-id": "829183",
+   "name": "Bushfire",
+   "location": {
+    "latitude": -19.457,
+    "value": "ST GEORGE RANGES",
+    "longitude": 124.881
+   },
+   "id": "6aed4bb750b235c965f3ea36",
+   "event": "6aed4bb650b235c965f3ea2e",
+   "updatedAt": "2026-11-06T03:39:34.248Z",
+   "issued-date-time": "2026-11-06T11:38:47.000+08:00",
+   "issue-status": "Updated"
+  },
+  {
+   "suburbs": [
+    "BRIDGETOWN"
+   ],
+   "start-date-time": "2026-11-06T18:28:08.000+08:00",
+   "entityType": "incidents",
+   "entitySubType": "incidents_other",
+   "lga": [
+    "SHIRE OF BRIDGETOWN-GREENBUSHES"
+   ],
+   "publishing-status": "Published",
+   "updated-date-time": "2026-11-06T18:28:08.000+08:00",
+   "published-date-time": "2026-11-06T18:28:47.952+08:00",
+   "dfes-regions": [
+    "LOWER SOUTH WEST"
+   ],
+   "incident-type": "Other Incident",
+   "incident-icon": "ew-other-burn-off",
+   "incident-status": "Active",
+   "cad-id": "829287",
+   "name": "Burn Off",
+   "offloadedProperties": null,
+   "location": {
+    "latitude": -33.95781271,
+    "value": "HACKETT ST",
+    "longitude": 116.11101162
+   },
+   "id": "6aedabe0ef355894435aad0c",
+   "event": "6aedabe0ef355894435aad04",
+   "updatedAt": "2026-11-06T10:28:48.996Z",
+   "issued-date-time": "2026-11-06T18:28:08.000+08:00"
+  }
+ ]
+}
