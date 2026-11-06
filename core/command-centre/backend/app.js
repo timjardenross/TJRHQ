@@ -63,28 +63,41 @@ app.use(express.urlencoded({ extended: true }));
 
 // API key authentication (D-007 security baseline). Logic lives in
 // middleware/api-key-auth.js so it can be unit-tested.
-// SUOC Wave 1 (MSN-0210E): an unset key only skips auth outside production; a
-// production process with no key configured fails closed (503).
-// - Key goes in the X-Api-Key header. The api_key query parameter is rejected
-//   unless ALLOW_QUERY_API_KEY=1 (temporary rollback lever; restart only).
+// - Fails closed: with no BACKEND_API_KEY every non-public request gets 503,
+//   whatever NODE_ENV is. The only exception is the explicit local-only dev
+//   opt-in ALLOW_UNAUTHENTICATED_DEV=1: ignored when NODE_ENV=production, and it
+//   makes the server listen on 127.0.0.1 and serve loopback requests only.
+// - The key goes in the X-Api-Key header. Any api_key query parameter is rejected
+//   (400), even alongside a valid header. ALLOW_QUERY_API_KEY=1 is a deprecated,
+//   temporary emergency rollback and is due for removal (see
+//   docs/security-remediation-runbook.md).
 // - BACKEND_API_KEY_PREVIOUS (optional) is also accepted, to rotate the key
 //   without downtime; remove it once all callers use the new key.
 const _isProduction = process.env.NODE_ENV === 'production';
 const _apiKeys = [process.env.BACKEND_API_KEY, process.env.BACKEND_API_KEY_PREVIOUS].filter(Boolean);
+const _devOptIn = process.env.ALLOW_UNAUTHENTICATED_DEV === '1';
+const _allowUnauthenticatedDev = _devOptIn && !_isProduction && !process.env.BACKEND_API_KEY;
+const _allowQueryKey = ['1', 'true'].includes(String(process.env.ALLOW_QUERY_API_KEY || '').toLowerCase());
+if (_devOptIn && _isProduction) {
+  console.error('[SECURITY] ALLOW_UNAUTHENTICATED_DEV is ignored when NODE_ENV=production.');
+}
 if (!process.env.BACKEND_API_KEY) {
-  if (_isProduction) {
-    console.error('[SECURITY] BACKEND_API_KEY is not set in a production environment — ' +
-      'all non-public API requests will be rejected until it is configured.');
+  if (_allowUnauthenticatedDev) {
+    console.warn('[dev-mode] BACKEND_API_KEY not set — unauthenticated LOCAL-ONLY mode (127.0.0.1) enabled by ALLOW_UNAUTHENTICATED_DEV=1.');
   } else {
-    console.warn('[dev-mode] BACKEND_API_KEY not set — API auth is disabled (non-production only).');
+    console.error('[SECURITY] BACKEND_API_KEY is not set — all non-public API requests will be rejected (503) until it is configured.');
   }
+}
+if (_allowQueryKey) {
+  console.warn('[SECURITY] ALLOW_QUERY_API_KEY is enabled: deprecated emergency rollback only, scheduled for removal.');
 }
 app.use(createApiKeyAuth({
   keys: _apiKeys,
   isProduction: _isProduction,
+  allowUnauthenticatedDev: _allowUnauthenticatedDev,
   publicPaths: ['/health'],
-  allowQueryKey: ['1', 'true'].includes(String(process.env.ALLOW_QUERY_API_KEY || '').toLowerCase()),
-  // Logs the path only, never the key or the query string.
+  allowQueryKey: _allowQueryKey,
+  // Logs the request path only, never the query string or any key value.
   onQueryKeyUse: (path, outcome) => console.warn(`[auth] api_key query parameter ${outcome} on ${path}; use the X-Api-Key header`),
 }));
 
@@ -228,7 +241,8 @@ app.use(errorHandler);
 notificationEngine.start();
 
 // Start server
-const server = app.listen(PORT, () => {
+// Dev opt-in mode binds loopback only; otherwise listen as before.
+const server = app.listen(PORT, _allowUnauthenticatedDev ? '127.0.0.1' : undefined, () => {
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║         STARFLEET COMMAND CENTRE — API SERVER              ║

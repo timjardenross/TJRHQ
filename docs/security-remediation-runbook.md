@@ -32,13 +32,24 @@ stat -f '%Sp %N' .env core/command-centre/.env slack-bot/.env slack-bot/.env.com
 
 ## Backend API Key Requirements
 
-- `BACKEND_API_KEY` is mandatory.
-- Backend startup fails fast if `BACKEND_API_KEY` is missing.
-- All `/api/v1/*` routes require the `X-Api-Key` header. The `api_key` query parameter is rejected
-  (set `ALLOW_QUERY_API_KEY=1` and restart only as a short-lived rollback). The backend no longer
-  exposes `/api/config`.
-- To rotate the key without downtime, set `BACKEND_API_KEY` to the new value and
-  `BACKEND_API_KEY_PREVIOUS` to the old one, update every caller, then remove the previous key.
+- `BACKEND_API_KEY` is mandatory. With no key configured the backend **fails closed**: every
+  non-public request gets 503, whatever `NODE_ENV` is.
+- Local development without a key needs the explicit opt-in `ALLOW_UNAUTHENTICATED_DEV=1`. It is
+  ignored when `NODE_ENV=production`, makes the server listen on 127.0.0.1 only, and serves
+  loopback requests only. Prefer setting a throwaway key instead.
+- All `/api/v1/*` routes require the `X-Api-Key` header. Any `api_key` query parameter is rejected
+  with 400 (even next to a valid header, and on `/health`); the rejection log line contains the
+  request path only, never the query string or a key.
+- The backend no longer exposes `/api/config`.
+- To rotate the key without downtime: set `BACKEND_API_KEY` to the new value and
+  `BACKEND_API_KEY_PREVIOUS` to the old one, restart `command-centre`, update every caller, wait for
+  a full scheduler/brief cycle, then remove `BACKEND_API_KEY_PREVIOUS` and restart again.
+- **Deprecated emergency rollback:** `ALLOW_QUERY_API_KEY=1` (plus a restart) re-accepts `?api_key=`
+  when no header is sent, and logs a startup warning. Use it only to unblock an unknown client for
+  hours or days, never as a standing setting. **Removal plan:** delete the flag and the query branch
+  in `core/command-centre/backend/middleware/api-key-auth.js` and `app.js` once the service journal
+  shows no `api_key query parameter rejected` lines for 30 consecutive days, and in any case by
+  2026-12-31.
 - The `/health` endpoint remains public for process liveness checks.
 - Do not expose the backend through ngrok or any public tunnel unless the key is set and verified.
 
