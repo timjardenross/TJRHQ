@@ -6,13 +6,15 @@ Method: static inspection by four parallel read-only code reviewers (Telegram bo
 Labels: **[V]** verified by me directly · **[R]** reported by a reviewer from code reading, not re-checked · **[P]** potential risk · **[U]** unknown.
 Disclosure: earlier in this session `pm2 list` auto-spawned an empty PM2 daemon (no managed processes); I left it alone.
 
+> **Correction (2026-11-06, later the same day):** an earlier version of this report described the self-improvement dashboard's approval endpoints as reachable only from localhost. That was wrong. Follow-up verification found the dashboard is **also reachable beyond localhost through the reverse proxy**, and its handlers contain no authentication. This is re-rated **Critical** (rank 1 in section H). Exact paths and endpoint names are withheld from this public document until the exposure is fixed; the Captain has the full details.
+
 ---
 
 ## A. Executive summary
 
 1. **There is no autonomous "Commander" agent.** No LLM chooses tools or shell commands anywhere in the Telegram bots, schedulers or model integrations [V: no `shell=True`/`eval`/`os.system` in `telegram-bots/`; R: same across model code]. The old action-capable XO bot (full host shell, plan-then-approve) was retired 2026-07-05 [V: `tg-xo.service` header]. **Earlier notes describing XO as a shell-capable bot are stale.**
 2. LLM output reaches the outside world through three paths: text replies/briefs; DB writes by deterministic code after LLM classification (capture-enrichment); and **model-written code diffs pushed to GitHub as draft PRs** (engineering batch coding). That last path is the only place model output can become code.
-3. **The human approval model is thin.** Gating relies on (a) one Telegram chat-id allowlist, (b) a mission *status string* ("Approved for Engineering") that any API-key holder or portal user can set, and (c) unauthenticated localhost approve endpoints. No transition machine is enforced; the one that exists is unwired.
+3. **The human approval model is thin.** Gating relies on (a) one Telegram chat-id allowlist, (b) a mission *status string* ("Approved for Engineering") that any API-key holder or portal user can set, and (c) approve endpoints on the self-improvement dashboard that have no authentication and are reachable beyond localhost (see the correction above). No transition machine is enforced; the one that exists is unwired.
 4. **Credential isolation is the biggest structural weakness.** Both Infisical wrappers export the project root path, so **every service receives all 105 root secrets** [V: `run-with-infisical-bot.sh` sources `/` then `/bots/<name>`; non-bot wrapper uses `infisical run`, which injected 105 secrets when I ran it]. Nearly everything runs as root, with no sandboxing or resource limits.
 5. **Reliability is decent day to day** (all timers succeeding, `NRestarts=0`, nightly encrypted backup OK) but has gaps: no leases/heartbeats for missions, check-then-act races, non-atomic ID counter write, hung oneshots never time out, alerts on only 5 units, ~17 scheduler restarts/day from auto-deploy.
 6. **Corrections to reviewer severity (verified):** the reviewer's "Critical: approval bypass → root coder" assumed a live path. The engineering-dispatch timer has been **stopped since 2026-10-28** [V], `/api/config` is not reachable from outside [V, earlier audit], and `CONTEXT_SERVICE_SECRET` is set [V], so the "fails open" condition is not active. I re-rated these (see H).
@@ -96,7 +98,7 @@ Trust boundaries: Internet→Caddy · Telegram→bots (chat id only) · Portal u
 | E6 | Telegram authorization is chat-id only (no user-id/forward checks); safe only if allowed chat is private | `core/platform/telegram_access.py`; bot global gates | R/U |
 | E7 | `model-router` (127.0.0.1:8891): no auth, no body cap, no rate limit, CORS `*`, unbounded threads | `core/model-router/app.py` (no auth matches [V]) | V |
 | E8 | `context-service` public via Caddy; header-secret check fails open if secret unset (currently **set** [V]); non-constant-time compare; CORS all | `core/context-assembly/context_service.py:323-333` | V |
-| E9 | Self-improvement dashboard `/api/decide` & `/api/opportunity/decide` have no authentication (localhost-only bind); approval is the gate for direct commits to `self-improvement` and draft-PR handoffs | `scripts/self_improvement/dashboard.py:255, 329` | V (no auth) |
+| E9 | **Critical (corrected).** Self-improvement dashboard approve handlers have no authentication in code, and the dashboard is reachable beyond localhost via the reverse proxy (the proxy configuration's comment claims a header-secret check that the application does not perform). Approval is the gate for direct commits to the `self-improvement` branch and for draft-PR handoffs. Read access was confirmed; write access is inferred and was not tested. | `scripts/self_improvement/dashboard.py` (approve handlers; no auth hook anywhere in the module) | V (no auth, read exposure) / I (write exposure) |
 | E10 | Backend `intel-governance` trusts a caller-supplied `role`; shared API key maps to service-role writes | `core/command-centre/backend/api/intel-governance.js:51-57` | V |
 | E11 | Unguarded direct-cloud LLM paths bypass PII guardrails (Gemini fallback in `platform-runtime/llm.py`, XO cloud-first with mission/health context, portal routes); Gemini key placed in URL query strings | `platform-runtime/llm.py:416-455` | R |
 | E12 | `DeleteFileStrategy` builds `repo_root / path` with no confinement (gated by human approval + suffix check) | `scripts/self_improvement/auto_remediation.py:31-72` | R |
@@ -141,7 +143,8 @@ Approval-gate summary: no plan-then-approve exists. Confirm gates present: `/rev
 | 1 | High | All services hold all root secrets, run as root, unsandboxed (E1, E2) | single compromise = full compromise |
 | 2 | High | Model diff → pushed branch with no path fence on a public repo; main → auto-deploy runs builds under full secrets (E3, E4) | needs workflow trigger/token-scope review [U] |
 | 3 | High (latent) | Mission status is an unenforced string; API key or portal user can mark "Approved for Engineering"; dispatch timer re-arms at boot (D) | currently dormant since 2026-10-28 [V]; downgraded from reviewer's "Critical" |
-| 4 | High | Unauthenticated approve endpoints on localhost dashboard; unauthenticated model-router (E7, E9) | any local process / DNS-rebinding page |
+| 1a | **Critical** | Dashboard approve endpoints unauthenticated and reachable beyond localhost; internal findings readable (E9) | supersedes the earlier "localhost-only" rating; fix before anything else |
+| 4 | High | Unauthenticated model-router (E7) | any local process / DNS-rebinding page |
 | 5 | Medium | Spoofable `/merge_pr` verdict, chat-id-only Telegram auth, no audit of privileged commands (E5, E6) | |
 | 6 | Medium | Race conditions & no leases; non-atomic ID counter; reconciler overwrite (F) | duplicate IDs possible |
 | 7 | Medium | Cron jobs dropped across ~17 restarts/day; hung oneshots; sparse OnFailure alerting (F) | silent staleness |
@@ -158,7 +161,7 @@ Approval-gate summary: no plan-then-approve exists. Confirm gates present: `/rev
 2. **Harden units:** non-root users, `NoNewPrivileges`, `ProtectSystem`, `MemoryMax`, `TimeoutStartSec` on every oneshot, `OnFailure=` on all.
 3. **Close the diff-PR path:** apply the path fence to diff mode (deny `.github/`, `deploy/`, auth, `*.service`, scripts); require CODEOWNERS/required review on those paths; confirm workflow triggers don't expose secrets to branch pushes.
 4. **Enforce mission transitions in the database** (trigger or RPC with compare-and-set) and make "Approved for Engineering" require an authenticated approver identity recorded in an append-only table; wire or delete the dead state machine.
-5. **Authenticate local endpoints:** dashboard approve routes, model-router (shared secret, body cap, rate limit); drop CORS `*`.
+5. **Authenticate the dashboard server-side (or stop proxying it) first;** then authenticate model-router (shared secret, body cap, rate limit); drop CORS `*`.
 6. **Auditability:** one append-only `agent_actions` log (actor, user id, mission, tool, outcome); RLS/trigger to block UPDATE/DELETE; log `/merge_pr`, `/decline_pr`, `/restart_bots`.
 7. **Telegram:** add user-id check, confirm step with expiry for merge/restart, author check on verdict comments (or use required reviews), wire log redaction, add update dedupe/rate limit.
 8. **Reliability:** atomic ID counter writes (temp + rename); lease/heartbeat columns and a stuck-job sweeper; APScheduler `misfire_grace_time`/`coalesce`; restart only services whose paths changed; re-queue stranded captures; rotate `outputs/` logs.
