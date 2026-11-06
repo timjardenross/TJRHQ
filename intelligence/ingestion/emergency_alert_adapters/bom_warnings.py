@@ -85,6 +85,7 @@ _TYPE_KEYWORDS: tuple[tuple[str, str], ...] = (
     ("FIRE WEATHER", "bushfire"),
     ("TROPICAL CYCLONE", "cyclone"),
     ("TSUNAMI", "tsunami"),
+    ("HEATWAVE", "heatwave"),
     ("SEVERE THUNDERSTORM", "storm"),
     ("SEVERE WEATHER", "severe_weather"),
     ("DAMAGING WIND", "storm"),
@@ -103,7 +104,7 @@ SOURCE_INFO = {
     "fixture_dir": "tests/fixtures/emergency_alerts/bom_nsw",
     "severity_field": "none - the BOM feed carries no AWS tier (always 'unknown')",
     "severity_map": None,
-    "alert_type_rule": "product name in the title, first match: FLOOD -> flood; FIRE WEATHER -> bushfire; TROPICAL CYCLONE -> cyclone; TSUNAMI -> tsunami; SEVERE THUNDERSTORM / DAMAGING WIND / GALE / STORM -> storm; SEVERE WEATHER -> severe_weather.",
+    "alert_type_rule": "product name in the title, first match: FLOOD -> flood; FIRE WEATHER -> bushfire; TROPICAL CYCLONE -> cyclone; TSUNAMI -> tsunami; SEVERE THUNDERSTORM / DAMAGING WIND / GALE / STORM -> storm; SEVERE WEATHER -> severe_weather; HEATWAVE -> heatwave (Captain-approved 2026-11-06, as WA already did; BOM does not state a level in the title, so these stay severity 'unknown' at standard attention).",
     "exclusions": [
         {"reason": "excluded_agricultural", "field": "title", "match": "contains FROST or SHEEP GRAZIERS", "decided": "adapter rule 2026-08-27 (agricultural, not public emergency)"},
         {"reason": "excluded_marine", "field": "title", "match": "contains MARINE", "decided": "adapter rule 2026-08-27 (mariner-specific, out of land-based scope)"},

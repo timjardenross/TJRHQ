@@ -840,7 +840,7 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
         change = None
         if alert_email.tier_rank(row["severity"]) > alert_email.tier_rank(recorded):
             change = f"Escalated from {alert_email.TIER_LABEL.get(recorded, recorded)} to {alert_email.TIER_LABEL.get(row['severity'], row['severity'])}"
-        elif row.get("emergency_email_hash") and alert_email.content_hash(row).startswith(alert_email.HASH_V2) and not row["emergency_email_hash"].startswith(alert_email.HASH_V2):
+        elif row.get("emergency_email_hash") and alert_email.hash_version(alert_email.content_hash(row)) != alert_email.hash_version(row["emergency_email_hash"]):
             _record_send_meta(row, recorded)  # hash recipe changed: re-baseline silently, no email
             continue
         elif row.get("emergency_email_hash") and alert_email.content_hash(row) != row["emergency_email_hash"]:

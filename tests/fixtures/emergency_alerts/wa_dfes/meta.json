@@ -15,7 +15,19 @@
       "captured_at": "2026-11-06T05:52:43.419192+00:00",
       "synthetic": false,
       "redactions": 2
+    },
+    "warnings_api.json": {
+      "url": "https://api.emergency.wa.gov.au/v1/warnings",
+      "captured_at": "2026-11-06T10:30:00+00:00",
+      "synthetic": false,
+      "redactions": 0
+    },
+    "incidents_api.json": {
+      "url": "https://api.emergency.wa.gov.au/v1/incidents",
+      "captured_at": "2026-11-06T10:30:00+00:00",
+      "synthetic": false,
+      "redactions": 0
     }
   },
-  "notes": "Untrimmed live snapshot (single fetch via base.http_get). 4 email address(es) replaced with redacted@example.invalid. Two feed URLs: warnings and incidents (both read by wa_dfes.fetch())."
+  "notes": "Untrimmed live snapshot (single fetch via base.http_get). 4 email address(es) replaced with redacted@example.invalid. Two feed URLs: warnings and incidents (both read by wa_dfes.fetch()). warnings_api.json / incidents_api.json are live captures of the DFES JSON API taken ~4.5 h after the RSS files, trimmed to entries whose id matches an RSS guid here (plus one that does not) with the geometry and long HTML bodies removed; they are read only by wa_json.py."
 }

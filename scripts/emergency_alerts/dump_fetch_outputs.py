@@ -77,6 +77,10 @@ def main() -> int:
     nsw_cap = getattr(nsw_rfs, "nsw_rfs_cap", None)  # absent on checkouts that predate the CAP enrichment
     if nsw_cap is not None:
         by_url[nsw_cap._CAP_URL] = fx["nsw_rfs"]["cap.xml"]
+    wa_json_mod = getattr(wa_dfes, "wa_json", None)  # absent on checkouts that predate the WA JSON enrichment
+    if wa_json_mod is not None:
+        by_url[wa_json_mod._WARNINGS_JSON_URL] = fx["wa_dfes"]["warnings_api.json"]
+        by_url[wa_json_mod._INCIDENTS_JSON_URL] = fx["wa_dfes"]["incidents_api.json"]
     detail_html = fx["bom_nsw"]["detail.html"]
     bom_cap_mod = getattr(bom_warnings, "bom_cap", None)  # absent on checkouts that predate the BoM CAP enrichment
     if bom_cap_mod is not None:
@@ -100,7 +104,7 @@ def main() -> int:
 
     base.http_get = fake_get
     base.http_get_json = fake_get_json
-    for mod in (nsw_rfs, nsw_cap, bom_cap_mod, qld_fire, act_esa, wa_dfes, vic_emergency, sa_cfs, tas_fire):
+    for mod in (nsw_rfs, nsw_cap, bom_cap_mod, wa_json_mod, qld_fire, act_esa, wa_dfes, vic_emergency, sa_cfs, tas_fire):
         for name, fn in (("http_get", fake_get), ("http_get_json", fake_get_json)):
             if mod is not None and hasattr(mod, name):
                 setattr(mod, name, fn)

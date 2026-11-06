@@ -305,3 +305,33 @@ def test_run_all_hands_results_and_integrity_rows_to_the_feed_pass():
     seen_results, seen_integrity = feed.call_args.args
     assert "error" in seen_results["s2"] and "_integrity" not in seen_results["s1"] and set(seen_integrity) == {"s1"}
     assert results["_feed_alerts"] == {"down": 0}
+
+
+# ---- QLD content hash ignores the "as at <time>" part of the title ----
+
+def _qld(headline, **o):
+    return {"source_key": "qld_fire", "headline": headline, "location": "Teelah", "description": "Prepare", **o}
+
+
+def test_qld_hash_ignores_the_reissue_time_but_not_the_call_to_action():
+    a = alert_email.content_hash(_qld("PREPARE TO LEAVE - Teelah - fire as at 9:38am Tuesday, 22 September 2026"))
+    b = alert_email.content_hash(_qld("PREPARE TO LEAVE - Teelah - fire as at 3:48pm Tuesday, 22 September 2026"))
+    c = alert_email.content_hash(_qld("STAY PREPARED - Teelah - fire as at 3:48pm Tuesday, 22 September 2026"))
+    assert a == b and a != c and a.startswith(alert_email.HASH_V3)
+
+
+def test_hash_version_reads_the_prefix():
+    assert alert_email.hash_version("h3:abc") == "h3:" and alert_email.hash_version("h2:abc") == "h2:" and alert_email.hash_version("abc123") == ""
+    assert alert_email.hash_version(None) == ""
+
+
+def test_a_changed_hash_recipe_is_baselined_silently_not_emailed():
+    row = {"id": "a1", "source_key": "qld_fire", "headline": "PREPARE TO LEAVE - Teelah - fire as at 3:48pm Tuesday, 22 September 2026", "jurisdiction": "QLD",
+           "alert_type": "bushfire", "severity": "watch_and_act", "location": "Teelah", "description": "Prepare", "canonical_url": None, "issued_at": None, "is_active": True,
+           "first_seen_at": NOW.isoformat(), "last_seen_at": NOW.isoformat(), "emergency_email_tier": "watch_and_act", "emergency_email_hash": "0123456789abcdef",
+           "emergency_email_last_at": (NOW - timedelta(hours=2)).isoformat(), "emergency_email_lifted_at": None}
+    with patch.object(ea, "supabase_get", return_value=[row]), patch.object(ea.alert_silences, "list_active_silences", return_value=[]), \
+         patch.object(ea, "_supabase_request") as req, patch.object(ea, "send_email", return_value=True) as send:
+        out = ea._send_follow_up_emails(NOW)
+    assert out == {"updates": 0, "lifted": 0} and not send.called
+    assert alert_email.HASH_V3 in str(req.call_args.kwargs["body"])
