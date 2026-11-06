@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AusBoM-IDQ21033-2026-11-06T08:39:17+00:00</identifier>
+    <sender>redacted@example.invalid</sender>
+    <sent>2026-11-06T08:39:17+00:00</sent>
+    <status>Actual</status>
+    <msgType>Cancel</msgType>
+    <scope>Public</scope>
+    <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+    <references>redacted@example.invalid,AusBoM-IDQ21033-2026-11-06T06:25:23+00:00,2026-11-06T06:25:23+00:00</references>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Thunderstorm</event>
+        <urgency>Unknown</urgency>
+        <severity>Minor</severity>
+        <certainty>Unknown</certainty>
+        <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>thunderstorm</value>
+        </eventCode>
+        <effective>2026-11-06T08:39:17+00:00</effective>
+        <expires>2026-11-06T13:39:17+00:00</expires>
+        <senderName>Australian Government Bureau of Meteorology</senderName>
+        <headline>Cancellation of Severe Thunderstorm Warning for Northern Goldfields and Upper Flinders, Central West and North West forecast districts</headline>
+        <description>
+          
+          
+          This warning is now cancelled.
+           
+        </description>
+        <instruction>Emergency services advise people to:
+* Never drive, walk, play or ride through floodwater. It is dangerous.
+* Stay away from storm water drains.
+* Stay away from fallen powerlines.
+* Drive slowly and never drive through floodwaters. If the road is flooded or damaged, go another way.
+* For storm help, call the SES on 132 500 or download the free SES Assistance QLD app.
+
+</instruction>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <contact>http://www.bom.gov.au/inside/contacts.shtml</contact>
+        <area>
+            <areaDesc>Queensland: Northern Goldfields and Upper Flinders, North West and Central West</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>QLD_PW003</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>QLD_PW009</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>QLD_PW010</value>
+            </geocode>
+        </area>
+    </info>
+</alert>

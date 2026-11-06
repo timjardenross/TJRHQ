@@ -1,0 +1,82 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:ns0="http://www.w3.org/2005/Atom" version="2.0">
+  <channel>
+    <ns0:link href="https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/rss.xml" rel="self" type="application/rss+xml" />
+    <title>Latest Official Public alerts in English for Bureau of Meteorology</title>
+    <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/rss.xml</link>
+    <description>This feed lists the most recent Official Public alerts in English for Bureau of Meteorology</description>
+    <language>en</language>
+    <copyright>public domain</copyright>
+    <pubDate>Fri, 06 Nov 2026 08:48:18 +0000</pubDate>
+    <lastBuildDate>Thu, 13 Jul 2023 06:54:27 +0000</lastBuildDate>
+    <docs>https://cyber.harvard.edu/rss/rss.html</docs>
+    <image>
+      <title>Latest Official Public alerts in English for Bureau of Meteorology</title>
+      <url>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/logo.png</url>
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/rss.xml</link>
+    </image>
+    <item>
+      <title>Cancellation of Severe Thunderstorm Warning for Northern Goldfields and Upper Flinders, Central West and North West forecast districts</title>
+      <description>This warning is now cancelled.</description>
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/06/08/39/17-8290c70049b012651aa4b0d175a4ca9d.xml</link>
+      <pubDate>Fri, 06 Nov 2026 08:48:18 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDQ21033-2026-11-06T08:39:17+00:00</guid>
+    </item>
+    <item>
+      <title>Severe Thunderstorm Warning for Northern Goldfields and Upper Flinders, Central West and North West forecast districts</title>
+      <description>Severe thunderstorms are likely to produce damaging winds in the warning area over the next several hours. Locations which may be affected include Richmond and Cloney's Creek.</description>
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/06/06/25/23-dd4d8e7999e70df065858073cd3caa16.xml</link>
+      <pubDate>Fri, 06 Nov 2026 06:39:34 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDQ21033-2026-11-06T06:25:23+00:00</guid>
+    </item>
+    <item>
+      <title>Hazardous Surf Warning for Hunter Coast: Seal Rocks to Broken Bay and Sydney Coast: Broken Bay to Port Hacking for 08 November</title>
+      <description />
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/06/05/44/18-7fd3d4d14b253296cd524157bd32ff74.xml</link>
+      <pubDate>Fri, 06 Nov 2026 05:51:19 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDN28522-2026-11-06T05:44:18+00:00</guid>
+    </item>
+    <item>
+      <title>Strong Wind Warning for coastal waters between Seal Rocks and Gabo Island and for Sydney Enclosed Waters for 07 November</title>
+      <description />
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/06/05/05/01-eaed34c25d9897591b4108329ecc5159.xml</link>
+      <pubDate>Fri, 06 Nov 2026 05:18:19 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDN20400-2026-11-06T05:05:01+00:00</guid>
+    </item>
+    <item>
+      <title>Extreme Fire Weather Warning for Greater Hunter and Upper Central West Plains fire districts for 07 November</title>
+      <description />
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/06/05/08/15-1812108438e3667a673d8ef08683c8ad.xml</link>
+      <pubDate>Fri, 06 Nov 2026 05:18:19 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDN22000-2026-11-06T05:08:15+00:00</guid>
+    </item>
+    <item>
+      <title>Strong Wind Warning for coastal waters between Stanley and Wineglass Bay and between Tasman Island and South East Cape and for Banks Strait and Franklin Sound for 06 November</title>
+      <description />
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/06/05/05/04-c07144f604e34d11971e08cec5a88c88.xml</link>
+      <pubDate>Fri, 06 Nov 2026 05:12:21 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDT20100-2026-11-06T05:05:04+00:00</guid>
+    </item>
+    <item>
+      <title>Extreme heatwave warning for Western Australia</title>
+      <description>Maximum temperatures in the low to mid forties and overnight minimum temperatures in the mid to high twenties. Severe to extreme heatwave conditions will persist over the weekend before easing early next week.</description>
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/06/04/33/49-d4f90d158c86d88edb4bd9bf021d1202.xml</link>
+      <pubDate>Fri, 06 Nov 2026 04:42:20 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDW21013-2026-11-06T04:33:49+00:00</guid>
+    </item>
+    <item>
+      <title>Minor Flood Warning for Warrego River downstream of Charleville, Warrego River at Cunnamulla Bridge and Warrego River at Rocky</title>
+      <description>Minor flooding is occurring along the lower Warrego River at Cunnamulla Bridge and estimated to be occurring at Rocky.The Warrego River at Cunnamulla Bridge was at 6.65 m at 5:45 am Friday and slowly falling, with minor flooding. The Warrego River at Cunnamulla Bridge is likely to remain above the minor flood level (6.00 m) through to early next week.The Warrego River at Rocky is estimated to have peaked around the moderate flood level on Wednesday, based on upstream peaks. No current river level observations are available for the Warrego River at Rocky, however it is estimated to be slowly falling with minor flooding. The Warrego River at Rocky is likely to remain above the minor flood level (2.50 m) through to early next week.</description>
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/06/00/54/22-2d5e86f5ead4e64ebf63c73fd0b30be9.xml</link>
+      <pubDate>Fri, 06 Nov 2026 01:09:21 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDQ20845-2026-11-06T00:54:22+00:00</guid>
+    </item>
+    <item>
+      <title>Extreme heatwave warning for Western Australia</title>
+      <description>Maximum temperatures in the low to mid forties and overnight minimum temperatures in the mid to high twenties. Severe to extreme heatwave conditions will persist into the weekend and early next week.</description>
+      <link>https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/2026/11/05/05/00/42-2d07200ef55828ba93e2a60481e09afd.xml</link>
+      <pubDate>Thu, 05 Nov 2026 05:09:20 +0000</pubDate>
+      <guid isPermaLink="false">AusBoM-IDW21013-2026-11-05T05:00:42+00:00</guid>
+    </item>
+    </channel>
+</rss>
