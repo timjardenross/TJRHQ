@@ -125,11 +125,14 @@ def _to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | None:
 
     lat = lon = None
     geom = feature.get("geometry") or {}
-    if geom.get("type") == "GeometryCollection":
-        for g in geom.get("geometries", []):
-            if g.get("type") == "Point":
-                lon, lat = g["coordinates"][0], g["coordinates"][1]
-                break
+    # A bare Point (most features in the live feed) as well as the Point inside a GeometryCollection (incidents that
+    # also carry a fire-ground polygon). Reading only the collection left ~80% of stored NSW rows without coordinates.
+    points = [geom] if geom.get("type") == "Point" else [g for g in geom.get("geometries", []) if g.get("type") == "Point"] if geom.get("type") == "GeometryCollection" else []
+    for point in points:
+        coordinates = point.get("coordinates") or []
+        if len(coordinates) >= 2:
+            lon, lat = coordinates[0], coordinates[1]
+            break
 
     severity = _SEVERITY_MAP.get(category)
     if severity is None:

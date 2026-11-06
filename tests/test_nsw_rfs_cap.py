@@ -110,3 +110,20 @@ def test_no_field_drift_when_cap_is_healthy():
          patch.object(nsw_rfs_cap, "http_get", return_value=CAP):
         alerts, ledger = nsw_rfs.fetch_with_ledger()
     assert not any(n.startswith("FIELD DRIFT") for n in ea._integrity_notes(nsw_rfs, alerts, ledger))
+
+
+def test_a_bare_point_geometry_gives_the_alert_coordinates():
+    """Most live features are a plain Point, not a GeometryCollection; both must yield latitude/longitude."""
+    data = fixture_json("nsw_rfs", "feed.json")
+    kept = nsw_rfs.parse(data, DropLedger())
+    by_type = {(f.get("geometry") or {}).get("type") for f in data["features"]}
+    assert {"Point", "GeometryCollection"} <= by_type
+    assert kept and all(a.latitude is not None and a.longitude is not None for a in kept)
+    assert all(-45 < a.latitude < -28 and 140 < a.longitude < 155 for a in kept)  # NSW, and (lat, lon) not swapped
+
+
+def test_malformed_geometry_leaves_coordinates_empty_without_failing():
+    feature = {"properties": {"title": "T", "guid": "https://incidents.rfs.nsw.gov.au/api/v1/incidents/1", "category": "Advice", "description": "", "pubDate": "06/11/2026 5:00:00 PM"},
+               "geometry": {"type": "Point", "coordinates": [150.1]}}
+    (alert,) = nsw_rfs.parse({"features": [feature]}, DropLedger())
+    assert alert.latitude is None and alert.longitude is None
