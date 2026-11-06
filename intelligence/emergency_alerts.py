@@ -60,12 +60,25 @@ _EMERGENCY_EMAIL_TO = os.environ.get("EMERGENCY_ALERT_EMAIL_TO", "timjardenross1
 _EMERGENCY_EMAIL_CC = os.environ.get("EMERGENCY_ALERT_EMAIL_CC") or None
 
 
-def _deliver(subject: str, html: str) -> bool:
-    """Every alert email goes through here so recipients are set in one place."""
+def _recipients(tag: str | None) -> tuple[str, str | None]:
+    """(to, cc) for an email tag. EMERGENCY_ALERT_EMAIL_TO_<TAG> / EMERGENCY_ALERT_EMAIL_CC_<TAG> (TAG upper-case, "-" as "_",
+    e.g. EMERGENCY_ALERT_EMAIL_TO_EW, ..._CC_BOM_HIGH) override the defaults for that kind of email only, so, say,
+    Emergency Warnings can reach more people than Watch and Act. Unset = the defaults, exactly as before."""
+    if tag:
+        suffix = tag.upper().replace("-", "_")
+        to = os.environ.get(f"EMERGENCY_ALERT_EMAIL_TO_{suffix}") or _EMERGENCY_EMAIL_TO
+        cc = os.environ.get(f"EMERGENCY_ALERT_EMAIL_CC_{suffix}") or _EMERGENCY_EMAIL_CC
+        return to, cc
+    return _EMERGENCY_EMAIL_TO, _EMERGENCY_EMAIL_CC
+
+
+def _deliver(subject: str, html: str, tag: str | None = None) -> bool:
+    """Every alert email goes through here so recipients are set in one place (per-tag overrides: _recipients)."""
     text = alert_email.html_to_text(html)
-    if _EMERGENCY_EMAIL_CC:
-        return send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html, cc=_EMERGENCY_EMAIL_CC, text=text)
-    return send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html, text=text)
+    to, cc = _recipients(tag)
+    if cc:
+        return send_email(to=to, subject=subject, html=html, cc=cc, text=text)
+    return send_email(to=to, subject=subject, html=html, text=text)
 
 log = logging.getLogger("emergency-alerts")
 
@@ -142,6 +155,12 @@ def _cap_fields_enabled() -> bool:
     """On unless explicitly switched off. Read per run (not at import) so it takes
     effect without code changes. Unset or empty means on."""
     return os.environ.get("EMERGENCY_ALERTS_CAP_FIELDS", "").strip().lower() not in _CAP_FIELDS_OFF_VALUES
+
+
+def _cap_select() -> str:
+    """Extra columns for the email queries so the header can carry the CAP fields. Left out when the CAP flag is
+    off, because that is the escape hatch for a database without those columns (a select naming them would fail)."""
+    return "," + ",".join(_CAP_FIELDS) if _cap_fields_enabled() else ""
 
 
 def _coerce_rows(source_key: str, rows: list[dict]) -> tuple[int, int]:
@@ -289,7 +308,7 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         rows = supabase_get(
             f"alerts?source_key=eq.{source_key}&severity=eq.emergency_warning"
             "&is_active=eq.true&emergency_email_sent_at=is.null"
-            "&select=id,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,latitude,longitude"
+            "&select=id,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,latitude,longitude" + _cap_select()
         )
     except Exception as exc:  # noqa: BLE001 - best-effort unnotified-warnings read, already logged; caller treats 0 as 'nothing to notify'
         log.warning("[emergency-alerts] %s: failed to read unnotified emergency warnings: %s", source_key, exc)
@@ -319,7 +338,7 @@ def _send_emergency_warning_emails(source_key: str) -> int:
             + f"<p>{html.escape(row.get('description') or '')}</p>"
             + _official_link_html({**row, "source_key": source_key})
         )
-        if not _deliver(subject, body):
+        if not _deliver(subject, body, alert_email.EW):
             log.warning("[emergency-alerts] %s: email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
             _record_email_failure(row["id"])
             continue
@@ -342,7 +361,7 @@ def _send_watch_and_act_emails(source_key: str) -> int:
         rows = supabase_get(
             f"alerts?source_key=eq.{source_key}&severity=eq.watch_and_act"
             "&is_active=eq.true&emergency_email_sent_at=is.null"
-            "&select=id,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,latitude,longitude"
+            "&select=id,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,latitude,longitude" + _cap_select()
         )
     except Exception as exc:  # noqa: BLE001 - best-effort read, already logged; caller treats 0 as 'nothing to notify'
         log.warning("[emergency-alerts] %s: failed to read unnotified Watch and Act alerts: %s", source_key, exc)
@@ -368,7 +387,7 @@ def _send_watch_and_act_emails(source_key: str) -> int:
             + f"<p>{html.escape(row.get('description') or '')}</p>"
             + _official_link_html({**row, "source_key": source_key})
         )
-        if not _deliver(subject, body):
+        if not _deliver(subject, body, alert_email.WA):
             log.warning("[emergency-alerts] %s: Watch and Act email failed for alert %s — will retry next run", source_key, row["id"])
             _record_email_failure(row["id"])
             continue
@@ -379,6 +398,60 @@ def _send_watch_and_act_emails(source_key: str) -> int:
             log.warning("[emergency-alerts] %s: sent Watch and Act email but failed to mark alert %s notified: %s", source_key, row["id"], exc)
             continue
         _record_send_meta(row, "watch_and_act")
+    return sent
+
+
+def _advice_rules() -> list[tuple[str, str]]:
+    """EMERGENCY_ALERT_ADVICE_EMAIL="NSW:flood,*:bushfire" switches Advice emails on for those jurisdiction:hazard pairs.
+    Unset (the default) = no Advice emails; Advice stays in the daily digest only. Read per run."""
+    return alert_email.parse_advice_rules(os.environ.get("EMERGENCY_ALERT_ADVICE_EMAIL"))
+
+
+def _send_advice_emails(source_key: str, rules: list[tuple[str, str]]) -> int:
+    """Email for each active Advice alert matching an opted-in jurisdiction:hazard rule that has not been emailed yet.
+    Same dedupe column, silences (Advice CAN be silenced), never-raises and failure-recording rules as Watch and Act.
+    Advice churns, so these alerts get no UPDATE (except an escalation) or LIFTED follow-ups."""
+    try:
+        rows = supabase_get(
+            f"alerts?source_key=eq.{source_key}&severity=eq.advice"
+            "&is_active=eq.true&emergency_email_sent_at=is.null"
+            "&select=id,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,latitude,longitude" + _cap_select()
+        )
+    except Exception as exc:  # noqa: BLE001 - best-effort read, already logged; caller treats 0 as 'nothing to notify'
+        log.warning("[emergency-alerts] %s: failed to read unnotified Advice alerts: %s", source_key, exc)
+        return 0
+    rows = [r for r in rows or [] if alert_email.advice_matches(rules, r.get("jurisdiction"), r.get("alert_type"))]
+    if not rows:
+        return 0
+    try:
+        active_silences = alert_silences.list_active_silences()
+    except Exception as exc:  # noqa: BLE001 - a silence-lookup failure must not block an email; degrade to "no active silences"
+        log.warning("[emergency-alerts] %s: failed to read active silences (proceeding as if none): %s", source_key, exc)
+        active_silences = []
+    sent = 0
+    for row in rows:
+        if alert_silences.check_silence(
+            {"jurisdiction": row["jurisdiction"], "alert_type": row.get("alert_type"), "severity": "advice", "source_key": source_key},
+            active_silences,
+        ):
+            continue
+        subject = alert_email.build_subject(alert_email.ADVICE, row["jurisdiction"], row["headline"])
+        body = (
+            alert_email.fields_block(alert_email.ADVICE, {**row, "severity": "advice", "source_key": source_key})
+            + f"<p>{html.escape(row.get('description') or '')}</p>"
+            + _official_link_html({**row, "source_key": source_key})
+        )
+        if not _deliver(subject, body, alert_email.ADVICE):
+            log.warning("[emergency-alerts] %s: Advice email failed for alert %s - will retry next run", source_key, row["id"])
+            _record_email_failure(row["id"])
+            continue
+        try:
+            _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})
+            sent += 1
+        except Exception as exc:  # noqa: BLE001 - per-alert flag write inside a loop; one bad write must not abort the batch
+            log.warning("[emergency-alerts] %s: sent Advice email but failed to mark alert %s notified: %s", source_key, row["id"], exc)
+            continue
+        _record_send_meta(row, "advice")
     return sent
 
 
@@ -419,7 +492,7 @@ def _send_bom_attention_emails(source_key: str) -> int:
     try:
         rows = supabase_get(
             f"alerts?source_key=eq.{source_key}&severity=eq.unknown&is_active=eq.true&emergency_email_sent_at=is.null"
-            "&select=id,headline,jurisdiction,alert_type,location,description,raw_text,issued_at,latitude,longitude"
+            "&select=id,headline,jurisdiction,alert_type,location,description,raw_text,issued_at,latitude,longitude" + _cap_select()
         )
     except Exception as exc:  # noqa: BLE001 - best-effort unnotified-BOM read, already logged; caller treats 0 as 'nothing to notify'
         log.warning("[emergency-alerts] %s: failed to read unnotified BOM warnings: %s", source_key, exc)
@@ -458,7 +531,7 @@ def _send_bom_attention_emails(source_key: str) -> int:
             f"<p>{html.escape(text).replace(chr(10), '<br>')}</p>"
             + _official_link_html({**row, "source_key": source_key, "canonical_url": source_link}, "Official BOM warning")
         )
-        if not _deliver(subject, body):
+        if not _deliver(subject, body, alert_email.BOM_HIGH):
             log.warning("[emergency-alerts] %s: BOM email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
             _record_email_failure(row["id"])
             continue
@@ -647,6 +720,9 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
     emails_sent = _send_emergency_warning_emails(source_key) if has_active_warning else 0
     if any(r["severity"] == "watch_and_act" and r["is_active"] for r in rows):
         emails_sent += _send_watch_and_act_emails(source_key)
+    advice_rules = _advice_rules()
+    if advice_rules and any(r["severity"] == "advice" and r["is_active"] and alert_email.advice_matches(advice_rules, r.get("jurisdiction"), r.get("alert_type")) for r in rows):
+        emails_sent += _send_advice_emails(source_key, advice_rules)
     # BOM warnings have no AWS tier (severity stays 'unknown'), so they never
     # reach the Emergency Warning path above; high-attention ones get their own.
     if source_key.startswith("bom_") and any(
@@ -722,8 +798,8 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
     try:
         rows = supabase_get(
             f"alerts?emergency_email_sent_at=not.is.null&last_seen_at=gte.{cutoff}&limit=500"
-            "&select=id,source_key,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,is_active,"
-            "emergency_email_tier,emergency_email_hash,emergency_email_last_at,emergency_email_lifted_at"
+            "&select=id,source_key,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,is_active,first_seen_at,last_seen_at,"
+            "emergency_email_tier,emergency_email_hash,emergency_email_last_at,emergency_email_lifted_at" + _cap_select()
         )
     except Exception as exc:  # noqa: BLE001 - follow-ups are best-effort (also fails safe while migration 0246 is not applied)
         log.warning("[emergency-alerts] follow-up read failed: %s", exc)
@@ -740,6 +816,11 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
     for row in rows:
         recorded = row.get("emergency_email_tier")
         if recorded == _DUPLICATE_TIER:  # same BOM product as an alert already emailed: no follow-ups
+            continue
+        if recorded == "advice" and row.get("severity") == "advice":
+            # Advice emails are opt-in and Advice churns: no wording updates and no LIFTED. Just close it out silently.
+            if not row.get("is_active") and not row.get("emergency_email_lifted_at"):
+                _patch_alert(row["id"], {"emergency_email_lifted_at": stamp})
             continue
         if not row.get("is_active"):
             if row.get("emergency_email_lifted_at"):
@@ -779,11 +860,115 @@ def _send_follow_up_emails(now: datetime | None = None) -> dict:
             f"<p>{html.escape(row.get('description') or '')}</p>"
             + _official_link_html(row)
         )
-        if not _deliver(alert_email.build_subject(alert_email.UPDATE, row["jurisdiction"], row["headline"]), body):
+        if not _deliver(alert_email.build_subject(alert_email.UPDATE, row["jurisdiction"], row["headline"]), body, alert_email.UPDATE):
             log.warning("[emergency-alerts] follow-up: update email failed for alert %s - will retry next run", row["id"])
             continue
         _record_send_meta(row, row["severity"])
         counts["updates"] += 1
+    return counts
+
+
+# ---- feed-down / recovery emails ([FEED]) -----------------------------------------------------------------------
+# A collector that keeps failing, or whose feed has gone quiet (the STALE integrity warning), emails once when it
+# crosses the threshold, again every _FEED_REMINDER_EVERY while it stays down, and once more when it recovers. State
+# lives in emergency_alert_feed_state (migration 0254). If that table is not there yet, nothing is emailed and a
+# warning is logged: no state means no way to avoid repeating the email every 15 minutes.
+_FEED_DOWN_AFTER_FAILED_RUNS = 3  # consecutive failed runs (~45 min at the 15-minute cadence) before a "failed" email
+_FEED_REMINDER_EVERY = timedelta(hours=12)
+
+
+def _source_jurisdiction(source_key: str) -> str:
+    if source_key.startswith("bom_"):
+        return source_key[4:].upper()
+    return {"nsw_rfs": "NSW", "vic_emergency": "VIC", "qld_fire": "QLD", "sa_cfs": "SA", "act_esa": "ACT", "wa_dfes": "WA", "tas_fire": "TAS", "nt_securent": "NT"}.get(source_key, "AU")
+
+
+def _feed_problem(result: dict, integrity_row: dict | None) -> tuple[str, str] | None:
+    """("failed" | "stale", detail) when this run shows the source is down or has gone quiet, else None.
+    A skipped (not-yet-implemented) source is neither."""
+    if result.get("error"):
+        return "failed", str(result["error"])[:300]
+    for warning in (integrity_row or {}).get("warnings") or []:
+        if str(warning).startswith("STALE"):
+            return "stale", str(warning)[:300]
+    return None
+
+
+def _send_feed_down(source_key: str, kind: str, detail: str, since: str, streak: int, reminder: bool) -> bool:
+    jurisdiction = _source_jurisdiction(source_key)
+    what = f"{streak} failed runs in a row" if kind == "failed" else "its feed has gone quiet"
+    headline = f"{source_key} is {'still ' if reminder else ''}not reporting ({what})"
+    body = (
+        alert_email.feed_block(
+            {"source_key": source_key, "jurisdiction": jurisdiction, "problem": kind, "since": since},
+            {"Failed-Runs": streak if kind == "failed" else "-", "Detail": detail},
+        )
+        + f"<p><strong>{html.escape(jurisdiction)} alerts from {html.escape(source_key)} may be missing.</strong> "
+        "No alert from this source is being checked while it is down, so a quiet mailbox is NOT reassuring for it.</p>"
+        f"<p>{html.escape(detail)}</p>"
+    )
+    return _deliver(alert_email.build_subject(alert_email.FEED, jurisdiction, headline), body, alert_email.FEED)
+
+
+def _send_feed_recovered(source_key: str, kind: str, since: str | None, now: datetime) -> bool:
+    jurisdiction = _source_jurisdiction(source_key)
+    down_for = None
+    since_ts = _parse_ts(since)
+    if since_ts is not None:
+        down_for = alert_email.format_duration(now - since_ts)
+    body = (
+        alert_email.feed_block({"source_key": source_key, "jurisdiction": jurisdiction, "problem": f"recovered (was {kind})", "since": since},
+                               {"Down-For": down_for or "-"})
+        + f"<p><strong>{html.escape(source_key)} is reporting again.</strong>"
+        + (f" It was down for about {html.escape(down_for)}." if down_for else "")
+        + " Alerts issued while it was down may have been missed: check the official source for the period.</p>"
+    )
+    return _deliver(alert_email.build_subject(alert_email.FEED, jurisdiction, f"{source_key} is reporting again"), body, alert_email.FEED)
+
+
+def _send_feed_emails(results: dict, integrity: dict[str, dict], now: datetime | None = None) -> dict:
+    """One pass per run_all(): update each source's down/quiet streak, email on the threshold, on reminders and on
+    recovery. Never raises. Returns {"down": n, "reminders": n, "recovered": n}."""
+    counts = {"down": 0, "reminders": 0, "recovered": 0}
+    now = now or datetime.now(timezone.utc)
+    stamp = now.isoformat()
+    try:
+        states = {row["source_key"]: row for row in supabase_get("emergency_alert_feed_state?select=*") or []}
+    except Exception as exc:  # noqa: BLE001 - optional feature: without the state table (migration 0254) there is no safe way to dedupe, so send nothing
+        log.warning("[emergency-alerts] feed alerts disabled (emergency_alert_feed_state unavailable - migration 0254 not applied?): %s", exc)
+        return counts
+    writes: list[dict] = []
+    for source_key, result in results.items():
+        if source_key.startswith("_") or not isinstance(result, dict):
+            continue
+        state = states.get(source_key) or {}
+        problem = _feed_problem(result, integrity.get(source_key))
+        if problem:
+            kind, detail = problem
+            streak = (state.get("consecutive") or 0) + 1 if state.get("problem") else 1
+            since = state.get("since") if state.get("problem") and state.get("since") else stamp
+            emailed_at = state.get("emailed_at")
+            last = _parse_ts(emailed_at)
+            threshold = _FEED_DOWN_AFTER_FAILED_RUNS if kind == "failed" else 1
+            due = streak >= threshold and (last is None or now - last >= _FEED_REMINDER_EVERY)
+            if due and _send_feed_down(source_key, kind, detail, since, streak, reminder=last is not None):
+                counts["reminders" if last is not None else "down"] += 1
+                emailed_at = stamp
+            writes.append({"source_key": source_key, "problem": kind, "consecutive": streak, "since": since, "emailed_at": emailed_at, "detail": detail, "updated_at": stamp})
+        elif state.get("problem"):
+            if state.get("emailed_at") and not _send_feed_recovered(source_key, state["problem"], state.get("since"), now):
+                continue  # keep the state: retry the recovery email next run
+            if state.get("emailed_at"):
+                counts["recovered"] += 1
+            writes.append({"source_key": source_key, "problem": None, "consecutive": 0, "since": None, "emailed_at": None, "detail": None, "updated_at": stamp})
+    if writes:
+        try:
+            _supabase_request(
+                "POST", "emergency_alert_feed_state?on_conflict=source_key", body=writes,
+                extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+            )
+        except Exception as exc:  # noqa: BLE001 - state write failed: the next run will re-evaluate (and may repeat an email); logged, never raised
+            log.warning("[emergency-alerts] could not record feed alert state: %s", exc)
     return counts
 
 
@@ -796,15 +981,25 @@ def _patch_alert(alert_id: str, body: dict) -> bool:
         return False
 
 
+def _listed_for(row: dict) -> str | None:
+    """How long the source listed this alert (first time we saw it to the last time it was listed), e.g. "3h 20m"."""
+    first, last = _parse_ts(row.get("first_seen_at")), _parse_ts(row.get("last_seen_at"))
+    if first is None or last is None or last < first:
+        return None
+    return alert_email.format_duration(last - first)
+
+
 def _send_lifted(row: dict, stamp: str) -> bool:
+    listed_for = _listed_for(row)
     body = (
-        alert_email.fields_block(alert_email.LIFTED, row, {"Listed-Until": stamp})
+        alert_email.fields_block(alert_email.LIFTED, row, {"Listed-Until": stamp, **({"Listed-For": listed_for} if listed_for else {})})
         + f"<p><strong>No longer listed by the source:</strong> {html.escape(row['headline'])}</p>"
-        "<p>The source has stopped listing this alert. <strong>This is not an all-clear</strong>: check the official source "
+        + (f"<p>The source listed it for {html.escape(listed_for)}.</p>" if listed_for else "")
+        + "<p>The source has stopped listing this alert. <strong>This is not an all-clear</strong>: check the official source "
         "before treating the situation as over.</p>"
         + _official_link_html(row)
     )
-    if not _deliver(alert_email.build_subject(alert_email.LIFTED, row["jurisdiction"], row["headline"]), body):
+    if not _deliver(alert_email.build_subject(alert_email.LIFTED, row["jurisdiction"], row["headline"]), body, alert_email.LIFTED):
         log.warning("[emergency-alerts] follow-up: lifted email failed for alert %s - will retry next run", row["id"])
         return False
     return _patch_alert(row["id"], {"emergency_email_lifted_at": stamp})
@@ -839,7 +1034,9 @@ def run_all() -> dict:
             hb["detail"] = _ok_detail(n_rows, unknown_count, expired_by_domain.get(hb["domain_key"], 0), emails_sent, **extras)
 
     record_heartbeats(heartbeats)
-    _upsert_integrity([row for row in (result.pop("_integrity", None) for result in results.values()) if row])
+    integrity_rows = {key: row for key, row in ((key, result.pop("_integrity", None)) for key, result in results.items()) if row}
+    _upsert_integrity(list(integrity_rows.values()))
+    results["_feed_alerts"] = _send_feed_emails(results, integrity_rows)
     results["_follow_up"] = _send_follow_up_emails()
     return results
 

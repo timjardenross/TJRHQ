@@ -4,7 +4,7 @@ once per run, plus the digest section that reads them back. Offline: Supabase is
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -107,7 +107,7 @@ def test_run_all_writes_every_row_in_one_call_and_strips_the_private_key():
 # ---- digest section ----
 
 def _row(**kw):
-    base = {"source_key": "wa_dfes", "status": "ok", "items_seen": 4, "accepted": 1, "excluded": {}, "invalid": {}, "unmapped": {}, "samples": {}, "warnings": []}
+    base = {"source_key": "wa_dfes", "checked_at": datetime.now(timezone.utc).isoformat(), "status": "ok", "items_seen": 4, "accepted": 1, "excluded": {}, "invalid": {}, "unmapped": {}, "samples": {}, "warnings": []}
     base.update(kw)
     return base
 
@@ -123,9 +123,20 @@ def test_digest_section_shows_what_is_dropped_with_examples():
     assert "“c”" not in html  # capped at 2 examples per reason
 
 
-def test_digest_section_is_empty_when_nothing_is_noteworthy():
-    assert _section([_row()]) == ""
+def test_digest_section_says_so_when_nothing_is_dropped_and_still_shows_the_pipeline_check():
+    html = _section([_row()])
+    assert "Pipeline check:" in html and "1 of 1 sources reported" in html and "saw 4 items, kept 1" in html
+    assert "Nothing is being dropped and nothing is flagged." in html and "<ul>" not in html
+
+
+def test_digest_section_is_empty_when_there_are_no_integrity_rows():
     assert _section([]) == ""
+
+
+def test_pipeline_check_warns_when_a_source_has_stopped_reporting():
+    old = (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat()
+    html = _section([_row(), _row(source_key="nsw_rfs", checked_at=old)])
+    assert "1 of 2 sources reported" in html and "the hub may not be running" in html
 
 
 def test_digest_section_surfaces_warnings_failures_and_unmapped_products():

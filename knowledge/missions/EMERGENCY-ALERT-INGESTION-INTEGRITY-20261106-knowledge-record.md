@@ -40,6 +40,17 @@ Delivered in PRs #587-#591 and the persistence follow-up (migrations 0250, 0251 
 - **Not recoverable:** SA `updated_at_src` is still NULL on every row written before #591 (the `<sent>` value was never read, so nothing stored to derive it from), and 18 BOM rows with no "Issued at" line (cyclone advices, flood watches) have no issue time to derive.
 - **Failed-heartbeat paging.** All 17 `emergency_alert_*` domains are now `critical = true` (migration 0253), so a stale or failing collector appears in the morning-brief Platform Health card. `critical` does NOT page in real time; a feed-down email would be a separate change.
 
+## Addendum 2026-11-06 (latest): email alert changes
+
+All defaults leave existing behaviour unchanged except the additions to the header and LIFTED body.
+
+- **[FEED] emails** (`_send_feed_emails`): a source that fails 3 runs in a row (~45 min), or whose feed goes STALE, emails once, repeats every 12 h while down, and emails once when it recovers. State lives in `emergency_alert_feed_state` (migration 0254, **authored, not applied**); until it is applied nothing is sent and a warning is logged.
+- **Advice emails (opt-in):** `EMERGENCY_ALERT_ADVICE_EMAIL="NSW:flood,*:bushfire,QLD:*"` switches `[ADVICE]` emails on for those jurisdiction:hazard pairs. Unset (default) = off. Silenceable. Advice gets no wording-update or LIFTED follow-ups (only an escalation emails), and is closed out silently.
+- **Per-tag recipients:** `EMERGENCY_ALERT_EMAIL_TO_<TAG>` / `EMERGENCY_ALERT_EMAIL_CC_<TAG>` (TAG = EW, WA, BOM_HIGH, ADVICE, UPDATE, LIFTED, FEED) override the default recipients for that kind of email only.
+- **Header:** `CAP-Event`, `CAP-Urgency`, `CAP-Certainty`, `CAP-Severity` (when the source has them, as given), `Issued-Local` and `Sent-At-Local` (the jurisdiction's own clock, e.g. `2026-11-06 20:00 AEDT`). Appended after the existing keys; existing key order is unchanged. Queensland uses a fixed AEST offset because the repo's timezone guard bans naming the Brisbane zone.
+- **LIFTED:** says how long the source listed the alert (`Listed-For: 3h 20m`).
+- **Daily digest:** always opens its feed-health section with a pipeline check ("16 of 16 sources reported in the last 2 hours; saw N items, kept M"), and warns when sources have not reported.
+
 ## Lesson
 
 See LL-201 and LL-202 in `knowledge/Lessons-Learned.md`.

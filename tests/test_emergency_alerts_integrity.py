@@ -64,6 +64,7 @@ def _batched(alerts, ledger, stale_rows=()):
          patch.object(ea, "supabase_get", return_value=list(stale_rows)) as r.get, \
          patch.object(ea, "_supabase_request") as r.request, \
          patch.object(ea, "_send_follow_up_emails", return_value={"updates": 0, "lifted": 0}), \
+         patch.object(ea, "_send_feed_emails", return_value={"down": 0, "reminders": 0, "recovered": 0}), \
          patch.object(ea, "record_heartbeats") as r.beats:
         r.results = ea.run_all()
     r.beat = r.beats.call_args.args[0][0]
