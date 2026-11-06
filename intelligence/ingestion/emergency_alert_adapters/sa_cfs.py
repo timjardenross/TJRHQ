@@ -62,6 +62,12 @@ SOURCE_INFO = {
         {"reason": "excluded_hazmat", "field": "CAP <category> / <event> / <headline>", "match": "category CBRNE, or 'hazardous materials' in event/headline", "decided": "Captain-directed 2026-08-26"},
     ],
     "invalid_reasons": ["invalid_missing_content", "invalid_missing_cap_alert"],
+    "cap_fields": {
+        "cap_urgency": "CAP <info><urgency>",
+        "cap_certainty": "CAP <info><certainty>",
+        "cap_severity": "CAP <info><severity> (often literally 'Unknown' - kept verbatim)",
+        "cap_event": "CAP <info><event>",
+    },
     "known_gaps": [
         "The live WarningLevel is 'Incident' on every entry (2026-11-06), which is not an AWS tier, so SA rows are severity 'unknown' in practice. 'Incident' is treated as a known non-tier label, not counted as unmapped.",
         "The feed keeps closed incidents with Status COMPLETE; this is read into `closed` so they expire (absence-based expiry would never see them).",
@@ -210,4 +216,8 @@ def _to_alert(entry, ledger: DropLedger) -> CanonicalAlert | None:
         closed=closed,
         latitude=lat,
         longitude=lon,
+        cap_urgency=_cap_text(alert_el, "urgency"),
+        cap_certainty=_cap_text(alert_el, "certainty"),
+        cap_severity=_cap_text(alert_el, "severity"),
+        cap_event=_cap_text(alert_el, "event"),
     )

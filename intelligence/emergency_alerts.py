@@ -128,6 +128,19 @@ def _supabase_request(method: str, path: str, body: dict | None = None, extra_he
         return
 
 
+# CAP fields CanonicalAlert carries for sources that provide them (SA, VIC
+# warnings). They only exist as alerts columns once migration 0250 is applied
+# (authored, NOT applied by the integrity-uplift mission). Sending an unknown
+# column to PostgREST fails the whole source's upsert, so they are stripped
+# unless the host has opted in with EMERGENCY_ALERTS_CAP_FIELDS=1.
+_CAP_FIELDS = ("cap_urgency", "cap_certainty", "cap_severity", "cap_event")
+
+
+def _cap_fields_enabled() -> bool:
+    """Read per run (not at import) so the flag takes effect without code changes."""
+    return os.environ.get("EMERGENCY_ALERTS_CAP_FIELDS") == "1"
+
+
 def _coerce_rows(source_key: str, rows: list[dict]) -> tuple[int, int]:
     """Make every row safe for the alerts CHECK constraints (alert_schema).
 
@@ -582,10 +595,14 @@ def run_source(source_key: str, run_started_at: str | None = None, heartbeats: l
         log.warning("[emergency-alerts] %s: %s", source_key, failure)
         return {"source_key": source_key, "error": failure, "count": 0}
 
+    keep_cap = _cap_fields_enabled()
     rows = []
     for a in alerts:
         row = asdict(a)
         closed = row.pop("closed")  # not a DB column — CanonicalAlert-only signal, see base.py
+        if not keep_cap:
+            for field in _CAP_FIELDS:  # not alerts columns until migration 0250 is applied; an unknown column fails the whole upsert
+                row.pop(field, None)
         row["status"] = "expired" if closed else "active"
         row["is_active"] = not closed
         row["last_seen_at"] = run_started_at

@@ -51,6 +51,16 @@ class CanonicalAlert:
     lifecycle never catches it). None (default) means "no closure signal
     in this source" — the default absence-based lifecycle still applies.
     Never invent this for a source that doesn't actually expose it."""
+    cap_urgency: str | None = None
+    cap_certainty: str | None = None
+    cap_severity: str | None = None
+    cap_event: str | None = None
+    """CAP (Common Alerting Protocol) fields, kept verbatim ONLY for sources
+    that actually carry them: SA CFS (CAP-AU <info>) and VIC Emergency
+    warnings (embedded `cap` object). None everywhere else - never inferred
+    from another field. They are not alerts-table columns until migration 0250
+    is applied, so the orchestrator strips them from the upsert unless
+    EMERGENCY_ALERTS_CAP_FIELDS=1."""
 
 
 class FeedRetiredError(RuntimeError):

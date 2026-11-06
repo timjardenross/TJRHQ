@@ -69,6 +69,12 @@ SOURCE_INFO = {
         {"reason": "excluded_not_warning_feedtype", "field": "events feed properties.feedType", "match": "!= 'warning' (incident / planned burn / earthquake features)", "decided": "design (module docstring): only warnings are taken from the events feed"},
     ],
     "invalid_reasons": ["invalid_missing_id"],
+    "cap_fields": {
+        "cap_urgency": "warnings: properties.cap.urgency",
+        "cap_certainty": "warnings: properties.cap.certainty",
+        "cap_severity": "warnings: properties.cap.severity",
+        "cap_event": "warnings: properties.cap.event (incident rows carry no CAP block: all four are null)",
+    },
     "known_gaps": [
         "Incident timestamps are DD/MM/YYYY with no timezone/offset; presumed local Australian time but UNVERIFIED (base.parse_dmy_datetime).",
         "The incidents feed has no warning level, so incident rows are always severity 'unknown'; only the events feed's warning features carry a real tier.",
@@ -178,6 +184,10 @@ def _warning_to_alert(feature: dict, ledger: DropLedger) -> CanonicalAlert | Non
         raw_text=text,
         latitude=lat,
         longitude=lon,
+        cap_urgency=cap.get("urgency") or None,
+        cap_certainty=cap.get("certainty") or None,
+        cap_severity=cap.get("severity") or None,
+        cap_event=cap.get("event") or None,
     )
 
 

@@ -246,6 +246,17 @@ Counted as `invalid_<reason>`; if items were seen and ALL failed this way the so
 - `invalid_missing_cap_alert`
 - `invalid_missing_content`
 
+### CAP fields retained
+
+Carried on `CanonicalAlert` (never inferred for other sources); only written to the database when `EMERGENCY_ALERTS_CAP_FIELDS=1` and migration 0250 is applied.
+
+| Field | Source |
+| --- | --- |
+| `cap_urgency` | CAP &lt;info&gt;&lt;urgency&gt; |
+| `cap_certainty` | CAP &lt;info&gt;&lt;certainty&gt; |
+| `cap_severity` | CAP &lt;info&gt;&lt;severity&gt; (often literally 'Unknown' - kept verbatim) |
+| `cap_event` | CAP &lt;info&gt;&lt;event&gt; |
+
 ### Known gaps
 
 - The live WarningLevel is 'Incident' on every entry (2026-11-06), which is not an AWS tier, so SA rows are severity 'unknown' in practice. 'Incident' is treated as a known non-tier label, not counted as unmapped.
@@ -340,6 +351,17 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 Counted as `invalid_<reason>`; if items were seen and ALL failed this way the source is reported `failed` and nothing is expired.
 
 - `invalid_missing_id`
+
+### CAP fields retained
+
+Carried on `CanonicalAlert` (never inferred for other sources); only written to the database when `EMERGENCY_ALERTS_CAP_FIELDS=1` and migration 0250 is applied.
+
+| Field | Source |
+| --- | --- |
+| `cap_urgency` | warnings: properties.cap.urgency |
+| `cap_certainty` | warnings: properties.cap.certainty |
+| `cap_severity` | warnings: properties.cap.severity |
+| `cap_event` | warnings: properties.cap.event (incident rows carry no CAP block: all four are null) |
 
 ### Known gaps
 
