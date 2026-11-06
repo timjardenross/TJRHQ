@@ -78,6 +78,14 @@ def main() -> int:
     if nsw_cap is not None:
         by_url[nsw_cap._CAP_URL] = fx["nsw_rfs"]["cap.xml"]
     detail_html = fx["bom_nsw"]["detail.html"]
+    bom_cap_mod = getattr(bom_warnings, "bom_cap", None)  # absent on checkouts that predate the BoM CAP enrichment
+    if bom_cap_mod is not None:
+        by_url[bom_cap_mod._INDEX_URL] = fx["bom_nsw"]["wmo_index.xml"]
+        import re as _re
+        for ref in bom_cap_mod.parse_index(fx["bom_nsw"]["wmo_index.xml"]):
+            name = "cap_" + _re.sub(r"\W", "_", f"AusBoM-{ref.code}-{ref.sent.isoformat()}") + ".xml"
+            if name in fx["bom_nsw"]:
+                by_url[ref.link] = fx["bom_nsw"][name]
 
     def fake_get(url: str, timeout: int = 20) -> bytes:
         if url in by_url:
@@ -92,7 +100,7 @@ def main() -> int:
 
     base.http_get = fake_get
     base.http_get_json = fake_get_json
-    for mod in (nsw_rfs, nsw_cap, qld_fire, act_esa, wa_dfes, vic_emergency, sa_cfs, tas_fire):
+    for mod in (nsw_rfs, nsw_cap, bom_cap_mod, qld_fire, act_esa, wa_dfes, vic_emergency, sa_cfs, tas_fire):
         for name, fn in (("http_get", fake_get), ("http_get_json", fake_get_json)):
             if mod is not None and hasattr(mod, name):
                 setattr(mod, name, fn)

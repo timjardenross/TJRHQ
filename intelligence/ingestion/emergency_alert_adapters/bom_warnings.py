@@ -54,6 +54,7 @@ from email.utils import parsedate_to_datetime
 
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
+from . import bom_cap
 from .base import (
     CanonicalAlert,
     DropLedger,
@@ -97,8 +98,8 @@ SOURCE_INFO = {
     "source_key": "bom_*",
     "source_keys": [key for key, _url in _STATE_FEEDS.values()],
     "jurisdiction": "NSW, NT, QLD, SA, TAS, VIC, WA, ACT (one feed each)",
-    "feed_urls": [url for _key, url in _STATE_FEEDS.values()],
-    "format": "RSS 2.0 per state, plus one HTML bulletin page per item (detail)",
+    "feed_urls": [url for _key, url in _STATE_FEEDS.values()] + [bom_cap._INDEX_URL],
+    "format": "RSS 2.0 per state, plus one HTML bulletin page per item (detail); CAP-AU 1.2 messages from the WMO alert hub index as an enrichment (event, urgency, certainty, severity)",
     "fixture_dir": "tests/fixtures/emergency_alerts/bom_nsw",
     "severity_field": "none - the BOM feed carries no AWS tier (always 'unknown')",
     "severity_map": None,
@@ -116,6 +117,7 @@ SOURCE_INFO = {
         "Products whose name matches no keyword are dropped (counted excluded_unmatched_product), so a NEW BOM warning product is invisible until a keyword is added.",
         "Needs a browser-shaped User-Agent (BOM 403s the shared default); detail pages are best-effort and fall back to a title-only alert.",
         "The detail-page 'Issued at' line varies by state (AEST, bare EST/EDT, long 'Australian Eastern Daylight Time', trailing full stop, or no timezone at all on bom_wa); fixed 2026-11-06 after 57 of 91 stored rows had issued_at NULL. A line with no timezone is read as the state's local time only for states without daylight saving (WA +8, QLD +10, NT +9:30); NSW/VIC/SA/TAS/ACT lines with no timezone stay unparsed (issued_at NULL) rather than guessed. emergency_alerts._issued_text still reads the stored text as a fallback.",
+        "CAP fields (cap_event / cap_urgency / cap_certainty / cap_severity) come from the WMO mirror of BoM's CAP-AU stream (bom_cap.py), matched to each RSS alert by warning type plus location words, or by a unique same-type message sent within 90 s of the RSS pubDate for the same state. The RSS items and bulletin pages carry no product code, so the match is conservative: ambiguous or unmatched alerts keep no CAP fields (18 of 24 non-marine items matched when measured 2026-11-06, none wrongly; unmatched were older QLD flood warnings beyond the index's ~8-day window). BoM CAP severity is a different scale from our tier and is never used for it; urgency and certainty are often 'Unknown'. The CAP messages validate against the OASIS CAP 1.2 XSD (120 of 120 sampled) and carry the CAP-AU profile markers; the CAP-AU XSD itself was not obtainable. There are no polygons (BoM area codes only). Personal-use only (BoM's RSS terms limit reuse); set EMERGENCY_ALERTS_BOM_CAP=0 to switch the enrichment off. An outage keeps the RSS-only alerts and logs a warning (no FIELD DRIFT check, since coverage is partial by design).",
         "BOM cross-lists some border-river warnings in neighbouring states' feeds, so one product can appear under two source_keys (canonical_url is left empty to avoid the unique-index clash).",
     ],
     "last_verified": "2026-08-27",
@@ -275,7 +277,9 @@ def _fetch_detail(link: str, pubdate_raw: str) -> dict:
 
 def _fetch_state(jurisdiction: str, ledger: DropLedger | None = None) -> list[CanonicalAlert]:
     _source_key, url = _STATE_FEEDS[jurisdiction]
-    return parse_state_feed(jurisdiction, _http_get_bom(url), detail_for=_fetch_detail, ledger=ledger)
+    alerts = parse_state_feed(jurisdiction, _http_get_bom(url), detail_for=_fetch_detail, ledger=ledger)
+    bom_cap.enrich(alerts, jurisdiction)  # best effort: CAP fields only; never changes which alerts exist or their tier
+    return alerts
 
 
 # keyword -> drop-ledger reason for _EXCLUDED_KEYWORDS (frost and sheep

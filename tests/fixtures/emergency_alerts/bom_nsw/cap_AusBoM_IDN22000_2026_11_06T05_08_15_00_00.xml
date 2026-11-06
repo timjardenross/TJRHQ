@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AusBoM-IDN22000-2026-11-06T05:08:15+00:00</identifier>
+    <sender>redacted@example.invalid</sender>
+    <sent>2026-11-06T05:08:15+00:00</sent>
+    <status>Actual</status>
+    <msgType>Alert</msgType>
+    <scope>Public</scope>
+    <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Fire Weather</event>
+        <urgency>Unknown</urgency>
+        <severity>Severe</severity>
+        <certainty>Unknown</certainty>
+        <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>fireWeather</value>
+        </eventCode>
+        <effective>2026-11-06T13:00:00+00:00</effective>
+        <expires>2026-11-07T13:00:00+00:00</expires>
+        <senderName>Australian Government Bureau of Meteorology</senderName>
+        <headline>Extreme Fire Weather Warning for Greater Hunter and Upper Central West Plains fire districts for 07 November</headline>
+        <instruction>The NSW Rural Fire Service advises you to:
+Action your Bushfire Survival Plan now.
+Monitor the fire and weather situation through your local radio station, www.rfs.nsw.gov.au and www.bom.gov.au.
+Call 000 (Triple Zero) in an emergency.
+</instruction>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <contact>http://www.bom.gov.au/inside/contacts.shtml</contact>
+        <area>
+            <areaDesc>New South Wales: Greater Hunter and Upper Central West Plains</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_FW003</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_FW014</value>
+            </geocode>
+        </area>
+    </info>
+</alert>

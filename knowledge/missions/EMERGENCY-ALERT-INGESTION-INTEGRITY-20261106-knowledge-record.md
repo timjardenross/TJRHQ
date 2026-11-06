@@ -27,6 +27,13 @@ Delivered in PRs #587-#591 and the persistence follow-up (migrations 0250, 0251 
 - CAP-AU: the NSW RFS CAP feed is a superset of the GeoJSON feed; VicEmergency's CAP feed is not public; SA CFS already publishes CAP. A NSW CAP adapter needs approval.
 - The live-feed canary was delivered as an in-run `FIELD DRIFT` check rather than a separate scheduled job: same signal, no extra moving part.
 
+## Addendum 2026-11-06: CAP enrichment (NSW RFS, BoM)
+
+- **NSW RFS:** `nsw_rfs_cap.py` copies CAP event / urgency / certainty / severity onto the GeoJSON alerts by RFS incident id (an enrichment, not a second source; an outage raises FIELD DRIFT).
+- **BoM:** `bom_cap.py` does the same for the eight `bom_*` feeds from the WMO mirror of BoM's CAP-AU stream. The BoM RSS items and bulletin pages carry no product code, so the match is conservative (warning type plus location words, or a unique same-state message sent within 90 s) and an ambiguous match is left unenriched; 18 of 24 non-marine items matched when measured, none wrongly. BoM CAP severity is never used for our tier. Personal use only; `EMERGENCY_ALERTS_BOM_CAP=0` switches it off.
+- **Measured conformance:** 120/120 sampled BoM messages and 8/8 NSW messages validate against the OASIS CAP 1.2 XSD; the QLD storm / flood / cyclone CAP-AU feed does not (its `<sent>` / `<expires>` read `...+00:00+10:00`, and `expires` is a year ahead). The CAP-AU XSD was not obtainable (govshare.gov.au unreachable, purl.org redirects to a host the session cannot reach).
+- **Not done:** QLD CAP enrichment (needs a tolerant timestamp parser and cannot be used for expiry); WA, ACT and TAS have no confirmed CAP feed; BoM geography (area codes only, no polygons).
+
 ## Lesson
 
 See LL-201 and LL-202 in `knowledge/Lessons-Learned.md`.

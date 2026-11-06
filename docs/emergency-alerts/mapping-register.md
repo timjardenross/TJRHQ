@@ -19,7 +19,7 @@ recognised (severity `unknown`).
 | Source | Severity source | Exclusions | Known gaps | Last verified |
 | --- | --- | --- | --- | --- |
 | `act_esa` | none - the ESA incident feed carries no warning level | 2 | 2 | 2026-08-26 |
-| `bom_*` | none - the BOM feed carries no AWS tier (always 'unknown') | 3 | 5 | 2026-08-27 |
+| `bom_*` | none - the BOM feed carries no AWS tier (always 'unknown') | 3 | 6 | 2026-08-27 |
 | `nsw_rfs` | properties.category (Advice / Watch and Act / Emergency Warning) | 2 | 3 | 2026-08-26 |
 | `nt_securent` | none - NT fire/emergency alerts are not monitored | 0 | 2 | 2026-11-01 |
 | `qld_fire` | properties.WarningLevel (Advice / Watch and Act / Emergency Warning) | 2 | 2 | 2026-08-26 |
@@ -69,7 +69,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 
 - **Jurisdiction:** NSW, NT, QLD, SA, TAS, VIC, WA, ACT (one feed each)
 - **Source keys:** `bom_nsw`, `bom_nt`, `bom_qld`, `bom_sa`, `bom_tas`, `bom_vic`, `bom_wa`, `bom_act`
-- **Format:** RSS 2.0 per state, plus one HTML bulletin page per item (detail)
+- **Format:** RSS 2.0 per state, plus one HTML bulletin page per item (detail); CAP-AU 1.2 messages from the WMO alert hub index as an enrichment (event, urgency, certainty, severity)
 - **Feed URL(s):**
   - https://www.bom.gov.au/fwo/IDZ00054.warnings_nsw.xml
   - https://www.bom.gov.au/fwo/IDZ00055.warnings_nt.xml
@@ -79,6 +79,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
   - https://www.bom.gov.au/fwo/IDZ00059.warnings_vic.xml
   - https://www.bom.gov.au/fwo/IDZ00060.warnings_wa.xml
   - https://www.bom.gov.au/fwo/IDZ00085.warnings_act.xml
+  - https://severeweather.wmo.int/v2/cap-alerts/au-bom-en/rss.xml
 - **Last verified:** 2026-08-27 (from the adapter's own docstring)
 - **Snapshot fixture:** `tests/fixtures/emergency_alerts/bom_nsw/`
 
@@ -112,6 +113,7 @@ Counted as `excluded_<reason>` in the drop ledger; an all-excluded feed is repor
 - Products whose name matches no keyword are dropped (counted excluded_unmatched_product), so a NEW BOM warning product is invisible until a keyword is added.
 - Needs a browser-shaped User-Agent (BOM 403s the shared default); detail pages are best-effort and fall back to a title-only alert.
 - The detail-page 'Issued at' line varies by state (AEST, bare EST/EDT, long 'Australian Eastern Daylight Time', trailing full stop, or no timezone at all on bom_wa); fixed 2026-11-06 after 57 of 91 stored rows had issued_at NULL. A line with no timezone is read as the state's local time only for states without daylight saving (WA +8, QLD +10, NT +9:30); NSW/VIC/SA/TAS/ACT lines with no timezone stay unparsed (issued_at NULL) rather than guessed. emergency_alerts._issued_text still reads the stored text as a fallback.
+- CAP fields (cap_event / cap_urgency / cap_certainty / cap_severity) come from the WMO mirror of BoM's CAP-AU stream (bom_cap.py), matched to each RSS alert by warning type plus location words, or by a unique same-type message sent within 90 s of the RSS pubDate for the same state. The RSS items and bulletin pages carry no product code, so the match is conservative: ambiguous or unmatched alerts keep no CAP fields (18 of 24 non-marine items matched when measured 2026-11-06, none wrongly; unmatched were older QLD flood warnings beyond the index's ~8-day window). BoM CAP severity is a different scale from our tier and is never used for it; urgency and certainty are often 'Unknown'. The CAP messages validate against the OASIS CAP 1.2 XSD (120 of 120 sampled) and carry the CAP-AU profile markers; the CAP-AU XSD itself was not obtainable. There are no polygons (BoM area codes only). Personal-use only (BoM's RSS terms limit reuse); set EMERGENCY_ALERTS_BOM_CAP=0 to switch the enrichment off. An outage keeps the RSS-only alerts and logs a warning (no FIELD DRIFT check, since coverage is partial by design).
 - BOM cross-lists some border-river warnings in neighbouring states' feeds, so one product can appear under two source_keys (canonical_url is left empty to avoid the unique-index clash).
 
 ## nsw_rfs

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AusBoM-IDN20400-2026-11-06T05:05:01+00:00</identifier>
+    <sender>redacted@example.invalid</sender>
+    <sent>2026-11-06T05:05:01+00:00</sent>
+    <status>Actual</status>
+    <msgType>Update</msgType>
+    <scope>Public</scope>
+    <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+    <references>redacted@example.invalid,AusBoM-IDN20400-2026-11-04T17:00:03+00:00,2026-11-04T17:00:03+00:00 redacted@example.invalid,AusBoM-IDN20400-2026-11-04T19:36:50+00:00,2026-11-04T19:36:50+00:00 redacted@example.invalid,AusBoM-IDN20400-2026-11-04T23:00:08+00:00,2026-11-04T23:00:08+00:00 redacted@example.invalid,AusBoM-IDN20400-2026-11-05T00:07:42+00:00,2026-11-05T00:07:42+00:00 redacted@example.invalid,AusBoM-IDN20400-2026-11-05T05:05:01+00:00,2026-11-05T05:05:01+00:00 redacted@example.invalid,AusBoM-IDN20400-2026-11-05T17:00:01+00:00,2026-11-05T17:00:01+00:00 redacted@example.invalid,AusBoM-IDN20400-2026-11-05T23:00:01+00:00,2026-11-05T23:00:01+00:00</references>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Wind</event>
+        <urgency>Unknown</urgency>
+        <severity>Moderate</severity>
+        <certainty>Unknown</certainty>
+        <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>wind</value>
+        </eventCode>
+        <effective>2026-11-06T13:00:00+00:00</effective>
+        <expires>2026-11-07T13:00:00+00:00</expires>
+        <senderName>Australian Government Bureau of Meteorology</senderName>
+        <headline>Strong Wind Warning for coastal waters between Seal Rocks and Gabo Island and for Sydney Enclosed Waters for 07 November</headline>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <contact>http://www.bom.gov.au/inside/contacts.shtml</contact>
+        <area>
+            <areaDesc>New South Wales: Sydney Enclosed Waters, Hunter Coast, Sydney Coast, Illawarra Coast, Batemans Coast and Eden Coast</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_MW005</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_MW004</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_MW009</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_MW003</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_MW002</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_MW001</value>
+            </geocode>
+        </area>
+    </info>
+</alert>
