@@ -146,7 +146,12 @@ def fetch() -> list[CanonicalAlert]:
 
 
 def _fetch_incidents() -> list[CanonicalAlert]:
-    data = http_get_json(_FEED_URL)
+    return parse_incidents(http_get_json(_FEED_URL))
+
+
+def parse_incidents(data: dict) -> list[CanonicalAlert]:
+    """Pure parse of the getIncidentJSON response (results[] array); bushfire
+    incidents only. Separate from fetch() so it can be tested offline."""
     out: list[CanonicalAlert] = []
     for row in data.get("results", []):
         if _is_planned_burn(row) or _is_false_alarm(row):

@@ -74,9 +74,9 @@ def _geo(item: ET.Element) -> tuple[float | None, float | None]:
     return lat, lon
 
 
-def _fetch_warnings() -> tuple[list[CanonicalAlert], dict[str, str]]:
-    """Returns (alerts, incident_number_to_severity) — the second is used
-    by _fetch_incidents to enrich CAD incidents whose dfes:incidentNumber
+def parse_warnings(raw: bytes) -> tuple[list[CanonicalAlert], dict[str, str]]:
+    """Pure parse of the warnings RSS. Returns (alerts, incident_number_to_severity)
+    — the second is used by parse_incidents to enrich CAD incidents whose dfes:incidentNumber
     matches a warning already issued for the same real event (confirmed
     live 2026-08-26: WA's incidents feed has no severity field of its own,
     but some CAD-IDs do appear in the warnings feed's own
@@ -84,7 +84,7 @@ def _fetch_warnings() -> tuple[list[CanonicalAlert], dict[str, str]]:
     shared ID both feeds already carry, not an inferred value."""
     out: list[CanonicalAlert] = []
     incident_severity: dict[str, str] = {}
-    for item in _rss_items(http_get(_WARNINGS_URL)):
+    for item in _rss_items(raw):
         title_el = item.find("title")
         title = title_el.text.strip() if title_el is not None and title_el.text else "—"
         title_upper = title.upper()
@@ -145,9 +145,10 @@ def _fetch_warnings() -> tuple[list[CanonicalAlert], dict[str, str]]:
 _INCIDENT_TITLE_RE = re.compile(r"^(?P<type>[^(]+?)\s*\((?P<rest>.*)\)$")
 
 
-def _fetch_incidents(incident_severity: dict[str, str]) -> list[CanonicalAlert]:
+def parse_incidents(raw: bytes, incident_severity: dict[str, str]) -> list[CanonicalAlert]:
+    """Pure parse of the incidents RSS (bushfire CAD incidents only)."""
     out: list[CanonicalAlert] = []
-    for item in _rss_items(http_get(_INCIDENTS_URL)):
+    for item in _rss_items(raw):
         title_el = item.find("title")
         title = title_el.text.strip() if title_el is not None and title_el.text else "—"
 
@@ -201,6 +202,11 @@ def _fetch_incidents(incident_severity: dict[str, str]) -> list[CanonicalAlert]:
     return out
 
 
+def parse(warnings_raw: bytes, incidents_raw: bytes) -> list[CanonicalAlert]:
+    warnings, incident_severity = parse_warnings(warnings_raw)
+    return warnings + parse_incidents(incidents_raw, incident_severity)
+
+
 def fetch() -> list[CanonicalAlert]:
-    warnings, incident_severity = _fetch_warnings()
-    return warnings + _fetch_incidents(incident_severity)
+    warnings, incident_severity = parse_warnings(http_get(_WARNINGS_URL))
+    return warnings + parse_incidents(http_get(_INCIDENTS_URL), incident_severity)

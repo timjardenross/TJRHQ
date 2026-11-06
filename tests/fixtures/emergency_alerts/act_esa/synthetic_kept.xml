@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!-- SYNTHETIC fixture: hand-built from act_esa.py's documented feed shape (live feed shape confirmed in feed.xml). The live snapshot held only Ambulance Responses, so it cannot exercise the kept path. See meta.json. -->
+<rss version="2.0">
+  <channel>
+    <title>Incidents in ACT GeoRSS Feed (synthetic)</title>
+    <link>https://esa.act.gov.au/feeds/currentincidents.xml</link>
+    <description>synthetic</description>
+    <item><title>BUSHFIRE - EXAMPLE VALLEY</title><link>https://esa.act.gov.au/feeds/currentincidents.xml</link><type>BUSHFIRE</type><agency>Fire &amp; Rescue</agency><description>Incident: BUSHFIRE - EXAMPLE VALLEY
+Location: EXAMPLE VALLEY
+Status: Going
+Type: BUSHFIRE
+Updated: 19 Aug 2026 23:24:36.053
+Time of Call: 19 Aug 2026 22:01:00</description><guid>900001-19082026</guid><pubDate>2026-08-19 23:30 AEST</pubDate><georss:point xmlns:georss="http://www.georss.org/georss">-35.300000 149.100000</georss:point></item>
+    <item><title>STRUCTURE FIRE - EXAMPLE TOWN</title><link>https://esa.act.gov.au/feeds/currentincidents.xml</link><type>STRUCTURE FIRE</type><agency>Fire &amp; Rescue</agency><description>Incident: STRUCTURE FIRE - EXAMPLE TOWN
+Location: EXAMPLE TOWN
+Updated: 19 Aug 2026 20:00:00.000</description><guid>900002-19082026</guid><pubDate>2026-08-19 23:30 AEST</pubDate><georss:point xmlns:georss="http://www.georss.org/georss">-35.310000 149.110000</georss:point></item>
+    <item><title>HAZARD REDUCTION BURN - EXAMPLE HILL</title><link>https://esa.act.gov.au/feeds/currentincidents.xml</link><type>HAZARD REDUCTION BURN</type><agency>Parks</agency><description>Incident: HAZARD REDUCTION BURN - EXAMPLE HILL
+Location: EXAMPLE HILL</description><guid>900003-19082026</guid><pubDate>2026-08-19 23:30 AEST</pubDate></item>
+    <item><title>MOTOR VEHICLE ACCIDENT - EXAMPLE RD</title><link>https://esa.act.gov.au/feeds/currentincidents.xml</link><type>MOTOR VEHICLE ACCIDENT</type><agency>Fire &amp; Rescue</agency><description>Incident: MOTOR VEHICLE ACCIDENT - EXAMPLE RD</description><guid>900004-19082026</guid><pubDate>2026-08-19 23:30 AEST</pubDate></item>
+    <item><title>AMBULANCE RESPONSE - EXAMPLE ST</title><link>https://esa.act.gov.au/feeds/currentincidents.xml</link><type>AMBULANCE RESPONSE</type><agency>Ambulance</agency><description>Incident: AMBULANCE RESPONSE - EXAMPLE ST</description><guid>900005-19082026</guid><pubDate>2026-08-19 23:30 AEST</pubDate></item>
+    <item><title>GRASS FIRE - NO GUID</title><link>https://esa.act.gov.au/feeds/currentincidents.xml</link><type>GRASS FIRE</type><agency>Fire &amp; Rescue</agency><description>Incident: GRASS FIRE - NO GUID
+Location: NOWHERE</description><pubDate>2026-08-19 23:30 AEST</pubDate></item>
+  </channel>
+</rss>

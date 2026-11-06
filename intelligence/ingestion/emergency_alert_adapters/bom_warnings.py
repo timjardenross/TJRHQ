@@ -151,6 +151,22 @@ def _parse_bom_issued_at(text: str) -> str | None:
         return None
 
 
+def parse_detail(html: str) -> dict:
+    """Pure parse of a BOM bulletin page -> {"issued_at": str|None, "body": str|None}.
+    Separate from _fetch_detail() so it can be tested against a page fixture."""
+    m = _CONTENT_RE.search(html)
+    if not m:
+        return {"issued_at": None, "body": None}
+    content_html = _TABLE_RE.sub("", m.group(1))
+    issued_at = _parse_bom_issued_at(content_html)
+    text = _TAG_BREAK_RE.sub("\n", content_html)
+    text = _TAG_RE.sub("", text)
+    text = (text.replace("&amp;", "&").replace("&nbsp;", " ")
+                .replace("&lt;", "<").replace("&gt;", ">"))
+    text = _BLANK_LINES_RE.sub("\n\n", text).strip()
+    return {"issued_at": issued_at, "body": text or None}
+
+
 def _fetch_detail(link: str, pubdate_raw: str) -> dict:
     """Returns {"issued_at": str|None, "body": str|None}. Never raises —
     the detail page is an enrichment, not a requirement; the RSS title
@@ -160,19 +176,7 @@ def _fetch_detail(link: str, pubdate_raw: str) -> dict:
         return cached[1]
 
     try:
-        html = _http_get_bom(link).decode("utf-8", errors="replace")
-        m = _CONTENT_RE.search(html)
-        if not m:
-            result = {"issued_at": None, "body": None}
-        else:
-            content_html = _TABLE_RE.sub("", m.group(1))
-            issued_at = _parse_bom_issued_at(content_html)
-            text = _TAG_BREAK_RE.sub("\n", content_html)
-            text = _TAG_RE.sub("", text)
-            text = (text.replace("&amp;", "&").replace("&nbsp;", " ")
-                        .replace("&lt;", "<").replace("&gt;", ">"))
-            text = _BLANK_LINES_RE.sub("\n\n", text).strip()
-            result = {"issued_at": issued_at, "body": text or None}
+        result = parse_detail(_http_get_bom(link).decode("utf-8", errors="replace"))
     except Exception as exc:  # noqa: BLE001 - best-effort detail-page fetch, already logged; caller falls back to the documented {issued_at: None, body: None} shape
         log.warning("[bom_warnings] detail fetch failed for %s: %s", link, exc)
         result = {"issued_at": None, "body": None}
@@ -182,8 +186,16 @@ def _fetch_detail(link: str, pubdate_raw: str) -> dict:
 
 
 def _fetch_state(jurisdiction: str) -> list[CanonicalAlert]:
-    source_key, url = _STATE_FEEDS[jurisdiction]
-    raw = _http_get_bom(url)
+    _source_key, url = _STATE_FEEDS[jurisdiction]
+    return parse_state_feed(jurisdiction, _http_get_bom(url), detail_for=_fetch_detail)
+
+
+def parse_state_feed(jurisdiction: str, raw: bytes, detail_for=None) -> list[CanonicalAlert]:
+    """Pure parse of one state's warnings RSS. `detail_for(link, pubdate_raw)`
+    returns the {"issued_at", "body"} dict for an item's bulletin page; the
+    live path passes _fetch_detail (network, cached). None means title-only
+    alerts, which is also what a failed detail fetch degrades to."""
+    source_key, _url = _STATE_FEEDS[jurisdiction]
     root = ET.fromstring(raw)
     out: list[CanonicalAlert] = []
 
@@ -236,7 +248,7 @@ def _fetch_state(jurisdiction: str) -> list[CanonicalAlert]:
         # more of the content of the warning across") — see module
         # docstring and _fetch_detail. Best-effort: a failed detail fetch
         # still leaves a usable, title-only alert.
-        detail = _fetch_detail(link, pubdate_raw) if link else {"issued_at": None, "body": None}
+        detail = detail_for(link, pubdate_raw) if (link and detail_for) else {"issued_at": None, "body": None}
         issued_at = detail["issued_at"]
 
         out.append(CanonicalAlert(

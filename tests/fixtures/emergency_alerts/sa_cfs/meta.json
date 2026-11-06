@@ -1,0 +1,15 @@
+{
+  "source_key": "sa_cfs",
+  "url": "https://data.eso.sa.gov.au/feeds/prod/cap-au.xml",
+  "captured_at": "2026-11-06T05:52:46.442556+00:00",
+  "captured_by": "claude-code",
+  "feeds": {
+    "feed.xml": {
+      "url": "https://data.eso.sa.gov.au/feeds/prod/cap-au.xml",
+      "captured_at": "2026-11-06T05:52:46.442556+00:00",
+      "synthetic": false,
+      "redactions": 7
+    }
+  },
+  "notes": "Untrimmed live snapshot (single fetch via base.http_get). 7 email address(es) replaced with redacted@example.invalid. "
+}

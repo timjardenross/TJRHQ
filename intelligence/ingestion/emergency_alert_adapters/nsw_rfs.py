@@ -40,7 +40,12 @@ def _parse_description_fields(description: str) -> dict:
 
 
 def fetch() -> list[CanonicalAlert]:
-    data = http_get_json(_FEED_URL)
+    return parse(http_get_json(_FEED_URL))
+
+
+def parse(data: dict) -> list[CanonicalAlert]:
+    """Pure parse of the Major Incidents GeoJSON FeatureCollection; separate
+    from fetch() so it can be tested against a captured snapshot offline."""
     out: list[CanonicalAlert] = []
     for feature in data.get("features", []):
         props = feature.get("properties", {}) or {}

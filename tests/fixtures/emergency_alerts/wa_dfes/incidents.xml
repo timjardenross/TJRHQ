@@ -1,0 +1,913 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<rss xmlns:georss="https://www.ogc.org/standard/georss/" xmlns:dfes="https://emergency.wa.gov.au/xmlns/dfes" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:geo="https://www.w3.org/2003/01/geo/wgs84_pos#" version="2.0">
+  <channel>
+    <title>DFES Incidents (All Regions)</title>
+    <link>https://emergency.wa.gov.au</link>
+    <description/>
+    <language>en-us</language>
+    <pubDate>Fri, 06 Nov 2026 13:52:42 +0800</pubDate>
+    <lastBuildDate>Fri, 06 Nov 2026 13:52:42 +0800</lastBuildDate>
+    <docs>https://cyber.harvard.edu/rss/</docs>
+    <generator>DFES WA</generator>
+    <managingEditor>redacted@example.invalid</managingEditor>
+    <webMaster>redacted@example.invalid</webMaster>
+    <ttl>1</ttl>
+    <item>
+      <title>Fire (BRIDGETOWN, SHIRE OF BRIDGETOWN-GREENBUSHES, LOWER SOUTH WEST, CAD-ID: 820504)</title>
+      <link>https://emergency.wa.gov.au/incidents/6abc69bdff879d7a11a9e80b</link>
+      <description><![CDATA[Fire <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>820504</incidentNumber>
+    <br>
+    <publicationTime>Fri, 30 Oct 2026 14:23:57 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 30 Oct 2026 14:23:57 +0800</pubDate>
+      <guid isPermaLink="false">6abc69bdff879d7a11a9e80b</guid>
+      <geo:long>116.1597</geo:long>
+      <geo:lat>-33.94028</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (DROME, CITY OF ALBANY, GREAT SOUTHERN, CAD-ID: 822112)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ac468e1911c1b7141da7b3f</link>
+      <description><![CDATA[Burn Off <region>GREAT SOUTHERN</region><br>
+    <incidentNumber>822112</incidentNumber>
+    <br>
+    <publicationTime>Mon, 02 Nov 2026 10:53:52 +0800</publicationTime>]]></description>
+      <pubDate>Mon, 02 Nov 2026 10:53:52 +0800</pubDate>
+      <guid isPermaLink="false">6ac468e1911c1b7141da7b3f</guid>
+      <geo:long>117.73523307</geo:long>
+      <geo:lat>-34.92933652</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Structure Fire (BAMBUN, SHIRE OF GINGIN, METRO NORTH COASTAL, CAD-ID: 823841)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aced1901d17de20df3ce24d</link>
+      <description><![CDATA[Structure Fire <region>METRO NORTH COASTAL</region><br>
+    <incidentNumber>823841</incidentNumber>
+    <br>
+    <publicationTime>Wed, 04 Nov 2026 15:56:53 +0800</publicationTime>]]></description>
+      <pubDate>Wed, 04 Nov 2026 15:56:53 +0800</pubDate>
+      <guid isPermaLink="false">6aced1901d17de20df3ce24d</guid>
+      <geo:long>115.9062197</geo:long>
+      <geo:lat>-31.45070299</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (GEEGULLY CREEK, SHIRE OF DERBY/WEST KIMBERLEY, KIMBERLEY, CAD-ID: 825673)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ad88fe6a780575aaf7d6e07</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>825673</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 10:20:23 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:20:23 +0800</pubDate>
+      <guid isPermaLink="false">6ad88fe6a780575aaf7d6e07</guid>
+      <geo:long>123.793</geo:long>
+      <geo:lat>-18.8</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (ST GEORGE RANGES, SHIRE OF DERBY/WEST KIMBERLEY, KIMBERLEY, CAD-ID: 825891)</title>
+      <link>https://emergency.wa.gov.au/incidents/6adabff9bb91a009fb53536a</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>825891</incidentNumber>
+    <br>
+    <publicationTime>Sat, 24 Oct 2026 17:42:55 +0800</publicationTime>]]></description>
+      <pubDate>Sat, 24 Oct 2026 17:42:55 +0800</pubDate>
+      <guid isPermaLink="false">6adabff9bb91a009fb53536a</guid>
+      <geo:long>125.158</geo:long>
+      <geo:lat>-18.835</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Fire (KOORDA, SHIRE OF KOORDA, GOLDFIELDS MIDLANDS, CAD-ID: 826593)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ade51b6dc87c1a9269db92d</link>
+      <description><![CDATA[Fire <region>GOLDFIELDS MIDLANDS</region><br>
+    <incidentNumber>826593</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 14:22:27 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 14:22:27 +0800</pubDate>
+      <guid isPermaLink="false">6ade51b6dc87c1a9269db92d</guid>
+      <geo:long>117.47742</geo:long>
+      <geo:lat>-30.82063</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (OOMBULGURRI, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 827483)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae2f0102a17e9ec49663aa6</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>827483</incidentNumber>
+    <br>
+    <publicationTime>Thu, 29 Oct 2026 15:04:50 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 29 Oct 2026 15:04:50 +0800</pubDate>
+      <guid isPermaLink="false">6ae2f0102a17e9ec49663aa6</guid>
+      <geo:long>127.654</geo:long>
+      <geo:lat>-15.283</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (SHADFORTH, SHIRE OF DENMARK, GREAT SOUTHERN, CAD-ID: 828420)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae6f397cf8cb30238404c3c</link>
+      <description><![CDATA[Burn Off <region>GREAT SOUTHERN</region><br>
+    <incidentNumber>828420</incidentNumber>
+    <br>
+    <publicationTime>Mon, 02 Nov 2026 10:53:55 +0800</publicationTime>]]></description>
+      <pubDate>Mon, 02 Nov 2026 10:53:55 +0800</pubDate>
+      <guid isPermaLink="false">6ae6f397cf8cb30238404c3c</guid>
+      <geo:long>117.32464996</geo:long>
+      <geo:lat>-34.97347086</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (LAKE ARGYLE, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 828501)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae7b3bce4037efede92c866</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>828501</incidentNumber>
+    <br>
+    <publicationTime>Mon, 02 Nov 2026 05:50:18 +0800</publicationTime>]]></description>
+      <pubDate>Mon, 02 Nov 2026 05:50:18 +0800</pubDate>
+      <guid isPermaLink="false">6ae7b3bce4037efede92c866</guid>
+      <geo:long>128.661016</geo:long>
+      <geo:lat>-15.623602</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (CAMBRIDGE GULF, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 828560)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae81ed642d7438d66fc034d</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>828560</incidentNumber>
+    <br>
+    <publicationTime>Mon, 02 Nov 2026 13:27:01 +0800</publicationTime>]]></description>
+      <pubDate>Mon, 02 Nov 2026 13:27:01 +0800</pubDate>
+      <guid isPermaLink="false">6ae81ed642d7438d66fc034d</guid>
+      <geo:long>128.647644</geo:long>
+      <geo:lat>-15.051121</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (MITCHELL PLATEAU, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 828609)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae84a652628ddf3b8f91781</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>828609</incidentNumber>
+    <br>
+    <publicationTime>Tue, 03 Nov 2026 18:49:30 +0800</publicationTime>]]></description>
+      <pubDate>Tue, 03 Nov 2026 18:49:30 +0800</pubDate>
+      <guid isPermaLink="false">6ae84a652628ddf3b8f91781</guid>
+      <geo:long>125.721314</geo:long>
+      <geo:lat>-14.820592</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (PRINCE REGENT RIVER, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 828685)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae915f3784ee061862c4d88</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>828685</incidentNumber>
+    <br>
+    <publicationTime>Tue, 03 Nov 2026 07:01:49 +0800</publicationTime>]]></description>
+      <pubDate>Tue, 03 Nov 2026 07:01:49 +0800</pubDate>
+      <guid isPermaLink="false">6ae915f3784ee061862c4d88</guid>
+      <geo:long>125.381627</geo:long>
+      <geo:lat>-15.678123</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (WARRENUP, CITY OF ALBANY, GREAT SOUTHERN, CAD-ID: 828727)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae94c72bf8788282930ec12</link>
+      <description><![CDATA[Burn Off <region>GREAT SOUTHERN</region><br>
+    <incidentNumber>828727</incidentNumber>
+    <br>
+    <publicationTime>Tue, 03 Nov 2026 10:52:32 +0800</publicationTime>]]></description>
+      <pubDate>Tue, 03 Nov 2026 10:52:32 +0800</pubDate>
+      <guid isPermaLink="false">6ae94c72bf8788282930ec12</guid>
+      <geo:long>117.86275136</geo:long>
+      <geo:lat>-34.97521538</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (KUNUNURRA, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 828729)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae94f7dbf8788282930ecb1</link>
+      <description><![CDATA[Burn Off <region>KIMBERLEY</region><br>
+    <incidentNumber>828729</incidentNumber>
+    <br>
+    <publicationTime>Tue, 03 Nov 2026 11:05:31 +0800</publicationTime>]]></description>
+      <pubDate>Tue, 03 Nov 2026 11:05:31 +0800</pubDate>
+      <guid isPermaLink="false">6ae94f7dbf8788282930ecb1</guid>
+      <geo:long>128.72631567</geo:long>
+      <geo:lat>-15.75072752</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (BULARL DI WUNAMI, SHIRE OF DERBY/WEST KIMBERLEY, KIMBERLEY, CAD-ID: 828733)</title>
+      <link>https://emergency.wa.gov.au/incidents/6ae954d7b54b764863c882f6</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>828733</incidentNumber>
+    <br>
+    <publicationTime>Tue, 03 Nov 2026 11:28:52 +0800</publicationTime>]]></description>
+      <pubDate>Tue, 03 Nov 2026 11:28:52 +0800</pubDate>
+      <guid isPermaLink="false">6ae954d7b54b764863c882f6</guid>
+      <geo:long>126.057</geo:long>
+      <geo:lat>-17.185</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (TANAMI, SHIRE OF HALLS CREEK, KIMBERLEY, CAD-ID: 828856)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aea883d1a5cad77dce82759</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>828856</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 10:22:00 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:22:00 +0800</pubDate>
+      <guid isPermaLink="false">6aea883d1a5cad77dce82759</guid>
+      <geo:long>127.835</geo:long>
+      <geo:lat>-19.632</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (GIBB, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 828857)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aea88991a5cad77dce8276a</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>828857</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 10:22:59 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:22:59 +0800</pubDate>
+      <guid isPermaLink="false">6aea88991a5cad77dce8276a</guid>
+      <geo:long>126.524</geo:long>
+      <geo:lat>-16.249</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (GREENBUSHES, SHIRE OF BRIDGETOWN-GREENBUSHES, LOWER SOUTH WEST, CAD-ID: 828869)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aea93951a5cad77dce82903</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>828869</incidentNumber>
+    <br>
+    <publicationTime>Wed, 04 Nov 2026 10:08:20 +0800</publicationTime>]]></description>
+      <pubDate>Wed, 04 Nov 2026 10:08:20 +0800</pubDate>
+      <guid isPermaLink="false">6aea93951a5cad77dce82903</guid>
+      <geo:long>116.05117</geo:long>
+      <geo:lat>-33.83659</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (YOUNGS SIDING, CITY OF ALBANY, GREAT SOUTHERN, CAD-ID: 828936)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aeaf39873255ed877e590eb</link>
+      <description><![CDATA[Burn Off <region>GREAT SOUTHERN</region><br>
+    <incidentNumber>828936</incidentNumber>
+    <br>
+    <publicationTime>Wed, 04 Nov 2026 16:57:59 +0800</publicationTime>]]></description>
+      <pubDate>Wed, 04 Nov 2026 16:57:59 +0800</pubDate>
+      <guid isPermaLink="false">6aeaf39873255ed877e590eb</guid>
+      <geo:long>117.55502301</geo:long>
+      <geo:lat>-34.99922637</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (KALAMUNDA, CITY OF KALAMUNDA, METRO SOUTH EAST, CAD-ID: 829012)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aebcda87f49a28594bf83c4</link>
+      <description><![CDATA[Burn Off <region>METRO SOUTH EAST</region><br>
+    <incidentNumber>829012</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 09:23:50 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 09:23:50 +0800</pubDate>
+      <guid isPermaLink="false">6aebcda87f49a28594bf83c4</guid>
+      <geo:long>116.06393818</geo:long>
+      <geo:lat>-31.97806303</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (DRYSDALE RIVER, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 829018)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aebd6005207ddbaf68a8a29</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829018</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 10:32:57 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:32:57 +0800</pubDate>
+      <guid isPermaLink="false">6aebd6005207ddbaf68a8a29</guid>
+      <geo:long>126.632</geo:long>
+      <geo:lat>-14.544</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (DRYSDALE RIVER, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 829020)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aebd7435207ddbaf68a8a4b</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829020</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 10:33:21 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:33:21 +0800</pubDate>
+      <guid isPermaLink="false">6aebd7435207ddbaf68a8a4b</guid>
+      <geo:long>126.864</geo:long>
+      <geo:lat>-14.108</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (MUELLER RANGES, SHIRE OF HALLS CREEK, KIMBERLEY, CAD-ID: 829021)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aebd88f5207ddbaf68a8a86</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829021</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 10:33:28 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:33:28 +0800</pubDate>
+      <guid isPermaLink="false">6aebd88f5207ddbaf68a8a86</guid>
+      <geo:long>126.339</geo:long>
+      <geo:lat>-18.849</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (WYNDHAM, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 829025)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aebda915207ddbaf68a8ac8</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829025</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 10:11:45 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:11:45 +0800</pubDate>
+      <guid isPermaLink="false">6aebda915207ddbaf68a8ac8</guid>
+      <geo:long>128.303647</geo:long>
+      <geo:lat>-15.583308</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (MUELLER RANGES, SHIRE OF DERBY/WEST KIMBERLEY, KIMBERLEY, CAD-ID: 829031)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aebdfc45207ddbaf68a8c0c</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829031</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 09:46:20 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 09:46:20 +0800</pubDate>
+      <guid isPermaLink="false">6aebdfc45207ddbaf68a8c0c</guid>
+      <geo:long>126.577</geo:long>
+      <geo:lat>-17.123</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (MUELLER RANGES, SHIRE OF DERBY/WEST KIMBERLEY, KIMBERLEY, CAD-ID: 829032)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aebe0695207ddbaf68a8c1d</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829032</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 10:33:57 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 10:33:57 +0800</pubDate>
+      <guid isPermaLink="false">6aebe0695207ddbaf68a8c1d</guid>
+      <geo:long>126.959</geo:long>
+      <geo:lat>-17.234</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (ORD RIVER, SHIRE OF HALLS CREEK, KIMBERLEY, CAD-ID: 829045)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aebfd9e30f825bcdfb0367d</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829045</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 16:58:21 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 16:58:21 +0800</pubDate>
+      <guid isPermaLink="false">6aebfd9e30f825bcdfb0367d</guid>
+      <geo:long>127.79647</geo:long>
+      <geo:lat>-18.08586</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (REDMOND, CITY OF ALBANY, GREAT SOUTHERN, CAD-ID: 829056)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aec112623776e49b3c72956</link>
+      <description><![CDATA[Burn Off <region>GREAT SOUTHERN</region><br>
+    <incidentNumber>829056</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 13:16:20 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 13:16:20 +0800</pubDate>
+      <guid isPermaLink="false">6aec112623776e49b3c72956</guid>
+      <geo:long>117.67443716</geo:long>
+      <geo:lat>-34.87889469</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (KALOORUP, CITY OF BUSSELTON, LOWER SOUTH WEST, CAD-ID: 829060)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aec136323776e49b3c729c5</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829060</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 13:25:54 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 13:25:54 +0800</pubDate>
+      <guid isPermaLink="false">6aec136323776e49b3c729c5</guid>
+      <geo:long>115.24333088</geo:long>
+      <geo:lat>-33.75948539</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (PRINCE REGENT RIVER, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 829064)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aec1f926d8358253810005b</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829064</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 10:37:53 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:37:53 +0800</pubDate>
+      <guid isPermaLink="false">6aec1f926d8358253810005b</guid>
+      <geo:long>126.166</geo:long>
+      <geo:lat>-15.434</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (DRYSDALE RIVER, SHIRE OF WYNDHAM-EAST KIMBERLEY, KIMBERLEY, CAD-ID: 829065)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aec206b6d8358253810009f</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829065</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 10:38:31 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:38:31 +0800</pubDate>
+      <guid isPermaLink="false">6aec206b6d8358253810009f</guid>
+      <geo:long>126.493</geo:long>
+      <geo:lat>-15.244</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (PURNULULU, SHIRE OF HALLS CREEK, KIMBERLEY, CAD-ID: 829077)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aec3271b0168b1fc7de2663</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829077</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 15:42:31 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 15:42:31 +0800</pubDate>
+      <guid isPermaLink="false">6aec3271b0168b1fc7de2663</guid>
+      <geo:long>128.6963</geo:long>
+      <geo:lat>-17.418054</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (ROLEYSTONE, CITY OF ARMADALE, METRO SOUTH EAST, CAD-ID: 829084)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aec3e33ace39322070f5d68</link>
+      <description><![CDATA[Burn Off <region>METRO SOUTH EAST</region><br>
+    <incidentNumber>829084</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 16:28:35 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 16:28:35 +0800</pubDate>
+      <guid isPermaLink="false">6aec3e33ace39322070f5d68</guid>
+      <geo:long>116.08994773</geo:long>
+      <geo:lat>-32.10709759</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (FOREST GROVE, SHIRE OF AUGUSTA MARGARET RIVER, LOWER SOUTH WEST, CAD-ID: 829086)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aec3feaace39322070f5dab</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829086</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 16:35:52 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 16:35:52 +0800</pubDate>
+      <guid isPermaLink="false">6aec3feaace39322070f5dab</guid>
+      <geo:long>115.11376877</geo:long>
+      <geo:lat>-34.08806463</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (BOW BRIDGE, SHIRE OF DENMARK, GREAT SOUTHERN, CAD-ID: 829087)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aec4010ace39322070f5dbc</link>
+      <description><![CDATA[Burn Off <region>GREAT SOUTHERN</region><br>
+    <incidentNumber>829087</incidentNumber>
+    <br>
+    <publicationTime>Thu, 05 Nov 2026 16:36:30 +0800</publicationTime>]]></description>
+      <pubDate>Thu, 05 Nov 2026 16:36:30 +0800</pubDate>
+      <guid isPermaLink="false">6aec4010ace39322070f5dbc</guid>
+      <geo:long>116.95120653</geo:long>
+      <geo:lat>-34.98911717</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (BRIDGETOWN, SHIRE OF BRIDGETOWN-GREENBUSHES, LOWER SOUTH WEST, CAD-ID: 829148)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed175208f4dc2b4fc1a768</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829148</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 07:54:57 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 07:54:57 +0800</pubDate>
+      <guid isPermaLink="false">6aed175208f4dc2b4fc1a768</guid>
+      <geo:long>116.14337074</geo:long>
+      <geo:lat>-33.96086826</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (BARRAGUP, SHIRE OF MURRAY, SOUTH WEST, CAD-ID: 829149)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed183808f4dc2b4fc1a779</link>
+      <description><![CDATA[Burn Off <region>SOUTH WEST</region><br>
+    <incidentNumber>829149</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 07:58:47 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 07:58:47 +0800</pubDate>
+      <guid isPermaLink="false">6aed183808f4dc2b4fc1a779</guid>
+      <geo:long>115.78756586</geo:long>
+      <geo:lat>-32.53827721</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (KARRIDALE, SHIRE OF AUGUSTA MARGARET RIVER, LOWER SOUTH WEST, CAD-ID: 829151)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed1a7308f4dc2b4fc1a7c5</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829151</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 08:08:18 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 08:08:18 +0800</pubDate>
+      <guid isPermaLink="false">6aed1a7308f4dc2b4fc1a7c5</guid>
+      <geo:long>115.09549585</geo:long>
+      <geo:lat>-34.21877268</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (BANJUP, CITY OF COCKBURN, METRO SOUTH COASTAL, CAD-ID: 829153)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed1bbf08f4dc2b4fc1a7ef</link>
+      <description><![CDATA[Burn Off <region>METRO SOUTH COASTAL</region><br>
+    <incidentNumber>829153</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 08:13:50 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 08:13:50 +0800</pubDate>
+      <guid isPermaLink="false">6aed1bbf08f4dc2b4fc1a7ef</guid>
+      <geo:long>115.878695</geo:long>
+      <geo:lat>-32.16117037</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (MULLALYUP, SHIRE OF DONNYBROOK-BALINGUP, LOWER SOUTH WEST, CAD-ID: 829158)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed2214f0c0906da8472aaf</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829158</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 08:40:51 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 08:40:51 +0800</pubDate>
+      <guid isPermaLink="false">6aed2214f0c0906da8472aaf</guid>
+      <geo:long>115.94152</geo:long>
+      <geo:lat>-33.74395</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (DONNYBROOK, SHIRE OF DONNYBROOK-BALINGUP, LOWER SOUTH WEST, CAD-ID: 829163)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed2bf40f97b29043328aef</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829163</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 09:22:59 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 09:22:59 +0800</pubDate>
+      <guid isPermaLink="false">6aed2bf40f97b29043328aef</guid>
+      <geo:long>115.81302</geo:long>
+      <geo:lat>-33.57796</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (BANJUP, CITY OF COCKBURN, METRO SOUTH COASTAL, CAD-ID: 829164)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed2c650f97b29043328b08</link>
+      <description><![CDATA[Burn Off <region>METRO SOUTH COASTAL</region><br>
+    <incidentNumber>829164</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 09:24:51 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 09:24:51 +0800</pubDate>
+      <guid isPermaLink="false">6aed2c650f97b29043328b08</guid>
+      <geo:long>115.89049784</geo:long>
+      <geo:lat>-32.14624684</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (YALLINGUP, CITY OF BUSSELTON, LOWER SOUTH WEST, CAD-ID: 829166)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed2cc10f97b29043328b2a</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829166</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 09:26:24 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 09:26:24 +0800</pubDate>
+      <guid isPermaLink="false">6aed2cc10f97b29043328b2a</guid>
+      <geo:long>115.02884499</geo:long>
+      <geo:lat>-33.69946804</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (TWO ROCKS, CITY OF WANNEROO, METRO NORTH COASTAL, CAD-ID: 829167)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed32f618989977d82295f4</link>
+      <description><![CDATA[Burn Off <region>METRO NORTH COASTAL</region><br>
+    <incidentNumber>829167</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 09:52:52 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 09:52:52 +0800</pubDate>
+      <guid isPermaLink="false">6aed32f618989977d82295f4</guid>
+      <geo:long>115.65350435</geo:long>
+      <geo:lat>-31.48401673</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (LAKE CLIFTON, SHIRE OF WAROONA, SOUTH WEST, CAD-ID: 829171)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed39e1f40c0f2d9960256c</link>
+      <description><![CDATA[Burn Off <region>SOUTH WEST</region><br>
+    <incidentNumber>829171</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 10:22:24 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:22:24 +0800</pubDate>
+      <guid isPermaLink="false">6aed39e1f40c0f2d9960256c</guid>
+      <geo:long>115.69162231</geo:long>
+      <geo:lat>-32.80812943</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (BEDFORDALE, CITY OF ARMADALE, METRO SOUTH EAST, CAD-ID: 829172)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed3c58f40c0f2d996025c9</link>
+      <description><![CDATA[Burn Off <region>METRO SOUTH EAST</region><br>
+    <incidentNumber>829172</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 10:32:54 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 10:32:54 +0800</pubDate>
+      <guid isPermaLink="false">6aed3c58f40c0f2d996025c9</guid>
+      <geo:long>116.06575594</geo:long>
+      <geo:lat>-32.18879737</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (STRELLEY, TOWN OF PORT HEDLAND, PILBARA, CAD-ID: 829175)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed3fdcf40c0f2d9960263f</link>
+      <description><![CDATA[Bushfire <region>PILBARA</region><br>
+    <incidentNumber>829175</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:42:42 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:42:42 +0800</pubDate>
+      <guid isPermaLink="false">6aed3fdcf40c0f2d9960263f</guid>
+      <geo:long>118.97393</geo:long>
+      <geo:lat>-20.38238</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (ALLANSON, SHIRE OF COLLIE, SOUTH WEST, CAD-ID: 829176)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed4098f40c0f2d99602650</link>
+      <description><![CDATA[Bushfire <region>SOUTH WEST</region><br>
+    <incidentNumber>829176</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 12:04:57 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 12:04:57 +0800</pubDate>
+      <guid isPermaLink="false">6aed4098f40c0f2d99602650</guid>
+      <geo:long>116.10314</geo:long>
+      <geo:lat>-33.34203</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (COWARAMUP, SHIRE OF AUGUSTA MARGARET RIVER, LOWER SOUTH WEST, CAD-ID: 829173)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed3d69f40c0f2d996025f3</link>
+      <description><![CDATA[Bushfire <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829173</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 12:02:53 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 12:02:53 +0800</pubDate>
+      <guid isPermaLink="false">6aed3d69f40c0f2d996025f3</guid>
+      <geo:long>115.09504</geo:long>
+      <geo:lat>-33.86611</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (QUINDALUP, CITY OF BUSSELTON, LOWER SOUTH WEST, CAD-ID: 829179)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed469250b235c965f3e98f</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829179</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 11:16:33 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 11:16:33 +0800</pubDate>
+      <guid isPermaLink="false">6aed469250b235c965f3e98f</guid>
+      <geo:long>115.07721596</geo:long>
+      <geo:lat>-33.64914234</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (MARGARET RIVER, SHIRE OF AUGUSTA MARGARET RIVER, LOWER SOUTH WEST, CAD-ID: 829180)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed471a50b235c965f3e9a0</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829180</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 11:18:48 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 11:18:48 +0800</pubDate>
+      <guid isPermaLink="false">6aed471a50b235c965f3e9a0</guid>
+      <geo:long>115.00759029</geo:long>
+      <geo:lat>-33.98142029</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (ST GEORGE RANGES, SHIRE OF DERBY/WEST KIMBERLEY, KIMBERLEY, CAD-ID: 829183)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed4bb750b235c965f3ea36</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829183</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 11:39:33 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 11:39:33 +0800</pubDate>
+      <guid isPermaLink="false">6aed4bb750b235c965f3ea36</guid>
+      <geo:long>124.881</geo:long>
+      <geo:lat>-19.457</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (ST GEORGE RANGES, SHIRE OF DERBY/WEST KIMBERLEY, KIMBERLEY, CAD-ID: 829185)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed4c8050b235c965f3ea58</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829185</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 11:41:54 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 11:41:54 +0800</pubDate>
+      <guid isPermaLink="false">6aed4c8050b235c965f3ea58</guid>
+      <geo:long>125.694</geo:long>
+      <geo:lat>-18.134</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (MUELLER RANGES, SHIRE OF HALLS CREEK, KIMBERLEY, CAD-ID: 829186)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed4d1450b235c965f3ea79</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829186</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 11:45:00 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 11:45:00 +0800</pubDate>
+      <guid isPermaLink="false">6aed4d1450b235c965f3ea79</guid>
+      <geo:long>126.853</geo:long>
+      <geo:lat>-18.972</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (ORD RIVER, SHIRE OF HALLS CREEK, KIMBERLEY, CAD-ID: 829188)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed4ec550b235c965f3eaab</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829188</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 11:51:51 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 11:51:51 +0800</pubDate>
+      <guid isPermaLink="false">6aed4ec550b235c965f3eaab</guid>
+      <geo:long>127.314</geo:long>
+      <geo:lat>-17.555</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (ORD RIVER, SHIRE OF HALLS CREEK, KIMBERLEY, CAD-ID: 829189)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed4f5550b235c965f3eabc</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829189</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 11:54:20 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 11:54:20 +0800</pubDate>
+      <guid isPermaLink="false">6aed4f5550b235c965f3eabc</guid>
+      <geo:long>126.78</geo:long>
+      <geo:lat>-19.087</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (MOUNT STIRLING, SHIRE OF QUAIRADING, GOLDFIELDS MIDLANDS, CAD-ID: 829192)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed513550b235c965f3eaf8</link>
+      <description><![CDATA[Bushfire <region>GOLDFIELDS MIDLANDS</region><br>
+    <incidentNumber>829192</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:30:55 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:30:55 +0800</pubDate>
+      <guid isPermaLink="false">6aed513550b235c965f3eaf8</guid>
+      <geo:long>117.60681753</geo:long>
+      <geo:lat>-31.83646283</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (JALBARRAGUP, SHIRE OF NANNUP, LOWER SOUTH WEST, CAD-ID: 829196)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed5698fc655a3148081199</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829196</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 12:24:54 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 12:24:54 +0800</pubDate>
+      <guid isPermaLink="false">6aed5698fc655a3148081199</guid>
+      <geo:long>115.63646584</geo:long>
+      <geo:lat>-34.02858202</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (PERENJORI, SHIRE OF PERENJORI, MIDWEST GASCOYNE, CAD-ID: 829201)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed5a54fc655a3148081216</link>
+      <description><![CDATA[Bushfire <region>MIDWEST GASCOYNE</region><br>
+    <incidentNumber>829201</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 12:40:53 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 12:40:53 +0800</pubDate>
+      <guid isPermaLink="false">6aed5a54fc655a3148081216</guid>
+      <geo:long>116.52</geo:long>
+      <geo:lat>-29.501833</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (JALBARRAGUP, SHIRE OF NANNUP, LOWER SOUTH WEST, CAD-ID: 829204)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed5f60fc655a31480812c3</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829204</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:02:22 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:02:22 +0800</pubDate>
+      <guid isPermaLink="false">6aed5f60fc655a31480812c3</guid>
+      <geo:long>115.5928521</geo:long>
+      <geo:lat>-34.04834847</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (QUINDALUP, CITY OF BUSSELTON, LOWER SOUTH WEST, CAD-ID: 829205)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed6016fc655a31480812d4</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829205</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:05:24 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:05:24 +0800</pubDate>
+      <guid isPermaLink="false">6aed6016fc655a31480812d4</guid>
+      <geo:long>115.08252437</geo:long>
+      <geo:lat>-33.66044699</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (WOODRIDGE, SHIRE OF GINGIN, METRO NORTH COASTAL, CAD-ID: 829206)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed62b3fc655a31480812fd</link>
+      <description><![CDATA[Bushfire <region>METRO NORTH COASTAL</region><br>
+    <incidentNumber>829206</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:40:33 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:40:33 +0800</pubDate>
+      <guid isPermaLink="false">6aed62b3fc655a31480812fd</guid>
+      <geo:long>115.5867922</geo:long>
+      <geo:lat>-31.34679566</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (GNANGARA, CITY OF WANNEROO, METRO NORTH COASTAL, CAD-ID: 829207)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed64d7fc655a3148081338</link>
+      <description><![CDATA[Bushfire <region>METRO NORTH COASTAL</region><br>
+    <incidentNumber>829207</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:32:22 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:32:22 +0800</pubDate>
+      <guid isPermaLink="false">6aed64d7fc655a3148081338</guid>
+      <geo:long>115.84706073</geo:long>
+      <geo:lat>-31.7787078</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (LATHAM, SHIRE OF PERENJORI, MIDWEST GASCOYNE, CAD-ID: 829208)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed6574fc655a3148081361</link>
+      <description><![CDATA[Bushfire <region>MIDWEST GASCOYNE</region><br>
+    <incidentNumber>829208</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:28:23 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:28:23 +0800</pubDate>
+      <guid isPermaLink="false">6aed6574fc655a3148081361</guid>
+      <geo:long>116.30234</geo:long>
+      <geo:lat>-29.70278</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Burn Off (YALLINGUP, CITY OF BUSSELTON, LOWER SOUTH WEST, CAD-ID: 829210)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed6773fc655a314808138b</link>
+      <description><![CDATA[Burn Off <region>LOWER SOUTH WEST</region><br>
+    <incidentNumber>829210</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:36:50 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:36:50 +0800</pubDate>
+      <guid isPermaLink="false">6aed6773fc655a314808138b</guid>
+      <geo:long>115.07860039</geo:long>
+      <geo:lat>-33.67807754</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (WALMSLEY, CITY OF ALBANY, GREAT SOUTHERN, CAD-ID: 829211)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed6881fc655a31480813ac</link>
+      <description><![CDATA[Bushfire <region>GREAT SOUTHERN</region><br>
+    <incidentNumber>829211</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:49:53 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:49:53 +0800</pubDate>
+      <guid isPermaLink="false">6aed6881fc655a31480813ac</guid>
+      <geo:long>117.89292</geo:long>
+      <geo:lat>-34.9853</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (NEWMAN, SHIRE OF EAST PILBARA, PILBARA, CAD-ID: 829212)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed6a2ffc655a3148081418</link>
+      <description><![CDATA[Bushfire <region>PILBARA</region><br>
+    <incidentNumber>829212</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:48:36 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:48:36 +0800</pubDate>
+      <guid isPermaLink="false">6aed6a2ffc655a3148081418</guid>
+      <geo:long>119.53913</geo:long>
+      <geo:lat>-23.132999</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Vehicle Fire (MANNING, CITY OF SOUTH PERTH, METRO SOUTH EAST, CAD-ID: 829214)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed6a6efc655a3148081429</link>
+      <description><![CDATA[Vehicle Fire <region>METRO SOUTH EAST</region><br>
+    <incidentNumber>829214</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:49:37 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:49:37 +0800</pubDate>
+      <guid isPermaLink="false">6aed6a6efc655a3148081429</guid>
+      <geo:long>115.86653537</geo:long>
+      <geo:lat>-32.00731918</geo:lat>
+      <georss:polygon/>
+    </item>
+    <item>
+      <title>Bushfire (STURT CREEK, SHIRE OF HALLS CREEK, KIMBERLEY, CAD-ID: 829215)</title>
+      <link>https://emergency.wa.gov.au/incidents/6aed6ab0fc655a3148081442</link>
+      <description><![CDATA[Bushfire <region>KIMBERLEY</region><br>
+    <incidentNumber>829215</incidentNumber>
+    <br>
+    <publicationTime>Fri, 06 Nov 2026 13:51:24 +0800</publicationTime>]]></description>
+      <pubDate>Fri, 06 Nov 2026 13:51:24 +0800</pubDate>
+      <guid isPermaLink="false">6aed6ab0fc655a3148081442</guid>
+      <geo:long>127.147</geo:long>
+      <geo:lat>-19.478</geo:lat>
+      <georss:polygon/>
+    </item>
+  </channel>
+</rss>

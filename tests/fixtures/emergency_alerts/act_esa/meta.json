@@ -1,0 +1,22 @@
+{
+  "source_key": "act_esa",
+  "url": "https://esa.act.gov.au/feeds/currentincidents.xml",
+  "captured_at": "2026-11-06T05:52:39.866067+00:00",
+  "captured_by": "claude-code",
+  "feeds": {
+    "feed.xml": {
+      "url": "https://esa.act.gov.au/feeds/currentincidents.xml",
+      "captured_at": "2026-11-06T05:52:39.866067+00:00",
+      "synthetic": false,
+      "redactions": 0
+    },
+    "synthetic_kept.xml": {
+      "url": "https://esa.act.gov.au/feeds/currentincidents.xml",
+      "captured_at": "2026-11-06T05:52:39.866067+00:00",
+      "synthetic": true,
+      "redactions": 0,
+      "note": "Not a capture. Hand-built supplement exercising the kept/excluded branches the live snapshot (17 Ambulance Responses, all excluded) cannot."
+    }
+  },
+  "notes": "Untrimmed live snapshot (single fetch via base.http_get). No redaction needed.  synthetic_kept.xml is SYNTHETIC (see its feeds entry); feed.xml is the real snapshot."
+}

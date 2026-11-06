@@ -43,7 +43,12 @@ def _act_datetime(value: str | None) -> str | None:
 
 
 def fetch() -> list[CanonicalAlert]:
-    raw = http_get(_FEED_URL)
+    return parse(http_get(_FEED_URL))
+
+
+def parse(raw: bytes) -> list[CanonicalAlert]:
+    """Pure parse of the ESA GeoRSS incidents feed; separate from fetch() so
+    it can be tested against a captured snapshot offline."""
     root = ET.fromstring(raw)
     out: list[CanonicalAlert] = []
     for item in root.findall(".//item"):
