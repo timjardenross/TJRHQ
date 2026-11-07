@@ -38,3 +38,12 @@ export async function requireSession() {
   const { data: { session } } = await supabase.auth.getSession();
   return session;
 }
+
+/** Server-validated Supabase user. getUser() verifies the access token with Supabase, so the
+ * returned id is authoritative. Returns null when signed out or the token is rejected. */
+export async function requireValidatedUser(): Promise<{ id: string } | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  return user;
+}
