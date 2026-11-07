@@ -18,6 +18,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.si_dashboard_helpers import (
+    si_test_client,  # SEC-01 G3: authenticated test client
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
@@ -47,7 +51,7 @@ class TestEngineeringHandoffsApi(unittest.TestCase):
         self.handoffs_dir = self.tmpdir / "Missions" / "Engineering-Handoffs"
         self._orig_dir = ehr.DEFAULT_HANDOFFS_DIR
         ehr.DEFAULT_HANDOFFS_DIR = self.handoffs_dir
-        self.client = dashboard.app.test_client()
+        self.client = si_test_client(dashboard)
 
     def tearDown(self):
         ehr.DEFAULT_HANDOFFS_DIR = self._orig_dir
