@@ -1,0 +1,21 @@
+[Unit]
+Description=Weekly restic integrity check (read-data-subset=1/20) for starship-backups-v2 - USS-TJR-MSN-0412
+Documentation=file:///opt/starship-endeavour/docs/operations/restic-backup-integrity.md
+After=network-online.target
+Wants=network-online.target
+OnFailure=alert-on-failure@%n.service
+
+[Service]
+Type=oneshot
+User=root
+Environment=HOME=/root
+Environment=RESTIC_REPOSITORY=rclone:gdrive2:starship-backups-v2
+Environment=RESTIC_PASSWORD_FILE=/root/.restic-pass
+# Same lock file as starship-backup.service. Overlap fails here (flock -n) and pages.
+ExecStart=/usr/bin/flock -n /run/starship-backup.lock /usr/bin/restic -o rclone.program=/usr/local/bin/rclone check --read-data-subset=1/20
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=starship-backup-integrity
