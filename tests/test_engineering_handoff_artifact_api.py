@@ -17,6 +17,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.si_dashboard_helpers import (
+    si_test_client,  # SEC-01 G3: authenticated test client
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
@@ -32,7 +36,7 @@ class TestEngineeringHandoffArtifactApi(unittest.TestCase):
         self.artifacts_dir.mkdir(parents=True)
         self._orig_root = dashboard.REPO_ROOT
         dashboard.REPO_ROOT = self.tmpdir
-        self.client = dashboard.app.test_client()
+        self.client = si_test_client(dashboard)
 
     def tearDown(self):
         dashboard.REPO_ROOT = self._orig_root
