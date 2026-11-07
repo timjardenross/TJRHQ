@@ -6,6 +6,7 @@ Simple web UI for reviewing findings and providing feedback.
 Runs on http://localhost:8892
 """
 
+import hmac
 import json
 import logging
 import os
@@ -626,6 +627,23 @@ def api_status():
         "decisions_count": len(decisions),
         "pending_count": len([f for f in findings if f.get("finding_id") not in decisions]),
     })
+
+
+# ── SEC-01 Option B: fail-closed shared-secret gate (every route, GET and write) ──
+# Server-only credential, provisioned via Infisical. Unset => 503 for everything.
+# Caddy's containment (write-method deny) is defence in depth, not the auth.
+_SI_SECRET = os.environ.get("SELF_IMPROVEMENT_API_SECRET", "")
+
+@app.before_request
+def _require_si_secret():
+    if not _SI_SECRET:
+        log.error("SELF_IMPROVEMENT_API_SECRET unset: refusing all requests")
+        return jsonify({"error": "dashboard_auth_not_configured"}), 503
+    presented = request.headers.get("X-Self-Improvement-Secret", "")
+    if not presented or not hmac.compare_digest(presented.encode("utf-8"), _SI_SECRET.encode("utf-8")):
+        # Log method and path only. Never log the presented value.
+        log.warning(f"auth denied: {request.method} {request.path}")
+        return jsonify({"error": "unauthorized"}), 401
 
 
 if __name__ == "__main__":

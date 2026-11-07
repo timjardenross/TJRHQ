@@ -56,6 +56,17 @@ filed-ADR directory and parses both the MADR shape and the older, plainer
   inventing a structure — its Pre-flight section is the enforcement point for the
   "check first" rule below (USS-TJR-MSN-0372).
 
+### Supabase tool permissions
+
+`.claude/settings.json` wires a `PreToolUse` hook (`.claude/hooks/supabase_readonly_sql.py`) to
+`mcp__Supabase__execute_sql`. It auto-approves a query only when it is provably read-only (a plain
+`SELECT`/`WITH`/`SHOW`/`EXPLAIN` using a short allowlist of pure functions); anything else, including every write,
+DDL, transaction, unknown or schema-qualified function (a `SELECT` can call a function that deletes rows), and
+`apply_migration` and every other Supabase tool, still goes to the normal permission prompt. It never denies and
+never approves a write. Keep reads and writes in separate calls so the reads stay prompt-free; do not add a blanket
+`mcp__Supabase__*` allow rule (`tests/test_supabase_readonly_hook.py` enforces this). Back up rows before any data
+fix, as `scripts/emergency_alerts/backfill_timezones_20261106.sql` did.
+
 ### Check-first registries
 
 The same failure mode has hit this repo twice for real: a mission adds a row to an

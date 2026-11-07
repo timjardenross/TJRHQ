@@ -1,16 +1,14 @@
 import { NextResponse } from 'next/server';
 import { selfImprovementApiUrl, selfImprovementHeaders } from '@/lib/selfImprovementApi';
-import { requireSession } from '@/lib/supabase-server';
+import { requireSiOwner } from '@/lib/selfImprovementAuth';
 
 // Small, morning-compression summary (spec §15/§20/§37) — used by both the
 // HQ Evolution Discover tab and Captain's Chair's one-line signal. Never
 // expands into the full findings/opportunities payload; see
 // scripts/self_improvement/dashboard.py's /api/evolution-summary.
 export async function GET() {
-  const session = await requireSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await requireSiOwner();
+  if (denied) return denied;
   try {
     const res = await fetch(`${selfImprovementApiUrl()}/api/evolution-summary`, {
       headers: selfImprovementHeaders(),

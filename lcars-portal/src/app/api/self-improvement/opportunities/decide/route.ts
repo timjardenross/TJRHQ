@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { selfImprovementApiUrl, selfImprovementHeaders } from '@/lib/selfImprovementApi';
-import { requireSession } from '@/lib/supabase-server';
+import { requireSiOwner } from '@/lib/selfImprovementAuth';
 import { logActionHistory } from '@/lib/actionHistoryServer';
 
 // Engineering Handoffs' own canonical page (/engineering-handoffs) is
@@ -10,10 +10,8 @@ import { logActionHistory } from '@/lib/actionHistoryServer';
 // opportunity (approve/reject/create_mission/more_evidence etc.) — so it's
 // instrumented here instead.
 export async function POST(req: NextRequest) {
-  const session = await requireSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await requireSiOwner();
+  if (denied) return denied;
   let payload: Record<string, unknown> = {};
   try {
     payload = await req.json();

@@ -19,6 +19,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.si_dashboard_helpers import (
+    si_test_client,  # SEC-01 G3: authenticated test client
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
@@ -660,7 +664,7 @@ class TestMorningCompression(unittest.TestCase):
         try:
             store.create_new(title="A regression", change_class="reliability", discovery_source="internal",
                               lifecycle_state="learned", outcome={"outcome_result": "regressed"})
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get("/api/evolution-summary")
             body = res.get_json()
             self.assertEqual(body["regressions_count"], 1)
@@ -677,7 +681,7 @@ class TestMorningCompression(unittest.TestCase):
         try:
             store.create_new(title="Still observing", change_class="reliability", discovery_source="internal",
                               lifecycle_state="verifying")
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get("/api/evolution-summary")
             body = res.get_json()
             self.assertEqual(body["pending_decisions_count"], 0)
@@ -689,7 +693,7 @@ class TestMorningCompression(unittest.TestCase):
         original_store = dashboard.opportunity_store
         dashboard.opportunity_store = OpportunityStore(self.tmpdir)
         try:
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get("/api/evolution-summary")
             body = res.get_json()
             self.assertEqual(body["outcomes_completed_count"], 0)
@@ -704,7 +708,7 @@ class TestMorningCompression(unittest.TestCase):
         store = OpportunityStore(self.tmpdir)
         dashboard.opportunity_store = store
         try:
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             opp = store.create_new(title="Not approved yet", change_class="maintenance",
                                     discovery_source="internal", lifecycle_state="proposed")
             res = client.post("/api/opportunity/decide", json={"opportunity_id": opp.opportunity_id, "decision_type": "mark_implemented"})
@@ -723,7 +727,7 @@ class TestMorningCompression(unittest.TestCase):
         store = OpportunityStore(self.tmpdir)
         dashboard.opportunity_store = store
         try:
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             opp = store.create_new(title="Reduce config sprawl", change_class="configuration",
                                     discovery_source="internal", lifecycle_state="proposed",
                                     provenance=[{"source": "internal_evidence_collector", "location": "config/", "detail": "config_files_count=47"}])
@@ -748,7 +752,7 @@ class TestMorningCompression(unittest.TestCase):
         store = OpportunityStore(self.tmpdir)
         dashboard.opportunity_store = store
         try:
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             opp = store.create_new(title="Reduce config sprawl", change_class="configuration",
                                     discovery_source="internal", lifecycle_state="proposed",
                                     provenance=[{"source": "internal_evidence_collector", "location": "config/", "detail": "config_files_count=47"}])
@@ -784,7 +788,7 @@ class TestMorningCompression(unittest.TestCase):
         dashboard.opportunity_store = store
         dashboard.DECISIONS_FILE = self.tmpdir / "decisions.jsonl"
         try:
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             opp = store.create_new(title="Dual config files", change_class="configuration",
                                     discovery_source="internal", lifecycle_state="proposed",
                                     source_finding_id="FND-001")
@@ -812,7 +816,7 @@ class TestMorningCompression(unittest.TestCase):
         dashboard.opportunity_store = store
         dashboard.DECISIONS_FILE = self.tmpdir / "decisions2.jsonl"
         try:
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             opp = store.create_new(title="External-only opportunity", change_class="configuration",
                                     discovery_source="external", lifecycle_state="proposed")
             res = client.post("/api/opportunity/decide", json={"opportunity_id": opp.opportunity_id, "decision_type": "approve_improvement"})
@@ -868,7 +872,7 @@ class TestRemediationStatusSurfacing(unittest.TestCase):
                               source_finding_id="FND-001")
             self._write_remediation_result(dashboard.REMEDIATION_RESULTS_FILE, "FND-001", True,
                                             "Draft PR opened for review: https://github.com/x/y/pull/9")
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get("/api/opportunities")
             opp = res.get_json()["opportunities"][0]
             self.assertEqual(opp["remediation_status"], "succeeded")
@@ -890,7 +894,7 @@ class TestRemediationStatusSurfacing(unittest.TestCase):
                                     source_finding_id="FND-002")
             self._write_remediation_result(dashboard.REMEDIATION_RESULTS_FILE, "FND-002", False,
                                             "sync-one exited 1: some error")
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get(f"/api/opportunity/{opp.opportunity_id}")
             body = res.get_json()
             self.assertEqual(body["remediation_status"], "failed")
@@ -909,7 +913,7 @@ class TestRemediationStatusSurfacing(unittest.TestCase):
         try:
             store.create_new(title="External-only opportunity", change_class="configuration",
                               discovery_source="external", lifecycle_state="approved")
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get("/api/opportunities")
             opp = res.get_json()["opportunities"][0]
             self.assertNotIn("remediation_status", opp)
@@ -931,7 +935,7 @@ class TestRemediationStatusSurfacing(unittest.TestCase):
             store.create_new(title="Awaiting next cycle", change_class="configuration",
                               discovery_source="internal", lifecycle_state="approved",
                               source_finding_id="FND-003")
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get("/api/opportunities")
             opp = res.get_json()["opportunities"][0]
             self.assertNotIn("remediation_status", opp)
@@ -952,7 +956,7 @@ class TestRemediationStatusSurfacing(unittest.TestCase):
                     "success": True,
                     "message": "Draft PR opened for review: https://github.com/x/y/pull/3",
                 }) + "\n")
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get("/api/mission-dispatch-status")
             body = res.get_json()
             self.assertEqual(body["dispatches"]["MSN-9001"]["pr_url"], "https://github.com/x/y/pull/3")
@@ -965,7 +969,7 @@ class TestRemediationStatusSurfacing(unittest.TestCase):
         original_log_file = dashboard.MISSION_DISPATCH_LOG_FILE
         dashboard.MISSION_DISPATCH_LOG_FILE = self.tmpdir / "no_such_log.jsonl"
         try:
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.get("/api/mission-dispatch-status")
             self.assertEqual(res.get_json(), {"dispatches": {}})
         finally:

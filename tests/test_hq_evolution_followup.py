@@ -19,6 +19,10 @@ import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.si_dashboard_helpers import (
+    si_test_client,  # SEC-01 G3: authenticated test client
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
@@ -348,7 +352,7 @@ class TestMissionOnlyServerSideEnforcement(unittest.TestCase):
                     title=f"Test {change_class}", change_class=change_class,
                     discovery_source="internal", lifecycle_state="proposed",
                 )
-                client = dashboard.app.test_client()
+                client = si_test_client(dashboard)
                 res = client.post("/api/opportunity/decide", json={
                     "opportunity_id": opp.opportunity_id, "decision_type": "approve_improvement",
                 })
@@ -369,7 +373,7 @@ class TestMissionOnlyServerSideEnforcement(unittest.TestCase):
                 title="Architecture idea", change_class="architecture",
                 discovery_source="internal", lifecycle_state="proposed",
             )
-            client = dashboard.app.test_client()
+            client = si_test_client(dashboard)
             res = client.post("/api/opportunity/decide", json={
                 "opportunity_id": opp.opportunity_id, "decision_type": "create_mission", "mission_id": "MSN-0001",
             })
