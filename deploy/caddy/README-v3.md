@@ -340,8 +340,10 @@ If the guard reports drift (`STOP: live config has drifted`), nothing has been o
 v3 must **not** be deployed until all of the following are confirmed:
 
 1. The production secret (`X-Self-Improvement-Secret` value used by the Flask
-   dashboard and its callers) is rotated. The current value is unrotated and
-   appears in historical logs.
+   dashboard and its callers) is rotated. Rotation is recorded as complete
+   (owner-reported; see `docs/security/SEC-01-gate-status.md`, G3): the previous
+   value was revoked and replaced. The revoked value remains in retained
+   historical logs under the owner's accepted risk.
 2. Log redaction is confirmed in production. The header-delete filter is
    present in the v3 log blocks, but historical log lines written before the
    filter took effect may still contain the value. Confirm redaction at the
@@ -353,5 +355,9 @@ v3 must **not** be deployed until all of the following are confirmed:
 5. The redacted v2 backup exists outside the repo and its hash has been verified
    (see Rollback).
 6. `caddy validate` passes on the exact file before any reload.
+
+Gate status (G3, G4, G5) is recorded in the authoritative register
+`docs/security/SEC-01-gate-status.md`. Administrative closure there does not
+waive the conditions above for any future redeploy.
 
 Until then, `Caddyfile.v3` is a reviewed candidate only.
