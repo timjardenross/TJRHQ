@@ -1,0 +1,292 @@
+# STARFLEET COMMAND CENTRE — Caddy ingress
+# MSN-0182: Consolidated to LCARS Portal as primary command interface.
+# Dashy (port 8081) and Control Engine (port 8888) decommissioned.
+#
+# Active routing:
+#   /api/* /health  → Node Command Centre backend (127.0.0.1:5000)
+#   /*              → LCARS Portal / Next.js (127.0.0.1:3200)
+#
+# 2026-08-11: repointed from 3100 to 3200. lcars-portal.service (which
+# owned 3100) had been dead since 2026-07-06; a manual `npm exec next
+# start -p 3200` process had been quietly serving instead, unrouted by
+# Caddy, since 14:26 today (Fleet Engineering Review finding). Captain's
+# call: point Caddy at what's actually running rather than restart the
+# service, to avoid killing the only thing currently serving traffic.
+#
+# TLS: internal CA (bare IP 109.123.227.196, no domain yet).
+# Domain upgrade: replace https://109.123.227.196 with domain name
+# and remove `tls internal` — Caddy auto-provisions Let's Encrypt.
+{
+	# Internal/IP TLS only — no public ACME challenges.
+	auto_https disable_redirects
+}
+
+# Bare-IP site served over HTTPS with Caddy's internal CA.
+# 2026-09-26: Coolify decommissioned (6-container pass-through shim with
+# zero deployed apps since its 2026-07-19 install — see
+# hq-consolidation-audit-2026-09-26 memory). Caddy restored to owning
+# 80/443 directly; the legacy_caddy Traefik forwarding shim is gone.
+https://109.123.227.196 {
+	tls internal
+
+	# ── Edge security headers ───────────────────────────────────────────────────
+	header {
+		# HSTS — effective once a real domain is in use; harmless on bare IP.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# CSP: LCARS (Next.js) needs connect-src for Supabase (client-side SDK)
+		# and wss: for Supabase realtime. unsafe-eval required by Next.js runtime.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://cjvrpjwewsrumnbdydgg.supabase.co wss://cjvrpjwewsrumnbdydgg.supabase.co; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		-Server
+	}
+
+	# Backend API + health check → private Node Command Centre service.
+	# Auth is the caller's own responsibility now (backend's X-Api-Key check
+	# is the real gate) — removed Caddy's automatic key injection, which was
+	# a same-origin-VM crutch from when LCARS Portal ran on this box. LCARS
+	# now runs on Vercel and sends its own COMMAND_CENTRE_API_SECRET server-side.
+	@api path /api/v1/* /health
+	handle @api {
+		reverse_proxy 127.0.0.1:5000
+	}
+
+	# Context Assembly Service — same pattern as the sslip.io block below;
+	# context_service.py does its own auth (X-Context-Service-Secret),
+	# Caddy just proxies the header through unchanged.
+	handle_path /context-service/* {
+		reverse_proxy 127.0.0.1:5001
+	}
+
+	# Self-Improvement Dashboard — same pattern; dashboard.py does its own
+	# auth (X-Self-Improvement-Secret), Caddy just proxies the header through.
+	#
+	# SEC-01 v3 (NOT DEPLOYED — see deploy/caddy/README-v3.md). Replaces the v2
+	# blanket non-GET deny with narrowly scoped rules. Caddy evaluates `handle`
+	# blocks top-down and the first match wins, so every deny below sits ABOVE
+	# the proxy handle. Write allowlist (exact path match, POST only):
+	#   /self-improvement/api/decide
+	#   /self-improvement/api/opportunity/decide
+	#   /api/self-improvement/decide
+	#   /api/self-improvement/opportunities/decide
+
+	# Rule A: OPTIONS is always denied on these paths, with or without headers.
+	@siOptions {
+		path /self-improvement /self-improvement/* /api/self-improvement /api/self-improvement/*
+		method OPTIONS
+	}
+	handle @siOptions {
+		respond "Forbidden" 403
+	}
+
+	# Rule B: only GET, HEAD and POST are ever allowed on these paths.
+	@siBadMethod {
+		path /self-improvement /self-improvement/* /api/self-improvement /api/self-improvement/*
+		not method GET HEAD POST
+	}
+	handle @siBadMethod {
+		respond "Forbidden" 403
+	}
+
+	# Rule C: POST is only allowed on the four exact write paths. `path` matches
+	# URL.Path (query strings are ignored) and exact paths have no wildcard, so
+	# trailing-slash or sub-path variants are NOT allowlisted and fail closed.
+	@siPostNotAllowlisted {
+		path /self-improvement /self-improvement/* /api/self-improvement /api/self-improvement/*
+		method POST
+		not path /self-improvement/api/decide /self-improvement/api/opportunity/decide /api/self-improvement/decide /api/self-improvement/opportunities/decide
+	}
+	handle @siPostNotAllowlisted {
+		respond "Forbidden" 403
+	}
+
+	# Rule D: allowlisted POST without the secret header is denied at the edge.
+	# Header PRESENCE only (`*`) — Caddy does not authenticate; Flask validates
+	# the value and returns 401 on a wrong secret.
+	@siWriteNoSecret {
+		path /self-improvement/api/decide /self-improvement/api/opportunity/decide /api/self-improvement/decide /api/self-improvement/opportunities/decide
+		method POST
+		not header X-Self-Improvement-Secret *
+	}
+	handle @siWriteNoSecret {
+		respond "Forbidden" 403
+	}
+
+	# Everything else falls through unchanged: GET/HEAD reads, and POST with a
+	# header on the four write paths.
+	handle_path /self-improvement/* {
+		reverse_proxy 127.0.0.1:8892
+	}
+
+	# Chatterbox TTS (Nano) — same pattern; tts_chatterbox.py does its own
+	# auth (X-TTS-Secret), Caddy just proxies the header through.
+	handle_path /tts/* {
+		reverse_proxy 127.0.0.1:8893
+	}
+
+	# changedetection.io / Uptime Kuma — 2026-09-26 (HQ Consolidation
+	# Audit): were directly internet-reachable on 0.0.0.0:5050/:3001,
+	# bypassing this file's TLS/security-header layer entirely. Docker
+	# ports rebound to 127.0.0.1 (deploy/docker-compose.watchlist.yml);
+	# these two apps have their own native login/auth, Caddy just fronts
+	# them like every other backend now. reverse_proxy handles the
+	# websocket upgrade Uptime Kuma's socket.io needs with no extra config.
+	handle_path /changedetection/* {
+		reverse_proxy 127.0.0.1:5050
+	}
+	handle_path /uptime/* {
+		reverse_proxy 127.0.0.1:3001
+	}
+
+	# Everything else → LCARS Portal (Next.js, MSN-0182 primary interface).
+	handle {
+		reverse_proxy 127.0.0.1:3200
+	}
+
+	encode gzip
+
+	log {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request>headers>X-Self-Improvement-Secret delete
+			}
+		}
+		level INFO
+	}
+}
+
+# Redirect plain HTTP to HTTPS.
+http://109.123.227.196 {
+	redir https://109.123.227.196{uri} permanent
+}
+
+# 109-123-227-196.sslip.io — replaces vessel.tjrmindbody.com (domain removed
+# 2026-07-17, no longer valid). sslip.io wildcard DNS resolves this hostname
+# straight to 109.123.227.196 with zero registration, so Caddy can still
+# auto-provision a real Let's Encrypt cert (no `tls internal`) for Vercel's
+# server-side fetches, which won't trust the bare-IP self-signed cert.
+#
+# 2026-09-26: restored to owning 80/443 directly (Coolify decommissioned).
+109-123-227-196.sslip.io {
+	# ── Edge security headers ───────────────────────────────────────────────────
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# CSP: LCARS (Next.js) needs connect-src for Supabase (client-side SDK)
+		# and wss: for Supabase realtime. unsafe-eval required by Next.js runtime.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://cjvrpjwewsrumnbdydgg.supabase.co wss://cjvrpjwewsrumnbdydgg.supabase.co; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		-Server
+	}
+
+	# Auth is the caller's own responsibility (backend's X-Api-Key check is
+	# the real gate) — no edge-injected key here either, see bare-IP block.
+	@legacyApi path /api/v1/* /health
+	handle @legacyApi {
+		reverse_proxy 127.0.0.1:5000
+	}
+
+	# Context Assembly Service — public HTTPS path for the Vercel-hosted app.
+	# Vercel sends X-Context-Service-Secret itself (CONTEXT_SERVICE_URL +
+	# CONTEXT_SERVICE_SECRET project env vars); Caddy just proxies the header
+	# through unchanged — context_service.py does the auth check, not Caddy.
+	handle_path /context-service/* {
+		reverse_proxy 127.0.0.1:5001
+	}
+
+	# Self-Improvement Dashboard — same pattern; dashboard.py does its own
+	# auth (X-Self-Improvement-Secret), Caddy just proxies the header through.
+	#
+	# SEC-01 v3 (NOT DEPLOYED — see deploy/caddy/README-v3.md). Replaces the v2
+	# blanket non-GET deny with narrowly scoped rules. Caddy evaluates `handle`
+	# blocks top-down and the first match wins, so every deny below sits ABOVE
+	# the proxy handle. Write allowlist (exact path match, POST only):
+	#   /self-improvement/api/decide
+	#   /self-improvement/api/opportunity/decide
+	#   /api/self-improvement/decide
+	#   /api/self-improvement/opportunities/decide
+
+	# Rule A: OPTIONS is always denied on these paths, with or without headers.
+	@siOptions {
+		path /self-improvement /self-improvement/* /api/self-improvement /api/self-improvement/*
+		method OPTIONS
+	}
+	handle @siOptions {
+		respond "Forbidden" 403
+	}
+
+	# Rule B: only GET, HEAD and POST are ever allowed on these paths.
+	@siBadMethod {
+		path /self-improvement /self-improvement/* /api/self-improvement /api/self-improvement/*
+		not method GET HEAD POST
+	}
+	handle @siBadMethod {
+		respond "Forbidden" 403
+	}
+
+	# Rule C: POST is only allowed on the four exact write paths. `path` matches
+	# URL.Path (query strings are ignored) and exact paths have no wildcard, so
+	# trailing-slash or sub-path variants are NOT allowlisted and fail closed.
+	@siPostNotAllowlisted {
+		path /self-improvement /self-improvement/* /api/self-improvement /api/self-improvement/*
+		method POST
+		not path /self-improvement/api/decide /self-improvement/api/opportunity/decide /api/self-improvement/decide /api/self-improvement/opportunities/decide
+	}
+	handle @siPostNotAllowlisted {
+		respond "Forbidden" 403
+	}
+
+	# Rule D: allowlisted POST without the secret header is denied at the edge.
+	# Header PRESENCE only (`*`) — Caddy does not authenticate; Flask validates
+	# the value and returns 401 on a wrong secret.
+	@siWriteNoSecret {
+		path /self-improvement/api/decide /self-improvement/api/opportunity/decide /api/self-improvement/decide /api/self-improvement/opportunities/decide
+		method POST
+		not header X-Self-Improvement-Secret *
+	}
+	handle @siWriteNoSecret {
+		respond "Forbidden" 403
+	}
+
+	# Everything else falls through unchanged: GET/HEAD reads, and POST with a
+	# header on the four write paths.
+	handle_path /self-improvement/* {
+		reverse_proxy 127.0.0.1:8892
+	}
+
+	# Chatterbox TTS (Nano) — same pattern; tts_chatterbox.py does its own
+	# auth (X-TTS-Secret), Caddy just proxies the header through.
+	handle_path /tts/* {
+		reverse_proxy 127.0.0.1:8893
+	}
+
+	# changedetection.io / Uptime Kuma — same 2026-09-26 fix as the bare-IP
+	# block above.
+	handle_path /changedetection/* {
+		reverse_proxy 127.0.0.1:5050
+	}
+	handle_path /uptime/* {
+		reverse_proxy 127.0.0.1:3001
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3200
+	}
+
+	encode gzip
+
+	log {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request>headers>X-Self-Improvement-Secret delete
+			}
+		}
+		level INFO
+	}
+}
