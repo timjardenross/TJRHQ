@@ -30,6 +30,10 @@ non-mutating: GET, HEAD or OPTIONS, or a POST with a synthetic header that is re
 - [ ] PR #604 alert-state file unchanged by probes (mtime and owner unchanged)
 
 ## Rollback readiness (verify, do not execute)
-- [ ] Known-good v2 file saved outside the repo with its sha256 recorded
+- [ ] Redacted v2 backup saved outside the repo by backup_known_good.sh; sha256 is 1a309347d05c5d943f2d3ddf23250bb5a62d40f78b9ca679172d482e08ad2ee6
+- [ ] Rollback is NOT sourced from any Caddyfile.bak.pre-sec01* file (pre-redaction)
+- [ ] Deployed v3 sha256 recorded and passed as V3_SHA; rollback_v2.sh dry-run shows the plan
+- [ ] Drift procedure understood: a mismatched live file is copied for review, never overwritten
+- [ ] caddy validate passes before any reload
 - [ ] Previous Vercel production deployment ID recorded
 - [ ] Scoped restart commands recorded for self-improvement-dashboard.service and lcars-portal.service

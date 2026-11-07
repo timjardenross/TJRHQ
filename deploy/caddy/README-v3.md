@@ -263,22 +263,77 @@ write variant 403; GET reads 200; HEAD 200.
 
 ## Rollback (production)
 
-If v3 is deployed and misbehaves, restore the known-good v2 file. It must match
-sha256 `1a309347d05c5d943f2d3ddf23250bb5a62d40f78b9ca679172d482e08ad2ee6` before
-it is reloaded:
+The rollback target is the **current, redacted Caddy v2 configuration**, sha256
+`1a309347d05c5d943f2d3ddf23250bb5a62d40f78b9ca679172d482e08ad2ee6`. It is the
+configuration live today, including the secret-header log redaction.
+
+### Required before any v3 deployment: back up the redacted v2 file
+
+1. Confirm the live file is the redacted v2 baseline, then save a dedicated copy
+   outside the repo. The helper refuses to run unless the live hash matches:
+
+   ```
+   deploy/caddy/backup_known_good.sh            # dry-run: prints the plan only
+   sudo deploy/caddy/backup_known_good.sh --apply
+   ```
+
+   The copy goes to `/root/.sec01-caddy-rollback/Caddyfile.v2-redacted-1a309347`
+   (directory `0700`, file `0600`).
+
+2. Verify the backup hash before deployment. It must print
+   `1a309347d05c5d943f2d3ddf23250bb5a62d40f78b9ca679172d482e08ad2ee6`:
+
+   ```
+   sha256sum /root/.sec01-caddy-rollback/Caddyfile.v2-redacted-1a309347
+   ```
+
+3. Record the sha256 of the exact `Caddyfile.v3` being deployed. It is the value
+   the rollback guard checks against (`V3_SHA`).
+
+### Forbidden rollback sources
+
+- **Never** use `/etc/caddy/Caddyfile.bak.pre-sec01*` (for example
+  `Caddyfile.bak.pre-sec01-l1-logredact-20261107T031843Z`). It is the
+  **pre-redaction** configuration (`316cf032…`). Restoring it re-enables secret-header
+  logging.
+- Never restore from any file whose hash is not `1a309347…`.
+- Never hand-edit `/etc/caddy/Caddyfile` to roll back.
+
+### Guarded restore
+
+`deploy/caddy/rollback_v2.sh` is dry-run by default. It refuses to act unless:
+
+- the backup path is not a `pre-sec01` file;
+- the backup hash is `1a309347…`;
+- the **live** file still matches the deployed v3 hash (drift guard);
+- the staged file passes `caddy validate`.
 
 ```
-sha256sum /path/to/known-good-v2/Caddyfile   # must print 1a309347d05c5d943f2d3ddf23250bb5a62d40f78b9ca679172d482e08ad2ee6
-sudo install -m 0644 /path/to/known-good-v2/Caddyfile /etc/caddy/Caddyfile
-sudo sha256sum /etc/caddy/Caddyfile          # must print 1a309347...
+CADDY_BACKUP=/root/.sec01-caddy-rollback/Caddyfile.v2-redacted-1a309347 \
+V3_SHA=<sha256 of the deployed Caddyfile.v3> \
+deploy/caddy/rollback_v2.sh            # dry-run: prints the plan, changes nothing
+
+CADDY_BACKUP=... V3_SHA=... deploy/caddy/rollback_v2.sh --apply   # restores and validates
+```
+
+The script stages the file in the same directory and renames it into place. It
+does **not** reload Caddy. Reload is a separate, explicit step that runs only after
+`caddy validate` passes on the restored file:
+
+```
 sudo caddy validate --config /etc/caddy/Caddyfile
 sudo caddy reload --config /etc/caddy/Caddyfile --force
 ```
 
-The v2 file is not kept in this repo. Before any v3 deployment, the operator must
-save a copy of the live v2 file outside the repo and confirm its hash. The
-known-good copy is the source for rollback. Do not roll back by hand-editing
-`/etc/caddy/Caddyfile`.
+### Drift: the live file no longer matches the deployed v3
+
+If the guard reports drift (`STOP: live config has drifted`), nothing has been overwritten. Do not force the restore. Instead:
+
+1. Take a read-only copy of the live file for review (do not edit it):
+   `sudo cp -p /etc/caddy/Caddyfile /root/.sec01-caddy-rollback/Caddyfile.drift-$(date -u +%Y%m%dT%H%M%SZ)`
+2. Compare it with the deployed v3 and the redacted v2 baseline (`diff -u`).
+3. Decide with the Captain what the correct end state is. Only then restore, with
+   the guard, against the reviewed state.
 
 ## Deployment gate
 
@@ -295,5 +350,8 @@ v3 must **not** be deployed until all of the following are confirmed:
    callers) before the reload, so legitimate writes are not broken.
 4. `validate_v3.sh` passes on the exact file to be deployed, and its sha256 is
    recorded.
+5. The redacted v2 backup exists outside the repo and its hash has been verified
+   (see Rollback).
+6. `caddy validate` passes on the exact file before any reload.
 
 Until then, `Caddyfile.v3` is a reviewed candidate only.
