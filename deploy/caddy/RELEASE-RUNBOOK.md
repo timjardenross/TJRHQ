@@ -4,6 +4,7 @@
 
 - **PRODUCTION NOT AUTHORISED.** Every step needs the Captain's explicit go, given per step.
 - This document is not approval. Reading it authorises nothing.
+- **Gate status register:** the authoritative SEC-01 gate-status record is `docs/security/SEC-01-gate-status.md`. G3, G4 and G5 were administratively closed there on 2026-11-07T22:11Z under explicit owner authorisation, with the accepted risks and evidence limitations recorded. This runbook remains procedure only; the production-authorisation warning above still applies.
 - Scope: Caddy v2 to v3 (self-improvement write containment), rotation of `SELF_IMPROVEMENT_API_SECRET`, G4 activation, G5 validation.
 - Companions: `deploy/caddy/README-v3.md` (gate, rollback, drift), `rollback_v2.sh`, `backup_known_good.sh`, `g5_validate.sh`, `validate_v3.sh`.
 - Hosts: `109-123-227-196.sslip.io`, `109.123.227.196`.
@@ -247,5 +248,6 @@ Compare with `diff -u` against the redacted v2 backup and the deployed v3. Decid
 - **Mitigation:** the previous credential was rotated. Captain-reported: Mac-side verification returned HTTP 401 for one read-only GET (2026-11-07). Verified on the VM (2026-11-07): the new credential returns HTTP 200 on the dashboard.
 - **Prevention:** Caddy access-log redaction is active (header-delete filter in both site blocks). Verified on the VM (2026-11-07), count-only check since cutover: 0 new-value occurrences in the dashboard, portal and Caddy journals, and 0 `X-Self-Improvement-Secret` header keys in the Caddy journal.
 - **Decision (Captain):** retain historical journals without cleanup. Residual risk accepted: the revoked credential remains readable in retained logs. This record does not close open item 10 or any gate.
+- **Later administrative closure:** G3, G4 and G5 were closed in `docs/security/SEC-01-gate-status.md` on 2026-11-07T22:11Z under a separate owner authorisation. The statement above describes this risk-acceptance record only and is unchanged.
 - **Compromised deployment:** `dpl_A2s7xZipN5hbGvWKD2GUZpftr9wz` carries the compromised credential. Never promote or restore it.
 - **Current production deployment:** `dpl_Cs6u7WzNG6oZwbDp2q21pG3D3y5X` (READY, alias `usstjros.vercel.app`; verified on the VM, 2026-11-07).
