@@ -211,7 +211,7 @@ gpg --decrypt /root/.sec01-secret-rollback/self-improvement-secret.pre-rotation.
   | ssh <vm-user>@<vm-host> '<same stdin-based PATCH, readback and Vercel update as 3c and 3d>'
 ```
 
-Then repeat 3e and 3f (the same two restarts only). Vercel promote of the previous production deployment only if its env snapshot is required: `vercel promote <previous-production-deployment-url> --yes`. Then schedule a fresh rotation through section 3.
+Then repeat 3e and 3f (the same two restarts only). Do NOT promote the previous production deployment (`dpl_A2s7xZipN5hbGvWKD2GUZpftr9wz`): it carries the compromised credential (see section 10, risk acceptance). Then schedule a fresh rotation through section 3.
 
 8(c). Drift at any point: follow the drift procedure in `deploy/caddy/README-v3.md`. Do not overwrite.
 
@@ -240,3 +240,12 @@ Compare with `diff -u` against the redacted v2 backup and the deployed v3. Decid
   - `vercel env update` stdin behaviour on the installed CLI (3d).
   - Old-value journal count (6.2): needs the old value in memory, so the Captain decrypts on the Mac and runs the count there.
 - Owner browser checks (4.6, 6.1) are Captain-only.
+
+### Risk acceptance: historical journal exposure (recorded 2026-11-07)
+
+- **Historical exposure:** 34 journal lines contain the previous `SELF_IMPROVEMENT_API_SECRET` value. This is the Captain-reported count, from a Mac-side GPG decryption and SSH journal count on 2026-11-07. The VM itself cannot decrypt the value, so this count was not reproduced on the VM.
+- **Mitigation:** the previous credential was rotated. Captain-reported: Mac-side verification returned HTTP 401 for one read-only GET (2026-11-07). Verified on the VM (2026-11-07): the new credential returns HTTP 200 on the dashboard.
+- **Prevention:** Caddy access-log redaction is active (header-delete filter in both site blocks). Verified on the VM (2026-11-07), count-only check since cutover: 0 new-value occurrences in the dashboard, portal and Caddy journals, and 0 `X-Self-Improvement-Secret` header keys in the Caddy journal.
+- **Decision (Captain):** retain historical journals without cleanup. Residual risk accepted: the revoked credential remains readable in retained logs. This record does not close open item 10 or any gate.
+- **Compromised deployment:** `dpl_A2s7xZipN5hbGvWKD2GUZpftr9wz` carries the compromised credential. Never promote or restore it.
+- **Current production deployment:** `dpl_Cs6u7WzNG6oZwbDp2q21pG3D3y5X` (READY, alias `usstjros.vercel.app`; verified on the VM, 2026-11-07).
