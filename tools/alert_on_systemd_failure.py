@@ -16,10 +16,14 @@ Uses core/platform/notification_service.py's notify() -- the canonical
 sender per tools/check_notification_senders.py -- not a new one-off sender.
 """
 
+import contextlib
+import fcntl
 import json
 import os
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -40,6 +44,46 @@ ALERT_COOLDOWN_SECONDS = int(os.environ.get("ALERT_COOLDOWN_SECONDS", str(2 * 60
 _STATE_PATH = Path("/opt/starship-endeavour/data/alert_state/last_alert.json")
 
 
+# Shared cooldown state. Every writer (this module and alert_on_stale_dirty_tree)
+# goes through _record_alert(), which holds an exclusive interprocess lock on a
+# stable sibling lock file around the whole read-modify-write, then replaces the
+# state file atomically. Readers take the same lock so they never see a partial
+# write. Tests redirect _STATE_PATH to a temporary directory; nothing else may
+# point it at the production path.
+_DEFAULT_STATE_MODE = 0o664
+
+
+def _lock_path() -> Path:
+    return _STATE_PATH.with_suffix(".lock")
+
+
+@contextlib.contextmanager
+def _state_lock():
+    """Exclusive interprocess lock around a state read-modify-write.
+
+    The lock file is never unlinked or replaced, so every process locks the same
+    inode for as long as the state directory exists.
+    """
+    lock = _lock_path()
+    try:
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(lock, os.O_RDWR | os.O_CREAT, _DEFAULT_STATE_MODE)
+    except OSError as exc:
+        # Alerting must never depend on the lock. If the lock cannot be opened,
+        # say so and proceed unlocked rather than silently dropping the page.
+        print(f"alert state lock unavailable, proceeding unlocked: {exc}", file=sys.stderr)
+        yield
+        return
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
 def _load_state() -> dict:
     try:
         return json.loads(_STATE_PATH.read_text())
@@ -48,23 +92,55 @@ def _load_state() -> dict:
 
 
 def _save_state(state: dict) -> None:
+    """Replace the state file atomically, keeping its mode and ownership.
+
+    Writes a temporary file in the same directory, fsyncs it, then renames it over
+    the target, so readers see either the old or the new complete JSON. Callers
+    must hold _state_lock().
+    """
+    directory = _STATE_PATH.parent
     try:
-        _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _STATE_PATH.write_text(json.dumps(state))
+        directory.mkdir(parents=True, exist_ok=True)
+        try:
+            existing = os.stat(_STATE_PATH)
+            mode = stat.S_IMODE(existing.st_mode)
+            owner = (existing.st_uid, existing.st_gid)
+        except FileNotFoundError:
+            mode, owner = _DEFAULT_STATE_MODE, None
+        fd, tmp_name = tempfile.mkstemp(dir=str(directory), prefix=".last_alert.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as handle:
+                handle.write(json.dumps(state))
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.chmod(tmp_name, mode)
+            if owner is not None:
+                try:
+                    os.chown(tmp_name, *owner)
+                except PermissionError:
+                    pass  # not root: keep the writer's own ownership rather than fail alerting
+            os.replace(tmp_name, _STATE_PATH)
+        except BaseException:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(tmp_name)
+            raise
     except Exception as exc:  # noqa: BLE001 - state persistence must never crash the OnFailure= chain
         print(f"alert state save failed: {exc}", file=sys.stderr)
 
 
 def _cooldown_active(unit: str) -> bool:
-    state = _load_state()
+    with _state_lock():
+        state = _load_state()
     last = state.get(unit)
     return last is not None and (time.time() - last) < ALERT_COOLDOWN_SECONDS
 
 
 def _record_alert(unit: str) -> None:
-    state = _load_state()
-    state[unit] = time.time()
-    _save_state(state)
+    """Read-modify-write of the shared state under the interprocess lock."""
+    with _state_lock():
+        state = _load_state()
+        state[unit] = time.time()
+        _save_state(state)
 
 
 def _tail_journal(unit: str, lines: int = 15) -> str:

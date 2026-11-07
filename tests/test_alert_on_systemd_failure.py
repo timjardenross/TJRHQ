@@ -20,7 +20,15 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+import pytest
+
 from tools import alert_on_systemd_failure as aosf
+
+
+@pytest.fixture(autouse=True)
+def _isolated_alert_state(tmp_path, monkeypatch):
+    """Never let these tests read or write the production cooldown state."""
+    monkeypatch.setattr(aosf, "_STATE_PATH", tmp_path / "alert_state" / "last_alert.json")
 
 
 class TestExpectedNoiseFilter:

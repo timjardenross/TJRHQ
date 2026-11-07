@@ -23,7 +23,17 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+import pytest
+
 from tools import alert_on_stale_dirty_tree as asdt
+from tools import alert_on_systemd_failure as _aosf_iso
+
+
+@pytest.fixture(autouse=True)
+def _isolated_state_paths(tmp_path, monkeypatch):
+    """Never touch the production alert state or the checkout's dirty-since clock."""
+    monkeypatch.setattr(_aosf_iso, "_STATE_PATH", tmp_path / "alert_state" / "last_alert.json")
+    monkeypatch.setattr(asdt, "_SINCE_PATH", tmp_path / ".auto-deploy-dirty-since")
 
 
 class TestMark:
