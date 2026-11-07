@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { selfImprovementApiUrl, selfImprovementHeaders } from '@/lib/selfImprovementApi';
-import { requireSession } from '@/lib/supabase-server';
+import { requireSiOwner } from '@/lib/selfImprovementAuth';
 
 // Proxies scripts/self_improvement/dashboard.py's /api/engineering-handoffs,
 // which itself just surfaces core/coordination/engineering_handoff_reader.py's
@@ -11,10 +11,8 @@ import { requireSession } from '@/lib/supabase-server';
 // Forwards `include_completed` (2026-09-07: the Captain wants the full
 // 5-stage lifecycle visible, not just outstanding work) straight through.
 export async function GET(request: NextRequest) {
-  const session = await requireSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await requireSiOwner();
+  if (denied) return denied;
   const includeCompleted = request.nextUrl.searchParams.get('include_completed') ?? '';
   try {
     const res = await fetch(
