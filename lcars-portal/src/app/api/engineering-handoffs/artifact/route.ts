@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { selfImprovementApiUrl, selfImprovementHeaders } from '@/lib/selfImprovementApi';
-import { requireSession } from '@/lib/supabase-server';
+import { requireSiOwner } from '@/lib/selfImprovementAuth';
 
 // Proxies scripts/self_improvement/dashboard.py's /api/engineering-handoffs/artifact,
 // which serves the content of a batch_coding.py review artifact (a .patch.md
@@ -9,10 +9,8 @@ import { requireSession } from '@/lib/supabase-server';
 // forwards the `path` query param and the same auth/proxy pattern every
 // other self-improvement route in this directory already uses.
 export async function GET(request: NextRequest) {
-  const session = await requireSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await requireSiOwner();
+  if (denied) return denied;
   const path = request.nextUrl.searchParams.get('path') ?? '';
   if (!path) {
     return NextResponse.json({ error: "missing 'path' query parameter" }, { status: 400 });

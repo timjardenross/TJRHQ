@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { selfImprovementApiUrl, selfImprovementHeaders } from '@/lib/selfImprovementApi';
-import { requireSession } from '@/lib/supabase-server';
+import { requireSiOwner } from '@/lib/selfImprovementAuth';
 
 export async function GET(request: NextRequest) {
-  const session = await requireSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await requireSiOwner();
+  if (denied) return denied;
   const { searchParams } = new URL(request.url);
   const state = searchParams.get('state');
   const qs = state ? `?state=${encodeURIComponent(state)}` : '';

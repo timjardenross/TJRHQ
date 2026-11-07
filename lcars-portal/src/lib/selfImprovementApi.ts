@@ -16,5 +16,10 @@ export function selfImprovementApiUrl(): string {
  * behaviour once it IS configured on both ends. */
 export function selfImprovementHeaders(): HeadersInit {
   const secret = process.env.SELF_IMPROVEMENT_API_SECRET;
-  return secret ? { 'X-Self-Improvement-Secret': secret } : {};
+  if (!secret) {
+    // SEC-01 Option B: production must never call the dashboard header-less.
+    if (process.env.NODE_ENV === 'production') throw new Error('SELF_IMPROVEMENT_API_SECRET not configured');
+    return {};
+  }
+  return { 'X-Self-Improvement-Secret': secret };
 }
