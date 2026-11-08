@@ -163,3 +163,16 @@ Before implementation, fill one row per mutating route:
 ### Evidence status
 
 This preparation references PR #610 evidence commit `e61abcffc5b01cf9875697e27acd3e907d7a21d8`, PR #611 baseline commit `014ba427a` as previously recorded, merged WP-01 implementation commit `40b45b5cc8324123ca25f489cd177aced745facf`, and draft PR #616. Live settings and VM state remain unverified in this documentation branch.
+
+
+## Owner decisions recorded — 8 November 2026
+
+1. **Main branch governance:** one required approval; use the minimum practical CI check set; direct pushes remain permitted.
+2. **Production deployment approval:** the repository owner approves production deployments.
+3. **Emergency bypass:** permitted, with the deployment record requiring the owner, reason, scope, expiry and retrospective review.
+4. **Approval record:** record the approval against the relevant pull request.
+5. **Rollback rehearsal:** not required before the first governed deployment.
+6. **Telegram and Slack authorization:** remain in WP-02 scope.
+7. **PR #616:** proceed independently as its own implementation candidate.
+
+These decisions establish planning direction only. They do not change GitHub settings, authorize a deployment, authorize a service restart, or approve merging any implementation PR.
