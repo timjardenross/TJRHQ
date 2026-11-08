@@ -196,3 +196,7 @@ telegram-bots/xo/.medication_state.json
 # Captain's work queries, so it stays out of git like the self-improvement
 # review logs above.
 data/resilience-crosswalk/
+
+# Mission registry moved outside the checkout (2026-11-08). The sync writes to
+# MISSION_REGISTRY_PATH; keep a stray local copy from showing as dirty.
+core/mission-control/registry/mission-index.txt
