@@ -34,7 +34,7 @@ stat -f '%Sp %N' .env core/command-centre/.env slack-bot/.env slack-bot/.env.com
 
 - `BACKEND_API_KEY` is mandatory.
 - Backend startup fails fast if `BACKEND_API_KEY` is missing.
-- All `/api` and `/api/v1/*` routes require the `X-Api-Key` header or `api_key` query parameter.
+- All `/api` and `/api/v1/*` routes require the `X-Api-Key` header. Query-string `api_key` credentials are rejected.
 - The `/health` endpoint remains public for process liveness checks.
 - Do not expose the backend through ngrok or any public tunnel unless the key is set and verified.
 
@@ -105,3 +105,6 @@ provider's own rotation flow), that step is a human action outside the
 agent's tool-visible surface — the agent states what is needed and who
 must do it, and does not attempt to work around this by piping unfiltered
 output through a "redaction" step it performs itself after the fact.
+
+
+> WP-01 status: the public `/api/config` disclosure was removed in PR #614. Query-string credential probes are rejected; VM live verification remains tracked separately.
