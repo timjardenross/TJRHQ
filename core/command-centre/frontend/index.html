@@ -1911,13 +1911,12 @@
           const row = btn.closest('.capture-triage-row');
           btn.disabled = true; btn.textContent = '…';
           try {
-            const sep = `?api_key=${encodeURIComponent(_apiKey || '')}`;
             let url, opts;
             if (action === 'dismiss') {
-              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/dismiss${sep}`;
+              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/dismiss`;
               opts = { method: 'PATCH', headers: {'Content-Type':'application/json'} };
             } else {
-              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/route${sep}`;
+              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/route`;
               opts = { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ type: btn.dataset.type }) };
             }
             const r = await fetch(url, opts);
@@ -2251,8 +2250,7 @@
 
       try {
         const body = { pulse_type, ...(pain_score !== '' && { pain_score: Number(pain_score) }), energy, nervous_system, readiness, notes };
-        const sep = '/api/v1/personal-health/pulse'.includes('?') ? '&' : '?';
-        const url = API_BASE + '/api/v1/personal-health/pulse' + (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+        const url = API_BASE + '/api/v1/personal-health/pulse';
         const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `HTTP ${r.status}`); }
         if (statusEl) statusEl.textContent = '✓ Pulse logged';
