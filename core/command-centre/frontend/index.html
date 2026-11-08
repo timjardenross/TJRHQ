@@ -1525,9 +1525,7 @@
       if (btn) { btn.textContent = '⟳ Generating…'; btn.disabled = true; }
       if (briefEl) briefEl.innerHTML = '<p class="intel-loading">Generating new intelligence brief — this may take 30–60s…</p>';
       try {
-        const sep = '/api/v1/intelligence/generate'.includes('?') ? '&' : '?';
-        const url = API_BASE + '/api/v1/intelligence/generate' +
-          ();
+        const url = API_BASE + '/api/v1/intelligence/generate';
         const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `HTTP ${r.status}`); }
         const result = await r.json();
