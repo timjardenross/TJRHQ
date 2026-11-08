@@ -12,8 +12,8 @@
  *
  * Fallback Behavior:
  * 1. Return fresh cache (< TTL)
- * 2. Return stale cache with "stale" flag if age > TTL
- * 3. Return null if no cache available
+ * 2. Treat expired cache as a miss so callers refresh it
+ * 3. Expose expired data separately for explicit, bounded fallback decisions
  */
 
 class CacheManager {
@@ -55,7 +55,7 @@ class CacheManager {
 
     if (!value || !meta) {
       console.log(`[CACHE] MISS ${key}`);
-      return { value: null, isStale: false, age: null };
+      return { value: null, staleValue: null, isStale: false, age: null };
     }
 
     const age = now - meta.createdAt;
@@ -67,7 +67,10 @@ class CacheManager {
     const status = isStale ? 'STALE' : 'HIT';
     console.log(`[CACHE] ${status} ${key} (age: ${Math.round(age / 1000)}s)`);
 
-    return { value, isStale, age };
+    // Expired entries are not returned as live data. Callers must refresh
+    // from the source; staleValue is available only for an explicit,
+    // bounded fallback policy.
+    return { value: isStale ? null : value, staleValue: isStale ? value : null, isStale, age };
   }
 
   /**
