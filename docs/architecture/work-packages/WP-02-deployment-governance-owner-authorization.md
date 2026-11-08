@@ -191,3 +191,18 @@ TJRHQ is a self-managed, single-owner project used only by the owner. WP-02 ther
 - Telegram and Slack controls should remain simple owner-only authorization checks.
 
 This adjustment reduces administrative overhead while preserving traceability for the owner. It does not authorize any live settings change or deployment.
+
+
+## WP-02 closure decision
+
+WP-02 planning is complete for the self-managed operating model.
+
+The following are explicitly deferred to WP-01 because they require VM or live-state work:
+
+- verification of the live deployment path and service state;
+- any VM audit/provenance investigation;
+- production verification of deployment behavior;
+- any service restart or configuration change;
+- live Telegram, Slack, Supabase, RLS or Caddy checks.
+
+WP-02 retains only the repository-level planning decisions recorded above. No further WP-02 administration is required. The documentation PR may be merged after owner review. Implementation and VM verification are tracked under WP-01 or the independent PR #616.
