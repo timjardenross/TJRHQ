@@ -333,8 +333,9 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
                     f"this Mission needs manual attention, it will not be "
                     f"retried automatically again)"
                 )
-        record_dispatch(data_root, mission_id, outcome["success"], message, pr_opened=pr_opened, alert_sent=alert_sent)
         if outcome["success"]:
+            record_dispatch(data_root, mission_id, True, message, pr_opened=pr_opened)
+
             results["dispatched"] += 1
             log.info(f"{mission_id}: {message}")
         else:
@@ -345,9 +346,9 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
             else:
                 try:
                     alert_result = send_alert(
-                    f"Mission {mission_id} dispatch failed: {message}",
-                    title="Mission engineering dispatch failure",
-                    severity=Severity.ALERT,
+                        f"Mission {mission_id} dispatch failed: {message}",
+                        title="Mission engineering dispatch failure",
+                        severity=Severity.ALERT,
                     )
                     if getattr(alert_result, "ok", alert_result is not False):
                         results["alerts"] += 1
@@ -356,6 +357,7 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
                         log.warning(f"{mission_id}: Telegram alert was rejected")
                 except (OSError, RuntimeError, ValueError) as exc:  # alerting must not mask the job failure
                     log.warning(f"{mission_id}: failed to send Telegram alert: {exc}")
+            record_dispatch(data_root, mission_id, False, message, pr_opened=pr_opened, alert_sent=alert_sent)
 
     return results
 
