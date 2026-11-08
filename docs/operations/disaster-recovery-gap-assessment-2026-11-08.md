@@ -554,9 +554,140 @@ Classification uses documented routes and file-presence metadata only. No values
 - The claim is about the dump's age, not about the Supabase project. Data written after the last dump and before the VM is lost is lost.
 - Four log tables have data excluded (E9). They are regenerable but are not "recovered" by the dump.
 - Vault contents and Storage object binaries are not in the dump at all (§7.4). They are not covered by any RPO.
-- TOC entry counts changed from 1985 (11-03) to 1893 (11-06), a drop of 92 (E14). The cause is UNKNOWN. The guard in E8 (≥ 100 entries) still passes. A schema change, table removal or cleanup could explain it. The 2026-09-01 "dead-tables-pre-drop" backup file exists in the repo (`core/infrastructure/supabase/backups/`), so a drop is plausible, but it is not verified. The evidence needed is a comparison of the two dumps' TOC lists, which this assessment did not run.
+- TOC line counts changed from 1985 (11-03) to 1893 (11-06), a drop of 92 (E14). **Partially explained in §8.4:** the 11-06 dump reproduces offline (1,878 entries plus 15 header lines), and the decrease is consistent with migration `0249` moving seven tables out of the dumped schemas. The guard in E8 (≥ 100 entries) still passes. A schema change, table removal or cleanup could explain it. The 2026-09-01 "dead-tables-pre-drop" backup file exists in the repo (`core/infrastructure/supabase/backups/`), so a drop is plausible, but it is not verified. The evidence needed is a comparison of the two dumps' TOC lists, which this assessment did not run.
 
 **Verdict:** "up to 72 hours" for dumped database content is supported. Claims about storage binaries, vault contents or unlogged writes are not.
+
+### 8.4 Supabase dump TOC reconciliation — November 3–6, 2026
+
+**Finding status: PARTIALLY EXPLAINED.** The decrease is consistent with a deliberate schema move in migration `0249_archive_revs_tables.sql`. It is not confirmed. The 11-03 dump is not available locally, so an object-by-object comparison was not possible. A coverage gap follows from the move regardless of the exact count (§8.4.5).
+
+**Correction to §5 and §8.3:** the 92-entry decrease was previously described as having an UNKNOWN cause. That is superseded by this subsection. The journal figure is a count of output **lines**, not of entries (§8.4.1).
+
+#### 8.4.1 Evidence: which dumps, and how each count was produced
+
+| Item | Dump 2026-11-03 | Dump 2026-11-06 | Source |
+|---|---|---|---|
+| Journal line | `supabase dump: 39 MB, 1985 table-of-contents entries` at 02:42:27 AEDT | `supabase dump: 40 MB, 1893 table-of-contents entries` at 02:41:35 AEDT | `journalctl -u starship-backup.service`, 2026-11-03 and 2026-11-06 |
+| Dump file | Not local. Only restic snapshot `afa14ad1` (11-03) holds it. Not retrieved, per boundary. | `/var/lib/starship-backup/supabase.dump`, 42,722,427 bytes, mtime 2026-11-06 02:41:35 (+1100) | `ls -la`, `stat` |
+| Cache mode | Dump taken: cache age 71 h, due | Dump taken: cache age 71 h, due | Journal, same days |
+| Exit status | Dump wrapper exit = `pg_dump` exit (`rc=$?` captured, `deploy/starship-backup.sh:69`, `:105`). Journal records no failure line for the dump. | Same; `finished OK` at 02:41:38 | Script; journal |
+| Size guard | ≥ 1 MB, ≥ 100 entries; passed | Same; passed | `deploy/starship-backup.sh:109` |
+| Counting method | `docker run -i --rm postgres:17 pg_restore --list < dump \| wc -l`, count of output **lines** | Same | `deploy/starship-backup.sh:107` |
+| Image | `postgres:17`, current ID `2d2b8998d310`, created 2026-10-06 | Same current ID | `docker image inspect postgres:17`. An image re-pulled between the two dates would have a newer creation date. None is present, so the same image is inferred for both (INFERRED). |
+| `pg_dump` options | `--no-owner --no-privileges --format=custom --schema=public --schema=auth --schema=storage --schema=supabase_migrations` + data exclusions for 4 log tables | Same | `deploy/starship-backup.sh:66-67`, `:51` |
+| Database target | `SUPABASE_DB_URL` from Infisical, by variable name only. Target value not read. | Same | `deploy/starship-backup.sh:65-66` (names only). Target identity: INFERRED same. |
+| Script changes to dump lines in window | None. The only commits touching `deploy/starship-backup.sh` in 2026-11-03 to 2026-11-06 are `7a8dd3b84` (2026-11-05, venv freeze) and `dbbfbae1a` (2026-11-03, unit tracking). A diff of `7a8dd3b84` shows no change to `pg_dump`, schema, exclusion or TOC lines. Diff of `dbbfbae1a` for those lines not run. | — | `git log`, `git diff` (metadata) |
+| Warnings and retries | Not logged. `pg_dump` stderr is written to a staging file that is removed on exit (`deploy/starship-backup.sh:84-85`). It is printed only on failure. | Same | Script. This is a **limitation**: warnings on a successful dump cannot be observed from logs. |
+
+The journal counts are output line counts. The 11-06 dump's `pg_restore --list` output, reproduced offline in this subsection, has **1,893 lines**: 15 header lines (beginning `;`) and **1,878 entries**. The 11-03 figure of 1,985 is therefore 1,985 lines, which is about 1,970 entries if its header is also 15 lines (INFERRED, the header is produced by the same tool and version).
+
+#### 8.4.2 Method for this reconciliation
+
+- Local dump: `/var/lib/starship-backup/supabase.dump` (11-06 only). Read with `docker run --rm --network none -v /var/lib/starship-backup:/in:ro postgres:17 pg_restore --list /in/supabase.dump`. Exit 0, no stderr, 1,893 lines. The output was saved to a scratchpad file and parsed locally. The same image and method as the script.
+- No restore mode was used. No database connection was made. No TOC names were printed in this report.
+- Type and schema were parsed from each entry's description column (uppercase type words, then schema). All 1,878 entries were recognised (0 unrecognised).
+- The 11-03 dump is not local. The comparison by object type cannot be run. Only the 11-06 breakdown is recorded here, and the decrease is analysed through the repository's migration evidence instead.
+
+#### 8.4.3 Counts for the 11-06 dump
+
+Entries by schema (1,878 total):
+
+| Schema | Entries | Note |
+|---|---|---|
+| `public` | 1,541 | Dumped |
+| `auth` | 250 | Dumped |
+| `storage` | 78 | Dumped (metadata only, see §7.4) |
+| `supabase_migrations` | 4 | Dumped |
+| (no schema) | 5 | Extensions, schema objects |
+
+Entries by object type:
+
+| Object type | Entries | | Object type | Entries |
+|---|---|---|---|---|
+| INDEX | 367 | | TRIGGER | 22 |
+| COMMENT | 319 | | SEQUENCE | 20 |
+| CONSTRAINT | 225 | | SEQUENCE SET | 20 |
+| POLICY | 203 | | TYPE | 11 |
+| TABLE | 169 | | SEQUENCE OWNED BY | 9 |
+| TABLE DATA | 165 | | DEFAULT | 9 |
+| ROW SECURITY | 157 | | SCHEMA | 4 |
+| FK CONSTRAINT | 90 | | MATERIALIZED VIEW | 1 |
+| FUNCTION | 56 | | MATERIALIZED VIEW DATA | 1 |
+| VIEW | 30 | | | |
+
+TABLE entries by schema: `public` 133, `auth` 27, `storage` 8, `supabase_migrations` 1 (total 169). The difference between TABLE (169) and TABLE DATA (165) is 4. The script excludes data for exactly 4 log tables (`deploy/starship-backup.sh:51`). That match is consistent with the exclusion, but was not checked table by table (INFERRED).
+
+The 11-03 breakdown by object type is **UNKNOWN**.
+
+#### 8.4.4 Material differences and the candidate cause
+
+**Candidate cause.** Migration `core/infrastructure/supabase/migrations/0249_archive_revs_tables.sql` (commit `98ba1cf6a`, committed 2026-11-03 08:33 +1100) contains:
+
+- Eight `ALTER TABLE … SET SCHEMA` statements: seven to schema `archive`, one to `public`. No `DROP`, `CREATE TABLE` or `CREATE INDEX` statements (keyword counts only; no SQL printed).
+- The same commit decommissions the REVS pilot bot and removes `telegram-bots/revs/`, with the bot kept on a branch. The archiving migration therefore appears to belong to that decommissioning.
+
+The dump filter includes only `public`, `auth`, `storage` and `supabase_migrations` (`deploy/starship-backup.sh:67`). A table moved to `archive` **leaves the dump**, together with its indexes, constraints, policies, comments and data.
+
+**Checks against the 11-06 dump (names withheld):**
+
+- The seven tables named in the `SET SCHEMA archive` statements: **0 of 7 present** in any dumped schema. Consistent with the moves being in place when the 11-06 dump ran.
+- The one `SET SCHEMA public` target: not counted separately; `public` is dumped, so this statement does not remove anything.
+- Two tables created by later emergency-alert migrations (`0252`, `0254`, committed 2026-11-06 09:23 (`0252`) and 10:19 (`0254`) +1100, both after the 02:41 dump): **0 of 2 present**. Consistent with those migrations not being applied at dump time. Application times are not recorded in the repository (see §8.4.6).
+
+**Magnitude check (INFERRED, not confirmed).** 92 lines over seven tables is about 13 lines per table. In the 11-06 dump, `public` has 1,541 entries over 133 tables, about 11.6 entries per table. This includes functions and other non-table objects, so it is a rough comparison. The two figures are of the same order.
+
+**Other migrations in the window.** Migrations `0240` to `0248` were committed on 2026-11-01 and 2026-11-02, before the 11-03 dump. They add objects, which is consistent with the increase from 1,966 (10-31) to 1,985 (11-03). Their names and statements have no DROP or move statements (keyword counts: 0 each).
+
+**Runbook figure, not corroborating.** The 2026-10-09 restore test reported **166 tables** (runbook line 82). The 11-06 dump has **169** TABLE entries. That is an increase of 3 since 10-09, not a decrease of 7. The two counts may use different methods (restored database versus TOC), so this does not contradict the candidate cause. It also does not support it.
+
+#### 8.4.5 Recovery implications
+
+1. **Are both dumps structurally readable?** The 11-06 dump: yes, offline `pg_restore --list` exit 0, 1,893 lines, no stderr. The 11-03 dump: **UNKNOWN from here**. The script checked it at creation (≥ 100 lines), but it was not re-read.
+2. **Which objects are in the earlier dump but not the later one?** Entry-level comparison **UNKNOWN**. Candidate: the seven tables moved by `0249`, together with their dependent entries (INFERRED).
+3. **Evidence of deliberate schema removal?** Yes, for the candidate: the `0249` migration moves tables to `archive`, and the same commit decommissions a bot. This is a **move, not a drop** (no DROP statements). Whether it was applied, and when, is **UNKNOWN**.
+4. **Evidence of incomplete backup capture?** None for capture failure. Exit status, size guard, entry count guard and absence of failure log lines all pass for both nights. **But** this shows the dump is complete *for the schemas it selects*. It does not show that all relevant data is captured. The moved tables are **no longer captured by any nightly dump** after they are moved, which is a silent coverage reduction. Their data remains in the live Supabase project only (INFERRED: `archive` schema lives in the same project).
+5. **What remains unknown without database-side verification?** Whether `0249` was applied, and when. Whether the `archive` schema exists and holds the seven tables. Whether the removed entries are exactly the seven tables' dependents. Whether any `archive` data is backed up elsewhere. Whether pg_dump emitted warnings on either night. Whether the 11-03 dump's content matches the same schemas. None of these is answered by TOC metadata alone.
+
+**A valid custom-format dump and a successful `pg_restore --list` are not proof of a successful full restore.** Neither test restores any row, and neither compares data with the live database.
+
+#### 8.4.6 Verified findings, inferences and unresolved questions
+
+| Class | Statement | Source |
+|---|---|---|
+| VERIFIED | The 11-06 dump lists 1,893 lines, 1,878 entries, reproducible offline | Offline `pg_restore --list`, same image and method |
+| VERIFIED | Both journal counts come from the same script line, with the same image tag | `deploy/starship-backup.sh:107`, journal |
+| VERIFIED | No dump-related lines of the script changed between 11-03 and 11-06 (commit `7a8dd3b84` diff shows none) | `git diff` |
+| VERIFIED | Dump filter excludes all schemas except the four listed | `deploy/starship-backup.sh:67` |
+| VERIFIED | Migration `0249` contains eight `SET SCHEMA` statements (seven to `archive`) and no DROP | Keyword counts on the migration file |
+| VERIFIED | Migration `0249` is committed 2026-11-03 08:33 +1100, after the 02:42 dump of that day | `git log --format=%ci` |
+| VERIFIED | 0 of the seven moved tables appear in the 11-06 dump | Offline TOC, presence check (names withheld) |
+| VERIFIED | 0 of the two later emergency-alert tables appear in the 11-06 dump | As above |
+| INFERRED | Migration `0249` was applied before the 11-06 dump, causing most of the decrease | Combination of the above. Not confirmed by database-side evidence. |
+| INFERRED | The image was the same on both nights | Image creation date and absence of any newer image |
+| INFERRED | Exit status 0 indicates that `pg_dump` finished writing the dump. It does not show the absence of warnings or that the dump matches the live database. | Standard `pg_dump` behaviour; warnings unobservable here |
+| UNKNOWN | Whether `0249` was applied, and when | No migration-application record in the repository. Database not queried. |
+| UNKNOWN | The 11-03 object-type breakdown and entry-level difference | 11-03 dump not local |
+| UNKNOWN | Whether pg_dump warnings occurred on either night | Stderr discarded on success |
+| UNKNOWN | Whether `archive` data is backed up elsewhere | No evidence in repository |
+
+**Correction to earlier text.** Revision 3 said the cause was unknown and that comparing the two TOC lists was the evidence needed (former §8.3, the bullet on the 92-entry drop). This is now partially answered by §8.4. The comparison remains impossible without the 11-03 dump.
+
+**Correction to terminology.** The journal says "table-of-contents entries". The number counted is output lines, which include 15 header lines. The 11-06 dump has 1,878 entries.
+
+#### 8.4.7 Future investigation and remediation (DOCUMENTED ONLY)
+
+These steps are not performed. Each needs separate authorization.
+
+1. **Confirm migration application.** Owner or DB operator confirms whether `0249` was applied, and when, from the Supabase migration history. No database query was made here.
+2. **Decide the archive policy.** Decide whether tables moved to `archive` should be dumped. If yes, add `archive` to the dump filter (`deploy/starship-backup.sh:67`) after review. If no, document that the archived data is outside backup scope and where its recovery depends on the live project.
+3. **Compare TOCs when the 11-03 dump is available** from restic, through an authorized restore to a scratch location, using `pg_restore --list` only. This would settle the entry-level difference.
+4. **Record pg_dump warnings.** Change the script to retain `pg_dump` stderr on success, so warnings are observable.
+5. **Restore-test the archive decision.** Any restore test should include a row-count comparison for the archived tables, against the live project, with authorization.
+
+**Status: OPEN — DOCUMENTED ONLY.** Priority MEDIUM. The coverage reduction in §8.4.5(4) is the material item. The count difference alone is not a recovery failure.
+
+**Out-of-scope observation (not investigated).** The restic path count recorded by the script changed from `96` entries on 2026-11-04 to `38` on 2026-11-05 onward (journal, "paths to back up"). The change is not explained in this subsection. It is recorded for follow-up, because it may affect the coverage described in §4.
 
 ## 9. Top five recovery gaps, ranked by impact (revised)
 
@@ -578,7 +709,7 @@ Impact ranking considers: how much of the rebuild is blocked, how many items are
 | Q2 | Does the current remote repository hold 12 snapshots, and which dates? | `restic snapshots --compact` on the remote repo | Owner, or an operator with access | Remote access (forbidden in this task) |
 | Q3 | Which snapshot was removed on 11-05 and 11-06? | Remote snapshot list, compared with journal IDs in E11 | As Q2 | As Q2 |
 | Q4 | Does the private `infisical-compose/docker-compose.yml` or the repo copy match the running containers? | **Partly answered (§4A.2):** neither is demonstrated to reproduce the deployment. Structure matches; DB and Redis image references, aliases, labels and DB user env do not. Remaining: a compose resolution in an isolated sandbox (Q15). | Operator on a sandbox host | Sandbox `docker compose config` comparison |
-| Q5 | What do the Supabase dumps' TOC lists differ by (92 entries, 11-03 to 11-06)? | `pg_restore --list` on the two cached dumps. Requires the cache files, which are local. | Operator on this VM | Local read of dump TOC, not contents |
+| Q5 | What do the Supabase dumps' TOC lists differ by (92 lines, 11-03 to 11-06)? | **Partially answered (§8.4):** candidate cause is migration `0249` moving seven tables to `archive`. Entry-level comparison still needs the 11-03 dump, which is not local. Application date of `0249` is also unknown. | Owner or operator | Migration history from Supabase (owner); 11-03 dump only through an authorized restore to scratch |
 | Q6 | Are the 57 stash-only commits and the 153 unpushed branches reachable from any remote? | GitHub branch and tag listing | Owner, or GitHub admin | Remote inventory (forbidden in this task) |
 | Q7 | Do the `coolify` Docker network and Coolify's key material survive a rebuild? | **Partly answered (§4A.3):** Coolify is decommissioned and no TJRHQ dependency exists. The network must be created by name. Whether `APP_KEY` encrypts anything still needed: UNKNOWN. | Owner, plus Coolify product docs | Documentation only |
 | Q8 | Does the Infisical uploads volume matter? | Already answered: 0 files | — | — |
