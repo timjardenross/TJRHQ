@@ -59,7 +59,7 @@ Corrections to revision 1 are in §11. The main ones: the Infisical uploads volu
 | E13 | 2026-11-05 verification report: 10 snapshots after its run, PASS on a 1% sample | DOCUMENTED | `reports/vm-audit/backup-verification-20261105.md` |
 | E14 | Supabase dumps on 10-28, 10-31, 11-03, 11-06 at cache age 71 h, sizes 38, 39, 39, 40 MB, TOC entries 1966, 1966, 1985, 1893 | VERIFIED | journal lines `supabase dump: N MB, M table-of-contents entries` |
 | E15 | Supabase cache file mtime `2026-11-06 02:41:35`, size 42.7 MB | VERIFIED | `ls -la /var/lib/starship-backup/` |
-| E16 | Weekly integrity timer installed, `NEXT Sun 2026-11-08 11:30 AEDT`; no journal entries yet | VERIFIED | `systemctl list-timers`; `journalctl -u starship-backup-integrity.service` returned no entries |
+| E16 | Weekly integrity timer installed, `NEXT Sun 2026-11-08 11:30 AEDT`. **Corrected: the first run completed 11:30:20–11:30:48 AEDT on 11-08 with "no errors were found" (§16).** | VERIFIED | `systemctl list-timers`; `journalctl -u starship-backup-integrity.service` (11-08 11:30) |
 | E17 | PR #609 merged 2026-11-07T23:47:52Z; checks SUCCESS | VERIFIED | `gh pr view 609` |
 | E18 | PR #610 (this document) open; 20 checks SUCCESS, none failing, one unnamed rollup entry with null status | VERIFIED | `gh pr view 610` at time of revision 2 |
 | E19 | Infisical README: directory "never committed", lost in a disk cleanup on 2026-09-24, recovered 2026-10-04 from an authoring transcript | DOCUMENTED | `deploy/infisical/README.md:3-6`; commit `e218bd7c2` (2026-10-04) |
@@ -83,7 +83,7 @@ Size and type come from `du`, `stat` and `find -type f`. "In backup" means expli
 
 | Path | Exists now | Size, type | Explicit backup status | Git or other documented source | Consequence of losing this VM | Label |
 |---|---|---|---|---|---|---|
-| `outputs/` (whole directory) | Yes | 36 MB, directory, 21 regular files | **Excluded**, except `outputs/delivery_ledger.txt` (E1). Gitignored (E32). | None | Loss of operational logs, reports and state, including `command_bus.db` (a `.db` file, type not checked), `deadmans_switch_state.json`, `mission_intelligence.json`, `knowledge_utilisation.json`, `operating_patterns.json`, `readiness_trend.json`, `verification_engine.log` (27 MB), `deadmans_switch.log` (2.5 MB), `delivery_apply.log` (5.8 MB and dated copies) | VERIFIED (exists, excluded). Regeneration per file UNKNOWN. |
+| `outputs/` (whole directory) | Yes | 36 MB, directory, 21 regular files | **Excluded**, except `outputs/delivery_ledger.txt` (E1). Gitignored (E32). | None | Loss of operational logs, reports and state, including `command_bus.db` (a `.db` file, type not checked), `deadmans_switch_state.json`, `mission_intelligence.json`, `knowledge_utilisation.json`, `operating_patterns.json`, `readiness_trend.json`, `verification_engine.log` (27 MB), `deadmans_switch.log` (2.5 MB), `delivery_apply.log` (413 KB; the 5.8 MB file is the dated copy `delivery_apply.log-20261108`, corrected §16) | VERIFIED (exists, excluded). Regeneration per file UNKNOWN. |
 | `outputs/delivery_ledger.txt` | Yes | 8.7 KB, file | **Included** (E1) | None | Restored from latest snapshot | VERIFIED |
 | `data/memory_graph.db` | Yes | 920 KB, SQLite-named file | **Excluded** (not in list; gitignored, E32) | None | Loss of memory graph store. Rebuildability UNKNOWN. | VERIFIED (exists, excluded) |
 | `.cortex/memory.db` | Yes | 30 MB, regular file | **Excluded** (not in list; gitignored, E32). Named in `.gitignore:163`. | None | Loss of the memory database. Whether it can be rebuilt from source is UNKNOWN. | VERIFIED (exists, excluded) |
@@ -180,7 +180,7 @@ Repo copy: `deploy/infisical/docker-compose.yml` (tracked; commits `e218bd7c2`, 
 **Volumes and network.**
 - `coolify-db`: 100 MB, created 2026-07-19 12:54:52 +10:00, compose project `source` (v2.38.2). `coolify-redis`: 492 KB. Neither is mounted by any container. `reports/VM-Capacity-Assessment-vmi3371936-2026-10-04.md:122` calls them orphaned and asks to confirm they are unused. `knowledge/missions/VM-OPTIMISE-ZERO-COST-PLAN-20261009.md:74` says not to delete orphaned Coolify volumes.
 - `coolify` network: bridge, 10.0.1.0/24, created 2026-07-19 12:53:42 +10:00, one attached container (`infisical-infisical-1`). Coolify's install log ends "Coolify installation completed successfully" at 2026-07-19 12:55:06 (VERIFIED, `/data/coolify/source/installation-20260719-125334.log`).
-- The Infisical compose declares the network external with the comment "exists today; Infisical is attached to it. Do not remove it" (`deploy/infisical/docker-compose.yml:53-54`).
+- The Infisical compose declares the network external with the comment "exists today; Infisical is attached to it. Do not remove it" (private copy `/root/private-knowledge/infisical-compose/docker-compose.yml:54`). **Corrected: the phrase is absent from the repo copy, which has `external: true` at line 106 (§16).**
 
 **`/data/coolify/` (not in backup path list, `deploy/starship-backup.sh:206-219`).**
 - `source/`: `docker-compose.yml` defines a non-external `coolify` network and services `coolify`, `postgres`, `redis`, `soketi`. Its `coolify` and `soketi` services have no `image:` key. `docker-compose.prod.yml` is the production variant: image `${REGISTRY_URL:-docker.io}/coollabsio/coolify:${LATEST_IMAGE:-latest}`, realtime image `coollabsio/coolify-realtime:1.0.19`, external `coolify` network, volumes `coolify-db` and `coolify-redis`.
@@ -363,7 +363,7 @@ Documentation only. This section records findings and the actions they need. It 
 
 **Potential impact**
 
-- If the parent directory permits traversal, any local user could read the values. Under the observed `drwx------` on the `source` directory, this is limited to root and Docker-group principals (INFERRED for the Docker group).
+- **Corrected (§16):** `/data/coolify` and `/data/coolify/source` are both mode `drwx------`, so non-owner local users cannot traverse into the directory. Effective exposure is limited to the owner account and root (VERIFIED, `stat`). The earlier "parent mode not recorded" gap is closed.
 - If any credential remains valid, disclosure could allow access to the upstream service it belongs to. Impact depends on that service and is UNKNOWN.
 - Retained copies outside backup increase the chance that a retained copy persists after the live file is cleaned up.
 
@@ -404,7 +404,7 @@ The Future Actions Register above is the sole place where these items are tracke
 - Three containers: `infisical-infisical-1`, `infisical-db-1` (healthy), `infisical-redis-1` (healthy). Project label `infisical`. Container start time 2026-10-19 13:24 UTC.
 - Mounts: `infisical_infisical-uploads` at `/app/backend/uploads` (0 files); `infisical_infisical-db` at `/var/lib/postgresql/data` (84 MB); `infisical_infisical-redis` at `/data` (12 MB). All three are local-driver named volumes.
 - Compose labels reference `/root/TJRHQ/deploy/infisical/docker-compose.yml`, which does not exist (E21, E22).
-- The `coolify` network is declared `external: true` and "exists today; Infisical is attached to it. Do not remove it" (E20, `docker-compose.yml:53-54`). The Infisical app's Traefik labels reference it (`traefik.docker.network=coolify`), but no Traefik container is running (§4A.3). No service uses the public route (§4A.1).
+- The `coolify` network is declared `external: true` and "exists today; Infisical is attached to it. Do not remove it" (E20; private copy line 54, absent from repo copy, §16). The Infisical app's Traefik labels reference it (`traefik.docker.network=coolify`), but no Traefik container is running (§4A.3). No service uses the public route (§4A.1).
 
 **Compose files available (VERIFIED):**
 
@@ -534,7 +534,7 @@ Classification uses documented routes and file-presence metadata only. No values
 | Three-file drill on 11-08 (DOCUMENTED) | Three files restored and compared to live | Any directory tree, any database restore | DOCUMENTED |
 | Infisical restore test on 10-09 (DOCUMENTED) | 100 secrets decrypted to identical values | That the current live Infisical matches the backup at 11-08 | DOCUMENTED |
 | Supabase restore test on 10-09 (DOCUMENTED, 166 tables, 163 identical counts, 3 high-churn tables 2-4 rows behind) | A scratch restore works | Restore on current schema or on a clean host | DOCUMENTED |
-| Weekly integrity timer (E16) | Nothing yet | First run pending at 11:30 AEDT on 11-08 | VERIFIED (timer), outcome UNKNOWN |
+| Weekly integrity timer (E16) | Sampled, 1 in 20 packs | First run completed 11-08 11:30 AEDT: 12/12 snapshots, 4/52 packs read, "no errors were found" (§16) | VERIFIED (journal) |
 
 **Conclusion:** no full-snapshot restore to a clean directory has been recorded. No full-data check (`--read-data`) has been recorded. Revision 1's wording "restore evidence is sampled" is correct, but it should say "no full restore has been recorded at all" rather than "has been tested in part".
 
@@ -622,9 +622,9 @@ The 11-03 breakdown by object type is **UNKNOWN**.
 
 #### 8.4.4 Material differences and the candidate cause
 
-**Candidate cause.** Migration `core/infrastructure/supabase/migrations/0249_archive_revs_tables.sql` (commit `98ba1cf6a`, committed 2026-11-03 08:33 +1100) contains:
+**Candidate cause.** Migration `core/infrastructure/supabase/migrations/0249_archive_revs_tables.sql` (commit `98ba1cf6a`, committed 2026-11-03 08:33 UTC, i.e. 19:33 AEDT; corrected from +1100) contains:
 
-- Eight `ALTER TABLE … SET SCHEMA` statements: seven to schema `archive`, one to `public`. No `DROP`, `CREATE TABLE` or `CREATE INDEX` statements (keyword counts only; no SQL printed).
+- Seven executed `ALTER TABLE … SET SCHEMA archive` statements. A further `SET SCHEMA public` match at line 12 is a comment (the reversal note), not an executed statement. No executed `DROP`, `CREATE TABLE` or `CREATE INDEX` (keyword counts only; corrected from "eight statements" by §16, Agent 4).
 - The same commit decommissions the REVS pilot bot and removes `telegram-bots/revs/`, with the bot kept on a branch. The archiving migration therefore appears to belong to that decommissioning.
 
 The dump filter includes only `public`, `auth`, `storage` and `supabase_migrations` (`deploy/starship-backup.sh:67`). A table moved to `archive` **leaves the dump**, together with its indexes, constraints, policies, comments and data.
@@ -659,8 +659,8 @@ The dump filter includes only `public`, `auth`, `storage` and `supabase_migratio
 | VERIFIED | Both journal counts come from the same script line, with the same image tag | `deploy/starship-backup.sh:107`, journal |
 | VERIFIED | No dump-related lines of the script changed between 11-03 and 11-06 (commit `7a8dd3b84` diff shows none) | `git diff` |
 | VERIFIED | Dump filter excludes all schemas except the four listed | `deploy/starship-backup.sh:67` |
-| VERIFIED | Migration `0249` contains eight `SET SCHEMA` statements (seven to `archive`) and no DROP | Keyword counts on the migration file |
-| VERIFIED | Migration `0249` is committed 2026-11-03 08:33 +1100, after the 02:42 dump of that day | `git log --format=%ci` |
+| VERIFIED | Migration `0249` contains seven executed `SET SCHEMA archive` statements; its one `SET SCHEMA public` match is a comment (line 12); no executed DROP | Line-level check of the migration file |
+| VERIFIED | Migration `0249` is committed 2026-11-03 08:33 UTC (19:33 AEDT), after the 02:42 AEDT dump of that day | `git log --format=%ci` |
 | VERIFIED | 0 of the seven moved tables appear in the 11-06 dump | Offline TOC, presence check (names withheld) |
 | VERIFIED | 0 of the two later emergency-alert tables appear in the 11-06 dump | As above |
 | INFERRED | Migration `0249` was applied before the 11-06 dump, causing most of the decrease | Combination of the above. Not confirmed by database-side evidence. |
@@ -782,7 +782,7 @@ Derivation and checks:
 | UNKNOWN | Why 11-03 (99) differs from 11-04 (96) by 3 lines | No evidence found |
 | UNKNOWN | Exact unit lines on 11-04 | Not recorded; not observable now |
 
-**The "(root) LIST (root)" journal line.** It is cron's log entry for the script's `crontab -l` call (`crontab-root.txt`), not a backup error. It appears in the journal for each run from 11-03 to 11-08 (six occurrences). Its absence on 11-01 and 11-02 is UNKNOWN, and it is not explained by any change found in this investigation.
+**The "(root) LIST (root)" journal line.** It is cron's log entry for the script's `crontab -l` call (`crontab-root.txt`), not a backup error. It appears in the journal on five of the six runs from 11-03 to 11-08 (not on 11-05). **Corrected from "six occurrences".** Its absence on 11-01 and 11-02 is UNKNOWN, and it is not explained by any change found in this investigation.
 
 #### 8.5.7 Future actions (DOCUMENTED ONLY)
 
@@ -803,7 +803,7 @@ Impact ranking considers: how much of the rebuild is blocked, how many items are
 2. **Stash-only commits (57) and unpushed local branches (153, pushed status UNKNOWN) survive only on this VM and in the bundle.** Stashes have no route at all. Unpushed branches have only the bundle and restic. Label: VERIFIED.
 3. **Operational state outside the backup path list.** Largest by consequence: `outputs/` (36 MB, 21 files, 1 of 21 backed up), `.cortex/memory.db` (30 MB), `data/memory_graph.db` (920 KB), `data/alert_state`, `/etc/self-improvement`, Coolify (6.5 MB plus 100 MB database volume, key material in `source/.env`). Label: VERIFIED exclusion. Regeneration per item UNKNOWN.
 4. **Infisical recovery depends on a reconstructed compose, a stale label path, and an uncertain `coolify` network.** The repo compose was rebuilt from transcript after a 2026-09-24 loss (E19). The private compose differs from the repo copy (E23). Containers reference a path that does not exist (E21, E22). The `coolify` network is external (E20). Logical restore is the only Infisical route (no physical copy). Label: VERIFIED structure, DOCUMENTED test.
-5. **No full restore has ever been recorded, and the first weekly integrity check has not run yet.** Integrity samples are small. The Supabase and Infisical tests are documented from 10-09. Label: DOCUMENTED and VERIFIED (timer).
+5. **No full restore has ever been recorded. The first weekly integrity check completed on 11-08 (sampled, 1 in 20 packs; §16).** Integrity samples are small. The Supabase and Infisical tests are documented from 10-09. Label: DOCUMENTED and VERIFIED (timer).
 
 **Revision 1 gap ranking, for comparison:** 1 credentials, 2 uncaptured state, 3 Infisical, 4 git coverage, 5 restore evidence. Revision 2 keeps the same five items but changes the order of 2 and 4 because stash and unpushed-branch loss are now quantified and have no route.
 
@@ -839,7 +839,7 @@ Impact ranking considers: how much of the rebuild is blocked, how many items are
 
 | Revision 1 claim | Status | Correction |
 |---|---|---|
-| "The last eight runs logged `finished OK`" | Corrected in rev 1 | Six runs, 2026-11-03 to 2026-11-08 (E10). |
+| "The last eight runs logged `finished OK`" | Corrected in rev 1 | Rev 1 wording "six runs" was also incomplete: the journal shows `finished OK` on each night in the window (11-01 to 11-08 verified, §16 item 1). |
 | "The Infisical uploads volume is not backed up at all" (presented as a material gap) | **Downgraded** | The volume has 0 regular files (§4). Not backed up, but not material. |
 | "Infisical compose project name must be set explicitly" | **Wrong** | `name: infisical` is already set (E20). Only the stale container label path matters (E21, E22). |
 | "The runbook restores from the private compose; that path works in principle" | **Overstated** | The private copy is not byte-identical to the repo copy (E23). The repo copy was reconstructed from transcript (E19). Which matches the running containers is UNKNOWN (Q4). |
@@ -926,3 +926,300 @@ These are recommendations only. None was applied.
 - Stash contents, database contents, secret values and credential fingerprints were not read.
 - No restore has been run in this assessment. Documented tests are reported as DOCUMENTED.
 - Head counts (branches, tags, stashes) changed during the investigation because other sessions were active. Figures are as observed at the time noted.
+
+## 16. Consolidated Four-Agent Architecture Investigation
+
+**Status:** complete for all four workstreams, with owner-only gaps listed in §16.10. Evidence cutoff 2026-11-08 11:46:53 AEDT. Document state at the start of this investigation: PR #610 head `26d19196b`, verified by `gh pr view` and by the local worktree HEAD.
+
+### 16.0 Method and labels
+
+- Four read-only specialists, one per workstream: (1) disaster recovery and data integrity; (2) identity, authorization and secrets; (3) automation, deployment and failure handling; (4) observability, audit and evidence assurance. Agent 4 also assured the report's claims. No specialist edited a tracked file, committed, pushed, created a branch or PR, or changed the live checkout.
+- Labels: **VERIFIED** (directly observed in the evidence, command or file:line cited). **INFERRED** (plausible reading of evidence, assumption stated). **UNKNOWN** (not established; the evidence that would settle it is named). **CONTRADICTED** (an earlier claim disproved by newer or primary evidence; the correction is given in §16.7).
+- Provenance marks. **[LC]** means the lead re-checked the claim against the source in this session. **[AR]** means a specialist cited file:line with a verified read, but the lead did not re-open that line. Items marked [AR] are reported at the strength the specialist gave them, not higher.
+- Live-state rules followed: no service, timer, container or alert was started, stopped, triggered or cleared. No database, restic, rclone or live HTTP request was made. No secret value, raw `docker inspect` output, `.env` content or credential-bearing log line was read. Agent 3 made one read-only GitHub API call that returned 403; no workflow was dispatched.
+
+### 16.1 Executive findings summary (verified findings, ranked by operational impact)
+
+1. **Command Centre `/api/config` returns the backend API key without authentication (CB-01).** [LC] `core/command-centre/backend/app.js:81` exempts `/api/config` from the auth middleware; the handler at lines 106–108 returns the key; the server listens on all interfaces (`app.js:240` `app.listen(PORT)`, live `ss` shows `*:5000`). [LC] Host `ufw` has `DEFAULT_INPUT_POLICY="DROP"` and no rule for 5000. [LC] Caddy proxies only `/api/v1/*` and `/health` (`deploy/caddy/Caddyfile.v3` `@api` matcher). **Net exposure: local processes and local users can read the key; it is not reachable from the internet through the host firewall.** The key grants every `/api/v1` write. Severity HIGH for the local threat model. Hardening is needed regardless (see FA-01).
+2. **Commits on `origin/main` deploy to the production VM without an approval gate (CB-14).** [LC] `deploy/auto-deploy.sh` fast-forwards `origin/main` and restarts units on a timer (`auto-deploy.service`, `User=deploy`). [LC] A search of the script finds no CI-status or check-run gate; its only `status` matches are `git status`. [AR] Restart failures are logged and the script can exit 0. Branch protection and required reviews on `main` are **UNKNOWN**: the GitHub API returned 403 to the read-only query.
+3. **Backup component failures can exit 0 (contradicts the script header).** [LC] `deploy/starship-backup.sh` line 25–27 says any failure exits non-zero. [LC] Lines 121 (`cp` of the cached dump), 126 (log-only branch), 220 (missing critical paths, logged as a note only) and 222–223 (the `find`) are not checked. [LC] Lines 73, 152 and 153 end in `|| true`. The `set -uo pipefail` at line 32 has no `-e`. Result: a silent partial backup is possible, and the journal would show `finished OK`.
+4. **`mission-engineering-dispatch` has been silent since 2026-10-28 and per-mission failures exit 0.** [LC] `systemctl list-timers` shows the timer enabled, with NEXT blank and LAST `Wed 2026-10-28 20:43:09 AEDT`. [LC] `core/engineering/mission_dispatch.py:329` returns 0 on the normal path and `sys.exit(main())` at line 333. No alert path is configured for this unit. [AR] Its unit description still says "every 15 minutes". The reason for the stop is UNKNOWN; no record was found.
+5. **Infisical client secret is passed on the command line during login (new).** [LC] `platform-runtime/lib-infisical.sh:60-62` passes `--client-secret=` as an argv argument. The value is visible in `/proc/<pid>/cmdline` for the duration of the login. Whether `hidepid` is set on `/proc` is UNKNOWN. Pattern only; no value read.
+6. **The backend accepts the API key in the query string (new).** [LC] `core/command-centre/backend/app.js:88` `const provided = req.headers['x-api-key'] || req.query.api_key;`. A key in a URL can be written to access logs. [AR] The Caddy log filters do not redact the URI (`deploy/caddy/Caddyfile.v3` ~lines 154, 287). Whether URIs reach logs on the live host is INFERRED, not verified.
+7. **Redis credential exposure (SEC-DR-01, existing) is preserved.** Verified via §4B. Rotation is owner-only.
+8. **Restore depends on three owner-held secrets (existing, §7.1).** The restic password, the Google OAuth client and the Infisical keys are not on the VM by design. Custody is UNKNOWN (Q1).
+9. **The backend uses the Supabase service-role key for all database access (CB-02).** [AR] `supabase-connector.js:16`, `api/capture.js:25`, `connectors/intelligence-adapter.js:29`, `api/captains-log.js:211`. Any compromise of the single key gate is therefore a service-role compromise (bypass of row-level security). Live RLS state is UNKNOWN; migrations show a permissive `anon_read` policy on two intelligence tables (`0035`, CB-08) [AR].
+10. **Two chat and message entry points lack user-level authorization.** [AR] Telegram gate is per chat, not per user (`core/platform/telegram_access.py:21-41`, CB-11). [AR] The Slack research command logs "allowing all users" with no check (`platform-runtime/commands/research_command.py:213-214`, CB-12). The LCARS mutating routes listed in §16.3 need only a session, not the Captain role (CB-13) [AR].
+
+**Also material (not in the top ten):** the 0249 archive move reduces dumped Supabase coverage from 11-03 onward (§8.4, VERIFIED on the migration and script; application date self-reported only, §16.7); the alert pipeline cannot detect its own send failures (`alert_on_systemd_failure.py:199-203` returns 0 on send failure [AR]); and the auto-deploy script can exit at `git fetch` under `set -e` after stashing `data/self-improvement` (`auto-deploy.sh:135-136`, `:233` [AR]).
+
+### 16.2 Recovery coverage matrix (Agent 1, reconciled)
+
+| Component | Required state | Existing recovery source | Evidence | Status | Gap |
+|---|---|---|---|---|---|
+| Restic repository `gdrive2:starship-backups-v2` | Reachable with password and OAuth client | Off-VM Google Drive, owner custody | `deploy/starship-backup.sh:42`; runbook §1 | IRREPLACEABLE (single provider) | Custody UNKNOWN (Q1) |
+| Restic password `/root/.restic-pass` | Present for backup and restore | Owner password manager only | Mode 600 root (`stat`); script:43; not in path list | IRREPLACEABLE | No on-VM fallback, by design |
+| rclone `gdrive2` config | Token for Drive | Re-authorise with owner Google account | Mode 600 root (`stat`); script:35,42 | RECONSTRUCTABLE (owner input) | Needs OAuth client secret |
+| Old repo `rclone:gdrive:starship-backups` | Fallback, if still present | Unknown | runbook lines 46–47 | UNKNOWN | Remote check prohibited (Q10) |
+| Infisical `ENCRYPTION_KEY`, `AUTH_SECRET` | Decrypt Infisical DB | `/root/private-knowledge/infisical-recovery.env` (in backup, script:217) | Mode 600 (`stat`); runbook §4 | COVERED, behind restic password | Chained dependency |
+| Infisical Postgres | Logical restore | `pg_dump` custom format | script:130–138 | COVERED (logical) | Physical volume `infisical_infisical-db` not backed up (2,124 files, 84 MB) |
+| Infisical Redis volume | Cache or state, role UNKNOWN | None | Volume present (12 MB) | UNKNOWN | Not backed up |
+| Infisical compose | Authoritative definition of running stack | Repo copy and private copy | §4A.2 | UNKNOWN | Neither demonstrated; label path stale |
+| `.infisical-auth.env` | Service machine identity | Backed up | script:211; mode 640 root:infisical-readers (`stat`) | COVERED | Validity on new host UNKNOWN |
+| Supabase `public`, `auth`, `storage`, `supabase_migrations` | Data | `pg_dump` | script:66–67 | COVERED | RPO up to about 72 h (§8.3) |
+| Supabase `archive` schema (7 tables moved by 0249) | Data | None off the live project | script:67 excludes it; migration 0249 | IRREPLACEABLE for that data | Silent coverage reduction from 11-03 (§8.4) |
+| Supabase grants (roles `xo_bot`, `revs_bot`, `telegram_engineer_ro`) | Role grants | Migrations, if re-run | script:67 `--no-privileges`; §8.4.3 (no ACL entries) | RECONSTRUCTABLE only if migrations re-run cleanly | Re-run untested [AR] |
+| Supabase Vault | Secrets | Re-enter from Infisical | runbook line 28; no `vault.create_secret` call sites found [AR] | UNKNOWN | Secret count and mirroring UNKNOWN |
+| Supabase Storage binaries | Files | None | Not in dump; no `.storage.from(` call sites found [AR] | UNKNOWN | Whether buckets hold objects needs dashboard or DB (Q13) |
+| `cron.job` rows | Schedules | Data-only SQL | script:71–73 | COVERED | |
+| Git branch heads (203 local) | All heads | `git bundle --branches` | script:144–145 | COVERED while bundle survives | 153 heads have no `origin/*` counterpart (VERIFIED) |
+| Git tags (108 local) | Tag refs | None (`--branches` excludes tags) | `git for-each-ref` [AR] | UNKNOWN; IRREPLACEABLE if not pushed | 107 are `archive/*`; 92 commits reachable only from tags [AR]; GitHub state UNKNOWN |
+| Git stash (21 entries; 57 stash-only commits) | Stash commits | None | §6, §4 | IRREPLACEABLE | Not in bundle, `.git` not in restic (script:222–224) |
+| Live checkout uncommitted work | 2 entries | None unless in path list | `git status` | IRREPLACEABLE (small) | Not captured |
+| Other worktrees | Clean at scan | Via bundle | [AR] | COVERED | |
+| `.cortex/memory.db` (31 MB) | Agent memory store | None | `stat`; gitignored | IRREPLACEABLE, regeneration UNKNOWN | Not backed up |
+| `data/memory_graph.db` (920 KB) | Memory graph | None | `stat`; gitignored | IRREPLACEABLE, regeneration UNKNOWN | Not backed up |
+| `/root/.claude` (187 MB, 5,762 files) | Session and memory state | None | [AR] `du`, `find` | UNKNOWN | Off-VM copy not checked |
+| `outputs/` (21 regular files, 36 MB) | Logs and state | Only `delivery_ledger.txt` (script:208) | §4 | UNKNOWN per file | Remainder not backed up |
+| `/root/.ssh` | Keys and `authorized_keys` | None | Mode 700 [AR] | RECONSTRUCTABLE (owner key) | `authorized_keys` lost |
+| Caddy ACME (`/var/lib/caddy`, `/root/.local/share/caddy`) | Certificates | Re-issue | Not in path list | RECONSTRUCTABLE | Let's Encrypt rate limits INFERRED |
+| `/etc/ssh` host keys | Host identity | Regenerate | [AR] | RECONSTRUCTABLE | Clients must re-trust |
+| `/etc/ufw` rules | Firewall | Status text only (`script:152`) | `ufw status` [LC] | UNKNOWN (partial) | Rules file not backed up |
+| Coolify (`/data/coolify`, volumes `coolify-db`, `coolify-redis`) | Decommissioned | None | §4A.3 | UNKNOWN (owner decision, Q18) | Key material loss, not required for TJRHQ |
+| Ollama models (`/usr/share/ollama`, about 55 GB) | Model weights | Re-pull | runbook; [AR] | RECONSTRUCTABLE | Time and bandwidth |
+
+**Irreplaceable (no source off the VM or the live project):** the restic password (custody only), the `archive` schema data (live project only), git stash commits, git commits reachable only from unpushed tags or branches, `.cortex/memory.db`, `data/memory_graph.db`, the live checkout's uncommitted work, and `/root/.claude` memory unless copied elsewhere. **Reconstructable:** rclone configuration, SSH keys (owner copy), ACME certificates, Ollama models, Infisical compose (given the recovery env), and Supabase grants (if migrations re-run). **Unknown:** Supabase Storage objects, Vault contents, the old restic repository, Coolify key material, GitHub-side copies of tags, branches and stashes.
+
+### 16.3 Authorization matrix (Agent 2)
+
+| Entry point | Operation | Intended identity | Enforcement | Evidence | Confidence |
+|---|---|---|---|---|---|
+| Command Centre `/api/v1/*` (all writes) | Capture, mission status, captain's log, advisory, notifications, governance, health pulses | Owner's LCARS server | Global `X-Api-Key` middleware (`app.js:80–94`); 503 in production with no key (`app.js:84`); query-string key accepted (`app.js:88`) | [LC] `app.js:80–94`; [AR] Caddy `@api` matcher | High while the key stays secret |
+| Command Centre `/api/config` | Returns the key | "local-only" per comment | Exempt (`app.js:81`); no IP or host check | [LC] `app.js:81`, `:106–108` | Verified; local exposure only |
+| Intelligence-governance `POST /` | Spawns Python dispatch with a role | Portal server only | Trusts the role from the portal; API-key gate only (`api/intel-governance.js:11–14`) | [AR] | Medium |
+| Intelligence `POST /generate` | Spawns scheduler | Owner | API-key gate only; `days` passed as argv string (`api/intelligence.js:108–120`) | [AR] | Medium |
+| LCARS `app/api/*` mutations (57 route files) | Captain actions | Captain via Supabase session | `middleware.ts:145` `getUser()` for non-public paths; most routes add their own guard | [AR] | High for guarded routes |
+| LCARS mutations with no route-level role check: `self-improvement/decide`, `self-improvement/opportunities/decide`, `settings` PUT, `tts/speak` | Decisions, writes, paid TTS | Captain | Session only; any authenticated user passes | [AR] (CB-13) | Medium; depends on signup setting (UNKNOWN) |
+| LCARS mobile bearer writes | Captain writes | Captain bearer | `MOBILE_BEARER_WRITE_ROUTES` and `requireCaptainWrite()` | [AR] | High |
+| Self-improvement dashboard `/api/decide`, `/api/opportunity/decide` | Captain decisions | Captain via portal proxy | `before_request` fail-closed, `hmac.compare_digest` (`dashboard.py:638–650`) | [AR] | High (SEC-01 area, not reopened) |
+| Context service `127.0.0.1:5001` | Captain context reads | Local callers | `X-Context-Service-Secret`; **returns open when the secret is unset** (`context_service.py` ~324–331) | [AR] | Medium; deployed env UNKNOWN (CB-07) |
+| TTS services (kokoro, chatterbox) | Speech generation | Portal | `X-TTS-Secret`, fail-closed when unset; both bind `0.0.0.0` | [AR] | Medium |
+| Telegram XO, capacitybot, resiliencebot | Actions, including `systemctl restart tg-xo.service` (`xo/app.py:531`) | Captain chat | Chat-ID allowlist, fail-closed on empty list; no user-ID check | [AR] (`core/platform/telegram_access.py:21–41`) | Medium (CB-11) |
+| Slack research command | Runs research or LLM jobs | "Captain, XO, designated researchers" (comment) | **None**; logs "allowing all users" | [AR] `research_command.py:213–214` (CB-12) | Low |
+| GitHub workflows | CI | Repository | `python-ci` `contents: read`; `lcars-portal-ci` has no permissions block; scorecard `read-all` with `id-token: write`. No deploy job, no `environment:` keys | [AR] `.github/workflows/*.yml` | Medium |
+| `deploy/auto-deploy.sh` (`User=deploy`) | Fast-forward `origin/main`, install, restart | Push access to `main` | No CI gate, no PR gate in repo; branch protection UNKNOWN | [LC] (no check gate) | Low for change control (CB-14) |
+
+### 16.4 Credential-boundary risk register
+
+Severity is the lead's view of impact in the stated threat model. "Live" means whether the live system matches the code.
+
+| ID | Risk | Evidence | Label | Severity | Future action | Owner authorization |
+|---|---|---|---|---|---|---|
+| CB-01 | `/api/config` returns the backend key unauthenticated | `app.js:81`, `:106–108`; ufw default DROP, port 5000 not allowed [LC] | VERIFIED (code and host firewall); external reachability blocked | HIGH (local); hardening needed | FA-01 | Yes, plus key rotation |
+| CB-02 | Backend uses the service-role key for all queries (bypasses RLS) | [AR] `supabase-connector.js:16` and three more | VERIFIED (code) | HIGH | FA-09 (per-route least-privilege client) | Yes |
+| CB-03 | `command-centre.service` runs `node app.js` with no Infisical wrapper; secrets come from repo-root `.env` via `dotenv` | [LC] `deploy/command-centre.service` `ExecStart=/root/.nvm/…/node app.js`; [LC] `app.js:19–20` dotenv | VERIFIED | MEDIUM–HIGH (bypasses the secret store) | FA-03 | Yes |
+| CB-04 | Infisical client secret on argv | [LC] `lib-infisical.sh:60–62` | VERIFIED (pattern) | MEDIUM | FA-04 | Yes |
+| CB-05 | API key accepted in the query string; Caddy log filter does not redact URIs | [LC] `app.js:88`; [AR] Caddy log filters | VERIFIED (acceptance); INFERRED (logged) | HIGH if logged | FA-02 | Yes |
+| CB-06 | Caddy drop-in provides `BACKEND_API_KEY` but Caddy no longer injects it | [AR] `deploy/caddy.service.d/apikey.conf:4`; `Caddyfile.v3:46–48` | INFERRED (unused copy) | LOW–MEDIUM | FA-23 | Yes |
+| CB-07 | Context service fails open when its secret is unset | [AR] `context_service.py` ~329–331 | VERIFIED (code); deployed env UNKNOWN | MEDIUM | FA-24 | Yes |
+| CB-08 | Residual `anon_read` policy on two intelligence tables | [AR] `0035`, no later drop found | VERIFIED (history); live UNKNOWN | MEDIUM–HIGH | FA-10 (owner runs `pg_policies`) | Yes |
+| CB-09 | Tables created without `ENABLE ROW LEVEL SECURITY` in migrations | [AR] `0001`, `0024`, `0026`, `0124`, `0125`, `0126` | INFERRED; live `rowsecurity` UNKNOWN | HIGH if PostgREST exposes them | FA-10 | Yes |
+| CB-10 | Migration `0239` applied by hand, not as written | [AR] `0239` header note | VERIFIED (file) | MEDIUM (history unprovable) | FA-15 | Yes |
+| CB-11 | Telegram gate is per chat, not per user | [AR] `telegram_access.py:21–41` | VERIFIED (code) | MEDIUM | FA-13 | Yes |
+| CB-12 | Slack research command has no authorization | [AR] `research_command.py:213–214` | VERIFIED (code) | MEDIUM (spend, data access) | FA-12 | Yes |
+| CB-13 | LCARS mutating routes without Captain role check | [AR] §16.3 | VERIFIED (code); signup setting UNKNOWN | HIGH if signup open | FA-11 | Yes |
+| CB-14 | Code on `main` runs on the VM as `deploy` | [LC] `auto-deploy.sh`, no CI gate; branch protection UNKNOWN | VERIFIED (mechanism) | HIGH (change control) | FA-05 | Yes |
+| CB-15 | SEC-01 Caddy containment: active state unknown | [LC] live and repo `Caddyfile` both contain the "NOT DEPLOYED" marker text twice; active blocks not determinable by grep | UNKNOWN | HIGH if containment is absent | FA-14 | Yes |
+| CB-16 | Infisical service wrappers missing for about 19 units, including command-centre, auto-deploy and starship-backup | [AR] unit scan | VERIFIED (scan) | MEDIUM | FA-03 (extend) | Yes |
+
+### 16.5 Automation and failure-detection matrix (Agent 3)
+
+| Job or workflow | Trigger | Failure signal | Alert path | Recovery procedure | Evidence | Gap |
+|---|---|---|---|---|---|---|
+| `starship-backup.service` | Timer 02:40 AEDT; enabled and active; last run 11-08 02:40, finished OK | exit 1 for listed failures; exit 75 for lock contention | `OnFailure=alert-on-failure@` [LC unit] | Pre-lockfix backup copy in `/opt/starship-backup/` (dated 11-08); documented rollback in integrity doc | [LC] script `:249–252`; journal | Component failures can exit 0 (§16.1 item 3) |
+| `starship-backup-integrity.service` | Sunday 11:30 AEDT; NEXT 11-15 | `flock` or restic non-zero | `OnFailure` [AR] | Documented (placeholder `<date>` in rollback) | [LC] journal 11-08 11:30:20–11:30:48 | Sampled 1 in 20 packs; no success marker |
+| `auto-deploy.service` | Timer every 5 min; fast-forward `origin/main`; no CI gate | ABORT exit 1 (dirty tree, ff failure, fetch) | `OnFailure` yes; dirty-tree alert debounced 30 min [AR] | Manual git on VM | [AR] `auto-deploy.sh:226,241–244,337,383,391` | Restart failures logged then exit 0; main commits deploy unreviewed |
+| `mission-engineering-dispatch` | Timer every 15 min, stopped in practice since 10-28 | Per-mission failures still exit 0 | None | None documented | [LC] `systemctl list-timers`; [LC] `mission_dispatch.py:329` | Silent about 10 days; stop reason UNKNOWN |
+| `hq-evolution.service` | Timer 03:00 | Exception, heartbeat failure, nonzero exit | None | `Restart=on-failure`, `RestartSec=300`, no `StartLimit` [AR] | [AR] `evolution_orchestrator.py:871–877` | Unbounded restarts; comment "restart once" is CONTRADICTED by config |
+| `self-improving-system.service` | Timer 04:34 | Nonzero exit | `OnFailure` yes; 2 h cooldown; `StartLimit` 5/h [AR] | Restart 300 s | [AR] 13 failure marks, 10 restarts in 14 days, last 11-05 07:53 | Cooldown hides repeats |
+| GitHub CI (`lcars-portal-ci`, `python-ci`, scorecard) | PR; push to `main`; scorecard also schedule and dispatch | CI status | None | None | [AR] workflow files | No deploy job, no `environment:` protection |
+| `deadmans-switch.service` | Timer 10 min | Nonzero | None | None | [AR] | The watchdog is itself unwatched |
+| Cron draft worker (`*/30`) | Cron | Unknown | None | None | [AR] crontab (one entry) | UNKNOWN |
+| `alert-on-failure@` path (`alert_on_systemd_failure.py`) | Triggered by `OnFailure` | Send failure | Telegram via XO bot | None | [AR] `:199–203` returns 0 on send failure | Alert failure is silent; the alert unit has no `OnFailure` of its own |
+
+**Answers to the four specific questions.** (a) Can a failed scheduled task exit successfully and escape detection? **Yes.** Backup component failures, the restart-failure swallow in auto-deploy, dispatch per-mission failures, and any stopped timer are all silent [LC, AR]. (b) Does each critical job have an alert path? **No.** 6 of 42 deploy units carry `OnFailure=`; the dispatch, deadman's switch, verification and delivery units do not [AR]. (c) Is the alert destination usable? **INFERRED yes**, the Captain's chat via the XO bot. No live test was made (prohibited); the journal has zero "alert send failed" lines in 14 days [AR]. (d) Are alert failures observable? **No** [AR]. (e) Does deployment preserve the owner approval boundary? **Not for the VM path.** Push rights to `main` are the only gate [LC, AR]. (f) Is the first weekly integrity result documented? **Now yes, in the journal** (11-08 11:30:48: "no errors were found", 12 of 12 snapshots, 4 of 52 packs). **The integrity doc records no result**, and §16.7 corrects the report's "pending" wording.
+
+**Additional findings from Agent 3 (not in the report before this section):** `auto-deploy.sh:135–136` stashes `data/self-improvement`, but the restore runs only at `:227`, `:243` or `:250`; the `git fetch` at `:233` runs under `set -e` (`:74`) and can exit before restoring [AR]. The stash count is 21 and the auto-deploy-labelled entries are UNKNOWN (the default stash message is "WIP on main"). The alert state file contains a key for `some-other.service` with a timestamp identical to `auto-deploy.service` [AR]: likely test residue, INFERRED. Unpinned images: `postgres:17` (backup), `postgres:15-alpine` and `redis:7-alpine` (Infisical compose), with `infisical` pinned by digest; no documented rollback for Infisical, Postgres or Ollama [LC grep]. The `starship-backup.sh:139` `docker inspect` output of the Infisical containers is written into the restic snapshot; its content was not inspected (INFERRED risk for owner review). Stopped timers are not detected at all.
+
+### 16.6 Audit and evidence-assurance matrix (Agent 4)
+
+**Audit and traceability inventory (condensed).**
+
+| Record | Store | Writer | Retention | Correlation key | Gap |
+|---|---|---|---|---|---|
+| Audit events | Supabase `audit_events` | `core/platform/audit_service.py:59`; callers `intelligence/governance/workflow_gate.py:165` and two more [AR] | 90 days (`0221`, daily cron 03:50); included in dump | actor, category, action; no run or commit ID | Docstring says no production caller, contradicted by callers (production status INFERRED) |
+| Escalation acknowledgement | Supabase `escalation_events` | `platform-runtime/escalation_manager.py:255–272` [AR] | Not found | `alert_key` | Retention not verified |
+| Captain approval queue | None found | n/a | n/a | n/a | Approval record store UNKNOWN |
+| Agent command execution | SQLite `outputs/command_bus.db` (20 KB) | `core/coordination/command_bus.py:43,131,136–152` [AR] | Pruning not checked | `event_key`, `mission_id` | Not backed up (`outputs/` excluded) |
+| XO decisions | Supabase `command_memory_records` | `lib/officers/xo_orchestrator.py:270` [AR] | Not checked | None | Not joined to other records |
+| Backup run log | journald | `starship-backup.sh:78,226`; restic prints snapshot IDs | Restic 7/4/3; journald cap 1 GB, disk at cap (1,022.9 MB); earliest backup journal entry 2026-10-13 [AR] | Snapshot ID only | `forget` output truncated by `tail -15` (`:243`) |
+| Deploy events | journald and git | `auto-deploy.sh:246` logs "pulled $LOCAL_SHA → $REMOTE_SHA" | As journald | Commit SHA | No deploy record store; 75 "pulled" lines since 11-01 |
+| Alert state | `data/alert_state/` (last_alert.json 289 B) | `core/platform/deadmans_switch.py:157–173` [AR] | None | None | No acknowledgement record |
+
+**Correlation.** The only shared keys are the restic snapshot ID (journal only), the commit SHA (auto-deploy journal and git) and `mission_id` (command bus and the Telegram callback). No key joins a backup run, a deploy and an approval. The bundle step logs size and ref count only (`starship-backup.sh:144–146`), so there is no backup-to-commit mapping.
+
+**Assurance matrix (selected rows; 35 claims were checked).**
+
+| # | Claim (short) | Source | Label used | Assurance result | Missing proof |
+|---|---|---|---|---|---|
+| A1 | Backup "ran successfully on every night from 2026-11-03" (§1) | Journal | VERIFIED | Understated: runs OK from 11-01 and earlier in window | None |
+| A2 | Supabase dumps 10-28, 10-31, 11-03, 11-06 with TOC 1966/1966/1985/1893 | Journal | VERIFIED | Confirmed | Restore test |
+| A3 | Dump only at cache age ≥ 71 h | `starship-backup.sh:56–57,103` | VERIFIED | Confirmed | None |
+| A4 | Restic printed 11 after 11-07, 12 after 11-08 | Journal | VERIFIED (log line) | Incomplete: "11 snapshots" also printed 11-01 | Meaning as count: INFERRED |
+| A5 | 10-29 snapshot "aged out" on 11-05 (§8.1) | Script `:241` and journal | INFERRED | Model ignores weekly and monthly exceptions in detail | Remote list (Q2, Q3) |
+| A6 | Weekly integrity "first run pending" (E16, §8.2, Q11) | Journal | **CONTRADICTED** | Run completed 11:30:48 with "no errors were found", 12/12 snapshots | Corrected in §16.7 |
+| A7 | "(root) LIST (root)" on "six" runs (§8.5.6) | Journal | **CONTRADICTED** | Five occurrences: 11-03, 04, 06, 07, 08 | Corrected |
+| A8 | "Six runs, 2026-11-03 to 2026-11-08" (§11) | Journal | **CONTRADICTED** | Finished OK on each night in the window | Corrected |
+| A9 | Compose `name: infisical` at line 12 and external network at lines 21, 52–54 (E20) | Repo compose | **CONTRADICTED** | Repo copy: name at 16, external at 106. Lines 12, 54 belong to the **private** copy. | Corrected |
+| A10 | Quoted phrase "exists today; Infisical is attached to it" in repo compose | Git | **CONTRADICTED** | Phrase is only in the private copy (line 54) | Corrected |
+| A11 | Running containers reference `/root/TJRHQ` compose path; directory absent | `docker inspect` label; `test -d` | VERIFIED | Re-checked | None |
+| A12 | Private compose not identical to repo copy | `cmp` | VERIFIED | Re-checked | Which matches runtime (Q4) |
+| A13 | 21 stashes, 57 stash-only commits, 19 of 21 first parents in a ref | `git stash`, `rev-list`, `for-each-ref` | VERIFIED | Re-checked | Stash content not inspected |
+| A14 | 0249 committed "08:33 +1100" (§8.4) | `git log` | **CONTRADICTED** (timezone) | `git` records `+0000`: 08:33 UTC = 19:33 AEDT. The conclusion (after the 02:42 AEDT dump) still holds. | Corrected |
+| A15 | 0249 has "eight SET SCHEMA statements; one to public" (§8.4.4) | Migration | **CONTRADICTED** | Seven executed moves. The public match is a comment on line 12. | Corrected |
+| A16 | "No migration-application record in the repository" (§8.4) | Commit messages | **CONTRADICTED (in part)** | `98ba1cf6a` says "Already applied" (0249). `59bcdde43` records 0250 applied to the project on 11-06. Self-reported in git only. | Database history (Q5) |
+| A17 | 11-06 TOC 1,893 lines, 1,878 entries | Offline `pg_restore --list` (counts only) | VERIFIED | Reproduced; Agent 4's schema split differs only by method | None |
+| A18 | Seven moved tables absent from 11-06 TOC | Offline check (names withheld) | VERIFIED | Consistent with 0249 applied before the dump | Application date (A16) |
+| A19 | Path count 96 → 38 explained (§8.5) | `git diff 543ab9312 dbbfbae1a`; journal | VERIFIED (mechanism) | No contradiction | 11-04 unit count of 62 INFERRED |
+| A20 | Rollback copy identical to `543ab9312` | `cmp` | VERIFIED | Confirmed | Install record |
+| A21 | `.env` mode 0644 exposed "to any local user" (F11, SEC-DR-02) | `stat` | **CONTRADICTED (in part)** | `/data/coolify` and `/data/coolify/source` are both `drwx------`, so non-owners cannot traverse. Exposure is to the owner and root. | Credential validity (owner) |
+| A22 | "Parent mode not recorded" gap (SEC-DR-02) | `stat` | **CONTRADICTED** (now closed) | Parent is mode 700 | Corrected |
+| A23 | `delivery_apply.log` is 5.8 MB (§4) | `ls` | **CONTRADICTED** | Live file 413 KB; 5.8 MB is `delivery_apply.log-20261108` | Corrected |
+| A24 | Coolify decommissioned (`Caddyfile.v3`, §4A.3) | Caddy comments | DOCUMENTED | Quote is at line 28, not 25–28 | Owner records (memory note cited, not in repo) |
+| A25 | Redis `--requirepass` value in container metadata; report contains no literal | Grep of report; `docker inspect` not repeated | VERIFIED | No literal in the report | Owner rotation |
+| A26 | Infisical logical dump runs nightly | Journal (8 entries since 11-01) | VERIFIED | Confirmed | Restore test (DOCUMENTED) |
+| A27 | Installed backup script and units identical to repo | `cmp` | VERIFIED (current) | Stale wording "revision 1" in §13 | None |
+| A28 | Lock contention exits 75 (§13) | Script `:82` | VERIFIED | Confirmed | None |
+| A29 | PR #609 merged 2026-11-07T23:47:52Z | `git merge` 9b7e35c9c (10:47:52 +1100) | VERIFIED (git) | Confirmed; the time in `gh` is UTC | GitHub checks not re-queried |
+| A30 | PR #610 "20 checks SUCCESS" (E18) | Not re-queried | Reported | Not reproduced in this investigation | GitHub |
+
+Remaining report claims that were checked and held are listed in the four specialist outputs, which the lead has reconciled into §§16.1–16.5.
+
+### 16.7 Corrections and contradictions (lead-reconciled)
+
+| # | Earlier claim (section) | Status | Correction |
+|---|---|---|---|
+| C1 | First weekly integrity run "pending" (E16, §8.2, §9 item 5, §12 step 13, §13, §14 item 9, Q11) | **CONTRADICTED** | Completed 11-08 11:30:20–11:30:48 AEDT: "no errors were found", 12/12 snapshots, 4/52 packs read (journal). Corrected in E16, §8.2 and §9 item 5. Other sections still describe a future verification step; treat the journal as the result. |
+| C2 | "Six runs, 2026-11-03 to 2026-11-08" (§11) | **CONTRADICTED** | Finished OK on each night in the journal window. |
+| C3 | Compose "name" at line 12 and external at 21, 52–54; quote "exists today…" in repo compose (E20, §3, §5) | **CONTRADICTED** | Repo copy: name at 16, external at 106. The quote is in the private copy at line 54 only. Corrected in E20 and §5. |
+| C4 | "(root) LIST (root)" on six runs (§8.5.6) | **CONTRADICTED** | Five. Corrected. |
+| C5 | Commit times "+1100" for 0249, 0252, 0254 (§8.4) | **CONTRADICTED** | Git records UTC (`+0000`). Corrected. Ordering relative to dumps unchanged. |
+| C6 | Eight `SET SCHEMA` statements, one to public (§8.4.4) | **CONTRADICTED** | Seven executed; one comment. Corrected. |
+| C7 | "No migration-application record" (§8.4.4, §8.4.6, §8.4.7) | **CONTRADICTED (in part)** | Commit messages record application ("Already applied" for 0249; 0250 applied 11-06). Self-reported; database history still needed. |
+| C8 | Coolify `.env` exposed to any local user; parent mode not recorded (F11, SEC-DR-02) | **CONTRADICTED (in part)** | Both directories are mode 700. Exposure is to owner and root only. Credential validity still UNKNOWN. Priority for SEC-DR-02 is for the owner to re-rate. |
+| C9 | `delivery_apply.log` 5.8 MB (§4) | **CONTRADICTED** | 413 KB. Corrected. |
+| C10 | "Six occurrences" in the path-count section (§8.5) | **CONTRADICTED** | Corrected to five. |
+| C11 | Agent 2 code comments: `/api/config` "local-only"; Slack "designated researchers"; Caddy "/api/* to backend" | **CONTRADICTED** | `/api/config` has no IP or host check; the comment is wrong. The Slack research comment "designated researchers" is disproved by "allowing all users". The Caddy header claim that `/api/*` goes to the backend is disproved by the `@api` matcher. |
+| C12 | `hq-evolution` comment "restart once" (Agent 3) | **CONTRADICTED** | Config is `Restart=on-failure` with no `StartLimit`. Not in the report; recorded for completeness. |
+| C13 | 0249 timing and "applied" (Agent 1 C1/C2) | **CONTRADICTED** | Confirmed and merged into C5 and C7. |
+| C14 | Path-count "retention model" (§8.1) | **INFERRED, limited** | The model ignores weekly and monthly exceptions in detail. The conclusion (one snapshot aged out on 11-05) is INFERRED, not verified. |
+| C15 | Integrity cited as "not yet verified" in later stance (§13, §14) | **CONTRADICTED** | Superseded by C1. |
+
+**Duplicates and labelling.** The Redis exposure appears in §4A.7, SEC-DR-01, the register, and Q22; these are consistent and should be kept in sync. Coolify appears in §4A.3, §4A.4, §7.4, SEC-DR-02, F11, F12, Q18, Q19 and Q23; SEC-DR-02's "exposure to any local user" wording is superseded by C8. The 92-line TOC decrease appears in §5, §8.3, §8.4, §14 and Q5; §8.3 is superseded by §8.4.
+
+### 16.8 Preserved findings (not reopened)
+
+- **SEC-01 gates G3, G4, G5** closed with recorded validation (commit `8d44f1cdd`). Not reopened. The live Caddy file contains the SEC-01 "NOT DEPLOYED" marker text, which is a separate question (CB-15, FA-14).
+- **SEC-DR-01** (Redis credential exposure). Preserved, not reopened. Owner rotation only.
+- **SEC-DR-02** (Coolify `.env` permissions). Preserved, with the exposure assessment revised by C8. Validity UNKNOWN.
+- **96 → 38 path count** (§8.5). Explained.
+- **1,893-line TOC** for the 11-06 dump (§8.4). Reproduced offline.
+- **Coolify decommissioned** (§4A.3). Not an active dependency.
+
+### 16.9 Prioritized future action register
+
+All actions are **OPEN — DOCUMENTED ONLY**. None has been executed. Each needs the owner's separate authorization. Verification methods are suggestions for a future authorized change, not instructions to run now.
+
+| ID | Priority | Action | Dependencies | Suggested verification (future, authorized) | Owner authorization |
+|---|---|---|---|---|---|
+| FA-01 | HIGH | Remove the key from `/api/config`; bind command-centre to `127.0.0.1` (CB-01) | LCARS server key path; Vercel side; restart window | Local `curl` expecting 401 on `/api/config`; LCARS writes still succeed | Owner and Captain |
+| FA-02 | HIGH | Stop accepting `api_key` in the query string; redact URIs in Caddy logs (CB-05) | Any client using query keys | Test with header only; log sample reviewed for key shape without printing values | Owner |
+| FA-03 | MEDIUM–HIGH | Wrap `command-centre.service` and the other unwrapped units with `run-with-infisical.sh`; move the repo `.env` out of the service path (CB-03, CB-16) | Infisical health; boot ordering (2026-10-06 incident) | Unit `ExecStart` review; service health after restart | Owner |
+| FA-04 | MEDIUM | Pass the Infisical client secret by env or stdin (CB-04) | Infisical CLI support | Login test on restored host | Owner |
+| FA-05 | HIGH | Enable branch protection and required reviews on `main`; add an environment with approval for deploys; add a CI-status gate to `auto-deploy.sh` (CB-14) | GitHub admin rights; Vercel deploy-on-merge (INFERRED) | GitHub branch-protection settings read by owner; deploy dry run | Owner |
+| FA-06 | MEDIUM–HIGH | Make backup component failures set exit status; keep `pg_dump` stderr on success; log missing critical paths as failures (§16.5) | Alert path (FA-07) | Dry-run mode (`DRY_RUN=1`) reviewed | Owner |
+| FA-07 | MEDIUM | Make alert-send failures non-zero and observable; add `OnFailure` for the alert path's own dependencies; watch the watchdog (§16.5) | Telegram path | Authorized test alert, one only, with cooldown respected | Owner |
+| FA-08 | MEDIUM | Decide whether the `mission-engineering-dispatch` stop was deliberate; re-enable only after review (§16.1 item 4) | Mission owner | Journal of last cycle, reviewed by owner | Owner |
+| FA-09 | MEDIUM | Per-route least-privilege Supabase client instead of the service-role key (CB-02) | Route inventory | Code review per route | Owner |
+| FA-10 | HIGH | Owner runs read-only checks: `pg_policies`, `pg_tables.rowsecurity`, and the PostgREST exposure setting (CB-08, CB-09) | Owner database access | Read-only queries only, run by owner | Owner |
+| FA-11 | HIGH | Add Captain role checks to the mutating LCARS routes; confirm signup is disabled (CB-13) | Supabase auth settings | Route review; signup setting check by owner | Owner |
+| FA-12 | MEDIUM | Add authorization to the Slack research command (CB-12) | Slack identity mapping | Code review | Owner |
+| FA-13 | MEDIUM | Add a Telegram user-ID allowlist alongside the chat allowlist; confirm the chat is private (CB-11) | Chat membership | Owner confirms chat type | Owner |
+| FA-14 | HIGH | Confirm which SEC-01 blocks are live in `/etc/caddy/Caddyfile` (CB-15) | Caddy reload window if change needed | Owner reads the live file (not by agent) | Owner |
+| FA-15 | HIGH | Confirm migration `0249` application and date in the Supabase migration history; decide the archive backup policy (§8.4.7) | Owner database access | Migration history query by owner | Owner |
+| FA-16 | LOW | Keep byte-identity checks (`cmp`) after each script or unit change | None | `cmp` against repo | Owner |
+| FA-17 | MEDIUM | Pin `postgres`, `redis` and related images by digest; document rollback for Infisical, Postgres and Ollama (§16.5) | Registry access | Digest comparison | Owner |
+| FA-18 | HIGH | Confirm custody of the restic password, OAuth client and Infisical keys (Q1); plan rotation after any exposure | Owner password manager | Owner confirms presence (no values) | Owner |
+| FA-19 | HIGH | Redis rotation and removal of the value from the command line (SEC-DR-01) | Consumers listed in SEC-DR-01 | Health checks after rotation | Owner |
+| FA-20 | MEDIUM | Decide retention or archival of Coolify residue and tighten `/data/coolify/source/.env` permissions (SEC-DR-02, Q18, Q23) | Owner decision | `stat` after change | Owner |
+| FA-21 | MEDIUM | Per-run path manifest, script commit in each run's first log line, split counts (§8.5.7) | None | Log sample reviewed | Owner |
+| FA-22 | MEDIUM | Address the auto-deploy stash and `set -e` fetch path so local `data/self-improvement` changes are restored (§16.5) | Stash stack (21 entries; do not touch without owner) | Dry run of the restore path | Owner |
+| FA-23 | LOW | Remove the unused `caddy.service.d/apikey.conf` after confirming no consumer (CB-06) | Caddy unit | `systemctl cat` review | Owner |
+| FA-24 | MEDIUM | Make the context service fail closed when its secret is unset; confirm deployed secrets (CB-07) | Env population | Config review | Owner |
+| FA-25 | MEDIUM | Decide journal retention: disk at cap 1,022.9 MB, earliest backup entry 2026-10-13 (§16.6) | Storage | `journalctl --disk-usage` review | Owner |
+| FA-26 | LOW | Owner reviews the alert-state residue for `some-other.service` (INFERRED test residue). Do not clear. | Alert system | Owner review of state keys only | Owner |
+| FA-27 | MEDIUM | Make `hq-evolution` restarts bounded (`StartLimit`) (C12) | Unit | Config review | Owner |
+| FA-28 | LOW | Decide whether `/root/.claude` memory and the two memory databases need backing up or a second copy (§16.2) | Owner decision | Owner confirms | Owner |
+| FA-29 | HIGH | Decide Supabase Storage and Vault backup scope (§16.2) | Owner dashboard access | Owner inventory | Owner |
+
+### 16.10 Unresolved questions (owner input or future authorized testing)
+
+1. Restic password, OAuth client and Infisical keys: present and current in the password manager? (Q1)
+2. Does the old repository `rclone:gdrive:starship-backups` still exist? (Q10)
+3. Remote snapshot list, and which snapshot aged out on 11-05 and 11-06? (Q2, Q3)
+4. Migration history: was `0249` applied, when, and does the `archive` schema hold the seven tables? Were `0252` and `0254` applied? (Q5, FA-15)
+5. GitHub state of the 153 unpushed branches, the 108 tags (27 pointing to commits on no local branch, 107 `archive/*`), and the 21 stashes (Q6)
+6. Branch protection and required reviews on `main` (CB-14, FA-05). GitHub API returned 403 to the read-only query.
+7. Supabase: live `pg_policies`, `rowsecurity`, signup setting, PostgREST exposure (CB-08, CB-09, CB-13)
+8. Supabase Storage objects and Vault contents, and how many (Q13)
+9. Live Caddy SEC-01 containment: which blocks are active (CB-15)
+10. Whether the Telegram chat is private or a group (CB-11)
+11. Whether mission-engineering-dispatch was stopped deliberately (FA-08)
+12. Whether the Redis value is still accepted, and its consumers (SEC-DR-01)
+13. Whether Coolify key material is needed (Q18, Q19)
+14. Which Infisical compose matches the running containers (Q4)
+15. The counting method behind the runbook's 166-table figure; it does not reconcile with the 0249 explanation under the same method (INFERRED arithmetic; §8.4)
+16. Who removed Coolify images between 11-03 and 11-08 (Q16)
+17. Whether journald's 1 GB cap rolls off history before `MaxRetentionSec` (FA-25)
+18. Whether the Slack research command has an entry gate elsewhere (CB-12; not found in this worktree)
+
+### 16.11 Evidence references (selected)
+
+- Backup and restic: `deploy/starship-backup.sh` lines 25–27, 32, 42–43, 56–57, 66–67, 71–73, 82, 103, 105–126, 130, 139, 144–146, 152–153, 206–226, 241–252; `deploy/starship-backup-integrity.{service,timer}`; `docs/operations/restic-backup-integrity.md`; `knowledge/missions/starship-backup-restore-runbook.md` lines 28–35, 46–47, 69, 82–83.
+- Command Centre: `core/command-centre/backend/app.js` lines 19–20, 65, 80–94, 88, 106–108, 240; `deploy/command-centre.service` ExecStart.
+- Caddy: `deploy/caddy/Caddyfile.v3` lines 25–28, 46–48, 172–174, `@api` matcher; `deploy/caddy/README-v3.md` (NOT DEPLOYED).
+- Infisical: `platform-runtime/lib-infisical.sh` lines 3, 5–11, 60–62; `platform-runtime/run-with-infisical.sh:33`; `deploy/infisical/docker-compose.yml` lines 16, 58, 106 (repo); `/root/private-knowledge/infisical-compose/docker-compose.yml` lines 12, 54 (private copy, noted only by line).
+- Deployment: `deploy/auto-deploy.sh` lines 74, 135–136, 226, 233, 241–246, 336–337, 382–383, 391; `deploy/auto-deploy.service:38`.
+- Migrations: `core/infrastructure/supabase/migrations/0249_archive_revs_tables.sql` lines 12, 21–27; `0035` (anon_read); `0221`; `0231`.
+- Git: commits `98ba1cf6a` (0249, "Already applied"), `59bcdde43` (0250 applied), `5567b1a36` (0250 not applied at time), `543ab9312` and `dbbfbae1a` (path list), `7a8dd3b84` (venv freeze), `8d44f1cdd` (SEC-01 closure), `846b2aa31` and `e218bd7c2` (Infisical compose history).
+- Journal: `starship-backup.service` 11-01 to 11-08; `starship-backup-integrity.service` 11-08 11:30:20–11:30:48; `mission-engineering-dispatch.timer` (list-timers).
+- Host firewall: `/etc/default/ufw` `DEFAULT_INPUT_POLICY="DROP"`; `ufw status`.
+- Listeners (metadata): `ss -ltn` shows `*:5000`, `127.0.0.1:5001`, `127.0.0.1:5052`, `0.0.0.0:8893`.
+
+### 16.12 Limits and steps not completed
+
+- No live authentication or authorization test was made. Each authorization result is a code reading or a host-configuration reading.
+- No database connection, no audit or alert row read, no migration-history query. Application status of migrations is self-reported in commit messages.
+- No remote GitHub or restic inventory. The single read-only GitHub API call (agent 3) returned 403 and is recorded as UNKNOWN.
+- No secret value, `.env` content, or raw `docker inspect` output was read.
+- Agent 2 did not compare `/opt/deploy-guard/scoped-restart.sh` with the repo copy, did not enumerate python-ci secret names, and did not check ufw live (lead has now checked `ufw status`, §16.1 item 1).
+- Agent 4 did not reproduce the per-schema TOC split exactly (its method gave 1543/251/79/5 against 1541/250/78/4/5); totals match.
+- Scratch files were written to the session scratchpad only, not the repository.
+
+### 16.13 Quality gates for this update
+
+- Only `docs/operations/disaster-recovery-gap-assessment-2026-11-08.md` was changed in the worktree.
+- No secret value, token, password or fingerprint is written in this section. Credential-related items name variables, files and line numbers only.
+- All four workstreams are represented: §16.2 (Agent 1), §16.3 and §16.4 (Agent 2), §16.5 (Agent 3), §16.6 (Agent 4).
+- Previously resolved issues were not reopened: SEC-01, the 96→38 path count (§8.5), the TOC reproduction (§8.4), Coolify decommissioning. Items that the evidence contradicted are corrected in §16.7, not silently changed.
+- No remediation was executed. All future actions are marked OPEN — DOCUMENTED ONLY.
