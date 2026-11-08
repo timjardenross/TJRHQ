@@ -203,10 +203,40 @@ Approval should be recorded separately for:
 - production deployment and monitoring.
 
 
+
+## Adopted owner decisions
+
+Recorded 8 November 2026.
+
+1. **Redis disposition:** Redis credential validity remains `UNKNOWN`. The next authorized step is a metadata/non-disclosing validity check. No credential rotation is authorized by this plan. Any later rotation requires a separate owner decision, coordinated client updates, rollback preparation and post-change verification.
+2. **Mandatory approval gates:** separate approval is required for:
+   - design and caller inventory;
+   - implementation and tests;
+   - Infisical transport changes;
+   - any Redis credential decision or rotation;
+   - production deployment and monitoring.
+
+These decisions adopt the recommendations prepared from the repository caller inventory. They do not authorize implementation, credential inspection, production access or remediation.
+
+## Caller inventory — repository-known consumers
+
+| Consumer | Source location | Current path | Required migration |
+|---|---|---|---|
+| Command Centre main frontend | `core/command-centre/frontend/index.html:1025,1032` | Fetches `/api/config`, then sends `api_key` query parameters | Approved session/header flow |
+| Mission Registry frontend | `core/command-centre/frontend/mission-registry.html:115-125` | Fetches `/api/config`, then sends `api_key` query parameters | Approved session/header flow |
+| LCARS verification helper | `lcars-portal/src/lib/verification.ts:10-11,38-39` | Server-side secret to `X-Api-Key` | Scoped server-side identity |
+| LCARS advisory runtime | `lcars-portal/src/lib/advisoryRuntime.ts:16-32` | Server-side key to `X-Api-Key` | Scoped server-side identity |
+| LCARS capture route | `lcars-portal/src/app/api/capture/[id]/route.ts:12-17` | Server-side secret to `X-API-Key` | Scoped server-side identity |
+| Intelligence Workbench action route | `lcars-portal/src/app/api/intelligence-workbench/action/route.ts:34-44` | Server-side secret to `X-API-Key` | Scoped server-side identity |
+| Caddy upstream | `deploy/caddy.service.d/apikey.conf:2` | Injects `X-Api-Key` upstream | Keep only as transport control |
+| External/manual callers | Not discoverable from repository search | Unknown | Owner confirmation required |
+
+The inventory is metadata-only. No credential values, environment values, process arguments or production requests were inspected. The inventory does not claim that the repository search found every external caller.
+
 ## Owner decisions still open
 
-1. Which legitimate clients depend on the existing key bootstrap, and what replacement authentication design should they use?
-2. Should a separately authorized credential-response plan be prepared for Redis and any other affected secrets?
+1. Which legitimate external/manual clients, if any, depend on the existing key bootstrap, and what replacement authentication design should they use?
+2. What metadata-only validity check will the owner authorize for the Redis credential, and when?
 
 **No production changes, credential inspection/rotation, deployments, backup/restore, merges or service restarts are authorized by this plan.**
 
