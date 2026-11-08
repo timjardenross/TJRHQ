@@ -48,7 +48,8 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from urllib.parse import quote
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -321,7 +322,7 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
                 )
                 if getattr(alert_result, "ok", alert_result is not False):
                     results["alerts"] += 1
-            except Exception as exc:  # alerting must not mask the job failure
+            except (OSError, RuntimeError, ValueError) as exc:  # alerting must not mask the job failure
                 log.warning(f"{mission_id}: failed to send Telegram alert: {exc}")
 
     return results

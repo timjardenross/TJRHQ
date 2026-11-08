@@ -1,5 +1,7 @@
 import core.engineering.mission_dispatch as dispatch
 
+
+
 def test_failed_dispatch_emits_one_alert(tmp_path, monkeypatch):
     mission = {"mission_id": "MSN-TEST-001", "title": "Test dispatch"}
     monkeypatch.setattr(dispatch, "fetch_approved_missions", lambda limit=25: [mission])
