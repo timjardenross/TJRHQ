@@ -77,3 +77,89 @@ Source references:
 5. Whether WP-02 should include Telegram/Slack authorization implementation or track it as separate sub-work.
 
 **No production changes, branch-protection changes, deployments, service restarts, database changes or credential actions are authorized by this plan.**
+
+
+## Bulk preparation completed
+
+The following artifacts are prepared for owner review. They are designs and checklists only; none changes live GitHub settings, deployment behavior or production state.
+
+### Read-only inventory to capture before implementation
+
+| Area | Evidence to record | Unknown that must remain explicit |
+|---|---|---|
+| Repository governance | Default branch, protection/ruleset state, required checks, direct-push permissions | Whether current settings are enforced for all actors |
+| CI | Workflow names, trigger events, protected-branch status, artifact retention | Whether every deployable commit has a successful immutable result |
+| VM deploy path | Deployed SHA, pull source, deploy user, timer/service unit, restart inventory | Who initiated unexplained pulls and whether the path is owner-authorized |
+| Authorization | Route inventory, mutating verbs, identity source, capability mapping | Live Telegram, Slack, Supabase RLS and sign-up posture |
+| Recovery | Previous approved SHA, rollback command/runbook, approval record | Whether rollback has been rehearsed end-to-end |
+
+### Proposed approval record
+
+Every production deployment should create an append-only record containing:
+
+- repository and target environment;
+- commit SHA and release/reference identifier;
+- CI run/check identifiers and result;
+- approver identity, approval timestamp and stated scope;
+- operator identity and deployment start/end;
+- services restarted and health-check results;
+- rollback decision, if any, including prior approved SHA;
+- links to logs and post-deployment verification.
+
+The record is not valid if approval is inferred from a chat message, a successful CI run alone, or an unprotected branch state.
+
+### Proposed rollback record
+
+A rollback is complete only when the record identifies:
+
+1. the failed release and reason;
+2. the last approved known-good SHA;
+3. the approving owner;
+4. the operator and execution time;
+5. service health and route checks after rollback;
+6. follow-up action and expiry for any emergency bypass.
+
+### Service inventory acceptance
+
+The implementation inventory must include `command-centre.service`, because its backend serves port 5000 and requires a restart for backend changes. PR #616 is the current isolated implementation candidate. Acceptance requires a configuration review plus a non-production or explicitly approved verification; this document does not authorize a production restart.
+
+### CI and failure-mode test matrix
+
+| Test | Expected result |
+|---|---|
+| Pull request without required CI | Cannot merge |
+| Direct push to protected `main` | Rejected or attributable emergency bypass |
+| CI passes but environment approval is absent | No production deployment |
+| Deployment SHA differs from approved SHA | Deployment stops |
+| Service restart fails | Deployment fails and records the failure |
+| Health check fails after restart | Rollback decision is required; no success recorded |
+| Emergency bypass lacks owner, reason or expiry | Rejected |
+| Browser submits an elevated role | Server ignores client role and authorizes from trusted identity |
+| Rollback targets an unapproved SHA | Rejected |
+| Required production evidence is missing | Work package remains open |
+
+### Route authorization decision matrix
+
+Before implementation, fill one row per mutating route:
+
+| Surface | Route/action | Trusted identity | Required capability | Data/database scope | Negative test |
+|---|---|---|---|---|---|
+| Command Centre | Each mutating API route | Server-authenticated principal | Owner/operator capability as approved | Minimum required tables/operations | Unauthenticated and read-only principal rejected |
+| LCARS | Each mutating API route | Server-side session/token | Captain/owner capability as approved | Minimum required mutation | Browser-supplied role rejected |
+| Telegram | Each mutating command | Verified Telegram user ID | Approved operator/owner capability | Command-specific scope | Unlisted user rejected |
+| Slack | Research/escalation actions | Verified Slack identity | Approved research capability | Minimum event/data scope | Unapproved workspace/user rejected |
+| Supabase | Sign-up/RLS-sensitive operations | Trusted service or user identity | Policy-specific capability | Explicit RLS scope | Cross-tenant or unauthorized row rejected |
+
+### Remaining owner decisions
+
+- Required review count and exact CI checks for protected `main`.
+- Production approver(s) and whether two-person approval is required.
+- Emergency bypass allowed or prohibited; if allowed, expiry and retrospective-review period.
+- Canonical approval-record store and retention period.
+- Whether Telegram/Slack authorization remains in WP-02 or becomes a separately approved package.
+- Whether rollback rehearsal must precede the first governed production deployment.
+- Whether PR #616 should be merged independently or included in the WP-02 implementation sequence.
+
+### Evidence status
+
+This preparation references PR #610 evidence commit `e61abcffc5b01cf9875697e27acd3e907d7a21d8`, PR #611 baseline commit `014ba427a` as previously recorded, merged WP-01 implementation commit `40b45b5cc8324123ca25f489cd177aced745facf`, and draft PR #616. Live settings and VM state remain unverified in this documentation branch.
