@@ -1,4 +1,4 @@
-# TJRHQ disaster recovery gap assessment (2026-11-08, revision 3)
+# TJRHQ disaster recovery gap assessment (2026-11-08, revision 4)
 
 Status: read-only assessment. Revision 2 adds evidence and corrects claims from revision 1. No production file, service, timer, credential, backup, restore, repository check, remote inventory, stash, branch or alert state was changed or accessed.
 
@@ -264,6 +264,138 @@ Repo copy: `deploy/infisical/docker-compose.yml` (tracked; commits `e218bd7c2`, 
 1. **Redis password on the command line.** `infisical-redis-1` was started with `redis-server --requirepass <value>` (F16). Anyone who can run `docker inspect` reads it, and so does anyone who reads the process list (INFERRED). The value appeared in this session's output. **Recommendation:** owner decides on rotation and moving it to a file or Docker secret. Rotation was not performed (restricted).
 2. **Coolify `.env` mode 0644** (F11). **Recommendation:** owner decides on `0600`, or on removing the decommissioned directory.
 3. **Dated `.env` copies** (17 in `/data/coolify/source`, mode 0644). They accumulate secrets and are not backed up (F12). Same recommendation.
+
+## 4B. Security findings and Future Actions Register
+
+Documentation only. This section records findings and the actions they need. It does not remediate, rotate, change permissions, restart anything, or re-inspect any system. Credential values and fingerprints are not reproduced anywhere in this section. Evidence cited is the sanitized discovery evidence already recorded in §4A and §4 (`docker inspect` metadata, `ls -la` mode output, compose and path-list file references).
+
+### SEC-DR-01: Redis credential exposure
+
+| Field | Content |
+|---|---|
+| Finding ID | SEC-DR-01 |
+| Evidence | Sanitized: `docker inspect` `Config.Cmd` of `infisical-redis-1` (metadata, §4A.1, F16); compose references (§4A.2 row 16). Value not reproduced. |
+| Confidence | VERIFIED: the value was exposed in session output and sits in container command metadata. UNKNOWN: validity, use, transcript retention, other copies. |
+| Potential impact | Disclosure of the Redis authentication secret. Unauthorized access limited to `infisical_default` and Docker-level principals (no published port). |
+| Future action | Scope exposure; confirm Redis role; plan and execute rotation under approval; move secret off the command line; decide backup-history handling (§ item 6 below). Detailed steps follow. |
+| Dependencies | Infisical `REDIS_URL`; Redis healthcheck; compose interpolation (private `.env`); restic history. |
+| Authorization | Separate owner approval required. |
+| Status | OPEN — DOCUMENTED ONLY |
+
+**Verified facts**
+
+- The `infisical-redis-1` container was started with a `redis-server --requirepass <value>` command line. The value is visible in container command metadata to anyone who can run `docker inspect` (§4A.1, F16, `docker inspect` `Config.Cmd`).
+- During read-only metadata inspection in this session, that argument, including the credential value, appeared in the Claude Code session output. Exposure location 1 is this session's transcript.
+- The compose file passes the value by variable reference, `${REDIS_PASSWORD}`, in both the `command:` and the `healthcheck:` (`deploy/infisical/docker-compose.yml`; `/root/private-knowledge/infisical-compose/docker-compose.yml`). The literal value is not in either file. It is in the running container's command metadata.
+- Redis publishes **no host port** (`docker inspect` `NetworkSettings.Ports` empty for `infisical-redis-1`). It is reachable only on the `infisical_default` Docker network (§4A.1). A host-listener check on port 6379 was not run; the basis for "no external access" is the absence of a published port in Docker metadata.
+- The Redis data volume `infisical_infisical-redis` is 12 MB (§4A.1). Its contents are not inspected.
+- The password is set in two environment-level places by name only: the Infisical app's `REDIS_URL` (recovery env file, §4A.1) and `REDIS_PASSWORD` in the private `.env` (`/root/private-knowledge/infisical-compose/.env`, name only).
+- Restic path list includes `/root/private-knowledge` and the repo `.env*` files (`deploy/starship-backup.sh:217, 222-224`). Snapshots taken while the value was in those files hold it under the retention policy (`deploy/starship-backup.sh:241`, 7 daily / 4 weekly / 3 monthly).
+
+**UNKNOWN**
+
+- Whether the credential value is still in use and accepted by Redis. Redis was not authenticated against, by design.
+- Who else can read the transcript, and how long the session transcript, its logs or any upstream logging are retained. Retention policy is outside this repository.
+- Whether the value appears in any other log, shell history or monitoring output on this VM. Not searched.
+- Whether the same value is used anywhere else (the Coolify `.env` also names `REDIS_PASSWORD`; whether it is the same secret is UNKNOWN, and its value was not compared).
+
+**Potential impact**
+
+- Disclosure of the Redis authentication secret to anyone with access to the transcript, its logs, or the backup snapshots that contain the old value.
+- Unauthorized Redis access is possible only from containers on `infisical_default`, or from a principal with Docker access on the host. External network access is not possible because no host port is published (verified above).
+- Redis contents are unknown. If they include Infisical session or cache data, the impact on Infisical is UNKNOWN until inspected.
+
+**Future action (for a separate authorization; not performed)**
+
+1. Scope the exposure. Owner determines who can read the transcript and the retention of the transcript store. Do this from the owner's own records. Do not read transcripts or logs containing the value.
+2. Confirm Redis's role. Determine what Redis holds and whether Infisical depends on any persisted data from it, before rotating.
+3. Plan a controlled rotation: generate a new value out-of-band, update every consumer by name (compose interpolation source, the private `.env`, the recovery env `REDIS_URL`, and the healthcheck), and keep the old value available until the new one is verified.
+4. Restart in a planned window. Infisical's `depends_on` gates on Redis health (§4A.2, row 12), so Redis and Infisical must be restarted in order. Verify Redis health, Infisical app availability on `127.0.0.1:8446`, and one successful wrapper login.
+5. Remove the value from the command line. Move it to a file-based `requirepass` or a Docker secret, so the next `docker inspect` does not show it.
+6. Decide what to do about backup history. Restic snapshots taken before rotation still contain the old value. Pruning follows retention policy. Owner decides whether a rebuild-time rotation is accepted, or whether earlier snapshots should be pruned early.
+7. Record the closure with evidence that does not reproduce the value. For example, a `docker inspect` check that the command line no longer carries a literal, and a passing health check.
+
+**Dependencies**
+
+- Infisical app (`REDIS_URL`), health gating, and all wrappers that depend on Infisical (§4A.4).
+- Redis healthcheck command in compose.
+- Compose interpolation sources: the private `.env` and any future repo `.env` (the repo copy is absent, §4A.2 row 17).
+- Restic snapshot history (item 6 above).
+
+**Rollback**
+
+- Keep the old value until the new one is verified against Redis and Infisical. Revert all consumers together if Redis rejects the new value.
+
+**Authorization:** separate owner approval required for rotation, for any restart of Redis or Infisical, and for any change to compose or the recovery env. This documentation does not authorize them.
+
+**Priority:** HIGH for future security remediation.
+
+**Status:** OPEN — DOCUMENTED ONLY.
+
+### SEC-DR-02: Coolify credential-file permissions
+
+| Field | Content |
+|---|---|
+| Finding ID | SEC-DR-02 |
+| Evidence | Sanitized: `ls -la /data/coolify/source` (modes, sizes, dates, names only); Caddy decommission note (`deploy/caddy/Caddyfile.v3:25-28`); absence from restic path list. No file contents read. |
+| Confidence | VERIFIED: mode `0644` on `.env` and 17 dated copies; `source/` mode `drwx------`. UNKNOWN: credential validity, parent-directory mode, other copies, effective accessibility. |
+| Potential impact | Credential disclosure to principals who can traverse into the directory. Unauthorized access to upstream services if any credential is still valid. |
+| Future action | Confirm parent-directory mode; inventory names and upstream services; rotate or retire credentials; decide retention or archival; correct permissions of anything kept. Detailed steps follow. |
+| Dependencies | Coolify decommissioning record; optimise-plan rule on orphaned volumes; any upstream service still using the credentials. |
+| Authorization | Separate owner approval required for permission changes, deletion or archival, and rotation. |
+| Status | OPEN — DOCUMENTED ONLY |
+
+**Verified facts**
+
+- `/data/coolify/source/.env` has mode `0644` (`ls -la`, modified 2026-09-19 10:04). It contains secret-named variables. Names only were recorded (§4A.3): `APP_KEY`, `DB_PASSWORD`, `REDIS_PASSWORD`, `PUSHER_APP_SECRET`, `ROOT_USER_PASSWORD`, and others.
+- Seventeen dated copies, `.env-2026-08-13-10-00-26` through `.env-2026-09-19-10-00-19`, each mode `0644` (`ls -la`, same listing). They are created by a daily job, and the last one is dated 2026-09-19.
+- `/data/coolify/source/` itself has mode `drwx------` (`ls -la` listing, the `.` entry). Non-root users cannot traverse into it. The mode of the parent directory `/data/coolify/` was **not** recorded in the discovery evidence.
+- Coolify is decommissioned per `deploy/caddy/Caddyfile.v3:25-28`. No Coolify container runs, and no listener exists on port 8000 (`ss -ltn`, earlier discovery).
+- `/data/coolify/` is not in the restic path list (`deploy/starship-backup.sh:206-219`). Copies are not in off-VM backup.
+- The `coolify-db` volume (100 MB) still exists. No running container mounts it (§4A.3).
+
+**UNKNOWN**
+
+- Whether any credential in these files is still valid, and whether any upstream service still accepts it. Examples: the root user password, the Pusher secrets, the registry URL. Not tested, by design.
+- The effective accessibility of the files. The file mode is `0644`. Access in practice depends on the mode of `/data/coolify/`, which was not recorded, and on who holds root or Docker access.
+- Whether `coolify-db` contains credentials that remain valid. Not inspected, by design.
+- Whether any other copies of these values exist on the VM (for example in the Coolify `backups/` directory, or elsewhere). Not searched.
+
+**Potential impact**
+
+- If the parent directory permits traversal, any local user could read the values. Under the observed `drwx------` on the `source` directory, this is limited to root and Docker-group principals (INFERRED for the Docker group).
+- If any credential remains valid, disclosure could allow access to the upstream service it belongs to. Impact depends on that service and is UNKNOWN.
+- Retained copies outside backup increase the chance that a retained copy persists after the live file is cleaned up.
+
+**Future action (for a separate authorization; not performed)**
+
+1. Confirm the mode of `/data/coolify/` and any other parent path to the files. Record it without reading the files.
+2. Inventory the variable names in `source/.env` and the dated copies, and for each one, decide whether the upstream service still exists. Owner-level inventory only, no values.
+3. For any credential that remains valid, plan rotation, or document why it is retained.
+4. Decide retention. Options: delete the dated copies; or archive the Coolify state offline with mode `0600` and no network exposure. Coordinate with the owner's decision on `coolify-db` and `coolify-redis` (Q18).
+5. Correct permissions to `0600` on any file that is kept. This is a separate change and must be approved.
+6. Confirm no other copies exist, and record the result without reproducing content.
+
+**Dependencies**
+
+- Coolify decommissioning evidence (`deploy/caddy/Caddyfile.v3:25-28`) and the optimise plan's rule not to delete orphaned Coolify volumes without review (`knowledge/missions/VM-OPTIMISE-ZERO-COST-PLAN-20261009.md:74`).
+- Any upstream service that still accepts the credentials (UNKNOWN).
+- Rollback: if archival or deletion removes something still needed, the only recovery route is the owner's own records, since these files are not in backup.
+
+**Authorization:** separate owner approval required for any permission change, deletion or archival of the files, and for any credential rotation. This documentation does not authorize them.
+
+**Priority:** HIGH for assessment. Remediation priority depends on whether any credential remains valid.
+
+**Status:** OPEN — DOCUMENTED ONLY.
+
+### Future Actions Register (summary)
+
+| Finding ID | Summary | Priority | Confidence of exposure | Owner decision needed | Status |
+|---|---|---|---|---|---|
+| SEC-DR-01 | Redis `--requirepass` value in container command metadata and session output | HIGH | VERIFIED exposure; use of value UNKNOWN | Scope of transcript exposure; rotation window; backup-history handling | OPEN — DOCUMENTED ONLY |
+| SEC-DR-02 | Coolify `.env` and 17 dated copies at mode `0644` | HIGH (assessment) | VERIFIED mode; validity and accessibility UNKNOWN | Credential validity; retention or archival; permission correction | OPEN — DOCUMENTED ONLY |
+
+The Future Actions Register above is the sole place where these items are tracked. Neither item has been acted on.
 
 ## 5. Infisical recovery dependencies (Investigation 2)
 
