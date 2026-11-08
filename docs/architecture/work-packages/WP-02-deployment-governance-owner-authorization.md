@@ -176,3 +176,18 @@ This preparation references PR #610 evidence commit `e61abcffc5b01cf9875697e27ac
 7. **PR #616:** proceed independently as its own implementation candidate.
 
 These decisions establish planning direction only. They do not change GitHub settings, authorize a deployment, authorize a service restart, or approve merging any implementation PR.
+
+
+## Operating model adjustment
+
+TJRHQ is a self-managed, single-owner project used only by the owner. WP-02 therefore uses proportionate controls:
+
+- one owner approval is sufficient;
+- only the minimum practical CI checks are required;
+- direct pushes remain permitted;
+- the pull request is the primary approval and change record;
+- no change board, two-person approval or enterprise-style evidence register is required;
+- emergency changes may be made by the owner and briefly documented in the relevant PR;
+- Telegram and Slack controls should remain simple owner-only authorization checks.
+
+This adjustment reduces administrative overhead while preserving traceability for the owner. It does not authorize any live settings change or deployment.
