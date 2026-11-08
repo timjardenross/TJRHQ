@@ -10,7 +10,7 @@
  * - Modular API routes (missions, coordination, health, agents)
  * - Cache manager for 30-120s TTL data
  * - Error handling with 3-tier fallback (cache → stale → placeholder)
- * - Mock data for local testing and development
+ * - No mock data in any runtime path (missing backend data returns 503)
  */
 
 const express = require('express');
@@ -257,7 +257,6 @@ const server = app.listen(PORT, () => {
 ║  Cache Manager:       INITIALIZED                          ║
 ║  Error Handling:      ENABLED (3-tier fallback)            ║
 ║  CORS:                ENABLED                              ║
-║  Mock Data:           LOADED                               ║
 ╚════════════════════════════════════════════════════════════╝
   `);
 });
