@@ -52,3 +52,9 @@ Unrelated Python and legacy LCARS checks should not be required for workbench-on
 - ARCH-12: not required.
 - ARCH-15: not required.
 - LCARS retirement: proceed in stages, with source removal only after inventory.
+
+## Disposition decision
+
+**Owner decision:** retain `lcars-portal` as the active deployed workbench application. Do not delete its source tree, systemd unit, Caddy route, build configuration or live workbench/API routes.
+
+The LCARS retirement scope is limited to legacy naming, obsolete documentation and the retired CI workflow. Any future renaming or structural cleanup must be a separate, tested change with deployment review.
