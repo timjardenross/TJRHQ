@@ -687,7 +687,113 @@ These steps are not performed. Each needs separate authorization.
 
 **Status: OPEN — DOCUMENTED ONLY.** Priority MEDIUM. The coverage reduction in §8.4.5(4) is the material item. The count difference alone is not a recovery failure.
 
-**Out-of-scope observation (not investigated).** The restic path count recorded by the script changed from `96` entries on 2026-11-04 to `38` on 2026-11-05 onward (journal, "paths to back up"). The change is not explained in this subsection. It is recorded for follow-up, because it may affect the coverage described in §4.
+**Path-count change (96 → 38 lines, 11-04 to 11-05).** Reconciled in §8.5: the count is a list-line count, and the change is a script edit that replaced per-unit lines with one directory line and added four entries. No coverage loss is identified.
+
+### 8.5 Backup path-count change, 2026-11-04 to 2026-11-05
+
+**Finding status: EXPLAINED (mechanism).** The journal count fell because a script change replaced one line per top-level systemd unit with one line for the whole `/etc/systemd/system` directory. The change added coverage. The exact 11-04 unit count is INFERRED, not observed. No backup coverage was lost, as far as the evidence shows.
+
+#### 8.5.1 What the count measures
+
+- Journal line: `paths to back up: N entries`, produced by `deploy/starship-backup.sh:226` (current `main`; line 176 in `543ab9312`, line 184 in `dbbfbae1a`).
+- The count is `wc -l` of the file list `$STAGE/paths.txt`, which is written by one block (current lines 205–225). It is a count of **list lines**, not files and not configured paths.
+- Each line is one of: the staging directory (1); each configured path that exists (a directory counts as 1 regardless of contents); and each `.env`-like file that the `find` clause returns.
+- Configured paths that do not exist are not listed. They are logged as `note: <path> does not exist, skipped` (`deploy/starship-backup.sh:220`). No such note appears in any journal entry from 2026-11-01 to 2026-11-08 (VERIFIED, journal grep).
+- The list is passed to `restic backup --files-from`. Restic then counts files, not lines. The restic file count is a separate measure (§8.5.5).
+
+#### 8.5.2 Two script versions
+
+| Element | Pre-11-03 version (`543ab9312`, 2026-10-10) | Current version (`dbbfbae1a` onward, 2026-11-03) |
+|---|---|---|
+| Fixed list lines including staging dir | 10 | 14 |
+| Systemd units | One line per top-level `*.service` and `*.timer` in `/etc/systemd/system` (`find -maxdepth 1 -type f`) | One line: `/etc/systemd/system` (whole tree, including drop-ins and enable symlinks) |
+| Added fixed entries | — | `/etc/systemd/system`, `/opt/deploy-guard`, `/etc/sysstat`, `/etc/systemd/journald.conf.d` |
+| Removed | `find /etc/systemd/system -maxdepth 1 …` line | Same |
+| `.env` clause | Identical | Identical (`find "$REPO_ROOT" -xdev … -prune -o … -name '.env' -o -name '.env.*'`) |
+
+Source for both columns: `git show <commit>:deploy/starship-backup.sh` and `git diff 543ab9312 dbbfbae1a -- deploy/starship-backup.sh` (VERIFIED). The diff has three hunks. Its only removed line is the per-unit `find`. Its only added path entries are the four listed. The other additions are a chatterbox freeze variable and its command, and a comment.
+
+#### 8.5.3 Reconciliation of the two nights
+
+| Night | Journal count | Script version (inferred) | Fixed lines | Unit lines | `.env` lines | Source |
+|---|---|---|---|---|---|---|
+| 2026-11-03 02:42 | 99 | Pre-11-03 (`dbbfbae1a` committed 13:56 that day, after the run) | 10 | 65 (derived) | 24 (assumed) | Journal; `git log` |
+| 2026-11-04 02:40 | 96 | Pre-11-03 | 10 | **62 (derived)** | 24 (assumed) | Journal; rollback copy below |
+| 2026-11-05 02:40 | 38 | Current | 14 | 0 | 24 (current count) | Journal; `git show` |
+| 2026-11-06 to 11-08 | 38 | Current | 14 | 0 | 24 (current count) | Journal |
+
+Derivation and checks:
+
+- The `.env` count now is **24**: the current `find` clause returns 24 entries (VERIFIED). The 11-05 count of 38 equals 14 + 24, so the two figures agree on the 11-05 run (VERIFIED arithmetic).
+- No `.env`-like file was modified in the 11-04 → 11-05 window, and no directory under the repo changed mtime in that window (`find -newermt`, counts only). A deletion inside a directory would change that directory's mtime, so a deletion of `.env` files in that window is not supported (INFERRED from mtime semantics).
+- Assuming 24 `.env` lines on 11-04, the 96 implies **62 unit lines** on 11-04 (96 − 10 − 24). The live count of top-level units is **64** (VERIFIED `find -maxdepth 1`). This 62 is derived from the journal, not counted independently. It is the only number in this table not directly observed.
+- Arithmetic check: 96 − 38 = 58 = 62 (unit lines removed) − 4 (new fixed entries added). That is consistent. It is not independent evidence, because 62 is derived from the same two numbers.
+- **The 11-03 → 11-04 difference of 3 lines (99 → 96) is not explained.** It would need 3 fewer unit lines or 3 fewer `.env` lines, or a different installed version. No evidence was found for any of these (UNKNOWN).
+
+**Which version ran on 11-04.** The rollback copy `/root/backup-script-rollback-2026-11-04/backup.sh.orig` is **byte-identical to `543ab9312`** (`cmp`, VERIFIED). Its directory was last modified on 2026-11-04 at 16:44, after the 02:40 run (directory mtime, VERIFIED; creation time not recorded). The 11-05 verification report describes this copy as the rollback target for the pre-change script (DOCUMENTED, `reports/vm-audit/backup-verification-20261105.md:43`). Together these show the pre-change script was the one in place on 11-04, and the change was installed after that run (INFERRED; there is no installation record in the repo).
+
+**Corroboration from the venv freeze.** The venv-freeze lines (`7a8dd3b84`, committed 2026-11-05 08:42) do not appear in the 11-05 journal, but do appear from 11-06. That matches an installed script that predates `7a8dd3b84` on 11-05 and was updated after 11-05 (VERIFIED journal; INFERRED install timing).
+
+#### 8.5.4 Coverage implications
+
+**What stopped contributing:** the per-unit lines. Each was a top-level unit or timer file. These are **covered by the directory line** (`/etc/systemd/system` as a whole), which is a superset: it includes the same unit files plus drop-ins and enable symlinks.
+
+**What was added:** `/etc/systemd/system` (whole tree), `/opt/deploy-guard`, `/etc/sysstat`, `/etc/systemd/journald.conf.d`. **These were not backed up before the change.** This is a **coverage increase** from the 11-05 run onward. It is documented as a gap in the path list before 11-05 (`reports/vm-audit/units-b7897aa6.md:48`, which says drop-ins and enable symlinks were missed).
+
+**Nothing removed from the fixed list.** The nine pre-change fixed entries are all still present in the current list (VERIFIED: the diff shows no removed path other than the `find`).
+
+**Restic evidence of the change (documented, not re-run here):** the 2026-11-05 verification compares the previous snapshot `4fb41b3e` (252 files, 95.124 MiB) with `3ab9464e` (476 files, 95.196 MiB). It records `/etc/systemd/system` at 275 entries and `/opt/deploy-guard` at 5 entries, and calls the change a file-count increase (`reports/vm-audit/backup-verification-20261105.md:18`). The restic count supports the coverage-increase reading. It was not re-verified here, and no restic command was run.
+
+**Persistent locations in §4 and the effect of this change.** None of the locations listed in §4 was in the path list before or after the change (except `delivery_ledger.txt`, which was listed in both). So this change did not alter their coverage. Their status is unchanged:
+
+| Location | Covered elsewhere | Reconstructable | Verified status |
+|---|---|---|---|
+| `outputs/` (other than delivery ledger) | No | Partly, per file (not verified) | Excluded, not changed by this count change |
+| `data/memory_graph.db`, `.cortex/memory.db` | No | Unknown | Excluded, unchanged |
+| `/etc/self-improvement/` | No | Unknown | Excluded, unchanged |
+| Coolify data | No | Decommissioned (§4A.3) | Excluded, unchanged |
+| Infisical uploads volume | No | Empty (0 files) | Excluded, unchanged |
+| Caddy ACME storage | No | Re-issued on boot (INFERRED) | Excluded, unchanged |
+| Git stashes | No (`.git` not in list) | No | Excluded, unchanged |
+| Uncommitted tracked change | No | No | Excluded, unchanged |
+
+**Timeline correction to earlier statements.** Earlier revisions of this report listed `/etc/systemd/system`, `/opt/deploy-guard`, `/etc/sysstat` and `/etc/systemd/journald.conf.d` as backup coverage without a date. Coverage of these began with the **11-05** run. Snapshots before that (the 10-09 to 11-04 snapshots) did not contain them, except the top-level unit files. Any restore of those paths from a pre-11-05 snapshot would be incomplete (VERIFIED by the script history).
+
+#### 8.5.5 Limits of the count as a coverage measure
+
+- The count is list lines. It is not a file count, a byte count, or a measure of what restic actually stored. A single directory line can cover thousands of files. The 11-05 change shows this: 96 → 38 lines, with a file count increase.
+- A count that stays the same can hide a changed path. The journal does not record which lines are in the list. A per-run path manifest would be needed for that.
+- The count does not show deleted or excluded `.env` files. It shows only what the `find` matched at the time.
+
+#### 8.5.6 Verified, inferred and unresolved
+
+| Class | Statement | Source |
+|---|---|---|
+| VERIFIED | The count is `wc -l` of `$STAGE/paths.txt` | `deploy/starship-backup.sh:226` |
+| VERIFIED | Missing configured paths are logged and not counted | `deploy/starship-backup.sh:220`; journal |
+| VERIFIED | The per-unit `find` was removed and four fixed entries were added in `dbbfbae1a` | `git diff 543ab9312 dbbfbae1a` |
+| VERIFIED | The `.env` clause is identical in both versions | `git show` both versions |
+| VERIFIED | The 11-04 rollback copy is byte-identical to `543ab9312` | `cmp` |
+| VERIFIED | The live count of top-level units is 64, and of `.env` matches is 24 | `find` (counts only) |
+| VERIFIED | No `.env`-like file or repo directory changed in the 11-04 → 11-05 window | `find -newermt` (counts only) |
+| VERIFIED | The "(root) LIST (root)" journal line is cron's log entry for the script's `crontab -l` call | Journal entry from `crontab[…]`, and `deploy/starship-backup.sh` (crontab line) |
+| INFERRED | 62 unit lines on 11-04; the sum reconciles | Derived from journal, and from §8.5.3 |
+| INFERRED | The pre-change script ran on 11-04 and the change was installed afterwards | Rollback copy timing; venv freeze timing |
+| UNKNOWN | Why 11-03 (99) differs from 11-04 (96) by 3 lines | No evidence found |
+| UNKNOWN | Exact unit lines on 11-04 | Not recorded; not observable now |
+
+**The "(root) LIST (root)" journal line.** It is cron's log entry for the script's `crontab -l` call (`crontab-root.txt`), not a backup error. It appears in the journal for each run from 11-03 to 11-08 (six occurrences). Its absence on 11-01 and 11-02 is UNKNOWN, and it is not explained by any change found in this investigation.
+
+#### 8.5.7 Future actions (DOCUMENTED ONLY)
+
+1. **Record a per-run manifest.** Write the path list (or its hash and line count per category) to the journal or to a local file. This makes the count auditable without printing secrets.
+2. **Split the count.** Log fixed-path lines, unit lines and `.env` lines separately, so a change like 11-05 is visible without reconstruction.
+3. **Record the script commit** in each run's first journal line, so the installed version is known for every night.
+4. **Explain the 3-line change between 11-03 and 11-04** from the installed-script history or from `.env` file history.
+5. **Confirm the installed script matches the repo** after each change, using a byte comparison. This is the same check as in the integrity doc.
+6. **Re-verify the 11-05 restic coverage** for `/etc/systemd/system`, `/opt/deploy-guard`, `/etc/sysstat` and `journald.conf.d` against the repo list, with authorization.
+
+**Status: OPEN — DOCUMENTED ONLY.** Priority LOW. No coverage loss has been identified. The count change is a list-line effect of the 11-03 script change, and the change added coverage.
 
 ## 9. Top five recovery gaps, ranked by impact (revised)
 
