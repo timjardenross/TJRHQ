@@ -10,7 +10,7 @@
  * - Modular API routes (missions, coordination, health, agents)
  * - Cache manager for 30-120s TTL data
  * - Error handling with 3-tier fallback (cache → stale → placeholder)
- * - Mock data for local testing and development
+ * - No mock data in any runtime path (missing backend data returns 503)
  */
 
 const express = require('express');
@@ -78,14 +78,17 @@ if (!_apiKey) {
   }
 }
 app.use((req, res, next) => {
-  if (req.path === '/health' || req.path === '/api/config') return next(); // public endpoints
+  if (req.path === '/health') return next(); // public liveness endpoint
   if (!_apiKey) {
     if (_isProduction) {
       return res.status(503).json({ error: 'misconfigured', message: 'BACKEND_API_KEY is not configured' });
     }
     return next(); // dev mode: no key configured, non-production only
   }
-  const provided = req.headers['x-api-key'] || req.query.api_key;
+  if (req.query.api_key !== undefined) {
+    return res.status(400).json({ error: 'query_credentials_not_supported', message: 'Credentials must be supplied via the X-Api-Key header' });
+  }
+  const provided = req.headers['x-api-key'];
   if (provided !== _apiKey) {
     return res.status(401).json({ error: 'unauthorised', message: 'Valid X-Api-Key header required' });
   }
@@ -100,11 +103,6 @@ app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
   });
   next();
-});
-
-// Config endpoint — public, returns API key for frontend self-authentication (local-only)
-app.get('/api/config', (req, res) => {
-  res.json({ apiKey: _apiKey || '' });
 });
 
 // Health check endpoint (always available)
@@ -259,7 +257,6 @@ const server = app.listen(PORT, () => {
 ║  Cache Manager:       INITIALIZED                          ║
 ║  Error Handling:      ENABLED (3-tier fallback)            ║
 ║  CORS:                ENABLED                              ║
-║  Mock Data:           LOADED                               ║
 ╚════════════════════════════════════════════════════════════╝
   `);
 });

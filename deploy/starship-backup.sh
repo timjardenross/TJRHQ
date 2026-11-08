@@ -79,7 +79,7 @@ log() { printf '%s [starship-backup] %s\n' "$(date +%FT%T%z)" "$*"; }
 fail() { FAILED+=("$1"); log "FAILED: $1"; }
 
 exec 9>/run/starship-backup.lock
-flock -n 9 || { log "another run holds the lock - exiting"; exit 0; }
+flock -n 9 || { log "another run holds the lock - exiting non-zero so OnFailure pages"; exit 75; }
 
 STAGE="$(mktemp -d /var/tmp/starship-backup.XXXXXX)"
 trap 'rm -rf "$STAGE"' EXIT

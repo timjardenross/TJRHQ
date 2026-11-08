@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly restic integrity check, Sunday 11:30 Australia/Melbourne (clear of the 02:40 nightly backup) - USS-TJR-MSN-0412
+
+[Timer]
+OnCalendar=Sun *-*-* 11:30:00 Australia/Melbourne
+# No catch-up: a missed week must not fire at boot, possibly near the 02:40 window.
+Persistent=false
+Unit=starship-backup-integrity.service
+
+[Install]
+WantedBy=timers.target

@@ -46,6 +46,7 @@ import json
 import logging
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -54,6 +55,7 @@ from urllib.parse import quote
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
 from heartbeat import supabase_get
+from notification_service import Severity, notify
 
 log = logging.getLogger("mission_dispatch")
 
@@ -154,7 +156,7 @@ def load_dispatched_ids(data_root: Path) -> set[str]:
     return succeeded_with_pr | exhausted_no_pr | exhausted_failures
 
 
-def record_dispatch(data_root: Path, mission_id: str, success: bool, message: str, pr_opened: bool = False) -> None:
+def record_dispatch(data_root: Path, mission_id: str, success: bool, message: str, pr_opened: bool = False, alert_sent: bool = False) -> None:
     log_path = data_root / "review" / DISPATCH_LOG_NAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
     record = {
@@ -162,11 +164,35 @@ def record_dispatch(data_root: Path, mission_id: str, success: bool, message: st
         "mission_id": mission_id,
         "success": success,
         "pr_opened": pr_opened,
+        "alert_sent": alert_sent,
         "message": message,
     }
     with open(log_path, "a") as f:
         f.write(json.dumps(record) + "\n")
 
+
+
+def load_alerted_failure_ids(data_root: Path) -> set[str]:
+    """Return failure identities that already produced a successful alert."""
+    log_path = data_root / "review" / DISPATCH_LOG_NAME
+    alerted: set[str] = set()
+    if not log_path.exists():
+        return alerted
+    try:
+        with open(log_path) as f:
+            for line in f:
+                if line.strip():
+                    rec = json.loads(line)
+                    mid = rec.get("mission_id")
+                    if not mid:
+                        continue
+                    if rec.get("success"):
+                        alerted.discard(mid)
+                    elif rec.get("alert_sent"):
+                        alerted.add(mid)
+    except (OSError, ValueError) as exc:
+        log.warning(f"Failed to read alert cooldown state from {log_path}: {exc}")
+    return alerted
 
 def write_handoff_file(repo_root: Path, mission: dict[str, Any]) -> Path:
     """Same header/section format HandoffPRStrategy writes for a Finding,
@@ -258,14 +284,16 @@ def dispatch_one(repo_root: Path, mission: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: int = 25) -> dict[str, Any]:
+def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: int = 25, alert_notifier: Callable[..., Any] | None = None) -> dict[str, Any]:
     dispatched_before = load_dispatched_ids(data_root)
+    alerted_failure_ids = load_alerted_failure_ids(data_root)
     _, no_pr_attempts_before, failures_before = _dispatch_history(data_root)
     missions = fetch_approved_missions(limit=limit)
     to_dispatch = [m for m in missions if m.get("mission_id") not in dispatched_before]
 
     results = {"checked": len(missions), "already_dispatched": len(missions) - len(to_dispatch),
-               "dispatched": 0, "failed": 0, "dry_run": dry_run}
+               "dispatched": 0, "failed": 0, "alerts": 0, "dry_run": dry_run}
+    send_alert = alert_notifier or notify
 
     for mission in to_dispatch:
         mission_id = mission.get("mission_id")
@@ -278,6 +306,7 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
 
         outcome = dispatch_one(repo_root, mission)
         message = outcome.get("message") or outcome.get("error", "")
+        alert_sent = False
         pr_opened = outcome.get("pr_opened", False)
         if not outcome["success"]:
             attempts = failures_before.get(mission_id, 0) + 1
@@ -304,13 +333,31 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
                     f"this Mission needs manual attention, it will not be "
                     f"retried automatically again)"
                 )
-        record_dispatch(data_root, mission_id, outcome["success"], message, pr_opened=pr_opened)
         if outcome["success"]:
+            record_dispatch(data_root, mission_id, True, message, pr_opened=pr_opened)
+
             results["dispatched"] += 1
             log.info(f"{mission_id}: {message}")
         else:
             results["failed"] += 1
             log.warning(f"{mission_id}: {message}")
+            if mission_id in alerted_failure_ids:
+                log.info(f"{mission_id}: failure alert suppressed by cooldown")
+            else:
+                try:
+                    alert_result = send_alert(
+                        f"Mission {mission_id} dispatch failed: {message}",
+                        title="Mission engineering dispatch failure",
+                        severity=Severity.ALERT,
+                    )
+                    if getattr(alert_result, "ok", alert_result is not False):
+                        results["alerts"] += 1
+                        alert_sent = True
+                    else:
+                        log.warning(f"{mission_id}: Telegram alert was rejected")
+                except (OSError, RuntimeError, ValueError) as exc:  # alerting must not mask the job failure
+                    log.warning(f"{mission_id}: failed to send Telegram alert: {exc}")
+            record_dispatch(data_root, mission_id, False, message, pr_opened=pr_opened, alert_sent=alert_sent)
 
     return results
 

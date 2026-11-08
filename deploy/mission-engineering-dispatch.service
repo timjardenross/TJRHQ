@@ -1,18 +1,18 @@
 [Unit]
 Description=USS TJR Mission Engineering Auto-Dispatch — Approved-for-Engineering Missions to batch_coding.py
 Documentation=file:///opt/starship-endeavour/core/engineering/mission_dispatch.py
-After=network.target
+After=network.target docker.service
 
 [Service]
 Type=oneshot
 User=root
 WorkingDirectory=/opt/starship-endeavour
 
-# Pure stdlib (json/logging/subprocess/urllib) — no special venv needed
-# for this script itself. batch_coding.py's own subprocess invocation
+ # Infisical supplies Telegram credentials through the existing XO bot wrapper.
+# The dispatch script itself remains stdlib-only; batch_coding.py's own subprocess invocation
 # (inside dispatch_one()) uses platform-runtime/.venv explicitly, same as
 # auto_remediation.py's HandoffPRStrategy already does.
-ExecStart=/usr/bin/python3 -m core.engineering.mission_dispatch
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical-bot.sh xo -- /usr/bin/python3 -m core.engineering.mission_dispatch
 
 # Logging — same convention as hq-evolution.service.
 StandardOutput=journal
