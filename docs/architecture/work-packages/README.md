@@ -9,8 +9,8 @@
 |---|---|---|---|
 | [WP-01](WP-01-api-security-credentials.md) | API security and credential protection | Draft for review | Not authorized |
 | WP-02 | Deployment governance and owner authorization | Pending | Not authorized |
-| WP-03 | Job reliability and alerting | Pending | Not authorized |
-| WP-04 | Backup completeness and disaster recovery | Pending | Not authorized |
+| [WP-03](WP-03-job-reliability-alerting.md) | Job reliability and alerting | Complete | Implementation and verification complete |
+| [WP-04](WP-04-backup-completeness-disaster-recovery.md) | Backup completeness and disaster recovery | Complete | Bounded restore and alert tests complete |
 | WP-05 | Auditability and operational assurance | Pending | Not authorized |
 
 ## Governance
