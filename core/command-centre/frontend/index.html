@@ -1019,17 +1019,8 @@
       return 'var(--sf-text-secondary)';
     }
 
-    let _apiKey = '';
-    async function _initApiKey() {
-      try {
-        const r = await fetch(API_BASE + '/api/config');
-        if (r.ok) { const d = await r.json(); _apiKey = d.apiKey || ''; }
-      } catch(e) { console.warn('Could not fetch API config:', e); }
-    }
-
     async function fetchJSON(path) {
-      const sep = path.includes('?') ? '&' : '?';
-      const url = API_BASE + path + (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+      const url = API_BASE + path;
       const r = await fetch(url);
       if (!r.ok) throw new Error(r.status);
       const json = await r.json();
@@ -1455,9 +1446,7 @@
     }
 
     async function changeMissionStatus(missionId, newStatus) {
-      const sep = `/api/v1/missions/${encodeURIComponent(missionId)}/status`.includes('?') ? '&' : '?';
-      const url = API_BASE + `/api/v1/missions/${encodeURIComponent(missionId)}/status` +
-        (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+      const url = API_BASE + `/api/v1/missions/${encodeURIComponent(missionId)}/status`;
       const r = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1538,7 +1527,7 @@
       try {
         const sep = '/api/v1/intelligence/generate'.includes('?') ? '&' : '?';
         const url = API_BASE + '/api/v1/intelligence/generate' +
-          (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+          ();
         const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `HTTP ${r.status}`); }
         const result = await r.json();
