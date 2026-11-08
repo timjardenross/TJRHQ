@@ -704,7 +704,7 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Run actionlint
-        run: /tmp/actionlint-bin/actionlint .github/workflows/*.yml
+        run: actionlint .github/workflows/*.yml
 
   # USS-TJR-MSN-0366 Stream 1. Net-new: nothing in this repo ran Semgrep
   # before this job. Runs over the WHOLE tree in one pass, like actionlint
