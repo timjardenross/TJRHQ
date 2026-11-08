@@ -1,4 +1,4 @@
-# TJRHQ disaster recovery gap assessment (2026-11-08, revision 2)
+# TJRHQ disaster recovery gap assessment (2026-11-08, revision 3)
 
 Status: read-only assessment. Revision 2 adds evidence and corrects claims from revision 1. No production file, service, timer, credential, backup, restore, repository check, remote inventory, stash, branch or alert state was changed or accessed.
 
@@ -91,8 +91,8 @@ Size and type come from `du`, `stat` and `find -type f`. "In backup" means expli
 | `data/resilience-crosswalk/` | Yes | 12 KB, directory, 1 file | **Excluded** | None | Loss of audit trail file. | VERIFIED |
 | `data/self-improvement/review/` | Yes | Directory | **Included** (E1, line 207) | Some files gitignored; untracked file present | Restored from latest snapshot | VERIFIED |
 | `/etc/self-improvement/` | Yes | 8 KB, directory, 1 file (`dashboard.env`) | **Excluded** (not in path list, lines 206-219) | None | Dashboard service config lost. Secret content not read. | VERIFIED (exists, excluded) |
-| `/data/coolify/` | Yes | 6.5 MB, directory, 59 files, subdirectories `applications`, `backups`, `databases`, `images`, `proxy`, `sentinel`, `services`, `source`, `ssh`, `ssl` | **Excluded** | None. Contains `source/.env` and dated copies (names only checked; contents not read). | Coolify configuration and any key material it holds are lost. The `coolify` Docker network (external to the Infisical compose, E20) is created by Coolify. | VERIFIED (exists, excluded). Role and key material UNKNOWN. |
-| Docker volume `coolify-db` | Yes | 100 MB | **Excluded** (no Docker volume is in the path list) | None | Coolify database lost | VERIFIED (exists, excluded) |
+| `/data/coolify/` | Yes | 6.5 MB, directory, 59 files, subdirectories `applications`, `backups`, `databases`, `images`, `proxy`, `sentinel`, `services`, `source`, `ssh`, `ssl` | **Excluded** | None. Contains `source/.env` and dated copies (names only checked; contents not read). | Coolify is decommissioned (`deploy/caddy/Caddyfile.v3:25-28`), so this is residual state. Its `.env` (mode 0644) holds secret-named variables and is not backed up. | VERIFIED (exists, excluded). Decommissioned by documentation. Key-material use UNKNOWN. See §4A.3. |
+| Docker volume `coolify-db` | Yes | 100 MB | **Excluded** (no Docker volume is in the path list) | None | Coolify database lost. No running consumer (decommissioned, §4A.3). | VERIFIED (exists, excluded) |
 | Docker volume `coolify-redis` | Yes | 492 KB | **Excluded** | None | Redis data lost | VERIFIED (exists, excluded) |
 | Docker volume `infisical_infisical-db` | Yes | 84 MB, mounted at `/var/lib/postgresql/data` | **Excluded as a volume**. Logical dump included (`deploy/starship-backup.sh:130`). | Logical dump restore (runbook §4) | Physical volume lost. Logical dump is the recovery route. | VERIFIED |
 | Docker volume `infisical_infisical-uploads` | Yes | **0 regular files**, 4 KB directory | **Excluded** | None | Negligible. No uploads present. | VERIFIED (metadata: file count 0). Revision 1 overstated this. |
@@ -118,6 +118,153 @@ Size and type come from `du`, `stat` and `find -type f`. "In backup" means expli
 | Python venvs | Yes | Gitignored | **Excluded by design** (script comments, `deploy/starship-backup.sh:155-165`). `pip freeze`, python version and `pyvenv.cfg` are captured instead. | Rebuild from freeze | Rebuild needed, with the extra index URL noted in the script | VERIFIED |
 | Docker images | Registry | n/a | **Excluded by design** (runbook line 29) | Re-pull | Re-pull | DOCUMENTED |
 
+## 4A. Infisical and Coolify evidence (discovery of 2026-11-08, revision 3)
+
+Scope: read-only metadata. No container was started, stopped or restarted. No `docker compose` command was run (`compose config` would interpolate and print secret values, and compose execution is out of scope). No database was connected. No secret value, environment value or credential was read or printed. Environment variables are reported by name only.
+
+**Security incident in this discovery:** an early `docker inspect` template printed the Redis `--requirepass` value from the `infisical-redis-1` command line. The value is not reproduced anywhere in this document. It should be treated as exposed to anyone with this session's transcript. See §4A.7.
+
+### 4A.1 Running Infisical deployment (VERIFIED)
+
+| Container | Image reference | Running image ID | Digest status | Compose service | Networks | Mounts (volume → path) | Restart | Health | Published | Created / started |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `infisical-infisical-1` | `infisical/infisical:latest-postgres` | `36438985877f` | Repo digest `sha256:36438985877fb5ab99c76ee1a9c73611e44d8518b44a77304b5d4c05451f8c62`, equal to the compose pin | `infisical` | `coolify` (10.0.1.0/24), `infisical_default` | `infisical_infisical-uploads` → `/app/backend/uploads` (0 regular files) | `unless-stopped` | No healthcheck configured | `127.0.0.1:8446` → 8080 (confirmed by `ss -ltn`) | Created 2026-09-05; started 2026-10-19 |
+| `infisical-db-1` | `postgres:15-alpine` (tag) | `fe0737ba566a` | **Not** the tag's current target (`a46e076249ce`, tag re-pulled 2026-09-17). No repo digest. | `db` | `infisical_default`, alias `infisical-pg` | `infisical_infisical-db` → `/var/lib/postgresql/data` (84 MB) | `unless-stopped` | `pg_isready -U infisical`, 10 s interval, healthy | None | Created 2026-09-04; image created 2026-08-13 |
+| `infisical-redis-1` | `redis:7-alpine` (tag) | `ff02b58f971e` | **Not** the tag's current target (`520775a41a63`, tag re-pulled 2026-09-17). No repo digest. | `redis` | `infisical_default`, alias `infisical-redis-svc` | `infisical_infisical-redis` → `/data` (12 MB) | `unless-stopped` | `redis-cli ping`, 10 s interval, healthy | None | Created 2026-09-04; image created 2026-08-18 |
+
+Sources: `docker inspect` on each container (Config, HostConfig, NetworkSettings, Mounts, State), `docker image inspect`, `docker volume inspect`, `ss -ltn`. Container status from `docker ps -a`: all three "Up 2 weeks"; both database and Redis healthy.
+
+Labels (VERIFIED, names and non-secret values): compose project `infisical`; `com.docker.compose.project.config_files=/root/TJRHQ/deploy/infisical/docker-compose.yml`; `com.docker.compose.project.working_dir=/root/TJRHQ/deploy/infisical`; compose version 5.2.0. The app container also has seven `traefik.*` labels (router `infisical`, entrypoint `https`, TLS with cert resolver `letsencrypt`, service port 8080, `traefik.docker.network=coolify`).
+
+Environment variable names on the app container (VERIFIED, 27 names, all accounted for): 16 come from the image (`CAPTCHA_SITE_KEY`, `ChrystokiConfigurationPath`, `HOST`, `HTTPS_ENABLED`, `INFISICAL_PLATFORM_VERSION`, `INTERCOM_ID`, `NODE_ENV`, `NODE_OPTIONS`, `NODE_VERSION`, `PATH`, `PORT`, `POSTHOG_API_KEY`, `STANDALONE_BUILD`, `STANDALONE_MODE`, `TELEMETRY_ENABLED`, `YARN_VERSION`); 11 match the private recovery env file (`AUTH_SECRET`, `DB_CONNECTION_URI`, `DISABLE_SIGNUP`, `ENCRYPTION_KEY`, `REDIS_URL`, `SITE_URL`, `SMTP_FROM_ADDRESS`, `SMTP_HOST`, `SMTP_PASSWORD`, `SMTP_PORT`, `SMTP_USERNAME`). No running name is undeclared, and none declared in the recovery env is missing from the container. Database container names: `POSTGRES_PASSWORD`, `POSTGRES_DB`, image defaults. **`POSTGRES_USER` is absent** (see §4A.2, row 14). Redis container: image default `REDIS_VERSION`, and the password is passed on the command line (§4A.7).
+
+Who uses it, and how: TJRHQ wrappers reach Infisical at `http://127.0.0.1:8446/api` (`platform-runtime/run-with-infisical.sh:33`, `platform-runtime/run-with-infisical-bot.sh:30`, `platform-runtime/lib-infisical.sh:3`). **No service uses the public Traefik hostname.** The local port is what matters for startup.
+
+### 4A.2 Compose comparison (repo, private reconstruction, running containers)
+
+Repo copy: `deploy/infisical/docker-compose.yml` (tracked; commits `e218bd7c2`, 2026-10-04, recovered; `846b2aa31`, 2026-10-09, pin digest and project name). Private copy: `/root/private-knowledge/infisical-compose/docker-compose.yml` (not tracked; in backup path list via `/root/private-knowledge`, `deploy/starship-backup.sh:217`). Both parsed with a YAML parser. Structure only; env values not read.
+
+| # | Dimension | Repo | Private | Running | Match | Label |
+|---|---|---|---|---|---|---|
+| 1 | Project name | `name: infisical` | `name: infisical` | label `project=infisical` | Yes | VERIFIED |
+| 2 | Compose config-path label | Not applicable (file lives in `/opt/starship-endeavour/deploy/infisical/`) | Not applicable (file lives in `/root/private-knowledge/infisical-compose/`) | `/root/TJRHQ/deploy/infisical/docker-compose.yml`, directory does not exist | **No**. Neither copy is at the recorded path. | VERIFIED |
+| 3 | Infisical image | Pinned to digest `sha256:3643…862` | Same pin | Image ID matches the pin and the `latest-postgres` tag | Yes | VERIFIED |
+| 4 | DB image | `postgres:15-alpine`, no digest | Same | Running ID `fe0737ba566a` differs from the tag target `a46e076249ce` | **No** | VERIFIED (IDs). Running 15.19 per private compose comment, DOCUMENTED, not re-verified. |
+| 5 | Redis image | `redis:7-alpine`, no digest | Same | Running ID `ff02b58f971e` differs from the tag target `520775a41a63` | **No** | VERIFIED |
+| 6 | Infisical networks | `coolify` (external) and `default` | `coolify` (external) and `default` | `coolify` and `infisical_default` | Yes | VERIFIED |
+| 7 | DB and Redis network aliases | `db`: `infisical-pg`; `redis`: `infisical-redis-svc` | **None** | `infisical-pg`, `infisical-redis-svc` | **No**. Private omits both aliases. | VERIFIED. Effect on `DB_CONNECTION_URI` and `REDIS_URL` hostnames: INFERRED. |
+| 8 | Named volumes | `infisical-db`, `infisical-redis`, `infisical-uploads` | Same | Same names, driver `local` | Yes | VERIFIED |
+| 9 | Published ports | `127.0.0.1:8446:8080` | Same | `127.0.0.1:8446` → 8080 | Yes | VERIFIED |
+| 10 | Restart policy | `unless-stopped` on all three | Same | Same | Yes | VERIFIED |
+| 11 | Healthchecks | DB `pg_isready`; Redis `redis-cli ping`; Infisical none | Same | DB and Redis healthy; Infisical none | Yes | VERIFIED |
+| 12 | Startup dependency | Infisical waits for `db` and `redis` (`service_healthy`) | Same | Label `depends_on=db:service_healthy, redis:service_healthy` | Yes | VERIFIED |
+| 13 | Traefik labels on Infisical | Seven labels | **None** | Seven labels | **No** (private). Traefik is not running (§4A.3), so the labels currently route nothing. | VERIFIED |
+| 14 | DB user environment | `POSTGRES_USER` supplied via `${…}` | `db.env` declares `POSTGRES_USER` | **Absent** from the container | **No**. A fresh init from the running container's env would create the default `postgres` role. The volume already exists, so this matters only for a rebuild. The runbook's `pg_restore -U infisical` needs role `infisical` (runbook §4.2). | VERIFIED (absence). Init behaviour of the postgres image: INFERRED. |
+| 15 | Infisical env wiring | Inline `environment:` with `${VAR}` interpolation. Needs a `.env` in the project directory. | `env_file: ../infisical-recovery.env` | 27 names, all explained (§4A.1) | Different mechanisms. Repo declares 12 names (adds `NODE_ENV`); private declares 11. | VERIFIED |
+| 16 | Redis command | `redis-server --requirepass ${REDIS_PASSWORD}` | Same template | Command line contains the literal value (not reproduced) | Template matches. The running container embeds the value, which the template does not. | VERIFIED. See §4A.7. |
+| 17 | Interpolation source | `deploy/infisical/.env` **absent** (only `.env.example` tracked) | `.env` present, one variable name `REDIS_PASSWORD` | n/a | Repo copy is not self-contained | VERIFIED |
+| 18 | `coolify` network | External | External | Exists: bridge, 10.0.1.0/24, created 2026-07-19 | Yes | VERIFIED |
+
+**Verdict.** Neither compose file demonstrably reproduces the running deployment. They agree on structure, names, ports, volumes, restart, health and dependencies, and on the Infisical image digest. They disagree on DB and Redis image references (no longer resolve to the running images), network aliases, Traefik labels, DB user environment and env wiring. The compose `config-hash` label on the running containers cannot be recomputed without running compose, which is out of scope. Whether a restored copy would produce a byte-identical configuration: **UNKNOWN**.
+
+### 4A.3 Coolify status (VERIFIED unless marked)
+
+**Decommissioned by documentation.** `deploy/caddy/Caddyfile.v3:25-28`: "2026-09-26: Coolify decommissioned (6-container pass-through shim with zero deployed apps since its 2026-07-19 install)". `deploy/caddy/Caddyfile.v3:172-174`: "restored to owning 80/443 directly; the legacy_caddy Traefik forwarding shim is gone." The live `/etc/caddy/Caddyfile` is byte-identical to the repo copy (`cmp`, rev 1).
+
+**Runtime state.**
+- No Coolify container exists, running or stopped. `docker ps -a` lists five containers: `changedetection.io`, `uptime-kuma`, and the three Infisical containers.
+- No Traefik container exists. Ports 80 and 443 are owned by host `caddy` (`ss -ltn`).
+- No Coolify image is present locally. `docker images` lists six repositories: `postgres:17`, `redis:7-alpine`, `postgres:15-alpine`, `dgtlmoon/changedetection.io`, `louislam/uptime-kuma:1`, `infisical/infisical:latest-postgres`.
+- **Changed since 2026-11-03.** `reports/vm-audit/vm-evidence-20261103-110813.md:152` recorded 16 images, including Coolify (742 MB app, 652 MB helper, 998 MB realtime), `traefik`, `sentinel` ×2, `gitleaks` and `pgvector`. Line 214 recorded "Coolify images (2.4G) with no Coolify containers running". Those images are gone now. No commit since 2026-10-20 mentions Coolify (`git log --grep`), and no document found records the removal. **Cause UNKNOWN.** Q16.
+
+**Volumes and network.**
+- `coolify-db`: 100 MB, created 2026-07-19 12:54:52 +10:00, compose project `source` (v2.38.2). `coolify-redis`: 492 KB. Neither is mounted by any container. `reports/VM-Capacity-Assessment-vmi3371936-2026-10-04.md:122` calls them orphaned and asks to confirm they are unused. `knowledge/missions/VM-OPTIMISE-ZERO-COST-PLAN-20261009.md:74` says not to delete orphaned Coolify volumes.
+- `coolify` network: bridge, 10.0.1.0/24, created 2026-07-19 12:53:42 +10:00, one attached container (`infisical-infisical-1`). Coolify's install log ends "Coolify installation completed successfully" at 2026-07-19 12:55:06 (VERIFIED, `/data/coolify/source/installation-20260719-125334.log`).
+- The Infisical compose declares the network external with the comment "exists today; Infisical is attached to it. Do not remove it" (`deploy/infisical/docker-compose.yml:53-54`).
+
+**`/data/coolify/` (not in backup path list, `deploy/starship-backup.sh:206-219`).**
+- `source/`: `docker-compose.yml` defines a non-external `coolify` network and services `coolify`, `postgres`, `redis`, `soketi`. Its `coolify` and `soketi` services have no `image:` key. `docker-compose.prod.yml` is the production variant: image `${REGISTRY_URL:-docker.io}/coollabsio/coolify:${LATEST_IMAGE:-latest}`, realtime image `coollabsio/coolify-realtime:1.0.19`, external `coolify` network, volumes `coolify-db` and `coolify-redis`.
+- `source/.env`: **mode 0644**, modified 2026-09-19 10:04. Variable names only: `APP_ID`, `APP_NAME`, `APP_KEY`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_PASSWORD`, `PUSHER_APP_ID`, `PUSHER_APP_KEY`, `PUSHER_APP_SECRET`, `ROOT_USERNAME`, `ROOT_USER_EMAIL`, `ROOT_USER_PASSWORD`, `REGISTRY_URL`, `DOCKER_ADDRESS_POOL_BASE`, `DOCKER_ADDRESS_POOL_SIZE`, `LATEST_IMAGE`, `COOLIFY_VERSION`.
+- 17 dated `.env-<date>` copies (2026-08-13 to 2026-09-19), each mode 0644. `.env.production` mode 0700. `upgrade.sh` mode 0700.
+- Upgrade cadence: daily upgrade logs from 2026-07-19 to 2026-09-19. Last line: "Upgrade completed: 2026-09-19 10:06:49". No later log. No crontab or unit references Coolify (`crontab -l`, `deploy/*.service`, `deploy/*.timer`). Consistent with decommissioning on or around 2026-09-26 (INFERRED).
+- `proxy/`: `docker-compose.yml` (1762 bytes), `acme.json` (28,703 bytes, mode 0600), `dynamic/`, `backups/`. `acme.json` is Traefik's ACME store (INFERRED from file name). Traefik is not running. The file is not backed up.
+- `sentinel/` 6.0 MB, `ssh/` 20 KB, `ssl/` 8 KB, `applications/`, `databases/`, `services/`, `images/`, `backups/` (all small or empty by `du`).
+
+**Encryption-key dependency.** `APP_KEY` is in `source/.env`. Whether Coolify uses it to encrypt values stored in `coolify-db` is **UNKNOWN** from this VM. Coolify is built on Laravel, whose `APP_KEY` is the usual encryption key (INFERRED). Database contents were not inspected.
+
+**Documentation disagreement.** `USS-TJR-Control/README.md:15` says "no Coolify". Line 87 of the same file and `USS-TJR-Control/VM-STARTUP-PROCEDURE.md:48` list Coolify as present. The Caddy config comments of 2026-09-26 say decommissioned. The Caddy comments are the most recent and are relied on here.
+
+**Code and unit dependencies.** A search of the repo, excluding docs, logs, `data/` and venvs, finds Coolify only in `deploy/infisical/docker-compose.yml` and `deploy/caddy/Caddyfile.v3`. No unit or timer references Coolify. **No TJRHQ code path depends on Coolify.** (VERIFIED for the files searched.)
+
+**Docs for Coolify recovery.** None found. The only Coolify references in docs are the status notes above.
+
+### 4A.4 Replacement-VM dependency sequence (what the evidence supports)
+
+1. **Docker and images.** Install Docker. Pull `postgres:15` (any 15.x) and `redis:7`. Pull `infisical/infisical` by the pinned digest. Local copies are not in the backup. Not demonstrated.
+2. **Network.** Create the external network named `coolify`. The compose file cannot start without it, but nothing else about Coolify is required. Not demonstrated.
+3. **Secrets from outside the VM.** Restic password and Google OAuth client (§7.1 in rev 2). Restic restore then yields the recovery env and `db.env`. Infisical needs `ENCRYPTION_KEY`, `AUTH_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`. Documented, not demonstrated on a fresh host.
+4. **Pick a compose file.** Neither is demonstrated. Before use, the choice must be reconciled with §4A.2 rows 7, 13, 14, 17.
+5. **Start database and Redis only.** Both have healthchecks, so Infisical's `depends_on` gate works once they report healthy.
+6. **Restore the database.** Run `pg_restore` from `infisical-db.dump` as role `infisical` (runbook §4.2). The role must exist first. On a fresh volume it is created from `POSTGRES_USER`, which the running container no longer has (row 14). Use the private `db.env` or add `POSTGRES_USER` to the repo compose.
+7. **Start Infisical.** Gated on DB and Redis health. No healthcheck exists on the app, so readiness must be checked with an HTTP probe on `127.0.0.1:8446` (not run here).
+8. **Restore the machine identity.** `platform-runtime/.infisical-auth.env` (in the backup). Services log in with it. Login not tested.
+9. **Start services.** Wrappers call `127.0.0.1:8446/api`. The 2026-10-06 incident comment (`platform-runtime/lib-infisical.sh:5-11`) records that a container which came up after its dependent units made those units run with no secrets and no error. Order matters. A worktree branch `USS-TJR-MSN-0407-infisical-wrapper-failloud` exists (`git worktree list`), which suggests a fail-loud fix was in progress. This assessment did not verify that fix on `main`.
+10. **Public Infisical route.** Not required by any service. Traefik labels are inert today (no Traefik). Whether to restore a public route is an owner decision (Q20).
+11. **Coolify.** Not required. Decommissioned (§4A.3). Its volumes, `/data/coolify` and remaining images are residual state. Retention is an owner decision (Q18).
+
+**Circular dependencies assessed:**
+- **Restore chain: none.** The restore needs the restic password (off VM), then restic files, then Infisical, then services. Nothing in that chain needs a service that needs Infisical.
+- **Backup chain: a runtime dependency, not a restore cycle.** Step 1 of `deploy/starship-backup.sh` runs the Supabase dump under the Infisical wrapper (`:105`). Steps 2–5 are documented as independent of Infisical (`:20-22`). If Infisical is down at 02:40, the Supabase dump fails and the rest still runs.
+- **Machine identity.** `.infisical-auth.env` is in the backup and is needed to reach Infisical. Its validity depends on records in the Infisical DB, which is restored from the same backup. Whether the identity is still valid after restore is **UNKNOWN** until tested.
+- **Coolify: no link.** No cycle, since TJRHQ has no Coolify dependency.
+
+**Components that cannot be reconstructed from documented evidence:**
+- The exact running DB and Redis images. The tags have moved and the running IDs have no digest pins. A logical restore into `postgres:15` should work across minor versions (INFERRED), but identical images are not reconstructable.
+- Redis contents. Not backed up. Role **UNKNOWN**.
+- The DB user environment in the running container (row 14). Reconstructable only from the private `db.env`, which does declare `POSTGRES_USER`.
+- The public Traefik route, which has no proxy to serve it.
+
+### 4A.5 Evidence and confidence table (material findings)
+
+| # | Finding | Exact source or command | Observed | Label | Recovery consequence | Remaining uncertainty |
+|---|---|---|---|---|---|---|
+| F1 | Infisical image pinned and matches running image | `docker inspect`, `docker image inspect`, compose line 58 (pin) | Running ID `36438985877f` has repo digest equal to the pin | VERIFIED | Infisical app image is reproducible by digest | Registry availability of the digest |
+| F2 | DB image tag moved; running image untagged | `docker image inspect postgres:15-alpine` vs `docker inspect infisical-db-1` | Tag `a46e076249ce` (re-pulled 2026-09-17) ≠ running `fe0737ba566a` (2026-08-13) | VERIFIED | Compose `up` on a fresh host gets a different DB image | Whether the two differ in minor version (DOCUMENTED: running 15.19) |
+| F3 | Redis image tag moved; running image untagged | Same, for `redis:7-alpine` | Tag `520775a41a63` (2026-09-17) ≠ running `ff02b58f971e` (2026-08-18) | VERIFIED | As F2 | Redis version of the running image not checked |
+| F4 | Compose config path label points at a missing directory | `docker inspect` label; `ls /root/TJRHQ` | Label `/root/TJRHQ/deploy/infisical/docker-compose.yml`; directory absent | VERIFIED | Compose commands that read the label will fail on this VM | None for the label; the replacement path is an operator choice |
+| F5 | Private compose lacks network aliases and Traefik labels | `yaml.safe_load` on both compose files | Private has no `networks` on db/redis and no `labels` on infisical | VERIFIED | Private copy alone does not reproduce hostnames or routing | Whether `DB_CONNECTION_URI` uses `infisical-pg` (value not read) |
+| F6 | Running DB container has no `POSTGRES_USER` | `docker inspect infisical-db-1`, env names | Absent. Present in repo and private compose | VERIFIED | Fresh volume init creates role `postgres`, not `infisical` | Init behaviour of image: INFERRED |
+| F7 | Coolify decommissioned by documentation | `deploy/caddy/Caddyfile.v3:25-28, 172-174` | Text as quoted | DOCUMENTED | No Coolify restore needed | Whether removal is complete beyond the documented scope |
+| F8 | No Coolify runtime, Traefik or Coolify images present | `docker ps -a`, `docker images` | None present | VERIFIED | Confirms F7 | Why images vanished between 11-03 and 11-08 (Q16) |
+| F9 | Coolify volumes and network persist, unmounted | `docker volume inspect`, `docker network inspect coolify` | Volumes exist, not mounted. Network has one container (Infisical). | VERIFIED | Infisical needs the network name only | Owner decision on volumes (Q18) |
+| F10 | `coolify` network is external to the Infisical compose | `deploy/infisical/docker-compose.yml:53-54` | External, must exist | VERIFIED | Creation required on a new host | Whether `compose up` fails without it: INFERRED from external semantics. Not run. |
+| F11 | Coolify `.env` contains secret-named variables at mode 0644 | `ls -la /data/coolify/source/.env` | Mode 0644, 17 variable names | VERIFIED | Exposure to any local user; not in backup path list | Whether any other user exists on the VM |
+| F12 | Coolify state is not backed up | `deploy/starship-backup.sh:206-219` vs `/data/coolify` | Not in list | VERIFIED | Lost on VM loss, but not required (F7) | Whether anyone wants it (Q18) |
+| F13 | Services use the loopback port, not the public route | `platform-runtime/run-with-infisical.sh:33`, `lib-infisical.sh:3`, `run-with-infisical-bot.sh:30` | `http://127.0.0.1:8446/api` | VERIFIED | Public route not on the startup path | None |
+| F14 | No TJRHQ code depends on Coolify | `grep -ril coolify` excluding docs, logs, `data/`, venvs | Only `docker-compose.yml` and `Caddyfile.v3` | VERIFIED | No code-level dependency | Files outside the repo, not searched |
+| F15 | Env names all explained | `docker inspect` env names vs image defaults and recovery env | 27 of 27 explained | VERIFIED | Recovery env is complete for the app | Values not checked |
+| F16 | Redis password embedded in container command | `docker inspect` `Config.Cmd` | Literal value on the command line (value not reproduced) | VERIFIED | Visible to any principal with Docker access. Exposed in this session's transcript. | Rotation needed (owner decision, §4A.7) |
+| F17 | Infisical health: DB and Redis healthy, app has no healthcheck | `docker inspect` health fields | As stated | VERIFIED | App readiness not observable from Docker | HTTP readiness of the app: not probed |
+| F18 | No compose execution, so resolved config equality untested | Method restriction | n/a | VERIFIED (not run) | Neither compose is demonstrated | Q15 |
+
+### 4A.6 Demonstrated versus documented
+
+| Claim | Status |
+|---|---|
+| Infisical container set matches compose structure (names, ports, volumes, restart, health, dependencies) | Matches on inspection. Not demonstrated by compose. |
+| Infisical restore from logical dump gives identical secrets | DOCUMENTED (runbook line 69, 2026-10-09). Not re-run. |
+| Infisical restore on a fresh host | Not documented as tested |
+| Services start after Infisical on a fresh host | Not documented as tested |
+| Repo compose brings up Infisical | Not demonstrated. `.env` is absent from the repo directory (§4A.2 row 17). |
+| Private compose brings up Infisical | Not demonstrated. Missing aliases and labels (F5). |
+| Coolify can be restored | Not demonstrated. Decommissioned by documentation (F7). |
+
+### 4A.7 Security observations (no changes made)
+
+1. **Redis password on the command line.** `infisical-redis-1` was started with `redis-server --requirepass <value>` (F16). Anyone who can run `docker inspect` reads it, and so does anyone who reads the process list (INFERRED). The value appeared in this session's output. **Recommendation:** owner decides on rotation and moving it to a file or Docker secret. Rotation was not performed (restricted).
+2. **Coolify `.env` mode 0644** (F11). **Recommendation:** owner decides on `0600`, or on removing the decommissioned directory.
+3. **Dated `.env` copies** (17 in `/data/coolify/source`, mode 0644). They accumulate secrets and are not backed up (F12). Same recommendation.
+
 ## 5. Infisical recovery dependencies (Investigation 2)
 
 **Running deployment (metadata only, VERIFIED):**
@@ -125,7 +272,7 @@ Size and type come from `du`, `stat` and `find -type f`. "In backup" means expli
 - Three containers: `infisical-infisical-1`, `infisical-db-1` (healthy), `infisical-redis-1` (healthy). Project label `infisical`. Container start time 2026-10-19 13:24 UTC.
 - Mounts: `infisical_infisical-uploads` at `/app/backend/uploads` (0 files); `infisical_infisical-db` at `/var/lib/postgresql/data` (84 MB); `infisical_infisical-redis` at `/data` (12 MB). All three are local-driver named volumes.
 - Compose labels reference `/root/TJRHQ/deploy/infisical/docker-compose.yml`, which does not exist (E21, E22).
-- The `coolify` network is declared `external: true` and "exists today; Infisical is attached to it. Do not remove it" (E20, `docker-compose.yml:53-54`). The Infisical app's Traefik labels route through it (`traefik.docker.network=coolify`).
+- The `coolify` network is declared `external: true` and "exists today; Infisical is attached to it. Do not remove it" (E20, `docker-compose.yml:53-54`). The Infisical app's Traefik labels reference it (`traefik.docker.network=coolify`), but no Traefik container is running (§4A.3). No service uses the public route (§4A.1).
 
 **Compose files available (VERIFIED):**
 
@@ -148,7 +295,7 @@ Size and type come from `du`, `stat` and `find -type f`. "In backup" means expli
 
 1. The Infisical compose in the runbook is found in `/root/private-knowledge`, which is in the restic path list. Access to it therefore needs the restic password. This is a dependency on off-VM custody, not on VM-local files.
 2. The Infisical volume `infisical_infisical-db` has no physical copy in backup. Only the logical `pg_dump` (`deploy/starship-backup.sh:130`) is captured. The dump uses `pg_dump --format=custom` of `$POSTGRES_DB`. Logical restore is the only route.
-3. The `coolify` Docker network must exist before `docker compose up` (E20). It is created by Coolify. On a replacement VM, either Coolify is restored first, or `docker network create coolify` is run by hand. Neither step is documented as tested.
+3. The `coolify` Docker network must exist before `docker compose up` (E20). Coolify itself is decommissioned (§4A.3) and is not needed. On a replacement VM, `docker network create coolify` supplies the name. Not tested.
 4. The running containers' compose label path (`/root/TJRHQ/...`) is stale. Recovery should use `docker compose -p infisical -f <restored compose>` with the restored file. Using the stale label path will fail, and there is no test of this.
 5. Redis `requirepass` value comes from compose interpolation of `${REDIS_PASSWORD}` (`docker-compose.yml`, `command:` line). Names only were checked. If the `.env` supplying it is missing, Redis is expected to start without the intended password or fail (INFERRED from compose interpolation rules; not tested).
 
@@ -298,10 +445,10 @@ Impact ranking considers: how much of the rebuild is blocked, how many items are
 | Q1 | Do the restic password, the Google OAuth client ID and secret, and Infisical `ENCRYPTION_KEY`/`AUTH_SECRET` exist in the owner's password manager, and are they current? | Owner confirmation of item presence and last-updated date (no values) | Owner | None from VM |
 | Q2 | Does the current remote repository hold 12 snapshots, and which dates? | `restic snapshots --compact` on the remote repo | Owner, or an operator with access | Remote access (forbidden in this task) |
 | Q3 | Which snapshot was removed on 11-05 and 11-06? | Remote snapshot list, compared with journal IDs in E11 | As Q2 | As Q2 |
-| Q4 | Does the private `infisical-compose/docker-compose.yml` or the repo copy match the running containers? | Compare each to `docker inspect` output for image digest, env names and mounts | Operator on this VM | Read-only `docker inspect` on named containers, metadata |
+| Q4 | Does the private `infisical-compose/docker-compose.yml` or the repo copy match the running containers? | **Partly answered (§4A.2):** neither is demonstrated to reproduce the deployment. Structure matches; DB and Redis image references, aliases, labels and DB user env do not. Remaining: a compose resolution in an isolated sandbox (Q15). | Operator on a sandbox host | Sandbox `docker compose config` comparison |
 | Q5 | What do the Supabase dumps' TOC lists differ by (92 entries, 11-03 to 11-06)? | `pg_restore --list` on the two cached dumps. Requires the cache files, which are local. | Operator on this VM | Local read of dump TOC, not contents |
 | Q6 | Are the 57 stash-only commits and the 153 unpushed branches reachable from any remote? | GitHub branch and tag listing | Owner, or GitHub admin | Remote inventory (forbidden in this task) |
-| Q7 | Do the `coolify` Docker network and Coolify's key material survive a rebuild? | Coolify documentation, and whether `source/.env` is required to decrypt `coolify-db` | Owner, plus the Coolify product docs | Documentation only |
+| Q7 | Do the `coolify` Docker network and Coolify's key material survive a rebuild? | **Partly answered (§4A.3):** Coolify is decommissioned and no TJRHQ dependency exists. The network must be created by name. Whether `APP_KEY` encrypts anything still needed: UNKNOWN. | Owner, plus Coolify product docs | Documentation only |
 | Q8 | Does the Infisical uploads volume matter? | Already answered: 0 files | — | — |
 | Q9 | Are any Redis volume keys required after restore? | Application code that reads from Redis at startup | Code review | None |
 | Q10 | Does the old `gdrive:starship-backups` repo still exist, and does it hold snapshots absent from the new repo? | Remote listing | Owner | Remote access (forbidden) |
@@ -309,6 +456,15 @@ Impact ranking considers: how much of the rebuild is blocked, how many items are
 | Q12 | Is SEC-01 administratively closed in the form stated? | The risk-acceptance record referenced by commit `8d44f1cdd` | Owner | Repo read |
 | Q13 | Does Supabase Storage hold binaries, and are they needed? | Supabase project storage listing | Owner | Supabase dashboard |
 | Q14 | Do Vercel environment values exist and can they be read back or re-entered? | Vercel project settings | Owner | Vercel dashboard |
+| Q15 | Does either compose file resolve to the running configuration? | Resolve both in an isolated sandbox host (not this VM), compare resolved images, networks, aliases, volumes, labels, env names. Secrets must not be printed. | Operator with a sandbox | Sandbox only |
+| Q16 | Why were Coolify images (`coollabsio/coolify`, `coolify-realtime`, `traefik`, `sentinel` ×2, `gitleaks`, `pgvector`) removed between 2026-11-03 and 2026-11-08? | Docker daemon event log (`docker events --since`), shell history, or the operator who ran the cleanup. Not documented in repo. | Owner or operator | Read-only daemon event log |
+| Q17 | Which DB role does a fresh init create when `POSTGRES_USER` is absent? | Confirm the compose used to create `infisical_infisical-db` at the time (volume creation metadata). Behaviour of the postgres image on init: INFERRED. | Operator | Read-only volume creation metadata |
+| Q18 | Retain or delete Coolify residue (volumes `coolify-db`, `coolify-redis`; `/data/coolify`; `coolify` network)? | Owner decision. The VM-OPTIMISE plan (line 74) says not to delete without review. | Owner | Decision only |
+| Q19 | Does Coolify use `APP_KEY` to encrypt values stored in `coolify-db`? | Coolify product source or docs | Owner, or Coolify docs | Documentation only |
+| Q20 | Should a public Infisical route be restored? Current Traefik labels route nothing; no Caddy site serves the Infisical hostname. | Owner decision | Owner | Decision only |
+| Q21 | Is the Infisical machine identity (`.infisical-auth.env`) still valid after a DB restore? | A login test on a restored host | Operator on a restored host | Restored host only |
+| Q22 | Should the Redis password be rotated and moved out of the command line? | Owner decision (exposed in this session, §4A.7) | Owner | Decision and rotation |
+| Q23 | Should `/data/coolify/source/.env` and its dated copies be restricted to `0600` or removed? | Owner decision | Owner | Decision and `chmod` |
 
 ## 11. Corrections to revision 1
 
@@ -341,7 +497,7 @@ Preconditions (owner, outside the VM): restic password, Google OAuth client ID a
 3. Restore the latest `starship-nightly` snapshot to a mode-700 directory (runbook §2).
 4. Clone from the restored bundle and check out `main` (runbook §3). Add `origin` and fetch. This recovers remote-tracking refs and pushed tags. It does **not** recover stashes (§6) or unpushed tags.
 5. Restore `/etc/systemd/system`, `/etc/caddy`, `/root/private-knowledge` and `.env` files to their paths. Restore `/root/.restic-pass` and `rclone.conf` from the password manager. Do not restore them from the snapshot.
-6. Create or confirm the external `coolify` Docker network (§5, E20). Restore Coolify first if it is in use.
+6. Create the external `coolify` Docker network by name (§4A.4 step 2). Coolify is decommissioned and need not be restored (§4A.3).
 7. Start Infisical from the restored compose, with the working directory set to the restored path. Do not rely on the stale label path. Start `db` and `redis`, restore `infisical-db.dump` with `pg_restore`, then start the app (runbook §4). Confirm `ENCRYPTION_KEY` matches the value in the password manager before trusting the restored secrets.
 8. Restore `.infisical-auth.env` to `platform-runtime/`. Verify a service login. This step is not tested in the runbook (§5).
 9. Supabase: create or reuse a project. Enable extensions, create roles, restore `supabase.dump`, re-create cron jobs, re-enter vault secrets from Infisical (runbook §5, DOCUMENTED).
