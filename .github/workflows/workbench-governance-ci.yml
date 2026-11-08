@@ -1,7 +1,14 @@
 name: Workbench Governance CI
 
 on:
-  pull_request: {}
+  pull_request:
+    paths:
+      - "lcars-portal/**"
+      - "docs/LIVE-WORKBENCHES.md"
+      - "tools/check_workbench_registry.py"
+      - "tools/check_notification_senders.py"
+      - "tools/check_config_loaders.py"
+      - ".github/workflows/workbench-governance-ci.yml"
   push:
     branches: [main]
 
