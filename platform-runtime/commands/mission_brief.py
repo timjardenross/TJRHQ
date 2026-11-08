@@ -42,7 +42,13 @@ log = logging.getLogger(__name__)
 
 _BOT_DIR = Path(__file__).resolve().parent.parent
 _REPO_ROOT = _BOT_DIR.parent
-_MISSION_INDEX = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
+def _mission_index_path() -> Path:
+    """Resolved mission registry path (see mission_registry_path.py)."""
+    import sys as _sys
+    if str(_REPO_ROOT) not in _sys.path:
+        _sys.path.insert(0, str(_REPO_ROOT))
+    from mission_registry_path import registry_path
+    return registry_path()
 _MISSIONS_ACTIVE_DIR = _REPO_ROOT / "Missions" / "Active"
 _BUILD_RECORDS_DIR = _REPO_ROOT / "Missions" / "Build-Records"
 _ENGINEERING_HANDOFFS_DIR = _REPO_ROOT / "Missions" / "Engineering-Handoffs"
