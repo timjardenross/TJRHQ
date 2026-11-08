@@ -92,7 +92,7 @@ function readExport(filename) {
  * 1. Cache (fresh) — < 30 seconds
  * 2. Cache (stale) — > 30 seconds (with age metadata)
  * 3. Number One JSON files (live data)
- * 4. Mock fallback (if files unavailable)
+ * 4. HTTP 503 when required files are unavailable
  */
 router.get('/brief', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:brief';
@@ -107,14 +107,22 @@ router.get('/brief', asyncHandler(async (req, res) => {
     return res.json(response);
   }
 
-  // Get fresh data from Number One adapter
-  const briefData = numberOneAdapter.getDailyBrief();
+  // Get fresh data from Number One adapter; unavailable data must fail closed
+  let briefData;
+  try {
+    briefData = numberOneAdapter.getDailyBrief();
+  } catch (error) {
+    if (error.code === 'NUMBER_ONE_UNAVAILABLE') {
+      return res.status(503).json({ success: false, error: 'Number One coordination data unavailable' });
+    }
+    throw error;
+  }
 
   cacheManager.set(cacheKey, briefData, 120);
   const response = successResponse(briefData, 200, {
     source: 'fresh',
     generatedAt: new Date().toISOString(),
-    dataSource: numberOneAdapter.isDataAvailable() ? 'from-number-one' : 'from-mock-fallback'
+    dataSource: 'from-number-one'
   });
   res.json(response);
 }));
@@ -123,7 +131,7 @@ router.get('/brief', asyncHandler(async (req, res) => {
  * GET /api/v1/coordination/queue
  * Returns prioritized work queue
  *
- * Data Source: Number One JSON files or mock fallback
+ * Data Source: Number One JSON files; unavailable data fails closed
  */
 router.get('/queue', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:queue';
@@ -138,8 +146,16 @@ router.get('/queue', asyncHandler(async (req, res) => {
     return res.json(response);
   }
 
-  // Get fresh data from Number One adapter
-  const queueData = numberOneAdapter.getWorkQueue();
+  // Get fresh data from Number One adapter; unavailable data must fail closed
+  let queueData;
+  try {
+    queueData = numberOneAdapter.getWorkQueue();
+  } catch (error) {
+    if (error.code === 'NUMBER_ONE_UNAVAILABLE') {
+      return res.status(503).json({ success: false, error: 'Number One coordination data unavailable' });
+    }
+    throw error;
+  }
 
   cacheManager.set(cacheKey, queueData, 120);
   const response = successResponse(queueData, 200, {
@@ -166,7 +182,7 @@ router.get('/escalations', asyncHandler(async (req, res) => {
 
   // 1. Try Supabase escalations (commander_events with escalate_to_xo)
   let escalationData = null;
-  let dataSource = 'mock-fallback';
+  let dataSource = 'number-one-file';
 
   try {
     const rows = await getEscalations({ limit: 20 });
@@ -199,8 +215,15 @@ router.get('/escalations', asyncHandler(async (req, res) => {
 
   // 2. Fall back to Number One JSON file
   if (!escalationData) {
-    escalationData = numberOneAdapter.getEscalations();
-    dataSource = numberOneAdapter.isDataAvailable() ? 'number-one-file' : 'mock-fallback';
+    try {
+      escalationData = numberOneAdapter.getEscalations();
+    } catch (error) {
+      if (error.code === 'NUMBER_ONE_UNAVAILABLE') {
+        return res.status(503).json({ success: false, error: 'Number One escalation data unavailable' });
+      }
+      throw error;
+    }
+    dataSource = 'number-one-file';
   }
 
   cacheManager.set(cacheKey, escalationData, 120);
