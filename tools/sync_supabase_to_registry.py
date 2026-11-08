@@ -25,8 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_REPO_ROOT))
-from mission_registry_path import read_registry_text, registry_path
+_REGISTRY = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
 
 # Pattern that matches canonical table rows AND dash-list runtime entries in the registry
 _REGISTRY_ID_RE = re.compile(r"USS-TJR-MSN-\d{4}[A-Za-z]?", re.IGNORECASE)
@@ -34,10 +33,9 @@ _REGISTRY_ID_RE = re.compile(r"USS-TJR-MSN-\d{4}[A-Za-z]?", re.IGNORECASE)
 
 def load_registry_ids() -> set[str]:
     """Return all canonical mission IDs already present in the registry."""
-    path = registry_path()
-    if not path.exists():
+    if not _REGISTRY.exists():
         return set()
-    return set(_REGISTRY_ID_RE.findall(read_registry_text(path)))
+    return set(_REGISTRY_ID_RE.findall(_REGISTRY.read_text(encoding="utf-8")))
 
 
 def fetch_supabase_missions() -> list[dict]:
@@ -66,21 +64,6 @@ def fetch_supabase_missions() -> list[dict]:
     return [r for r in rows if r.get("mission_id") and canonical_pattern.match(r["mission_id"])]
 
 
-def _append_entries(path: Path, new_missions: list[dict], ts: str) -> None:
-    """Append one timestamped block of new missions (additive only).
-
-    Creates the parent directory when the registry lives outside the checkout.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(f"\n# MSN-0145 SUPABASE SYNC ({ts})\n")
-        for m in new_missions:
-            mid = m["mission_id"].upper()
-            title = (m.get("title") or "—").replace("|", "—")
-            status = (m.get("status") or "—")
-            f.write(f"\n- {mid} | {ts} | Supabase | {status} | {title}\n")
-
-
 def sync(dry_run: bool = False) -> int:
     registry_ids = load_registry_ids()
     missions = fetch_supabase_missions()
@@ -100,9 +83,15 @@ def sync(dry_run: bool = False) -> int:
         return 0
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-    target = registry_path()
-    _append_entries(target, new_missions, ts)
-    print(f"Appended {len(new_missions)} entries to {target}")
+    with _REGISTRY.open("a", encoding="utf-8") as f:
+        f.write(f"\n# MSN-0145 SUPABASE SYNC ({ts})\n")
+        for m in new_missions:
+            mid = m["mission_id"].upper()
+            title = (m.get("title") or "—").replace("|", "—")
+            status = (m.get("status") or "—")
+            f.write(f"\n- {mid} | {ts} | Supabase | {status} | {title}\n")
+
+    print(f"Appended {len(new_missions)} entries to {_REGISTRY.relative_to(_REPO_ROOT)}")
     return 0
 
 

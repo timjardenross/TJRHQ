@@ -49,6 +49,8 @@ STATE_FILES=(
 #   - mission_dispatch_log.jsonl: rewritten every dispatch cycle by
 #     mission-engineering-dispatch; left uncommitted on purpose (high churn,
 #     one commit per cycle) and covered by the nightly off-box backup instead.
+#   - mission-index.txt: rewritten from Supabase by mission-registry-sync,
+#     never committed.
 #   - Missions/Engineering-Handoffs/: no job commits handoff edits or
 #     deletions; they are left for a human.
 # Before this list existed, any one of these being dirty made every run exit
@@ -56,6 +58,7 @@ STATE_FILES=(
 # stopped reaching origin/main.
 TOLERATED_DIRTY=(
   "data/self-improvement/review/mission_dispatch_log.jsonl"
+  "core/mission-control/registry/mission-index.txt"
   "Missions/Engineering-Handoffs/"
 )
 

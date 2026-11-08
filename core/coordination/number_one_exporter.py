@@ -65,9 +65,6 @@ def _git_last_modified(file_ref: str, repo_root: Path) -> str:
     return None
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(_REPO_ROOT))
-from mission_registry_path import registry_path
-
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
@@ -834,11 +831,11 @@ def main():
         elif args.missions:
             return exporter.export_from_file(args.missions)
         elif args.registry:
-            default_registry = registry_path()
-            chosen_registry = default_registry if args.registry == "__default__" else Path(args.registry)
-            return exporter.export_from_registry(str(chosen_registry))
+            default_registry = Path(__file__).parent.parent.parent / "core/mission-control/registry/mission-index.txt"
+            registry_path = default_registry if args.registry == "__default__" else Path(args.registry)
+            return exporter.export_from_registry(str(registry_path))
         else:
-            default_registry = registry_path()
+            default_registry = Path(__file__).parent.parent.parent / "core/mission-control/registry/mission-index.txt"
             if default_registry.exists():
                 return exporter.export_from_registry(str(default_registry))
             else:

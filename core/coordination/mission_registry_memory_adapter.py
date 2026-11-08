@@ -176,13 +176,9 @@ class MissionRegistryMemoryAdapter:
 
     def _load_from_files(self) -> list[dict[str, Any]]:
         # Fallback is intentionally thin and advisory only.
-        from mission_registry_path import (
-            registry_path,  # repo root is on sys.path (core.* imports)
-        )
-
         candidates: list[dict[str, Any]] = []
         for path in [
-            registry_path(),
+            Path(__file__).resolve().parent.parent.parent / "core" / "mission-control" / "registry" / "mission-index.txt",
             Path(__file__).resolve().parent.parent.parent / "Missions" / "Active",
         ]:
             if path.is_file():

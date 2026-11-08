@@ -16,7 +16,6 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveMissionRegistryPath } from './mission-registry-path';
 
 const execFileAsync = promisify(execFile);
 
@@ -26,6 +25,9 @@ const REPO_ROOT = process.env.REPO_ROOT
   : path.resolve(process.cwd(), '..');
 
 const MINT_SCRIPT = path.join(REPO_ROOT, 'tools', 'mint_id.py');
+const REGISTRY_FILE = path.join(
+  REPO_ROOT, 'core', 'mission-control', 'registry', 'mission-index.txt',
+);
 
 /**
  * Mint the next canonical ID for the given prefix.
@@ -58,11 +60,10 @@ export function appendToRegistry(
   status: string,
 ): void {
   try {
-    const registryFile = resolveMissionRegistryPath(REPO_ROOT);
-    if (!fs.existsSync(registryFile)) return;
+    if (!fs.existsSync(REGISTRY_FILE)) return;
     const ts = new Date().toISOString().slice(0, 16).replace('T', ' ');
     const entry = `\n- ${missionId} | ${ts} | ${domain} | ${status} | ${title}\n`;
-    fs.appendFileSync(registryFile, entry, 'utf8');
+    fs.appendFileSync(REGISTRY_FILE, entry, 'utf8');
   } catch (err) {
     // Non-blocking — Supabase is the source of truth for LCARS missions
     console.error('[id-registry] appendToRegistry failed:', err);

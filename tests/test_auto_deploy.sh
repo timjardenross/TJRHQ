@@ -262,10 +262,16 @@ else
 fi
 rm -rf "$tmp"
 
-echo "test: registry file moved out of the checkout (untracked) -> does NOT abort, pulls normally, local copy kept"
+echo "test: mission-registry-sync's rewritten mission-index.txt -> does NOT abort, pulls normally, local copy kept"
 tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
-mkdir -p "$tmp/clone/core/mission-control/registry"
-echo "MSN-1 original" > "$tmp/clone/core/mission-control/registry/mission-index.txt"  # untracked: lives outside the checkout
+(
+  cd "$tmp/clone"
+  mkdir -p core/mission-control/registry
+  echo "MSN-1 original" > core/mission-control/registry/mission-index.txt
+  git add -A
+  git commit --quiet -m "track mission index"
+  git push --quiet origin main
+)
 git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
 (
   cd "$tmp/pusher"
@@ -283,7 +289,7 @@ out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
 after_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
 if [ "$before_sha" != "$after_sha" ] && grep -q "systemctl restart context-service.service" "$log" \
    && grep -q "MSN-2 synced" "$tmp/clone/core/mission-control/registry/mission-index.txt"; then
-  pass "untracked registry copy does not block the pull, and survives it"
+  pass "rewritten mission-index.txt does not block the pull, and survives it"
 else
   fail "mission-index.txt dirty (before=$before_sha after=$after_sha log=$(cat "$log") out=$out)"
 fi

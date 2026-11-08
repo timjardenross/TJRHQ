@@ -48,12 +48,13 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import quote
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
 from heartbeat import supabase_get
+from notification_service import Severity, notify
 
 log = logging.getLogger("mission_dispatch")
 
@@ -258,14 +259,15 @@ def dispatch_one(repo_root: Path, mission: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: int = 25) -> dict[str, Any]:
+def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: int = 25, alert_notifier: Callable[..., Any] | None = None) -> dict[str, Any]:
     dispatched_before = load_dispatched_ids(data_root)
     _, no_pr_attempts_before, failures_before = _dispatch_history(data_root)
     missions = fetch_approved_missions(limit=limit)
     to_dispatch = [m for m in missions if m.get("mission_id") not in dispatched_before]
 
     results = {"checked": len(missions), "already_dispatched": len(missions) - len(to_dispatch),
-               "dispatched": 0, "failed": 0, "dry_run": dry_run}
+               "dispatched": 0, "failed": 0, "alerts": 0, "dry_run": dry_run}
+    send_alert = alert_notifier or notify
 
     for mission in to_dispatch:
         mission_id = mission.get("mission_id")
@@ -311,6 +313,16 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
         else:
             results["failed"] += 1
             log.warning(f"{mission_id}: {message}")
+            try:
+                alert_result = send_alert(
+                    f"Mission {mission_id} dispatch failed: {message}",
+                    title="Mission engineering dispatch failure",
+                    severity=Severity.ALERT,
+                )
+                if getattr(alert_result, "ok", alert_result is not False):
+                    results["alerts"] += 1
+            except Exception as exc:  # alerting must not mask the job failure
+                log.warning(f"{mission_id}: failed to send Telegram alert: {exc}")
 
     return results
 

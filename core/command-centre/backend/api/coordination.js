@@ -26,7 +26,7 @@
  * - GET /escalations → XO escalations requiring attention
  *
  * Data Source: Number One Coordination Engine (MSN-0034)
- *              File-based JSON outputs; unavailable data returns 503 (no mock fallback)
+ *              File-based JSON outputs with mock fallback
  * Cache TTL: 30 seconds (frequently updated)
  *
  * Integration Architecture:
@@ -40,7 +40,7 @@
  * │ NumberOneAdapter (number-one-adapter.js)        │
  * │ - Reads JSON files from /core/coordination/    │
  * │ - Transforms to API format                      │
- * │ - Returns 503 if files unavailable or invalid   │
+ * │ - Falls back to mock if files unavailable       │
  * └────────────┬─────────────────────────────────────┘
  *              │
  *              ↓
@@ -55,7 +55,7 @@
  * - No database changes
  * - No message queues
  * - No authentication added
- * - No mock fallback: missing Number One output is reported as 503
+ * - Mock fallback ensures uptime
  * - Pure data transformation, no logic changes
  */
 
@@ -92,7 +92,7 @@ function readExport(filename) {
  * 1. Cache (fresh) — < 30 seconds
  * 2. Cache (stale) — > 30 seconds (with age metadata)
  * 3. Number One JSON files (live data)
- * 4. 503 NUMBER_ONE_UNAVAILABLE (if files unavailable or invalid)
+ * 4. Mock fallback (if files unavailable)
  */
 router.get('/brief', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:brief';
@@ -114,7 +114,7 @@ router.get('/brief', asyncHandler(async (req, res) => {
   const response = successResponse(briefData, 200, {
     source: 'fresh',
     generatedAt: new Date().toISOString(),
-    dataSource: 'from-number-one'
+    dataSource: numberOneAdapter.isDataAvailable() ? 'from-number-one' : 'from-mock-fallback'
   });
   res.json(response);
 }));
@@ -123,7 +123,7 @@ router.get('/brief', asyncHandler(async (req, res) => {
  * GET /api/v1/coordination/queue
  * Returns prioritized work queue
  *
- * Data Source: Number One JSON files (503 when unavailable)
+ * Data Source: Number One JSON files or mock fallback
  */
 router.get('/queue', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:queue';
@@ -145,7 +145,7 @@ router.get('/queue', asyncHandler(async (req, res) => {
   const response = successResponse(queueData, 200, {
     source: 'fresh',
     generatedAt: new Date().toISOString(),
-    dataSource: 'from-number-one'
+    dataSource: numberOneAdapter.isDataAvailable() ? 'from-number-one' : 'from-mock-fallback'
   });
   res.json(response);
 }));
@@ -154,7 +154,7 @@ router.get('/queue', asyncHandler(async (req, res) => {
  * GET /api/v1/coordination/escalations
  * Returns XO escalations requiring attention
  *
- * Data Source: Number One JSON files (503 when unavailable)
+ * Data Source: Number One JSON files or mock fallback
  */
 router.get('/escalations', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:escalations';
@@ -166,7 +166,7 @@ router.get('/escalations', asyncHandler(async (req, res) => {
 
   // 1. Try Supabase escalations (commander_events with escalate_to_xo)
   let escalationData = null;
-  let dataSource = null;
+  let dataSource = 'mock-fallback';
 
   try {
     const rows = await getEscalations({ limit: 20 });
@@ -197,10 +197,10 @@ router.get('/escalations', asyncHandler(async (req, res) => {
     // fall through to Number One file data
   }
 
-  // 2. Number One JSON file. Throws NumberOneUnavailableError (503) when missing or invalid.
+  // 2. Fall back to Number One JSON file
   if (!escalationData) {
     escalationData = numberOneAdapter.getEscalations();
-    dataSource = 'number-one-file';
+    dataSource = numberOneAdapter.isDataAvailable() ? 'number-one-file' : 'mock-fallback';
   }
 
   cacheManager.set(cacheKey, escalationData, 120);
