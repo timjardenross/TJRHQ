@@ -1,11 +1,123 @@
 {
   "counts_by_state": {
+    "investigating": 1,
     "learned": 1,
     "proposed": 2,
-    "rejected": 135,
+    "rejected": 134,
     "resolved_before_research": 4
   },
   "open_opportunities": [
+    {
+      "automation_eligibility": "needs_signoff",
+      "change_class": "cost_optimisation",
+      "complexity": "low",
+      "confidence": 0.95,
+      "cost_impact": "unknown",
+      "created_at": "2026-11-05T16:05:14.884809+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "conclusive",
+      "fingerprint": "537c51ce47900614",
+      "fit": "weak",
+      "investigation": {
+        "alternatives": [
+          "Existing paid models defined in TASK_POLICY",
+          "Alternative local inference models evaluated against concrete HQ workloads"
+        ],
+        "confidence": 0.95,
+        "cost_impact": "unknown",
+        "fit_with_hq": "weak",
+        "implementation_effort": "low",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Potential per-call cost reduction if used in place of paid speech-to-text models",
+          "Permissive Apache-2.0 license allowing internal deployment"
+        ],
+        "recommendation": "not_useful",
+        "recommendation_rationale": "The candidate is a specialized Ukrainian Whisper speech-to-text model that does not address HQ's general TASK_POLICY cost/quality tradeoff review. Given the assessed weak fit and prior rejections of similar ideas due to no concrete self-hosted workloads (EVO-0120, EVO-0121), this candidate is not useful for TJR HQ.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0120",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal.",
+            "relationship": "rejected",
+            "relevance_score": 23,
+            "resolution_note": null,
+            "title": "RedHatAI/Qwen2.5-1.5B-quantized.w8a8",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0121",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal.",
+            "relationship": "rejected",
+            "relevance_score": 23,
+            "resolution_note": null,
+            "title": "RedHatAI/granite-3.1-2b-instruct-quantized.w4a16",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0114",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable).",
+            "relationship": "rejected",
+            "relevance_score": 22,
+            "resolution_note": null,
+            "title": "abenzerps/Qwen-Image-2.1-Uncensored-Quantized",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal., EVO-0120); a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal., EVO-0121); and 1 more not shown here",
+        "risks": [
+          "Model is specifically a quantized Ukrainian Whisper speech-to-text model, which does not address the general Model Router cost/quality tradeoff",
+          "HQ lacks a concrete self-hosted workload for this specific language/task model, consistent with prior rejected ideas (EVO-0120, EVO-0121)"
+        ],
+        "why_hq_is_looking_at_this": "HQ is exploring local inference models to determine if tasks routed to paid models under TASK_POLICY can be transitioned to lower per-call costs."
+      },
+      "lifecycle_state": "researching",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0118",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: conclusive; Confidence: 0.95; Risk: low; Automation: needs_signoff; Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 31702, \"likes\": 5, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/Yehor/whisper-large-v3-turbo-quantized-uk",
+          "retrieved_at": "2026-11-09T16:01:14.594756+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": "Auto-rejected at relevance gate: score=0.34 (investigate>=0.5, surface>=0.65)",
+      "relevance_score": 0.58,
+      "risk_level": "low",
+      "run_id": "2026-11-09-160107",
+      "source_finding_id": null,
+      "stage_detail": "investigating",
+      "summary": "Hugging Face model, 31702 downloads, 5 likes, license apache-2.0",
+      "title": "Yehor/whisper-large-v3-turbo-quantized-uk",
+      "updated_at": "2026-11-09T16:05:08.477424+00:00",
+      "validated_at": "2026-11-09T16:01:14.532143+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "medium",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
     {
       "automation_eligibility": "needs_more_evidence",
       "change_class": "cost_optimisation",
