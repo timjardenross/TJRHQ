@@ -1,0 +1,40 @@
+name: Workbench Governance CI
+
+on:
+  pull_request:
+    paths:
+      - "lcars-portal/**"
+      - "docs/LIVE-WORKBENCHES.md"
+      - "tools/check_workbench_registry.py"
+      - "tools/check_notification_senders.py"
+      - "tools/check_config_loaders.py"
+      - ".github/workflows/workbench-governance-ci.yml"
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Active governance checks moved out of the retired LCARS portal workflow.
+# Frontend workbench tests remain path-specific and are handled by the
+# workbench-focused CI policy; these checks protect shared repository rules.
+
+jobs:
+  notification-sender-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 tools/check_notification_senders.py
+
+  config-loader-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 tools/check_config_loaders.py
+
+  workbench-registry-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 tools/check_workbench_registry.py
