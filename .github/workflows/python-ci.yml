@@ -349,6 +349,8 @@ jobs:
   # on main with CI green). Advisory first (#566); the 4 failing tests were fixed
   # in #583, and this job is now a required input to merge-gate.
   root-tests:
+    needs: ci-scope
+    if: needs.ci-scope.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -388,6 +390,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       python: ${{ steps.filter.outputs.python }}
+      workflow: ${{ steps.filter.outputs.workflow }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -406,6 +409,8 @@ jobs:
               - 'requirements*.txt'
               - '**/requirements*.txt'
               - '.pre-commit-config.yaml'
+              - '.github/workflows/**'
+            workflow:
               - '.github/workflows/**'
 
   vulture:
@@ -718,6 +723,8 @@ jobs:
           python3 tools/check_new_secrets.py
 
   actionlint:
+    needs: ci-scope
+    if: needs.ci-scope.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -839,12 +846,14 @@ jobs:
   # decision, by design (unchanged from before this mission).
   merge-gate:
     needs:
-      [changes, actionlint, precommit-secrets, precommit-security, precommit-lint, root-tests, test]
+      [ci-scope, changes, actionlint, precommit-secrets, precommit-security, precommit-lint, root-tests, test]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs succeeded (fail-closed)
         env:
+          R_SCOPE_PYTHON: ${{ needs.ci-scope.outputs.python }}
+          R_SCOPE_WORKFLOW: ${{ needs.ci-scope.outputs.workflow }}
           R_CHANGES: ${{ needs.changes.result }}
           R_ACTIONLINT: ${{ needs.actionlint.result }}
           R_SECRETS: ${{ needs['precommit-secrets'].result }}
@@ -868,11 +877,25 @@ jobs:
           }
 
           check_required "changes" "$R_CHANGES"
-          check_required "actionlint" "$R_ACTIONLINT"
+          if [ "$R_SCOPE_WORKFLOW" = "true" ]; then
+            check_required "actionlint" "$R_ACTIONLINT"
+          elif [ "$R_ACTIONLINT" = "skipped" ]; then
+            echo "Required job 'actionlint': skipped, and proven legitimate (no workflow files changed)"
+          else
+            echo "::error::Required job 'actionlint' was not run despite no workflow scope"
+            fail=1
+          fi
           check_required "precommit-secrets" "$R_SECRETS"
           check_required "precommit-security" "$R_SECURITY"
           check_required "precommit-lint" "$R_LINT"
-          check_required "root-tests" "$R_ROOT_TESTS"
+          if [ "$R_SCOPE_PYTHON" = "true" ]; then
+            check_required "root-tests" "$R_ROOT_TESTS"
+          elif [ "$R_ROOT_TESTS" = "skipped" ]; then
+            echo "Required job 'root-tests': skipped, and proven legitimate (no Python scope changed)"
+          else
+            echo "::error::Required job 'root-tests' was not run despite no Python scope"
+            fail=1
+          fi
 
           # `test` only runs when `changes`' matrix is non-empty (see the
           # `test` job's own `if:`). `success` always passes. `skipped`
