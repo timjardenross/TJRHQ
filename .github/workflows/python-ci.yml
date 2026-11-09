@@ -384,7 +384,33 @@ jobs:
   # `continue-on-error: true` so a finding never blocks merge; read the job
   # output to see what it found. Real findings from the first run are
   # triaged in reports/vulture/.
+  ci-scope:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'core/**'
+              - 'platform-runtime/**'
+              - 'intelligence/**'
+              - 'telegram-bots/**'
+              - 'services/**'
+              - 'tools/**'
+              - '*.py'
+              - '**/*.py'
+              - 'requirements*.txt'
+              - '**/requirements*.txt'
+              - '.pre-commit-config.yaml'
+              - '.github/workflows/**'
+
   vulture:
+    needs: ci-scope
+    if: needs.ci-scope.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -428,6 +454,8 @@ jobs:
   # knowledge/missions/USS-TJR-MSN-0374-stream2-pip-audit-knowledge-record.md
   # for the actual captured finding count from running this for real).
   pip-audit:
+    needs: ci-scope
+    if: needs.ci-scope.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -494,6 +522,8 @@ jobs:
   # reachable from ubuntu-latest) is wired up — not to fake a green result
   # today.
   promptfoo:
+    needs: ci-scope
+    if: needs.ci-scope.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -665,6 +695,8 @@ jobs:
   # instead of a serial step ahead of bandit/ruff-check, so its runtime
   # (whatever it ends up being after the exclude fix) never blocks them.
   detect-secrets-advisory:
+    needs: ci-scope
+    if: needs.ci-scope.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -728,6 +760,8 @@ jobs:
   # product" scope. `permissions: contents: read` (workflow-level, above)
   # is all this job needs — it only reads the checked-out tree.
   semgrep:
+    needs: ci-scope
+    if: needs.ci-scope.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
