@@ -96,13 +96,14 @@ function readExport(filename) {
  */
 router.get('/brief', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:brief';
-  const { value, isStale } = cacheManager.get(cacheKey);
+  const { value, isStale, age } = cacheManager.get(cacheKey);
 
   if (value) {
     const response = successResponse(value, 200, {
       source: isStale ? 'stale_cache' : 'cache',
       cacheKey: cacheKey,
-      dataSource: 'from-cache'
+      dataSource: 'from-cache',
+      cacheAgeSeconds: Math.round(age / 1000)
     });
     return res.json(response);
   }
@@ -127,13 +128,14 @@ router.get('/brief', asyncHandler(async (req, res) => {
  */
 router.get('/queue', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:queue';
-  const { value, isStale } = cacheManager.get(cacheKey);
+  const { value, isStale, age } = cacheManager.get(cacheKey);
 
   if (value) {
     const response = successResponse(value, 200, {
       source: isStale ? 'stale_cache' : 'cache',
       cacheKey: cacheKey,
-      dataSource: 'from-cache'
+      dataSource: 'from-cache',
+      cacheAgeSeconds: Math.round(age / 1000)
     });
     return res.json(response);
   }
@@ -158,10 +160,10 @@ router.get('/queue', asyncHandler(async (req, res) => {
  */
 router.get('/escalations', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:escalations';
-  const { value, isStale } = cacheManager.get(cacheKey);
+  const { value, isStale, age } = cacheManager.get(cacheKey);
 
   if (value) {
-    return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+    return res.json(successResponse(value, 200, { source: 'cache', cacheAgeSeconds: Math.round(age / 1000) }));
   }
 
   // 1. Try Supabase escalations (commander_events with escalate_to_xo)
