@@ -1,6 +1,6 @@
-# Starship Endeavour — LCARS Web Portal
+# Starship Endeavour — Workbench Portal
 
-A **LCARS-style command dashboard** for **USS TJR — Starship Endeavour
+A **workbench command dashboard** for **USS TJR — Starship Endeavour
 (NCC-170230)**, built with **Next.js + React + TypeScript + Tailwind CSS**.
 
 > **Colour (design uplift Stage A, 2026-10-18):** HQ is light by default with dark navy chrome (sidebar, mobile bar). Tokens and their rules are documented at the top of `src/app/globals.css`; every text pairing is checked by `src/__tests__/tokenContrast.test.ts`.
@@ -10,12 +10,12 @@ A **LCARS-style command dashboard** for **USS TJR — Starship Endeavour
 > **2026-09-26 correction:** this README described a pre-activation "Phase 1,
 > placeholder-data-only" state, a port that hasn't been current since
 > 2026-08-11, and dependencies (Dashy, a Slack bot) that have since been
-> fully retired. The portal has been live with real Supabase-backed data on
+> fully retired. The workbench portal has been live with real Supabase-backed data on
 > **`:3200`**, fronted by Caddy, since August/September 2026 — see
 > `USS-TJR-Control/README.md` for the current whole-platform topology. This
 > file is scoped to the portal itself.
 
-For the current, real list of live pages/workbenches, read
+For the current, real list of live workbenches, read
 **`src/lib/workbenches.ts`** — it's the app's own single source of truth
 (both the hub tile grid and the persistent switcher render directly from it),
 not this README. A page's absence from that file means legacy, deprecated,
