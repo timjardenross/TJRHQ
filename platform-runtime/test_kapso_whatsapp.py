@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Offline tests for kapso_whatsapp (no network; transport is injected)."""
 
 import hashlib
@@ -7,6 +6,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from typing import ClassVar
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -46,6 +46,13 @@ class ConfigTests(unittest.TestCase):
         cfg = KapsoConfig.from_env(ENV)
         self.assertNotIn("k_test", repr(cfg))
         self.assertNotIn("whsec", repr(cfg))
+
+    def test_base_url_must_be_https(self):
+        for bad in ("http://api.kapso.ai", "file:///etc/passwd", "ftp://x"):
+            with self.assertRaises(KapsoError):
+                KapsoConfig.from_env({**ENV, "KAPSO_BASE_URL": bad})
+        cfg = KapsoConfig.from_env({**ENV, "KAPSO_BASE_URL": "https://example.test/x/"})
+        self.assertEqual(cfg.base_url, "https://example.test/x")
 
     def test_normalize_e164(self):
         self.assertEqual(normalize_e164("+1 202-519-7256"), "+12025197256")
@@ -91,7 +98,7 @@ class SendTests(unittest.TestCase):
 
 
 class WebhookTests(unittest.TestCase):
-    PAYLOAD = {"object": "whatsapp_business_account", "entry": [{"changes": [{"field": "messages", "value": {
+    PAYLOAD: ClassVar[dict] = {"object": "whatsapp_business_account", "entry": [{"changes": [{"field": "messages", "value": {
         "metadata": {"phone_number_id": "1416769268195536"},
         "contacts": [{"wa_id": "12025550100", "profile": {"name": "Tim"}}],
         "messages": [{"id": "wamid.1", "from": "12025550100", "type": "text",

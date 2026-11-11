@@ -33,8 +33,9 @@ import os
 import re
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class KapsoConfig:
     allowed_recipients: frozenset[str] = frozenset()
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> "KapsoConfig":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> KapsoConfig:
         env = os.environ if env is None else env
         api_key = env.get("KAPSO_API_KEY", "").strip()
         phone_id = env.get("KAPSO_WHATSAPP_PHONE_NUMBER_ID", "").strip()
@@ -77,10 +78,13 @@ class KapsoConfig:
         allow = frozenset(
             normalize_e164(n) for n in env.get("KAPSO_ALLOWED_RECIPIENTS", "").split(",") if n.strip()
         )
+        base_url = env.get("KAPSO_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
+        if not base_url.lower().startswith("https://"):
+            raise KapsoError("KAPSO_BASE_URL must be an https:// URL (it receives the API key)")
         return cls(
             api_key=api_key,
             phone_number_id=phone_id,
-            base_url=env.get("KAPSO_BASE_URL", DEFAULT_BASE_URL).rstrip("/"),
+            base_url=base_url,
             webhook_secret=env.get("KAPSO_WEBHOOK_SECRET", "").strip(),
             allowed_recipients=allow,
         )
@@ -97,7 +101,8 @@ Transport = Callable[[str, str, dict, bytes, float], "tuple[int, bytes]"]
 def _urllib_transport(method: str, url: str, headers: dict, body: bytes, timeout: float):
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - https base URL
+        # base_url is validated as https:// in KapsoConfig, so no file:/custom schemes reach here.
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
