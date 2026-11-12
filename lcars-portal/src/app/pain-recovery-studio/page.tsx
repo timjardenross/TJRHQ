@@ -28,7 +28,7 @@ export default function PainRecoveryStudioPage() {
   useEffect(()=>{fetch('/api/pain-recovery-studio/session').then(r=>r.ok?r.json():null).then(data=>{if(data?.session)setSession(data.session)}).finally(()=>setLoading(false))},[]);
 
   const dayLabel=useMemo(()=>session.chosen_colour ? `${session.chosen_colour} day` : 'Set your day', [session.chosen_colour]);
-  async function save(patch:Partial<Session>) {
+  async function askGuide() {\n    setSaving(true); setMessage('Asking the Studio…');\n    const r=await fetch('/api/pain-recovery-studio/guide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session,user_request:'Guide me through the next step.'})});\n    const data=await r.json();\n    if(data?.response){setSession(s=>({...s,current_action:data.response.next_action||data.response.message,current_stage:data.response.action_type==='safety_card'?'safety_hold':'active',safety_status:data.response.safety_instruction==='show_card'?'safety_hold':s.safety_status}));setMessage(data.source==='gemini'?'Guidance ready':'Safe fallback ready');}\n    else setMessage('Guidance unavailable.');\n    setSaving(false);\n  }\n\n  async function save(patch:Partial<Session>) {
     setSaving(true); setMessage('');
     const next={...session,...patch};
     const r=await fetch('/api/pain-recovery-studio/session',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
@@ -60,7 +60,7 @@ export default function PainRecoveryStudioPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#526b6c]">The next few hours</p>
         <h2 className="mt-2 text-2xl font-serif">{session.current_action || 'Choose one next action'}</h2>
         <p className="mt-2 text-sm text-slate-700">The Studio will keep one action visible, adapt it when energy changes, and never require catch-up.</p>
-        <div className="mt-4 flex gap-2"><button onClick={()=>save({current_action:'Take one small regulating action',current_stage:'active',action_status:'completed'})} className="rounded-xl bg-[#193d46] px-4 py-3 text-sm font-semibold text-white">Done</button><button onClick={()=>save({current_stage:'deferred',action_status:'deferred'})} className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#193d46]">Move later</button></div>
+        <div className="mt-4 flex flex-wrap gap-2"><button onClick={askGuide} className="rounded-xl bg-[#f6e7bd] px-4 py-3 text-sm font-semibold text-[#193d46]">Guide me</button><button onClick={()=>save({current_action:'Take one small regulating action',current_stage:'active',action_status:'completed'})} className="rounded-xl bg-[#193d46] px-4 py-3 text-sm font-semibold text-white">Done</button><button onClick={()=>save({current_stage:'deferred',action_status:'deferred'})} className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#193d46]">Move later</button></div>
       </section>
       <section className="mt-4 rounded-2xl border border-[#d8c6c0] bg-white p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8d3f35]">Safety boundary</p>
