@@ -268,4 +268,11 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     icon: Lightbulb,
     group: 'insights',
   },
-];
+  {
+    href: '/pain-recovery-studio',
+    title: 'Pain Recovery Studio',
+    description: 'Private daily recovery guidance — one state, one next step, and learning from what the day actually cost.',
+    icon: Heart,
+    group: 'personal',
+  },
+];\n
