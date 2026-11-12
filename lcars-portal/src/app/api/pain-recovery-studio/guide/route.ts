@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({error:'Invalid JSON body'},{status:400}); }
 
+  const supabase = await createSupabaseServerClient();
+  const { data: recentHealth } = await supabase.from('health_daily_logs').select('log_date,pain_score,energy,mood,sleep_hours,sleep_quality,nervous_system_state,daily_capacity_score,movement_completed').eq('user_id',user.id).order('log_date',{ascending:false}).limit(3);
   const context = {
     day_state: typeof body.day_state === 'string' ? body.day_state : null,
     current_stage: typeof body.current_stage === 'string' ? body.current_stage : 'morning',
@@ -36,6 +38,7 @@ export async function POST(req: NextRequest) {
     current_action: typeof body.current_action === 'string' ? body.current_action : null,
     adaptation_mode: typeof body.adaptation_mode === 'string' ? body.adaptation_mode : 'standard',
     user_request: typeof body.user_request === 'string' ? body.user_request.slice(0,800) : 'Guide me through the next step.',
+    recent_health_context: recentHealth ?? [],
     safety_boundary: 'The Studio does not diagnose, judge danger, or manage exercise. If something is new, sudden, progressive or concerning, show the general safety boundary.',
   };
   const prompt = `You are the bounded guidance layer for Pain Recovery Studio. Return JSON only with keys message, next_action, choices, action_type, safety_instruction. Give one supportive non-clinical next step. Do not diagnose, call anything normal or harmless, prescribe exercise or medication, or create urgency categories. Respect the user's valued activity and adaptation mode. If the request suggests a new, sudden, progressive or concerning symptom, use action_type "safety_card", safety_instruction "show_card", and no coaching. Allowed action_type values: continue, make_smaller, move_later, pause, reflect, safety_card. Context: ${JSON.stringify(context)}`;
@@ -52,7 +55,6 @@ export async function POST(req: NextRequest) {
     failure_reason=error instanceof Error ? error.message.slice(0,300) : 'router_failure';
   }
 
-  const supabase=await createSupabaseServerClient();
   await supabase.from('pain_recovery_model_interactions').insert({
     user_id:user.id, provider:'gemini-via-model-router', model_name:'gemini-flash-latest',
     task_type:'pain-recovery-guidance', input_context:context, response:result,
