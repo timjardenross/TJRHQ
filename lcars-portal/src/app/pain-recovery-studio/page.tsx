@@ -65,7 +65,7 @@ export default function PainRecoveryStudioPage(){
 
       {stage==='safety_hold'&&<section className="mt-4 rounded-3xl border border-[#d8c6c0] bg-white p-5"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8d3f35]">Safety boundary</p><h2 className="mt-2 font-serif text-3xl">Pause the Studio here.</h2><p className="mt-3 text-sm leading-6 text-slate-700">The Studio does not judge symptoms. If something is new, sudden, progressive or concerning, use your agreed safety card and contact your clinician.</p></section>}
 
-      <div className="mt-5 flex items-center justify-between"><p className="text-xs text-slate-500" aria-live="polite">{saving?'Saving…':message}</p><a href="/pain-recovery-studio/review" className="text-xs font-semibold text-[#698078]">Weekly review</a></div>
+      <div className="mt-5 flex items-center justify-between"><p className="text-xs text-slate-500" aria-live="polite">{saving?'Saving…':message}</p><div className="flex gap-3"><a href="/pain-recovery-studio/recipe" className="text-xs font-semibold text-[#698078]">Pain recipe</a><a href="/pain-recovery-studio/review" className="text-xs font-semibold text-[#698078]">Weekly review</a></div></div>
     </div>
   </main>;
 }
