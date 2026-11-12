@@ -6,7 +6,7 @@ type Stage = 'morning'|'plan'|'active'|'deferred'|'evening'|'safety_hold';
 type Session = {
   session_date:string; day_state:string|null; chosen_colour:string|null; triggers:string[];
   valued_activity:string|null; plan:string|null; current_stage:Stage; current_action:string|null;
-  action_status:string|null; adaptation_mode:string; safety_status:string;
+  action_status:string|null; adaptation_mode:string; safety_status:string; evening_reflection?:Record<string,unknown>; next_day_cost?:number|null; learning_note?:string|null;
 };
 
 const activities=['Dog walking','Creative or music time','Time with another person','A useful task','Being outdoors','Nothing in particular'];
@@ -60,7 +60,7 @@ export default function PainRecoveryStudioPage(){
 
       {stage==='evening'&&<section className="mt-4 rounded-3xl bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#698078]">Evening close</p><h2 className="mt-2 font-serif text-3xl">What did today teach us?</h2><p className="mt-2 text-sm leading-6 text-slate-600">No performance score. Just one useful observation.</p>
-        <div className="mt-5 space-y-2"><button onClick={()=>save({current_action:'Today is complete.',current_stage:'evening'})} className="w-full rounded-2xl border border-[#d8e2dc] p-4 text-left font-semibold">Something helped</button><button onClick={()=>save({current_action:'Today is complete. No catch-up required.',current_stage:'evening'})} className="w-full rounded-2xl border border-[#d8e2dc] p-4 text-left font-semibold">Today was harder than expected</button><button onClick={()=>save({current_action:'Today is complete.',current_stage:'evening'})} className="w-full rounded-2xl border border-[#d8e2dc] p-4 text-left font-semibold">Nothing to add</button></div>
+        <div className="mt-5 space-y-2"><button onClick={()=>save({evening_reflection:{result:'helped'},learning_note:'Something helped today.',current_action:'Today is complete.',current_stage:'evening'})} className="w-full rounded-2xl border border-[#d8e2dc] p-4 text-left font-semibold">Something helped</button><button onClick={()=>save({evening_reflection:{result:'harder'},learning_note:'Today was harder than expected.',current_action:'Today is complete. No catch-up required.',current_stage:'evening'})} className="w-full rounded-2xl border border-[#d8e2dc] p-4 text-left font-semibold">Today was harder than expected</button><button onClick={()=>save({evening_reflection:{result:'preserved'},learning_note:'I preserved something that mattered.',current_action:'Today is complete.',current_stage:'evening'})} className="w-full rounded-2xl border border-[#d8e2dc] p-4 text-left font-semibold">I protected something that mattered</button></div>
       </section>}
 
       {stage==='safety_hold'&&<section className="mt-4 rounded-3xl border border-[#d8c6c0] bg-white p-5"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8d3f35]">Safety boundary</p><h2 className="mt-2 font-serif text-3xl">Pause the Studio here.</h2><p className="mt-3 text-sm leading-6 text-slate-700">The Studio does not judge symptoms. If something is new, sudden, progressive or concerning, use your agreed safety card and contact your clinician.</p></section>}
