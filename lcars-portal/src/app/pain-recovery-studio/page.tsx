@@ -11,6 +11,7 @@ type Session = {
 
 const activities=['Dog walking','Creative or music time','Time with another person','A useful task','Being outdoors','Nothing in particular'];
 const colours=[['Green','I have room for ordinary demand.'],['Amber','Something needs a smaller version today.'],['Red','I am flaring or need the safety boundary.']];
+const activityPlans:Record<string,string>={'Dog walking':'Take the shortest familiar walk that still feels like part of your day.','Creative or music time':'Open the creative activity and spend ten minutes with no performance target.','Time with another person':'Choose one safe person and make a small point of contact.','A useful task':'Choose one visible task and stop after the smallest useful version.','Being outdoors':'Step outside for five minutes and let the setting change.','Nothing in particular':'Protect a quiet block with no demand to achieve anything.'};
 const initial:Session={session_date:'',day_state:null,chosen_colour:null,triggers:[],valued_activity:null,plan:null,current_stage:'morning',current_action:null,action_status:null,adaptation_mode:'standard',safety_status:'general_boundary'};
 
 export default function PainRecoveryStudioPage(){
@@ -49,7 +50,7 @@ export default function PainRecoveryStudioPage(){
 
       {stage==='plan'&&<section className="mt-4 rounded-3xl bg-[#fbf6e9] p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8a6c2e]">What matters today?</p><h2 className="mt-2 font-serif text-3xl">Protect one thing that keeps life in view.</h2><p className="mt-2 text-sm leading-6 text-slate-700">Pick the smallest meaningful version. “Nothing in particular” is allowed.</p>
-        <div className="mt-5 grid grid-cols-2 gap-2">{activities.map(a=><button key={a} onClick={()=>save({valued_activity:a,current_stage:'active'})} className="rounded-2xl border border-[#d9c99e] bg-white px-3 py-4 text-left text-sm font-medium">{a}</button>)}</div>
+        <div className="mt-5 grid grid-cols-2 gap-2">{activities.map(a=><button key={a} onClick={()=>save({valued_activity:a,plan:activityPlans[a],current_action:activityPlans[a],current_stage:'active'})} className="rounded-2xl border border-[#d9c99e] bg-white px-3 py-4 text-left text-sm font-medium">{a}</button>)}</div>
       </section>}
 
       {(stage==='active'||stage==='deferred')&&<section className="mt-4 rounded-3xl bg-[#e1eee9] p-5">
