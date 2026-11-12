@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 type Stage = 'morning'|'plan'|'active'|'deferred'|'evening'|'safety_hold';
 type Session = {
-  session_date:string; day_state:string|null; chosen_colour:string|null; triggers:string[];
+  session_date:string; day_state:string|null; chosen_colour:string|null; triggers:string[]; morning_context?:Record<string,string>;
   valued_activity:string|null; plan:string|null; current_stage:Stage; current_action:string|null;
   action_status:string|null; adaptation_mode:string; safety_status:string; next_check_in_at?:string|null; active_practice?:{title:string;duration:string;steps:string[];revisit:string}|null; practice_step?:number; evening_reflection?:Record<string,unknown>; next_day_cost?:number|null; learning_note?:string|null;
 };
