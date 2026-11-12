@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: recentHealth } = await supabase.from('health_daily_logs').select('log_date,pain_score,energy,mood,sleep_hours,sleep_quality,nervous_system_state,daily_capacity_score,movement_completed').eq('user_id',user.id).order('log_date',{ascending:false}).limit(3);
   const { data: recipe } = await supabase.from('pain_recovery_recipe_ingredients').select('domain,ingredient,direction,controllability,confidence').eq('user_id',user.id).eq('active',true).order('domain').limit(30);
+  const { data: recentSessions } = await supabase.from('pain_recovery_sessions').select('session_date,chosen_colour,valued_activity,evening_reflection,next_day_cost,learning_note').eq('user_id',user.id).order('session_date',{ascending:false}).limit(7);
   const context = {
     day_state: typeof body.day_state === 'string' ? body.day_state : null,
     current_stage: typeof body.current_stage === 'string' ? body.current_stage : 'morning',
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
     user_request: typeof body.user_request === 'string' ? body.user_request.slice(0,800) : 'Guide me through the next step.',
     recent_health_context: recentHealth ?? [],
     personal_pain_recipe: recipe ?? [],
+    recent_learning_loop: recentSessions ?? [],
     safety_boundary: 'The Studio does not diagnose, judge danger, or manage exercise. If something is new, sudden, progressive or concerning, show the general safety boundary.',
     safety_signal_present: isSafetyConcern(typeof body.user_request === 'string' ? body.user_request : ''),
   };
