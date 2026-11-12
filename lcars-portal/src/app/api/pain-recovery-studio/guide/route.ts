@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     valued_activity: typeof body.valued_activity === 'string' ? body.valued_activity : null,
     plan: typeof body.plan === 'string' ? body.plan : null,
     current_action: typeof body.current_action === 'string' ? body.current_action : null,
+    morning_context: body.morning_context && typeof body.morning_context === 'object' ? body.morning_context : {},
     adaptation_mode: typeof body.adaptation_mode === 'string' ? body.adaptation_mode : 'standard',
     user_request: typeof body.user_request === 'string' ? body.user_request.slice(0,800) : 'Guide me through the next step.',
     recent_health_context: recentHealth ?? [],
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     authored_practice_options: practiceLibrary,
     safety_boundary: 'The Studio does not diagnose, judge danger, or manage exercise. If something is new, sudden, progressive or concerning, show the general safety boundary.',
     safety_signal_present: isSafetyConcern(typeof body.user_request === 'string' ? body.user_request : ''),
+    guidance_authority: 'Peter manages exercise. The safety card and clinician-approved boundaries outrank coaching. The Studio does not diagnose.',
   };
   const prompt = `You are the active day-guide inside Pain Recovery Studio. Return JSON only with keys message, next_action, choices, action_type, safety_instruction, practice. practice must be null for safety_card; otherwise include title, duration, 1 to 4 short steps, and revisit. Help the person do one useful, concrete next thing in the next few hours. Use their chosen colour, valued activity, current stage, adaptation mode, recent health context, and personal pain recipe. Explain the fit in one short sentence, then give one observable action and a gentle revisit point. Give no more than three choices. Choose from this intervention menu when appropriate: (1) settle the alarm: two minutes of easy, unforced breathing with a slightly longer exhale; (2) change the setting: step outside or change rooms for five minutes; (3) reconnect: send one low-pressure message or spend five minutes with a safe person; (4) reduce load: remove, delegate, or postpone one non-essential demand; (5) catch-check-change: name one frightening prediction, check whether it is fact or fear, and write a more useful version; (6) valued action: do the smallest version of the chosen activity. Never diagnose, say normal or harmless, prescribe exercise or medication, or invent urgency categories. Do not ask a long questionnaire. For Amber, reduce scope while preserving life; for Red or a safety signal, stop coaching and show the safety card. The person should be able to act after reading your response. Allowed action_type values: continue, make_smaller, move_later, pause, reflect, safety_card. Context: ${JSON.stringify(context)}`;
 
