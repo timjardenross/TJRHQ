@@ -7,11 +7,11 @@ function parseModelResponse(value: unknown) {
   const raw = typeof value === 'string' ? value : JSON.stringify(value ?? '');
   const fenced = raw.match(/\{[\s\S]*\}/)?.[0] ?? raw;
   try {
-    const parsed = JSON.parse(fenced);
+    const parsed: Record<string, unknown> = JSON.parse(fenced);
     return {
       message: typeof parsed.message === 'string' ? parsed.message.slice(0,1200) : 'Keep the next step small and possible.',
       next_action: typeof parsed.next_action === 'string' ? parsed.next_action.slice(0,400) : null,
-      choices: Array.isArray(parsed.choices) ? parsed.choices.filter((x): x is string => typeof x === 'string').slice(0,3) : [],
+      choices: Array.isArray(parsed.choices) ? parsed.choices.filter((x: unknown): x is string => typeof x === 'string').slice(0,3) : [],
       action_type: normaliseAction(parsed.action_type),
       safety_instruction: parsed.safety_instruction === 'show_card' ? 'show_card' : 'none',
     };
