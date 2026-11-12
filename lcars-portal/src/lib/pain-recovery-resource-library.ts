@@ -1,0 +1,7 @@
+export const resourceLibrary=[
+ {id:'pacing',domain:'biological',title:'Pacing and goal setting',source:'painHEALTH, University of Western Australia',url:'https://painhealth.csse.uwa.edu.au/pain-module/pacing-and-goal-setting/',use:'Use when the day is overfull or you are planning a valued activity.'},
+ {id:'supported-self-care',domain:'whole-person',title:'Supported self-care for persistent pain',source:'Painaustralia',url:'https://www.painaustralia.org.au/find-support/getting-the-right-care-1/supported-self-care',use:'Use for a broad overview of active, multidisciplinary self-management.'},
+ {id:'modern-pain-care',domain:'whole-person',title:'Modern pain care',source:'Painaustralia',url:'https://www.painaustralia.org.au/find-support/getting-the-right-care-1/modern-pain-care',use:'Use when you want to understand the whole-person approach.'},
+ {id:'iasp-living',domain:'social',title:'Living with pain resources',source:'International Association for the Study of Pain',url:'https://www.iasp-pain.org/resources/living-with-pain/',use:'Use when you want trusted education or peer-support options.'},
+ {id:'iasp-chronic',domain:'education',title:'Chronic pain education',source:'International Association for the Study of Pain',url:'https://www.iasp-pain.org/resources/topics/chronic-pain/',use:'Use when a short learning resource would help.'}
+] as const;
