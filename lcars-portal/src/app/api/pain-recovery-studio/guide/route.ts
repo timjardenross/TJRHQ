@@ -75,6 +75,8 @@ export async function POST(req: NextRequest) {
       current_action: result.next_action ?? result.message,
       current_stage: stageForAction(result.action_type),
       safety_status: result.safety_instruction === 'show_card' ? 'safety_hold' : 'general_boundary',
+      active_practice: result.practice,
+      practice_step: 0,
     }).eq('id',currentSession.id).eq('user_id',user.id);
   }
   return NextResponse.json({response:result,source:success?'gemini':'safe_fallback',success});
