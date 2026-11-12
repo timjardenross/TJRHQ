@@ -56,7 +56,16 @@ export async function POST(req: NextRequest) {
   await supabase.from('pain_recovery_model_interactions').insert({
     user_id:user.id, provider:'gemini-via-model-router', model_name:'gemini-flash-latest',
     task_type:'pain-recovery-guidance', input_context:context, response:result,
-    latency_ms:Date.now()-started, success, failure_reason:null ?? failure_reason,
+    latency_ms:Date.now()-started, success, failure_reason:failure_reason ?? null,
   });
+  const sessionDate = new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne'}).format(new Date());
+  const { data: currentSession } = await supabase.from('pain_recovery_sessions').select('id').eq('user_id',user.id).eq('session_date',sessionDate).maybeSingle();
+  if (currentSession?.id) {
+    await supabase.from('pain_recovery_sessions').update({
+      current_action: result.next_action ?? result.message,
+      current_stage: result.action_type === 'safety_card' ? 'safety_hold' : 'active',
+      safety_status: result.safety_instruction === 'show_card' ? 'safety_hold' : 'general_boundary',
+    }).eq('id',currentSession.id).eq('user_id',user.id);
+  }
   return NextResponse.json({response:result,source:success?'gemini':'safe_fallback',success});
 }
