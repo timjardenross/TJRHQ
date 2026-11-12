@@ -5,7 +5,7 @@ export async function GET() {
   const user = await requireValidatedUser();
   if (!user) return NextResponse.json({error:'Unauthorized'},{status:401});
   const supabase = await createSupabaseServerClient();
-  const date = new Date().toLocaleDateString('en-CA');
+  const date = new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne'}).format(new Date());
   const {data,error}=await supabase.from('pain_recovery_sessions').select('*').eq('user_id',user.id).eq('session_date',date).maybeSingle();
   if(error)return NextResponse.json({error:error.message},{status:500});
   return NextResponse.json({session:data||{session_date:date,current_stage:'morning',adaptation_mode:'standard',safety_status:'general_boundary',triggers:[]}});
