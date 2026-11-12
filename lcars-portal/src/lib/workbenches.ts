@@ -275,4 +275,4 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     icon: Heart,
     group: 'personal',
   },
-];\n
+];
