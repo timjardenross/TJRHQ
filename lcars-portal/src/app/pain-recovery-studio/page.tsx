@@ -28,7 +28,16 @@ export default function PainRecoveryStudioPage() {
   useEffect(()=>{fetch('/api/pain-recovery-studio/session').then(r=>r.ok?r.json():null).then(data=>{if(data?.session)setSession(data.session)}).finally(()=>setLoading(false))},[]);
 
   const dayLabel=useMemo(()=>session.chosen_colour ? `${session.chosen_colour} day` : 'Set your day', [session.chosen_colour]);
-  async function askGuide() {\n    setSaving(true); setMessage('Asking the Studio…');\n    const r=await fetch('/api/pain-recovery-studio/guide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session,user_request:'Guide me through the next step.'})});\n    const data=await r.json();\n    if(data?.response){setSession(s=>({...s,current_action:data.response.next_action||data.response.message,current_stage:data.response.action_type==='safety_card'?'safety_hold':'active',safety_status:data.response.safety_instruction==='show_card'?'safety_hold':s.safety_status}));setMessage(data.source==='gemini'?'Guidance ready':'Safe fallback ready');}\n    else setMessage('Guidance unavailable.');\n    setSaving(false);\n  }\n\n  async function save(patch:Partial<Session>) {
+  async function askGuide() {
+    setSaving(true); setMessage('Asking the Studio…');
+    const r=await fetch('/api/pain-recovery-studio/guide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session,user_request:'Guide me through the next step.'})});
+    const data=await r.json();
+    if(data?.response){setSession(s=>({...s,current_action:data.response.next_action||data.response.message,current_stage:data.response.action_type==='safety_card'?'safety_hold':'active',safety_status:data.response.safety_instruction==='show_card'?'safety_hold':s.safety_status}));setMessage(data.source==='gemini'?'Guidance ready':'Safe fallback ready');}
+    else setMessage('Guidance unavailable.');
+    setSaving(false);
+  }
+
+  async function save(patch:Partial<Session>) {
     setSaving(true); setMessage('');
     const next={...session,...patch};
     const r=await fetch('/api/pain-recovery-studio/session',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
