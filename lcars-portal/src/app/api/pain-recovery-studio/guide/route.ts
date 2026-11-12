@@ -3,6 +3,7 @@ import { createSupabaseServerClient, requireValidatedUser } from '@/lib/supabase
 import { normaliseAction, stageForAction, isSafetyConcern } from '@/lib/pain-recovery-studio-guards';
 
 const ROUTER_BASE = process.env.MODEL_ROUTER_URL ?? 'http://127.0.0.1:8891';
+type GuidanceResponse = {message:string; next_action:string|null; choices:string[]; action_type:string; safety_instruction:string};
 function parseModelResponse(value: unknown) {
   const raw = typeof value === 'string' ? value : JSON.stringify(value ?? '');
   const fenced = raw.match(/\{[\s\S]*\}/)?.[0] ?? raw;
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   };
   const prompt = `You are the bounded guidance layer for Pain Recovery Studio. Return JSON only with keys message, next_action, choices, action_type, safety_instruction. Give one supportive non-clinical next step. Do not diagnose, call anything normal or harmless, prescribe exercise or medication, or create urgency categories. Respect the user's valued activity and adaptation mode. If the request suggests a new, sudden, progressive or concerning symptom, use action_type "safety_card", safety_instruction "show_card", and no coaching. Allowed action_type values: continue, make_smaller, move_later, pause, reflect, safety_card. Context: ${JSON.stringify(context)}`;
 
-  let result={message:'Keep the next step small and possible.',next_action:null,choices:[],action_type:'continue',safety_instruction:'none'};
+  let result: GuidanceResponse={message:'Keep the next step small and possible.',next_action:null,choices:[],action_type:'continue',safety_instruction:'none'};
   let success=false; let failure_reason:string|undefined;
   try {
     const res=await fetch(`${ROUTER_BASE}/api/model/intelligence-brief`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt}),signal:AbortSignal.timeout(35000)});
