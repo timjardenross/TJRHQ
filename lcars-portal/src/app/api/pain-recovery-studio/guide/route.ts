@@ -19,7 +19,7 @@ function parseModelResponse(value: unknown) {
       practice: parsed.practice && typeof parsed.practice === 'object' ? {title:typeof (parsed.practice as Record<string,unknown>).title==='string'?(parsed.practice as Record<string,unknown>).title:'One small practice',duration:typeof (parsed.practice as Record<string,unknown>).duration==='string'?(parsed.practice as Record<string,unknown>).duration:'2 minutes',steps:Array.isArray((parsed.practice as Record<string,unknown>).steps)?(parsed.practice as Record<string,unknown>).steps.filter((x:unknown):x is string=>typeof x==='string').slice(0,4):[],revisit:typeof (parsed.practice as Record<string,unknown>).revisit==='string'?(parsed.practice as Record<string,unknown>).revisit:'Notice what changed.'}:null,
     };
   } catch {
-    return {message:'Keep the next step small and possible.',next_action:null,choices:[],action_type:'continue',safety_instruction:'none'};
+    return {message:'Keep the next step small and possible.',next_action:null,choices:[],action_type:'continue',safety_instruction:'none',practice:null};
   }
 }
 
