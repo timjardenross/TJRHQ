@@ -31,9 +31,11 @@ export default function PainRecoveryStudioPage(){
   function listen(text:string){if(typeof window!=='undefined'&&'speechSynthesis' in window){window.speechSynthesis.cancel();window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));}}
   async function askGuide(request='Guide me through the next step.'){
     setSaving(true);setMessage('Thinking with you…');
-    const r=await fetch('/api/pain-recovery-studio/guide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session,user_request:request})});
-    const d=await r.json();
-    if(d?.response){setGuideText(d.response.message||'');setGuideChoices(d.response.choices||[]);setPractice(d.response.practice||null);setPracticeStep(0);setSession(s=>({...s,current_action:d.response.next_action||d.response.message,current_stage:d.response.action_type==='safety_card'?'safety_hold':'active',safety_status:d.response.safety_instruction==='show_card'?'safety_hold':s.safety_status}));setMessage(d.source==='gemini'?'Guidance ready':'Safe fallback ready');}else setMessage('Guidance unavailable.');
+    try {
+      const r=await fetch('/api/pain-recovery-studio/guide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session,user_request:request})});
+      const d=await r.json();
+      if(d?.response){setGuideText(d.response.message||'');setGuideChoices(d.response.choices||[]);setPractice(d.response.practice||null);setPracticeStep(0);setSession(s=>({...s,current_action:d.response.next_action||d.response.message,current_stage:d.response.action_type==='safety_card'?'safety_hold':'active',safety_status:d.response.safety_instruction==='show_card'?'safety_hold':s.safety_status}));setMessage(d.source==='gemini'?'Guidance ready':'Safe fallback ready');}else setMessage('Guidance unavailable.');
+    } catch { setMessage('Guidance is unavailable right now. Your saved day is still safe.'); }
     setSaving(false);
   }
   if(loading)return <main className="min-h-screen bg-[#f4f7f3] p-6 text-[#193d46]">Loading your Studio…</main>;
