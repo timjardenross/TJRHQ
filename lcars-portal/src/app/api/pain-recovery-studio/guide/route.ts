@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireValidatedUser } from '@/lib/supabase-server';
 import { normaliseAction, stageForAction, isSafetyConcern } from '@/lib/pain-recovery-studio-guards';
+import { practiceLibrary } from '@/lib/pain-recovery-practice-library';
 
 const ROUTER_BASE = process.env.MODEL_ROUTER_URL ?? 'http://127.0.0.1:8891';
 type GuidanceResponse = {message:string; next_action:string|null; choices:string[]; action_type:string; safety_instruction:string; practice:{title:string;duration:string;steps:string[];revisit:string}|null};
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
     recent_health_context: recentHealth ?? [],
     personal_pain_recipe: recipe ?? [],
     recent_learning_loop: recentSessions ?? [],
+    authored_practice_options: practiceLibrary,
     safety_boundary: 'The Studio does not diagnose, judge danger, or manage exercise. If something is new, sudden, progressive or concerning, show the general safety boundary.',
     safety_signal_present: isSafetyConcern(typeof body.user_request === 'string' ? body.user_request : ''),
   };
