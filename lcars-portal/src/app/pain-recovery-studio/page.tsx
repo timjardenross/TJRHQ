@@ -17,7 +17,7 @@ export default function PainRecoveryStudioPage(){
   const [session,setSession]=useState<Session>(initial);
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false); const [message,setMessage]=useState('');
   useEffect(()=>{fetch('/api/pain-recovery-studio/session').then(r=>r.ok?r.json():null).then(d=>{if(d?.session)setSession(d.session)}).finally(()=>setLoading(false))},[]);
-  const dayLabel=useMemo(()=>session.chosen_colour?\`\${session.chosen_colour} day\`:'Morning check-in',[session.chosen_colour]);
+  const dayLabel=useMemo(()=>session.chosen_colour?`${session.chosen_colour} day`:'Morning check-in',[session.chosen_colour]);
   async function save(patch:Partial<Session>){
     setSaving(true);setMessage('');
     const r=await fetch('/api/pain-recovery-studio/session',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session,...patch})});
