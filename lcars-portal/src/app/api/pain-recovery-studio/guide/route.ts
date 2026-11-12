@@ -9,7 +9,7 @@ function parseModelResponse(value: unknown) {
   const raw = typeof value === 'string' ? value : JSON.stringify(value ?? '');
   const fenced = raw.match(/\{[\s\S]*\}/)?.[0] ?? raw;
   try {
-    const parsed: Record<string, unknown> = JSON.parse(fenced);
+    const parsed: any = JSON.parse(fenced);
     return {
       message: typeof parsed.message === 'string' ? parsed.message.slice(0,1200) : 'Keep the next step small and possible.',
       next_action: typeof parsed.next_action === 'string' ? parsed.next_action.slice(0,400) : null,
