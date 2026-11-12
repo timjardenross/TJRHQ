@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireValidatedUser } from '@/lib/supabase-server';
+import { normaliseAction, stageForAction, isSafetyConcern } from '@/lib/pain-recovery-studio-guards';
 
 const ROUTER_BASE = process.env.MODEL_ROUTER_URL ?? 'http://127.0.0.1:8891';
-const ALLOWED = new Set(['continue','make_smaller','move_later','pause','reflect','safety_card']);
-
 function parseModelResponse(value: unknown) {
   const raw = typeof value === 'string' ? value : JSON.stringify(value ?? '');
   const fenced = raw.match(/\{[\s\S]*\}/)?.[0] ?? raw;
@@ -13,7 +12,7 @@ function parseModelResponse(value: unknown) {
       message: typeof parsed.message === 'string' ? parsed.message.slice(0,1200) : 'Keep the next step small and possible.',
       next_action: typeof parsed.next_action === 'string' ? parsed.next_action.slice(0,400) : null,
       choices: Array.isArray(parsed.choices) ? parsed.choices.filter((x): x is string => typeof x === 'string').slice(0,3) : [],
-      action_type: ALLOWED.has(parsed.action_type) ? parsed.action_type : 'continue',
+      action_type: normaliseAction(parsed.action_type),
       safety_instruction: parsed.safety_instruction === 'show_card' ? 'show_card' : 'none',
     };
   } catch {
@@ -40,6 +39,7 @@ export async function POST(req: NextRequest) {
     user_request: typeof body.user_request === 'string' ? body.user_request.slice(0,800) : 'Guide me through the next step.',
     recent_health_context: recentHealth ?? [],
     safety_boundary: 'The Studio does not diagnose, judge danger, or manage exercise. If something is new, sudden, progressive or concerning, show the general safety boundary.',
+    safety_signal_present: isSafetyConcern(typeof body.user_request === 'string' ? body.user_request : ''),
   };
   const prompt = `You are the bounded guidance layer for Pain Recovery Studio. Return JSON only with keys message, next_action, choices, action_type, safety_instruction. Give one supportive non-clinical next step. Do not diagnose, call anything normal or harmless, prescribe exercise or medication, or create urgency categories. Respect the user's valued activity and adaptation mode. If the request suggests a new, sudden, progressive or concerning symptom, use action_type "safety_card", safety_instruction "show_card", and no coaching. Allowed action_type values: continue, make_smaller, move_later, pause, reflect, safety_card. Context: ${JSON.stringify(context)}`;
 
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   if (currentSession?.id) {
     await supabase.from('pain_recovery_sessions').update({
       current_action: result.next_action ?? result.message,
-      current_stage: result.action_type === 'safety_card' ? 'safety_hold' : 'active',
+      current_stage: stageForAction(result.action_type),
       safety_status: result.safety_instruction === 'show_card' ? 'safety_hold' : 'general_boundary',
     }).eq('id',currentSession.id).eq('user_id',user.id);
   }
