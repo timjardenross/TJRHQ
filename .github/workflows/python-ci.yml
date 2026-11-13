@@ -733,7 +733,7 @@ jobs:
       # Stream E's scorecard.yml too once/if it lands, without hardcoding
       # a filename here.
       - name: Install Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: "1.24"
 
