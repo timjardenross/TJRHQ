@@ -58,3 +58,6 @@ Group 1 is not complete until:
 ## Safety boundary
 
 The Studio does not diagnose, judge danger, prescribe exercise or medication, or replace clinician advice. Peter remains the exercise authority. New, sudden, progressive or concerning symptoms must route to the agreed safety boundary.
+
+
+Deployment verification: build syntax repaired in the Studio client page.
