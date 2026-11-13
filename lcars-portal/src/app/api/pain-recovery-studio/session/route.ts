@@ -23,6 +23,6 @@ export async function PUT(request: Request) {
   const supabase = await createSupabaseServerClient();
   const {data,error}=await supabase.from('pain_recovery_sessions').upsert({user_id:user.id,session_date:date,...patch},{onConflict:'user_id,session_date'}).select('*').single();
   if(error)return NextResponse.json({error:error.message},{status:500});
-  await supabase.from('pain_recovery_events').insert({user_id:user.id,session_id:data.id,event_type:'session_updated',payload:patch});
+  void supabase.from('pain_recovery_events').insert({user_id:user.id,session_id:data.id,event_type:'session_updated',payload:patch});
   return NextResponse.json({session:data});
 }
