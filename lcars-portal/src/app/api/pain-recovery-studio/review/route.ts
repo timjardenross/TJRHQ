@@ -12,7 +12,7 @@ export async function GET(){
   const user=await requireValidatedUser(); if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
   const supabase=await createSupabaseServerClient(); const start=weekStart();
   const {data:review}=await supabase.from('pain_recovery_reviews').select('*').eq('user_id',user.id).eq('week_start',start).maybeSingle();
-  const {data:sessions}=await supabase.from('pain_recovery_sessions').select('session_date,chosen_colour,current_stage,action_status,valued_activity').eq('user_id',user.id).gte('session_date',start).order('session_date');
+  const {data:sessions}=await supabase.from('pain_recovery_sessions').select('session_date,chosen_colour,current_stage,action_status,valued_activity,learning_note,next_day_cost').eq('user_id',user.id).gte('session_date',start).order('session_date');
   return NextResponse.json({week_start:start,review,sessions:sessions??[]});
 }
 export async function POST(req:Request){
