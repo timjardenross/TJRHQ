@@ -1,0 +1,107 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and TODO markers in research commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO marker indicating deferred Phase 5 authorization checking via Supabase",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_command.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "TODO markers indicating unimplemented Phase 5 integration with memory subsystems",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_command.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement Phase 5 Supabase authorization checks and memory integration, or track via explicit issue backlog."
+      },
+      "expected_benefit": "Eliminates placeholder logic and ensures proper authorization and persistence in research commands.",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented query in quality forecasting module",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Empty list assigned with TODO comment to query quality_anomalies table",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement the query against the quality_anomalies table in quality_forecasting.py."
+      },
+      "expected_benefit": "Ensures quality anomaly forecasting accurately reflects historical anomaly data.",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.90; Risk: low; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router status reports log_file at /opt/starship-endeavour/core/model-router/call_log.jsonl, but call_log_exists is false",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Configure or initialize the router call log path and ensure write permissions for telemetry collection."
+      },
+      "expected_benefit": "Restores visibility and historical telemetry logging for LLM router calls.",
+      "finding_id": "FND-003",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct API calls to external LLM providers bypassing model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Emergency alert feed makes direct call_gemini using GEMINI_API_KEY instead of routing through model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_feed.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Emergency alert feed makes direct call_mistral using MISTRAL_API_KEY instead of routing through model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_feed.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM synthesis requests through the model router service to preserve centralized routing policy and audit logging."
+      },
+      "expected_benefit": "Ensures centralized model routing policy, observability, and fallback handling for emergency alert feeds.",
+      "finding_id": "FND-004",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Router bypasses must be corrected by design review"
+    }
+  ],
+  "errors": []
+}
