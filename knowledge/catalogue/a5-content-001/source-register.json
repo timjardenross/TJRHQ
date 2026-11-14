@@ -1,0 +1,376 @@
+{
+  "mission": "USS-TJR-MSN-0511 / A5-CONTENT-001",
+  "work_package": "WP1 (in progress)",
+  "as_of": "2026-11-14",
+  "method": "Channel/library landing pages fetched and read. Verified = identity/self-description/licence text seen on the page. Qualifications, video-level content, transcripts and embed permissions NOT yet checked (unknown).",
+  "sources": [
+    {
+      "source_id": "SOURCE-001",
+      "nominated_url": "https://www.youtube.com/@talkintherapy",
+      "verified_name": "2 Dudes Talkin' Therapy",
+      "channel_id": "UC6TcRjojE3q9GZh84FW0VIw",
+      "subscribers": "15.6K",
+      "verified_identity": "channel resolves; description not exposed on page",
+      "qualifications": "unknown",
+      "flags": [
+        "Presenters' credentials not yet verified"
+      ],
+      "disposition": "discovered",
+      "next": "Read About page/playlists; confirm presenter credentials and pain relevance"
+    },
+    {
+      "source_id": "SOURCE-002",
+      "nominated_url": "https://www.youtube.com/@DougsDharma",
+      "verified_name": "Doug's Dharma (@DougsDharma)",
+      "channel_id": "UCPIyEJzvW7SsbiIrooixjNA",
+      "verified_identity": "Self-described: early Buddhist teachings, secular perspective; PhD in philosophy, scholarly publications in Buddhist Studies, Zen practice (per channel description)",
+      "flags": [
+        "Philosophical teaching, not clinical",
+        "Small channel; most content likely not pain-specific"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "13 Buddhist psychology and suffering",
+      "next": "Enumerate videos on suffering/acceptance; tag content_classification=philosophical_teaching",
+      "channel_id_correction": "Corrected 2026-11-14 from UC8HnYof8CejuOkLsr86EjRQ (earlier ID taken from a loose page match, wrong). Verified against page canonical URL.",
+      "note": "Old ID UC8HnYof8CejuOkLsr86EjRQ is 'Diggin' the Dharma' (a different channel, 53 videos), reviewed separately by yt-a and labelled in creator.",
+      "subscribers_unverified": "423 subscribers",
+      "subscribers": null,
+      "subscribers_note": "Earlier page extraction was unreliable (matched the wrong channel on some pages); not used. yt-a reports ~134K for Doug's Dharma (unverified)."
+    },
+    {
+      "source_id": "SOURCE-003",
+      "nominated_url": "https://www.youtube.com/@thepsychdoctormd",
+      "verified_name": "Sasha Hamdani MD",
+      "channel_id": "UCXt28Zhpt1ijpMsuOBbHIbQ",
+      "subscribers": "1.6K (as shown; lower than expected, recheck)",
+      "verified_identity": "Self-described board-certified psychiatrist and ADHD clinical specialist",
+      "flags": [
+        "Content focus is ADHD/mental health, not chronic pain",
+        "Subscriber count looks odd; confirm this is the intended channel"
+      ],
+      "disposition": "removed_by_captain",
+      "next": "None: excluded from catalogue (Captain decision 2026-11-14)"
+    },
+    {
+      "source_id": "SOURCE-004",
+      "nominated_url": "https://www.youtube.com/@TrevorCarroll",
+      "verified_name": "Trevor Carroll",
+      "channel_id": "UCd03vq1YNVjWuw7I68gdcSQ",
+      "subscribers": "43.9K",
+      "verified_identity": "Self-described late-diagnosed autistic creator sharing neurodivergent lived experience, fitness, nature, music",
+      "flags": [
+        "Lived experience, not clinical",
+        "Pain relevance unverified"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "lived experience only",
+      "next": "Check for chronic-pain/fatigue videos; otherwise reject as off-scope"
+    },
+    {
+      "source_id": "SOURCE-005",
+      "nominated_url": "https://www.youtube.com/@HealthyGamerGG",
+      "verified_name": "HealthyGamerGG",
+      "channel_id": "UClHVl2N3jPEbkNJVx-ItQIQ",
+      "verified_identity": "Content, coaching and community from Dr. K (healthygamer.gg)",
+      "flags": [
+        "Commercial coaching/community offering linked; check no paywall gating on approved items",
+        "Mental-health education; pain relevance limited"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "emotional regulation, mindfulness, values",
+      "next": "Verify Dr. K's credentials from channel/site; shortlist relevant videos",
+      "channel_id_correction": "Corrected 2026-11-14 from UCrGYoowsH-aKfSCM5TOzAsA (earlier ID taken from a loose page match, wrong). Verified against page canonical URL.",
+      "subscribers_unverified": "6.23M subscribers",
+      "subscribers": null,
+      "subscribers_note": "Earlier page extraction was unreliable (matched the wrong channel on some pages); not used. yt-a reports ~134K for Doug's Dharma (unverified)."
+    },
+    {
+      "source_id": "SOURCE-006",
+      "nominated_url": "https://www.youtube.com/@byebyepanic",
+      "verified_name": "Shaan Kassam",
+      "channel_id": "UC7EkQ8IjIPbJRgBryWHTDeg",
+      "subscribers": "100K",
+      "verified_identity": "Self-described panic/anxiety recovery creator (lived experience of panic disorder and agoraphobia); explicitly contrasts with 'traditional therapy'",
+      "flags": [
+        "Lived experience, not shown as a clinician",
+        "Pain relevance indirect (anxiety, hypervigilance)",
+        "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information."
+      ],
+      "disposition": "included_by_captain",
+      "topic_fit": "6 Pain-related fear and hypervigilance; 7 Emotional regulation and anxiety",
+      "next": "Enumerate and catalogue all relevant videos"
+    },
+    {
+      "source_id": "SOURCE-007",
+      "nominated_url": "https://www.youtube.com/@DrAlexHeyne",
+      "verified_name": "Dr. Alex Heyne - Acupuncture and Chinese Medicine",
+      "channel_id": "UCC3f6x4z_1SUQ0nvBGC55Hw",
+      "verified_identity": "Self-described Doctor of Traditional Chinese Medicine, licensed acupuncturist, author of 'Master the Day'",
+      "flags": [
+        "Traditional Chinese Medicine: not within the brief's clinically supported interventions; emerging/alternative category",
+        "Check for cure or unsupported clinical claims",
+        "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information."
+      ],
+      "disposition": "included_by_captain",
+      "next": "Enumerate and catalogue all relevant videos",
+      "channel_id_correction": "Corrected 2026-11-14 from UCix7wE05YbRdOVUPNHy0KTg (earlier ID taken from a loose page match, wrong). Verified against page canonical URL.",
+      "subscribers_unverified": "425K subscribers",
+      "subscribers": null,
+      "subscribers_note": "Earlier page extraction was unreliable (matched the wrong channel on some pages); not used. yt-a reports ~134K for Doug's Dharma (unverified)."
+    },
+    {
+      "source_id": "SOURCE-008",
+      "nominated_url": "https://www.youtube.com/@StanfordHospital",
+      "verified_name": "Stanford Health Care",
+      "channel_id": "UCl_mlar6gQ3z94OLr7YPkbA",
+      "subscribers": "198K",
+      "verified_identity": "Institutional hospital channel (Stanford Health Care)",
+      "flags": [
+        "General hospital content; pain-specific videos need filtering"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "1 Understanding persistent pain; 16 Interdisciplinary care",
+      "next": "Search channel for pain management/pain psychology playlists"
+    },
+    {
+      "source_id": "SOURCE-009",
+      "nominated_url": "https://www.youtube.com/channel/UCy-3MUXkovGrm4kp43V78bQ",
+      "verified_name": "KODEN OBSCURE",
+      "channel_id": "UCy-3MUXkovGrm4kp43V78bQ",
+      "subscribers": "172K",
+      "verified_identity": "Creator Hiroto Takana, Japan-based; Japanese folklore/obscure-topics style channel",
+      "flags": [
+        "LIKELY WRONG CHANNEL: no apparent link to chronic pain or recovery",
+        "Needs Captain confirmation that this ID is the intended nomination"
+      ],
+      "disposition": "removed_by_captain",
+      "next": "None: excluded from catalogue (Captain decision 2026-11-14)"
+    },
+    {
+      "source_id": "SOURCE-010",
+      "nominated_url": "https://www.youtube.com/@BuddhismPodcast",
+      "verified_name": "Buddhism Podcast",
+      "channel_id": "UCvbnkuXGIDJW8aCI0M9u1CA",
+      "subscribers": "76.1K",
+      "verified_identity": "Self-described Buddhist teaching/philosophy channel for inner peace and mindful living",
+      "flags": [
+        "Philosophical teaching, not clinical",
+        "Presenter credentials not yet verified"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "13 Buddhist psychology and suffering",
+      "next": "Verify presenter; shortlist suffering/acceptance talks"
+    },
+    {
+      "source_id": "SOURCE-011",
+      "name": "Free Mindfulness Project",
+      "url": "https://www.freemindfulness.org/download",
+      "platform": "web/mp3",
+      "access": "public, no login seen",
+      "licence_text_seen": "Guided meditations are protected by a Creative Commons licence: free to download and distribute non-commercially; credit original sources.",
+      "licence_specific_variant": "Page footer: CC BY-NC-SA 3.0 Unported. Top of page: \"a creative commons licence\" (no variant). Recordings are contributed by other organisations whose own terms may be stricter.",
+      "mp3_links_in_static_html": 32,
+      "flags": [
+        "MP3 links not in static HTML; page likely script-driven or a web app: need another way to enumerate"
+      ],
+      "disposition": "discovered",
+      "next": "32 recordings inventoried. Check per-item variant at contributors; test no-login playback; resolve probable duplicates with UCLA/UCSD/Breathworks.",
+      "hosting": "Google Drive links (not self-hosted), so link-only delivery unless a native player is later permitted"
+    },
+    {
+      "source_id": "SOURCE-012",
+      "name": "UCSD Center for Mindfulness - Guided Audio",
+      "url": "https://cih.ucsd.edu/mindfulness/guided-audio",
+      "access": "public listing; page shows a Log in link (not shown to be required for audio)",
+      "mp3_links_in_static_html": 24,
+      "licence_text_seen": "none found in static page",
+      "flags": [
+        "Reuse/embed terms unknown: do not host copies until verified"
+      ],
+      "disposition": "discovered",
+      "next": "Find terms of use; test audio plays without login"
+    },
+    {
+      "source_id": "SOURCE-013",
+      "name": "UCLA Mindful - Guided Meditations",
+      "url": "https://www.uclahealth.org/uclamindful/guided-meditations",
+      "access": "public, no login seen",
+      "mp3_links_in_static_html": 110,
+      "licence_text_seen": "Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International; (c) 2011-2024 The Regents of the University of California",
+      "implication": "Linking and attribution fine for personal use; NoDerivatives means do not edit, trim or remix the audio, and check that cutting segments or re-hosting is acceptable (link out with start timestamp is safer than re-hosting)",
+      "disposition": "discovered",
+      "next": "Enumerate ~110 mp3 references, dedupe, record durations and descriptions"
+    },
+    {
+      "source_id": "SOURCE-014",
+      "name": "Breathworks - Free Meditations",
+      "url": "https://www.breathworks-mindfulness.org.uk/free-meditations",
+      "access": "public page; site has a Log in link and basket (not shown to be required)",
+      "mp3_links_in_static_html": 0,
+      "licence_text_seen": "none found in static page",
+      "flags": [
+        "Audio likely loaded dynamically or hosted elsewhere"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "pain-adapted mindfulness (Breathworks is pain-focused; confirm)",
+      "next": "Locate audio URLs and terms"
+    },
+    {
+      "source_id": "SOURCE-015",
+      "name": "Palouse Mindfulness",
+      "url": "https://palousemindfulness.com",
+      "access": "HTTP 406 to automated fetch from this environment (may be bot-blocking)",
+      "disposition": "unavailable_pending_retry",
+      "next": "Retry with alternate request headers or another route; do not assume content"
+    },
+    {
+      "source_id": "SOURCE-016",
+      "name": "NSW Agency for Clinical Innovation - Pain Management Network / PainBytes",
+      "url": "https://aci.health.nsw.gov.au/chronic-pain",
+      "access": "Vimeo channel public (HTTP 200). aci.health.nsw.gov.au itself still blocked by bot challenge (not bypassed).",
+      "flags": [
+        "Embed status unverified: oEmbed returns domain_status_code 403 for all 57 when queried without an app origin",
+        "PainBytes content is adolescent-focused; Spinal Cord series is population-specific: eligibility filters needed",
+        "Durations, descriptions, transcripts not yet obtained",
+        "All 56 videos uploaded Feb-Jul 2014: outside the 7-year video limit. Records kept (status rejected) in case of an exception."
+      ],
+      "search_evidence": "Web search confirms ACI Pain Management Network and PainBytes (adolescent pain site by Sydney Children's Hospital Pain Management Service with ACI) exist; a Vimeo video 'A patient journey to self-management of chronic pain' (vimeo.com/249756219) appeared but its link to the official ACI channel is unconfirmed.",
+      "disposition": "rejected_recency",
+      "next": "Test embed from the app origin; obtain durations and captions; WP3 summaries from captions/transcripts where available",
+      "vimeo_channel": "https://vimeo.com/channels/pain (supplied by Captain 2026-11-14; publisher shown on videos: \"Agency for Clinical Innovation\"; channel title \"Chronic Pain\")",
+      "videos_listed": 57,
+      "series": [
+        "Chronic Pain website core videos (6)",
+        "PainBytes episodes 1-7 (adolescent-oriented per titles)",
+        "Spinal Cord Injury Pain series (5)"
+      ]
+    },
+    {
+      "source_id": "SOURCE-017",
+      "name": "Pain Toolkit (Pete Moore)",
+      "url": "https://www.paintoolkit.org",
+      "verified_on_landing_page": "Landing page verified: 'Pain Self Management by Pete Moore'. No direct video/audio embeds found on the landing page. Page has some commercial wording (2 hits); toolkit/course access terms unknown.",
+      "flags": [
+        "Check for free vs paid material; no paid items may be approved"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-018",
+      "name": "Pain Revolution",
+      "url": "https://painrevolution.org",
+      "verified_on_landing_page": "Landing page verified ('Three pathways. One mission. Reducing the burden of chronic pain across Australia'). No direct media on landing; Lorimer Moseley material to be located on subpages/linked channels.",
+      "flags": [
+        "Pain neuroscience education source; verify per-video content"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-019",
+      "name": "Painaustralia",
+      "url": "https://www.painaustralia.org.au",
+      "verified_on_landing_page": "Landing page verified: Australia's advocacy body for people living with pain. One YouTube video referenced on landing.",
+      "flags": [
+        "Advocacy body, not a clinical provider; its linked media needs individual review"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-020",
+      "name": "The Chronic Pain Method",
+      "url": "https://thechronicpainmethod.com",
+      "verified_on_landing_page": "Landing page loads but is an unbranded default WordPress page ('My WordPress'); identity and content NOT verified. | Reviewer: real site appears to be thechronicpainmethod.com.au (practitioner course, likely paid); nothing recorded.",
+      "flags": [
+        "Publisher identity unverified: do not catalogue until the right site is confirmed"
+      ],
+      "disposition": "unresolved_identity",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-021",
+      "name": "Pain BC",
+      "url": "https://painbc.ca",
+      "verified_on_landing_page": "Landing page verified: 'Chronic Pain Support, Resources & Education'. One Vimeo reference on landing.",
+      "flags": [
+        "Provincial pain organisation (Canada); check Pain Canada separately"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-022",
+      "name": "Pain Reprocessing Therapy Center",
+      "url": "https://www.painreprocessingtherapy.com",
+      "verified_on_landing_page": "Landing page verified. Self-description: 'retrains the brain to heal chronic pain'. One YouTube video referenced; page has commercial/enrolment wording (12 hits).",
+      "flags": [
+        "'Heal chronic pain' framing: screen for cure/all-pain-is-neuroplastic claims (brief §9); PRT to be tagged with stated limitations",
+        "Likely paid programs on site; only free, no-login items eligible",
+        "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information.",
+        "All free webinars/meditations/somatic tracking sit behind a LearnWorlds login: 11 items rejected (requires_payment_or_login). 16 podcast episodes kept (audio exempt from recency)."
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-002A",
+      "name": "Diggin' the Dharma (YouTube)",
+      "channel_id": "UC8HnYof8CejuOkLsr86EjRQ",
+      "verified_identity": "Channel behind the ID originally registered for SOURCE-002 (registry error). 53 videos; acceptance/mindfulness content judged relevant by title.",
+      "disposition": "included_by_captain",
+      "next": "Kept by Captain 2026-11-14 (non-nominated channel, relevant acceptance/mindfulness content)."
+    },
+    {
+      "source_id": "SOURCE-023",
+      "name": "Flippin' Pain",
+      "url": "https://www.flippinpain.com.au",
+      "verified_identity": "Identity taken from YouTube channel About text; website unreachable (502/403)",
+      "disposition": "discovered",
+      "next": "Retry site; YouTube items title-level"
+    },
+    {
+      "source_id": "SOURCE-024",
+      "name": "Pain Canada",
+      "url": "https://www.paincanada.ca",
+      "verified_identity": "From YouTube channel About text; website 403",
+      "disposition": "discovered",
+      "next": "Conference sessions borderline: Captain to decide"
+    },
+    {
+      "source_id": "SOURCE-025",
+      "name": "Michigan Medicine / Kratz Lab: Animated Chronic Pain Coping Strategies",
+      "disposition": "not_found",
+      "next": "Hosts michiganmedicine.org and medresearch.umich.edu returned 403; not recorded"
+    },
+    {
+      "source_id": "SOURCE-026",
+      "name": "Live Well with Pain",
+      "disposition": "unresolved",
+      "next": "Appears to be a UK programme (livewellwithpain.co.uk, 403); AU site 502/403. Not recorded."
+    }
+  ],
+  "not_yet_researched": [
+    "Michigan Medicine / Kratz Lab animated coping strategies",
+    "Pain Canada",
+    "Flippin' Pain (proxy 502 so far)",
+    "Live Well with Pain (proxy 502 so far)",
+    "Palouse Mindfulness (HTTP 406)",
+    "UCSD and Breathworks audio enumeration",
+    "Other university hospitals and public healthcare providers"
+  ],
+  "questions_for_captain": [],
+  "captain_decisions": [
+    "2026-11-14: remove SOURCE-003 and SOURCE-009 (channel mismatches)",
+    "2026-11-14: include SOURCE-006 and SOURCE-007",
+    "2026-11-14: approve transcript text storage (per-source rights permitting) and speech-to-text on audio-only items",
+    "2026-11-14: embed testing from the app origin is deferred until implementation; until then all video assets stay embed_verified=false and link-only",
+    "2026-11-14: clinical review is already done; do not route sources or assets to clinical review",
+    "2026-11-14: video recency limit 7 years (prefer 5); audio exempt",
+    "2026-11-14: delete duplicate ACI E5 intro (done)",
+    "2026-11-14: do not push until all work is done (avoid Vercel rebuilds)",
+    "2026-11-14: capture title-level info and any available metadata now; Gemini will review content later",
+    "2026-11-14: keep 'Diggin' the Dharma' (SOURCE-002A) in the catalogue"
+  ]
+}

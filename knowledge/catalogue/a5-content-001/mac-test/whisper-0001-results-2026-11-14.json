@@ -1,0 +1,147 @@
+{
+ "mission": "A5-CONTENT-001 (USS-TJR-MSN-0511)",
+ "test": "faster-whisper accuracy and speed on a UCLA Mindful recording with a published transcript",
+ "recording": "A5-AUD-0001 Short Body Scan (UCLA Mindful, CC BY-NC-ND 4.0; personal non-commercial analysis, nothing stored or shared)",
+ "date": "2026-11-14",
+ "machine": "Mac mini, Apple silicon (CPU, 4 threads, int8)",
+ "scoring": "wer_score logic, reference = transcript PDF with 21 header words removed (--ref-start-phrase)",
+ "superseded": "First base run scored 12.61% (30 errors / 238 words) because the 21 unspoken header words counted as deletions; replaced by the clean runs below.",
+ "runs": [
+  {
+   "model": "base",
+   "threads": 4,
+   "compute_type": "int8",
+   "device": "cpu",
+   "audio_sha256": "a20807942519c852e60cf69094dff1d119a69cde7dac81419e56646657790ad1",
+   "audio_seconds": 164.94,
+   "audio_bytes": 3300874,
+   "versions": {
+    "faster_whisper": "1.2.1",
+    "ctranslate2": "4.9.0",
+    "av": "15.1.0",
+    "python": "3.11.15",
+    "machine": "macOS-27.3-arm64-arm-64bit"
+   },
+   "model_load_seconds": 1.69,
+   "transcribe_seconds": [
+    6.52,
+    6.3,
+    6.16
+   ],
+   "median_seconds": 6.3,
+   "rtf_median": 0.038,
+   "peak_rss_mb": 771.2,
+   "wer": {
+    "ref_words": 217,
+    "hyp_words": 218,
+    "substitutions": 6,
+    "deletions": 1,
+    "insertions": 2,
+    "wer": 0.0415
+   },
+   "timestamps": {
+    "segments": 30,
+    "first_start": 0.0,
+    "last_end": 166.0,
+    "non_decreasing": true,
+    "last_end_within_duration_plus_1s": false,
+    "last_end_over_duration_seconds": 1.06,
+    "spot_checks": [
+     {
+      "start": 0.0,
+      "first_words": "begin by bringing your attention into",
+      "ref_word_index": 0
+     },
+     {
+      "start": 36.0,
+      "first_words": "and as you exhale have a",
+      "ref_word_index": 60
+     },
+     {
+      "start": 79.0,
+      "first_words": "bring your attention into your stomach",
+      "ref_word_index": 112
+     },
+     {
+      "start": 122.0,
+      "first_words": "let them be soft relax",
+      "ref_word_index": 168
+     },
+     {
+      "start": 159.0,
+      "first_words": "and then when you're ready you",
+      "ref_word_index": 207
+     }
+    ]
+   }
+  },
+  {
+   "model": "small",
+   "threads": 4,
+   "compute_type": "int8",
+   "device": "cpu",
+   "audio_sha256": "a20807942519c852e60cf69094dff1d119a69cde7dac81419e56646657790ad1",
+   "audio_seconds": 164.94,
+   "audio_bytes": 3300874,
+   "versions": {
+    "faster_whisper": "1.2.1",
+    "ctranslate2": "4.9.0",
+    "av": "15.1.0",
+    "python": "3.11.15",
+    "machine": "macOS-27.3-arm64-arm-64bit"
+   },
+   "model_load_seconds": 138.93,
+   "transcribe_seconds": [
+    18.07,
+    16.72,
+    18.28
+   ],
+   "median_seconds": 18.07,
+   "rtf_median": 0.11,
+   "peak_rss_mb": 1344.7,
+   "wer": {
+    "ref_words": 217,
+    "hyp_words": 218,
+    "substitutions": 5,
+    "deletions": 0,
+    "insertions": 1,
+    "wer": 0.0276
+   },
+   "timestamps": {
+    "segments": 21,
+    "first_start": 0.0,
+    "last_end": 162.8,
+    "non_decreasing": true,
+    "last_end_within_duration_plus_1s": true,
+    "last_end_over_duration_seconds": -2.14,
+    "spot_checks": [
+     {
+      "start": 0.0,
+      "first_words": "begin by bringing your attention into",
+      "ref_word_index": 0
+     },
+     {
+      "start": 34.16,
+      "first_words": "and livening the body and as",
+      "ref_word_index": 56
+     },
+     {
+      "start": 87.2,
+      "first_words": "take a breath",
+      "ref_word_index": null
+     },
+     {
+      "start": 124.64,
+      "first_words": "soften your jaw",
+      "ref_word_index": null
+     },
+     {
+      "start": 159.68,
+      "first_words": "and then when you're ready you",
+      "ref_word_index": 207
+     }
+    ]
+   }
+  }
+ ]
+}

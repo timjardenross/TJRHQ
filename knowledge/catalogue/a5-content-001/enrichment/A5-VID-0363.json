@@ -1,0 +1,172 @@
+{
+ "asset_id": "A5-VID-0363",
+ "source_url": "https://www.youtube.com/watch?v=vDcKRNfchcY",
+ "summary_status": "ai_draft",
+ "provenance": {
+  "model": "gemini-2.5-flash",
+  "prompt_version": "a5-content-pass-v2",
+  "generated_at": "2026-11-14T03:21:29.392845+00:00",
+  "input": "youtube_url_via_gemini",
+  "transcript_stored": false,
+  "usage": {
+   "promptTokenCount": 12436,
+   "candidatesTokenCount": 1354,
+   "totalTokenCount": 15177,
+   "promptTokensDetails": [
+    {
+     "modality": "TEXT",
+     "tokenCount": 207
+    },
+    {
+     "modality": "VIDEO",
+     "tokenCount": 3763
+    },
+    {
+     "modality": "AUDIO",
+     "tokenCount": 8466
+    }
+   ],
+   "thoughtsTokenCount": 1387,
+   "serviceTier": "standard"
+  }
+ },
+ "validation": {
+  "timestamps_unverified": true,
+  "timestamps_dropped_beyond_duration": 4,
+  "complete": true,
+  "opening_present": true
+ },
+ "result": {
+  "complete": true,
+  "summary": "A guided mindfulness practice called \"Dropping Anchor\" from Stanford Health Care, designed for chronic pain self-management. It teaches individuals to acknowledge difficult thoughts and feelings while grounding themselves in their physical body and immediate environment, fostering a sense of steadiness amidst challenging experiences.",
+  "pain": "indirect",
+  "kind": "practice",
+  "retrieval": "This practice teaches a grounding technique called \"Dropping Anchor\" to help individuals manage difficult thoughts and feelings associated with pain. Viewers are guided through physical actions like pushing feet into the floor, gentle movements, and sensory awareness exercises (sight, sound) to anchor themselves in the present moment. It is useful when experiencing emotional or physical distress related to pain, offering a way to stay steady and present. The practice is adaptable, providing alternatives if physical grounding is painful.",
+  "unknowns": [],
+  "opening": "Dropping anchor practice.",
+  "audience": "Individuals experiencing chronic pain or difficult emotions, seeking self-management techniques.",
+  "capacity": "Amber",
+  "capacity_why": "The practice involves acknowledging difficult pain and emotions, which can be challenging. However, it offers gentle physical grounding and sensory awareness techniques, making it adaptable for varying energy levels.",
+  "cautions": [
+   "If it's physically painful to push your feet into the floor, you can gently nod your head, wiggle your toes, tap your fingers, or shrug your shoulders."
+  ],
+  "chapters": [
+   {
+    "t": 6,
+    "title": "Dropping Anchor Practice"
+   },
+   {
+    "t": 9,
+    "title": "Acknowledge difficult thoughts and feelings"
+   },
+   {
+    "t": 20,
+    "title": "Push feet into the floor (or alternatives)"
+   },
+   {
+    "t": 46,
+    "title": "Sit forward, straighten back, feel chair"
+   },
+   {
+    "t": 58,
+    "title": "Press fingertips together, move arms/shoulders"
+   },
+   {
+    "t": 118,
+    "title": "Acknowledge pain and its nature"
+   },
+   {
+    "t": 198,
+    "title": "Notice body around the pain"
+   },
+   {
+    "t": 217,
+    "title": "Straighten back, notice whole body"
+   },
+   {
+    "t": 232,
+    "title": "Gently move and stretch"
+   },
+   {
+    "t": 249,
+    "title": "Look around the room, notice sights and sounds"
+   }
+  ],
+  "claims": [
+   {
+    "claim": "Acknowledge difficult thoughts and feelings showing up for you.",
+    "quote": "Take a moment to acknowledge that there are difficult thoughts and feelings showing up for you right now.",
+    "t": 9
+   },
+   {
+    "claim": "Notice your back supporting you.",
+    "quote": "Notice your back supporting you.",
+    "t": 54
+   },
+   {
+    "claim": "Feel your arms moving from fingers to shoulder blades.",
+    "quote": "Feel your arms moving all the way from your fingers to your shoulder blades.",
+    "t": 109
+   },
+   {
+    "claim": "Acknowledge the pain you are struggling with.",
+    "quote": "Acknowledge there's a lot of pain here that you're struggling with.",
+    "t": 118
+   },
+   {
+    "claim": "Your body can be moved and controlled.",
+    "quote": "And it's a body that you can move and control.",
+    "t": 212
+   }
+  ],
+  "concepts": [
+   "Mindfulness",
+   "Grounding",
+   "Present moment",
+   "Acceptance",
+   "Self-regulation",
+   "Body awareness",
+   "Sensory awareness"
+  ],
+  "demand": "medium",
+  "needs": [
+   "Self-management tools for chronic pain",
+   "Emotional regulation",
+   "Grounding techniques",
+   "Mindfulness practices"
+  ],
+  "objectives": [
+   "To acknowledge difficult thoughts and feelings",
+   "To ground oneself in the present moment",
+   "To gain a sense of control over one's body amidst pain"
+  ],
+  "physical": [
+   "Pushing feet into the floor",
+   "Nodding head",
+   "Wiggling toes",
+   "Tapping fingers",
+   "Shrugging shoulders",
+   "Sitting forward",
+   "Straightening back",
+   "Pressing fingertips",
+   "Moving elbows/shoulders",
+   "Stretching",
+   "Looking around"
+  ],
+  "techniques": [
+   "Grounding",
+   "Body scan",
+   "Sensory awareness",
+   "Cognitive defusion",
+   "Mindful movement"
+  ],
+  "topics": [
+   "Chronic pain",
+   "Self-management",
+   "Mindfulness",
+   "Emotional regulation",
+   "Grounding",
+   "Body awareness"
+  ]
+ }
+}
