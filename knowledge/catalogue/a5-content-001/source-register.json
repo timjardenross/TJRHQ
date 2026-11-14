@@ -86,12 +86,12 @@
       "verified_identity": "Self-described panic/anxiety recovery creator (lived experience of panic disorder and agoraphobia); explicitly contrasts with 'traditional therapy'",
       "flags": [
         "Lived experience, not shown as a clinician",
-        "Anti-therapy framing: clinical review required before any approval",
-        "Pain relevance indirect (anxiety, hypervigilance)"
+        "Pain relevance indirect (anxiety, hypervigilance)",
+        "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information."
       ],
       "disposition": "included_by_captain",
       "topic_fit": "6 Pain-related fear and hypervigilance; 7 Emotional regulation and anxiety",
-      "next": "Included as sources. Individual assets still pass per-asset clinical review (cure/unsupported-claim screen) before Approved; nothing is auto-approved."
+      "next": "Enumerate and catalogue all relevant videos"
     },
     {
       "source_id": "SOURCE-007",
@@ -102,10 +102,11 @@
       "verified_identity": "Self-described Doctor of Traditional Chinese Medicine, licensed acupuncturist, author of 'Master the Day'",
       "flags": [
         "Traditional Chinese Medicine: not within the brief's clinically supported interventions; emerging/alternative category",
-        "Check for cure or unsupported clinical claims"
+        "Check for cure or unsupported clinical claims",
+        "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information."
       ],
       "disposition": "included_by_captain",
-      "next": "Included as sources. Individual assets still pass per-asset clinical review (cure/unsupported-claim screen) before Approved; nothing is auto-approved."
+      "next": "Enumerate and catalogue all relevant videos"
     },
     {
       "source_id": "SOURCE-008",
@@ -295,9 +296,10 @@
       "verified_on_landing_page": "Landing page verified. Self-description: 'retrains the brain to heal chronic pain'. One YouTube video referenced; page has commercial/enrolment wording (12 hits).",
       "flags": [
         "'Heal chronic pain' framing: screen for cure/all-pain-is-neuroplastic claims (brief §9); PRT to be tagged with stated limitations",
-        "Likely paid programs on site; only free, no-login items eligible"
+        "Likely paid programs on site; only free, no-login items eligible",
+        "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information."
       ],
-      "disposition": "clinical_review_required",
+      "disposition": "discovered",
       "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
     }
   ],
@@ -315,6 +317,7 @@
     "2026-11-14: remove SOURCE-003 and SOURCE-009 (channel mismatches)",
     "2026-11-14: include SOURCE-006 and SOURCE-007",
     "2026-11-14: approve transcript text storage (per-source rights permitting) and speech-to-text on audio-only items",
-    "2026-11-14: embed testing from the app origin is deferred until implementation; until then all video assets stay embed_verified=false and link-only"
+    "2026-11-14: embed testing from the app origin is deferred until implementation; until then all video assets stay embed_verified=false and link-only",
+    "2026-11-14: clinical review is already done; do not route sources or assets to clinical review"
   ]
 }
