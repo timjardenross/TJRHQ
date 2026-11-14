@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { suggestCapacity } from '@/lib/pain-recovery-studio-capacity';
 import { companionCopy, dayGuideCopy, shouldOfferReentry } from '@/lib/pain-recovery-companion';
+import { authoredGuidance } from '@/lib/pain-recovery-authored-guidance';
 import { buildLearningSuggestion, findSimilarDays, normalizeCost, tomorrowPrompt, upsertLearningRecord, type DayLearningRecord } from '@/lib/pain-recovery-learning';
 import { LearningLoopCard } from './_components/LearningLoopCard';
 
@@ -50,7 +51,9 @@ export default function PainRecoveryStudioPage(){
   async function openSafety(){await save({safety_status:'safety_hold',current_stage:'safety_hold',current_action:'Use the agreed safety card.'});window.location.href='/pain-recovery-studio/safety';}
   function listen(text:string){if(typeof window!=='undefined'&&'speechSynthesis' in window){window.speechSynthesis.cancel();window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));}}
   async function askGuide(request='Guide me through the next step.'){
-    setSaving(true);setGuideText('I’m choosing one useful next step…');setGuideChoices([]);setPractice(null);setPracticeStep(0);setMessage('Guidance is on its way…');
+    setSaving(true);setGuideChoices([]);setPracticeStep(0);setMessage('Using a ready-to-go guide while tailored guidance loads…');
+    const localGuidance=authoredGuidance(request,session.chosen_colour||undefined,session.current_stage,{morning:morningContext,recipe:[]});
+    setGuideText(localGuidance.message);setPractice(localGuidance.practice||null);setResources(localGuidance.resources||[]);
     try {
       const r=await fetch('/api/pain-recovery-studio/guide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session,user_request:request}),signal:AbortSignal.timeout(10000)});
       const d=await r.json();

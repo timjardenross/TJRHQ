@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireValidatedUser } from '@/lib/supabase-server';
-import { normaliseAction, stageForAction, isSafetyConcern } from '@/lib/pain-recovery-studio-guards';
+import { normaliseAction, stageForAction } from '@/lib/pain-recovery-studio-guards';
 import { practiceLibrary } from '@/lib/pain-recovery-practice-library';
 import { resourceLibrary } from '@/lib/pain-recovery-resource-library';
 import { authoredGuidance } from '@/lib/pain-recovery-authored-guidance';
@@ -29,13 +29,9 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return NextResponse.json({error:'Invalid JSON body'},{status:400}); }
   const supabase = await createSupabaseServerClient();
   const requestText = typeof body.user_request === 'string' ? body.user_request : '';
-  if (isSafetyConcern(requestText)) {
-    const crisis = /suicid|kill myself|end my life|want to die|self[- ]?harm|harming myself/i.test(requestText);
-    const response = crisis
-      ? { message:'Pause the Studio and use the support pathway now.', next_action:'Open the support page and contact immediate help if you may act on these thoughts.', choices:[], action_type:'safety_card', safety_instruction:'show_card', practice:null, resources:[] }
-      : { message:'Pause here and use your agreed safety pathway.', next_action:'Open the safety card; the Studio will not judge the symptom or coach through it.', choices:[], action_type:'safety_card', safety_instruction:'show_card', practice:null, resources:[] };
-    return NextResponse.json({response,source:'static_safety',success:true});
-  }
+  // Safety and crisis entry points are explicit static routes. This API does
+  // not inspect free text for symptoms or crisis language, per the approved
+  // validation package. The UI routes the user to /safety or /crisis directly.
   const { data: consent, error: consentError } = await supabase.from('pain_recovery_consents').select('status,main_consent,free_text_consent,medications_consent').eq('user_id', user.id).maybeSingle();
   if (consentError) return NextResponse.json({error:'Consent could not be verified'},{status:503});
   const consentGranted = consent?.status === 'granted' && consent.main_consent === true;
