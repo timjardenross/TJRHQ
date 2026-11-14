@@ -295,7 +295,7 @@
    "source_spans": [
     "Your breath is your anchor",
     "If it feels like too much always return to the breath",
-    "Labelling it and feeling in your body what's happening",
+    "Labeling it and feeling in your body what's happening",
     "You're exploring your own mind"
    ],
    "classification_proposals": {
@@ -460,7 +460,7 @@
     "Alternation is explicitly to give a break from what \"could be potentially overwhelming to feel\"; \"Make sure to breathe\"; no medical caution stated"
    ],
    "source_spans": [
-    "something difficult ... a headache",
+    "an aching in your shoulder or back",
     "Keeping maybe 75% of your attention on the part that feels peaceful",
     "giving yourself a break from what could be potentially overwhelming to feel",
     "You're not the only one"
@@ -8088,129 +8088,8 @@
  ],
  "fmp_stated_duration_check": {
   "fmp_items_in_inventory": 32,
-  "fmp_items_matched_on_page_title_and_duration": 8,
-  "mismatches": [
-   [
-    "A5-AUD-0009",
-    "Three minute breathing",
-    215
-   ],
-   [
-    "A5-AUD-0010",
-    "Five minute breathing",
-    331
-   ],
-   [
-    "A5-AUD-0011",
-    "Five minute breathing",
-    279
-   ],
-   [
-    "A5-AUD-0012",
-    "Six minute breath awareness",
-    392
-   ],
-   [
-    "A5-AUD-0013",
-    "Ten minute breathing",
-    596
-   ],
-   [
-    "A5-AUD-0014",
-    "Ten minute mindfulness of breathing",
-    601
-   ],
-   [
-    "A5-AUD-0015",
-    "Brief mindfulness practice",
-    245
-   ],
-   [
-    "A5-AUD-0016",
-    "The Breathing Space",
-    339
-   ],
-   [
-    "A5-AUD-0017",
-    "The Tension Release Meditation",
-    345
-   ],
-   [
-    "A5-AUD-0018",
-    "Three Step Breathing Space",
-    214
-   ],
-   [
-    "A5-AUD-0019",
-    "Three minute mindfulness of sounds",
-    182
-   ],
-   [
-    "A5-AUD-0020",
-    "Four minute body scan",
-    241
-   ],
-   [
-    "A5-AUD-0021",
-    "Fifteen minute body scan",
-    876
-   ],
-   [
-    "A5-AUD-0022",
-    "Twenty minute body scan",
-    1392
-   ],
-   [
-    "A5-AUD-0023",
-    "Body scan",
-    2390
-   ],
-   [
-    "A5-AUD-0024",
-    "Forty-five minute body scan",
-    2854
-   ],
-   [
-    "A5-AUD-0025",
-    "Seated meditation",
-    1263
-   ],
-   [
-    "A5-AUD-0026",
-    "Sitting meditation",
-    1218
-   ],
-   [
-    "A5-AUD-0027",
-    "Breath, sound and body",
-    720
-   ],
-   [
-    "A5-AUD-0028",
-    "Breath, sounds, body, thoughts, emotions",
-    1140
-   ],
-   [
-    "A5-AUD-0029",
-    "Ten minute wisdom meditation",
-    626
-   ],
-   [
-    "A5-AUD-0030",
-    "Compassionate Breath",
-    693
-   ],
-   [
-    "A5-AUD-0031",
-    "Mountain meditation",
-    492
-   ],
-   [
-    "A5-AUD-0032",
-    "Mountain meditation",
-    437
-   ]
-  ]
+  "fmp_items_matched_on_page_title_and_duration": 32,
+  "mismatches": []
  },
  "candidate_libraries_not_catalogued": [
   {
