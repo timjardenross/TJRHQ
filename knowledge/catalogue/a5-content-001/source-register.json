@@ -318,8 +318,8 @@
       "name": "Diggin' the Dharma (YouTube)",
       "channel_id": "UC8HnYof8CejuOkLsr86EjRQ",
       "verified_identity": "Channel behind the ID originally registered for SOURCE-002 (registry error). 53 videos; acceptance/mindfulness content judged relevant by title.",
-      "disposition": "needs_captain_confirmation",
-      "next": "Confirm whether to keep this non-nominated channel's items; ask Captain"
+      "disposition": "included_by_captain",
+      "next": "Kept by Captain 2026-11-14 (non-nominated channel, relevant acceptance/mindfulness content)."
     }
   ],
   "not_yet_researched": [
@@ -341,6 +341,7 @@
     "2026-11-14: video recency limit 7 years (prefer 5); audio exempt",
     "2026-11-14: delete duplicate ACI E5 intro (done)",
     "2026-11-14: do not push until all work is done (avoid Vercel rebuilds)",
-    "2026-11-14: capture title-level info and any available metadata now; Gemini will review content later"
+    "2026-11-14: capture title-level info and any available metadata now; Gemini will review content later",
+    "2026-11-14: keep 'Diggin' the Dharma' (SOURCE-002A) in the catalogue"
   ]
 }
