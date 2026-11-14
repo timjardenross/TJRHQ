@@ -109,6 +109,7 @@ export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
   '/agent-status-workbench': { label: 'Check HQ status', href: '/agent-status-workbench' },
   '/self-improvement-findings': { label: 'Review improvements', href: '/self-improvement-findings' },
   '/decisions': { label: 'Review pending decisions', href: '/decisions' },
+  '/pain-recovery-studio': { label: 'Open today’s recovery step', href: '/pain-recovery-studio' },
 };
 
 // Order below is deliberate, not alphabetical: command/triage surfaces
@@ -267,5 +268,12 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     description: 'Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work.',
     icon: Lightbulb,
     group: 'insights',
+  },
+  {
+    href: '/pain-recovery-studio',
+    title: 'Pain Recovery Studio',
+    description: 'Private daily recovery guidance — one state, one next step, and learning from what the day actually cost.',
+    icon: Heart,
+    group: 'personal',
   },
 ];

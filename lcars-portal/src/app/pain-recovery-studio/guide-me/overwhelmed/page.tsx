@@ -1,0 +1,213 @@
+"use client";
+import { useState } from "react";
+const steps = [
+  ["Reduce the load", "Put one non-essential demand down for today."],
+  [
+    "Too tired",
+    "Choose the easiest version: sit, lie down, or pause one demand.",
+  ],
+  ["Too much demand", "Remove, delegate, or postpone one non-essential task."],
+];
+export default function OverwhelmedPage() {
+  const [done, setDone] = useState<number | null>(null);
+  const [status, setStatus] = useState("Choose one small change.");
+  const [none, setNone] = useState(false);
+  const [listening, setListening] = useState<number | null>(null);
+  const stopListening = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window)
+      window.speechSynthesis.cancel();
+    setListening(null);
+  };
+  const listen = (text: string, index: number) => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+      setListening(index);
+    }
+  };
+  const save = async (value: string) => {
+    setStatus("Saving…");
+    try {
+      const r = await fetch("/api/pain-recovery-studio/session", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action_status: "started",
+          current_action: value,
+          learning_note: "Overwhelmed route: " + value,
+          adaptation_mode: "low",
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      setStatus(
+        r.ok
+          ? "Saved. You can stop here, or choose another option."
+          : "Kept for this screen.",
+      );
+    } catch {
+      setStatus("Kept for this screen.");
+    }
+  };
+  return (
+    <main className="min-h-screen bg-[#eef3ef] px-4 py-6 text-[#193d46]">
+      <div className="mx-auto max-w-xl">
+        <nav aria-label="Breadcrumb">
+          <a
+            href="/pain-recovery-studio"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-[#698078]"
+          >
+            ← Studio
+          </a>
+        </nav>
+        <header className="mt-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#698078]">
+            Guide me now
+          </p>
+          <h1 className="mt-2 font-serif text-4xl">
+            When everything feels too much
+          </h1>
+          <p className="mt-3 text-base leading-7 text-slate-600">
+            You do not need to solve the whole day. Choose one small change that
+            gives you a little more room.
+          </p>
+        </header>
+        <section className="mt-6" aria-labelledby="overwhelmed-options">
+          <h2 id="overwhelmed-options" className="sr-only">
+            Small changes
+          </h2>
+          <div className="space-y-3">
+            {steps.map(([title, copy], i) => (
+              <article
+                key={title}
+                className={
+                  "rounded-3xl p-5 shadow-sm " +
+                  (done === i ? "bg-[#d9ece2]" : "bg-white")
+                }
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopListening();
+                    setDone(i);
+                    setNone(false);
+                    void save(title);
+                  }}
+                  aria-pressed={done === i}
+                  className="min-h-16 w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#193d46]"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#698078]">
+                    Step {i + 1}
+                  </span>
+                  <span className="mt-2 block text-lg font-semibold">
+                    {title}
+                  </span>
+                  <span className="mt-2 block text-sm leading-6 text-slate-700">
+                    {copy}
+                  </span>
+                  {done === i && (
+                    <span
+                      className="mt-3 block text-sm font-semibold"
+                      role="status"
+                    >
+                      Good. Stay with just this for now.
+                    </span>
+                  )}
+                </button>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      listening === i
+                        ? stopListening()
+                        : listen(title + ". " + copy, i)
+                    }
+                    aria-pressed={listening === i}
+                    className="min-h-11 rounded-xl border border-[#b7c9c0] px-3 py-2 text-sm font-semibold text-[#526b6c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#193d46]"
+                  >
+                    {listening === i
+                      ? "Stop spoken guidance"
+                      : "Play spoken guidance"}
+                  </button>
+                  {title === "Something feels concerning" && (
+                    <span className="text-xs font-semibold text-[#8d3f35]">
+                      Safety stop, not a coaching choice.
+                    </span>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+        <button
+          type="button"
+          onClick={() => {
+            setNone(true);
+            setDone(null);
+            void save("None of the suggested options fit");
+          }}
+          className="mt-3 min-h-12 w-full rounded-3xl border border-[#b7c9c0] bg-white p-4 text-left text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#193d46]"
+        >
+          None of these — help me find another way
+        </button>
+        {none && (
+          <p
+            className="mt-3 rounded-2xl bg-[#fff8e8] p-4 text-sm leading-6"
+            role="status"
+          >
+            <span>That is useful information. Choose a different route.</span>
+            <span className="mt-3 flex flex-wrap gap-3">
+              <a
+                className="font-semibold underline"
+                href="/pain-recovery-studio/guide-me"
+              >
+                Tell the guide what changed
+              </a>
+              <a
+                className="font-semibold underline"
+                href="/pain-recovery-studio/guide-me/low-energy"
+              >
+                Make it smaller
+              </a>
+            </span>
+          </p>
+        )}
+        <p className="mt-4 min-h-6 text-sm text-slate-600" role="status">
+          {status}
+        </p>
+        <p className="mt-5 text-xs leading-5 text-slate-500">
+          If something is new, sudden, progressive or concerning, pause this
+          flow and use your agreed safety card or contact your clinician.
+        </p>
+        <nav
+          aria-label="More support"
+          className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold"
+        >
+          <a
+            href="/pain-recovery-studio/guide-me"
+            className="inline-flex min-h-11 items-center text-[#698078]"
+          >
+            Ask the guide
+          </a>
+          <a
+            href="/pain-recovery-studio/resources"
+            className="inline-flex min-h-11 items-center text-[#698078]"
+          >
+            Find support
+          </a>
+          <a
+            href="/pain-recovery-studio/safety"
+            className="inline-flex min-h-11 items-center text-[#8d3f35]"
+          >
+            Use safety card
+          </a>
+          <a
+            href="/pain-recovery-studio/review"
+            className="inline-flex min-h-11 items-center text-[#698078]"
+          >
+            Weekly review
+          </a>
+        </nav>
+      </div>
+    </main>
+  );
+}

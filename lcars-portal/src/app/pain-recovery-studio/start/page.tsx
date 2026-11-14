@@ -1,0 +1,76 @@
+export default function StartPage() {
+  return (
+    <main className="min-h-screen bg-[#eef3ef] px-4 py-8 text-[#193d46]">
+      <div className="mx-auto max-w-xl">
+        <a
+          href="/pain-recovery-studio"
+          className="text-sm font-semibold text-[#698078]"
+        >
+          ← Today
+        </a>
+        <p className="mt-8 text-xs font-semibold uppercase tracking-[0.18em] text-[#698078]">
+          Pain Recovery Studio
+        </p>
+        <h1 className="mt-2 font-serif text-4xl">
+          What would help most right now?
+        </h1>
+        <p className="mt-3 text-base leading-7 text-slate-600">
+          You do not need to report how you feel before you receive help. Start
+          with one manageable route.
+        </p>
+        <div className="mt-6 space-y-3">
+          <a
+            href="/pain-recovery-studio/guide-me/low-energy"
+            className="block rounded-3xl bg-[#193d46] p-5 text-white"
+          >
+            <span className="text-xs uppercase tracking-[0.12em] text-[#d9ece2]">
+              Suggested starting point
+            </span>
+            <strong className="mt-2 block text-xl">Guide me now</strong>
+            <span className="mt-2 block text-sm text-[#e1eee9]">
+              One low-demand next step, with the option to listen.
+            </span>
+          </a>
+          <a
+            href="/pain-recovery-studio/guide-me/overwhelmed"
+            className="block rounded-3xl bg-white p-5 shadow-sm"
+          >
+            <span className="text-xs uppercase tracking-[0.12em] text-[#698078]">
+              Reduce the demand
+            </span>
+            <strong className="mt-2 block text-xl">Make it smaller</strong>
+            <span className="mt-2 block text-sm text-slate-600">
+              A short route when the day is too much.
+            </span>
+          </a>
+          <a
+            href="/pain-recovery-studio/guide-me"
+            className="block rounded-3xl bg-white p-5 shadow-sm"
+          >
+            <span className="text-xs uppercase tracking-[0.12em] text-[#698078]">
+              Adapt the route
+            </span>
+            <strong className="mt-2 block text-xl">Something changed</strong>
+            <span className="mt-2 block text-sm text-slate-600">
+              Tell the guide what changed and choose a different next step.
+            </span>
+          </a>
+        </div>
+        <a
+          href="/pain-recovery-studio/safety"
+          className="mt-5 block rounded-2xl border border-[#8d3f35] bg-white px-4 py-4 text-center font-semibold text-[#8d3f35]"
+        >
+          Something feels different
+        </a>
+        <p className="mt-6 text-center text-xs leading-5 text-slate-500">
+          Tracking and review remain available when they are useful, but they
+          are not required to receive help.
+        </p>
+        <div className="mt-6 flex justify-center gap-4 text-sm font-semibold text-[#698078]">
+          <a href="/pain-recovery-studio/resources">Resources</a>
+          <a href="/pain-recovery-studio/review">Weekly review</a>
+        </div>
+      </div>
+    </main>
+  );
+}

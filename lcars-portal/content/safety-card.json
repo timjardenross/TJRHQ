@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "approved_by": "GP",
+  "approved_date": "2026-11-14",
+  "review_due": "2027-05-14",
+  "pending_movement_clinician": true,
+  "tiers": [
+    {
+      "id": "urgent",
+      "action": "Stop. Call 000 or go to your nearest emergency department.",
+      "items": [
+        "Loss of bladder or bowel control, numbness in the groin or saddle area, or new leg weakness",
+        "Sudden severe pain with a feeling something gave way, or a sudden change in how your back sits or moves",
+        "Chest pain, fainting, or a racing or irregular heartbeat",
+        "Trouble breathing, or you can't be woken normally",
+        "Severe belly pain with vomiting that won't stop",
+        "Thoughts of harming yourself or someone else"
+      ]
+    },
+    {
+      "id": "same_day",
+      "action": "Contact your GP or pain specialist today, or call healthdirect 1800 022 222.",
+      "items": [
+        "Any new numbness, tingling or weakness, even mild",
+        "A new pain pattern: new location, burning or electric quality, or pain that wakes you and won't ease with position",
+        "Fever, unexplained sweats, or feeling unwell alongside back pain",
+        "Dizziness or fainting on standing, or agitation, tremor, sweating or a very fast heartbeat after a medication change",
+        "Pain after exercise that is different from usual or lasts longer than usual"
+      ]
+    }
+  ],
+  "rules": {
+    "show_tier_only": true,
+    "no_diagnosis": true,
+    "no_probability": true,
+    "no_keyword_matching": true,
+    "intensity_alone_does_not_open": true,
+    "different_from_usual_defaults_to": "same_day",
+    "uncertain": "show_card_or_stop_coaching"
+  },
+  "expected_soreness": {
+    "pending_movement_clinician": true,
+    "text": "Mild, familiar muscle soreness in the areas trained, within my usual range, that eases with gentle movement and has settled by the next morning."
+  }
+}

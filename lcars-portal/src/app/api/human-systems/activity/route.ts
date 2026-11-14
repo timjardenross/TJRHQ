@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.from('activity_logs').insert(payload);
+    const { error } = await supabase.from('activity_logs').insert({ ...payload, user_id: session.user.id });
 
     if (error) throw error;
     return NextResponse.json({ ok: true });
