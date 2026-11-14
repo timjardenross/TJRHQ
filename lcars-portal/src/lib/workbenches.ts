@@ -109,6 +109,7 @@ export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
   '/agent-status-workbench': { label: 'Check HQ status', href: '/agent-status-workbench' },
   '/self-improvement-findings': { label: 'Review improvements', href: '/self-improvement-findings' },
   '/decisions': { label: 'Review pending decisions', href: '/decisions' },
+  '/pain-recovery-studio': { label: 'Open today’s recovery step', href: '/pain-recovery-studio' },
 };
 
 // Order below is deliberate, not alphabetical: command/triage surfaces

@@ -110,7 +110,10 @@ describe('timeline page', () => {
     checkinRows = [MISSING];
     render(<TimelinePage />);
     expect(await screen.findByText(/capacity green/)).toBeInTheDocument();
-    expect(screen.queryByText(/pain/i)).not.toBeInTheDocument();
+    // The shared navigation contains a Pain Recovery Studio link. Scope the
+    // assertion to the timeline's data content rather than treating that
+    // navigation label as a rendered pain value.
+    expect(screen.queryByText(/pain:\s/i)).not.toBeInTheDocument();
   });
 });
 

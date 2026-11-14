@@ -28,7 +28,7 @@ describe('workbench navigation groups (Stage C)', () => {
   it('keeps the remaining personal features together (Focus and Physical Readiness are retired)', () => {
     const personal = LIVE_WORKBENCHES.filter((w) => w.group === 'personal').map((w) => w.href).sort();
     expect(personal).toEqual(
-      ['/hub', '/human-systems-workbench', '/ready-room', '/shopping-list-workbench'].sort(),
+      ['/hub', '/human-systems-workbench', '/pain-recovery-studio', '/ready-room', '/shopping-list-workbench'].sort(),
     );
   });
 });
