@@ -157,13 +157,14 @@
       "platform": "web/mp3",
       "access": "public, no login seen",
       "licence_text_seen": "Guided meditations are protected by a Creative Commons licence: free to download and distribute non-commercially; credit original sources.",
-      "licence_specific_variant": "unknown (which CC variant per recording not yet confirmed)",
-      "mp3_links_in_static_html": 0,
+      "licence_specific_variant": "Page footer: CC BY-NC-SA 3.0 Unported. Top of page: \"a creative commons licence\" (no variant). Recordings are contributed by other organisations whose own terms may be stricter.",
+      "mp3_links_in_static_html": 32,
       "flags": [
         "MP3 links not in static HTML; page likely script-driven or a web app: need another way to enumerate"
       ],
       "disposition": "discovered",
-      "next": "Enumerate recordings; record CC variant and credit line per asset"
+      "next": "32 recordings inventoried. Check per-item variant at contributors; test no-login playback; resolve probable duplicates with UCLA/UCSD/Breathworks.",
+      "hosting": "Google Drive links (not self-hosted), so link-only delivery unless a native player is later permitted"
     },
     {
       "source_id": "SOURCE-012",
