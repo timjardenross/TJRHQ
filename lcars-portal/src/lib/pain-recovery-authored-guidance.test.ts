@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { authoredGuidance } from './pain-recovery-authored-guidance';
+import { authoredGuidance, selectRecoveryDomain } from './pain-recovery-authored-guidance';
 
 describe('Phase 1 authored guide contract', () => {
   it('gives low-energy days one actionable route and a curated resource', () => {
@@ -20,5 +20,10 @@ describe('Phase 1 authored guide contract', () => {
     expect(result.choices.length).toBeLessThanOrEqual(3);
     expect(result.next_action.length).toBeGreaterThan(10);
     expect(result.practice?.revisit.length).toBeGreaterThan(10);
+  });
+  it('selects a whole-person domain from context and recipe', () => {
+    expect(selectRecoveryDomain({ request: 'I feel alone', morning: {} })).toBe('social');
+    expect(selectRecoveryDomain({ request: 'My mind is busy', morning: {} })).toBe('cognitive');
+    expect(selectRecoveryDomain({ request: 'guide me', recipe: [{ domain: 'environmental', direction: 'high' }] })).toBe('environmental');
   });
 });

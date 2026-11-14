@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   if (consentError) return NextResponse.json({error:'Consent could not be verified'},{status:503});
   const consentGranted = consent?.status === 'granted' && consent.main_consent === true;
   if (!consentGranted) {
-    const authored = authoredGuidance(typeof body.user_request === 'string' ? body.user_request : '', typeof body.chosen_colour === 'string' ? body.chosen_colour : undefined, typeof body.current_stage === 'string' ? body.current_stage : undefined);
+    const authored = authoredGuidance(typeof body.user_request === 'string' ? body.user_request : '', typeof body.chosen_colour === 'string' ? body.chosen_colour : undefined, typeof body.current_stage === 'string' ? body.current_stage : undefined, { morning: typeof body.morning_context === 'object' && body.morning_context ? body.morning_context as Record<string,string> : {}, recipe: [] });
     return NextResponse.json({
       response: authored, source: 'preauthored', success: false, consent_required: true
     });
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const { data: currentSession } = await supabase.from('pain_recovery_sessions').select('id').eq('user_id',user.id).eq('session_date',sessionDate).maybeSingle();
   if (currentSession?.id) await supabase.from('pain_recovery_sessions').update({current_action: result.next_action ?? result.message,current_stage: stageForAction(result.action_type),safety_status: result.safety_instruction === 'show_card' ? 'safety_hold' : 'general_boundary',active_practice: result.practice,practice_step: 0}).eq('id',currentSession.id).eq('user_id',user.id);
   if (!result.practice && result.action_type !== 'safety_card') {
-    result = authoredGuidance(typeof body.user_request === 'string' ? body.user_request : '', typeof body.chosen_colour === 'string' ? body.chosen_colour : undefined, typeof body.current_stage === 'string' ? body.current_stage : undefined);
+    result = authoredGuidance(typeof body.user_request === 'string' ? body.user_request : '', typeof body.chosen_colour === 'string' ? body.chosen_colour : undefined, typeof body.current_stage === 'string' ? body.current_stage : undefined, { morning: morning_context, recipe: recipe ?? [] });
   }
   return NextResponse.json({response:result,source:success?'gemini':'safe_fallback',success});
 }
