@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { suggestCapacity } from '@/lib/pain-recovery-studio-capacity';
-import { companionCopy, dayGuideCopy, shouldOfferReentry } from '@/lib/pain-recovery-companion';
+import { dayGuideCopy, primaryJourneyCopy, shouldOfferReentry } from '@/lib/pain-recovery-companion';
 import { authoredGuidance } from '@/lib/pain-recovery-authored-guidance';
 import { buildLearningSuggestion, findSimilarDays, normalizeCost, tomorrowPrompt, upsertLearningRecord, type DayLearningRecord } from '@/lib/pain-recovery-learning';
 import { LearningLoopCard } from './_components/LearningLoopCard';
@@ -35,7 +35,7 @@ export default function PainRecoveryStudioPage(){
   async function updateConsent(main_consent:boolean){const r=await fetch('/api/pain-recovery-studio/consent',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({main_consent,free_text_consent:false,medications_consent:false})});if(r.ok){const d=await r.json();setConsent(d.consent);setMessage(main_consent?'Consent saved.':'Consent withdrawn.');if(main_consent)loadSession()}}
   const dayLabel=useMemo(()=>session.chosen_colour?`${session.chosen_colour} day`:'Morning check-in',[session.chosen_colour]); const strengthNote=session.learning_note?.startsWith('Strengths noticed:')?session.learning_note.replace('Strengths noticed:','').trim():'';
   const stage=session.safety_status==='safety_hold'?'safety_hold':session.current_stage;
-  const companion=useMemo(()=>companionCopy({stage,actionStatus:session.action_status,currentAction:session.current_action,returningAfterGap}),[stage,session.action_status,session.current_action,returningAfterGap]);
+  const companion=useMemo(()=>primaryJourneyCopy({stage,actionStatus:session.action_status,currentAction:session.current_action,returningAfterGap,chosenColour:session.chosen_colour,hasPlan:Boolean(session.plan),hasCurrentAction:Boolean(session.current_action)}),[stage,session.action_status,session.current_action,returningAfterGap,session.chosen_colour,session.plan]);
   const dayGuide=useMemo(()=>dayGuideCopy({stage,valuedActivity:session.valued_activity,plan:session.plan,currentAction:session.current_action,actionStatus:session.action_status,hasReminder:Boolean(session.next_check_in_at),learningNote:lastLearning}),[stage,session.valued_activity,session.plan,session.current_action,session.action_status,session.next_check_in_at,lastLearning]);
   const suggestedColour=useMemo(()=>suggestCapacity({sleep:morningContext.sleep,energy:morningContext.energy,demand:morningContext.demand,yesterdayCost:morningContext.yesterdayCost,flare:morningContext.flare}),[morningContext]);
   const morningSummary=useMemo(()=>{const parts=[];if(morningContext.sleep)parts.push(`${morningContext.sleep} sleep`);if(morningContext.energy)parts.push(`${morningContext.energy} energy`);if(morningContext.demand)parts.push(`${morningContext.demand} demand`);const learning=lastLearning?` ${tomorrowPrompt(lastLearning)}`:'';return parts.length?`Today is shaped by ${parts.join(', ')}. The Studio will keep the next step ${suggestedColour==='Amber'?'smaller and kinder':suggestedColour==='Red'?'within the safety boundary':'ordinary and possible'}.${learning}`:`Add one or two signals if useful.${learning}`},[morningContext,suggestedColour,lastLearning]);
