@@ -250,6 +250,7 @@
   "captain_decisions": [
     "2026-11-14: remove SOURCE-003 and SOURCE-009 (channel mismatches)",
     "2026-11-14: include SOURCE-006 and SOURCE-007",
-    "2026-11-14: approve transcript text storage (per-source rights permitting) and speech-to-text on audio-only items"
+    "2026-11-14: approve transcript text storage (per-source rights permitting) and speech-to-text on audio-only items",
+    "2026-11-14: embed testing from the app origin is deferred until implementation; until then all video assets stay embed_verified=false and link-only"
   ]
 }
