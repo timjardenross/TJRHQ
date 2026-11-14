@@ -4,7 +4,7 @@
 
 ## Mission Header
 
-- **Mission ID:** A5-CONTENT-001 (platform `USS-TJR-MSN-xxxx` ID **not yet minted** — `tools/mint_id.py` writes the shared counter, so mint only once the Captain approves execution)
+- **Mission ID:** A5-CONTENT-001 (platform ID **USS-TJR-MSN-0511**, minted 2026-11-14 on Captain approval)
 - **Priority:** TBD by Captain
 - **Source:** Captain request — Area 5 (Nervous-System Retraining and Daily Pain Self-Management). Architecture decision: Gemini queries a curated, approved catalogue instead of searching the open internet per request.
 - **AI consumer:** Google Gemini (catalogue must stay model-agnostic). **Use:** personal, non-commercial.
@@ -92,6 +92,10 @@ Status model: Discovered → Metadata verified → Content reviewed → Rights v
 - **Notion:** mission governance, research decisions and review records only — not Gemini's retrieval store.
 - **Approval gates:** no new infrastructure and no production schema changes without explicit approval. Until then, catalogue records are staged as repo files (JSON/JSONL) and any proposed migration is drafted as a SQL file for review, not applied.
 
+## Gemini path (Captain flag, 2026-11-14)
+
+The existing Gemini integration is the intelligence-brief path (`intelligence/brief/llm_provider.py`: Gemini 2.5 Flash as cloud overflow behind other providers). That is a generation fallback chain, not a retrieval/recommendation path, and it has no clinical-eligibility controls. Likely rebuild: a dedicated recommendation call that receives only the eligibility-filtered candidate set and returns a selection plus a catalogue-grounded explanation. Decide in WP6 whether it routes through the Model Router or a direct Gemini client.
+
 ## Architecture verification (next step, read-only)
 
 1. Review existing schemas (`0001_knowledge_prototype.sql`, `0162_research_memory_embeddings.sql`) for reusable tables and sensitivity controls (`knowledge_sensitivity`).
@@ -101,6 +105,5 @@ Status model: Discovered → Metadata verified → Content reviewed → Rights v
 
 ## Open decisions for the Captain
 
-1. **Research runtime:** this sandbox's outbound proxy blocks YouTube, Vimeo and freemindfulness.org — network access must be opened before WP1–WP3.
+1. **Research runtime:** source-site hosts were added to the `tjrhq` environment allowlist on 2026-11-14 (YouTube, Vimeo, nominated pain/mindfulness sites). Further hosts will be requested as WP1 discovers them.
 2. **Clinical reviewer:** who signs off `Approved` status for clinically sensitive items.
-3. **Mission ID:** mint `USS-TJR-MSN-xxxx` once execution is approved.
