@@ -4,26 +4,229 @@
   "as_of": "2026-11-14",
   "method": "Channel/library landing pages fetched and read. Verified = identity/self-description/licence text seen on the page. Qualifications, video-level content, transcripts and embed permissions NOT yet checked (unknown).",
   "sources": [
-    {"source_id":"SOURCE-001","nominated_url":"https://www.youtube.com/@talkintherapy","verified_name":"2 Dudes Talkin' Therapy","channel_id":"UC6TcRjojE3q9GZh84FW0VIw","subscribers":"15.6K","verified_identity":"channel resolves; description not exposed on page","qualifications":"unknown","flags":["Presenters' credentials not yet verified"],"disposition":"discovered","next":"Read About page/playlists; confirm presenter credentials and pain relevance"},
-    {"source_id":"SOURCE-002","nominated_url":"https://www.youtube.com/@DougsDharma","verified_name":"Doug's Dharma","channel_id":"UC8HnYof8CejuOkLsr86EjRQ","subscribers":"423","verified_identity":"Self-described: early Buddhist teachings, secular perspective; PhD in philosophy, scholarly publications in Buddhist Studies, Zen practice (per channel description)","flags":["Philosophical teaching, not clinical","Small channel; most content likely not pain-specific"],"disposition":"discovered","topic_fit":"13 Buddhist psychology and suffering","next":"Enumerate videos on suffering/acceptance; tag content_classification=philosophical_teaching"},
-    {"source_id":"SOURCE-003","nominated_url":"https://www.youtube.com/@thepsychdoctormd","verified_name":"Sasha Hamdani MD","channel_id":"UCXt28Zhpt1ijpMsuOBbHIbQ","subscribers":"1.6K (as shown; lower than expected, recheck)","verified_identity":"Self-described board-certified psychiatrist and ADHD clinical specialist","flags":["Content focus is ADHD/mental health, not chronic pain","Subscriber count looks odd; confirm this is the intended channel"],"disposition":"discovered","next":"Confirm intended channel with Captain; likely low relevance unless emotional-regulation videos qualify"},
-    {"source_id":"SOURCE-004","nominated_url":"https://www.youtube.com/@TrevorCarroll","verified_name":"Trevor Carroll","channel_id":"UCd03vq1YNVjWuw7I68gdcSQ","subscribers":"43.9K","verified_identity":"Self-described late-diagnosed autistic creator sharing neurodivergent lived experience, fitness, nature, music","flags":["Lived experience, not clinical","Pain relevance unverified"],"disposition":"discovered","topic_fit":"lived experience only","next":"Check for chronic-pain/fatigue videos; otherwise reject as off-scope"},
-    {"source_id":"SOURCE-005","nominated_url":"https://www.youtube.com/@HealthyGamerGG","verified_name":"HealthyGamerGG","channel_id":"UCrGYoowsH-aKfSCM5TOzAsA","subscribers":"6.23M","verified_identity":"Content, coaching and community from Dr. K (healthygamer.gg)","flags":["Commercial coaching/community offering linked; check no paywall gating on approved items","Mental-health education; pain relevance limited"],"disposition":"discovered","topic_fit":"emotional regulation, mindfulness, values","next":"Verify Dr. K's credentials from channel/site; shortlist relevant videos"},
-    {"source_id":"SOURCE-006","nominated_url":"https://www.youtube.com/@byebyepanic","verified_name":"Shaan Kassam","channel_id":"UC7EkQ8IjIPbJRgBryWHTDeg","subscribers":"100K","verified_identity":"Self-described panic/anxiety recovery creator (lived experience of panic disorder and agoraphobia); explicitly contrasts with 'traditional therapy'","flags":["Lived experience, not shown as a clinician","Anti-therapy framing: clinical review required before any approval","Pain relevance indirect (anxiety, hypervigilance)"],"disposition":"clinical_review_required","topic_fit":"6 Pain-related fear and hypervigilance; 7 Emotional regulation and anxiety","next":"Review specific videos for unsafe or unsupported claims"},
-    {"source_id":"SOURCE-007","nominated_url":"https://www.youtube.com/@DrAlexHeyne","verified_name":"Dr. Alex Heyne - Acupuncture and Chinese Medicine","channel_id":"UCix7wE05YbRdOVUPNHy0KTg","subscribers":"425K","verified_identity":"Self-described Doctor of Traditional Chinese Medicine, licensed acupuncturist, author of 'Master the Day'","flags":["Traditional Chinese Medicine: not within the brief's clinically supported interventions; emerging/alternative category","Check for cure or unsupported clinical claims"],"disposition":"clinical_review_required","next":"Review any pain/stress videos; default to restricted unless claims are measured"},
-    {"source_id":"SOURCE-008","nominated_url":"https://www.youtube.com/@StanfordHospital","verified_name":"Stanford Health Care","channel_id":"UCl_mlar6gQ3z94OLr7YPkbA","subscribers":"198K","verified_identity":"Institutional hospital channel (Stanford Health Care)","flags":["General hospital content; pain-specific videos need filtering"],"disposition":"discovered","topic_fit":"1 Understanding persistent pain; 16 Interdisciplinary care","next":"Search channel for pain management/pain psychology playlists"},
-    {"source_id":"SOURCE-009","nominated_url":"https://www.youtube.com/channel/UCy-3MUXkovGrm4kp43V78bQ","verified_name":"KODEN OBSCURE","channel_id":"UCy-3MUXkovGrm4kp43V78bQ","subscribers":"172K","verified_identity":"Creator Hiroto Takana, Japan-based; Japanese folklore/obscure-topics style channel","flags":["LIKELY WRONG CHANNEL: no apparent link to chronic pain or recovery","Needs Captain confirmation that this ID is the intended nomination"],"disposition":"unresolved_needs_captain","next":"Ask Captain; do not catalogue until confirmed"},
-    {"source_id":"SOURCE-010","nominated_url":"https://www.youtube.com/@BuddhismPodcast","verified_name":"Buddhism Podcast","channel_id":"UCvbnkuXGIDJW8aCI0M9u1CA","subscribers":"76.1K","verified_identity":"Self-described Buddhist teaching/philosophy channel for inner peace and mindful living","flags":["Philosophical teaching, not clinical","Presenter credentials not yet verified"],"disposition":"discovered","topic_fit":"13 Buddhist psychology and suffering","next":"Verify presenter; shortlist suffering/acceptance talks"},
-    {"source_id":"SOURCE-011","name":"Free Mindfulness Project","url":"https://www.freemindfulness.org/download","platform":"web/mp3","access":"public, no login seen","licence_text_seen":"Guided meditations are protected by a Creative Commons licence: free to download and distribute non-commercially; credit original sources.","licence_specific_variant":"unknown (which CC variant per recording not yet confirmed)","mp3_links_in_static_html":0,"flags":["MP3 links not in static HTML; page likely script-driven or a web app: need another way to enumerate"],"disposition":"discovered","next":"Enumerate recordings; record CC variant and credit line per asset"},
-    {"source_id":"SOURCE-012","name":"UCSD Center for Mindfulness - Guided Audio","url":"https://cih.ucsd.edu/mindfulness/guided-audio","access":"public listing; page shows a Log in link (not shown to be required for audio)","mp3_links_in_static_html":24,"licence_text_seen":"none found in static page","flags":["Reuse/embed terms unknown: do not host copies until verified"],"disposition":"discovered","next":"Find terms of use; test audio plays without login"},
-    {"source_id":"SOURCE-013","name":"UCLA Mindful - Guided Meditations","url":"https://www.uclahealth.org/uclamindful/guided-meditations","access":"public, no login seen","mp3_links_in_static_html":110,"licence_text_seen":"Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International; (c) 2011-2024 The Regents of the University of California","implication":"Linking and attribution fine for personal use; NoDerivatives means do not edit, trim or remix the audio, and check that cutting segments or re-hosting is acceptable (link out with start timestamp is safer than re-hosting)","disposition":"discovered","next":"Enumerate ~110 mp3 references, dedupe, record durations and descriptions"},
-    {"source_id":"SOURCE-014","name":"Breathworks - Free Meditations","url":"https://www.breathworks-mindfulness.org.uk/free-meditations","access":"public page; site has a Log in link and basket (not shown to be required)","mp3_links_in_static_html":0,"licence_text_seen":"none found in static page","flags":["Audio likely loaded dynamically or hosted elsewhere"],"disposition":"discovered","topic_fit":"pain-adapted mindfulness (Breathworks is pain-focused; confirm)","next":"Locate audio URLs and terms"},
-    {"source_id":"SOURCE-015","name":"Palouse Mindfulness","url":"https://palousemindfulness.com","access":"HTTP 406 to automated fetch from this environment (may be bot-blocking)","disposition":"unavailable_pending_retry","next":"Retry with alternate request headers or another route; do not assume content"}
+    {
+      "source_id": "SOURCE-001",
+      "nominated_url": "https://www.youtube.com/@talkintherapy",
+      "verified_name": "2 Dudes Talkin' Therapy",
+      "channel_id": "UC6TcRjojE3q9GZh84FW0VIw",
+      "subscribers": "15.6K",
+      "verified_identity": "channel resolves; description not exposed on page",
+      "qualifications": "unknown",
+      "flags": [
+        "Presenters' credentials not yet verified"
+      ],
+      "disposition": "discovered",
+      "next": "Read About page/playlists; confirm presenter credentials and pain relevance"
+    },
+    {
+      "source_id": "SOURCE-002",
+      "nominated_url": "https://www.youtube.com/@DougsDharma",
+      "verified_name": "Doug's Dharma",
+      "channel_id": "UC8HnYof8CejuOkLsr86EjRQ",
+      "subscribers": "423",
+      "verified_identity": "Self-described: early Buddhist teachings, secular perspective; PhD in philosophy, scholarly publications in Buddhist Studies, Zen practice (per channel description)",
+      "flags": [
+        "Philosophical teaching, not clinical",
+        "Small channel; most content likely not pain-specific"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "13 Buddhist psychology and suffering",
+      "next": "Enumerate videos on suffering/acceptance; tag content_classification=philosophical_teaching"
+    },
+    {
+      "source_id": "SOURCE-003",
+      "nominated_url": "https://www.youtube.com/@thepsychdoctormd",
+      "verified_name": "Sasha Hamdani MD",
+      "channel_id": "UCXt28Zhpt1ijpMsuOBbHIbQ",
+      "subscribers": "1.6K (as shown; lower than expected, recheck)",
+      "verified_identity": "Self-described board-certified psychiatrist and ADHD clinical specialist",
+      "flags": [
+        "Content focus is ADHD/mental health, not chronic pain",
+        "Subscriber count looks odd; confirm this is the intended channel"
+      ],
+      "disposition": "removed_by_captain",
+      "next": "None: excluded from catalogue (Captain decision 2026-11-14)"
+    },
+    {
+      "source_id": "SOURCE-004",
+      "nominated_url": "https://www.youtube.com/@TrevorCarroll",
+      "verified_name": "Trevor Carroll",
+      "channel_id": "UCd03vq1YNVjWuw7I68gdcSQ",
+      "subscribers": "43.9K",
+      "verified_identity": "Self-described late-diagnosed autistic creator sharing neurodivergent lived experience, fitness, nature, music",
+      "flags": [
+        "Lived experience, not clinical",
+        "Pain relevance unverified"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "lived experience only",
+      "next": "Check for chronic-pain/fatigue videos; otherwise reject as off-scope"
+    },
+    {
+      "source_id": "SOURCE-005",
+      "nominated_url": "https://www.youtube.com/@HealthyGamerGG",
+      "verified_name": "HealthyGamerGG",
+      "channel_id": "UCrGYoowsH-aKfSCM5TOzAsA",
+      "subscribers": "6.23M",
+      "verified_identity": "Content, coaching and community from Dr. K (healthygamer.gg)",
+      "flags": [
+        "Commercial coaching/community offering linked; check no paywall gating on approved items",
+        "Mental-health education; pain relevance limited"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "emotional regulation, mindfulness, values",
+      "next": "Verify Dr. K's credentials from channel/site; shortlist relevant videos"
+    },
+    {
+      "source_id": "SOURCE-006",
+      "nominated_url": "https://www.youtube.com/@byebyepanic",
+      "verified_name": "Shaan Kassam",
+      "channel_id": "UC7EkQ8IjIPbJRgBryWHTDeg",
+      "subscribers": "100K",
+      "verified_identity": "Self-described panic/anxiety recovery creator (lived experience of panic disorder and agoraphobia); explicitly contrasts with 'traditional therapy'",
+      "flags": [
+        "Lived experience, not shown as a clinician",
+        "Anti-therapy framing: clinical review required before any approval",
+        "Pain relevance indirect (anxiety, hypervigilance)"
+      ],
+      "disposition": "included_by_captain",
+      "topic_fit": "6 Pain-related fear and hypervigilance; 7 Emotional regulation and anxiety",
+      "next": "Included as sources. Individual assets still pass per-asset clinical review (cure/unsupported-claim screen) before Approved; nothing is auto-approved."
+    },
+    {
+      "source_id": "SOURCE-007",
+      "nominated_url": "https://www.youtube.com/@DrAlexHeyne",
+      "verified_name": "Dr. Alex Heyne - Acupuncture and Chinese Medicine",
+      "channel_id": "UCix7wE05YbRdOVUPNHy0KTg",
+      "subscribers": "425K",
+      "verified_identity": "Self-described Doctor of Traditional Chinese Medicine, licensed acupuncturist, author of 'Master the Day'",
+      "flags": [
+        "Traditional Chinese Medicine: not within the brief's clinically supported interventions; emerging/alternative category",
+        "Check for cure or unsupported clinical claims"
+      ],
+      "disposition": "included_by_captain",
+      "next": "Included as sources. Individual assets still pass per-asset clinical review (cure/unsupported-claim screen) before Approved; nothing is auto-approved."
+    },
+    {
+      "source_id": "SOURCE-008",
+      "nominated_url": "https://www.youtube.com/@StanfordHospital",
+      "verified_name": "Stanford Health Care",
+      "channel_id": "UCl_mlar6gQ3z94OLr7YPkbA",
+      "subscribers": "198K",
+      "verified_identity": "Institutional hospital channel (Stanford Health Care)",
+      "flags": [
+        "General hospital content; pain-specific videos need filtering"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "1 Understanding persistent pain; 16 Interdisciplinary care",
+      "next": "Search channel for pain management/pain psychology playlists"
+    },
+    {
+      "source_id": "SOURCE-009",
+      "nominated_url": "https://www.youtube.com/channel/UCy-3MUXkovGrm4kp43V78bQ",
+      "verified_name": "KODEN OBSCURE",
+      "channel_id": "UCy-3MUXkovGrm4kp43V78bQ",
+      "subscribers": "172K",
+      "verified_identity": "Creator Hiroto Takana, Japan-based; Japanese folklore/obscure-topics style channel",
+      "flags": [
+        "LIKELY WRONG CHANNEL: no apparent link to chronic pain or recovery",
+        "Needs Captain confirmation that this ID is the intended nomination"
+      ],
+      "disposition": "removed_by_captain",
+      "next": "None: excluded from catalogue (Captain decision 2026-11-14)"
+    },
+    {
+      "source_id": "SOURCE-010",
+      "nominated_url": "https://www.youtube.com/@BuddhismPodcast",
+      "verified_name": "Buddhism Podcast",
+      "channel_id": "UCvbnkuXGIDJW8aCI0M9u1CA",
+      "subscribers": "76.1K",
+      "verified_identity": "Self-described Buddhist teaching/philosophy channel for inner peace and mindful living",
+      "flags": [
+        "Philosophical teaching, not clinical",
+        "Presenter credentials not yet verified"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "13 Buddhist psychology and suffering",
+      "next": "Verify presenter; shortlist suffering/acceptance talks"
+    },
+    {
+      "source_id": "SOURCE-011",
+      "name": "Free Mindfulness Project",
+      "url": "https://www.freemindfulness.org/download",
+      "platform": "web/mp3",
+      "access": "public, no login seen",
+      "licence_text_seen": "Guided meditations are protected by a Creative Commons licence: free to download and distribute non-commercially; credit original sources.",
+      "licence_specific_variant": "unknown (which CC variant per recording not yet confirmed)",
+      "mp3_links_in_static_html": 0,
+      "flags": [
+        "MP3 links not in static HTML; page likely script-driven or a web app: need another way to enumerate"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate recordings; record CC variant and credit line per asset"
+    },
+    {
+      "source_id": "SOURCE-012",
+      "name": "UCSD Center for Mindfulness - Guided Audio",
+      "url": "https://cih.ucsd.edu/mindfulness/guided-audio",
+      "access": "public listing; page shows a Log in link (not shown to be required for audio)",
+      "mp3_links_in_static_html": 24,
+      "licence_text_seen": "none found in static page",
+      "flags": [
+        "Reuse/embed terms unknown: do not host copies until verified"
+      ],
+      "disposition": "discovered",
+      "next": "Find terms of use; test audio plays without login"
+    },
+    {
+      "source_id": "SOURCE-013",
+      "name": "UCLA Mindful - Guided Meditations",
+      "url": "https://www.uclahealth.org/uclamindful/guided-meditations",
+      "access": "public, no login seen",
+      "mp3_links_in_static_html": 110,
+      "licence_text_seen": "Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International; (c) 2011-2024 The Regents of the University of California",
+      "implication": "Linking and attribution fine for personal use; NoDerivatives means do not edit, trim or remix the audio, and check that cutting segments or re-hosting is acceptable (link out with start timestamp is safer than re-hosting)",
+      "disposition": "discovered",
+      "next": "Enumerate ~110 mp3 references, dedupe, record durations and descriptions"
+    },
+    {
+      "source_id": "SOURCE-014",
+      "name": "Breathworks - Free Meditations",
+      "url": "https://www.breathworks-mindfulness.org.uk/free-meditations",
+      "access": "public page; site has a Log in link and basket (not shown to be required)",
+      "mp3_links_in_static_html": 0,
+      "licence_text_seen": "none found in static page",
+      "flags": [
+        "Audio likely loaded dynamically or hosted elsewhere"
+      ],
+      "disposition": "discovered",
+      "topic_fit": "pain-adapted mindfulness (Breathworks is pain-focused; confirm)",
+      "next": "Locate audio URLs and terms"
+    },
+    {
+      "source_id": "SOURCE-015",
+      "name": "Palouse Mindfulness",
+      "url": "https://palousemindfulness.com",
+      "access": "HTTP 406 to automated fetch from this environment (may be bot-blocking)",
+      "disposition": "unavailable_pending_retry",
+      "next": "Retry with alternate request headers or another route; do not assume content"
+    }
   ],
-  "not_yet_researched": ["NSW ACI PainBytes / Vimeo Chronic Pain","Michigan Medicine Kratz Lab animated coping","Painaustralia","Pain Revolution / Lorimer Moseley","Flippin' Pain","Live Well with Pain","Pain Toolkit","Pain Canada and Pain BC","The Chronic Pain Method","Pain Reprocessing Therapy Center"],
-  "questions_for_captain": [
-    "SOURCE-009 resolves to KODEN OBSCURE (a Japanese folklore-style channel). Is that the intended channel?",
-    "SOURCE-003 (@thepsychdoctormd) is an ADHD psychiatrist's channel with 1.6K subscribers. Confirm intended.",
-    "SOURCE-006 and SOURCE-007 are routed to clinical review (anti-therapy framing; Traditional Chinese Medicine). Acceptable?"
+  "not_yet_researched": [
+    "NSW ACI PainBytes / Vimeo Chronic Pain",
+    "Michigan Medicine Kratz Lab animated coping",
+    "Painaustralia",
+    "Pain Revolution / Lorimer Moseley",
+    "Flippin' Pain",
+    "Live Well with Pain",
+    "Pain Toolkit",
+    "Pain Canada and Pain BC",
+    "The Chronic Pain Method",
+    "Pain Reprocessing Therapy Center"
+  ],
+  "questions_for_captain": [],
+  "captain_decisions": [
+    "2026-11-14: remove SOURCE-003 and SOURCE-009 (channel mismatches)",
+    "2026-11-14: include SOURCE-006 and SOURCE-007"
   ]
 }
