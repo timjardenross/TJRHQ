@@ -44,6 +44,7 @@ export default function PainRecoveryStudioPage(){
   return <main className="min-h-screen bg-[#f4f7f3] text-[#193d46]">
     <div className="mx-auto max-w-xl px-4 pb-12 pt-6">
       <div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#698078]">Pain Recovery Studio</p><span className="text-xs text-[#698078]">{session.session_date}</span></div>
+      <a href="/pain-recovery-studio/safety" className="mt-4 block rounded-2xl border border-[#8d3f35] bg-white px-4 py-3 text-center text-sm font-semibold text-[#8d3f35]">Something feels different</a>
       <header className="mt-4 rounded-[2rem] bg-[#193d46] p-6 text-white">
         <p className="text-xs uppercase tracking-[0.18em] text-[#c7dbd5]">One step at a time</p><h1 className="mt-2 font-serif text-4xl leading-tight">More life, less recovery cost.</h1><p className="mt-3 text-sm leading-6 text-[#d9e9e4]">The Studio only shows the part of the day you are in.</p>
       </header>
