@@ -1,10 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { resourceLibrary } from '@/lib/pain-recovery-resource-library';
 import { contextualReason, resourceNeeds, resourcesForNeed, type ResourceNeed } from '@/lib/pain-recovery-resource-context';
 
-export default function PainRecoveryResourcesPage() {
+function PainRecoveryResourcesContent() {
   const searchParams = useSearchParams();
   const requestedNeed = searchParams.get('need');
   const initialNeed: ResourceNeed = requestedNeed === 'pace' || requestedNeed === 'understand' || requestedNeed === 'connect' ? requestedNeed : 'explore';
@@ -16,4 +16,8 @@ export default function PainRecoveryResourcesPage() {
   <div className="mt-6 space-y-3"><label className="block text-xs font-semibold uppercase tracking-[0.12em] text-[#698078]">Refine</label><div className="flex flex-wrap gap-2">{kinds.map((kind) => <button key={kind} onClick={() => setFilter(kind)} aria-pressed={filter === kind} className={`rounded-full px-3 py-2 text-xs font-semibold ${filter === kind ? 'bg-[#193d46] text-white' : 'bg-white'}`}>{kind}</button>)}</div><label className="block pt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#698078]">Region</label><div className="flex flex-wrap gap-2">{regions.map((value) => <button key={value} onClick={() => setRegion(value)} aria-pressed={region === value} className={`rounded-full px-3 py-2 text-xs font-semibold ${region === value ? 'bg-[#193d46] text-white' : 'bg-white'}`}>{value}</button>)}</div></div>
   <div className="mt-6 space-y-3"><p className="text-xs text-slate-600">Showing {filtered.length} approved resource{filtered.length === 1 ? '' : 's'} · {resourceNeeds.find((o) => o.id === need)?.label}</p>{filtered.map((r) => <article key={r.id} className="rounded-3xl bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#698078]">{r.region}</span><span className="text-xs text-slate-500">{r.format} · {r.energy} energy</span></div><h2 className="mt-2 text-lg font-semibold">{r.title}</h2><p className="mt-1 text-xs text-slate-500">{r.source} · {r.duration}</p><p className="mt-3 text-sm leading-6 text-slate-700">{contextualReason(r, need)}</p><p className="mt-2 text-xs leading-5 text-slate-500">Accessible option: {r.accessibility}</p><a href={r.url} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm font-semibold text-[#193d46]">Open external resource →</a></article>)}</div>
   <div className="mt-6 flex flex-wrap gap-4 text-sm font-semibold"><a href="/pain-recovery-studio/review" className="text-[#698078]">Weekly review</a><a href="/pain-recovery-studio/guide-me/overwhelmed" className="text-[#698078]">I’m overwhelmed</a></div></div></main>;
+}
+
+export default function PainRecoveryResourcesPage() {
+  return <Suspense fallback={<main className="min-h-screen bg-[#eef3ef] p-6 text-[#193d46]"><div className="mx-auto max-w-xl rounded-3xl bg-white p-6"><p className="text-sm">Opening trusted resources…</p></div></main>}><PainRecoveryResourcesContent /></Suspense>;
 }
