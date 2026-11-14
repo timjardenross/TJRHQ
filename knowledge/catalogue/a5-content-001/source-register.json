@@ -21,9 +21,9 @@
     {
       "source_id": "SOURCE-002",
       "nominated_url": "https://www.youtube.com/@DougsDharma",
-      "verified_name": "Doug's Dharma",
-      "channel_id": "UC8HnYof8CejuOkLsr86EjRQ",
-      "subscribers": "423",
+      "verified_name": "Doug's Dharma (@DougsDharma)",
+      "channel_id": "UCPIyEJzvW7SsbiIrooixjNA",
+      "subscribers": "423 subscribers",
       "verified_identity": "Self-described: early Buddhist teachings, secular perspective; PhD in philosophy, scholarly publications in Buddhist Studies, Zen practice (per channel description)",
       "flags": [
         "Philosophical teaching, not clinical",
@@ -31,7 +31,9 @@
       ],
       "disposition": "discovered",
       "topic_fit": "13 Buddhist psychology and suffering",
-      "next": "Enumerate videos on suffering/acceptance; tag content_classification=philosophical_teaching"
+      "next": "Enumerate videos on suffering/acceptance; tag content_classification=philosophical_teaching",
+      "channel_id_correction": "Corrected 2026-11-14 from UC8HnYof8CejuOkLsr86EjRQ (earlier ID taken from a loose page match, wrong). Verified against page canonical URL.",
+      "note": "Old ID UC8HnYof8CejuOkLsr86EjRQ is 'Diggin' the Dharma' (a different channel, 53 videos), reviewed separately by yt-a and labelled in creator."
     },
     {
       "source_id": "SOURCE-003",
@@ -66,8 +68,8 @@
       "source_id": "SOURCE-005",
       "nominated_url": "https://www.youtube.com/@HealthyGamerGG",
       "verified_name": "HealthyGamerGG",
-      "channel_id": "UCrGYoowsH-aKfSCM5TOzAsA",
-      "subscribers": "6.23M",
+      "channel_id": "UClHVl2N3jPEbkNJVx-ItQIQ",
+      "subscribers": "6.23M subscribers",
       "verified_identity": "Content, coaching and community from Dr. K (healthygamer.gg)",
       "flags": [
         "Commercial coaching/community offering linked; check no paywall gating on approved items",
@@ -75,7 +77,8 @@
       ],
       "disposition": "discovered",
       "topic_fit": "emotional regulation, mindfulness, values",
-      "next": "Verify Dr. K's credentials from channel/site; shortlist relevant videos"
+      "next": "Verify Dr. K's credentials from channel/site; shortlist relevant videos",
+      "channel_id_correction": "Corrected 2026-11-14 from UCrGYoowsH-aKfSCM5TOzAsA (earlier ID taken from a loose page match, wrong). Verified against page canonical URL."
     },
     {
       "source_id": "SOURCE-006",
@@ -97,8 +100,8 @@
       "source_id": "SOURCE-007",
       "nominated_url": "https://www.youtube.com/@DrAlexHeyne",
       "verified_name": "Dr. Alex Heyne - Acupuncture and Chinese Medicine",
-      "channel_id": "UCix7wE05YbRdOVUPNHy0KTg",
-      "subscribers": "425K",
+      "channel_id": "UCC3f6x4z_1SUQ0nvBGC55Hw",
+      "subscribers": "425K subscribers",
       "verified_identity": "Self-described Doctor of Traditional Chinese Medicine, licensed acupuncturist, author of 'Master the Day'",
       "flags": [
         "Traditional Chinese Medicine: not within the brief's clinically supported interventions; emerging/alternative category",
@@ -106,7 +109,8 @@
         "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information."
       ],
       "disposition": "included_by_captain",
-      "next": "Enumerate and catalogue all relevant videos"
+      "next": "Enumerate and catalogue all relevant videos",
+      "channel_id_correction": "Corrected 2026-11-14 from UCix7wE05YbRdOVUPNHy0KTg (earlier ID taken from a loose page match, wrong). Verified against page canonical URL."
     },
     {
       "source_id": "SOURCE-008",
