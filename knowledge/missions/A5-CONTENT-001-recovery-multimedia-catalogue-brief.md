@@ -85,8 +85,22 @@ Status model: Discovered → Metadata verified → Content reviewed → Rights v
 - Present the research catalogue and proposed Gemini architecture for Captain review before any implementation.
 - SUOC Platform Registry update: only if WP6 is approved and built.
 
+## Captain decisions (recorded)
+
+- **Catalogue destination:** the existing application's Supabase PostgreSQL database, subject to architecture verification. Reuse existing schemas and search capabilities where practical (pgvector `match_document_chunks`, migrations under `core/infrastructure/supabase/migrations/`, Meilisearch hybrid search).
+- **Code:** ingestion and integration code lives in this repository (starting points: `tools/supabase/`, `core/search/`).
+- **Notion:** mission governance, research decisions and review records only — not Gemini's retrieval store.
+- **Approval gates:** no new infrastructure and no production schema changes without explicit approval. Until then, catalogue records are staged as repo files (JSON/JSONL) and any proposed migration is drafted as a SQL file for review, not applied.
+
+## Architecture verification (next step, read-only)
+
+1. Review existing schemas (`0001_knowledge_prototype.sql`, `0162_research_memory_embeddings.sql`) for reusable tables and sensitivity controls (`knowledge_sensitivity`).
+2. Decide reuse vs. new tables for: sources, assets, segments, content descriptions, clinical/rights reviews, user recommendations/feedback (brief §12 separation).
+3. Confirm whether Meilisearch and the pgvector RPC are live.
+4. Present the findings and any proposed migration for approval.
+
 ## Open decisions for the Captain
 
-1. **Catalogue home:** repo files (JSON/JSONL, versioned in git) vs Supabase tables. Recommendation: repo files first (model-agnostic, reviewable), Supabase only on approval.
-2. **Research runtime:** this sandbox's outbound proxy may block YouTube/Vimeo/transcript fetches — confirm network access (`environment.network`) before WP1–WP3.
-3. **Clinical reviewer:** who signs off `Approved` status for clinically sensitive items.
+1. **Research runtime:** this sandbox's outbound proxy blocks YouTube, Vimeo and freemindfulness.org — network access must be opened before WP1–WP3.
+2. **Clinical reviewer:** who signs off `Approved` status for clinically sensitive items.
+3. **Mission ID:** mint `USS-TJR-MSN-xxxx` once execution is approved.
