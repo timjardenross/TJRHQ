@@ -216,14 +216,22 @@
       "source_id": "SOURCE-016",
       "name": "NSW Agency for Clinical Innovation - Pain Management Network / PainBytes",
       "url": "https://aci.health.nsw.gov.au/chronic-pain",
-      "access": "Automated fetch returns HTTP 403 with a Cloudflare 'Just a moment' challenge. Not bypassed.",
+      "access": "Vimeo channel public (HTTP 200). aci.health.nsw.gov.au itself still blocked by bot challenge (not bypassed).",
       "flags": [
-        "Official Vimeo channel URL not yet confirmed",
-        "vimeo.com/chronicpain is NOT this publisher (it is an unrelated individual clinician page, 'Dr. John Xavier Pereira'); do not catalogue"
+        "Embed status unverified: oEmbed returns domain_status_code 403 for all 57 when queried without an app origin",
+        "PainBytes content is adolescent-focused; Spinal Cord series is population-specific: eligibility filters needed",
+        "Durations, descriptions, transcripts not yet obtained"
       ],
       "search_evidence": "Web search confirms ACI Pain Management Network and PainBytes (adolescent pain site by Sydney Children's Hospital Pain Management Service with ACI) exist; a Vimeo video 'A patient journey to self-management of chronic pain' (vimeo.com/249756219) appeared but its link to the official ACI channel is unconfirmed.",
-      "disposition": "blocked_pending_access",
-      "next": "Find the official Vimeo channel via a non-blocked route, or ask Captain for the channel URL; the ACI site may need an allowlisted route or manual export"
+      "disposition": "metadata_partially_verified",
+      "next": "Test embed from the app origin; obtain durations and captions; WP3 summaries from captions/transcripts where available",
+      "vimeo_channel": "https://vimeo.com/channels/pain (supplied by Captain 2026-11-14; publisher shown on videos: \"Agency for Clinical Innovation\"; channel title \"Chronic Pain\")",
+      "videos_listed": 57,
+      "series": [
+        "Chronic Pain website core videos (6)",
+        "PainBytes episodes 1-7 (adolescent-oriented per titles)",
+        "Spinal Cord Injury Pain series (5)"
+      ]
     }
   ],
   "not_yet_researched": [
