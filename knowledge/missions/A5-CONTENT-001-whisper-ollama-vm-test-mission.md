@@ -1,10 +1,10 @@
-# Mission Brief: A5-CONTENT-001-S2: faster-whisper and Ollama capability test on the VM
+# Mission Brief: A5-CONTENT-001-S2 (USS-TJR-MSN-0512): faster-whisper and Ollama capability test on the VM
 
 **Status:** Drafted for review. Nothing in this brief has been run.
 
 ## Mission Header
 
-- **Mission ID:** to be minted on the VM with `python3 tools/mint_id.py MSN` before starting. It is not minted here: `knowledge/missions/VM-OPTIMISE-ZERO-COST-PLAN-20261009.md` records that minting from a second checkout collides with the VM's `.id-counters.json`.
+- **Mission ID:** USS-TJR-MSN-0512 (minted on the VM, 2026-11-14). Checked unused on every branch. USS-TJR-MSN-0513 was also minted and is unused (treat as burned; do not reuse). The VM's own first mint returned 0511, which duplicated the parent mission's ID (minted from the cloud checkout); the parent keeps 0511. The MSN counter on the VM and on `main` is 513 and must not be rolled back.
 - **Parent mission:** A5-CONTENT-001 / USS-TJR-MSN-0511 (recovery multimedia catalogue). Brief: `knowledge/missions/A5-CONTENT-001-recovery-multimedia-catalogue-brief.md`.
 - **Priority:** P2 (it unblocks WP3 for audio and takes load off the Gemini free tier).
 - **Source:** Captain request, 2026-11-14. The Gemini content pass runs on a free account, so heavy work should move to local inference where it is as good, and audio needs real timestamps.
