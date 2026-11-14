@@ -31,7 +31,10 @@ CAT = ROOT / "knowledge" / "catalogue" / "a5-content-001"
 OUT = CAT / "enrichment"
 MODEL = os.environ.get("A5_GEMINI_MODEL", "gemini-2.5-flash")
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-PROMPT_VERSION = "a5-content-pass-v1"
+PROMPT_VERSION = "a5-content-pass-v2"
+# Sources whose terms were checked and allow transient (not stored, not redistributed) machine listening.
+# Palouse: FAQ says link rather than copy; nothing is copied or re-hosted. Extend only after a rights check.
+AUDIO_OK_SOURCES = {"SOURCE-015"}
 
 def _a(t="STRING"):
     return {"type": "ARRAY", "items": {"type": t}}
@@ -94,6 +97,31 @@ def build_request(rec: dict) -> dict:
     }
 
 
+def fetch_audio(url: str, max_bytes: int = 15_000_000) -> bytes:
+    """Transient download for analysis only; caller must not persist it."""
+    req = urllib.request.Request(url, headers={
+        "Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        ctype = resp.headers.get("Content-Type", "")
+        data = resp.read(max_bytes + 1)
+    if "audio" not in ctype or len(data) < 100_000 or len(data) > max_bytes:
+        raise ValueError(f"not usable audio (content-type={ctype!r}, {len(data)} bytes)")
+    return data
+
+
+def validate(result: dict, duration: int | None) -> dict:
+    """Never trust model timestamps blindly: drop any beyond the known length, flag the rest unverified."""
+    dropped = 0
+    if duration:
+        for key in ("chapters", "claims"):
+            kept = [x for x in result.get(key) or [] if (x.get("t") or 0) <= duration]
+            dropped += len(result.get(key) or []) - len(kept)
+            result[key] = kept
+    return {"timestamps_unverified": True, "timestamps_dropped_beyond_duration": dropped,
+            "complete": bool(result.get("complete")), "opening_present": bool(result.get("opening"))}
+
+
 def call_gemini(payload: dict) -> dict:
     key = os.environ.get("GEMINI_API_KEY", "proxy-injected")
     req = urllib.request.Request(
@@ -103,10 +131,18 @@ def call_gemini(payload: dict) -> dict:
         return json.load(resp)
 
 
-def select(inv: dict, source: str | None, force: bool) -> list[dict]:
+def select(inv: dict, source: str | None, force: bool, audio: bool = False) -> list[dict]:
     out = []
     for a in inv["assets"]:
-        if a.get("platform") != "youtube" or a.get("review_status") in ("rejected", "unavailable"):
+        if a.get("review_status") in ("rejected", "unavailable"):
+            continue
+        if audio:
+            # audio with no transcript, from sources whose terms allow transient processing (see AUDIO_OK_SOURCES)
+            if a.get("media_type") != "audio" or a.get("source_id") not in AUDIO_OK_SOURCES:
+                continue
+            if a.get("transcript_available") is True or not str(a.get("media_url", "")).endswith(".mp3"):
+                continue
+        elif a.get("platform") != "youtube":
             continue
         if source and a.get("source_id") != source:
             continue
@@ -122,11 +158,12 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=5)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--audio", action="store_true", help="audio mode (allow-listed sources only)")
     ap.add_argument("--sleep", type=float, default=2.0)
     ap.add_argument("--per-source", type=int, default=0, help="take N records per source instead of --limit overall")
     args = ap.parse_args()
     inv = json.loads((CAT / "asset-inventory.json").read_text())
-    todo = select(inv, args.source, args.force)
+    todo = select(inv, args.source, args.force, args.audio)
     if args.per_source:
         seen: dict[str, int] = {}
         picked = []
@@ -140,7 +177,19 @@ def main() -> int:
     print(f"{len(todo)} record(s) selected (model {MODEL})")
     OUT.mkdir(parents=True, exist_ok=True)
     for rec in todo:
-        payload = build_request(rec)
+        if args.audio and not args.dry_run:
+            import base64
+            try:
+                audio = fetch_audio(rec["media_url"])
+            except (ValueError, urllib.error.URLError) as exc:
+                print(f"{rec['asset_id']}: SKIPPED {exc}", file=sys.stderr)
+                continue
+            payload = build_request(rec)
+            payload["contents"][0]["parts"][0] = {"inline_data": {
+                "mime_type": "audio/mp3", "data": base64.b64encode(audio).decode()}}
+            del audio
+        else:
+            payload = build_request(rec)
         if args.dry_run:
             print(json.dumps({"asset_id": rec["asset_id"], "video": rec["source_url"],
                               "prompt_head": payload["contents"][0]["parts"][1]["text"][:200]}))
@@ -157,16 +206,19 @@ def main() -> int:
                     time.sleep(10 * (attempt + 1))
             text = resp["candidates"][0]["content"]["parts"][0]["text"]
             result = json.loads(text)
+            validation = validate(result, rec.get("duration_seconds"))
         except (urllib.error.HTTPError, urllib.error.URLError, KeyError, IndexError, ValueError) as exc:
             print(f"{rec['asset_id']}: FAILED {type(exc).__name__}: {exc}", file=sys.stderr)
             result = None
+            validation = None
         record = {
             "asset_id": rec["asset_id"], "source_url": rec["source_url"],
             "summary_status": "ai_draft" if result else "failed",
             "provenance": {"model": MODEL, "prompt_version": PROMPT_VERSION,
                            "generated_at": datetime.now(timezone.utc).isoformat(),
-                           "input": "youtube_url_via_gemini", "transcript_stored": False,
+                           "input": "inline_audio_transient" if args.audio else "youtube_url_via_gemini", "transcript_stored": False,
                            "usage": (resp or {}).get("usageMetadata") if result else None},
+            "validation": validation,
             "result": result,
         }
         (OUT / f"{rec['asset_id']}.json").write_text(json.dumps(record, indent=1, ensure_ascii=False))
