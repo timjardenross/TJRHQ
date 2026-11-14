@@ -37,5 +37,25 @@ export async function POST(req: NextRequest) {
   const sessionDate = new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne'}).format(new Date());
   const { data: currentSession } = await supabase.from('pain_recovery_sessions').select('id').eq('user_id',user.id).eq('session_date',sessionDate).maybeSingle();
   if (currentSession?.id) await supabase.from('pain_recovery_sessions').update({current_action: result.next_action ?? result.message,current_stage: stageForAction(result.action_type),safety_status: result.safety_instruction === 'show_card' ? 'safety_hold' : 'general_boundary',active_practice: result.practice,practice_step: 0}).eq('id',currentSession.id).eq('user_id',user.id);
+  if (!result.practice && result.action_type !== 'safety_card') {
+    result = {
+      ...result,
+      message: 'Choose one small reset, then return to the next thing that matters.',
+      next_action: 'Take two minutes for an easy, unforced breath, then notice what feels possible next.',
+      choices: ['Take two minutes to settle', 'Change the setting for five minutes', 'Make the valued activity smaller'],
+      action_type: 'continue',
+      safety_instruction: 'none',
+      practice: {
+        title: 'A small reset',
+        duration: '2 minutes',
+        steps: [
+          'Let your shoulders be supported and allow your breathing to be easy.',
+          'Notice three things you can see or hear without fixing anything.',
+          'Choose the smallest next action that keeps today connected to what matters.'
+        ],
+        revisit: 'After two minutes, decide whether to continue, make it smaller, or move it later.'
+      }
+    };
+  }
   return NextResponse.json({response:result,source:success?'gemini':'safe_fallback',success});
 }
