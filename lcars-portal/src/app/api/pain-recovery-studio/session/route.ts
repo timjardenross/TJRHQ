@@ -5,6 +5,9 @@ export async function GET() {
   const user = await requireValidatedUser();
   if (!user) return NextResponse.json({error:'Unauthorized'},{status:401});
   const supabase = await createSupabaseServerClient();
+  const { data: consent, error: consentError } = await supabase.from('pain_recovery_consents').select('status,main_consent').eq('user_id', user.id).maybeSingle();
+  if (consentError) return NextResponse.json({error:'Consent could not be verified'},{status:503});
+  if (!(consent?.status === 'granted' && consent.main_consent === true)) return NextResponse.json({session:null,local_only:true});
   const date = new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne'}).format(new Date());
   const {data,error}=await supabase.from('pain_recovery_sessions').select('*').eq('user_id',user.id).eq('session_date',date).maybeSingle();
   if(error)return NextResponse.json({error:error.message},{status:500});
@@ -17,10 +20,13 @@ export async function PUT(request: Request) {
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return NextResponse.json({error:'Invalid JSON body'},{status:400}); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({error:'Invalid body'},{status:400});
+  const supabase = await createSupabaseServerClient();
+  const { data: consent, error: consentError } = await supabase.from('pain_recovery_consents').select('status,main_consent').eq('user_id', user.id).maybeSingle();
+  if (consentError) return NextResponse.json({error:'Consent could not be verified'},{status:503});
+  if (!(consent?.status === 'granted' && consent.main_consent === true)) return NextResponse.json({error:'Consent required for remote storage',local_only:true},{status:403});
   const date = new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne'}).format(new Date());
   const allowed = ['day_state','chosen_colour','triggers','valued_activity','plan','current_stage','current_action','action_status','adaptation_mode','safety_status','morning_context','evening_reflection','next_day_cost','learning_note','next_check_in_at','active_practice','practice_step'];
   const patch = Object.fromEntries(Object.entries(body).filter(([key])=>allowed.includes(key)).map(([key,value])=>[key, typeof value === 'string' ? value.slice(0,2000) : value]));
-  const supabase = await createSupabaseServerClient();
   const {data,error}=await supabase.from('pain_recovery_sessions').upsert({user_id:user.id,session_date:date,...patch},{onConflict:'user_id,session_date'}).select('*').single();
   if(error)return NextResponse.json({error:error.message},{status:500});
   void supabase.from('pain_recovery_events').insert({user_id:user.id,session_id:data.id,event_type:'session_updated',payload:patch});

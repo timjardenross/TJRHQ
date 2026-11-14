@@ -24,6 +24,21 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({error:'Invalid JSON body'},{status:400}); }
   const supabase = await createSupabaseServerClient();
+  const { data: consent, error: consentError } = await supabase.from('pain_recovery_consents').select('status,main_consent,free_text_consent,medications_consent').eq('user_id', user.id).maybeSingle();
+  if (consentError) return NextResponse.json({error:'Consent could not be verified'},{status:503});
+  const consentGranted = consent?.status === 'granted' && consent.main_consent === true;
+  if (!consentGranted) {
+    return NextResponse.json({
+      response: {
+        message: 'Choose one small reset, then return to the next thing that matters.',
+        next_action: 'Take two minutes for an easy, unforced breath, then notice what feels possible next.',
+        choices: ['Take two minutes to settle', 'Change the setting for five minutes', 'Make the valued activity smaller'],
+        action_type: 'continue', safety_instruction: 'none',
+        practice: { title: 'A small reset', duration: '2 minutes', steps: ['Let your shoulders be supported and allow your breathing to be easy.', 'Notice three things you can see or hear without fixing anything.', 'Choose the smallest next action that keeps today connected to what matters.'], revisit: 'After two minutes, decide whether to continue, make it smaller, or move it later.' },
+        resources: []
+      }, source: 'preauthored', success: false, consent_required: true
+    });
+  }
   const { data: recentHealth } = await supabase.from('health_daily_logs').select('log_date,pain_score,energy,mood,sleep_hours,sleep_quality,nervous_system_state,daily_capacity_score,movement_completed').eq('user_id',user.id).order('log_date',{ascending:false}).limit(3);
   const { data: recipe } = await supabase.from('pain_recovery_recipe_ingredients').select('domain,ingredient,direction,controllability,confidence').eq('user_id',user.id).eq('active',true).order('domain').limit(30);
   const { data: recentSessions } = await supabase.from('pain_recovery_sessions').select('session_date,chosen_colour,valued_activity,evening_reflection,next_day_cost,learning_note').eq('user_id',user.id).order('session_date',{ascending:false}).limit(7);
