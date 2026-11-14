@@ -1,4 +1,5 @@
-export const resourceLibrary=[
+export type RecoveryResource = { id:string; region:string; kind:string; domain:string; title:string; source:string; url:string; use:string; format:'reading'|'audio'|'video'; duration:string; accessibility:string; reviewed:string };
+export const resourceLibrary:RecoveryResource[]=[
  {id:'au-pacing',region:'Australia',kind:'pacing',domain:'biological',title:'Pacing and goal setting',source:'painHEALTH, University of Western Australia',url:'https://painhealth.csse.uwa.edu.au/pain-module/pacing-and-goal-setting/',use:'Use when the day is overfull or you are planning a valued activity.'},
  {id:'au-self-care',region:'Australia',kind:'whole-person care',domain:'whole-person',title:'Supported self-care for persistent pain',source:'Painaustralia',url:'https://www.painaustralia.org.au/find-support/getting-the-right-care-1/supported-self-care',use:'Use for a broad overview of active, multidisciplinary self-management.'},
  {id:'au-modern-care',region:'Australia',kind:'education',domain:'whole-person',title:'Modern pain care',source:'Painaustralia',url:'https://www.painaustralia.org.au/find-support/getting-the-right-care-1/modern-pain-care',use:'Use when you want to understand the whole-person approach.'},
@@ -9,4 +10,4 @@ export const resourceLibrary=[
  {id:'nz-chronic',region:'New Zealand',kind:'education',domain:'whole-person',title:'Chronic pain',source:'Healthify NZ',url:'https://healthify.nz/health-a-z/c/chronic-pain',use:'Use for New Zealand guidance on self-management, programmes and support.'},
  {id:'global-living',region:'Global',kind:'support',domain:'social',title:'Living with pain resources',source:'International Association for the Study of Pain',url:'https://www.iasp-pain.org/resources/living-with-pain/',use:'Use when you want international education or peer-support options.'},
  {id:'global-chronic',region:'Global',kind:'education',domain:'education',title:'Chronic pain education',source:'International Association for the Study of Pain',url:'https://www.iasp-pain.org/resources/topics/chronic-pain/',use:'Use when a short international learning resource would help.'}
-] as const;
+].map(resource=>({...resource,format:'reading' as const,duration:'Read at your pace',accessibility:'Text alternative available',reviewed:'2026-11-14'}));

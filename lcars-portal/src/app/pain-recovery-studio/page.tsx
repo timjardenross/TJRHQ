@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { suggestCapacity } from '@/lib/pain-recovery-studio-capacity';
 import { companionCopy, dayGuideCopy, shouldOfferReentry } from '@/lib/pain-recovery-companion';
+import { tomorrowPrompt } from '@/lib/pain-recovery-learning';
 
 type Stage = 'morning'|'plan'|'active'|'deferred'|'evening'|'safety_hold';
 type Session = {
@@ -27,7 +28,7 @@ export default function PainRecoveryStudioPage(){
   const companion=useMemo(()=>companionCopy({stage,actionStatus:session.action_status,currentAction:session.current_action,returningAfterGap}),[stage,session.action_status,session.current_action,returningAfterGap]);
   const dayGuide=useMemo(()=>dayGuideCopy({stage,valuedActivity:session.valued_activity,plan:session.plan,currentAction:session.current_action,actionStatus:session.action_status,hasReminder:Boolean(session.next_check_in_at),learningNote:lastLearning}),[stage,session.valued_activity,session.plan,session.current_action,session.action_status,session.next_check_in_at,lastLearning]);
   const suggestedColour=useMemo(()=>suggestCapacity({sleep:morningContext.sleep,energy:morningContext.energy,demand:morningContext.demand,yesterdayCost:morningContext.yesterdayCost,flare:morningContext.flare}),[morningContext]);
-  const morningSummary=useMemo(()=>{const parts=[];if(morningContext.sleep)parts.push(`${morningContext.sleep} sleep`);if(morningContext.energy)parts.push(`${morningContext.energy} energy`);if(morningContext.demand)parts.push(`${morningContext.demand} demand`);const learning=lastLearning?` Yesterday’s learning is available lightly: ${lastLearning}`:'';return parts.length?`Today is shaped by ${parts.join(', ')}. The Studio will keep the next step ${suggestedColour==='Amber'?'smaller and kinder':suggestedColour==='Red'?'within the safety boundary':'ordinary and possible'}.${learning}`:`Add one or two signals if useful.${learning}`},[morningContext,suggestedColour,lastLearning]);
+  const morningSummary=useMemo(()=>{const parts=[];if(morningContext.sleep)parts.push(`${morningContext.sleep} sleep`);if(morningContext.energy)parts.push(`${morningContext.energy} energy`);if(morningContext.demand)parts.push(`${morningContext.demand} demand`);const learning=lastLearning?` ${tomorrowPrompt(lastLearning)}`:'';return parts.length?`Today is shaped by ${parts.join(', ')}. The Studio will keep the next step ${suggestedColour==='Amber'?'smaller and kinder':suggestedColour==='Red'?'within the safety boundary':'ordinary and possible'}.${learning}`:`Add one or two signals if useful.${learning}`},[morningContext,suggestedColour,lastLearning]);
   async function save(patch:Partial<Session>){
     setSaving(true);setMessage('');
     if(patch.learning_note&&typeof window!=='undefined'){window.localStorage.setItem('pain-recovery-studio-last-learning',patch.learning_note);setLastLearning(patch.learning_note)}
