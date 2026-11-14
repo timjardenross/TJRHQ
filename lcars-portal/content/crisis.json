@@ -1,0 +1,66 @@
+{
+  "version": "1.0",
+  "approved_by": "GP",
+  "approved_date": "2026-11-14",
+  "contacts": [
+    {
+      "id": "emergency",
+      "label": "000",
+      "kind": "phone",
+      "href": "tel:000",
+      "verified": true,
+      "last_checked": "2026-11-14"
+    },
+    {
+      "id": "lifeline_phone",
+      "label": "Lifeline Australia 13 11 14",
+      "kind": "phone",
+      "href": "tel:131114",
+      "verified": true,
+      "last_checked": "2026-11-14"
+    },
+    {
+      "id": "lifeline_web",
+      "label": "Lifeline Australia",
+      "kind": "web",
+      "href": "https://www.lifeline.org.au/",
+      "verified": true,
+      "last_checked": "2026-11-14"
+    },
+    {
+      "id": "healthdirect_phone",
+      "label": "healthdirect 1800 022 222",
+      "kind": "phone",
+      "href": "tel:1800022222",
+      "verified": true,
+      "last_checked": "2026-11-14"
+    },
+    {
+      "id": "healthdirect_finder",
+      "label": "Find an Australian health service",
+      "kind": "web",
+      "href": "https://www.healthdirect.gov.au/healthcare-and-services",
+      "verified": true,
+      "last_checked": "2026-11-14"
+    },
+    {
+      "id": "international",
+      "label": "Find a local helpline",
+      "kind": "web",
+      "href": "https://findahelpline.com/",
+      "verified": true,
+      "last_checked": "2026-11-14"
+    }
+  ],
+  "behaviour": {
+    "static_only": true,
+    "no_text_input": true,
+    "no_logging": true,
+    "no_analytics": true,
+    "no_geolocation": true,
+    "opens_from": [
+      "I need support now",
+      "self_harm_safety_item"
+    ]
+  }
+}
