@@ -232,19 +232,83 @@
         "PainBytes episodes 1-7 (adolescent-oriented per titles)",
         "Spinal Cord Injury Pain series (5)"
       ]
+    },
+    {
+      "source_id": "SOURCE-017",
+      "name": "Pain Toolkit (Pete Moore)",
+      "url": "https://www.paintoolkit.org",
+      "verified_on_landing_page": "Landing page verified: 'Pain Self Management by Pete Moore'. No direct video/audio embeds found on the landing page. Page has some commercial wording (2 hits); toolkit/course access terms unknown.",
+      "flags": [
+        "Check for free vs paid material; no paid items may be approved"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-018",
+      "name": "Pain Revolution",
+      "url": "https://painrevolution.org",
+      "verified_on_landing_page": "Landing page verified ('Three pathways. One mission. Reducing the burden of chronic pain across Australia'). No direct media on landing; Lorimer Moseley material to be located on subpages/linked channels.",
+      "flags": [
+        "Pain neuroscience education source; verify per-video content"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-019",
+      "name": "Painaustralia",
+      "url": "https://www.painaustralia.org.au",
+      "verified_on_landing_page": "Landing page verified: Australia's advocacy body for people living with pain. One YouTube video referenced on landing.",
+      "flags": [
+        "Advocacy body, not a clinical provider; its linked media needs individual review"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-020",
+      "name": "The Chronic Pain Method",
+      "url": "https://thechronicpainmethod.com",
+      "verified_on_landing_page": "Landing page loads but is an unbranded default WordPress page ('My WordPress'); identity and content NOT verified.",
+      "flags": [
+        "Publisher identity unverified: do not catalogue until the right site is confirmed"
+      ],
+      "disposition": "unresolved_identity",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-021",
+      "name": "Pain BC",
+      "url": "https://painbc.ca",
+      "verified_on_landing_page": "Landing page verified: 'Chronic Pain Support, Resources & Education'. One Vimeo reference on landing.",
+      "flags": [
+        "Provincial pain organisation (Canada); check Pain Canada separately"
+      ],
+      "disposition": "discovered",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
+    },
+    {
+      "source_id": "SOURCE-022",
+      "name": "Pain Reprocessing Therapy Center",
+      "url": "https://www.painreprocessingtherapy.com",
+      "verified_on_landing_page": "Landing page verified. Self-description: 'retrains the brain to heal chronic pain'. One YouTube video referenced; page has commercial/enrolment wording (12 hits).",
+      "flags": [
+        "'Heal chronic pain' framing: screen for cure/all-pain-is-neuroplastic claims (brief §9); PRT to be tagged with stated limitations",
+        "Likely paid programs on site; only free, no-login items eligible"
+      ],
+      "disposition": "clinical_review_required",
+      "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
     }
   ],
   "not_yet_researched": [
-    "NSW ACI PainBytes / Vimeo Chronic Pain",
-    "Michigan Medicine Kratz Lab animated coping",
-    "Painaustralia",
-    "Pain Revolution / Lorimer Moseley",
-    "Flippin' Pain",
-    "Live Well with Pain",
-    "Pain Toolkit",
-    "Pain Canada and Pain BC",
-    "The Chronic Pain Method",
-    "Pain Reprocessing Therapy Center"
+    "Michigan Medicine / Kratz Lab animated coping strategies",
+    "Pain Canada",
+    "Flippin' Pain (proxy 502 so far)",
+    "Live Well with Pain (proxy 502 so far)",
+    "Palouse Mindfulness (HTTP 406)",
+    "UCSD and Breathworks audio enumeration",
+    "Other university hospitals and public healthcare providers"
   ],
   "questions_for_captain": [],
   "captain_decisions": [
