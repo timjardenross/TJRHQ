@@ -22,6 +22,7 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -127,10 +128,12 @@ def build_request(rec: dict) -> dict:
 
 def fetch_audio(url: str, max_bytes: int = 15_000_000) -> bytes:
     """Transient download for analysis only; caller must not persist it."""
+    if urllib.parse.urlparse(url).scheme != "https":
+        raise ValueError(f"refusing non-https audio url: {url!r}")
     req = urllib.request.Request(url, headers={
         "Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36"})
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310 - https scheme enforced above; url comes from the catalogue inventory, not user input
         ctype = resp.headers.get("Content-Type", "")
         data = resp.read(max_bytes + 1)
     if "audio" not in ctype or len(data) < 100_000 or len(data) > max_bytes:
@@ -155,7 +158,7 @@ def call_gemini(payload: dict) -> dict:
     req = urllib.request.Request(
         ENDPOINT.format(model=MODEL), data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json", "x-goog-api-key": key}, method="POST")
-    with urllib.request.urlopen(req, timeout=300) as resp:
+    with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310 - fixed https Gemini endpoint (ENDPOINT constant), not user input
         return json.load(resp)
 
 
