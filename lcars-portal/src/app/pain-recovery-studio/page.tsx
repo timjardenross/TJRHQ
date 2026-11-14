@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { suggestCapacity } from '@/lib/pain-recovery-studio-capacity';
-import { companionCopy, shouldOfferReentry } from '@/lib/pain-recovery-companion';
+import { companionCopy, dayGuideCopy, shouldOfferReentry } from '@/lib/pain-recovery-companion';
 
 type Stage = 'morning'|'plan'|'active'|'deferred'|'evening'|'safety_hold';
 type Session = {
@@ -25,6 +25,7 @@ export default function PainRecoveryStudioPage(){
   const dayLabel=useMemo(()=>session.chosen_colour?`${session.chosen_colour} day`:'Morning check-in',[session.chosen_colour]); const strengthNote=session.learning_note?.startsWith('Strengths noticed:')?session.learning_note.replace('Strengths noticed:','').trim():'';
   const stage=session.safety_status==='safety_hold'?'safety_hold':session.current_stage;
   const companion=useMemo(()=>companionCopy({stage,actionStatus:session.action_status,currentAction:session.current_action,returningAfterGap}),[stage,session.action_status,session.current_action,returningAfterGap]);
+  const dayGuide=useMemo(()=>dayGuideCopy({stage,valuedActivity:session.valued_activity,plan:session.plan,currentAction:session.current_action}),[stage,session.valued_activity,session.plan,session.current_action]);
   const suggestedColour=useMemo(()=>suggestCapacity({sleep:morningContext.sleep,energy:morningContext.energy,demand:morningContext.demand,yesterdayCost:morningContext.yesterdayCost,flare:morningContext.flare}),[morningContext]);
   const morningSummary=useMemo(()=>{const parts=[];if(morningContext.sleep)parts.push(`${morningContext.sleep} sleep`);if(morningContext.energy)parts.push(`${morningContext.energy} energy`);if(morningContext.demand)parts.push(`${morningContext.demand} demand`);return parts.length?`Today is shaped by ${parts.join(', ')}. The Studio will keep the next step ${suggestedColour==='Amber'?'smaller and kinder':suggestedColour==='Red'?'within the safety boundary':'ordinary and possible'}.`:'Add one or two signals if useful.'},[morningContext,suggestedColour]);
   async function save(patch:Partial<Session>){
@@ -56,6 +57,7 @@ export default function PainRecoveryStudioPage(){
       </header>
       <div className="mt-4 flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm shadow-sm"><span className="font-semibold">{dayLabel}</span><span className="text-[#698078]">{stage==='morning'?'1 of 4':stage==='plan'?'2 of 4':stage==='active'||stage==='deferred'?'3 of 4':stage==='evening'?'4 of 4':'Safety hold'}</span></div>
       <section className="mt-4 rounded-3xl bg-[#193d46] p-5 text-white" aria-live="polite"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c7dbd5]">{companion.label}</p><h2 className="mt-2 font-serif text-2xl leading-tight">{companion.title}</h2><p className="mt-2 text-sm leading-6 text-[#d9e9e4]">{companion.body}</p>{returningAfterGap&&<button onClick={()=>setReturningAfterGap(false)} className="mt-4 rounded-2xl bg-[#f6e7bd] px-4 py-3 text-sm font-semibold text-[#193d46]">{companion.primary}</button>}</section>
+      <section className="mt-4 rounded-3xl border border-[#cbded6] bg-white p-5" aria-label="Your day guide"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#698078]">Your day guide</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#e1eee9] p-3"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#526b6c]">Now</p><p className="mt-1 text-sm font-semibold leading-5">{dayGuide.now}</p></div><div className="rounded-2xl bg-[#fbf6e9] p-3"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#8a6c2e]">Next</p><p className="mt-1 text-sm font-semibold leading-5">{dayGuide.next}</p></div><div className="rounded-2xl bg-[#f4f7f3] p-3"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#698078]">Later</p><p className="mt-1 text-sm font-semibold leading-5">{dayGuide.later}</p></div></div></section>
       <div className="mt-4 rounded-2xl border border-[#d8e2dc] bg-white p-4 text-sm leading-6">
         <p className="font-semibold">Your guidance choice</p>
         <p className="mt-1 text-slate-600">The Studio works without AI using authored guidance on this device. If you enable Gemini, only the day context needed to tailor the next step is sent to the model router. Free text and medication details stay off by default.</p>
