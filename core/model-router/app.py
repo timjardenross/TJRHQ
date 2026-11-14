@@ -131,6 +131,11 @@ _HOST = os.environ.get("MODEL_ROUTER_HOST", "127.0.0.1")
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 _LOG_FILE = Path(__file__).parent / "call_log.jsonl"
 _LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", "200"))
+_AUTH_TOKEN = os.environ.get("MODEL_ROUTER_AUTH_TOKEN", "").strip()
+_CORS_ORIGIN = os.environ.get("MODEL_ROUTER_CORS_ORIGIN", "").strip()
+_MAX_BODY_BYTES = int(os.environ.get("MODEL_ROUTER_MAX_BODY_BYTES", "65536"))
+if _HOST not in {"127.0.0.1", "localhost", "::1"} and not _AUTH_TOKEN:
+    raise RuntimeError("MODEL_ROUTER_AUTH_TOKEN is required when MODEL_ROUTER_HOST is not loopback")
 
 # ── Model catalogue ──────────────────────────────────────────────────────────
 
@@ -898,7 +903,8 @@ class RouterHandler(BaseHTTPRequestHandler):
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
-            self.send_header("Access-Control-Allow-Origin", "*")
+            if _CORS_ORIGIN:
+                self.send_header("Access-Control-Allow-Origin", _CORS_ORIGIN)
             self.end_headers()
             self.wfile.write(payload)
         except (BrokenPipeError, ConnectionResetError):
@@ -919,6 +925,8 @@ class RouterHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         if not length:
             return {}
+        if length > _MAX_BODY_BYTES:
+            return {}
         try:
             return json.loads(self.rfile.read(length).decode())
         except json.JSONDecodeError:
@@ -926,12 +934,16 @@ class RouterHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        if _CORS_ORIGIN:
+            self.send_header("Access-Control-Allow-Origin", _CORS_ORIGIN)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
     def do_GET(self) -> None:
+        if self.path != "/health" and not self._authorised():
+            self._send_json(401, {"error": "unauthorised"})
+            return
         if self.path == "/api/model/status":
             self._handle_status()
         elif self.path.startswith("/api/model/recent-calls"):
@@ -942,6 +954,9 @@ class RouterHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
+        if not self._authorised():
+            self._send_json(401, {"error": "unauthorised"})
+            return
         path = self.path.rstrip("/")
 
         if path == "/api/model/adhd-decompose":
@@ -960,6 +975,11 @@ class RouterHandler(BaseHTTPRequestHandler):
         result = _run_task(task_type, prompt, body)
         code = 200 if result.get("success") else 500
         self._send_json(code, result)
+
+    def _authorised(self) -> bool:
+        if not _AUTH_TOKEN:
+            return True
+        return self.headers.get("Authorization", "") == f"Bearer {_AUTH_TOKEN}"
 
     def _handle_adhd_decompose(self) -> None:
         """POST /api/model/adhd-decompose — {"task": str} -> {"action": str|null}.

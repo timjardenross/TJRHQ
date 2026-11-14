@@ -84,11 +84,13 @@ export async function GET() {
         .from('health_insights')
         .select('created_at,llm_narrative,risk_flags,positive_flags,wins_this_week,cpap_compliance_rate,dow_pain_pattern')
         .order('created_at', { ascending: false })
+        .eq('user_id', session.user.id)
         .limit(1),
       supabase
         .from('health_daily_logs')
         .select('log_date,sleep_hours,sleep_quality,cpap_compliant,nervous_system_state,sitting_tolerance_minutes,mood,energy')
         .order('log_date', { ascending: false })
+        .eq('user_id', session.user.id)
         .limit(1),
       supabase
         .from('capacity_checkins')
