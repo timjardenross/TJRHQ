@@ -1,0 +1,199 @@
+{
+ "asset_id": "A5-VID-0058",
+ "source_url": "https://www.youtube.com/watch?v=KMSlt55JdoQ",
+ "summary_status": "ai_draft",
+ "provenance": {
+  "model": "gemini-2.5-flash",
+  "prompt_version": "a5-content-pass-v2",
+  "generated_at": "2026-11-14T03:20:02.093506+00:00",
+  "input": "youtube_url_via_gemini",
+  "transcript_stored": false,
+  "usage": {
+   "promptTokenCount": 129964,
+   "candidatesTokenCount": 2428,
+   "totalTokenCount": 133750,
+   "promptTokensDetails": [
+    {
+     "modality": "TEXT",
+     "tokenCount": 207
+    },
+    {
+     "modality": "VIDEO",
+     "tokenCount": 89460
+    },
+    {
+     "modality": "AUDIO",
+     "tokenCount": 40297
+    }
+   ],
+   "thoughtsTokenCount": 1358,
+   "serviceTier": "standard"
+  }
+ },
+ "validation": {
+  "timestamps_unverified": true,
+  "timestamps_dropped_beyond_duration": 11,
+  "complete": false,
+  "opening_present": true
+ },
+ "result": {
+  "complete": false,
+  "summary": "This video segment delves into the complex nature of shame, defining it as the distance between one's public and private self, and highlighting its social origins. The speakers discuss how shame often manifests as avoidance and is frequently rooted in childhood experiences, particularly with narcissistic or hypercritical parents who externalize their own shame onto their children. They emphasize that shame is a learned belief, often stemming from environments that fail to embrace an individual's authentic self, especially for neurodivergent individuals. The discussion suggests that overcoming shame involves recognizing its external origins and fostering self-acceptance rather than conforming to external expectations.",
+  "pain": "indirect",
+  "kind": "conversation",
+  "retrieval": "This video teaches about the psychological concept of shame, its social origins, and its impact on an individual's self-worth and relationships. It helps viewers understand how shame can be internalized from early childhood experiences, particularly in environments with narcissistic or critical figures. Viewers can learn to identify the external roots of their shame and the importance of self-acceptance. This content is useful for anyone struggling with feelings of inadequacy, avoidance, or a fractured sense of self due to past experiences. It highlights the need to challenge the belief that one's authentic self is 'not good enough' and to seek environments that foster acceptance.",
+  "unknowns": [
+   "The video is an incomplete segment of a longer discussion, with a call to action for Patreon to view the full episode."
+  ],
+  "opening": "Let's let's talk about shame.",
+  "audience": "Individuals interested in psychology, self-help, personal development, and understanding the impact of childhood experiences and relationships on emotional well-being.",
+  "capacity": "Amber",
+  "capacity_why": "The topic of shame is emotionally heavy and requires introspection, potentially triggering for some. It delves into complex psychological concepts like narcissism and trauma, which can be demanding.",
+  "cautions": [
+   "This video is an incomplete segment; the full discussion is available on Patreon.",
+   "The discussion touches on complex psychological concepts (shame, narcissism, complex trauma) but does not offer direct therapeutic techniques or solutions within this segment.",
+   "The content may be emotionally triggering for individuals who have experienced narcissistic abuse or deep-seated shame."
+  ],
+  "chapters": [
+   {
+    "t": 0,
+    "title": "Introduction to Shame and Patreon Plug"
+   },
+   {
+    "t": 50,
+    "title": "Recalling the First Episode on Shame"
+   },
+   {
+    "t": 113,
+    "title": "The Problem with Shame: Inability to Identify It"
+   },
+   {
+    "t": 232,
+    "title": "Shame and Self-Worth"
+   },
+   {
+    "t": 344,
+    "title": "Shame is Inherently Social"
+   },
+   {
+    "t": 440,
+    "title": "Humorous Interlude: Favorite Colors and Consultations"
+   },
+   {
+    "t": 528,
+    "title": "Returning to the Thread: Shame as a Social Threat"
+   },
+   {
+    "t": 706,
+    "title": "ADHD and Scattered Thinking"
+   },
+   {
+    "t": 713,
+    "title": "Authentic Self and Social Threats"
+   },
+   {
+    "t": 828,
+    "title": "Shame's External Origins: Environment Needs to Change"
+   },
+   {
+    "t": 955,
+    "title": "Shame as a Belief: The Tinkerbell Analogy"
+   },
+   {
+    "t": 1144,
+    "title": "Frustration of Realizing Shame's Invisible Rules"
+   },
+   {
+    "t": 1200,
+    "title": "Narcissistic Parents and the Projection of Shame"
+   }
+  ],
+  "claims": [
+   {
+    "claim": "The wound is becoming you.",
+    "quote": "the wound is becoming you",
+    "t": 57
+   },
+   {
+    "claim": "The problem with shame is that it's often people's main issue, but they are unable to identify it as the issue.",
+    "quote": "The problem with shame is that it's often people's main issue, but they are unable to identify it as the issue.",
+    "t": 114
+   },
+   {
+    "claim": "People with a lot of shame often modify their lives around ever evoking it.",
+    "quote": "People with a lot of shame often modify their lives around ever evoking it.",
+    "t": 150
+   },
+   {
+    "claim": "Shame is basically the distance between who you are in public versus who you truly are in private.",
+    "quote": "shame is basically the distance between who you are in public versus who you truly are in private",
+    "t": 296
+   },
+   {
+    "claim": "The antidote then is often vulnerability because then you allow people to see the parts of yourself that you don't deem good enough.",
+    "quote": "the antidote then is often vulnerability because then you allow people to see the parts of yourself that you don't deem good enough",
+    "t": 320
+   },
+   {
+    "claim": "The parts of you that you don't deem good enough whenever they're in front of other people.",
+    "quote": "the parts of you that you don't deem good enough whenever they're in front of other people",
+    "t": 330
+   },
+   {
+    "claim": "The root of shame is fearing that if you were to show all of the parts of yourself to other people that it would be the catalyst towards their abandonment of you.",
+    "quote": "the root of shame is fearing that if you were to show all of the parts of yourself to other people that it would be the catalyst towards their abandonment of you",
+    "t": 406
+   },
+   {
+    "claim": "The belief in it is the only thing that keeps it alive.",
+    "quote": "the belief in it is the only thing that keeps it alive",
+    "t": 1142
+   },
+   {
+    "claim": "Shame often doesn't start with you and it's your environment that needs to change.",
+    "quote": "shame it often doesn't start with you and it's your environment that needs to change",
+    "t": 832
+   }
+  ],
+  "concepts": [
+   "Shame",
+   "Self-worth",
+   "Vulnerability",
+   "Avoidance",
+   "Rejection",
+   "Nervous system",
+   "Narcissism",
+   "Accountability",
+   "Emotional immaturity",
+   "Complex trauma",
+   "Neurodivergence",
+   "Authentic self",
+   "Mistrust"
+  ],
+  "demand": "high",
+  "needs": [
+   "Willingness to engage with complex psychological concepts",
+   "Openness to self-reflection and introspection",
+   "Emotional resilience to process potentially triggering content"
+  ],
+  "objectives": [
+   "Understand the definition and manifestations of shame",
+   "Identify the social and developmental origins of shame",
+   "Recognize the impact of shame on self-worth and relationships",
+   "Explore the connection between shame, narcissistic parenting, and neurodivergence",
+   "Consider vulnerability as an antidote to shame"
+  ],
+  "physical": [],
+  "techniques": [],
+  "topics": [
+   "Shame",
+   "Self-worth",
+   "Childhood trauma",
+   "Narcissism",
+   "Vulnerability",
+   "Emotional regulation",
+   "Neurodivergence",
+   "Relationships"
+  ]
+ }
+}

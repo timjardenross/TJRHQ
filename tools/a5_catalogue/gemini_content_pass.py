@@ -36,6 +36,34 @@ PROMPT_VERSION = "a5-content-pass-v2"
 # Palouse: FAQ says link rather than copy; nothing is copied or re-hosted. Extend only after a rights check.
 AUDIO_OK_SOURCES = {"SOURCE-015"}
 
+# Free-tier protection (the Captain uses a free Gemini account; never exhaust it).
+LEDGER = OUT / "_usage-ledger.json"
+DEFAULT_DAILY_TOKEN_BUDGET = 200_000   # hard stop per UTC day, counted from our own ledger
+DEFAULT_MAX_CALLS = 3                  # per run
+DEFAULT_SLEEP = 60.0                   # ~1 request/minute keeps well under free-tier RPM/TPM
+VIDEO_FPS = 0.2                        # talking-head content: 1 frame / 5 s; audio carries the content
+
+
+def _today() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def ledger_tokens() -> int:
+    try:
+        return int(json.loads(LEDGER.read_text()).get(_today(), 0))
+    except (OSError, ValueError):
+        return 0
+
+
+def ledger_add(tokens: int) -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    try:
+        data = json.loads(LEDGER.read_text())
+    except (OSError, ValueError):
+        data = {}
+    data[_today()] = int(data.get(_today(), 0)) + int(tokens or 0)
+    LEDGER.write_text(json.dumps(data, indent=1))
+
 def _a(t="STRING"):
     return {"type": "ARRAY", "items": {"type": t}}
 
@@ -85,7 +113,7 @@ def build_prompt(rec: dict) -> str:
 def build_request(rec: dict) -> dict:
     return {
         "contents": [{"parts": [
-            {"file_data": {"file_uri": rec["source_url"]}},
+            {"file_data": {"file_uri": rec["source_url"]}, "video_metadata": {"fps": VIDEO_FPS}},
             {"text": build_prompt(rec)},
         ]}],
         "generationConfig": {
@@ -155,15 +183,20 @@ def select(inv: dict, source: str | None, force: bool, audio: bool = False) -> l
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source")
-    ap.add_argument("--limit", type=int, default=5)
+    ap.add_argument("--asset", help="process only this asset_id")
+    ap.add_argument("--limit", type=int, default=3)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--audio", action="store_true", help="audio mode (allow-listed sources only)")
-    ap.add_argument("--sleep", type=float, default=2.0)
+    ap.add_argument("--sleep", type=float, default=DEFAULT_SLEEP)
+    ap.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS)
+    ap.add_argument("--daily-token-budget", type=int, default=DEFAULT_DAILY_TOKEN_BUDGET)
     ap.add_argument("--per-source", type=int, default=0, help="take N records per source instead of --limit overall")
     args = ap.parse_args()
     inv = json.loads((CAT / "asset-inventory.json").read_text())
     todo = select(inv, args.source, args.force, args.audio)
+    if args.asset:
+        todo = [r for r in todo if r["asset_id"] == args.asset]
     if args.per_source:
         seen: dict[str, int] = {}
         picked = []
@@ -174,9 +207,13 @@ def main() -> int:
         todo = picked
     else:
         todo = todo[: args.limit]
-    print(f"{len(todo)} record(s) selected (model {MODEL})")
+    todo = todo[: args.max_calls]
+    print(f"{len(todo)} record(s) selected (model {MODEL}); tokens used today (ledger): {ledger_tokens()} of {args.daily_token_budget}")
     OUT.mkdir(parents=True, exist_ok=True)
     for rec in todo:
+        if not args.dry_run and ledger_tokens() >= args.daily_token_budget:
+            print("Daily token budget reached: stopping.", file=sys.stderr)
+            break
         if args.audio and not args.dry_run:
             import base64
             try:
@@ -201,12 +238,16 @@ def main() -> int:
                     resp = call_gemini(payload)
                     break
                 except urllib.error.HTTPError as exc:
-                    if exc.code not in (429, 500, 502, 503) or attempt == 2:
+                    if exc.code == 429:
+                        print("Rate limit (429): stopping the whole run to protect the free tier.", file=sys.stderr)
+                        return 3
+                    if exc.code not in (500, 502, 503) or attempt == 2:
                         raise
                     time.sleep(10 * (attempt + 1))
             text = resp["candidates"][0]["content"]["parts"][0]["text"]
             result = json.loads(text)
             validation = validate(result, rec.get("duration_seconds"))
+            ledger_add((resp.get("usageMetadata") or {}).get("totalTokenCount", 0))
         except (urllib.error.HTTPError, urllib.error.URLError, KeyError, IndexError, ValueError) as exc:
             print(f"{rec['asset_id']}: FAILED {type(exc).__name__}: {exc}", file=sys.stderr)
             result = None
