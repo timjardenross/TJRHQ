@@ -221,10 +221,11 @@
       "flags": [
         "Embed status unverified: oEmbed returns domain_status_code 403 for all 57 when queried without an app origin",
         "PainBytes content is adolescent-focused; Spinal Cord series is population-specific: eligibility filters needed",
-        "Durations, descriptions, transcripts not yet obtained"
+        "Durations, descriptions, transcripts not yet obtained",
+        "All 56 videos uploaded Feb-Jul 2014: outside the 7-year video limit. Records kept (status rejected) in case of an exception."
       ],
       "search_evidence": "Web search confirms ACI Pain Management Network and PainBytes (adolescent pain site by Sydney Children's Hospital Pain Management Service with ACI) exist; a Vimeo video 'A patient journey to self-management of chronic pain' (vimeo.com/249756219) appeared but its link to the official ACI channel is unconfirmed.",
-      "disposition": "metadata_partially_verified",
+      "disposition": "rejected_recency",
       "next": "Test embed from the app origin; obtain durations and captions; WP3 summaries from captions/transcripts where available",
       "vimeo_channel": "https://vimeo.com/channels/pain (supplied by Captain 2026-11-14; publisher shown on videos: \"Agency for Clinical Innovation\"; channel title \"Chronic Pain\")",
       "videos_listed": 57,
@@ -318,6 +319,9 @@
     "2026-11-14: include SOURCE-006 and SOURCE-007",
     "2026-11-14: approve transcript text storage (per-source rights permitting) and speech-to-text on audio-only items",
     "2026-11-14: embed testing from the app origin is deferred until implementation; until then all video assets stay embed_verified=false and link-only",
-    "2026-11-14: clinical review is already done; do not route sources or assets to clinical review"
+    "2026-11-14: clinical review is already done; do not route sources or assets to clinical review",
+    "2026-11-14: video recency limit 7 years (prefer 5); audio exempt",
+    "2026-11-14: delete duplicate ACI E5 intro (done)",
+    "2026-11-14: do not push until all work is done (avoid Vercel rebuilds)"
   ]
 }

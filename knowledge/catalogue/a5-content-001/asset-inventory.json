@@ -1648,7 +1648,7 @@
       "embed_url": "https://player.vimeo.com/video/86952259",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 407,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1672,8 +1672,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T01:39:45+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0002",
@@ -1688,7 +1690,7 @@
       "embed_url": "https://player.vimeo.com/video/86952260",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 356,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1712,8 +1714,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T01:39:46+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0003",
@@ -1728,7 +1732,7 @@
       "embed_url": "https://player.vimeo.com/video/86952264",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 627,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1752,8 +1756,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T01:39:47+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0004",
@@ -1768,7 +1774,7 @@
       "embed_url": "https://player.vimeo.com/video/86957197",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 668,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1792,8 +1798,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T03:00:26+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0005",
@@ -1808,7 +1816,7 @@
       "embed_url": "https://player.vimeo.com/video/86957195",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 597,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1832,8 +1840,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T03:00:26+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0006",
@@ -1848,7 +1858,7 @@
       "embed_url": "https://player.vimeo.com/video/87038707",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 172,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1872,8 +1882,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T23:05:21+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0007",
@@ -1888,7 +1900,7 @@
       "embed_url": "https://player.vimeo.com/video/87038708",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 228,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1912,8 +1924,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T23:05:22+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0008",
@@ -1928,7 +1942,7 @@
       "embed_url": "https://player.vimeo.com/video/87038711",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 174,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1952,8 +1966,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T23:05:23+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0009",
@@ -1968,7 +1984,7 @@
       "embed_url": "https://player.vimeo.com/video/87038714",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 247,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -1992,8 +2008,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T23:05:23+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0010",
@@ -2008,7 +2026,7 @@
       "embed_url": "https://player.vimeo.com/video/87038715",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 217,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2032,8 +2050,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T23:05:23+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0011",
@@ -2048,7 +2068,7 @@
       "embed_url": "https://player.vimeo.com/video/87046091",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 61,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2072,8 +2092,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T01:03:12+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0012",
@@ -2088,7 +2110,7 @@
       "embed_url": "https://player.vimeo.com/video/87053789",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 198,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2112,8 +2134,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T03:29:46+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0013",
@@ -2128,7 +2152,7 @@
       "embed_url": "https://player.vimeo.com/video/87053790",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 235,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2152,8 +2176,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T03:29:46+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0014",
@@ -2168,7 +2194,7 @@
       "embed_url": "https://player.vimeo.com/video/87053792",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 110,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2192,8 +2218,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T03:29:47+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0015",
@@ -2208,7 +2236,7 @@
       "embed_url": "https://player.vimeo.com/video/87053793",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 315,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2232,8 +2260,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T03:29:47+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0016",
@@ -2248,7 +2278,7 @@
       "embed_url": "https://player.vimeo.com/video/87046092",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 177,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2272,48 +2302,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
-    },
-    {
-      "asset_id": "A5-VID-0017",
-      "source_id": "SOURCE-016",
-      "title": "E5 - Intro Pain and School",
-      "creator": "Agency for Clinical Innovation (NSW)",
-      "platform": "vimeo",
-      "media_type": "video",
-      "series": "PainBytes episodes",
-      "source_url": "https://vimeo.com/channels/pain/87386798",
-      "platform_id": "87386798",
-      "embed_url": "https://player.vimeo.com/video/87386798",
-      "embed_verified": false,
-      "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
-      "language": "en",
-      "topics": [],
-      "user_needs": [],
-      "therapeutic_approaches": [],
-      "content_classification": null,
-      "summary": "",
-      "learning_objectives": [],
-      "key_concepts": [],
-      "practical_techniques": [],
-      "clinical_cautions": [],
-      "evidence_status": "unreviewed",
-      "capacity_suitability": [],
-      "attention_focus": null,
-      "physical_requirements": [],
-      "audience_note": "Unverified. Title/series suggests PainBytes episodes target adolescents (school, family, siblings) and the Spinal Cord Injury series targets that population; confirm from content before use.",
-      "transcript_available": false,
-      "transcript_rights": "unknown",
-      "transcript_reference": null,
-      "segments": [],
-      "login_required": false,
-      "login_required_basis": "Public channel page listed without login; playback not tested",
-      "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
-      "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T01:03:12+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0018",
@@ -2328,7 +2320,7 @@
       "embed_url": "https://player.vimeo.com/video/87053788",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 110,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2352,8 +2344,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T03:29:45+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0019",
@@ -2368,7 +2362,7 @@
       "embed_url": "https://player.vimeo.com/video/87131235",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 291,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2392,8 +2386,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T22:33:26+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0020",
@@ -2408,7 +2404,7 @@
       "embed_url": "https://player.vimeo.com/video/87131239",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 164,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2432,8 +2428,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T22:33:28+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0021",
@@ -2448,7 +2446,7 @@
       "embed_url": "https://player.vimeo.com/video/87160659",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 98,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2472,8 +2470,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T07:45:25+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0022",
@@ -2488,7 +2488,7 @@
       "embed_url": "https://player.vimeo.com/video/87160660",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 123,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2512,8 +2512,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T07:45:26+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0023",
@@ -2528,7 +2530,7 @@
       "embed_url": "https://player.vimeo.com/video/87131241",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 118,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2552,8 +2554,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-19T22:33:29+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0024",
@@ -2568,7 +2572,7 @@
       "embed_url": "https://player.vimeo.com/video/87160661",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 219,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2592,8 +2596,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T07:45:26+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0025",
@@ -2608,7 +2614,7 @@
       "embed_url": "https://player.vimeo.com/video/87160662",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 138,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2632,8 +2638,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T07:45:27+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0026",
@@ -2648,7 +2656,7 @@
       "embed_url": "https://player.vimeo.com/video/87160664",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 69,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2672,8 +2680,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T07:45:28+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0027",
@@ -2688,7 +2698,7 @@
       "embed_url": "https://player.vimeo.com/video/87220258",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 154,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2712,8 +2722,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T21:25:17+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0028",
@@ -2728,7 +2740,7 @@
       "embed_url": "https://player.vimeo.com/video/87220259",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 200,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2752,8 +2764,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T21:25:18+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0029",
@@ -2768,7 +2782,7 @@
       "embed_url": "https://player.vimeo.com/video/87220260",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 262,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2792,8 +2806,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T21:25:18+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0030",
@@ -2808,7 +2824,7 @@
       "embed_url": "https://player.vimeo.com/video/87220261",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 110,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2832,8 +2848,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T21:25:19+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0031",
@@ -2848,7 +2866,7 @@
       "embed_url": "https://player.vimeo.com/video/87386086",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 53,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2872,8 +2890,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-23T10:44:37+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0032",
@@ -2888,7 +2908,7 @@
       "embed_url": "https://player.vimeo.com/video/87220263",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 106,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2912,8 +2932,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-20T21:25:19+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0033",
@@ -2928,7 +2950,7 @@
       "embed_url": "https://player.vimeo.com/video/87386087",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 103,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2952,8 +2974,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-23T10:44:37+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0034",
@@ -2968,7 +2992,7 @@
       "embed_url": "https://player.vimeo.com/video/87386088",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 83,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -2992,8 +3016,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-23T10:44:37+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0035",
@@ -3008,7 +3034,7 @@
       "embed_url": "https://player.vimeo.com/video/87386090",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 80,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3032,8 +3058,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-23T10:44:38+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0036",
@@ -3048,7 +3076,7 @@
       "embed_url": "https://player.vimeo.com/video/87386803",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 92,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3072,8 +3100,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-23T11:09:11+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0037",
@@ -3088,7 +3118,7 @@
       "embed_url": "https://player.vimeo.com/video/87921789",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 51,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3112,8 +3142,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T05:01:00+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0038",
@@ -3128,7 +3160,7 @@
       "embed_url": "https://player.vimeo.com/video/87386909",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 317,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3152,8 +3184,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-23T11:12:22+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0039",
@@ -3168,7 +3202,7 @@
       "embed_url": "https://player.vimeo.com/video/87923011",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 196,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3192,8 +3226,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T05:42:15+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0040",
@@ -3208,7 +3244,7 @@
       "embed_url": "https://player.vimeo.com/video/87921852",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 201,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3232,8 +3268,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T05:02:48+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0041",
@@ -3248,7 +3286,7 @@
       "embed_url": "https://player.vimeo.com/video/87386860",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 181,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3272,8 +3310,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-23T11:10:38+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0042",
@@ -3288,7 +3328,7 @@
       "embed_url": "https://player.vimeo.com/video/87386861",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 237,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3312,8 +3352,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-23T11:10:39+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0043",
@@ -3328,7 +3370,7 @@
       "embed_url": "https://player.vimeo.com/video/87932276",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 43,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3352,8 +3394,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T11:54:35+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0044",
@@ -3368,7 +3412,7 @@
       "embed_url": "https://player.vimeo.com/video/87933459",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 128,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3392,8 +3436,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T12:36:08+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0045",
@@ -3408,7 +3454,7 @@
       "embed_url": "https://player.vimeo.com/video/87934847",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 162,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3432,8 +3478,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T13:21:26+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0046",
@@ -3448,7 +3496,7 @@
       "embed_url": "https://player.vimeo.com/video/87938023",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 265,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3472,8 +3520,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T14:51:42+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0047",
@@ -3488,7 +3538,7 @@
       "embed_url": "https://player.vimeo.com/video/87936603",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 101,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3512,8 +3562,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T14:13:25+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0048",
@@ -3528,7 +3580,7 @@
       "embed_url": "https://player.vimeo.com/video/87943681",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 335,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3552,8 +3604,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T17:08:34+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0049",
@@ -3568,7 +3622,7 @@
       "embed_url": "https://player.vimeo.com/video/87940634",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 124,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3592,8 +3646,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T15:57:51+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0050",
@@ -3608,7 +3664,7 @@
       "embed_url": "https://player.vimeo.com/video/87944401",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 205,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3632,8 +3688,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-03-01T17:23:49+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0051",
@@ -3648,7 +3706,7 @@
       "embed_url": "https://player.vimeo.com/video/86882923",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 173,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3672,8 +3730,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-17T10:17:48+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0052",
@@ -3688,7 +3748,7 @@
       "embed_url": "https://player.vimeo.com/video/102098039",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 641,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3712,8 +3772,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-07-30T05:07:32+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0053",
@@ -3728,7 +3790,7 @@
       "embed_url": "https://player.vimeo.com/video/100776141",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 890,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3752,8 +3814,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-07-15T04:57:54+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0054",
@@ -3768,7 +3832,7 @@
       "embed_url": "https://player.vimeo.com/video/102101565",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 627,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3792,8 +3856,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-07-30T06:24:01+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0055",
@@ -3808,7 +3874,7 @@
       "embed_url": "https://player.vimeo.com/video/102201282",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 875,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3832,8 +3898,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-07-31T05:34:56+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0056",
@@ -3848,7 +3916,7 @@
       "embed_url": "https://player.vimeo.com/video/102191972",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 1095,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3872,8 +3940,10 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-07-31T02:25:57+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     },
     {
       "asset_id": "A5-VID-0057",
@@ -3888,7 +3958,7 @@
       "embed_url": "https://player.vimeo.com/video/86952261",
       "embed_verified": false,
       "embed_note": "Vimeo oEmbed returns domain_status_code 403 for this video when queried without an app origin: possible domain-restricted embedding. Must be tested from the real app origin before any 'embeddable' label. Fall back to external link until then.",
-      "duration_seconds": null,
+      "duration_seconds": 763,
       "language": "en",
       "topics": [],
       "user_needs": [],
@@ -3912,8 +3982,15 @@
       "login_required_basis": "Public channel page listed without login; playback not tested",
       "reuse_permission": "unknown (Vimeo licence/terms and ACI copyright not yet checked)",
       "attribution": "Agency for Clinical Innovation (NSW), via Vimeo",
-      "review_status": "discovered",
-      "last_verified_at": "2026-11-14"
+      "review_status": "rejected",
+      "last_verified_at": "2026-11-14",
+      "published_at": "2014-02-18T01:39:46+00:00",
+      "rejection_reason": "outside_recency_window: published 2014, video limit is 7 years (Captain rule 2026-11-14). Reversible if an exception is granted."
     }
+  ],
+  "change_log": [
+    "ACI duplicate \"E5 - Intro Pain and School\" (vimeo 87386798, ['A5-VID-0017']) deleted per Captain (duplicate of Episode 5 - Introduction Pain and School, vimeo 87921789)",
+    "ACI Vimeo videos (56 remaining, all 2014) set to rejected: outside video recency window (7 years)",
+    "Durations/upload dates merged from aci-vimeo reviewer output"
   ]
 }
