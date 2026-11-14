@@ -7,6 +7,7 @@ describe('phase 4 day orchestration', () => {
       now: 'Take the shortest familiar walk.',
       next: 'Check what has changed before continuing',
       later: 'Close the day without measuring your worth',
+      primary: 'Guide me from here',
     });
   });
 
@@ -16,5 +17,9 @@ describe('phase 4 day orchestration', () => {
 
   it('puts safety before day progression', () => {
     expect(dayGuideCopy({ stage: 'safety_hold' }).next).toBe('Pause ordinary coaching');
+  });
+
+  it('makes a scheduled return visible without adding urgency', () => {
+    expect(dayGuideCopy({ stage: 'deferred', hasReminder: true }).next).toBe('Return when your check-in is ready');
   });
 });
