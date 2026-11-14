@@ -282,7 +282,7 @@
       "source_id": "SOURCE-020",
       "name": "The Chronic Pain Method",
       "url": "https://thechronicpainmethod.com",
-      "verified_on_landing_page": "Landing page loads but is an unbranded default WordPress page ('My WordPress'); identity and content NOT verified.",
+      "verified_on_landing_page": "Landing page loads but is an unbranded default WordPress page ('My WordPress'); identity and content NOT verified. | Reviewer: real site appears to be thechronicpainmethod.com.au (practitioner course, likely paid); nothing recorded.",
       "flags": [
         "Publisher identity unverified: do not catalogue until the right site is confirmed"
       ],
@@ -308,7 +308,8 @@
       "flags": [
         "'Heal chronic pain' framing: screen for cure/all-pain-is-neuroplastic claims (brief §9); PRT to be tagged with stated limitations",
         "Likely paid programs on site; only free, no-login items eligible",
-        "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information."
+        "Clinical review already completed by Captain (2026-11-14); not routed. Claims/cautions still recorded per asset as information.",
+        "All free webinars/meditations/somatic tracking sit behind a LearnWorlds login: 11 items rejected (requires_payment_or_login). 16 podcast episodes kept (audio exempt from recency)."
       ],
       "disposition": "discovered",
       "next": "Enumerate individual videos/audio from subpages and linked channels; not yet done"
@@ -320,6 +321,34 @@
       "verified_identity": "Channel behind the ID originally registered for SOURCE-002 (registry error). 53 videos; acceptance/mindfulness content judged relevant by title.",
       "disposition": "included_by_captain",
       "next": "Kept by Captain 2026-11-14 (non-nominated channel, relevant acceptance/mindfulness content)."
+    },
+    {
+      "source_id": "SOURCE-023",
+      "name": "Flippin' Pain",
+      "url": "https://www.flippinpain.com.au",
+      "verified_identity": "Identity taken from YouTube channel About text; website unreachable (502/403)",
+      "disposition": "discovered",
+      "next": "Retry site; YouTube items title-level"
+    },
+    {
+      "source_id": "SOURCE-024",
+      "name": "Pain Canada",
+      "url": "https://www.paincanada.ca",
+      "verified_identity": "From YouTube channel About text; website 403",
+      "disposition": "discovered",
+      "next": "Conference sessions borderline: Captain to decide"
+    },
+    {
+      "source_id": "SOURCE-025",
+      "name": "Michigan Medicine / Kratz Lab: Animated Chronic Pain Coping Strategies",
+      "disposition": "not_found",
+      "next": "Hosts michiganmedicine.org and medresearch.umich.edu returned 403; not recorded"
+    },
+    {
+      "source_id": "SOURCE-026",
+      "name": "Live Well with Pain",
+      "disposition": "unresolved",
+      "next": "Appears to be a UK programme (livewellwithpain.co.uk, 403); AU site 502/403. Not recorded."
     }
   ],
   "not_yet_researched": [

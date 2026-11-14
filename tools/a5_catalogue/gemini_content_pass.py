@@ -33,60 +33,61 @@ MODEL = os.environ.get("A5_GEMINI_MODEL", "gemini-2.5-flash")
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 PROMPT_VERSION = "a5-content-pass-v1"
 
+def _a(t="STRING"):
+    return {"type": "ARRAY", "items": {"type": t}}
+
+
+# Kept small on purpose: the sandbox egress proxy returned 502 for request bodies above ~2-3 KB.
 RESPONSE_SCHEMA = {
     "type": "OBJECT",
     "properties": {
-        "watched_whole_video": {"type": "BOOLEAN"},
+        "complete": {"type": "BOOLEAN"},
         "summary": {"type": "STRING"},
-        "learning_objectives": {"type": "ARRAY", "items": {"type": "STRING"}},
-        "key_concepts": {"type": "ARRAY", "items": {"type": "STRING"}},
-        "practical_techniques": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "objectives": _a(), "concepts": _a(), "techniques": _a(),
         "chapters": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-            "start_seconds": {"type": "INTEGER"}, "title": {"type": "STRING"}}}},
-        "clinical_claims": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-            "claim": {"type": "STRING"}, "quote": {"type": "STRING"},
-            "at_seconds": {"type": "INTEGER"}}}},
-        "limitations_or_cautions": {"type": "ARRAY", "items": {"type": "STRING"}},
-        "pain_relevance": {"type": "STRING", "enum": ["direct", "indirect", "none"]},
-        "content_type": {"type": "STRING", "enum": [
-            "education", "guided_practice", "demonstration", "philosophical_teaching",
-            "lived_experience", "therapist_conversation", "other"]},
-        "intended_audience": {"type": "STRING"},
-        "engagement_demand_proposed": {"type": "STRING", "enum": ["low", "medium", "high"]},
-        "physical_requirements_proposed": {"type": "ARRAY", "items": {"type": "STRING"}},
-        "topics_proposed": {"type": "ARRAY", "items": {"type": "STRING"}},
-        "user_needs_proposed": {"type": "ARRAY", "items": {"type": "STRING"}},
-        "capacity_proposed": {"type": "STRING", "enum": ["Green", "Amber", "Red", "any", "unknown"]},
-        "capacity_rationale": {"type": "STRING"},
-        "retrieval_description": {"type": "STRING"},
-        "uncertainties": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "t": {"type": "INTEGER"}, "title": {"type": "STRING"}}}},
+        "claims": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+            "claim": {"type": "STRING"}, "quote": {"type": "STRING"}, "t": {"type": "INTEGER"}}}},
+        "cautions": _a(),
+        "pain": {"type": "STRING", "enum": ["direct", "indirect", "none"]},
+        "kind": {"type": "STRING", "enum": ["education", "practice", "demo", "philosophy", "lived", "conversation", "other"]},
+        "audience": {"type": "STRING"},
+        "demand": {"type": "STRING", "enum": ["low", "medium", "high"]},
+        "physical": _a(), "topics": _a(), "needs": _a(),
+        "capacity": {"type": "STRING", "enum": ["Green", "Amber", "Red", "any", "unknown"]},
+        "capacity_why": {"type": "STRING"},
+        "retrieval": {"type": "STRING"},
+        "unknowns": _a(),
+        "opening": {"type": "STRING"},
     },
-    "required": ["watched_whole_video", "summary", "pain_relevance", "content_type",
-                 "retrieval_description", "uncertainties"],
+    "required": ["complete", "summary", "pain", "kind", "retrieval", "unknowns", "opening"],
 }
 
 
 def build_prompt(rec: dict) -> str:
-    return f"""You are helping build a source-grounded catalogue for chronic pain self-management.
-Describe ONLY what is actually said or shown in this video. Rules:
-- Never invent content, timestamps, chapters, credentials or claims. If you cannot tell, say so in `uncertainties`.
-- Timestamps/chapters only where you can place them in the video; otherwise leave the list empty.
-- `clinical_claims`: notable health claims the speaker makes, each with a short verbatim quote (max 15 words) and approximate time. Do not judge them; just report them accurately, including any promise of cure, 'all pain is psychological/neuroplastic', advice to stop treatment, or physical exposure advice.
-- `limitations_or_cautions`: limits the speaker states, and cautions you notice that a listener should know. Do not give medical advice yourself.
-- `retrieval_description`: 3-5 sentences for semantic search: what it teaches, what problem it helps, what the viewer does or learns, when it may help, key limits.
-- Capacity, topics and user needs are PROPOSALS for a human to confirm. Capacity Green/Amber/Red refers to the viewer's available energy: Green = fine to take on, Amber = low-demand only, Red = very low energy or acute difficulty.
-- If you could not watch the whole video, set watched_whole_video false and say why.
-Known metadata (may be incomplete): title="{rec.get('title')}", channel="{rec.get('creator')}", stated length {rec.get('duration_seconds')} seconds."""
+    return (
+        "Catalogue this for chronic pain self-management. Describe ONLY what is said or shown; "
+        "never invent. Timestamps (t, seconds) only if certain, else leave chapters empty. "
+        "claims: notable health claims, each with a verbatim quote of at most 15 words; report, do not judge "
+        "(include cure promises, 'all pain is psychological', stopping treatment, physical exposure). "
+        "cautions: limits stated or noticed; no medical advice. "
+        "retrieval: 3-5 sentences for search: what it teaches, what it helps, what the viewer does, when useful, limits. "
+        "capacity/topics/needs are proposals (Green=fine to take on, Amber=low-demand only, Red=very low energy). "
+        "opening: the first words actually spoken, verbatim, max 15 words. "
+        "If there is no usable audio or video, or you could not take in the whole item, set complete=false, say so in unknowns, "
+        "and do not guess. The title is deliberately not given: describe only what you perceive."
+    )
 
 
 def build_request(rec: dict) -> dict:
     return {
         "contents": [{"parts": [
-            {"file_data": {"file_uri": rec["source_url"], "mime_type": "video/*"}},
+            {"file_data": {"file_uri": rec["source_url"]}},
             {"text": build_prompt(rec)},
         ]}],
         "generationConfig": {
             "temperature": 0.2,
+            "mediaResolution": "MEDIA_RESOLUTION_LOW",
             "responseMimeType": "application/json",
             "responseSchema": RESPONSE_SCHEMA,
         },
@@ -122,9 +123,20 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--sleep", type=float, default=2.0)
+    ap.add_argument("--per-source", type=int, default=0, help="take N records per source instead of --limit overall")
     args = ap.parse_args()
     inv = json.loads((CAT / "asset-inventory.json").read_text())
-    todo = select(inv, args.source, args.force)[: args.limit]
+    todo = select(inv, args.source, args.force)
+    if args.per_source:
+        seen: dict[str, int] = {}
+        picked = []
+        for r in todo:
+            if seen.get(r["source_id"], 0) < args.per_source:
+                seen[r["source_id"]] = seen.get(r["source_id"], 0) + 1
+                picked.append(r)
+        todo = picked
+    else:
+        todo = todo[: args.limit]
     print(f"{len(todo)} record(s) selected (model {MODEL})")
     OUT.mkdir(parents=True, exist_ok=True)
     for rec in todo:
@@ -134,7 +146,15 @@ def main() -> int:
                               "prompt_head": payload["contents"][0]["parts"][1]["text"][:200]}))
             continue
         try:
-            resp = call_gemini(payload)
+            resp = None
+            for attempt in range(3):
+                try:
+                    resp = call_gemini(payload)
+                    break
+                except urllib.error.HTTPError as exc:
+                    if exc.code not in (429, 500, 502, 503) or attempt == 2:
+                        raise
+                    time.sleep(10 * (attempt + 1))
             text = resp["candidates"][0]["content"]["parts"][0]["text"]
             result = json.loads(text)
         except (urllib.error.HTTPError, urllib.error.URLError, KeyError, IndexError, ValueError) as exc:
@@ -145,7 +165,8 @@ def main() -> int:
             "summary_status": "ai_draft" if result else "failed",
             "provenance": {"model": MODEL, "prompt_version": PROMPT_VERSION,
                            "generated_at": datetime.now(timezone.utc).isoformat(),
-                           "input": "youtube_url_via_gemini", "transcript_stored": False},
+                           "input": "youtube_url_via_gemini", "transcript_stored": False,
+                           "usage": (resp or {}).get("usageMetadata") if result else None},
             "result": result,
         }
         (OUT / f"{rec['asset_id']}.json").write_text(json.dumps(record, indent=1, ensure_ascii=False))
