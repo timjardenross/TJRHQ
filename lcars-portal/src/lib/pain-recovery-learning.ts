@@ -1,5 +1,7 @@
 export type LearningSignal = 'helped'|'harder'|'preserved'|'cost_more'|'repeat'|string;
 export type DayLearningRecord = { date:string; colour?:string|null; sleep?:string|null; energy?:string|null; demand?:string|null; valuedActivity?:string|null; actionStatus?:string|null; nextDayCost?:number|null; learningNote?:string|null };
+export type LearningDecision = { id:string; date:string; decision:'use'|'different'|'modified'; note?:string };
+export type WeeklySummary = { start:string; days:number; averageCost:number|null; completed:number; preserved:number };
 
 export function normalizeCost(value: unknown): number|null {
   if (value === null || value === undefined || value === '' || value === 'none') return 0;
@@ -24,6 +26,11 @@ export function buildLearningSuggestion(days: DayLearningRecord[]): { message:st
   const activity = useful.find(day => day.valuedActivity)?.valuedActivity;
   return { message: activity ? `An observed pattern from a similar day includes ${activity}. You can try a smaller version, or choose something else.` : 'There is an observed pattern from a similar day. Use it as an option, not a rule.', confidence };
 }
+
+export function saveLearningDecision(decisions: LearningDecision[], decision: LearningDecision): LearningDecision[] { return [...decisions.filter(item=>item.id!==decision.id), decision]; }
+export function summarizeWeek(records: DayLearningRecord[], start:string): WeeklySummary { const end=new Date(`${start}T00:00:00Z`); end.setUTCDate(end.getUTCDate()+7); const inWeek=records.filter(r=>r.date>=start&&r.date<end.toISOString().slice(0,10)); const costs=inWeek.map(r=>r.nextDayCost).filter((v):v is number=>typeof v==='number'); return {start,days:inWeek.length,averageCost:costs.length?costs.reduce((a,b)=>a+b,0)/costs.length:null,completed:inWeek.filter(r=>r.actionStatus==='completed').length,preserved:inWeek.filter(r=>r.learningNote?.toLowerCase().includes('protected')||r.learningNote?.toLowerCase().includes('preserved')).length}; }
+export function compareWeeks(current:WeeklySummary, previous:WeeklySummary){ return {costChange:current.averageCost===null||previous.averageCost===null?null:current.averageCost-previous.averageCost,completionChange:current.completed-previous.completed}; }
+export function exportLearningData(records:DayLearningRecord[], decisions:LearningDecision[]){ return JSON.stringify({version:1,exportedAt:new Date().toISOString(),records,decisions}); }
 
 export function tomorrowPrompt(note?: string|null) {
   const text = (note || '').toLowerCase();
