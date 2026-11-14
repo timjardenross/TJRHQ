@@ -50,8 +50,8 @@ Gemini recommends from **catalogue records**, so record quality is the product. 
 
 Use the existing Gemini route (Model Router) for drafting; use a *different* call/model for the verification pass. Requires: egress to the Gemini API from wherever ingestion runs, and no new infrastructure. Batch jobs and any new scheduler instance need approval (AGENTS.md scheduler rule).
 
-## Decisions for the Captain
+## Captain decisions (2026-11-14)
 
-1. Is storing transcript text allowed, or summaries and source spans only? (Recommend: summaries and spans only.)
-2. Is speech-to-text on audio-only recordings acceptable under each licence?
-3. Who reviews AI-drafted clinical cautions (named clinical reviewer still open)?
+1. **Transcript text storage: yes.** Interpreted as: transcript text may be stored for search/embedding, applied per source only where that source's licence/terms allow it. Where rights are unclear or restrictive (e.g. UCLA CC BY-NC-ND, unspecified variants), the default stays summaries plus cited spans until rights are verified for that source. Rights are recorded per asset.
+2. **Speech-to-text on audio-only recordings: yes.** Same per-source rights check applies; STT output is a working transcript marked `machine_generated`, not treated as verified source text.
+3. **Clinical reviewer for AI-drafted cautions:** still open.

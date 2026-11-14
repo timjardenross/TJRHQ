@@ -211,6 +211,19 @@
       "access": "HTTP 406 to automated fetch from this environment (may be bot-blocking)",
       "disposition": "unavailable_pending_retry",
       "next": "Retry with alternate request headers or another route; do not assume content"
+    },
+    {
+      "source_id": "SOURCE-016",
+      "name": "NSW Agency for Clinical Innovation - Pain Management Network / PainBytes",
+      "url": "https://aci.health.nsw.gov.au/chronic-pain",
+      "access": "Automated fetch returns HTTP 403 with a Cloudflare 'Just a moment' challenge. Not bypassed.",
+      "flags": [
+        "Official Vimeo channel URL not yet confirmed",
+        "vimeo.com/chronicpain is NOT this publisher (it is an unrelated individual clinician page, 'Dr. John Xavier Pereira'); do not catalogue"
+      ],
+      "search_evidence": "Web search confirms ACI Pain Management Network and PainBytes (adolescent pain site by Sydney Children's Hospital Pain Management Service with ACI) exist; a Vimeo video 'A patient journey to self-management of chronic pain' (vimeo.com/249756219) appeared but its link to the official ACI channel is unconfirmed.",
+      "disposition": "blocked_pending_access",
+      "next": "Find the official Vimeo channel via a non-blocked route, or ask Captain for the channel URL; the ACI site may need an allowlisted route or manual export"
     }
   ],
   "not_yet_researched": [
@@ -228,6 +241,7 @@
   "questions_for_captain": [],
   "captain_decisions": [
     "2026-11-14: remove SOURCE-003 and SOURCE-009 (channel mismatches)",
-    "2026-11-14: include SOURCE-006 and SOURCE-007"
+    "2026-11-14: include SOURCE-006 and SOURCE-007",
+    "2026-11-14: approve transcript text storage (per-source rights permitting) and speech-to-text on audio-only items"
   ]
 }
