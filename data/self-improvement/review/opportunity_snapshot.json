@@ -2,8 +2,8 @@
   "counts_by_state": {
     "investigating": 1,
     "learned": 1,
-    "proposed": 1,
-    "rejected": 135,
+    "proposed": 2,
+    "rejected": 134,
     "resolved_before_research": 4
   },
   "open_opportunities": [
@@ -115,6 +115,119 @@
       "validation_evidence": [],
       "validation_result": "confirmed",
       "value": "medium",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "needs_signoff",
+      "change_class": "cost_optimisation",
+      "complexity": "low",
+      "confidence": 0.95,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.553497+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "conclusive",
+      "fingerprint": "444fa7a4c470c56f",
+      "fit": "weak",
+      "investigation": {
+        "alternatives": [
+          "Existing paid models defined in TASK_POLICY",
+          "Conducting a formal per-task-type cost/quality tradeoff evaluation framework before selecting checkpoints"
+        ],
+        "confidence": 0.95,
+        "cost_impact": "unknown",
+        "fit_with_hq": "weak",
+        "implementation_effort": "low",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Potential per-call cost reduction if tasks routed to paid models are moved to local inference.",
+          "Apache-2.0 license allows usage.",
+          "Deployable via vLLM."
+        ],
+        "recommendation": "not_useful",
+        "recommendation_rationale": "The candidate has a weak fit and is merely a model checkpoint rather than the needed cost/quality evaluation framework. Furthermore, prior similar proposals were rejected due to having no concrete workload and self-hosted inference not being an active HQ goal.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0120",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal.",
+            "relationship": "rejected",
+            "relevance_score": 24,
+            "resolution_note": null,
+            "title": "RedHatAI/Qwen2.5-1.5B-quantized.w8a8",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0114",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable).",
+            "relationship": "rejected",
+            "relevance_score": 22,
+            "resolution_note": null,
+            "title": "abenzerps/Qwen-Image-2.1-Uncensored-Quantized",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0117",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 22,
+            "resolution_note": null,
+            "title": "NeuML/glove-6B-quantized",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal., EVO-0120); a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable)., EVO-0114); and 1 more not shown here",
+        "risks": [
+          "Repository is merely a quantized model checkpoint with deployment instructions, lacking any cost/quality tradeoff evaluation against TASK_POLICY.",
+          "Prior similar local inference proposals were rejected due to lacking a concrete workload or active self-hosted inference goal.",
+          "Quality for specific HQ task types is unverified."
+        ],
+        "why_hq_is_looking_at_this": "HQ is investigating whether tasks currently routed to paid models in TASK_POLICY could be moved to a capable local quantized model to lower per-call costs."
+      },
+      "lifecycle_state": "to_decide",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0121",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: conclusive; Confidence: 0.95; Risk: low; Automation: needs_signoff; Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 172467, \"likes\": 5, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/RedHatAI/Qwen3.5-4B-quantized.w4a16",
+          "retrieved_at": "2026-11-15T16:02:56.101449+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": "[bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal.",
+      "relevance_score": 0.72,
+      "risk_level": "low",
+      "run_id": "2026-11-15-160250",
+      "source_finding_id": null,
+      "stage_detail": "proposed",
+      "summary": "Hugging Face model, 172467 downloads, 5 likes, license apache-2.0",
+      "title": "RedHatAI/Qwen3.5-4B-quantized.w4a16",
+      "updated_at": "2026-11-15T16:05:56.258181+00:00",
+      "validated_at": "2026-11-15T16:02:56.052112+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "high",
       "watch_reason": null,
       "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
     },
