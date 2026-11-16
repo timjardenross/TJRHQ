@@ -165,8 +165,10 @@ def _ori_lines(ori) -> list[str]:
     risk = (ori.overall_risk or "UNKNOWN").upper()
     conf = f" · confidence {ori.confidence:.0%}" if ori.confidence is not None else ""
     lines = [
-        f"{_RISK_EMOJI.get(risk, '⚪')} *Resilience ({_OFFICER['ori']}):* "
-        f"{risk} {_TREND_ARROW.get(ori.trend, '·')} — {ori.top_risk}{conf}"
+        (
+            f"{_RISK_EMOJI.get(risk, '⚪')} *Resilience ({_OFFICER['ori']}):* "
+            f"{risk} {_TREND_ARROW.get(ori.trend, '·')} — {ori.top_risk}{conf}"
+        )
     ]
     if ori.recommended_action:
         lines.append(f"   • _Recommended:_ {ori.recommended_action}")
@@ -196,8 +198,10 @@ def _comms_lines(comms) -> list[str]:
         return []
     top = pub[0]
     return [
-        f"📡 *Presence ({_OFFICER['comms']}):* {len(pub)} publishable "
-        f"opportunity(ies) — top: {top.title} (_{top.pillar_name}_) · `/comms weekly`"
+        (
+            f"📡 *Presence ({_OFFICER['comms']}):* {len(pub)} publishable "
+            f"opportunity(ies) — top: {top.title} (_{top.pillar_name}_) · `/comms weekly`"
+        )
     ]
 
 
