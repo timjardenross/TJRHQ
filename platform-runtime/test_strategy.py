@@ -180,9 +180,11 @@ class TestBriefCommandStrategy(unittest.TestCase):
              patch.object(brief._knowledge, "relevant_knowledge", return_value=None), \
              patch.object(brief._strategy, "fetch_snapshot", return_value=snap), \
              patch.object(brief.memory, "record_recommendation", lambda **k: True):
-            out = brief.handle_brief("")
+            out = brief.handle_brief("all")
+            card = brief.handle_brief("")
         self.assertIn("Strategic Focus", out)
         self.assertEqual(safety.check_language(out), [])
+        self.assertNotIn("Strategic Focus", card)  # the card only shows exceptions
 
 
 if __name__ == "__main__":

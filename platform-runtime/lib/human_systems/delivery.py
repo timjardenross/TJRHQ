@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -37,15 +38,52 @@ def telegram_config() -> tuple[str | None, str | None]:
     return token, chat
 
 
+_ITALIC = re.compile(r"(?<![\w])_(?=\S)([^_\n]+?)(?<=\S)_(?![\w])")
+
+
 def _to_telegram(text: str) -> str:
-    """Strip legacy mrkdwn-style bold markers (`*`) inherited from message
-    templates that predate Slack's retirement; keeps structure, bullets, and
-    emoji. Truncates to Telegram's per-message limit. Sent without
-    parse_mode, so no HTML/Markdown escaping is needed here."""
-    cleaned = (text or "").replace("*", "")
+    """Strip legacy mrkdwn-style markers (`*` bold, `_italic_`, backticks)
+    inherited from message templates that predate Slack's retirement — they are
+    sent without parse_mode, so they would otherwise show as literal characters.
+    Keeps structure, bullets, and emoji. Identifiers such as `a_b_c` are left
+    alone. Truncates to Telegram's per-message limit as a last-resort backstop;
+    `_split_for_telegram` chunks long messages first."""
+    cleaned = _to_telegram_clean(text)
     if len(cleaned) > _TELEGRAM_MAX:
         cleaned = cleaned[: _TELEGRAM_MAX - 1].rstrip() + "…"
     return cleaned
+
+
+def _split_for_telegram(text: str) -> list[str]:
+    """Split a long message into <= _TELEGRAM_MAX chunks on blank-line, then
+    line, then hard boundaries — so nothing (e.g. a trailing feedback prompt)
+    is silently truncated."""
+    cleaned = _to_telegram_clean(text)
+    if len(cleaned) <= _TELEGRAM_MAX:
+        return [text]
+    chunks: list[str] = []
+    current = ""
+    for para in cleaned.split("\n\n"):
+        piece = para if not current else current + "\n\n" + para
+        if len(piece) <= _TELEGRAM_MAX:
+            current = piece
+            continue
+        if current:
+            chunks.append(current)
+            current = ""
+        while len(para) > _TELEGRAM_MAX:
+            cut = para.rfind("\n", 0, _TELEGRAM_MAX)
+            cut = cut if cut > 0 else _TELEGRAM_MAX
+            chunks.append(para[:cut].rstrip())
+            para = para[cut:].lstrip("\n")
+        current = para
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _to_telegram_clean(text: str) -> str:
+    return _ITALIC.sub(r"\1", (text or "").replace("*", "").replace("`", ""))
 
 
 def _send_telegram(text: str, token: str, chat_id: str) -> tuple[bool, str | None]:
@@ -113,7 +151,11 @@ def deliver(message, *, dry_run: bool = False) -> DeliveryResult:
             dry_run=True, error=None if dry_run else reason,
         )
 
-    tg_ok, tg_err = _send_telegram(text, tg_token, tg_chat)
+    tg_ok, tg_err = True, None
+    for chunk in _split_for_telegram(text):
+        tg_ok, tg_err = _send_telegram(chunk, tg_token, tg_chat)
+        if not tg_ok:
+            break
     log.info("[human-systems.delivery] kind=%s delivered=%s", message.kind, tg_ok)
     return DeliveryResult(
         delivered=tg_ok, channel="telegram" if tg_ok else None, text=text,

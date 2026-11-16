@@ -98,6 +98,18 @@ class TestDelivery(unittest.TestCase):
             r = delivery.deliver(self._msg(), dry_run=True)
         self.assertIn("telegram", r.channel)
 
+    def test_to_telegram_strips_italic_and_code_but_not_identifiers(self):
+        out = delivery._to_telegram("_Why:_ keep `cmd` and knowledge_monthly_cross_domain")
+        self.assertEqual(out, "Why: keep cmd and knowledge_monthly_cross_domain")
+
+    def test_long_messages_are_chunked_not_truncated(self):
+        text = "\n\n".join(f"para {i} " + "x" * 900 for i in range(10)) + "\n\nFEEDBACK PROMPT"
+        chunks = delivery._split_for_telegram(text)
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(len(c) <= delivery._TELEGRAM_MAX for c in chunks))
+        self.assertIn("FEEDBACK PROMPT", chunks[-1])
+        self.assertEqual(delivery._split_for_telegram("short"), ["short"])
+
     def test_to_telegram_strips_bold_and_truncates(self):
         self.assertNotIn("*", delivery._to_telegram("*bold* and _italic_"))
         long = "x" * 5000
@@ -191,11 +203,12 @@ class TestRunner(unittest.TestCase):
 
     def test_morning_is_daily_operating_picture(self):
         # MSN-XO-002: the morning push is now the unified Daily Operating Picture,
-        # which carries the highest-leverage action under "Decision".
+        # whose short Today card carries the highest-leverage action.
         with patch.object(hss, "_fetch_rows", return_value=[HARD]):
             report = hss.run_job("morning", dry_run=True)
         self.assertIn("Daily Operating Picture", report["text"])
-        self.assertIn("Decision", report["text"])
+        self.assertIn("Today:", report["text"])
+        self.assertNotIn("Opportunity cost", report["text"])  # detail lives behind /brief all
 
     def test_run_all_covers_every_job(self):
         with patch.object(hss, "_fetch_rows", return_value=[GOOD, HARD]):
