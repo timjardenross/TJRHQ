@@ -1,8 +1,8 @@
 {
   "counts_by_state": {
-    "investigating": 1,
+    "investigating": 2,
     "learned": 1,
-    "proposed": 2,
+    "proposed": 1,
     "rejected": 134,
     "resolved_before_research": 4
   },
@@ -122,46 +122,30 @@
       "automation_eligibility": "needs_signoff",
       "change_class": "cost_optimisation",
       "complexity": "low",
-      "confidence": 0.95,
+      "confidence": 1.0,
       "cost_impact": "unknown",
-      "created_at": "2026-09-25T23:53:49.553497+00:00",
+      "created_at": "2026-11-16T16:03:43.816561+00:00",
       "discovery_source": "external",
       "evidence_strength": "conclusive",
-      "fingerprint": "444fa7a4c470c56f",
+      "fingerprint": "728a68874fb3eeef",
       "fit": "weak",
       "investigation": {
         "alternatives": [
-          "Existing paid models defined in TASK_POLICY",
-          "Conducting a formal per-task-type cost/quality tradeoff evaluation framework before selecting checkpoints"
+          "Keep existing paid models in TASK_POLICY",
+          "Evaluate local models that match actual HQ task workloads"
         ],
-        "confidence": 0.95,
+        "confidence": 0.7,
         "cost_impact": "unknown",
         "fit_with_hq": "weak",
         "implementation_effort": "low",
         "method": "model_synthesis",
         "missing_evidence": [],
         "potential_benefits": [
-          "Potential per-call cost reduction if tasks routed to paid models are moved to local inference.",
-          "Apache-2.0 license allows usage.",
-          "Deployable via vLLM."
+          "Could lower per-call costs if moved to local inference under an Apache-2.0 license"
         ],
         "recommendation": "not_useful",
-        "recommendation_rationale": "The candidate has a weak fit and is merely a model checkpoint rather than the needed cost/quality evaluation framework. Furthermore, prior similar proposals were rejected due to having no concrete workload and self-hosted inference not being an active HQ goal.",
+        "recommendation_rationale": "The repository provides quantized weights for an image-to-video model (Wan2.1-I2V) meant for ComfyUI without any benchmarking or alignment to HQ's TASK_POLICY workloads, matching prior rejected candidates that lacked concrete workload fit.",
         "related_experience": [
-          {
-            "change_class": "cost_optimisation",
-            "future_implication": null,
-            "opportunity_id": "EVO-0120",
-            "outcome_confidence": null,
-            "outcome_result": null,
-            "outcome_summary": null,
-            "rejection_reason": "[bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal.",
-            "relationship": "rejected",
-            "relevance_score": 24,
-            "resolution_note": null,
-            "title": "RedHatAI/Qwen2.5-1.5B-quantized.w8a8",
-            "watch_reason": null
-          },
           {
             "change_class": "cost_optimisation",
             "future_implication": null,
@@ -189,45 +173,59 @@
             "resolution_note": null,
             "title": "NeuML/glove-6B-quantized",
             "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0135",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Local LLM inference – impressive but too hard to work with",
+            "watch_reason": null
           }
         ],
-        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal., EVO-0120); a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable)., EVO-0114); and 1 more not shown here",
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable)., EVO-0114); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65), EVO-0117); and 1 more not shown here",
         "risks": [
-          "Repository is merely a quantized model checkpoint with deployment instructions, lacking any cost/quality tradeoff evaluation against TASK_POLICY.",
-          "Prior similar local inference proposals were rejected due to lacking a concrete workload or active self-hosted inference goal.",
-          "Quality for specific HQ task types is unverified."
+          "Repository only hosts quantized weights for an image-to-video diffusion model for ComfyUI, with no relevance to current TASK_POLICY workloads",
+          "Contains no benchmarking, evaluation, or cost/quality tradeoff review",
+          "Low community adoption (0 likes)"
         ],
-        "why_hq_is_looking_at_this": "HQ is investigating whether tasks currently routed to paid models in TASK_POLICY could be moved to a capable local quantized model to lower per-call costs."
+        "why_hq_is_looking_at_this": "HQ is exploring local inference models to replace paid models in TASK_POLICY and reduce per-call costs."
       },
-      "lifecycle_state": "to_decide",
+      "lifecycle_state": "researching",
       "measurement_hint": null,
       "missing_evidence": [],
       "mission_id": null,
-      "opportunity_id": "EVO-0121",
+      "opportunity_id": "EVO-0120",
       "outcome": {},
       "outcome_contract": {},
-      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: conclusive; Confidence: 0.95; Risk: low; Automation: needs_signoff; Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: conclusive; Confidence: 1.00; Risk: low; Automation: needs_signoff; Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
       "provenance": [
         {
-          "detail": "{\"downloads\": 172467, \"likes\": 5, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
-          "location": "https://huggingface.co/RedHatAI/Qwen3.5-4B-quantized.w4a16",
-          "retrieved_at": "2026-11-15T16:02:56.101449+00:00",
+          "detail": "{\"downloads\": 25427, \"likes\": 0, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/siouni/AnimeGen-I2V-Quantized",
+          "retrieved_at": "2026-11-17T16:02:16.715368+00:00",
           "source": "huggingface"
         }
       ],
-      "rejection_reason": "[bulk triage 2026-11-01] No concrete workload today; revisit if self-hosted inference becomes a goal.",
-      "relevance_score": 0.72,
+      "rejection_reason": "Auto-rejected at relevance gate: score=0.34 (investigate>=0.5, surface>=0.65)",
+      "relevance_score": 0.58,
       "risk_level": "low",
-      "run_id": "2026-11-15-160250",
+      "run_id": "2026-11-17-160213",
       "source_finding_id": null,
-      "stage_detail": "proposed",
-      "summary": "Hugging Face model, 172467 downloads, 5 likes, license apache-2.0",
-      "title": "RedHatAI/Qwen3.5-4B-quantized.w4a16",
-      "updated_at": "2026-11-15T16:05:56.258181+00:00",
-      "validated_at": "2026-11-15T16:02:56.052112+00:00",
+      "stage_detail": "investigating",
+      "summary": "Hugging Face model, 25427 downloads, 0 likes, license apache-2.0",
+      "title": "siouni/AnimeGen-I2V-Quantized",
+      "updated_at": "2026-11-17T16:05:10.687667+00:00",
+      "validated_at": "2026-11-17T16:02:16.682122+00:00",
       "validation_evidence": [],
       "validation_result": "confirmed",
-      "value": "high",
+      "value": "medium",
       "watch_reason": null,
       "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
     },
@@ -237,124 +235,107 @@
       "complexity": "low",
       "confidence": 0.5,
       "cost_impact": "unknown",
-      "created_at": "2026-09-25T23:53:49.554073+00:00",
+      "created_at": "2026-11-17T16:04:14.729710+00:00",
       "discovery_source": "external",
       "evidence_strength": "strong",
-      "fingerprint": "deea2373bf78209d",
+      "fingerprint": "a81eff5265c6d12b",
       "fit": "moderate",
       "investigation": {
-        "alternatives": [],
-        "confidence": null,
+        "alternatives": [
+          "Remain on pinned version 10.5.0"
+        ],
+        "confidence": 0.7,
         "cost_impact": "unknown",
         "fit_with_hq": "moderate",
         "implementation_effort": "low",
-        "method": "template_fallback",
-        "missing_evidence": [
-          "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
-        ],
+        "method": "model_synthesis",
+        "missing_evidence": [],
         "potential_benefits": [
-          "Async dependency injection for Python functions"
+          "Develop, document, and test UI components in isolation with updated capabilities",
+          "Minor or patch upgrade keeping existing @storybook/nextjs-vite dependency up to date"
         ],
-        "recommendation": "needs_more_evidence",
-        "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
+        "recommendation": "worth_pursuing",
+        "recommendation_rationale": "HQ already runs this package, the change is classified as a minor/patch update with low complexity and high value, and unlike prior major migration rejections (e.g., 14 -> 16), this does not require a large migration mission.",
         "related_experience": [
           {
             "change_class": "capability",
             "future_implication": null,
-            "opportunity_id": "EVO-0123",
+            "opportunity_id": "EVO-0145",
             "outcome_confidence": null,
             "outcome_result": null,
             "outcome_summary": null,
-            "rejection_reason": "[bulk triage 2026-11-01] Auto-dispatch produced no change. Replaced by focused bump PR #476 (merged) (openai 3.37.0 in platform-runtime, superseding the 3.19.2 target).",
+            "rejection_reason": "[bulk triage 2026-11-01] Two major versions (14 -> 16); needs its own migration mission, not a bot version bump.",
             "relationship": "rejected",
-            "relevance_score": 18,
+            "relevance_score": 17,
             "resolution_note": null,
-            "title": "openai 3.13.0 -> 3.19.2 (pypi release)",
+            "title": "next 14.2.35 -> 16.3.6 (npm release)",
             "watch_reason": null
           },
           {
             "change_class": "capability",
             "future_implication": null,
-            "opportunity_id": "EVO-0124",
+            "opportunity_id": "EVO-0113",
             "outcome_confidence": null,
             "outcome_result": null,
             "outcome_summary": null,
-            "rejection_reason": "[bulk triage 2026-11-01] Auto-dispatch PR #463 closed without change. Replaced by focused bump PR #476 (merged) (pydantic 2.14.1, superseding the 2.13.5 target).",
+            "rejection_reason": "[bulk triage 2026-11-01] Major migration (3 -> 4: config and CSS changes), not a version bump. Auto-dispatch output was a placeholder patch (removed in #472). Dependabot now ignores tailwindcss majors (PR #477); needs its own migration mission.",
             "relationship": "rejected",
-            "relevance_score": 18,
+            "relevance_score": 16,
             "resolution_note": null,
-            "title": "pydantic 2.13.4 -> 2.13.5 (pypi release)",
+            "title": "tailwindcss 3.4.13 -> 4.3.3 (npm release)",
             "watch_reason": null
           },
           {
             "change_class": "capability",
             "future_implication": null,
-            "opportunity_id": "EVO-0126",
+            "opportunity_id": "EVO-0115",
             "outcome_confidence": null,
             "outcome_result": null,
             "outcome_summary": null,
-            "rejection_reason": "[bulk triage 2026-11-01] Deferred: two majors, low value; repo use of pylint not verified. Re-propose if needed.",
+            "rejection_reason": "[bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated.",
             "relationship": "rejected",
-            "relevance_score": 18,
+            "relevance_score": 16,
             "resolution_note": null,
-            "title": "pylint 2.17.0 -> 4.1.2 (pypi release)",
+            "title": "playwright 1.63.0 -> 1.64.1 (npm release)",
             "watch_reason": null
           }
         ],
-        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] Auto-dispatch produced no change. Replaced by focused bump PR #476 (merged) (openai 3.37.0 in platform-runtime, superseding the 3.19.2 target)., EVO-0123); and 2 more not shown here",
-        "risks": [],
-        "why_hq_is_looking_at_this": "HQ already depends on uncalled-for (pypi, currently pinned at 0.4.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] Two major versions (14 -> 16); needs its own migration mission, not a bot version bump., EVO-0145); and 2 more not shown here",
+        "risks": [
+          "Potential regressions or deprecation impacts when updating dependency from 10.5.0 to 10.6.7"
+        ],
+        "why_hq_is_looking_at_this": "HQ already depends on @storybook/nextjs-vite (npm, currently pinned at 10.5.0), and a new minor/patch release (10.6.7) brings new capabilities or deprecation info relevant to code HQ already runs."
       },
       "lifecycle_state": "to_decide",
       "measurement_hint": null,
       "missing_evidence": [],
-      "mission_id": "USS-TJR-MSN-1790388714815",
-      "opportunity_id": "EVO-0122",
+      "mission_id": null,
+      "opportunity_id": "EVO-0121",
       "outcome": {},
-      "outcome_contract": {
-        "baseline": {
-          "available": false,
-          "captured_at": "2026-09-26T02:11:57.004069+00:00",
-          "reason": "Qualitative/mixed measurement — comparison will be evidence-based at observation time rather than against a single numeric baseline."
-        },
-        "created_at": "2026-09-26T02:11:57.004109+00:00",
-        "evaluation_status": "pending_implementation",
-        "evidence_sources": [
-          "internal_evidence_snapshot"
-        ],
-        "expected_benefit": "Access to new capabilities or deprecation updates present in the 4.70.1 release for an existing dependency",
-        "measurement_type": "mixed",
-        "observation_started_at": null,
-        "observation_window": {
-          "count": 7,
-          "type": "cycles"
-        },
-        "regression_signal": "The new capability introduces a new failure mode, security gap, or measurably worse behaviour in what it touches.",
-        "success_signal": "HQ already depends on tqdm via pypi, currently pinned at 4.67.3, and an update to version 4.70.1 has been released."
-      },
+      "outcome_contract": {},
       "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
       "provenance": [
         {
-          "detail": "{\"ecosystem\": \"pypi\", \"package\": \"uncalled-for\", \"pinned_version\": \"0.4.0\", \"latest_version\": \"0.4.1\", \"bump\": \"minor_or_patch\"}",
-          "location": "https://pypi.org/project/uncalled-for/",
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"@storybook/nextjs-vite\", \"pinned_version\": \"10.5.0\", \"latest_version\": \"10.6.7\", \"bump\": \"minor_or_patch\"}",
+          "location": "https://www.npmjs.com/package/@storybook/nextjs-vite",
           "source": "dependency_release"
         }
       ],
-      "rejection_reason": "[bulk triage 2026-11-01] Auto-dispatch PR #465 changed no pin (added a corrupted copy of batch_coding.py, removed in #475). Weasyprint 70 for revs-content-agents is carried by Dependabot PR #452; that service's CI job also needs pandoc+ffmpeg in the runner before any revs change can merge.",
+      "rejection_reason": null,
       "relevance_score": 0.8,
       "risk_level": "medium",
-      "run_id": "2026-11-01-160217",
+      "run_id": "2026-11-17-160213",
       "source_finding_id": null,
       "stage_detail": "proposed",
-      "summary": "Async dependency injection for Python functions",
-      "title": "uncalled-for 0.4.0 -> 0.4.1 (pypi release)",
-      "updated_at": "2026-11-01T16:04:49.995293+00:00",
+      "summary": "Storybook for Next.js and Vite: Develop, document, and test UI components in isolation",
+      "title": "@storybook/nextjs-vite 10.5.0 -> 10.6.7 (npm release)",
+      "updated_at": "2026-11-17T16:04:42.250012+00:00",
       "validated_at": null,
       "validation_evidence": [],
       "validation_result": null,
       "value": "high",
       "watch_reason": null,
-      "why_relevant": "HQ already depends on uncalled-for (pypi, currently pinned at 0.4.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+      "why_relevant": "HQ already depends on @storybook/nextjs-vite (npm, currently pinned at 10.5.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
     }
   ]
 }
