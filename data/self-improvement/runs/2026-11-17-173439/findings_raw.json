@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router call log file does not exist at expected path (/opt/starship-endeavour/core/model-router/call_log.jsonl)",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Ensure the model router service creates and writes to the configured call log file destination to maintain auditability of LLM calls"
+      },
+      "expected_benefit": "Restores visibility and telemetry tracking for LLM routing, latency metrics, and failure rates"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 features in platform-runtime research command",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO comments indicate missing implementation for Phase 5 authorization and decision_to_memory integration",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_command.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement Supabase authorization checking and decision_to_memory integration or document implementation tracking"
+      },
+      "expected_benefit": "Completes research command security and persistence capabilities"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Quality forecasting service contains stubbed query anomaly logic",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO marker indicating recent_anomalies is hardcoded as an empty list instead of querying quality_anomalies table",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_service.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement the query against the quality_anomalies table to populate recent_anomalies"
+      },
+      "expected_benefit": "Enables accurate quality anomaly forecasting rather than relying on an empty stub"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Emergency alerts directly invoke external LLM providers rather than model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct calls to call_gemini and call_mistral via API keys bypass the model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_service.py"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM invocations through the central model router endpoint"
+      },
+      "expected_benefit": "Centralises routing policies, fallback logic, rate-limit management, and logging for emergency alert summarisation"
+    }
+  ]
+}
