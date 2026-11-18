@@ -86,7 +86,7 @@ def _build_message(job: str):
     if job == "morning":
         # MSN-XO-002: the morning brief is now the unified Daily Operating Picture.
         from commands.brief import build_brief
-        body = build_brief()
+        body = build_brief("card")
         return push.PushMessage(
             kind="readiness", output_class="action",
             title="Captain's Daily Operating Picture", body=body, severity="info", raw=True,

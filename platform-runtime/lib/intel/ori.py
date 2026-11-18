@@ -44,27 +44,36 @@ class ORISignal:
     data_available: bool = True
 
 
+def _clip(text: str, limit: int) -> str:
+    """Truncate on a word boundary (never mid-word) with an ellipsis."""
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0].rstrip(",;:—- ")
+    return (cut or text[:limit]) + "…"
+
+
 def _top_risk(brief: dict) -> str:
     top = brief.get("top_events") or []
     if isinstance(top, list) and top:
         ev = top[0]
         if isinstance(ev, dict):
             return str(ev.get("title") or ev.get("headline") or ev.get("summary") or "").strip() or "—"
-        return str(ev)[:140]
+        return _clip(str(ev), 140)
     themes = brief.get("emerging_themes") or []
     if isinstance(themes, list) and themes:
-        return str(themes[0])[:140]
+        return _clip(str(themes[0]), 140)
     snap = (brief.get("executive_snapshot") or "").strip()
-    return snap.split(". ")[0][:140] if snap else "No emerging risk flagged"
+    return _clip(snap.split(". ")[0], 140) if snap else "No emerging risk flagged"
 
 
 def _recommended_action(brief: dict) -> str:
     bottom = (brief.get("bottom_line") or "").strip()
     if bottom:
-        return bottom[:240]
+        return _clip(bottom, 240)
     fw = brief.get("forward_watch") or []
     if isinstance(fw, list) and fw:
-        return f"Watch: {fw[0]}"[:240]
+        return _clip(f"Watch: {fw[0]}", 240)
     return "No specific action — maintain awareness."
 
 
