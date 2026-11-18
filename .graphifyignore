@@ -1,0 +1,26 @@
+# Keep the Graphify graph under the free-plan 25k node limit.
+# Gitignore-style patterns. Tier 1 is safe: generated output, fixtures and archives, not live code.
+
+# --- Tier 1: generated / non-code ---
+**/graphify-out/
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/__pycache__/
+**/fixtures/
+data/
+Missions/
+.claude/skills/*-workspace/
+.claude/skills/bot-reviews/
+.claude/skills/workbench-reviews/
+.claude/skills/archive/
+*.json
+*.sql
+*.png
+
+# --- Tier 2: uncomment only if the dashboard still says "Too large" ---
+# tests/
+# core/infrastructure/supabase/
+# scripts/
+# deploy/
