@@ -8,6 +8,9 @@ applies the learned feedback loop.
 Supporting commands (/hs decide, /delivery forecast, …) remain for deep dives.
 
     handle_brief(text, user_id=None, channel_id=None) -> str
+
+`/brief` returns the short Today card; `/brief all` the full dashboard;
+`/brief delivery|resilience|knowledge|comms|learning|strategy` one section.
 """
 
 from __future__ import annotations
@@ -37,8 +40,11 @@ from lib.strategy import objectives as _strategy
 from commands.human_systems import _delivery_context, _fetch_rows, _today_row
 
 
-def build_brief() -> str:
-    """Gather from the existing engines and compose the daily operating picture."""
+def build_brief(mode: str = "card") -> str:
+    """Gather from the existing engines and compose the daily operating picture.
+
+    ``mode``: "card" (short Today card — the scheduled push and bare `/brief`),
+    "all" (full dashboard), or a section name from ``daily_brief.SECTIONS``."""
     rows = _fetch_rows(days=7)
     today = _today_row(rows)
     snapshot = framework.interpret_capacity(today)
@@ -197,17 +203,28 @@ def build_brief() -> str:
         except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (interrupt dispatch failed)
             log.warning("[brief] interrupt dispatch failed: %s", exc)
 
+    # Outcome & learning loop (MSN-0076/0080): best-effort; quiet when offline.
+    learning_snap = None
+    try:
+        from core.knowledge.outcome_capture import learning_brief_snapshot
+        learning_snap = learning_brief_snapshot()
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (learning snapshot unavailable)
+        log.debug("[brief] learning snapshot unavailable: %s", exc)
+
     body = daily_brief.compose_daily_brief(
         capacity=snapshot, recommendation=pkg, load=load,
         delivery=delivery, control_tower=tower, ori=ori_signal, knowledge=knowledge_hits,
-        strategy=strat_snapshot, comms=comms_opps, brief_doc=canonical_doc,
+        strategy=strat_snapshot, comms=comms_opps, learning=learning_snap,
+        brief_doc=canonical_doc, mode=mode,
     )
 
     # WP3 adoption metric: record that a brief was issued (usage signal).
-    memory.record_recommendation(
-        kind="daily_brief", domain="resilience", output_class="action",
-        summary=pkg.primary[:200], source="captain_pull",
-    )
+    # Section drill-downs are not a new brief, so they don't count.
+    if mode in ("card", "all"):
+        memory.record_recommendation(
+            kind="daily_brief", domain="resilience", output_class="action",
+            summary=pkg.primary[:200], source="captain_pull",
+        )
     return body
 
 
@@ -222,7 +239,11 @@ def handle_brief(text: str, user_id: str | None = None, channel_id: str | None =
         return _adoption()
     if raw in ("strategy", "objectives", "strategic"):
         return safety.frame(_strategy_view())
-    return safety.frame(build_brief())
+    if raw in ("all", "full"):
+        return safety.frame(build_brief("all"))
+    if raw in daily_brief.SECTIONS:
+        return safety.frame(build_brief(raw))
+    return safety.frame(build_brief("card"))
 
 
 def _strategy_view() -> str:
