@@ -1,9 +1,8 @@
 {
   "counts_by_state": {
-    "discovered": 2,
-    "investigating": 2,
+    "investigating": 3,
     "learned": 1,
-    "proposed": 2,
+    "proposed": 3,
     "rejected": 131,
     "resolved_before_research": 4
   },
@@ -451,6 +450,227 @@
       "value": "high",
       "watch_reason": null,
       "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "needs_more_evidence",
+      "change_class": "cost_optimisation",
+      "complexity": "moderate",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-11-18T16:05:00.281473+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "moderate",
+      "fingerprint": "3f8a370019e4666b",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Official Gemma 3 checkpoints or verified vendor quantizations",
+          "Retaining current paid models defined in TASK_POLICY"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "lower",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "moderate",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Directly lowers per-call costs by offloading paid API routes to local inference"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "While cost optimization via local inference addresses the watchlist gap in TASK_POLICY, this candidate is an unvetted community quantization with very low engagement (8 likes) and no validation evidence, echoing prior rejected ideas (EVO-0114).",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0114",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable).",
+            "relationship": "rejected",
+            "relevance_score": 22,
+            "resolution_note": null,
+            "title": "abenzerps/Qwen-Image-2.1-Uncensored-Quantized",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0117",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 22,
+            "resolution_note": null,
+            "title": "NeuML/glove-6B-quantized",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0135",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Local LLM inference – impressive but too hard to work with",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable)., EVO-0114); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65), EVO-0117); and 1 more not shown here",
+        "risks": [
+          "Unvetted community quant upload (8 likes) with unknown inference quality",
+          "No concrete validation evidence or quality benchmarks provided",
+          "Prior similar candidates (EVO-0114, EVO-0117) were rejected due to unvetted uploaders and lack of concrete workloads"
+        ],
+        "why_hq_is_looking_at_this": "Any task_type currently routed to a paid model in TASK_POLICY could potentially move to a capable local model if quality holds, directly lowering per-call cost."
+      },
+      "lifecycle_state": "researching",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0124",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: moderate; Confidence: 0.50; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong); Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 114609, \"likes\": 8, \"license\": \"gemma\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/abhishekchohan/gemma-3-12b-it-quantized-W4A16",
+          "retrieved_at": "2026-11-18T16:01:38.095663+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.56,
+      "risk_level": "low",
+      "run_id": "2026-11-18-160131",
+      "source_finding_id": null,
+      "stage_detail": "investigating",
+      "summary": "Hugging Face model, 114609 downloads, 8 likes, license gemma",
+      "title": "abhishekchohan/gemma-3-12b-it-quantized-W4A16",
+      "updated_at": "2026-11-18T16:07:12.232676+00:00",
+      "validated_at": "2026-11-18T16:01:38.030851+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "moderate",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-11-18T16:05:00.283191+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "18b7402736652762",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Remain on pinned version 29.1.1",
+          "Verify if jsdom upgrade was already handled in PR #457 before proceeding"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "moderate",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "New capabilities and updated implementation of many web standards",
+          "Brings existing dependency up to date from pinned 29.1.1 to 31.0.1"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "While jsdom is already an active dependency in HQ, this is a major version jump with moderate complexity, and previous similar updates were rejected due to already being implemented in PR #457 without store updates. It should be verified against existing PRs before active pursuit.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0141",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated.",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "@supabase/ssr 0.12.0 -> 0.12.7 (npm release)",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0142",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated.",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "@supabase/supabase-js 2.116.0 -> 2.117.2 (npm release)",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0144",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Deferred: major bump of a dev-only tool, low value. Re-propose if needed.",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "knip 5.88.1 -> 6.38.0 (npm release)",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated., EVO-0141); a similar idea was rejected previously (reason: [bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated., EVO-0142); and 1 more not shown here",
+        "risks": [
+          "Major version upgrade may introduce breaking changes or deprecations",
+          "Risk of duplicate triage or already merged updates as noted in prior context (PR #457)"
+        ],
+        "why_hq_is_looking_at_this": "HQ already depends on jsdom pinned at version 29.1.1, and a major release update to 31.0.1 is available providing web standards capabilities."
+      },
+      "lifecycle_state": "to_decide",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0125",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"jsdom\", \"pinned_version\": \"29.1.1\", \"latest_version\": \"31.0.1\", \"bump\": \"major\"}",
+          "location": "https://www.npmjs.com/package/jsdom",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.65,
+      "risk_level": "medium",
+      "run_id": "2026-11-18-160131",
+      "source_finding_id": null,
+      "stage_detail": "proposed",
+      "summary": "A JavaScript implementation of many web standards",
+      "title": "jsdom 29.1.1 -> 31.0.1 (npm release)",
+      "updated_at": "2026-11-18T16:06:30.988523+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on jsdom (npm, currently pinned at 29.1.1); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
     }
   ]
 }
