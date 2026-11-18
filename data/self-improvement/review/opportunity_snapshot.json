@@ -1,9 +1,10 @@
 {
   "counts_by_state": {
+    "discovered": 2,
     "investigating": 2,
     "learned": 1,
-    "proposed": 1,
-    "rejected": 134,
+    "proposed": 2,
+    "rejected": 131,
     "resolved_before_research": 4
   },
   "open_opportunities": [
@@ -336,6 +337,120 @@
       "value": "high",
       "watch_reason": null,
       "why_relevant": "HQ already depends on @storybook/nextjs-vite (npm, currently pinned at 10.5.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "needs_signoff",
+      "change_class": "cost_optimisation",
+      "complexity": "low",
+      "confidence": 0.95,
+      "cost_impact": "unknown",
+      "created_at": "2026-11-18T16:05:00.269457+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "conclusive",
+      "fingerprint": "444fa7a4c470c56f",
+      "fit": "weak",
+      "investigation": {
+        "alternatives": [
+          "Retaining existing paid models in TASK_POLICY",
+          "Benchmarking alternative quantized open-source models with existing internal evaluation frameworks"
+        ],
+        "confidence": 0.95,
+        "cost_impact": "unknown",
+        "fit_with_hq": "weak",
+        "implementation_effort": "low",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Direct reduction in per-call costs for tasks migrated from paid models",
+          "Permissive Apache-2.0 license allows internal use",
+          "Quantized 4B parameter footprint provides low complexity for local inference"
+        ],
+        "recommendation": "not_useful",
+        "recommendation_rationale": "Although rated as high value and low complexity, fit is explicitly marked as weak because the repository contains merely weights and deployment instructions without any framework or benchmarking tools to evaluate cost/quality tradeoffs against HQ's TASK_POLICY, aligning with past rejections of model candidates lacking concrete workload evaluations.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0114",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable).",
+            "relationship": "rejected",
+            "relevance_score": 22,
+            "resolution_note": null,
+            "title": "abenzerps/Qwen-Image-2.1-Uncensored-Quantized",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0117",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 22,
+            "resolution_note": null,
+            "title": "NeuML/glove-6B-quantized",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0138",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.33 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "Launch HN: Hyprnote (YC S25) – An open-source AI meeting notetaker",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] No concrete workload; unvetted uploader, unclear license, image model with no fit to HQ. Research was a template fallback (Model Router unreachable)., EVO-0114); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65), EVO-0117); and 1 more not shown here",
+        "risks": [
+          "Repository only provides model weights and basic deployment instructions without benchmarking or evaluation tooling",
+          "No verified cost/quality tradeoff data against the Model Router's TASK_POLICY",
+          "Quality may not hold compared to current paid models",
+          "Low community adoption (5 likes)"
+        ],
+        "why_hq_is_looking_at_this": "Any task_type currently routed to a paid model in TASK_POLICY could potentially move to a capable local quantized model if quality holds, directly lowering per-call cost."
+      },
+      "lifecycle_state": "to_decide",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0123",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: conclusive; Confidence: 0.95; Risk: low; Automation: needs_signoff; Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 172616, \"likes\": 5, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/RedHatAI/Qwen3.5-4B-quantized.w4a16",
+          "retrieved_at": "2026-11-18T16:01:38.095663+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.72,
+      "risk_level": "low",
+      "run_id": "2026-11-18-160131",
+      "source_finding_id": null,
+      "stage_detail": "proposed",
+      "summary": "Hugging Face model, 172616 downloads, 5 likes, license apache-2.0",
+      "title": "RedHatAI/Qwen3.5-4B-quantized.w4a16",
+      "updated_at": "2026-11-18T16:05:48.426055+00:00",
+      "validated_at": "2026-11-18T16:01:38.030851+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
     }
   ]
 }
