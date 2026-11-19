@@ -1,8 +1,8 @@
 {
   "counts_by_state": {
-    "investigating": 3,
+    "investigating": 4,
     "learned": 1,
-    "proposed": 4,
+    "proposed": 3,
     "rejected": 130,
     "resolved_before_research": 4
   },
@@ -685,33 +685,34 @@
       "fit": "moderate",
       "investigation": {
         "alternatives": [
-          "Remain on alembic version 1.19.1"
+          "Remain on pinned version 4.14.2",
+          "Keep watching future release notes before updating"
         ],
-        "confidence": 0.5,
+        "confidence": 0.7,
         "cost_impact": "unknown",
         "fit_with_hq": "moderate",
         "implementation_effort": "low",
         "method": "model_synthesis",
         "missing_evidence": [],
         "potential_benefits": [
-          "Provides new-capability and database migration updates relevant to existing HQ operations",
-          "Addresses potential deprecations and improvements available in version 1.20.1"
+          "Provides new capability and deprecation information for a concurrency and networking framework HQ already runs",
+          "Updates an existing dependency to the latest version (4.16.0)"
         ],
         "recommendation": "worth_pursuing",
-        "recommendation_rationale": "HQ actively runs alembic pinned at 1.19.1, and this minor/patch release offers capability updates with low implementation complexity and strong evidence strength.",
+        "recommendation_rationale": "HQ already runs anyio in production, the update complexity is low, and upgrading from 4.14.2 to 4.16.0 keeps dependencies current with strong evidence of relevance, provided the live store is verified against merged PRs.",
         "related_experience": [
           {
             "change_class": "capability",
             "future_implication": null,
-            "opportunity_id": "EVO-0116",
+            "opportunity_id": "EVO-0115",
             "outcome_confidence": null,
             "outcome_result": null,
             "outcome_summary": null,
             "rejection_reason": "[bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated.",
             "relationship": "rejected",
-            "relevance_score": 17,
+            "relevance_score": 18,
             "resolution_note": null,
-            "title": "postcss 8.5.28 -> 8.5.31 (npm release)",
+            "title": "playwright 1.63.0 -> 1.64.1 (npm release)",
             "watch_reason": null
           },
           {
@@ -723,7 +724,7 @@
             "outcome_summary": null,
             "rejection_reason": "[bulk triage 2026-11-01] Major migration (3 -> 4: config and CSS changes), not a version bump. Auto-dispatch output was a placeholder patch (removed in #472). Dependabot now ignores tailwindcss majors (PR #477); needs its own migration mission.",
             "relationship": "rejected",
-            "relevance_score": 16,
+            "relevance_score": 17,
             "resolution_note": null,
             "title": "tailwindcss 3.4.13 -> 4.3.3 (npm release)",
             "watch_reason": null
@@ -731,26 +732,25 @@
           {
             "change_class": "capability",
             "future_implication": null,
-            "opportunity_id": "EVO-0115",
+            "opportunity_id": "EVO-0145",
             "outcome_confidence": null,
             "outcome_result": null,
             "outcome_summary": null,
-            "rejection_reason": "[bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated.",
+            "rejection_reason": "[bulk triage 2026-11-01] Two major versions (14 -> 16); needs its own migration mission, not a bot version bump.",
             "relationship": "rejected",
-            "relevance_score": 16,
+            "relevance_score": 17,
             "resolution_note": null,
-            "title": "playwright 1.63.0 -> 1.64.1 (npm release)",
+            "title": "next 14.2.35 -> 16.3.6 (npm release)",
             "watch_reason": null
           }
         ],
-        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated., EVO-0116); and 2 more not shown here",
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated., EVO-0115); and 2 more not shown here",
         "risks": [
-          "Potential breaking changes or deprecations introduced between 1.19.1 and 1.20.1",
-          "Risk of redundant work or state desynchronization, as seen in past rejections where upgrades were merged without the live store being updated"
+          "Potential risk of duplicate effort or discrepancy with live store/prior PRs, as seen in prior experience where a similar update was already merged in PR #457 but the store was not updated"
         ],
-        "why_hq_is_looking_at_this": "HQ currently runs and depends on alembic pinned at version 1.19.1, making the release of version 1.20.1 directly relevant for capability updates and deprecation tracking."
+        "why_hq_is_looking_at_this": "HQ already depends on anyio pinned at version 4.14.2 on PyPI, and a new minor/patch version 4.16.0 has been released."
       },
-      "lifecycle_state": "to_decide",
+      "lifecycle_state": "researching",
       "measurement_hint": null,
       "missing_evidence": [],
       "mission_id": null,
@@ -770,10 +770,10 @@
       "risk_level": "medium",
       "run_id": "2026-11-19-160115",
       "source_finding_id": null,
-      "stage_detail": "proposed",
+      "stage_detail": "investigating",
       "summary": "High-level concurrency and networking framework on top of asyncio or Trio",
       "title": "anyio 4.14.2 -> 4.16.0 (pypi release)",
-      "updated_at": "2026-11-19T16:08:38.996567+00:00",
+      "updated_at": "2026-11-19T16:10:49.378184+00:00",
       "validated_at": null,
       "validation_evidence": [],
       "validation_result": null,
