@@ -2,8 +2,8 @@
   "counts_by_state": {
     "investigating": 3,
     "learned": 1,
-    "proposed": 3,
-    "rejected": 131,
+    "proposed": 4,
+    "rejected": 130,
     "resolved_before_research": 4
   },
   "open_opportunities": [
@@ -671,6 +671,115 @@
       "value": "high",
       "watch_reason": null,
       "why_relevant": "HQ already depends on jsdom (npm, currently pinned at 29.1.1); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.557834+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "55d9a091af511b85",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Remain on alembic version 1.19.1"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Provides new-capability and database migration updates relevant to existing HQ operations",
+          "Addresses potential deprecations and improvements available in version 1.20.1"
+        ],
+        "recommendation": "worth_pursuing",
+        "recommendation_rationale": "HQ actively runs alembic pinned at 1.19.1, and this minor/patch release offers capability updates with low implementation complexity and strong evidence strength.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0116",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated.",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "postcss 8.5.28 -> 8.5.31 (npm release)",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0113",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Major migration (3 -> 4: config and CSS changes), not a version bump. Auto-dispatch output was a placeholder patch (removed in #472). Dependabot now ignores tailwindcss majors (PR #477); needs its own migration mission.",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "tailwindcss 3.4.13 -> 4.3.3 (npm release)",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0115",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated.",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "playwright 1.63.0 -> 1.64.1 (npm release)",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated., EVO-0116); and 2 more not shown here",
+        "risks": [
+          "Potential breaking changes or deprecations introduced between 1.19.1 and 1.20.1",
+          "Risk of redundant work or state desynchronization, as seen in past rejections where upgrades were merged without the live store being updated"
+        ],
+        "why_hq_is_looking_at_this": "HQ currently runs and depends on alembic pinned at version 1.19.1, making the release of version 1.20.1 directly relevant for capability updates and deprecation tracking."
+      },
+      "lifecycle_state": "to_decide",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0126",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"pypi\", \"package\": \"anyio\", \"pinned_version\": \"4.14.2\", \"latest_version\": \"4.16.0\", \"bump\": \"minor_or_patch\"}",
+          "location": "https://pypi.org/project/anyio/",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": "[bulk triage 2026-11-01] Deferred: two majors, low value; repo use of pylint not verified. Re-propose if needed.",
+      "relevance_score": 0.8,
+      "risk_level": "medium",
+      "run_id": "2026-11-19-160115",
+      "source_finding_id": null,
+      "stage_detail": "proposed",
+      "summary": "High-level concurrency and networking framework on top of asyncio or Trio",
+      "title": "anyio 4.14.2 -> 4.16.0 (pypi release)",
+      "updated_at": "2026-11-19T16:08:38.996567+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on anyio (pypi, currently pinned at 4.14.2); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
     }
   ]
 }
