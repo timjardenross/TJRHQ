@@ -1,9 +1,9 @@
 {
   "counts_by_state": {
-    "investigating": 3,
+    "investigating": 4,
     "learned": 1,
     "proposed": 3,
-    "rejected": 131,
+    "rejected": 130,
     "resolved_before_research": 4
   },
   "open_opportunities": [
@@ -671,6 +671,115 @@
       "value": "high",
       "watch_reason": null,
       "why_relevant": "HQ already depends on jsdom (npm, currently pinned at 29.1.1); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.557834+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "55d9a091af511b85",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Remain on pinned version 4.14.2",
+          "Keep watching future release notes before updating"
+        ],
+        "confidence": 0.7,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Provides new capability and deprecation information for a concurrency and networking framework HQ already runs",
+          "Updates an existing dependency to the latest version (4.16.0)"
+        ],
+        "recommendation": "worth_pursuing",
+        "recommendation_rationale": "HQ already runs anyio in production, the update complexity is low, and upgrading from 4.14.2 to 4.16.0 keeps dependencies current with strong evidence of relevance, provided the live store is verified against merged PRs.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0115",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated.",
+            "relationship": "rejected",
+            "relevance_score": 18,
+            "resolution_note": null,
+            "title": "playwright 1.63.0 -> 1.64.1 (npm release)",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0113",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Major migration (3 -> 4: config and CSS changes), not a version bump. Auto-dispatch output was a placeholder patch (removed in #472). Dependabot now ignores tailwindcss majors (PR #477); needs its own migration mission.",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "tailwindcss 3.4.13 -> 4.3.3 (npm release)",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0145",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "[bulk triage 2026-11-01] Two major versions (14 -> 16); needs its own migration mission, not a bot version bump.",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "next 14.2.35 -> 16.3.6 (npm release)",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: [bulk triage 2026-11-01] Already implemented in PR #457 (merged 2026-10-25); the live store was never updated., EVO-0115); and 2 more not shown here",
+        "risks": [
+          "Potential risk of duplicate effort or discrepancy with live store/prior PRs, as seen in prior experience where a similar update was already merged in PR #457 but the store was not updated"
+        ],
+        "why_hq_is_looking_at_this": "HQ already depends on anyio pinned at version 4.14.2 on PyPI, and a new minor/patch version 4.16.0 has been released."
+      },
+      "lifecycle_state": "researching",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0126",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"pypi\", \"package\": \"anyio\", \"pinned_version\": \"4.14.2\", \"latest_version\": \"4.16.0\", \"bump\": \"minor_or_patch\"}",
+          "location": "https://pypi.org/project/anyio/",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": "[bulk triage 2026-11-01] Deferred: two majors, low value; repo use of pylint not verified. Re-propose if needed.",
+      "relevance_score": 0.8,
+      "risk_level": "medium",
+      "run_id": "2026-11-19-160115",
+      "source_finding_id": null,
+      "stage_detail": "investigating",
+      "summary": "High-level concurrency and networking framework on top of asyncio or Trio",
+      "title": "anyio 4.14.2 -> 4.16.0 (pypi release)",
+      "updated_at": "2026-11-19T16:10:49.378184+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on anyio (pypi, currently pinned at 4.14.2); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
     }
   ]
 }
