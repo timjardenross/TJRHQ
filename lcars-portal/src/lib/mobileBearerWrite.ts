@@ -21,6 +21,7 @@
 // and the Supabase auth response are never written to any log or response body.
 import { createClient } from '@supabase/supabase-js';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { getSupabasePublishableKey } from '@/lib/supabase-public-key';
 import {
   INVALID_REQUEST,
   hasQueryString,
@@ -77,15 +78,15 @@ export async function verifyCaptainWriteBearer(
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const supabasePublishableKey = getSupabasePublishableKey();
+  if (!supabaseUrl || !supabasePublishableKey) {
     return { ok: false, status: 503, error: 'Service unavailable' };
   }
 
   try {
     // The anon key plus the caller's token is used ONLY to ask Supabase Auth
     // who the caller is. The service-role key is never used here.
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrl, supabasePublishableKey, {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
       global: { headers: { Authorization: `Bearer ${token}` } },
     });

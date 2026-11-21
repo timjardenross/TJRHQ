@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getSupabasePublishableKey } from '@/lib/supabase-public-key';
 
 const SERVICE_NAME = 'tjr-hq';
 
@@ -22,13 +23,13 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const supabasePublishableKey = getSupabasePublishableKey();
+  if (!supabaseUrl || !supabasePublishableKey) {
     return jsonResponse({ error: 'Service unavailable' }, 503);
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,

@@ -12,12 +12,13 @@ XO has run on the `service_role` key since inception — it bypasses RLS on
 all 112 public tables even though the bot's own code only ever touches 13
 (see migration 0135_xo_bot_scoped_role.sql for the exact table/operation
 matrix and the `xo_bot` Postgres role + RLS policies it creates). This
-module reuses the platform's own proven pattern from
+module originally reused the platform's own proven pattern from
 migration 0015_telegram_engineer_ro.sql / the retired
 telegram-bot/supabase_readonly.py: a self-minted PostgREST JWT carrying a
-custom `role` claim, signed with SUPABASE_JWT_SECRET, verified by
-Supabase's Kong+PostgREST gateway, no login/session/Supabase-Auth-user
-needed for a long-running service.
+custom `role` claim. It now prefers a private ES256 JWK imported into
+Supabase's signing-keys system and refreshes its short-lived token before
+each Data API call. SUPABASE_JWT_SECRET remains a temporary legacy fallback.
+No login/session/Supabase-Auth-user is needed for the long-running service.
 
 Mechanism history: on supabase-py 2.3.4 (the original pin), the *public*
 `create_client(url, key, options=ClientOptions(headers={...}))` API could
@@ -117,12 +118,64 @@ def mint_scoped_token(secret: str, role: str = SCOPED_ROLE, ttl_seconds: int = 0
     return token.decode("utf-8") if isinstance(token, bytes) else token
 
 
+def mint_scoped_token_from_jwk(
+    private_jwk: str,
+    role: str = SCOPED_ROLE,
+    ttl_seconds: int = 300,
+) -> str:
+    """Mint a short-lived ES256 token from a Supabase-imported private JWK.
+
+    The JWK's ``kid`` is required so Supabase can select the corresponding
+    public verification key. ``exp`` is always present, as required by the
+    signing-keys system. The private JWK must remain server-side.
+    """
+    import json
+
+    import jwt  # PyJWT
+
+    parsed = json.loads(private_jwk)
+    kid = parsed.get("kid")
+    if not kid:
+        raise ValueError("XO_BOT_SIGNING_KEY_JWK is missing kid")
+    if parsed.get("kty") != "EC" or parsed.get("crv") != "P-256":
+        raise ValueError("XO_BOT_SIGNING_KEY_JWK must be an EC P-256 key")
+    if "d" not in parsed:
+        raise ValueError("XO_BOT_SIGNING_KEY_JWK must contain private key material")
+
+    now = int(time.time())
+    claims: dict[str, Any] = {
+        "role": role,
+        "iat": now,
+        "exp": now + max(60, ttl_seconds),
+    }
+    key = jwt.PyJWK.from_dict(parsed).key
+    token = jwt.encode(claims, key, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+    return token.decode("utf-8") if isinstance(token, bytes) else token
+
+
+def _asymmetric_token_factory():
+    """Return a fresh-token callable when an imported signing key is set."""
+    private_jwk = os.environ.get("XO_BOT_SIGNING_KEY_JWK", "").strip()
+    if not private_jwk:
+        return None
+    ttl = int(os.environ.get("XO_BOT_TOKEN_TTL_SECONDS", "300"))
+    return lambda: mint_scoped_token_from_jwk(private_jwk, ttl_seconds=ttl)
+
+
 def resolve_scoped_auth() -> str | None:
     """Return the bearer token to use for the scoped `xo_bot` role, or None
-    if scoping isn't configured yet (no SUPABASE_JWT_SECRET and no
-    pre-minted XO_BOT_SCOPED_TOKEN) — callers must fall back to the
-    existing service_role path when this returns None, never degrade
-    silently to an unscoped or under-scoped credential."""
+    if scoping isn't configured yet. The preferred source is an imported
+    asymmetric signing key; the legacy JWT secret and a pre-minted token are
+    migration fallbacks. Callers must fall back to the existing service_role
+    path when this returns None, never silently use an under-scoped token."""
+    token_factory = _asymmetric_token_factory()
+    if token_factory:
+        try:
+            return token_factory()
+        except Exception as exc:  # noqa: BLE001 - invalid secret material must fail closed
+            log.error("[scoped-supabase] failed to mint xo_bot token from imported signing key: %s", exc)
+            return None
+
     secret = os.environ.get("SUPABASE_JWT_SECRET", "").strip()
     if secret:
         try:
@@ -146,6 +199,36 @@ def _client_options_class():
     return getattr(co, "SyncClientOptions", co.ClientOptions)
 
 
+def _gateway_api_key() -> str:
+    """Return the replacement gateway key, with a temporary legacy fallback."""
+    return (
+        os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+        or os.environ.get("SUPABASE_ANON_KEY", "").strip()
+    )
+
+
+class _RefreshingScopedClient:
+    """Refresh the short-lived asymmetric bearer before each Data API call."""
+
+    def __init__(self, client, token_factory):
+        self._client = client
+        self._token_factory = token_factory
+
+    def _refresh(self) -> None:
+        self._client.postgrest.auth(self._token_factory())
+
+    def table(self, table_name: str):
+        self._refresh()
+        return self._client.table(table_name)
+
+    def rpc(self, function_name: str, params: dict | None = None):
+        self._refresh()
+        return self._client.rpc(function_name, params)
+
+    def __getattr__(self, name: str):
+        return getattr(self._client, name)
+
+
 def build_scoped_client(supabase_url: str):
     """Construct a supabase-py client authenticated as the scoped `xo_bot`
     Postgres role, or return None if scoping isn't configured OR the
@@ -153,9 +236,9 @@ def build_scoped_client(supabase_url: str):
     back to the legacy service_role client in either case (see
     telegram-bots/xo/app.py::_get_supabase()).
 
-    Requires SUPABASE_ANON_KEY (the Kong gateway apikey — a real,
-    recognised project key; the scoped role's own JWT is NOT a valid
-    apikey and must not be used for that header, only for Authorization).
+    Requires SUPABASE_PUBLISHABLE_KEY (or the temporary SUPABASE_ANON_KEY
+    fallback) for the gateway apikey. The scoped role's own JWT is only for
+    Authorization and must not be used as the apikey.
 
     2026-08-10: a live-verification probe was added after a real incident
     during pre-cutover testing — a SUPABASE_JWT_SECRET was provisioned
@@ -171,10 +254,11 @@ def build_scoped_client(supabase_url: str):
     handed back; any failure (bad secret, bad token, network hiccup at
     startup) falls back to service_role with a loud log line instead of
     taking the bot down."""
-    anon_key = os.environ.get("SUPABASE_ANON_KEY", "").strip()
-    if not anon_key:
-        log.warning("[scoped-supabase] SUPABASE_ANON_KEY not set — cannot build scoped client")
+    gateway_key = _gateway_api_key()
+    if not gateway_key:
+        log.warning("[scoped-supabase] SUPABASE_PUBLISHABLE_KEY not set — cannot build scoped client")
         return None
+    token_factory = _asymmetric_token_factory()
     token = resolve_scoped_auth()
     if not token:
         return None
@@ -191,12 +275,14 @@ def build_scoped_client(supabase_url: str):
     # changes.
     client = create_client(
         supabase_url,
-        anon_key,
+        gateway_key,
         options=ClientOptions(headers={"Authorization": f"Bearer {token}"}),
     )
 
+    scoped_client = _RefreshingScopedClient(client, token_factory) if token_factory else client
+
     try:
-        client.table("missions").select("mission_id").limit(1).execute()
+        scoped_client.table("missions").select("mission_id").limit(1).execute()
     except Exception as exc:  # noqa: BLE001 - live Supabase verification query surface is unpredictable, already logged, and this is a deliberate fail-closed security check
         log.error(
             "[scoped-supabase] xo_bot token failed live verification (bad "
@@ -206,4 +292,4 @@ def build_scoped_client(supabase_url: str):
         )
         return None
 
-    return client
+    return scoped_client
