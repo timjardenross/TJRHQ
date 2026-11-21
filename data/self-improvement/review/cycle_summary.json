@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-11-20T17:33:17.033852+00:00",
-  "run_id": "2026-11-20-173223",
+  "timestamp": "2026-11-21T17:32:27.255248+00:00",
+  "run_id": "2026-11-21-173121",
   "success": true,
   "evidence_collected": 7,
   "findings_analyzed": 4,
@@ -13,7 +13,7 @@
     "skipped": true
   },
   "decision_report": {
-    "timestamp": "2026-11-20T17:33:17.027664+00:00",
+    "timestamp": "2026-11-21T17:32:27.254189+00:00",
     "model_confidence": 0.5,
     "model_confidence_rating": "low",
     "total_decisions": 0,
