@@ -19,6 +19,7 @@ import type { InvestigationDefinition, TriggerContext } from '@/lib/investigatio
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { deriveRisk, type RiskLevel } from '@/lib/intelligenceRisk';
+import { getSupabasePublishableKey } from '@/lib/supabase-public-key';
 
 // ─── Shared fetch helper ────────────────────────────────────────────────
 // Every definition below distinguishes a genuine query failure (network
@@ -41,7 +42,7 @@ async function fetchRows<T>(
   run: (db: SupabaseClient) => PromiseLike<{ data: T[] | null; error: unknown }>
 ): Promise<FetchResult<T>> {
   // Same as before when Supabase is not configured at all (dev, bare test run).
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !getSupabasePublishableKey()) {
     return { rows: [], failed: false };
   }
   try {

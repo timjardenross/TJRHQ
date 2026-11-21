@@ -2,7 +2,7 @@
 """Standalone pre-cutover verification for the xo_bot scoped Supabase role.
 
 Run this AFTER SUPABASE_JWT_SECRET (or a pre-minted XO_BOT_SCOPED_TOKEN) and
-SUPABASE_ANON_KEY are added to telegram-bots/xo/.env, and BEFORE restarting
+SUPABASE_PUBLISHABLE_KEY is added to telegram-bots/xo/.env, and BEFORE restarting
 tg-xo.service with the new credential. It exercises every real Supabase
 operation the live bot's own code performs, through the exact same
 scoped_supabase.build_scoped_client() construction app.py's _get_supabase()
@@ -97,7 +97,7 @@ def main() -> int:
 
     db = scoped_supabase.build_scoped_client(SUPABASE_URL)
     if db is None:
-        print("build_scoped_client() returned None (likely missing SUPABASE_ANON_KEY). Aborting.")
+        print("build_scoped_client() returned None (likely missing SUPABASE_PUBLISHABLE_KEY). Aborting.")
         return 2
 
     print("Scoped client constructed. Running 22 real operations as xo_bot...\n")
