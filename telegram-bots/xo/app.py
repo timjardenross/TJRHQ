@@ -163,7 +163,7 @@ def _get_supabase():
     though this bot's code only ever touches 13. Falls back to the
     unchanged SUPABASE_KEY/service_role path whenever scoping isn't
     configured (no SUPABASE_JWT_SECRET / XO_BOT_SCOPED_TOKEN yet, or no
-    SUPABASE_ANON_KEY for the gateway apikey) — this is the safe default
+    SUPABASE_PUBLISHABLE_KEY for the gateway apikey) — this is the safe default
     today; do not treat a scoping failure as "disable Supabase entirely",
     that would take down every command handler for a hardening step that
     hasn't been provisioned yet. See

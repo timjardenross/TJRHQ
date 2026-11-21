@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
+import { getSupabasePublishableKey } from '@/lib/supabase-public-key';
 import {
   INVALID_REQUEST,
   MOBILE_BEARER_READ_ROUTES,
@@ -112,9 +113,9 @@ export async function middleware(request: NextRequest) {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabasePublishableKey = getSupabasePublishableKey();
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabasePublishableKey) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
     return NextResponse.redirect(loginUrl);
@@ -123,7 +124,7 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   const supabase = createServerClient(
     supabaseUrl,
-    supabaseAnonKey,
+    supabasePublishableKey,
     {
       cookies: {
         getAll() {

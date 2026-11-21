@@ -20,6 +20,7 @@
 // Supabase auth response are never written to any log or response body.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { getSupabasePublishableKey } from '@/lib/supabase-public-key';
 
 /** The complete bearer allowlist. Exact string match on the pathname, GET
  *  only. No wildcard, prefix or regex matching, ever: add a path here only
@@ -107,13 +108,13 @@ export async function verifyCaptainBearer(
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const supabasePublishableKey = getSupabasePublishableKey();
+  if (!supabaseUrl || !supabasePublishableKey) {
     return { ok: false, status: 503, error: 'Service unavailable' };
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,

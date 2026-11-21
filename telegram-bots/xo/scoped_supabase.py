@@ -146,6 +146,14 @@ def _client_options_class():
     return getattr(co, "SyncClientOptions", co.ClientOptions)
 
 
+def _gateway_api_key() -> str:
+    """Return the replacement gateway key, with a temporary legacy fallback."""
+    return (
+        os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+        or os.environ.get("SUPABASE_ANON_KEY", "").strip()
+    )
+
+
 def build_scoped_client(supabase_url: str):
     """Construct a supabase-py client authenticated as the scoped `xo_bot`
     Postgres role, or return None if scoping isn't configured OR the
@@ -153,9 +161,9 @@ def build_scoped_client(supabase_url: str):
     back to the legacy service_role client in either case (see
     telegram-bots/xo/app.py::_get_supabase()).
 
-    Requires SUPABASE_ANON_KEY (the Kong gateway apikey — a real,
-    recognised project key; the scoped role's own JWT is NOT a valid
-    apikey and must not be used for that header, only for Authorization).
+    Requires SUPABASE_PUBLISHABLE_KEY (or the temporary SUPABASE_ANON_KEY
+    fallback) for the gateway apikey. The scoped role's own JWT is only for
+    Authorization and must not be used as the apikey.
 
     2026-08-10: a live-verification probe was added after a real incident
     during pre-cutover testing — a SUPABASE_JWT_SECRET was provisioned
@@ -171,9 +179,9 @@ def build_scoped_client(supabase_url: str):
     handed back; any failure (bad secret, bad token, network hiccup at
     startup) falls back to service_role with a loud log line instead of
     taking the bot down."""
-    anon_key = os.environ.get("SUPABASE_ANON_KEY", "").strip()
-    if not anon_key:
-        log.warning("[scoped-supabase] SUPABASE_ANON_KEY not set — cannot build scoped client")
+    gateway_key = _gateway_api_key()
+    if not gateway_key:
+        log.warning("[scoped-supabase] SUPABASE_PUBLISHABLE_KEY not set — cannot build scoped client")
         return None
     token = resolve_scoped_auth()
     if not token:
@@ -191,7 +199,7 @@ def build_scoped_client(supabase_url: str):
     # changes.
     client = create_client(
         supabase_url,
-        anon_key,
+        gateway_key,
         options=ClientOptions(headers={"Authorization": f"Bearer {token}"}),
     )
 
