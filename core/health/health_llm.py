@@ -85,6 +85,13 @@ _EXPECTED_KEYS = {"situation", "patterns_noticed", "what_it_means",
                   "recommended_focus", "watch_items"}
 
 
+def _model_leaves_host(model: str) -> bool:
+    """True for Ollama cloud-hosted tags (':cloud' / '-cloud'): the request would be proxied off
+    this machine, so such a model is NOT 'local' for personal data."""
+    m = (model or "").strip().lower()
+    return m.endswith((":cloud", "-cloud"))
+
+
 def external_providers_allowed() -> bool:
     """True only when the Captain has explicitly opted in to cloud providers for
     personal health data. Default False (fail closed)."""
@@ -101,8 +108,10 @@ class HealthLLMProvider:
     def permitted_providers(self) -> list[str]:
         """Names of the providers that may receive personal health data right now.
         Exposed so the privacy posture can be validated without generating text."""
-        names = [_OLLAMA_MODEL]
-        if external_providers_allowed():
+        external = external_providers_allowed()
+        # A cloud-hosted "Ollama" model is not local; without the explicit opt-in it is refused.
+        names = [] if (_model_leaves_host(_OLLAMA_MODEL) and not external) else [_OLLAMA_MODEL]
+        if external:
             names = ["gemini-3.5-flash-lite", "mistral-small", *names]
         return names
 
