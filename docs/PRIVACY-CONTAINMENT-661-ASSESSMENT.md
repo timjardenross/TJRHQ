@@ -26,7 +26,7 @@ with identical file content so the two PRs merge cleanly in either order.
 - Cloud unreachable on opt-in: returns `None`, no exception escapes. Public (non-personal) routes keep the router→cloud fallback unchanged.
 - Logs and exception text never contain the personal content (asserted for each failure mode).
 - Mutation checks: removing the router-locality guard → 5 failures; letting a personal route fall through to cloud → 25 failures; removing the weekly-summary gate → 1 failure.
-- Counts: 50 failure-path + 47 containment + 22 health-provider tests.
+- Counts: 50 failure-path + 47 containment + 25 health-provider tests (122 in total).
 
 ## 3. Compatibility
 Based on current `main` (`9be606d0`). Merged cleanly in both orders (661→658→659→660 and 660→661→659→658). Root, intelligence, platform-runtime comms and
