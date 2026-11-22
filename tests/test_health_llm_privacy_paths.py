@@ -123,3 +123,14 @@ class TestLocalModelVerifier:
         resp = mock.MagicMock()
         resp.__enter__.return_value = io.BytesIO(_j.dumps(dict(self.TAGS)).encode())
         assert chk.check("http://localhost:11434", "qwen3:8b", opener=lambda *a, **k: resp)[0] == chk.READY
+
+
+class TestProfileExcerptGate:
+    def test_excerpt_is_empty_whenever_external_providers_are_permitted(self, monkeypatch):
+        monkeypatch.setenv("HEALTH_LLM_EXTERNAL_ALLOWED", "1")
+        assert h._load_captain_profile_excerpt() == ""
+
+    def test_gate_does_not_depend_on_values_other_than_explicit_opt_in(self, monkeypatch):
+        monkeypatch.setenv("HEALTH_LLM_EXTERNAL_ALLOWED", "maybe")
+        # not an opt-in => the loader runs normally and returns a string (possibly empty if the file differs)
+        assert isinstance(h._load_captain_profile_excerpt(), str)

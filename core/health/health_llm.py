@@ -54,7 +54,13 @@ _CAPTAIN_PROFILE_PATH = Path(__file__).resolve().parents[2] / "knowledge" / "mem
 
 
 def _load_captain_profile_excerpt() -> str:
-    """Return the HEALTH PROFILE and EXECUTIVE FUNCTION SUPPORT sections from the captain profile."""
+    """Return the HEALTH PROFILE and EXECUTIVE FUNCTION SUPPORT sections from the captain profile.
+
+    R8: returns '' when external providers are permitted, so the health profile can only enter a
+    prompt that is processed locally. (Duplicates the flag check on purpose: this runs at import,
+    before external_providers_allowed() is defined, and must not depend on another module.)"""
+    if os.getenv("HEALTH_LLM_EXTERNAL_ALLOWED", "").strip().lower() in ("1", "true", "yes", "on"):
+        return ""
     try:
         text = _CAPTAIN_PROFILE_PATH.read_text(encoding="utf-8", errors="replace")
         # Extract from HEALTH PROFILE through end of EXECUTIVE FUNCTION SUPPORT
