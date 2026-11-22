@@ -90,7 +90,7 @@ def _evidence_lines(o) -> list[str]:
     lines = []
     if o.source_kind in ("library", "signal"):
         lines.append(f"{label} Research Library / signal: {o.title} "
-                     f"(status: {info.research_status or 'n/a'}; cut-off: {info.as_of or 'n/a'}; "
+                     f"(status: {info.research_status or 'n/a'}; cut-off: {(info.as_of or 'n/a')[:10]}; "
                      f"unverified until primary sources are re-checked)")
     for ref in info.external_refs:
         lines.append(f"{label} external: {ref}")
@@ -136,7 +136,7 @@ def compose_editorial_brief(opportunities: list, *, date_str: str | None = None)
         idx, o, sc = pick
         chosen.append(o)
         p = pillars.PILLARS_BY_KEY.get(o.pillar_key, pillars.DEFAULT_PILLAR)
-        newest = o.info.as_of or "no dated trigger identified"
+        newest = (o.info.as_of or "")[:10] or "no dated trigger identified"
         lines += [
             f"*{o.title}* — {sc.total}/100 · {sc.readiness}",
             f"• Target audience: {p.audience}",

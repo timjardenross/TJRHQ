@@ -183,19 +183,35 @@ def library_opportunities(rows: list[dict]) -> list[ContentOpportunity]:
     return out
 
 
+MIN_SIGNAL_MATCH_TERMS = 3
+
+
+def _signal_matches(o: ContentOpportunity, s: dict) -> bool:
+    """A signal corroborates a topic only if it shares >=3 distinct terms with it AND, when both
+    carry a stream, belongs to the same editorial stream. (Was: >=2 terms, no stream check.)"""
+    terms = editorial.shared_theme(f"{o.title} {o.excerpt}",
+                                   f"{s.get('suggested_angle') or ''} {s.get('source_name') or ''}",
+                                   minimum=MIN_SIGNAL_MATCH_TERMS)
+    if not terms:
+        return False
+    sig_stream = editorial.PILLAR_STREAM.get(s.get("pillar_key") or "")
+    return not (sig_stream and o.info and o.info.stream and sig_stream != o.info.stream)
+
+
 def attach_signals(opps: list[ContentOpportunity], signals: list[dict]) -> None:
-    """Pure: attach external content_signals as corroboration/timeliness (>=2 shared terms)."""
+    """Pure: attach external content_signals as graded corroboration and timeliness."""
     for o in opps:
         if o.info is None:
             continue
-        matched = [s for s in signals or []
-                   if len(editorial.shared_theme(f"{o.title} {o.excerpt}",
-                                                 f"{s.get('suggested_angle') or ''} {s.get('source_name') or ''}")) >= 2]
-        for s in matched[:3]:
-            o.info.external_refs.append(f"signal:{s.get('event_id_text')} ({s.get('source_name')})")
-        dates = [str(s.get("scored_at")) for s in matched if s.get("scored_at")]
-        if dates and (o.info.as_of is None or max(dates) > o.info.as_of):
-            o.info.as_of = max(dates)
+        for s in [s for s in signals or [] if _signal_matches(o, s)][:6]:
+            name = s.get("source_name") or ""
+            o.info.external_refs.append(f"signal:{s.get('event_id_text')} ({name})")
+            o.info.external_sources.append({"ref": str(s.get("event_id_text")),
+                                            "kind": editorial.grade_signal_source(name),
+                                            "family": name.strip().lower() or "unknown"})
+            when = str(s.get("scored_at") or "")
+            if when and (o.info.as_of is None or when > o.info.as_of):
+                o.info.as_of = when
 
 
 def apply_editorial(opps: list[ContentOpportunity], *, existing_titles: list[str],

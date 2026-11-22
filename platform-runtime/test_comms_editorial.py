@@ -262,3 +262,108 @@ class TestOrderingContractAndOffline(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ── Captain-approved evidence-scoring corrections ─────────────────────────────
+
+def _info(kind_names, status="Evidence Review", as_of="2026-11-22"):
+    """EditorialInfo with graded external sources from (source_name) list."""
+    info = editorial.EditorialInfo(stream=editorial.S1, evidence_grade="unverified_library",
+                                   research_status=status, as_of=as_of)
+    for n, name in enumerate(kind_names):
+        info.external_refs.append(f"signal:{n} ({name})")
+        info.external_sources.append({"ref": str(n), "kind": editorial.grade_signal_source(name),
+                                      "family": name.lower()})
+    return info
+
+
+def _score(info):
+    return editorial.score_candidate("Essential services dependency risk", "resilience continuity cascading disruption",
+                                     info, source_kind="library", now=NOW)
+
+
+class TestEvidenceCorrections(unittest.TestCase):
+    def test_news_only_corroboration_is_capped(self):
+        sc = _score(_info(["Bloomberg", "ABC News", "Guardian Australia", "BBC News"]))
+        self.assertLessEqual(sc.evidence, editorial.NEWS_ONLY_EVIDENCE_CAP)
+        self.assertFalse(sc.evidence >= editorial.READY_EVIDENCE)
+
+    def test_repeated_headlines_from_one_publisher_count_once(self):
+        one = _score(_info(["Bloomberg"])).evidence
+        many = _score(_info(["Bloomberg"] * 5)).evidence
+        self.assertEqual(one, many)
+
+    def test_aggregator_adds_little_and_commentary_nothing(self):
+        base = _score(_info([])).evidence
+        agg = _score(_info(["Google News - Critical Infrastructure"])).evidence
+        content = _score(_info(["Inc. Magazine — Leadership"])).evidence
+        self.assertLessEqual(agg - base, 1)
+        self.assertEqual(content, base)
+
+    def test_strong_evidence_needs_a_primary_source_and_two_publishers(self):
+        one_family = _score(_info(["CISA Alerts"])).evidence
+        two_families = _score(_info(["CISA Alerts", "Bloomberg"])).evidence
+        self.assertLessEqual(one_family, editorial.READY_EVIDENCE - 1)
+        self.assertGreater(two_families, one_family)
+
+    def test_aggregator_about_a_regulator_is_not_primary(self):
+        self.assertEqual(editorial.grade_signal_source("Google News - APRA/ASIC Operational Resilience"), "aggregator")
+        self.assertEqual(editorial.grade_signal_source("APRA Media Releases"), "primary")
+
+    def test_evidence_is_an_integer(self):
+        self.assertIsInstance(_score(_info(["Bloomberg", "CISA Alerts"])).evidence, int)
+
+    def test_unverified_library_row_never_reaches_ready_on_news_alone(self):
+        sc = _score(_info(["Bloomberg", "ABC News", "BBC News", "Guardian Australia", "Financial Times"]))
+        self.assertNotEqual(sc.readiness, "Ready for drafting")
+
+
+class TestSignalMatchingCorrections(unittest.TestCase):
+    def _opp(self):
+        o = opp.library_opportunities([ROW_S1])[0]
+        return o
+
+    def test_two_shared_terms_no_longer_match(self):
+        o = self._opp()
+        sig = {"event_id_text": "e", "source_name": "Bloomberg",
+               "suggested_angle": "essential services opinion", "scored_at": "2026-11-21T00:00:00Z"}
+        self.assertFalse(opp._signal_matches(o, sig))
+
+    def test_three_shared_terms_match(self):
+        o = self._opp()
+        sig = {"event_id_text": "e", "source_name": "Bloomberg",
+               "suggested_angle": "essential service continuity cascading disruption",
+               "scored_at": "2026-11-21T00:00:00Z"}
+        self.assertTrue(opp._signal_matches(o, sig))
+
+    def test_signal_from_a_different_stream_is_rejected(self):
+        o = self._opp()                               # resilience stream
+        sig = {"event_id_text": "e", "source_name": "Bloomberg", "pillar_key": "human_performance",
+               "suggested_angle": "essential service continuity cascading disruption"}
+        self.assertFalse(opp._signal_matches(o, sig))
+
+    def test_attached_signals_record_kind_and_family(self):
+        o = self._opp()
+        opp.attach_signals([o], [{"event_id_text": "e1", "source_name": "Google News - Telstra",
+                                  "suggested_angle": "essential service continuity cascading disruption",
+                                  "scored_at": "2026-11-21T00:00:00Z"}])
+        self.assertEqual(o.info.external_sources[0]["kind"], "aggregator")
+
+
+class TestCrossPRCompatibility(unittest.TestCase):
+    NAMES = ("CISA Alerts", "Google News - APRA/ASIC Operational Resilience", "APRA Media Releases", "Bloomberg",
+             "ABC News", "iTnews", "Inc. Magazine — Leadership", "Cisco Security Advisories", "AEMO Market Notices",
+             "ClinicalTrials.gov", "Google News - Telstra", "Some Unknown Blog")
+
+    def test_source_grading_agrees_with_weekly_evidence_when_both_present(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        try:
+            import intelligence.weekly_evidence as we
+        except ImportError:
+            self.skipTest("intelligence.weekly_evidence not present (PR #660 not merged)")
+        for n in self.NAMES:
+            theirs = we.source_kind(n)
+            mine = editorial.grade_signal_source(n)
+            if theirs == "registry":          # #658 has no registry kind (it never receives registry rows)
+                continue
+            self.assertEqual(mine, theirs, n)

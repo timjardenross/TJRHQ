@@ -174,6 +174,32 @@ def _age_days(as_of: str | None, now: datetime) -> float | None:
         return None
 
 
+# External evidence is graded by source kind, and counted per distinct publisher family so
+# syndicated or repeated headlines cannot inflate it. (Mirrors intelligence/weekly_evidence.py;
+# test_source_grading_agrees_with_weekly_evidence keeps the two aligned when both are present.)
+_SRC_KIND_TERMS = (
+    ("aggregator", ("google news",)),
+    ("primary", ("cisa", "cisco security", "google cloud security", "aemo", "acsc", "cyber.gov.au",
+                 "nist", "apra", "asic", "rba ", "fda", "cdc", "who ")),
+    ("mainstream", ("bloomberg", "abc news", "bbc", "financial times", "guardian", "reuters",
+                    "associated press", "the age", "financial review", "new york times")),
+    ("specialist", ("arn", "sans ", "financial newswire", "industrial cyber", "the register", "itnews")),
+    ("content", ("psychology today", "inc.", "fast company", "mckinsey", "harvard business")),
+)
+EVIDENCE_REF_POINTS = {"primary": 4.0, "peer_reviewed": 4.0, "mainstream": 2.0, "specialist": 1.0,
+                       "aggregator": 0.5, "content": 0.0, "unknown": 1.0}
+NEWS_ONLY_EVIDENCE_CAP = 10      # no primary / peer-reviewed source => evidence cannot exceed this
+STRONG_EVIDENCE_MIN_FAMILIES = 2  # evidence >= READY_EVIDENCE needs >=1 primary AND >=2 publishers
+
+
+def grade_signal_source(source_name: str) -> str:
+    n = f" {(source_name or '').lower()} "
+    for kind, terms in _SRC_KIND_TERMS:
+        if any(t in n for t in terms):
+            return kind
+    return "unknown"
+
+
 @dataclass
 class EditorialInfo:
     """Per-opportunity editorial inputs, filled by the source adapter."""
@@ -183,6 +209,8 @@ class EditorialInfo:
     claim_type: str = "A"                       # F / A / H
     as_of: str | None = None                    # ISO date of newest evidence
     external_refs: list[str] = field(default_factory=list)
+    # [{"ref","kind","family"}] parallel detail for external_refs added by graded signals
+    external_sources: list[dict] = field(default_factory=list)
     internal_refs: list[str] = field(default_factory=list)
 
 
@@ -239,11 +267,25 @@ def score_candidate(title: str, body: str, info: EditorialInfo, *, source_kind: 
 
     # Evidence quality (20).
     ev = GRADE_POINTS.get(info.evidence_grade or "", 3)
-    ev += min(6, 3 * len(info.external_refs)) + _STATUS_BONUS.get(info.research_status or "", 0)
+    fams: dict[str, str] = {}
+    for src in info.external_sources:                      # best kind per distinct publisher family
+        cur = fams.get(src["family"])
+        if cur is None or EVIDENCE_REF_POINTS.get(src["kind"], 1.0) > EVIDENCE_REF_POINTS.get(cur, 1.0):
+            fams[src["family"]] = src["kind"]
+    if info.external_sources:
+        ev += min(6, sum(EVIDENCE_REF_POINTS.get(k, 1.0) for k in fams.values()))
+    else:                                                  # legacy/Library refs without grading
+        ev += min(6, 3 * len(info.external_refs))
+    ev += _STATUS_BONUS.get(info.research_status or "", 0)
+    has_primary = any(k in ("primary", "peer_reviewed") for k in fams.values())
     age = _age_days(info.as_of, now)
     if age is not None and age <= 30:
         ev += 2
-    evidence = max(0, min(WEIGHTS["evidence"], ev))
+    if info.external_sources and not has_primary:
+        ev = min(ev, NEWS_ONLY_EVIDENCE_CAP)               # headlines corroborate; they do not substantiate
+    if ev >= READY_EVIDENCE and not (has_primary and len(fams) >= STRONG_EVIDENCE_MIN_FAMILIES):
+        ev = READY_EVIDENCE - 1
+    evidence = round(max(0, min(WEIGHTS["evidence"], ev)))
     if not info.external_refs:
         gaps.append("no independent external source cited")
     if info.evidence_grade in ("unverified_library", "signal", None):
