@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Tests for the COMMS editorial intelligence uplift (COMMS_EDITORIAL_V2). Pure/offline."""
 
 from __future__ import annotations
@@ -15,9 +14,8 @@ if str(_BOT) not in sys.path:
     sys.path.insert(0, str(_BOT))
 
 import commands.comms as comms_cmd
-from lib.comms import editorial, pillars, portfolio, research_library, weekly
+from lib.comms import editorial, pillars, pipeline, portfolio, research_library, weekly
 from lib.comms import opportunities as opp
-from lib.comms import pipeline
 from lib.human_systems import safety
 
 NOW = datetime(2026, 11, 22, tzinfo=timezone.utc)
@@ -187,12 +185,15 @@ class TestBriefOutput(unittest.TestCase):
 class TestOrderingContractAndOffline(unittest.TestCase):
     def test_weekly_and_draft_use_same_ranked_list(self):
         items = _scored([ROW_S1, ROW_S2])
-        with patch.object(opp, "gather_opportunities", return_value=items):
-            with patch.dict(os.environ, {editorial.FLAG: "1"}):
-                out = comms_cmd._weekly()
-                with patch.object(comms_cmd.drafting, "generate_draft", return_value=("scaffold", "BODY")) as g, \
-                     patch.object(comms_cmd.portfolio, "record_content", return_value=True) as rec:
-                    comms_cmd._draft("1")
+        with (
+            patch.object(opp, "gather_opportunities", return_value=items),
+            patch.dict(os.environ, {editorial.FLAG: "1"}),
+            patch.object(comms_cmd.drafting, "generate_draft", return_value=("scaffold", "BODY")) as g,
+            patch.object(comms_cmd.portfolio, "record_content", return_value=True) as rec,
+        ):
+            out = comms_cmd._weekly()
+            comms_cmd._draft("1")
+        self.assertIn(items[0].title, out)
         self.assertEqual(g.call_args[0][0].title, items[0].title)
         self.assertIn("editorial=", rec.call_args.kwargs["notes"])
 

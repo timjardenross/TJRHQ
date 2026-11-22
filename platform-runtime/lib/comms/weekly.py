@@ -146,8 +146,8 @@ def compose_editorial_brief(opportunities: list, *, date_str: str | None = None)
             "• Evidence and sources:",
             *[f"    ◦ {e}" for e in _evidence_lines(o)],
             f"• Format: {_fmt_label(o.suggested_format)}",
-            f"• Score: audience {sc.audience}/30 · alignment {sc.alignment}/25 · evidence "
-            f"{sc.evidence}/20 · originality {sc.originality}/15 · timeliness {sc.timeliness}/10",
+            (f"• Score: audience {sc.audience}/30 · alignment {sc.alignment}/25 · evidence "
+             f"{sc.evidence}/20 · originality {sc.originality}/15 · timeliness {sc.timeliness}/10"),
             "• Remaining gaps: " + ("; ".join(sc.gaps) if sc.gaps else "none identified"),
             f"• Scaffold: `/comms draft {idx}`",
             "",

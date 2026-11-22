@@ -97,7 +97,7 @@ ARCHITECTURE_TERMS = (
     "apscheduler", "lcars", "command memory", "model-router", "mission brief",
 )
 _HOST_RE = re.compile(
-    r"\b(?:\d{1,3}\.){3}\d{1,3}\b|\b[\w-]+\.(?:internal|local|corp|lan)\b", re.I)
+    r"\b(?:\d{1,3}\.){3}\d{1,3}\b|\b[\w-]+\.(?:internal|local|corp|lan)\b", re.IGNORECASE)
 
 
 def confidential_terms() -> tuple[str, ...]:
@@ -141,8 +141,7 @@ GRADE_POINTS = {
 _STATUS_BONUS = {"Completed Research": 2, "Evidence Review": 1, "Active Research": 0,
                  "Research Backlog": -2}
 
-_STOP = frozenset("the a an of and or to in on for with is are be as at by from that this it "
-                  "how why what when your you we our not more than into over".split())
+_STOP = frozenset(["the", "a", "an", "of", "and", "or", "to", "in", "on", "for", "with", "is", "are", "be", "as", "at", "by", "from", "that", "this", "it", "how", "why", "what", "when", "your", "you", "we", "our", "not", "more", "than", "into", "over"])
 
 
 def tokens(text: str) -> frozenset[str]:

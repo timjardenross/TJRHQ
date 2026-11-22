@@ -89,8 +89,8 @@ class ContentOpportunity:
     # None for the 8 Command-Memory sources; set for outcome-sourced opportunities.
     content_classification: str | None = None
     # Editorial uplift (COMMS_EDITORIAL_V2): inputs + computed score. None when off.
-    info: "editorial.EditorialInfo | None" = None
-    escore: "editorial.EditorialScore | None" = None
+    info: editorial.EditorialInfo | None = None
+    escore: editorial.EditorialScore | None = None
 
     @property
     def is_publishable(self) -> bool:

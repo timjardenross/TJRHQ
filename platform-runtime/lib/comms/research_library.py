@@ -66,7 +66,7 @@ def fetch_rows(limit: int = 50, *, http=None) -> list[dict]:
             data=json.dumps({"page_size": min(limit, 100)}).encode(), method="POST",
             headers={"Authorization": f"Bearer {token}", "Notion-Version": _NOTION_VERSION,
                      "Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 - fixed https host
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - fixed https Notion API host, token from env
             return parse_rows(json.loads(resp.read().decode()))
     except Exception as exc:  # noqa: BLE001 - best-effort read, degrade to empty
         log.debug("[comms.research_library] unavailable: %s", exc)
