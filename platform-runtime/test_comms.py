@@ -49,6 +49,19 @@ class TestPillars(unittest.TestCase):
         p, _ = pillars.classify_pillar("sleep, movement and sustainable coaching habits")
         self.assertEqual(p.key, "wellness_sustainable_performance")
 
+    def test_short_keywords_do_not_match_inside_words(self):
+        # "ai" used to match inside "said"/"maintain" (substring bug).
+        p, s = pillars.classify_pillar("We said we maintain our history")
+        self.assertEqual(s, 0)
+        self.assertEqual(p, pillars.DEFAULT_PILLAR)
+
+    def test_plural_and_phrase_matching_preserved(self):
+        p, s = pillars.classify_pillar("recurring incidents and cascading risks to critical infrastructure")
+        self.assertEqual(p.key, "operational_resilience")
+        self.assertGreaterEqual(s, 3)  # incident(s), risk(s), critical infrastructure
+        p, _ = pillars.classify_pillar("AI governance and AI adoption")
+        self.assertEqual(p.key, "ai_augmented_leadership")
+
     def test_default_when_no_match(self):
         p, s = pillars.classify_pillar("zzz qqq")
         self.assertEqual(s, 0)

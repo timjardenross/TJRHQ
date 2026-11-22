@@ -214,13 +214,29 @@ const ANGLE_TEMPLATES: Record<string, Array<[string[], string]>> = {
   ],
 };
 
-/** Pure: best-matching pillar for a piece of text + the match score (count of distinct keyword hits). */
+const KEYWORD_RE_CACHE = new Map<string, RegExp>();
+
+/**
+ * Whole-word match with an optional plural suffix, so "risk" matches "risks" but
+ * "ai" no longer matches inside "said"/"maintain". Must stay identical to
+ * _kw_re() in platform-runtime/lib/comms/pillars.py.
+ */
+export function keywordRegex(kw: string): RegExp {
+  let re = KEYWORD_RE_CACHE.get(kw);
+  if (!re) {
+    re = new RegExp('(?<![a-z0-9])' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:s|es)?(?![a-z0-9])');
+    KEYWORD_RE_CACHE.set(kw, re);
+  }
+  return re;
+}
+
+/** Pure: best-matching pillar for a piece of text + the match score (count of distinct whole-word keyword hits). */
 export function classifyPillar(text: string): { pillar: Pillar; score: number } {
   const hay = (text || '').toLowerCase();
   let best = DEFAULT_PILLAR;
   let bestScore = 0;
   for (const p of PILLARS) {
-    const score = p.keywords.reduce((acc, kw) => (hay.includes(kw) ? acc + 1 : acc), 0);
+    const score = p.keywords.reduce((acc, kw) => (keywordRegex(kw).test(hay) ? acc + 1 : acc), 0);
     if (score > bestScore) {
       best = p;
       bestScore = score;

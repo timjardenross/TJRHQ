@@ -1,13 +1,15 @@
 """Thought Leadership Themes — strategic content pillars (COMMS-001 WP2).
 
 Eight pillars, each with its audience, key messages, strategic value, and the
-SPC-001 strategic domain it advances. Pure data + a keyword classifier so every
+SPC-001 strategic domain it advances. Pure data + a whole-word keyword classifier so every
 content opportunity aligns to a theme. No store, no network.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 
 @dataclass(frozen=True)
@@ -198,17 +200,26 @@ def _tokens(text: str) -> str:
     return (text or "").lower()
 
 
+@lru_cache(maxsize=None)
+def _kw_re(kw: str) -> "re.Pattern[str]":
+    # Whole-word match with an optional plural suffix, so "risk" matches "risks"
+    # but "ai" no longer matches inside "said"/"maintain". Must stay identical to
+    # keywordRegex() in lcars-portal/src/lib/contentScoring.ts.
+    return re.compile(r"(?<![a-z0-9])" + re.escape(kw) + r"(?:s|es)?(?![a-z0-9])")
+
+
 def classify_pillar(text: str) -> tuple[Pillar, int]:
     """Pure: best-matching pillar for a piece of text + the match score.
 
-    Score is the count of distinct pillar keywords present (multi-word keywords
-    matched as substrings). Ties resolve to pillar declaration order.
+    Score is the count of distinct pillar keywords present, matched as whole
+    words (multi-word keywords as whole phrases, optional plural suffix).
+    Ties resolve to pillar declaration order.
     """
     hay = _tokens(text)
     best = DEFAULT_PILLAR
     best_score = 0
     for p in PILLARS:
-        score = sum(1 for kw in p.keywords if kw in hay)
+        score = sum(1 for kw in p.keywords if _kw_re(kw).search(hay))
         if score > best_score:
             best, best_score = p, score
     return best, best_score
