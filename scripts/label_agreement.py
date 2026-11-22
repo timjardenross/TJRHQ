@@ -1,7 +1,6 @@
 """Inter-reviewer agreement for the fresh holdout: Cohen's kappa per field, group-pair agreement, and the
 disagreement list (ids only; the Captain adjudicates)."""
 import json
-import sys
 from collections import Counter
 from itertools import combinations
 from pathlib import Path
