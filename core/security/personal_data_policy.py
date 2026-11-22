@@ -50,6 +50,11 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("first_person_health", r"\b(?:my|i)\s+(?:slept|woke|pain|sleep|energy|mood|migraine|flare)\b"),
         ("captain_health", r"\bcaptain(?:'s)?\s+(?:pain|sleep|energy|mood|capacity|recovery)\b"),
         ("health_profile", r"\bhealth profile\b|\bexecutive function support\b"),
+        ("captain_condition", r"\bcaptain\b[^.\n]{0,40}\b(?:chronic|spinal|stabilisation|stabilization)\b|\bstage 1 stabili[sz]ation\b"),
+        ("weekly_health_brief", r"\bweekly health (?:brief|data)\b|\bmedical officer\b[^\n]{0,40}\b(?:brief|interpret)"),
+        ("sleep_average", r"\bsleep\b\W{0,6}avg\s*\d"),
+        ("state_distribution", r"\b(?:dysregulated|regulated|calm|activated)\s*:\s*\d+\s*/\s*\d+"),
+        ("recovery_posture", r"\brecovery posture\b"),
     )
 )
 

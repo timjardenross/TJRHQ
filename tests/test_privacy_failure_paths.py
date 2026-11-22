@@ -176,3 +176,49 @@ def test_provider_chain_failures_do_not_leak_or_connect(caplog):
             assert "5.5h" not in str(ei.value)
         net.assert_not_called()
     assert "5.5h" not in caplog.text
+
+
+# ── Sixth pathway found during the #661 audit: commands/health_synthesis._llm_synthesis ─────────────
+WEEKLY = ("*Weekly Health Brief — Medical Officer*\n*Nervous System*\n• Dysregulated: 3/5 days (60%)\n"
+          "*Energy*\n• Low: 3/5\n*Sleep* — avg 5.9h over 5 night(s)\n*Recovery Posture*\n• rest: 2 day(s)")
+MED_SYS = "The Captain has a chronic spinal condition and is in Stage 1 Stabilisation."
+
+
+class TestWeeklyHealthSynthesisPathway:
+    @pytest.fixture
+    def hs(self):
+        from commands import health_synthesis as hs
+        return hs
+
+    def test_detector_recognises_the_weekly_summary_and_system_prompt(self):
+        assert pol.contains_personal_health(WEEKLY)
+        assert pol.contains_personal_health(MED_SYS)
+
+    def test_no_external_call_without_opt_in(self, hs):
+        import llm
+        with mock.patch.object(llm, "generate_with_gemini") as g:
+            assert hs._llm_synthesis(WEEKLY) is None
+            g.assert_not_called()
+
+    def test_gemini_wrapper_itself_refuses_even_if_the_caller_forgets(self):
+        import llm
+        with mock.patch("urllib.request.urlopen") as net:
+            with pytest.raises(llm.LLMUnavailableError):
+                llm.generate_with_gemini(prompt=WEEKLY, system_prompt=MED_SYS)
+            net.assert_not_called()
+
+    def test_opt_in_restores_the_call(self, hs, monkeypatch):
+        import llm
+        monkeypatch.setenv(pol.FLAG, "1")
+        with mock.patch.object(llm, "generate_with_gemini", return_value="ok") as g:
+            assert hs._llm_synthesis(WEEKLY) == "ok"
+            g.assert_called_once()
+
+    @pytest.mark.parametrize("public", [
+        "New review finds mindfulness reduces chronic pain",
+        "Average sleep duration trends in adolescents: a meta-analysis",
+        "Emotion dysregulation in ADHD adults: randomised trial",
+        "Captain America film triggers ticketing outage",
+    ])
+    def test_public_research_text_is_not_flagged(self, public):
+        assert not pol.contains_personal_health(public)
