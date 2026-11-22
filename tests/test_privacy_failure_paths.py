@@ -267,3 +267,31 @@ class TestHealthNarrativeProviderStandalone:
         monkeypatch.setenv(pol.FLAG, "1")
         calls, _ = self._count(h, monkeypatch, "neutral text")
         assert calls["gemini"] == 1
+
+
+# ── Telemetry and visible fallback ─────────────────────────────────────────────────────────────────────
+class TestTelemetryAndFallbackVisibility:
+    def test_llm_spans_carry_no_prompt_or_response_content(self):
+        import inspect
+
+        from core.llm import provider_chain as pc
+        src = inspect.getsource(pc._llm_span)
+        assert '"llm.provider"' in src and '"llm.model"' in src and '"llm.task_type"' in src
+        for forbidden in ("prompt", "response", "input.value", "output.value", "content"):
+            assert forbidden not in src.split("attributes=")[1]
+
+    def test_trace_export_endpoint_is_local(self):
+        text = (_REPO / "platform-runtime" / "lib" / "telemetry.py").read_text()
+        assert '_PHOENIX_ENDPOINT = "http://localhost:' in text
+
+    def test_xo_chat_has_a_visible_fallback_when_the_local_model_returns_nothing(self):
+        text = (_REPO / "telegram-bots" / "xo" / "app.py").read_text()
+        i = text.index("personal=True)")
+        tail = text[i:i + 700]
+        assert "if reply:" in tail and "LLM unreachable" in tail and "/brief" in tail
+
+    def test_no_repository_file_enables_the_external_health_flag(self):
+        import subprocess
+        out = subprocess.run(["git", "grep", "-n", "HEALTH_LLM_EXTERNAL_ALLOWED", "--", "deploy", "*.service", "*.env*", "*.sh", "*.yml"],
+                             cwd=_REPO, capture_output=True, text=True, check=False).stdout
+        assert "=1" not in out and "=true" not in out.lower()
