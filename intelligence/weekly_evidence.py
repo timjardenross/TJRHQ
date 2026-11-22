@@ -660,3 +660,111 @@ def build_weekly_evidence(*, events: list[dict], universe: dict, health_records:
         "database": forecast_growth(db_snapshots),
         "incidents": incidents,
     }
+
+
+# ── Deterministic rendering of the Weekly Intelligence & Decision Brief ───────
+
+_PRIO_ORDER = {"ESCALATE": 0, "WATCH": 1, "VERIFY": 2, "REFERENCE": 3}
+
+
+def render_intelligence_brief(evidence: dict, *, week_label: str, health: dict | None = None,
+                              health_leads: list[str] | None = None, max_items: int = 8) -> str:
+    """Plain-text brief built ONLY from structured facts in `evidence` (no LLM, no free prose
+    claims). Every statement is a count, a typed label, or a quoted headline with its source and
+    the words 'as reported by'. Nothing here is sent anywhere."""
+    u = evidence["universe"]
+    incs = evidence["incidents"]
+    watch = sorted(incident_watch(incs), key=lambda i: (_PRIO_ORDER[i.headline.priority], -i.headline.materiality))
+    themes = evidence["themes"]
+    cap, db = evidence["capacity"], evidence["database"]
+    L: list[str] = [f"WEEKLY INTELLIGENCE & DECISION BRIEF — {week_label}",
+                    f"Method {evidence['method_version']} · shadow output, not sent", ""]
+
+    L += ["1. EXECUTIVE SUMMARY"]
+    n_esc = sum(1 for i in watch if i.headline.priority == "ESCALATE")
+    L.append(f"- {len(watch)} high-materiality incident(s) identified from {len(incs)} assessed incidents; "
+             f"{n_esc} meet the escalation rule.")
+    named = [t["theme"].replace("_", " ") for t in themes["themes"]]
+    L.append("- Themes meeting the threshold: " + (", ".join(named) if named else "none (no thematic cluster identified)") + ".")
+    L.append(f"- Evidence base: {u.get('usable', '?')} usable events this week; {u['assessed_pool']} assessed"
+             + (" (a candidate pool, not the full week)" if u.get("pool_is_sample") else "") + ".")
+    L.append("")
+
+    L += ["2. PRIORITY DEVELOPMENTS (priority · confidence · materiality are separate judgements)"]
+    for i in watch[:max_items]:
+        h = i.headline
+        L.append(f"- [{h.priority}] {h.title[:90]} — as reported by {h.source}"
+                 f" ({i.independent_publishers} independent publisher(s)); confidence {h.confidence_level}, "
+                 f"materiality {h.materiality_level}" + (f"; flags: {', '.join(h.flags)}" if h.flags and h.flags != ['headline_unverifiable_no_body'] else ""))
+    if len(watch) > max_items:
+        L.append(f"- … and {len(watch) - max_items} more high-materiality incident(s) not shown.")
+    if not watch:
+        L.append("- None. (Absence of high-materiality incidents in the assessed pool is not evidence of no issue.)")
+    L.append("")
+
+    def theme_line(t):
+        return (f"- {t['theme'].replace('_', ' ')}: {t['incidents']} distinct incidents from {t['publishers']} "
+                f"evidence-bearing publishers over {t['days']} day(s) (keyword-defined, not yet reviewed).")
+    L += ["3. OPERATIONAL RESILIENCE IMPLICATIONS"]
+    res = [t for t in themes["themes"] if t["theme"] in ("energy_grid", "technology_outages")]
+    L += [theme_line(t) for t in res] or ["- No resilience theme met the threshold."]
+    L += ["- Implications are limited to what the cited reports state; no causal link between incidents is asserted.", ""]
+
+    L += ["4. AI AND GOVERNANCE IMPLICATIONS"]
+    ai = [t for t in themes["themes"] + themes["below_threshold"] if t["theme"] == "ai_cyber"]
+    for t in ai:
+        met = t in themes["themes"]
+        L.append(theme_line(t) + ("" if met else " Below threshold: not reported as a theme."))
+    if not ai:
+        L.append("- No AI-related theme observed.")
+    L.append("")
+
+    L += ["5. HEALTH AND NEUROSCIENCE FINDINGS"]
+    hs = health or evidence["health"]
+    L.append(f"- {hs.get('total', 0)} health records; {hs.get('registrations', 0)} are trial registrations "
+             f"(a registration shows a study exists, not what it found) and {hs.get('other', 0)} are other records.")
+    L.append(f"- Demonstrated results counted from registrations: {evidence['health'].get('registrations_counted_as_results', 0)}.")
+    for lead in (health_leads or []):
+        L.append(f"- Lead (title only, not read in full): {lead}")
+    L.append("- No efficacy or safety conclusion is drawn from records that were not read.")
+    L.append("")
+
+    L += ["6. CROSS-DOMAIN DEPENDENCIES"]
+    if len(themes["themes"]) >= 2:
+        L.append("- Themes co-occurring this week: " + ", ".join(t["theme"].replace("_", " ") for t in themes["themes"])
+                 + ". No dependency between them is asserted unless a cited source states it.")
+    else:
+        L.append("- No co-occurring themes met the threshold.")
+    L.append("")
+
+    L += ["7. AUSTRALIAN RELEVANCE"]
+    au = u.get("au_events")
+    L.append(f"- {au} of {u.get('usable', '?')} usable events are tagged Australian." if au is not None
+             else "- Australian share not supplied.")
+    L.append("")
+
+    L += ["8. EMERGING RISKS AND RESEARCH GAPS"]
+    verify = [i for i in watch if i.headline.priority == "VERIFY"]
+    L.append(f"- {len(verify)} material incident(s) rest on aggregator/secondary evidence only and need primary confirmation.")
+    L.append(f"- Capacity data: {cap['state'].replace('_', ' ')} ({cap['observations']} observation(s)); "
+             "no inference about recovery is made."
+             + (f" {cap['excluded_future']} future-dated record(s) excluded." if cap.get("excluded_future") else ""))
+    L.append("- Database growth: " + (f"{db['mb_per_week']} MB/week (range {db['mb_per_week_range']})" if db["available"]
+                                      else f"no forecast — {db['reason']}"))
+    L.append("")
+
+    L += ["9. RECOMMENDED ACTIONS (for the Captain's decision)"]
+    for i in watch:
+        if i.headline.priority == "ESCALATE":
+            L.append(f"- Review now: {i.headline.title[:80]}")
+    for i in verify[:5]:
+        L.append(f"- Seek primary confirmation: {i.headline.title[:80]}")
+    L.append("- Treat every item above as a lead for verification, not a finding, until a primary source is checked.")
+    L.append("")
+
+    L += ["10. EVIDENCE CONFIDENCE AND LIMITATIONS",
+          "- Materiality uses a controlled keyword vocabulary; recall on the labelled set is limited (see evaluation).",
+          "- Incident grouping uses title similarity and splits differently-worded reports of one event.",
+          "- Headline-support checks need article bodies; without them headlines are 'unverifiable', not 'supported'.",
+          "- Themes are keyword-defined and unreviewed."]
+    return "\n".join(L)

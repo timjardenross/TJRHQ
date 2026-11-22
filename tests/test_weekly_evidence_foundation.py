@@ -380,3 +380,46 @@ class TestAssembly:
 
     def test_assembly_carries_method_version(self):
         assert self._build([], {"entries": []})["method_version"] == we.METHOD_VERSION
+
+
+class TestBriefRenderer:
+    def _ev(self, events, cap=None):
+        return we.build_weekly_evidence(events=events, universe={"usable": 2330, "au_events": 560},
+                                        health_records=[], capacity=cap or {"entries": []}, db_snapshots=[], now=NOW)
+
+    def test_all_ten_required_sections_present(self):
+        out = we.render_intelligence_brief(self._ev([ev("a", "CISA adds actively exploited vulnerability", "CISA Alerts")]),
+                                           week_label="17-23 Nov 2026")
+        for n, name in enumerate(("EXECUTIVE SUMMARY", "PRIORITY DEVELOPMENTS", "OPERATIONAL RESILIENCE", "AI AND GOVERNANCE",
+                                  "HEALTH AND NEUROSCIENCE", "CROSS-DOMAIN", "AUSTRALIAN RELEVANCE", "EMERGING RISKS",
+                                  "RECOMMENDED ACTIONS", "EVIDENCE CONFIDENCE"), 1):
+            assert f"{n}. {name}" in out
+
+    def test_states_pool_is_not_the_full_week_and_nothing_is_sent(self):
+        out = we.render_intelligence_brief(self._ev([ev("a", "x", "Bloomberg")]), week_label="w")
+        assert "a candidate pool, not the full week" in out and "not sent" in out
+
+    def test_empty_week_does_not_claim_no_issue(self):
+        out = we.render_intelligence_brief(self._ev([]), week_label="w")
+        assert "not evidence of no issue" in out
+
+    def test_registrations_never_presented_as_results(self):
+        out = we.render_intelligence_brief(self._ev([]), week_label="w",
+                                           health={"total": 392, "registrations": 320, "other": 72})
+        assert "a registration shows a study exists, not what it found" in out
+        assert "Demonstrated results counted from registrations: 0" in out
+
+    def test_capacity_not_observed_wording_and_future_rows_disclosed(self):
+        out = we.render_intelligence_brief(
+            self._ev([], cap={"source": "pulse", "entries": [{"log_date": "2099-01-01"}]}), week_label="w")
+        assert "not observed" in out and "1 future-dated record(s) excluded" in out
+
+    def test_no_forecast_stated_without_history(self):
+        assert "no forecast — insufficient history" in we.render_intelligence_brief(self._ev([]), week_label="w")
+
+    def test_themes_absent_says_none_not_silence(self):
+        assert "none (no thematic cluster identified)" in we.render_intelligence_brief(self._ev([]), week_label="w")
+
+    def test_every_item_attributed_to_a_source(self):
+        out = we.render_intelligence_brief(self._ev([ev("a", "Ransomware attack causes outage", "Bloomberg")]), week_label="w")
+        assert "as reported by Bloomberg" in out

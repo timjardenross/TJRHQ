@@ -100,3 +100,28 @@ class TestPriorityRules:
 
     def test_low_materiality_is_reference_whatever_the_source(self):
         assert self.prio([e("a", "Quarterly results announced", "Bloomberg")]) == "REFERENCE"
+
+
+class TestShadowRunner:
+    def test_renders_from_an_export_and_is_labelled_shadow(self, tmp_path):
+        import render_shadow_report as rs
+        rows = ev.load()[:30]
+        export = {"events": ev.to_events(rows), "universe": {"usable": 2330, "au_events": 560},
+                  "health": {"total": 392, "registrations": 320, "other": 72}, "now": "2026-11-23T13:00:00Z"}
+        out = rs.render(export, "17-23 Nov 2026")
+        assert out.startswith("SHADOW OUTPUT") and "1. EXECUTIVE SUMMARY" in out
+
+    def test_has_no_delivery_network_or_database_path(self):
+        src = (Path(__file__).resolve().parents[1] / "scripts" / "render_shadow_report.py").read_text().lower()
+        for banned in ("urllib", "requests", "http", "telegram", "smtp", "supabase", "socket", "subprocess"):
+            assert banned not in src.replace("shadow output", "").replace("export format", "")
+
+    def test_cli_writes_a_local_file(self, tmp_path):
+        import json as j
+
+        import render_shadow_report as rs
+        exp = tmp_path / "e.json"
+        exp.write_text(j.dumps({"events": [], "universe": {"usable": 0}, "now": "2026-11-23T13:00:00Z"}))
+        out = tmp_path / "out.txt"
+        assert rs.main([str(exp), "--out", str(out), "--week", "w"]) == 0
+        assert out.read_text().startswith("SHADOW OUTPUT")
