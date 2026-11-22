@@ -28,7 +28,8 @@ class TestSingleEventsSurvive:
         assert len(incs) == 1
         watch = we.incident_watch(incs)
         assert [w.headline.event_id for w in watch] == ["a"]
-        assert watch[0].headline.priority == "ESCALATE"
+        # not automatically critical: exposure is unknown, so WATCH with a note rather than ESCALATE
+        assert watch[0].headline.priority == "WATCH"
 
     def test_single_event_does_not_form_a_theme(self):
         incs = we.correlate_incidents([ev("a", "Known exploited vulnerability added", "CISA Alerts")], now=NOW)

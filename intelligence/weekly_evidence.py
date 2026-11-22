@@ -33,7 +33,7 @@ from datetime import datetime, timedelta, timezone
 
 # ── Methodology versioning (historical comparability) ─────────────────────────
 
-METHOD_VERSION = "wk-evidence/0.1.0-prototype"
+METHOD_VERSION = "wk-evidence/0.2.0-prototype"
 
 # Each entry is one methodology epoch. `breaks_comparability` lists earlier
 # versions whose figures must NOT be trended against this one.
@@ -41,9 +41,13 @@ METHOD_CHANGELOG: tuple[dict, ...] = (
     {"version": "legacy/confidence-count", "effective": "2026-08-10",
      "notes": "Weekly report counted osint_confidence_level of the top-1000 rows by rank as 'high/medium/low'.",
      "breaks_comparability": []},
-    {"version": METHOD_VERSION, "effective": "unreleased",
+    {"version": "wk-evidence/0.1.0-prototype", "effective": "unreleased",
      "notes": "Three-axis assessment, incident vs theme separation, typed health evidence.",
      "breaks_comparability": ["legacy/confidence-count"]},
+    {"version": METHOD_VERSION, "effective": "unreleased",
+     "notes": "Calibrated materiality (power-loss vocabulary, scale/third-party/co-occurrence cues, AU entities), "
+              "entity+event-class incident grouping, exposure-aware advisory and provisional-incident escalation.",
+     "breaks_comparability": ["legacy/confidence-count", "wk-evidence/0.1.0-prototype"]},
 )
 
 # Classifier epochs: the keyword classifier that populates event_type / relevance.
@@ -150,17 +154,57 @@ def publisher_family(source_name: str, title: str = "") -> str:
 # ── Materiality lexicon ───────────────────────────────────────────────────────
 
 _IMPACT_TERMS = {
-    "blackout": 3, "power outage": 3, "power out": 2, "outage": 2, "transmission line": 2,
-    "grid": 1, "ransomware": 3, "known exploited": 3, "actively exploited": 3, "zero-day": 3,
-    "data breach": 2, "critical infrastructure": 2, "essential services": 2, "cyberattack": 2,
-    "cyber attack": 2, "supply chain": 1, "data cent(?:er|re)": 1, "cps 230": 3, "soci act": 2,
-    "electricity supply": 2, "power shortage": 2, "gas reservation": 1, "critical vulnerability": 2,
-    "patch": 1, "business continuity": 1, "systemic risk": 2,
-    "cyber incident": 2, "security breach": 2, "card skimmer": 2, "client data": 1,
-    "data (?:likely )?accessed": 2, "unauthori[sz]ed access": 2, "triple zero": 2,
+    # supply of essential services
+    "blackouts?": 3, "power outages?": 3, "power out": 2, "outages?": 2, "transmission lines?": 2,
+    "transmission towers?": 2, "without power": 3, "cut power": 3, "power cuts?": 3, "knocking out power": 3,
+    "loss of power": 3, "electricity supply": 2, "power shortages?": 2, "gas reservation": 1, "grid": 1,
+    "triple zero": 2, "essential services": 2, "critical infrastructure": 2, "systemic risk": 2,
+    # cyber
+    "ransomware": 3, "known exploited": 3, "actively exploited": 3, "zero-day": 3, "critical vulnerability": 2,
+    "cyber incident": 3, "security incident": 3, "data breach": 2, "security breach": 2, "cyberattacks?": 2,
+    "cyber attacks?": 2, "card skimmer": 2, "client data": 1, "data (?:likely )?accessed": 2,
+    "unauthori[sz]ed access": 2, "patch": 1,
+    # operational resilience / regulation
+    "supply chain": 1, "data cent(?:er|re)": 1, "cps 230": 3, "soci act": 2, "business continuity": 1,
 }
+# Co-occurrence terms: (all-of patterns, points). A pair is stronger evidence than either word alone.
+_PAIR_TERMS = (
+    (("national security", "ai"), 3),
+    (("data cent(?:er|re)", "risk|demand|strain|grid|power"), 2),
+    (("third[- ]party|vendors?|suppliers?", "cyber ?attacks?|breach|ransomware|hack(?:ed|ing)?"), 1),
+)
+# Scale / urgency cues only AMPLIFY an event that already matched a term (max +2 in total).
+_SCALE_CUES = (
+    r"major|widespread|nationwide|national|global|worldwide|massive",
+    r"continues?|ongoing|still",
+    r"\d{1,3}(?:,\d{3})+\s+(?:\w+\s+){0,3}(?:customers|homes|households|people|users|residents|without power)",
+)
 _AU_TERMS = ("australia", "australian", "victoria", "victorian", "south australia", "nsw",
-             "new south wales", "queensland", "melbourne", "sydney", "aemo")
+             "new south wales", "queensland", "melbourne", "sydney", "aemo", "canberra", "tasmania",
+             # recognised Australian organisations (a Coles/Optus story is Australian whatever the feed tags it)
+             "coles", "woolworths", "telstra", "optus", "qantas", "nbn", "ausgrid", "electranet", "agl",
+             "origin energy", "services australia", "commonwealth bank", "westpac", "anz", "asx",
+             "apra", "asic", "rba", "acsc")
+_EVENT_CLASS_TERMS = {
+    "advisory": ("known exploited", "actively exploited", "zero-day", "critical vulnerability", r"cve-\d+",
+                 "vulnerabilit(?:y|ies)", "advisory", "patch(?:ing)?"),
+    "incident": ("blackouts?", "outages?", "power out", "without power", "cut power", "power cuts?",
+                 "cyber incident", "cyber ?attacks?", "data breach", "security breach", "ransomware",
+                 "data (?:likely )?accessed", "card skimmer", "triple zero", "degradation"),
+}
+_SEVERE_CONSEQUENCE = (
+    "blackouts?", "without power", "cut power", "power cuts?", "knocking out power", "power outages?",
+    "triple zero", "emergency services?", "hospitals?", "payments?", "banking", "air traffic",
+    "telco|telecom|mobile network|national network", "essential services", "critical infrastructure",
+    "ransomware", "data breach", "client data", "cyber incident",
+)
+_EXPLOITED = ("known exploited", "actively exploited", "exploited in the wild", "in the wild", "zero-day")
+# Technologies the Captain's own platform runs on; an advisory only counts as "known exposure" when it
+# names one. PROPOSED defaults inferred from this repository — the Captain should replace them with the
+# real estate (including any employer stack) via COMMS/INTEL config before this is relied on.
+DEFAULT_EXPOSURE_TERMS = ("supabase", "vercel", "github", "cloudflare", "nginx", "ollama", "postgres",
+                          "node\\.?js", "next\\.?js", "openjdk|java", "linux", "google cloud|gcp",
+                          "gemini", "mistral", "notion", "telegram", "cisco", "microsoft|m365|outlook|teams")
 _THEMES = {
     "energy_grid": ("blackout", "power outage", "power out", "transmission line", "electricity supply",
                     "power shortage", "gas reservation", "grid", "data cent(?:er|re)", "aemo"),
@@ -251,6 +295,7 @@ class Assessment:
     materiality: float
     materiality_level: str
     priority: str                       # ESCALATE / WATCH / VERIFY / REFERENCE
+    escalation: dict | None = None      # provisional/uncorroborated marking + required follow-up
     flags: list[str] = field(default_factory=list)
     legacy: dict = field(default_factory=dict)   # comparison only, never an input
     method_version: str = METHOD_VERSION
@@ -260,13 +305,56 @@ def _level(x: float, hi: float, mid: float) -> str:
     return "high" if x >= hi else "medium" if x >= mid else "low"
 
 
+# Follow-up / commentary framing: reports ABOUT an incident (concern, advice, questions, explainers) rather
+# than the incident itself. They stay visible but cannot reach "high" materiality on their own.
+_COMMENTARY = (r"worried|urged?|prepare for|what to know|how to|questions? over|explained|explainer|opinion|lessons?|"
+               r"analysis|could\b.*\?|can\b.*\?|should\b.*\?|why\b.*\?")
+COMMENTARY_CAP = 0.49
+
+
+def is_commentary(title: str) -> bool:
+    low = (title or "").lower()
+    return bool(re.search(r"(?<![a-z0-9])(?:" + _COMMENTARY + r")", low)) or low.rstrip().endswith("?")
+
+
 def materiality(title: str, summary: str, geography: str | None = None) -> float:
-    text = f"{title} {summary}"
-    score = sum(w for t, w in _IMPACT_TERMS.items() if _wb(t, text.lower()))
-    if score == 0:
+    """0-1 operational materiality from a controlled vocabulary. Only events that matched a term are
+    amplified by scale/urgency cues or the Australian bonus (ordinary news stays at zero)."""
+    text = f"{title} {summary}".lower()
+    base = sum(w for t, w in _IMPACT_TERMS.items() if _wb(t, text))
+    base += sum(pts for pats, pts in _PAIR_TERMS if all(_wb(p, text) for p in pats))
+    if base == 0:
         return 0.0
-    au = (geography or "").upper() == "AU" or any(_wb(t, text.lower()) for t in _AU_TERMS)
-    return round(min(1.0, (score + (1 if au else 0)) / 6), 3)
+    cues = min(2, sum(1 for c in _SCALE_CUES if re.search(r"(?<![a-z0-9])(?:" + c + r")(?![a-z0-9])", text)))
+    au = (geography or "").upper() == "AU" or any(_wb(t, text) for t in _AU_TERMS)
+    score = min(1.0, (base + cues + (1 if au else 0)) / 6)
+    if is_commentary(title):
+        score = min(score, COMMENTARY_CAP)
+    return round(score, 3)
+
+
+def event_class(text: str) -> str:
+    """'advisory' (vulnerability/KEV style), 'incident' (outage, blackout, breach...), else 'other'."""
+    low = (text or "").lower()
+    for cls in ("advisory", "incident"):
+        if any(_wb(t, low) for t in _EVENT_CLASS_TERMS[cls]):
+            return cls
+    return "other"
+
+
+def severe_consequence(text: str) -> bool:
+    low = (text or "").lower()
+    return any(_wb(t, low) for t in _SEVERE_CONSEQUENCE)
+
+
+def exploited(text: str) -> bool:
+    low = (text or "").lower()
+    return any(_wb(t, low) for t in _EXPLOITED)
+
+
+def known_exposure(text: str, terms=DEFAULT_EXPOSURE_TERMS) -> bool:
+    low = (text or "").lower()
+    return any(_wb(t, low) for t in terms)
 
 
 def confidence(kind: str, independent_publishers: int, flags: list[str]) -> float:
@@ -278,19 +366,42 @@ def confidence(kind: str, independent_publishers: int, flags: list[str]) -> floa
     return round(max(0.0, min(1.0, c)), 3)
 
 
-def priority(materiality_: float, confidence_: float, kind: str, independent_publishers: int,
-             age_hours: float | None) -> str:
-    """Action priority from the other two axes plus time-sensitivity — not copied from rank/disposition."""
+def decide_priority(materiality_: float, confidence_: float, kind: str, independent_publishers: int,
+                    age_hours: float | None, *, cls: str = "other", severe: bool = False,
+                    is_exploited: bool = False, exposure: bool = False) -> tuple[str, dict | None]:
+    """Action priority and, when escalated, the marking the Captain needs.
+
+    Policy (Captain's direction):
+    * A vulnerability/KEV advisory is NOT automatically critical. It escalates only with exploitation
+      evidence AND known exposure, while fresh and credible; otherwise it is WATCH (exposure unknown).
+    * A single credible report of a severe-consequence incident MAY escalate provisionally. It is then
+      marked uncorroborated with a required follow-up. Multiple publishers are not a prerequisite.
+    * Material but only aggregator/secondary evidence is VERIFY."""
     fresh = age_hours is not None and age_hours <= 72
-    if materiality_ >= 0.5 and confidence_ >= 0.5 and fresh and (kind == PRIMARY or independent_publishers >= 2):
-        return "ESCALATE"
-    if materiality_ >= 0.5 and confidence_ >= 0.5:
-        return "WATCH"
+    credible = confidence_ >= 0.5
+    corroborated = kind == PRIMARY or independent_publishers >= 2
+    if materiality_ >= 0.5 and credible and fresh:
+        if cls == "advisory":
+            if is_exploited and exposure:
+                return "ESCALATE", {"provisional": False, "uncorroborated": False, "follow_up": None,
+                                    "reason": "exploitation evidence and known exposure"}
+        elif severe:
+            return "ESCALATE", {"provisional": not corroborated, "uncorroborated": not corroborated,
+                                "follow_up": None if corroborated else "verify with a primary source or a second report",
+                                "reason": "severe operational consequence"}
+    if materiality_ >= 0.5 and credible:
+        return "WATCH", ({"note": "exposure unknown: check whether affected products are in use"}
+                         if cls == "advisory" and not exposure else None)
     if materiality_ >= 0.5:
-        return "VERIFY"      # material but poorly evidenced: confirm before acting
-    if materiality_ >= 0.25 and confidence_ >= 0.5:
-        return "WATCH"
-    return "REFERENCE"
+        return "VERIFY", None            # material but poorly evidenced: confirm before acting
+    if materiality_ >= 0.25 and credible:
+        return "WATCH", None
+    return "REFERENCE", None
+
+
+def priority(materiality_: float, confidence_: float, kind: str, independent_publishers: int,
+             age_hours: float | None, **kw) -> str:
+    return decide_priority(materiality_, confidence_, kind, independent_publishers, age_hours, **kw)[0]
 
 
 # ── Incident correlation (any size) vs thematic clustering ────────────────────
@@ -309,8 +420,66 @@ class Incident:
         return max(self.members, key=lambda a: (a.materiality, a.confidence))
 
 
+
+# ── Incident grouping v2: entity + event class, with light stemming ────────────
+
+_NORM = {"center": "centre", "australian": "australia", "australias": "australia", "centers": "centre"}
+_GENERIC_ENTITIES = frozenset(["breaking", "live", "australia", "australian", "government", "minister", "morning", "mail", "news", "says", "after", "with", "from", "how", "why", "what", "the", "new", "friday", "monday", "tuesday", "wednesday", "thursday", "saturday", "sunday", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december", "federal", "state"])
+
+
+def _stem(w: str) -> str:
+    w = _NORM.get(w, w)
+    for suf in ("ing", "ed", "es", "s"):
+        if w.endswith(suf) and len(w) - len(suf) >= 4:
+            return w[: -len(suf)]
+    return w
+
+
+def stems(text: str) -> frozenset[str]:
+    return frozenset(_stem(w) for w in tokens(text))
+
+
+def entities(title: str) -> frozenset[str]:
+    """Capitalised names in a headline (organisations, places), without possessives or generic words."""
+    out = set()
+    for w in re.findall(r"\b([A-Z][A-Za-z]{2,})(?:['’]s)?\b", title or ""):
+        lw = w.lower()
+        if lw not in _GENERIC_ENTITIES:
+            out.add(lw)
+    return frozenset(out)
+
+
+def _classes(text: str) -> frozenset[str]:
+    low = (text or "").lower()
+    cls = set()
+    if any(_wb(t, low) for t in ("blackouts?", "outages?", "without power", "cut power", "power cuts?", "power out",
+                                  "transmission (?:lines?|towers?)", "degradation", "triple zero")):
+        cls.add("outage")
+    if any(_wb(t, low) for t in ("cyber", "breach", "ransomware", "hack(?:ed|ing)?", "attacks?", "data (?:likely )?accessed",
+                                  "card skimmer", "vulnerabilit(?:y|ies)", "exploited")):
+        cls.add("cyber")
+    return frozenset(cls)
+
+
+def same_incident_v2(a_title: str, b_title: str) -> bool:
+    """Title-only judgement that two reports describe one event. Rules (any):
+    1. stemmed Jaccard >= 0.45 (as v1, after stemming);
+    2. same event class and >= 3 shared stems covering >= half of the shorter headline;
+    3. a shared named entity, same event class and >= 2 shared stems."""
+    sa, sb = stems(a_title), stems(b_title)
+    if not sa or not sb:
+        return False
+    shared = sa & sb
+    if len(shared) / len(sa | sb) >= 0.45:
+        return True
+    same_class = bool(_classes(a_title) & _classes(b_title))
+    if same_class and len(shared) >= 3 and len(shared) / min(len(sa), len(sb)) >= 0.5:
+        return True
+    return bool(same_class and (entities(a_title) & entities(b_title)) and len(shared) >= 2)
+
+
 def correlate_incidents(events: list[dict], *, now: datetime | None = None,
-                        same_story: float = 0.45, window_hours: int = 72) -> list[Incident]:
+                        same_story: float = 0.45, window_hours: int = 72, grouping: str = "v2") -> list[Incident]:
     """Group reports of the SAME incident. A single report is a valid incident of size 1,
     and the result carries every incident — nothing is dropped for being small."""
     now = now or datetime.now(timezone.utc)
@@ -331,7 +500,9 @@ def correlate_incidents(events: list[dict], *, now: datetime | None = None,
             a, b = items[i], items[j]
             if a["_ts"] and b["_ts"] and abs((a["_ts"] - b["_ts"]).total_seconds()) > window_hours * 3600:
                 continue
-            if similarity(a.get("title", ""), b.get("title", "")) >= same_story:
+            same = (same_incident_v2(a.get("title", ""), b.get("title", "")) if grouping == "v2"
+                    else similarity(a.get("title", ""), b.get("title", "")) >= same_story)
+            if same:
                 parent[find(i)] = find(j)
     groups: dict[int, list[dict]] = {}
     for i, it in enumerate(items):
@@ -349,12 +520,16 @@ def correlate_incidents(events: list[dict], *, now: datetime | None = None,
             mat = materiality(m.get("title", ""), m.get("summary", ""), m.get("geography"))
             conf = confidence(kind, len(fams), f)
             age = (now - m["_ts"]).total_seconds() / 3600 if m["_ts"] else None
+            text = f"{m.get('title', '')} {m.get('summary', '')}"
+            prio, esc = decide_priority(mat, conf, kind, len(fams), age, cls=event_class(text),
+                                        severe=severe_consequence(text), is_exploited=exploited(text),
+                                        exposure=known_exposure(text))
             assessed.append(Assessment(
                 event_id=str(m.get("id", "")), title=m.get("title", ""), source=m.get("source", ""),
                 source_kind=kind, family=m["_family"], published=m["_ts"],
                 confidence=conf, confidence_level=_level(conf, 0.75, 0.5),
                 materiality=mat, materiality_level=_level(mat, 0.5, 0.25),
-                priority=priority(mat, conf, kind, len(fams), age), flags=f,
+                priority=prio, escalation=esc, flags=f,
                 legacy=m.get("legacy", {}),
             ))
         ts = [m["_ts"] for m in members if m["_ts"]]

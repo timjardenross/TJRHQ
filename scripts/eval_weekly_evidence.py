@@ -93,7 +93,14 @@ def evaluate(rows):
 
     new_h = [a.materiality_level == "high" for a in order]
     new_surface = [a.priority in ("ESCALATE", "WATCH", "VERIFY") for a in order]
-    new_esc = [a.priority == "ESCALATE" for a in order]
+    # Escalation means "needs attention now": judge each event at its own detection time (one hour
+    # after collection), not at the weekly report time, when a Wednesday event is never fresh.
+    from datetime import timedelta
+    new_esc = []
+    for e in events:
+        t0 = we._parse_ts(e["collected_at"]) + timedelta(hours=1)
+        solo = we.correlate_incidents([e], now=t0)[0].headline
+        new_esc.append(solo.priority == "ESCALATE")
     legacy = {
         "legacy 'high' (osint confidence = HIGH)": [r["legacy_conf"] == "H" for r in rows],
         "legacy risk_rating = HIGH": [r["legacy_risk"] == "H" for r in rows],
