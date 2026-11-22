@@ -222,3 +222,48 @@ class TestWeeklyHealthSynthesisPathway:
     ])
     def test_public_research_text_is_not_flagged(self, public):
         assert not pol.contains_personal_health(public)
+
+
+# ── Seventh gap found in the #661 audit: journal free text through HealthLLMProvider ────────────────
+class TestHealthNarrativeProviderStandalone:
+    """#661 must protect the narrative providers WITHOUT #660: journal free text has no structured
+    markers the content detector could rely on, so the provider itself is local-only by default."""
+
+    @pytest.fixture
+    def h(self, monkeypatch):
+        sys.path.insert(0, str(_REPO / "core" / "health"))
+        import health_llm as h
+        monkeypatch.setenv("GEMINI_API_KEY", "dummy")
+        monkeypatch.setenv("MISTRAL_API_KEY", "dummy")
+        return h
+
+    def _count(self, h, monkeypatch, prompt):
+        calls = {"gemini": 0, "mistral": 0, "ollama": 0}
+        for name in calls:
+            def make(n):
+                def fn(*a, **k):
+                    calls[n] += 1
+                    raise RuntimeError("provider down")
+                return fn
+            monkeypatch.setattr(h, f"call_{name}", make(name))
+        return calls, h.HealthLLMProvider().generate(prompt)
+
+    def test_journal_free_text_never_reaches_cloud_and_falls_back(self, h, monkeypatch):
+        prompt = "[2026-11-10] note: rough day, could not get out of bed | pain_triggers: stairs | coping: rest"
+        assert not pol.contains_personal_health(prompt)       # the detector alone would NOT catch this
+        calls, out = self._count(h, monkeypatch, prompt)
+        assert calls["gemini"] == 0 and calls["mistral"] == 0
+        assert out == (None, None)                            # deterministic fallback
+
+    def test_real_weekly_prompt_never_reaches_cloud(self, h, monkeypatch):
+        sys.path.insert(0, str(_REPO / "core" / "health"))
+        import weekly_synthesis as ws
+        prompt = ws._build_llm_prompt("2026-11-16", 6, 4.2, "stable", 6.1, "improving", "moderate", "ok", 55.0,
+                                      ["poor sleep"], [], [], {}, {}, [], [], {}, {}, {})
+        calls, _ = self._count(h, monkeypatch, prompt)
+        assert calls["gemini"] == 0 and calls["mistral"] == 0
+
+    def test_opt_in_is_the_only_way_to_enable_cloud(self, h, monkeypatch):
+        monkeypatch.setenv(pol.FLAG, "1")
+        calls, _ = self._count(h, monkeypatch, "neutral text")
+        assert calls["gemini"] == 1
