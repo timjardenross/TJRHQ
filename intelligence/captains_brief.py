@@ -569,32 +569,58 @@ def _get_weekly_capacity(days: int = 7) -> dict:
     than a masked structural failure, since capacity_checkins is written
     interactively by the XO bot on every check-in, not by a dead
     scheduled job."""
-    since = (datetime.now(_AEST).date() - timedelta(days=days - 1)).isoformat()
-    log_entries = _sb_get(
+    today = datetime.now(_AEST).date()
+    since = (today - timedelta(days=days - 1)).isoformat()
+    until = today.isoformat()
+    # Captain's review (Gate 1): a record dated after today is never a real
+    # observation (the live recovery_pulses table holds two rows dated
+    # 2099-01-01). Bound every tier above AND drop them again here, so a source
+    # that ignores the filter can't leak a future-dated row into the week.
+    excluded = 0
+
+    def _kept(rows: list[dict]) -> list[dict]:
+        nonlocal excluded
+        keep = []
+        for r in rows:
+            d = str(r.get("log_date") or "")[:10]
+            if d and d > until:
+                excluded += 1
+                continue
+            keep.append(r)
+        return keep
+
+    def _result(source: str, rows: list[dict]) -> dict:
+        out: dict = {"source": source, "entries": rows}
+        if excluded:
+            out["excluded_future"] = excluded
+        return out
+
+    log_entries = _kept(_sb_get(
         "captains_log_entries",
-        f"log_date=gte.{since}&order=log_date.asc"
+        f"log_date=gte.{since}&log_date=lte.{until}&order=log_date.asc"
         f"&select=log_date,captain_capacity_rating,energy,pain_score,sleep_hours",
-    )
+    ))
     if log_entries:
-        return {"source": "log", "entries": log_entries}
+        return _result("log", log_entries)
 
-    pulses = _sb_get(
+    pulses = _kept(_sb_get(
         "recovery_pulses",
-        f"log_date=gte.{since}&order=log_date.asc,captured_at.asc"
+        f"log_date=gte.{since}&log_date=lte.{until}&order=log_date.asc,captured_at.asc"
         f"&select=log_date,pulse_type,energy,nervous_system,body_signals,readiness",
-    )
+    ))
     if pulses:
-        return {"source": "pulse", "entries": pulses}
+        return _result("pulse", pulses)
 
-    checkins = _sb_get(
+    checkins = _kept(_sb_get(
         "capacity_checkins",
-        f"checkin_type=eq.capacity&log_date=gte.{since}&order=log_date.asc,captured_at.asc"
+        f"checkin_type=eq.capacity&log_date=gte.{since}&log_date=lte.{until}"
+        f"&order=log_date.asc,captured_at.asc"
         f"&select=log_date,capacity_state,stimulation_state,pain_score,regulation_state",
-    )
+    ))
     if checkins:
-        return {"source": "checkin", "entries": checkins}
+        return _result("checkin", checkins)
 
-    return {"source": "none", "entries": []}
+    return _result("none", [])
 
 
 # ── Weekly OSINT LLM exec summaries (2026-08-10) ──────────────────────────────
@@ -993,20 +1019,43 @@ def _format_weekly_outage_alerts_block(alerts: list[dict]) -> list[str]:
     return lines
 
 
-def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
-    """captains_log_entries across the 7-day window — a real weekly
-    Green/Amber/Red trend instead of a single day's snapshot.
+# Captain's review (Gate 1): a trend or "recovery" statement needs enough
+# observations. Same floor as core/health/trend_utils.MIN_DAYS_FOR_TREND (4
+# values) plus at least 3 distinct days, so one busy day can't masquerade as a week.
+MIN_CAPACITY_OBSERVATIONS = 4
+MIN_CAPACITY_DAYS = 3
 
-    2026-08-10 fix (XO product review): when captains_log_entries has
-    nothing this week (see _get_weekly_capacity's fallback), render the
-    recovery_pulses-based signal instead of unconditionally showing "No
-    capacity logs this week" — mirrors Morning/EOD's existing
-    recovery-confidence fallback, aggregated across the window. With
-    pulse-logging currently sparse (per the same audit), the honest output
-    may be as small as "1 pulse logged this week" — that's a real signal
-    about logging adherence, not a bug to hide."""
+
+def _capacity_sufficiency_line(n: int, distinct_days: int) -> str | None:
+    """None when there is enough to describe a pattern, else an explicit
+    'not enough to infer' line. Absence of data is never reported as 'fine'."""
+    if n >= MIN_CAPACITY_OBSERVATIONS and distinct_days >= MIN_CAPACITY_DAYS:
+        return None
+    return (f"  <i>Not enough observations ({n} over {distinct_days} day(s); need "
+            f"{MIN_CAPACITY_OBSERVATIONS}+ over {MIN_CAPACITY_DAYS}+ days) to assess recovery "
+            f"or a trend — no inference made.</i>")
+
+
+def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
+    """Weekly capacity block.
+
+    Every branch states how many observations it rests on and over how many
+    days, flags excluded future-dated records, and withholds any recovery
+    statement when the sample is too small. Zero observations is reported as
+    "not observed" — never as stable or fine.
+
+    History: 2026-08-10/2026-09-13 added the pulse and check-in fallbacks. The
+    pulse tier used to print "Recovery confidence N%", which was really
+    entries / (days x 3) — logging adherence, not recovery — and it would also
+    have counted rows dated 2099-01-01. Both are corrected here."""
     source = capacity.get("source")
     entries = capacity.get("entries") or []
+    days_logged = len({e.get("log_date") for e in entries if e.get("log_date")})
+    notes: list[str] = []
+    if capacity.get("excluded_future"):
+        notes.append(f"  <i>⚠ {int(capacity['excluded_future'])} future-dated record(s) excluded "
+                     f"— not real observations.</i>")
+    thin = _capacity_sufficiency_line(len(entries), days_logged)
 
     if source == "log":
         counts = Counter((e.get("captain_capacity_rating") or "Unknown").capitalize() for e in entries)
@@ -1015,16 +1064,15 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         parts += [f"{v} {k}" for k, v in counts.items() if k not in order]
         trend = " ".join(_rating_emoji(e.get("captain_capacity_rating")) for e in entries)
         return [
-            f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s))</b>",
+            f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s) across {days_logged} day(s))</b>",
             f"  {_esc(' · '.join(parts)) if parts else 'no ratings logged'}",
             f"  <code>{trend}</code>",
-            "",
+            *([thin] if thin else []), *notes, "",
         ]
 
     if source == "pulse":
-        days_logged = len({e.get("log_date") for e in entries})
         possible = max(1, days * 3)
-        conf = round(100.0 * len(entries) / possible)
+        coverage = round(100.0 * len(entries) / possible)
         latest = entries[-1]  # ordered log_date,captured_at ascending
         signals_str = [
             s for s in (
@@ -1035,12 +1083,15 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         ]
         lines = [
             "<b>⚡ CAPACITY THIS WEEK</b>",
-            (f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>"
-             f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})"),
+            (f"  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})"
+             f"  ·  logging coverage <b>{coverage}%</b> <i>(how often a pulse was logged, "
+             f"not a measure of recovery)</i>"),
         ]
         if signals_str:
             lines.append(f"  Latest: {_esc(' · '.join(signals_str))}")
-        lines.append("")
+        if thin:
+            lines.append(thin)
+        lines += [*notes, ""]
         return lines
 
     if source == "checkin":
@@ -1048,16 +1099,21 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         order = ["green", "orange", "red"]
         parts = [f"{counts[c]} {c.capitalize()}" for c in order if counts.get(c)]
         parts += [f"{v} {k.capitalize()}" for k, v in counts.items() if k not in order]
-        days_logged = len({e.get("log_date") for e in entries})
         trend = " ".join(_capacity_state_emoji(e.get("capacity_state")) for e in entries)
         return [
             f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} check-in(s) across {days_logged} day(s))</b>",
             f"  {_esc(' · '.join(parts)) if parts else 'no state recorded'}",
             f"  <code>{trend}</code>",
-            "",
+            *([thin] if thin else []), *notes, "",
         ]
 
-    return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity check-ins, logs, or recovery pulses this week.", ""]
+    return [
+        "<b>⚡ CAPACITY THIS WEEK</b>",
+        "  No capacity check-ins, logs, or recovery pulses this week.",
+        ("  <i>Not observed — this is a gap in data, not evidence that capacity was fine. "
+         "No inference about recovery is made.</i>"),
+        *notes, "",
+    ]
 
 
 # ── Brief generators ──────────────────────────────────────────────────────────

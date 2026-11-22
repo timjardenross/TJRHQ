@@ -1,0 +1,662 @@
+"""Shared weekly intelligence evidence foundation — OFFLINE PROTOTYPE (Gate 2).
+
+One validated, read-only evidence layer for every weekly reporting product. This
+module is pure: it takes already-gathered dicts and returns structures. It does
+not read or write any database, is not imported by any report or scheduler, and
+changes no live scoring. It exists to be tested and compared offline.
+
+Design (Captain's review of the Weekly Intelligence Uplift):
+
+1. Three independent axes — evidence CONFIDENCE, operational MATERIALITY, action
+   PRIORITY — computed from content features. Legacy rank/risk/disposition/
+   confidence fields are carried for comparison only and never feed an axis.
+2. Incident correlation (same story, any size) is separate from thematic
+   clustering (several distinct incidents). A high-impact single event is never
+   dropped for failing a cluster-size threshold.
+3. Health records are typed (registration / finding / review / guideline / safety
+   advisory / non-evidence); a registration is never a demonstrated result.
+4. Narrative claims are validated against the cited evidence, not merely for the
+   presence of IDs; failure falls back to deterministic text.
+5. Everything is stamped with a methodology version; comparisons across versions
+   are refused rather than silently drawn.
+6. Absence is typed: observed / not observed / insufficient sample / source outage.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+
+# ── Methodology versioning (historical comparability) ─────────────────────────
+
+METHOD_VERSION = "wk-evidence/0.1.0-prototype"
+
+# Each entry is one methodology epoch. `breaks_comparability` lists earlier
+# versions whose figures must NOT be trended against this one.
+METHOD_CHANGELOG: tuple[dict, ...] = (
+    {"version": "legacy/confidence-count", "effective": "2026-08-10",
+     "notes": "Weekly report counted osint_confidence_level of the top-1000 rows by rank as 'high/medium/low'.",
+     "breaks_comparability": []},
+    {"version": METHOD_VERSION, "effective": "unreleased",
+     "notes": "Three-axis assessment, incident vs theme separation, typed health evidence.",
+     "breaks_comparability": ["legacy/confidence-count"]},
+)
+
+# Classifier epochs: the keyword classifier that populates event_type / relevance.
+# A future change (e.g. word-boundary matching) must add an epoch so the
+# discontinuity is visible in any trend that spans it.
+CLASSIFIER_EPOCHS: tuple[dict, ...] = (
+    {"epoch": "classifier-kw-v1-substring", "effective": "until-changed",
+     "notes": "Keyword rules with substring matching; 83% of events typed 'other' in 17-23 Nov 2026."},
+)
+
+
+def comparable(version_a: str, version_b: str) -> tuple[bool, str]:
+    """(ok, reason). Same version is comparable; a documented break is not;
+    unknown versions are refused (fail closed)."""
+    known = {e["version"]: e for e in METHOD_CHANGELOG}
+    if version_a == version_b and version_a in known:
+        return True, "same methodology version"
+    if version_a not in known or version_b not in known:
+        return False, "unknown methodology version — not comparable"
+    later, earlier = (version_a, version_b) if _order(version_a) > _order(version_b) else (version_b, version_a)
+    if earlier in known[later]["breaks_comparability"]:
+        return False, f"discontinuity: {earlier} → {later} ({known[later]['notes']})"
+    return True, "no documented break between versions"
+
+
+def _order(version: str) -> int:
+    return [e["version"] for e in METHOD_CHANGELOG].index(version)
+
+
+# ── Tokenising helpers ────────────────────────────────────────────────────────
+
+_STOP = frozenset(["the", "a", "an", "of", "and", "or", "to", "in", "on", "for", "with", "is", "are", "be", "as", "at", "by", "from", "that", "this", "it", "its", "after", "before", "over", "into", "new", "says", "said", "will", "has", "have", "had", "not", "but", "out", "up", "more"])
+
+
+def _wb(term: str, hay: str) -> bool:
+    return re.search(r"(?<![a-z0-9])" + term + r"(?![a-z0-9])", hay) is not None
+
+
+def tokens(text: str) -> frozenset[str]:
+    return frozenset(w for w in re.findall(r"[a-z0-9]+", (text or "").lower())
+                     if len(w) > 3 and w not in _STOP)
+
+
+def similarity(a: str, b: str) -> float:
+    ta, tb = tokens(a), tokens(b)
+    return len(ta & tb) / len(ta | tb) if ta and tb else 0.0
+
+
+def _parse_ts(value) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if not value:
+        return None
+    try:
+        s = str(value).strip().replace(" ", "T")
+        s = s[:-1] + "+00:00" if s.endswith("Z") else s
+        d = datetime.fromisoformat(s)
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+# ── Source kinds and publisher families ───────────────────────────────────────
+
+PRIMARY, MAINSTREAM, SPECIALIST, AGGREGATOR, CONTENT, REGISTRY, UNKNOWN = (
+    "primary", "mainstream", "specialist", "aggregator", "content", "registry", "unknown")
+
+# Order matters: an aggregator feed ABOUT a regulator ("Google News - APRA/ASIC ...") is an
+# aggregator, not that regulator, so aggregators and registries are tested first.
+_KIND_TERMS = (
+    (REGISTRY, ("clinicaltrials",)),
+    (AGGREGATOR, ("google news",)),
+    (PRIMARY, ("cisa", "cisco security", "google cloud security", "aemo", "acsc", "cyber.gov.au",
+               "nist", "apra", "asic", "rba ", "fda", "cdc", "who ")),
+    (MAINSTREAM, ("bloomberg", "abc news", "bbc", "financial times", "guardian", "reuters",
+                  "associated press", "the age", "financial review", "new york times")),
+    (SPECIALIST, ("arn", "sans ", "financial newswire", "industrial cyber", "the register", "itnews")),
+    (CONTENT, ("psychology today", "inc.", "fast company", "mckinsey", "harvard business")),
+)
+_KIND_GRADE = {PRIMARY: 0.90, MAINSTREAM: 0.60, SPECIALIST: 0.50, AGGREGATOR: 0.30,
+               CONTENT: 0.20, REGISTRY: 0.0, UNKNOWN: 0.30}
+
+
+def source_kind(source_name: str) -> str:
+    n = f" {(source_name or '').lower()} "
+    for kind, terms in _KIND_TERMS:
+        if any(t in n for t in terms):
+            return kind
+    return UNKNOWN
+
+
+def publisher_family(source_name: str, title: str = "") -> str:
+    """Normalised publisher. Aggregator items are attributed to the underlying
+    publisher when the title carries a ' - Publisher' suffix."""
+    n = (source_name or "unknown").strip().lower()
+    if source_kind(source_name) == AGGREGATOR:
+        m = re.search(r"\s[-–]\s([^-–]{2,40})$", title or "")
+        if m:
+            return m.group(1).strip().lower()
+        return "aggregator"
+    return re.sub(r"[^a-z0-9]+", " ", n).strip().split(" — ")[0]
+
+
+# ── Materiality lexicon ───────────────────────────────────────────────────────
+
+_IMPACT_TERMS = {
+    "blackout": 3, "power outage": 3, "power out": 2, "outage": 2, "transmission line": 2,
+    "grid": 1, "ransomware": 3, "known exploited": 3, "actively exploited": 3, "zero-day": 3,
+    "data breach": 2, "critical infrastructure": 2, "essential services": 2, "cyberattack": 2,
+    "cyber attack": 2, "supply chain": 1, "data cent(?:er|re)": 1, "cps 230": 3, "soci act": 2,
+    "electricity supply": 2, "power shortage": 2, "gas reservation": 1, "critical vulnerability": 2,
+    "patch": 1, "business continuity": 1, "systemic risk": 2,
+    "cyber incident": 2, "security breach": 2, "card skimmer": 2, "client data": 1,
+    "data (?:likely )?accessed": 2, "unauthori[sz]ed access": 2, "triple zero": 2,
+}
+_AU_TERMS = ("australia", "australian", "victoria", "victorian", "south australia", "nsw",
+             "new south wales", "queensland", "melbourne", "sydney", "aemo")
+_THEMES = {
+    "energy_grid": ("blackout", "power outage", "power out", "transmission line", "electricity supply",
+                    "power shortage", "gas reservation", "grid", "data cent(?:er|re)", "aemo"),
+    "vulnerability_advisories": ("known exploited", "actively exploited", "critical vulnerability",
+                                 "zero-day", "vulnerabilit(?:y|ies)", "cve-\\d+", "patch"),
+    "ai_cyber": ("ai-fuell?ed", "ai-powered", "ai-enabled", "ai cyber", "ai and cyber", "agentic"),
+    "technology_outages": ("outages?", "global outage", "service disruption", "triple zero"),
+}
+
+
+def _term_hits(text: str, terms) -> list[str]:
+    hay = (text or "").lower()
+    return [t for t in terms if _wb(t, hay)]
+
+
+def themes_of(text: str) -> list[str]:
+    """Controlled-vocabulary themes whose terms appear (>=1 term). Never invented."""
+    return [k for k, terms in _THEMES.items() if _term_hits(text, terms)]
+
+
+# ── Quality flags: misleading headline, conflicts, causal language ────────────
+
+_CAUSAL = ("because", "caused by", "caused", "due to", "led to", "result of", "blamed", "blame",
+           "triggered", "driven by", "behind the", "responsible for")
+_DENY = ("denies", "denied", "disputes", "disputed", "refutes", "rejects", "no evidence", "false claim")
+_AFFIRM = ("confirms", "confirmed", "admits", "admitted", "acknowledges")
+_NUM_UNIT = re.compile(r"(\d[\d,\.]*)\s*(customers|homes|households|people|users|deaths|mw|megawatts)\b", re.IGNORECASE)
+
+
+def has_causal_language(text: str) -> bool:
+    low = (text or "").lower()
+    return any(re.search(r"(?<![a-z])" + re.escape(c) + r"(?![a-z])", low) for c in _CAUSAL)
+
+
+def headline_flags(title: str, summary: str) -> list[str]:
+    """Headline-vs-body support. With no body the headline is 'unverifiable', not 'supported'."""
+    flags = []
+    if not (summary or "").strip():
+        return ["headline_unverifiable_no_body"]
+    ht, st = tokens(title), tokens(summary)
+    if ht and len(ht & st) / len(ht) < 0.30:
+        flags.append("headline_not_supported_by_body")
+    if has_causal_language(title) and not has_causal_language(summary):
+        flags.append("headline_causal_claim_not_in_body")
+    return flags
+
+
+def _numbers(text: str) -> dict[str, list[float]]:
+    out: dict[str, list[float]] = {}
+    for num, unit in _NUM_UNIT.findall(text or ""):
+        try:
+            out.setdefault(unit.lower(), []).append(float(num.replace(",", "")))
+        except ValueError:
+            continue
+    return out
+
+
+def conflict_flags(texts_by_publisher: dict[str, str]) -> list[str]:
+    """Different publishers reporting opposing polarity or materially different figures."""
+    flags = []
+    pubs = list(texts_by_publisher)
+    deny = {p for p in pubs if any(w in texts_by_publisher[p].lower() for w in _DENY)}
+    affirm = {p for p in pubs if any(w in texts_by_publisher[p].lower() for w in _AFFIRM)}
+    if deny and affirm and (deny - affirm or affirm - deny):
+        flags.append("conflicting_assertions")
+    per_unit: dict[str, list[float]] = {}
+    for t in texts_by_publisher.values():
+        for unit, vals in _numbers(t).items():
+            per_unit.setdefault(unit, []).extend(vals)
+    for unit, vals in per_unit.items():
+        if len(vals) >= 2 and min(vals) > 0 and max(vals) / min(vals) > 1.25:
+            flags.append(f"conflicting_figures:{unit}")
+    return flags
+
+
+# ── Event model and the three axes ────────────────────────────────────────────
+
+@dataclass
+class Assessment:
+    event_id: str
+    title: str
+    source: str
+    source_kind: str
+    family: str
+    published: datetime | None
+    confidence: float
+    confidence_level: str
+    materiality: float
+    materiality_level: str
+    priority: str                       # ESCALATE / WATCH / VERIFY / REFERENCE
+    flags: list[str] = field(default_factory=list)
+    legacy: dict = field(default_factory=dict)   # comparison only, never an input
+    method_version: str = METHOD_VERSION
+
+
+def _level(x: float, hi: float, mid: float) -> str:
+    return "high" if x >= hi else "medium" if x >= mid else "low"
+
+
+def materiality(title: str, summary: str, geography: str | None = None) -> float:
+    text = f"{title} {summary}"
+    score = sum(w for t, w in _IMPACT_TERMS.items() if _wb(t, text.lower()))
+    if score == 0:
+        return 0.0
+    au = (geography or "").upper() == "AU" or any(_wb(t, text.lower()) for t in _AU_TERMS)
+    return round(min(1.0, (score + (1 if au else 0)) / 6), 3)
+
+
+def confidence(kind: str, independent_publishers: int, flags: list[str]) -> float:
+    c = _KIND_GRADE.get(kind, 0.3) + min(0.3, 0.1 * max(0, independent_publishers - 1))
+    if any(f.startswith("headline_") and f != "headline_unverifiable_no_body" for f in flags):
+        c -= 0.2
+    if any(f.startswith("conflicting_") for f in flags):
+        c = min(c, 0.5)
+    return round(max(0.0, min(1.0, c)), 3)
+
+
+def priority(materiality_: float, confidence_: float, kind: str, independent_publishers: int,
+             age_hours: float | None) -> str:
+    """Action priority from the other two axes plus time-sensitivity — not copied from rank/disposition."""
+    fresh = age_hours is not None and age_hours <= 72
+    if materiality_ >= 0.5 and confidence_ >= 0.5 and fresh and (kind == PRIMARY or independent_publishers >= 2):
+        return "ESCALATE"
+    if materiality_ >= 0.5 and confidence_ >= 0.5:
+        return "WATCH"
+    if materiality_ >= 0.5:
+        return "VERIFY"      # material but poorly evidenced: confirm before acting
+    if materiality_ >= 0.25 and confidence_ >= 0.5:
+        return "WATCH"
+    return "REFERENCE"
+
+
+# ── Incident correlation (any size) vs thematic clustering ────────────────────
+
+@dataclass
+class Incident:
+    incident_id: str
+    members: list[Assessment]
+    independent_publishers: int
+    first_seen: datetime | None
+    last_seen: datetime | None
+    flags: list[str]
+
+    @property
+    def headline(self) -> Assessment:
+        return max(self.members, key=lambda a: (a.materiality, a.confidence))
+
+
+def correlate_incidents(events: list[dict], *, now: datetime | None = None,
+                        same_story: float = 0.45, window_hours: int = 72) -> list[Incident]:
+    """Group reports of the SAME incident. A single report is a valid incident of size 1,
+    and the result carries every incident — nothing is dropped for being small."""
+    now = now or datetime.now(timezone.utc)
+    items = []
+    for e in events:
+        ts = _parse_ts(e.get("collected_at") or e.get("published_at"))
+        items.append({**e, "_ts": ts, "_family": publisher_family(e.get("source", ""), e.get("title", ""))})
+    parent = list(range(len(items)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            a, b = items[i], items[j]
+            if a["_ts"] and b["_ts"] and abs((a["_ts"] - b["_ts"]).total_seconds()) > window_hours * 3600:
+                continue
+            if similarity(a.get("title", ""), b.get("title", "")) >= same_story:
+                parent[find(i)] = find(j)
+    groups: dict[int, list[dict]] = {}
+    for i, it in enumerate(items):
+        groups.setdefault(find(i), []).append(it)
+
+    incidents: list[Incident] = []
+    for n, members in enumerate(sorted(groups.values(), key=lambda g: g[0].get("id", "")), 1):
+        fams = _independent_families(members)
+        texts = {m["_family"]: f"{m.get('title', '')} {m.get('summary', '')}" for m in members}
+        shared_flags = conflict_flags(texts) if len(texts) >= 2 else []
+        assessed = []
+        for m in members:
+            kind = source_kind(m.get("source", ""))
+            f = headline_flags(m.get("title", ""), m.get("summary", "")) + shared_flags
+            mat = materiality(m.get("title", ""), m.get("summary", ""), m.get("geography"))
+            conf = confidence(kind, len(fams), f)
+            age = (now - m["_ts"]).total_seconds() / 3600 if m["_ts"] else None
+            assessed.append(Assessment(
+                event_id=str(m.get("id", "")), title=m.get("title", ""), source=m.get("source", ""),
+                source_kind=kind, family=m["_family"], published=m["_ts"],
+                confidence=conf, confidence_level=_level(conf, 0.75, 0.5),
+                materiality=mat, materiality_level=_level(mat, 0.5, 0.25),
+                priority=priority(mat, conf, kind, len(fams), age), flags=f,
+                legacy=m.get("legacy", {}),
+            ))
+        ts = [m["_ts"] for m in members if m["_ts"]]
+        incidents.append(Incident(f"inc-{n:04d}", assessed, len(fams), min(ts) if ts else None,
+                                  max(ts) if ts else None, shared_flags))
+    return incidents
+
+
+def _independent_families(members: list[dict]) -> set[str]:
+    """Distinct publisher families after collapsing near-identical (syndicated) copies."""
+    fams: dict[str, str] = {}
+    for m in members:
+        fam = m["_family"]
+        title = m.get("title", "")
+        # A copy with a near-identical title from another family is syndication of
+        # the same piece and adds no independent corroboration.
+        if any(similarity(title, t) >= 0.85 and f != fam for f, t in fams.items()):
+            continue
+        fams.setdefault(fam, title)
+    return set(fams)
+
+
+MIN_THEME_INCIDENTS, MIN_THEME_PUBLISHERS, MIN_THEME_DAYS = 3, 3, 2
+
+
+def cluster_themes(incidents: list[Incident]) -> dict:
+    """Thematic trend clusters across DISTINCT incidents. A theme must be in the controlled
+    vocabulary and meet all three thresholds; otherwise it is reported as not identified."""
+    by_theme: dict[str, list[Incident]] = {}
+    for inc in incidents:
+        for t in themes_of(" ".join(f"{a.title}" for a in inc.members)):
+            by_theme.setdefault(t, []).append(inc)
+    themes, near_misses = [], []
+    for name, incs in sorted(by_theme.items()):
+        pubs = {a.family for i in incs for a in i.members if a.source_kind != CONTENT}
+        days = {a.published.date() for i in incs for a in i.members if a.published}
+        row = {"theme": name, "incidents": len(incs), "publishers": len(pubs), "days": len(days),
+               "incident_ids": [i.incident_id for i in incs]}
+        if (len(incs) >= MIN_THEME_INCIDENTS and len(pubs) >= MIN_THEME_PUBLISHERS
+                and len(days) >= MIN_THEME_DAYS):
+            themes.append(row)
+        else:
+            near_misses.append(row)
+    return {"themes": themes, "below_threshold": near_misses,
+            "statement": None if themes else "no thematic cluster identified"}
+
+
+def incident_watch(incidents: list[Incident]) -> list[Incident]:
+    """Every incident whose lead report is high-materiality — regardless of size or any cluster."""
+    return sorted((i for i in incidents if i.headline.materiality_level == "high"),
+                  key=lambda i: (-i.headline.materiality, -i.headline.confidence))
+
+
+# ── Health evidence kinds ─────────────────────────────────────────────────────
+
+REGISTRATION, FINDING, REVIEW, GUIDELINE, SAFETY, NON_EVIDENCE, UNCLASSIFIED = (
+    "registration", "finding", "systematic_review", "guideline", "safety_advisory",
+    "non_evidence", "publication_unclassified")
+
+_REVIEW = re.compile(r"systematic review|meta-?analysis|umbrella review|scoping review|cochrane", re.IGNORECASE)
+_GUIDE = re.compile(r"\bguidelines?\b|consensus statement|position statement|practice parameter|"
+                    r"recommendations for|clinical practice", re.IGNORECASE)
+_SAFETY = re.compile(r"safety communication|drug safety|recall|boxed warning|safety alert|"
+                     r"health advisory|\bwithdrawn\b|\bterminated\b|\bsuspended\b", re.IGNORECASE)
+_NON_EVIDENCE = re.compile(r"^\s*\[(world report|obituary|editorial|comment|correspondence|news|"
+                           r"perspective|in brief|offline)\b", re.IGNORECASE)
+_DESIGN = re.compile(r"randomi[sz]ed|cohort|case-control|cross-sectional|observational|"
+                     r"double-blind|placebo-controlled|prospective|retrospective", re.IGNORECASE)
+
+
+def classify_health_record(title: str, source: str, signal_type: str | None = None,
+                           summary: str = "") -> dict:
+    """Typed evidence kind. `signal_type` (which labels every registry entry 'study_result')
+    is deliberately ignored for registry sources."""
+    text = f"{title} {summary}"
+    src = (source or "").lower()
+    is_registry = "clinicaltrials" in src or bool(re.search(r"\bNCT\d{8}\b", text))
+    if _NON_EVIDENCE.search(title or ""):
+        kind = NON_EVIDENCE
+    elif is_registry:
+        kind = SAFETY if (signal_type == "safety_alert" or _SAFETY.search(summary or "")) else REGISTRATION
+    elif signal_type == "safety_alert" or _SAFETY.search(text) or any(
+            k in src for k in ("fda", "cdc", "who", "tga")):
+        kind = SAFETY
+    elif _REVIEW.search(text):
+        kind = REVIEW
+    elif _GUIDE.search(text):
+        kind = GUIDELINE
+    elif _DESIGN.search(text):
+        kind = FINDING
+    else:
+        kind = UNCLASSIFIED
+    return {"kind": kind, "demonstrated_result": kind in (FINDING, REVIEW),
+            "design": (m.group(0).lower() if (m := _DESIGN.search(text)) else None)}
+
+
+def summarise_health(records: list[dict]) -> dict:
+    typed = [classify_health_record(r.get("title", ""), r.get("source", ""), r.get("signal_type"),
+                                    r.get("summary", "")) for r in records]
+    counts = Counter(t["kind"] for t in typed)
+    return {"total": len(records), "by_kind": dict(counts),
+            "demonstrated_results": sum(1 for t in typed if t["demonstrated_result"]),
+            "registrations_counted_as_results": 0}
+
+
+# ── Absence typing ────────────────────────────────────────────────────────────
+
+OBSERVED, NOT_OBSERVED, INSUFFICIENT, SOURCE_OUTAGE = (
+    "observed", "not_observed", "insufficient_sample", "source_outage")
+
+
+def observation_state(count: int, *, minimum: int = 1, collector_failed: bool = False,
+                      baseline_per_week: float | None = None) -> str:
+    """Lack of evidence is never evidence of no issue. A silent source relative to its own
+    baseline, or a failed collector, is an outage — not a quiet week."""
+    if collector_failed:
+        return SOURCE_OUTAGE
+    if count == 0:
+        return SOURCE_OUTAGE if baseline_per_week and baseline_per_week >= 5 else NOT_OBSERVED
+    return OBSERVED if count >= minimum else INSUFFICIENT
+
+
+# ── Narrative assurance ───────────────────────────────────────────────────────
+
+@dataclass
+class Claim:
+    text: str
+    evidence_ids: list[str]
+
+
+@dataclass
+class ValidationResult:
+    ok: bool
+    failures: list[str]
+
+
+def _content_tokens(text: str) -> set[str]:
+    return set(tokens(text))
+
+
+def validate_claims(claims: list[Claim], evidence: dict[str, dict], *, min_support: float = 0.6) -> ValidationResult:
+    """A claim is supported only if (a) it cites evidence that exists, (b) the cited text
+    actually contains its content terms and exact figures, and (c) a causal claim is
+    backed by >=2 independent publishers and a source that itself states the causation."""
+    failures: list[str] = []
+    for n, c in enumerate(claims, 1):
+        tag = f"claim {n}"
+        if not c.evidence_ids:
+            failures.append(f"{tag}: no evidence cited")
+            continue
+        missing = [i for i in c.evidence_ids if i not in evidence]
+        if missing:
+            failures.append(f"{tag}: unknown evidence id {missing[0]}")
+            continue
+        cited = [evidence[i] for i in c.evidence_ids]
+        corpus = " ".join(f"{e.get('title', '')} {e.get('summary', '')}" for e in cited)
+        want = _content_tokens(c.text)
+        if want and len(want & _content_tokens(corpus)) / len(want) < min_support:
+            failures.append(f"{tag}: cited evidence does not support the wording")
+        flat = corpus.replace(",", "")
+        for num in re.findall(r"\d[\d,\.]*\d|\d", c.text):
+            if num.replace(",", "") not in flat:
+                failures.append(f"{tag}: figure {num} not found in cited evidence")
+        if has_causal_language(c.text):
+            fams = {publisher_family(e.get("source", ""), e.get("title", "")) for e in cited}
+            states = any(has_causal_language(f"{e.get('title', '')} {e.get('summary', '')}") for e in cited)
+            if len(fams) < 2 or not states:
+                failures.append(f"{tag}: causal claim without two independent sources stating the cause")
+    return ValidationResult(not failures, failures)
+
+
+def render_narrative(claims: list[Claim], evidence: dict[str, dict], deterministic_text: str) -> dict:
+    """Use the narrative only if every claim validates; otherwise the deterministic fallback."""
+    result = validate_claims(claims, evidence)
+    if result.ok and claims:
+        return {"text": " ".join(c.text for c in claims), "mode": "narrative", "failures": []}
+    return {"text": deterministic_text, "mode": "deterministic_fallback", "failures": result.failures}
+
+
+# ── Durable snapshots and gated forecasts ─────────────────────────────────────
+
+MIN_FORECAST_SNAPSHOTS, MIN_FORECAST_SPAN_DAYS = 4, 21
+
+
+class SnapshotStore:
+    """Append-only JSONL with atomic, fsynced writes and explicit retention.
+    Each row carries the methodology version so history is never reinterpreted."""
+
+    def __init__(self, path: str, retention_weeks: int = 104):
+        self.path = path
+        self.retention_weeks = retention_weeks
+
+    def append(self, snapshot: dict) -> None:
+        row = {**snapshot, "method_version": snapshot.get("method_version", METHOD_VERSION)}
+        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
+        with open(self.path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, sort_keys=True) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+
+    def load(self) -> list[dict]:
+        rows = []
+        try:
+            with open(self.path, encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        rows.append(json.loads(line))
+                    except ValueError:
+                        continue          # a torn/corrupt line must never break the series
+        except FileNotFoundError:
+            return []
+        return sorted(rows, key=lambda r: r.get("date", ""))
+
+    def prune(self, now: datetime | None = None) -> int:
+        """Drop rows older than the retention window; returns how many were removed."""
+        now = now or datetime.now(timezone.utc)
+        cutoff = (now - timedelta(weeks=self.retention_weeks)).date().isoformat()
+        rows = self.load()
+        keep = [r for r in rows if r.get("date", "") >= cutoff]
+        if len(keep) == len(rows):
+            return 0
+        tmp = self.path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.writelines(json.dumps(r, sort_keys=True) + "\n" for r in keep)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, self.path)
+        return len(rows) - len(keep)
+
+
+def forecast_growth(snapshots: list[dict], limit_mb: float = 500.0) -> dict:
+    """Gated forecast: refuses to forecast until there is enough, ordered history. A drop in size
+    (cleanup/retention) starts a new segment so deletions don't masquerade as shrinking growth."""
+    pts = []
+    for s in snapshots:
+        d = _parse_ts(s.get("date"))
+        if d is not None and isinstance(s.get("size_mb"), (int, float)):
+            pts.append((d, float(s["size_mb"])))
+    pts.sort()
+    start = 0
+    for i in range(1, len(pts)):
+        if pts[i][1] < pts[i - 1][1] * 0.95:             # >5% drop = cleanup/retention event
+            start = i
+    seg = pts[start:]
+    notes = [] if start == 0 else ["size dropped >5% earlier (cleanup/retention); forecast uses the segment after it"]
+    span = (seg[-1][0] - seg[0][0]).days if len(seg) >= 2 else 0
+    if len(seg) < MIN_FORECAST_SNAPSHOTS or span < MIN_FORECAST_SPAN_DAYS:
+        return {"available": False, "reason": (f"insufficient history: {len(seg)} snapshot(s) over "
+                f"{span} day(s); need {MIN_FORECAST_SNAPSHOTS}+ over {MIN_FORECAST_SPAN_DAYS}+ days"),
+                "notes": notes}
+    slopes = sorted(((b[1] - a[1]) / max((b[0] - a[0]).days, 1)) * 7
+                    for i, a in enumerate(seg) for b in seg[i + 1:] if (b[0] - a[0]).days > 0)
+    mid = slopes[len(slopes) // 2]
+    low, high = slopes[len(slopes) // 4], slopes[(3 * len(slopes)) // 4]
+    cur = seg[-1][1]
+
+    def weeks(rate):
+        return None if rate <= 0 else round((limit_mb - cur) / rate, 1)
+    return {"available": True, "current_mb": cur, "mb_per_week": round(mid, 2),
+            "mb_per_week_range": [round(low, 2), round(high, 2)],
+            "weeks_to_limit": weeks(mid), "weeks_to_limit_range": [weeks(high), weeks(low)],
+            "notes": notes}
+
+
+def _split_future(rows: list[dict], now: datetime, keys: tuple[str, ...], *, hours: int):
+    keep, future = [], []
+    for r in rows:
+        ts = next((_parse_ts(r.get(k)) for k in keys if r.get(k)), None)
+        (future if ts is not None and ts > now + timedelta(hours=hours) else keep).append(r)
+    return keep, future
+
+
+# ── Weekly evidence assembly (prototype) ──────────────────────────────────────
+
+def build_weekly_evidence(*, events: list[dict], universe: dict, health_records: list[dict],
+                          capacity: dict, db_snapshots: list[dict], now: datetime | None = None) -> dict:
+    """Everything a weekly product needs, from one place. `universe` carries EXACT totals from
+    aggregate queries; `events` may be a candidate pool, and the result says so."""
+    now = now or datetime.now(timezone.utc)
+    # Future-dated data is never evidence: exclude it from events and capacity, and say so.
+    events, future_events = _split_future(events, now, ("collected_at", "published_at"), hours=1)
+    cap_rows, future_cap = _split_future(capacity.get("entries", []), now, ("log_date",), hours=24)
+    incidents = correlate_incidents(events, now=now)
+    heads = [i.headline for i in incidents]
+    return {
+        "method_version": METHOD_VERSION,
+        "universe": {**universe, "assessed_pool": len(events), "pool_is_sample": len(events) < universe.get("usable", len(events))},
+        "axes": {
+            "confidence": dict(Counter(a.confidence_level for a in heads)),
+            "materiality": dict(Counter(a.materiality_level for a in heads)),
+            "priority": dict(Counter(a.priority for a in heads)),
+        },
+        "incident_watch": [{"incident": i.incident_id, "title": i.headline.title,
+                            "source": i.headline.source, "confidence": i.headline.confidence_level,
+                            "priority": i.headline.priority, "publishers": i.independent_publishers,
+                            "flags": i.headline.flags} for i in incident_watch(incidents)],
+        "themes": cluster_themes(incidents),
+        "health": summarise_health(health_records),
+        "capacity": {"state": observation_state(len(cap_rows), minimum=4),
+                     "observations": len(cap_rows), "excluded_future": len(future_cap),
+                     **{k: capacity[k] for k in ("source",) if k in capacity}},
+        "excluded_future_events": len(future_events),
+        "database": forecast_growth(db_snapshots),
+        "incidents": incidents,
+    }
