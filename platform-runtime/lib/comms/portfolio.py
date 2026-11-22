@@ -44,6 +44,34 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+_ADVANCED = ("review", "approved", "ready_to_publish", "published")
+
+
+def _existing(c, content_id: str) -> dict | None:
+    try:
+        res = (c.raw_client.table(CONTENT_TABLE).select("id,status")
+               .eq("content_id", content_id).limit(1).execute())
+        rows = list(res.data or [])
+        return rows[0] if rows else None
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort lookup
+        log.debug("[comms.portfolio] existing lookup failed: %s", exc)
+        return None
+
+
+def fetch_titles(statuses: tuple[str, ...], *, limit: int = 500) -> list[str]:
+    """Titles already drafted/published (for de-duplication). Empty when offline."""
+    c = _client()
+    if c is None or c.raw_client is None:
+        return []
+    try:
+        res = (c.raw_client.table(CONTENT_TABLE).select("title,status")
+               .in_("status", list(statuses)).limit(limit).execute())
+        return [str(r.get("title") or "") for r in (res.data or []) if r.get("title")]
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - DB read failure, already logged
+        log.warning("[comms.portfolio] fetch_titles failed: %s", exc)
+        return []
+
+
 def record_content(*, content_id: str, title: str, pillar: str | None = None,
                    source_kind: str | None = None, source_ref: str | None = None,
                    classification: str = "publishable", status: str = "opportunity",
@@ -56,6 +84,21 @@ def record_content(*, content_id: str, title: str, pillar: str | None = None,
     if c is None:
         return False
     status = status if status in STATUSES else "opportunity"
+    # Editorial uplift: idempotent per content_id and never downgrade an advanced item.
+    from lib.comms import editorial
+    if editorial.enabled():
+        row = _existing(c, content_id)
+        if row is not None:
+            if str(row.get("status")) in _ADVANCED:
+                return True
+            try:
+                c.raw_client.table(CONTENT_TABLE).update(
+                    {"status": status, "format": fmt, "notes": notes, "updated_at": _now()}
+                ).eq("id", row["id"]).execute()
+                return True
+            except Exception as exc:  # pragma: no cover  # noqa: BLE001 - DB write failure, already logged
+                log.warning("[comms.portfolio] record_content update failed: %s", exc)
+                return False
     payload = {
         "content_id": content_id, "title": title[:300], "pillar": pillar,
         "source_kind": source_kind, "source_ref": source_ref,

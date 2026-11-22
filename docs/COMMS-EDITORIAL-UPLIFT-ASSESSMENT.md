@@ -140,60 +140,54 @@ Notion access: the Library is read through the Notion connector. It is not curre
 
 ---
 
-## 5. Example regenerated weekly brief
+## 5. Example regenerated weekly brief (real dry-run output)
 
-> **Illustrative only.** It is built from the Research Library's row metadata and summaries read on 2026-11-22, not from a live run of the new code. **I have not performed the external regulatory or research scan** in this phase, so there are no external citations below. Where one is required, the item says so. All scores are hand-applied using the proposed rubric to show shape and behaviour. They are not measured output.
+Generated 2026-11-22 by the implemented code (`COMMS_EDITORIAL_V2=1`), terminal only, from three real Research Library rows read through the Notion connector. It was not sent anywhere. **No external regulatory or research scan was run**, and Command Memory was not queried, so there are no external citations. This supersedes the earlier hand-scored illustration, which over-credited the AI stream.
 
-**Weekly Editorial Intelligence Brief — Sun 22 Nov 2026**
-*What should I contribute to the public conversation this week, why does it matter, and what credible evidence supports my perspective?*
-*Draft recommendations only. Nothing is published without Captain approval. Internal records are cited by ID and are not for external citation.*
+```
+Weekly Editorial Intelligence Brief — Sun 22 Nov 2026
+Draft recommendations only. Nothing is published without Captain approval.
 
-### Stream 1 — Operational Resilience & Systemic Risk · **79/100** · Needs verification
-**Headline:** "Resilience is a system property, not a plan: why second-order dependencies decide whether essential services hold"
-**Audience:** risk, continuity and operations leaders; critical-infrastructure and regulated-sector executives.
-**Why now:** the Library's national resilience programme ("Is Australia Ready?") reached an *independent audit with a recommendation to release with conditions* and has a 19 Nov cut-off. Verify what, if anything, has been announced publicly since (regulator or government statements) before citing a trigger.
-**Central argument:** [H] Organisations test the failure they planned for, but essential services fail through the *second* failure: the shared dependency, the manual workaround nobody exercised, the decision nobody was authorised to make. Leaders should ask which dependencies are common to multiple "critical" services, not whether each plan passes.
-**Evidence:**
-- [A] Library: "Is Australia Ready? National Resilience, Preparedness and Systemic Risk" (Evidence Review, cut-off 2026-11-19), eight-deliverable assessment; audit outcome as stated in the Library only.
-- [A] Library: "Operational Resilience Intelligence" (Active, cut-off 2026-11-19), fortnightly briefs and outage investigations.
-- [A] Library: "CPS 230, EU DORA and UK Operational Resilience — Comparative Framework" (historical; needs a currency check).
-- Experience evidence: internal decision/lesson IDs to be attached at implementation. Not citable externally.
+Stream — Operational Resilience & Systemic Risk
+Is Australia Ready? National Resilience, Preparedness and Systemic Risk — 84/100 · Needs verification
+• Target audience: Risk, continuity & operations leaders
+• Why now: newest evidence 2026-11-19; no external trigger found yet — scan needed
+• Central argument: [A] working claim from source (Captain to sharpen): Eight-deliverable assessment ... Independent audit recommended release with conditions.
+• Evidence: [A] Research Library page (Evidence Review; cut-off 2026-11-19; unverified until primary sources are re-checked)
+• Format: Article Draft
+• Score: audience 26/30 · alignment 25/25 · evidence 8/20 · originality 15/15 · timeliness 10/10
+• Remaining gaps: no independent external source cited; primary sources not yet re-verified
+• Scaffold: /comms draft 1
 
-**Format:** article draft (~700 words) with a LinkedIn post as the lead-in.
-**Readiness:** Needs verification (evidence 13/20). Gaps: (1) re-verify the primary sources behind the audit conclusions; (2) check current regulator publications; (3) confirm that no employer-specific example is used.
-*Sub-scores: audience 26/30 · alignment 22/25 · evidence 13/20 · originality 10/15 · timeliness 8/10.*
+Stream — AI, Governance & Leadership
+No recommendation this week — best candidate "AI-Accelerated Technology Change and Operational Resilience" scored 79/100 but evidence is 7/20 (needs ≥65 and ≥8).
 
-### Stream 2 — AI, Governance & Leadership · **76/100** · Needs research
-**Headline:** "AI is speeding up change faster than organisations can assure it. That is a resilience problem, not just an AI problem."
-**Audience:** executives, CIO/CRO/board members, and risk leaders adopting AI.
-**Why now:** the Library paper "AI-Accelerated Technology Change and Operational Resilience" is Active with a 22 Nov cut-off. *External developments (regulatory announcements, major incidents, published studies) have not yet been scanned.*
-**Central argument:** [H] When release speed rises and assurance capacity (testing, change review, accountable sign-off) stays flat, the gap is absorbed as hidden operational risk. Governance has to measure *assurance capacity per change*, not only the number of controls.
-**Evidence:**
-- [A] Library: v0.1 working paper (unverified; its sources not yet reviewed).
-- Needed: at least two independent external sources (regulator guidance, peer-reviewed or industry incident data) before anything is stated as fact.
+Stream — Wellness, Neuroscience & Sustainable Performance
+No recommendation this week — best candidate "Economic Cost of Chronic Pain: Ten Largest OECD Economies" scored 63/100 (evidence 6/20).
+```
 
-**Format:** executive insight → framework explanation if the evidence firms up.
-**Readiness:** Needs research (evidence 9/20, just above the floor). Gaps: independent sources; a named external trigger; a precise definition of "assurance capacity".
-*Sub-scores: audience 24/30 · alignment 23/25 · evidence 9/20 · originality 12/15 · timeliness 8/10.*
-
-### Stream 3 — Wellness, Neuroscience & Sustainable Performance · **No recommendation this week**
-Best candidate: "Economic Cost of Chronic Pain: Ten Largest OECD Economies". Cut-off 2026-05-31; the Library itself notes several country figures are labelled proxy estimates and need revalidation. Indicative score ≈ 58/100 (evidence ≈ 7/20, timeliness ≈ 3/10), so it falls below the threshold.
-Not forced. Watch items: "Sustainable Work Participation" (still in Backlog and personal-health-adjacent, so it needs the sensitivity gate and review before use). "Vibration and Gate-Control Devices" has strong evidence only for needle pain, so it fits a narrow product-claims audience, not a general leadership one.
-
-### Connections across streams
-S1 and S2 are one story: *change outpacing assurance* is the mechanism behind both the AI-governance argument and the systemic-risk argument. Publishing S1 first and S2 as the follow-up builds a coherent body of work and avoids two disconnected posts.
-
-### Not recommended (and why)
-- Internal build and capability write-ups (agents, pipelines, command layer): implementation description, low external relevance; kept as experience evidence only.
-- Anything matching already-published or drafted topics (none found in this inspection; the dedupe check will run against `comms_content` at implementation).
-
-**Next step:** reply `draft 1` or `draft 2`. Drafts are scaffolds only. The Captain edits, approves and publishes.
+Reading it: resilience clears the bar only narrowly (evidence 8/20 against a floor of 8). The AI stream scores well on audience and alignment but is held back purely by evidence, which is the intended behaviour: a Library working paper alone is not enough to recommend. Adding two independent external sources, or matching external signals, is what would lift it.
 
 ---
 
-## Decisions needed from the Captain
-1. **Notion access path.** (a) A read-only Notion integration token in the runtime env for the Library database. (b) A scheduled export of Library rows into a local JSON snapshot that `/comms` reads (no runtime credential, but it can go stale). Recommendation: (a) with graceful degradation, read-only.
-2. **External signals.** Wire `content_signals` and `intelligence_events` into the brief as the timeliness and corroboration input (recommended: reuses the existing ranker and adds no parallel system), or leave external scanning as a manual research step.
-3. **Pillar classifier fix.** Fix word-boundary matching in `pillars.py` together with its TypeScript twin (separate PR, recommended), or leave it and compensate inside `editorial.py`.
-4. **Persistence.** Option A (default): score breakdown in `comms_content.notes`, no schema change. Option B: additive nullable columns for stream, score and readiness (needs a migration approval).
-5. **Approval to implement** on this branch behind `COMMS_EDITORIAL_V2`, with a dry-run before any Telegram delivery.
+## Decisions (answered 2026-11-22) and implementation status
+
+| # | Decision | Outcome |
+|---|---|---|
+| 1 | Notion access | Read-only token (`NOTION_TOKEN`, optional `NOTION_RESEARCH_LIBRARY_DS`) via `lib/comms/research_library.py`. Parsing is unit-tested; the **live API call is untested** because no token exists in this sandbox. |
+| 2 | External signals | `content_signals` matched to candidates (≥2 shared terms) as corroboration and timeliness; no new system. |
+| 3 | Classifier bug | **Separate PR, not in this one.** `pillars.py` and `contentScoring.ts` are untouched. The new editorial path uses its own word-boundary matching. |
+| 4 | Persistence | Score breakdown in `comms_content.notes`; no schema change. |
+| 5 | Implement | Done on this branch behind `COMMS_EDITORIAL_V2` (default off). |
+
+**Files:** new `lib/comms/editorial.py`, `lib/comms/research_library.py`, `test_comms_editorial.py`; edited `opportunities.py`, `weekly.py`, `portfolio.py`, `commands/comms.py`. No command was added or removed.
+
+**Known limitations (not yet addressed)**
+- Employer terms are not hard-coded: set `COMMS_CONFIDENTIAL_TERMS` (comma list) before enabling the flag in production, or employer names will not be screened.
+- "Proposed headline" is the source title and "central argument" is the source's own claim, labelled as a working claim. There is no LLM synthesis step yet.
+- Signal matching is simple term overlap and should be tuned against real `content_signals`.
+- Command Memory records carry no dates in the current query, so internal items get a neutral timeliness score.
+- Once an item is drafted its title joins the de-duplication list, so it drops out of the ranked list and later items renumber. This is by design (avoids repeat topics) but worth knowing.
+- Idempotent `record_content` and the Library/signal/dedupe reads only run with the flag on.
+
+**Tests:** 79 pass (52 existing + 27 new) with `-o addopts=""`. Twelve `test_human_systems_scheduler.py` timezone tests fail identically on the untouched baseline (checked by stashing my changes), so they are not caused by this work.
