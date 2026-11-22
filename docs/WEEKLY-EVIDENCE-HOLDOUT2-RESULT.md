@@ -46,10 +46,10 @@ to ~0.20 recall here, which confirms the earlier holdout result was not an outli
    not necessarily a model miss; it needs the Captain's ruling.
 5. **Found but under-ranked (3):** an outage reported by an aggregator or status page was VERIFY, not ESCALATE (policy-consistent,
    reviewers differ); a telecom AGM story is commentary-like.
-6. **Grouping 0/21:** 15 of the 21 gold pairs sit in non-incident groups (politics/crime follow-ups) that the detector deliberately
-   never groups; 15 belong to one advisory cluster, which advisories are never grouped by prose; 3 are a court-breach cluster whose
-   members were never candidates (category 1). None of the 21 is an in-scope grouping success or false merge, so grouping is **not
-   measured** by this set. A grouping test needs a fresh set with many multi-report incidents.
+6. **Grouping 0/21:** the 21 gold pairs are 15 in one advisory cluster (advisories are never grouped by prose, by design), 5 in
+   non-incident political/crime follow-up groups that the detector never groups, and 1 in a court-breach pair whose members were never
+   candidates (category 1). None is an in-scope grouping success or false merge, so grouping is **not measured** by this set. A grouping
+   test needs a fresh set with many multi-report incidents.
 
 ## What this means
 * Replacing one hand-written vocabulary with a larger hand-written lexicon repeated the failure on new data: the entity and event
