@@ -517,6 +517,23 @@ if __name__ == "__main__":
 
 # ── Classifier versioning (v1 substring -> v2 whole-word) ─────────────────────
 
+class TestPythonPortalKeywordParity(unittest.TestCase):
+    """contentScoring.ts must carry exactly the keyword lists in pillars.py. They had drifted
+    (apra, mental fitness, resilience were Python-only); this keeps them from drifting again."""
+
+    def _ts_keywords(self):
+        import re
+        ts = (Path(__file__).resolve().parents[1] / "lcars-portal" / "src" / "lib" / "contentScoring.ts").read_text()
+        blocks = re.findall(r"key:\s*'([a-z_]+)'.*?keywords:\s*\[(.*?)\],\s*\}", ts, re.DOTALL)
+        return {k: set(re.findall(r"'([^']+)'", body)) for k, body in blocks}
+
+    def test_every_pillar_has_identical_keywords_in_both_languages(self):
+        ts = self._ts_keywords()
+        self.assertEqual(set(ts), {p.key for p in pillars.PILLARS})
+        for p in pillars.PILLARS:
+            self.assertEqual(set(p.keywords), ts[p.key], p.key)
+
+
 class TestClassifierVersioning(unittest.TestCase):
     CORPUS = (
         "We said we maintain our history",                                   # v1 false positive on 'ai'
