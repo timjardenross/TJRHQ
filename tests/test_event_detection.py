@@ -135,10 +135,65 @@ class TestStage3And4Decision:
 
     def test_method_version_is_stamped(self):
         by, _ = one([ev("r", "Routine item", "ABC News")])
-        assert by["r"].method_version == ed.METHOD_VERSION == "wk-detect/0.3.0-staged"
+        assert by["r"].method_version == ed.METHOD_VERSION == "wk-detect/0.4.0-tiered"
 
 
 @pytest.mark.parametrize("title", ["", "   ", "Breaking:", "!!!"])
 def test_degenerate_titles_do_not_crash(title):
     by, _ = one([ev("x", title)])
     assert by["x"].priority == "REFERENCE"
+
+
+class TestTieredEscalationPolicy:
+    """Captain's tiered model: sector relevance, event type, impact status, materiality, evidence confidence and
+    urgency are separate; a sector alone never escalates."""
+
+    def d(self, title, source="ABC News", **kw):
+        by, _ = one([ev("x", title, source, **kw)])
+        return by["x"]
+
+    def test_tier1_confirmed_disruption_single_credible_source_is_provisional_escalate(self):
+        d = self.d("Telstra mobile network outage leaves customers without service nationwide")
+        assert (d.sector_tier, d.impact_status, d.materiality, d.priority, d.provisional) == (1, "confirmed", "high", "ESCALATE", True)
+
+    def test_unconfirmed_cyber_incident_without_consequence_is_verify_not_escalate(self):
+        d = self.d("Coles Group investigating a cyber incident")
+        assert d.sector_tier == 2 and d.impact_status == "unconfirmed" and d.priority == "VERIFY"
+
+    def test_tier2_confirmed_consequence_without_scale_is_watch(self):
+        d = self.d("Supermarket freezers hit by cyber attack, food spoiled", "BBC News")
+        assert d.sector_tier == 2 and d.impact_status == "confirmed" and d.materiality == "medium" and d.priority == "WATCH"
+
+    def test_tier2_with_scale_and_confirmed_consequence_escalates(self):
+        d = self.d("Microsoft outage disrupts services worldwide", "BBC News")
+        assert d.sector_tier == 2 and d.priority == "ESCALATE"
+
+    def test_tier3_data_breach_is_not_escalated_without_scale_and_tier(self):
+        d = self.d("Cosmetics company data breach affects 340,000 clients", "ABC News")
+        assert d.sector_tier is None and d.impact_status == "confirmed" and d.priority in {"WATCH", "VERIFY", "ESCALATE"}
+        assert d.materiality in {"medium", "high"}
+
+    def test_sector_alone_never_escalates(self):
+        for title in ("Westpac reports record half-year profit", "Qantas announces new Sydney lounge", "NSW Health appoints new director"):
+            assert self.d(title).priority == "REFERENCE"
+
+    def test_retrospective_report_of_a_past_outage_is_not_escalated(self):
+        d = self.d("Surge in complaints, compensation claims after Telstra outage")
+        assert d.impact_status == "retrospective" and d.priority != "ESCALATE"
+
+    def test_tier1_major_incident_declared_without_stated_consequence_escalates_provisionally(self):
+        d = self.d("NSW Health declares major incident after cybersecurity breach across hospitals")
+        assert d.sector_tier == 1 and d.priority == "ESCALATE" and d.provisional
+
+    def test_same_unconfirmed_tier1_report_from_an_aggregator_only_needs_verification(self):
+        d = self.d("Hospital cyber incident declared major", "Google News - Health cyber")
+        assert d.priority == "VERIFY"
+
+    def test_status_page_outage_and_physical_event_become_candidates(self):
+        assert ed.detect_candidate(ev("a", "Users unable to access Notion", "Notion Status")).is_candidate
+        assert ed.detect_candidate(ev("b", "Container ship sunk in Strait of Hormuz", "BBC News")).is_candidate
+
+    def test_axes_are_reported_separately(self):
+        d = self.d("Telstra mobile network outage leaves customers without service nationwide")
+        for field in ("sector_tier", "event_type", "impact_status", "materiality", "evidence_confidence", "urgency", "priority"):
+            assert hasattr(d, field)

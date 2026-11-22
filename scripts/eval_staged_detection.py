@@ -52,7 +52,7 @@ def evaluate(path, *, with_lists=False):
 
     # 2. materiality (event level, headline impact of the event itself)
     def ev_high(i):
-        return ed._impact(cand_of[i]) == "actual_major"
+        return ed._materiality(cand_of[i]) == "high"
     tp = sum(1 for i, r in lab.items() if ev_high(i) and r["label_materiality"] == "H")
     fp = sum(1 for i, r in lab.items() if ev_high(i) and r["label_materiality"] != "H")
     fn = sum(1 for i, r in lab.items() if not ev_high(i) and r["label_materiality"] == "H")

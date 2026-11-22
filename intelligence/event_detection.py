@@ -1,4 +1,4 @@
-"""Staged event detection (method wk-detect/0.3.0-staged) — offline, not wired into any live path.
+"""Staged event detection (method wk-detect/0.4.0-tiered) — offline, not wired into any live path.
 
 Replaces title-term scoring with four stages. Every rule is deterministic; the lexicons are data, below.
 
@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 from intelligence import weekly_evidence as we
 
-METHOD_VERSION = "wk-detect/0.3.0-staged"
+METHOD_VERSION = "wk-detect/0.4.0-tiered"
 
 # ── Lexicons (data) ──────────────────────────────────────────────────────────────────────────────────
 EVENT_TYPES = {
@@ -29,7 +29,7 @@ EVENT_TYPES = {
                        r"data (?:was |were |has been )?stolen", r"stolen data", r"security incident",
                        r"compromis(?:ed|e)", r"unauthori[sz]ed access", r"data (?:likely |was )?accessed",
                        r"personal data", r"leak(?:ed|s)?", r"wiped", r"card skimmers?", r"skimmers?", r"hijacked"),
-    "outage": (r"outages?", r"blackouts?", r"power cuts?", r"power outages?", r"without power", r"goes? down",
+    "outage": (r"unable to (?:access|use|log ?in)", r"outages?", r"blackouts?", r"power cuts?", r"power outages?", r"without power", r"goes? down",
                r"went down", r"is down", r"offline", r"disruptions?", r"disrupted", r"ground stops?", r"grounded",
                r"flights? (?:cancell?ed|delayed)", r"shut ?down", r"system failures?", r"degraded",
                r"restor(?:e|ed|ing) services?", r"services? (?:restored|disabled|suspended)", r"portal disabled",
@@ -37,6 +37,8 @@ EVENT_TYPES = {
                r"los(?:t|e|es|ing) power", r"supply (?:is )?at risk", r"(?:power|energy|fuel) shortages?",
                r"(?:towers?|lines?|poles?|substations?) (?:\w+ )?(?:crushed|toppled?|downed|collapsed?|damaged)",
                r"(?:crushed|toppl\w+|downed|collapsed) (?:\w+ )?(?:transmission )?(?:towers?|lines?|poles?)"),
+    "physical": (r"fires?", r"explosions?", r"blasts?", r"sunk", r"sinks?", r"derail\w*", r"collapse[sd]?",
+                 r"(?:missile|drone|rocket) (?:strike|attack)s?", r"attacks? on"),
     "vulnerability": (r"cve-\d{4}-\d+", r"vulnerabilit(?:y|ies)", r"zero-?days?", r"known exploited",
                       r"actively exploited", r"exploited in the wild", r"security bulletins?", r"patch(?:es)?",
                       r"security advisor(?:y|ies)", r"authorization bypass", r"remote code execution"),
@@ -66,6 +68,22 @@ SECTORS = {
 }
 ESSENTIAL = frozenset({"retail_food", "health", "telecom", "aviation", "energy", "finance", "cloud_platform",
                        "government", "transport_water"})
+# Captain's tiered operational-relevance model. A sector NEVER escalates on its own: the tier only weights a
+# stated event with a stated consequence (see decide()).
+#   Tier 1 critical essential services/infrastructure; Tier 2 systemically important dependencies and supply
+#   chains; Tier 3 context-dependent services (including anything with no recognised sector).
+SECTOR_TIER = {"energy": 1, "telecom": 1, "health": 1, "aviation": 1, "transport_water": 1, "finance": 1,
+               "cloud_platform": 2, "retail_food": 2, "government": 2, "consumer_service": 3}
+CONSEQUENCE = (r"outages?", r"offline", r"(?:is|are|went|goes) down", r"disabled", r"grounded", r"ground stops?",
+               r"without power", r"power (?:is |still )?out", r"unable to (?:access|use|log ?in)", r"suspend\w*", r"cancell?ed",
+               r"spoil\w*", r"useless", r"knock\w* out", r"halted", r"shut ?down", r"los(?:t|e|ing) power", r"fail(?:ure|ed|s)?",
+               r"sunk", r"disrupt\w+", r"wiped", r"taken offline", r"blackouts?")
+DATA_EXPOSURE = (r"data (?:was |were |has been )?(?:stolen|exposed|leaked|accessed)", r"(?:stolen|leaked|exposed) (?:data|details)",
+                 r"breach(?:es)? (?:affects?|exposes?|hits?)", r"personal data", r"customer (?:data|details)",
+                 r"client data", r"card details", r"\d{2,3},\d{3}\s+(?:clients|customers|users|people)")
+RETROSPECTIVE = (r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
+                 r"apolog\w+", r"lessons?", r"anniversary", r"fallout")
+ONGOING = (r"continues?", r"still", r"ongoing", r"remains?", r"races? to", r"live:")
 SCALE = (r"nation(?:wide|al)", r"global(?:ly)?", r"worldwide", r"widespread", r"millions?", r"major incident",
          r"in (?:three|four|five|\d+) states", r"across (?:the )?(?:country|australia|us|world)", r"hundreds of",
          r"billions?", r"almost 24 hours")
@@ -91,6 +109,7 @@ def _rx(terms) -> re.Pattern:
 
 _TYPE_RX = {k: _rx(v) for k, v in EVENT_TYPES.items()}
 _SECTOR_RX = {k: _rx(v) for k, v in SECTORS.items()}
+_CONSEQ_RX, _EXPOSE_RX, _RETRO_RX, _ONGOING_RX = _rx(CONSEQUENCE), _rx(DATA_EXPOSURE), _rx(RETROSPECTIVE), _rx(ONGOING)
 _SCALE_RX, _ACTUAL_RX, _POTENTIAL_RX, _COMM_RX = _rx(SCALE), _rx(ACTUAL), _rx(POTENTIAL), _rx(COMMENTARY)
 _COMPROMISE_RX = re.compile(r"(?<![a-z])(?:hijacked|hacked|breached|ransomware|stolen|skimmers?|compromised|wiped|malware)(?![a-z])", re.IGNORECASE)
 _PROPER = re.compile(r"\b([A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]{2,})*)\b")
@@ -119,11 +138,14 @@ class Candidate:
     consequence: str          # essential_service | broad_user_impact | unknown | none
     family: str
     kind: str
+    tier: int | None = None   # 1/2/3 from the sectors found; None = no recognised sector
+    status: str = "none"      # confirmed | unconfirmed | retrospective | potential | none (impact status)
+    exposure: bool = False    # a data-exposure consequence is stated
     legacy: dict = field(default_factory=dict)
 
     @property
     def primary_type(self) -> str:
-        for t in ("cyber_incident", "outage", "vulnerability"):
+        for t in ("cyber_incident", "outage", "physical", "vulnerability"):
             if t in self.types:
                 return t
         return "other"
@@ -165,15 +187,28 @@ def detect_candidate(event: dict) -> Candidate:
     # Recall-oriented: any disruption/cyber/vulnerability type plus a sector OR a scale cue. A bare cyber mention with no
     # sector and no scale is NOT a candidate (otherwise every security-vendor press release would be).
     compromise = bool(_COMPROMISE_RX.search(text))      # a stated compromise needs no sector to be worth verifying
-    is_cand = bool(types) and (bool(sectors) or scale or compromise
-                               or ("vulnerability" in types and we.exploited(text)))
+    conseq = bool(_CONSEQ_RX.search(text))
+    exposure = bool(_EXPOSE_RX.search(text))
+    is_cand = bool(types or exposure) and (bool(sectors) or scale or compromise or conseq or exposure
+                                           or ("vulnerability" in types and we.exploited(text)))
     consequence = ("essential_service" if essential else "broad_user_impact" if sectors
                    else "unknown" if (types and scale) else "none")
+    tier = min((SECTOR_TIER[x] for x in sectors if x in SECTOR_TIER), default=None)
+    retro = bool(_RETRO_RX.search(text)) and not _ONGOING_RX.search(text)
+    if commentary or not is_cand:
+        status = "potential" if (commentary and is_cand) else "none"
+    elif retro:
+        status = "retrospective"
+    elif conseq or exposure:
+        status = "confirmed"
+    else:
+        status = "unconfirmed"
     src = event.get("source") or ""
     return Candidate(
         event_id=str(event.get("id")), title=title, source=src, published=we._parse_ts(event.get("collected_at")),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
+        tier=tier, status=status, exposure=exposure,
         family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {})
 
 
@@ -315,68 +350,88 @@ def correlate(cands: list[Candidate]) -> list[Group]:
     return groups
 
 
-# ── Stage 3 + 4: materiality, evidence, decision ──────────────────────────────────────────────────────────
+# ── Stage 3 + 4: operational materiality, evidence confidence, urgency, decision ─────────────────────────────
 @dataclass
 class Decision:
+    """Six separate axes: sector relevance (tier), event type, impact status, operational materiality,
+    evidence confidence and action urgency; the priority is derived from them by the rules in decide()."""
     group: Group
     headline: Candidate
-    impact: str               # actual_major | actual_moderate | potential_high | potential_low | none
-    materiality: str          # high | medium | low
+    sector_tier: int | None   # 1 critical services | 2 systemic dependencies/supply chains | 3 context-dependent | None
+    event_type: str
+    impact_status: str        # confirmed | unconfirmed | retrospective | potential | none
+    materiality: str          # high | medium | low (operational, not sector)
     evidence_confidence: float
+    urgency: str              # immediate | soon | routine
     priority: str             # ESCALATE | VERIFY | WATCH | REFERENCE
     provisional: bool
     reasons: list[str]
     method_version: str = METHOD_VERSION
 
 
-def _impact(c: Candidate) -> str:
-    if not c.is_candidate:
-        return "none"
-    essential = c.consequence == "essential_service"
-    if c.commentary:                         # commentary/roundups describe an incident, they are not the report of one
-        return "potential_high" if essential else "potential_low"
-    if c.actual and (essential or c.consequence == "broad_user_impact"):
-        major = c.scale or c.consequence == "essential_service" and ("cyber_incident" in c.types or "outage" in c.types)
-        return "actual_major" if major else "actual_moderate"
-    if c.compromise and not c.commentary:
-        return "potential_high"              # a stated compromise of unknown reach is retained for verification
-    if c.actual and not c.commentary:
-        return "actual_moderate" if c.scale else "potential_low"
-    return "potential_high" if essential else "potential_low"
+_STATUS_ORDER = {"confirmed": 4, "unconfirmed": 3, "retrospective": 2, "potential": 1, "none": 0}
+
+
+def _materiality(c: Candidate) -> str:
+    """Operational materiality from the STATED consequence, never from the sector alone."""
+    if not c.is_candidate or c.status in ("none", "potential"):
+        return "low"
+    tier = c.tier or 3
+    if c.status == "confirmed":
+        if tier == 1 or (tier == 2 and c.scale) or (c.scale and c.exposure):
+            return "high"
+        return "medium"
+    if c.status == "retrospective":
+        return "medium" if tier == 1 else "low"
+    return "medium" if tier == 1 else "low"       # unconfirmed: a Tier 1 candidate is worth a look, others are not
 
 
 def decide(group: Group, *, now: datetime | None = None) -> Decision:
     originals = [m for m in group.members if not m.commentary] or group.members
-    order = {"actual_major": 4, "actual_moderate": 3, "potential_high": 2, "potential_low": 1, "none": 0}
-    head = max(originals, key=lambda c: (order[_impact(c)], c.kind == we.PRIMARY, c.published or datetime.min.replace(tzinfo=timezone.utc)))
-    impact = max((_impact(c) for c in originals), key=lambda i: order[i])
+    head = max(originals, key=lambda c: (_STATUS_ORDER[c.status], -(c.tier or 3), c.kind == we.PRIMARY,
+                                         c.published or datetime.min.replace(tzinfo=timezone.utc)))
+    status = max((c.status for c in originals), key=_STATUS_ORDER.get)
+    mat = max((_materiality(c) for c in originals), key={"high": 2, "medium": 1, "low": 0}.get)
     kinds = {c.kind for c in originals}
     primary = we.PRIMARY in kinds
     flags: list[str] = []
     conf = we.confidence(we.PRIMARY if primary else (we.MAINSTREAM if we.MAINSTREAM in kinds else head.kind),
                          group.independent_publishers, flags)
-    reasons = [f"impact={impact}", f"evidence confidence {conf}", f"{group.independent_publishers} independent publisher(s)"]
-    mat = {"actual_major": "high", "actual_moderate": "medium", "potential_high": "medium"}.get(impact, "low")
+    solid = bool(primary or kinds & {we.MAINSTREAM, we.SPECIALIST} or group.independent_publishers >= 2)
     provisional = group.independent_publishers < 2 and not primary
-    solid = primary or kinds & {we.MAINSTREAM, we.SPECIALIST} or group.independent_publishers >= 2
+    tier = head.tier
+    reasons = [f"tier={tier}", f"type={head.primary_type}", f"status={status}", f"materiality={mat}",
+               f"evidence confidence {conf}", f"{group.independent_publishers} independent publisher(s)"]
+
+    def out(pr, urgency, prov=False):
+        return Decision(group, head, tier, head.primary_type, status, mat, conf, urgency, pr, prov, reasons)
+
     if head.primary_type == "vulnerability":
-        exploited_ = we.exploited(head.title)
-        exposed = we.known_exposure(head.title)
+        exploited_, exposed = we.exploited(head.title), we.known_exposure(head.title)
         mat = "high" if (exploited_ and exposed) else "medium" if exploited_ else "low"
-        pr = "ESCALATE" if (exploited_ and exposed and primary) else "WATCH" if exploited_ or "critical" in head.title.lower() else "REFERENCE"
         reasons.append(f"advisory: exploited={exploited_} known_exposure={exposed} (KEV alone is not critical)")
-        return Decision(group, head, impact, mat, conf, pr, False, reasons)
-    if impact == "actual_major":
-        pr = "ESCALATE" if solid else "VERIFY"
-        if pr == "ESCALATE" and provisional:
-            reasons.append("single credible report: provisional, follow-up verification required")
-    elif impact == "actual_moderate":
-        pr = "WATCH" if solid else "VERIFY" if head.consequence == "essential_service" else "REFERENCE"
-    elif impact == "potential_high":
-        pr = "VERIFY" if (head.types and head.is_candidate and not head.commentary) else "WATCH"
-    else:
-        pr = "REFERENCE"
-    return Decision(group, head, impact, mat, conf, pr, pr == "ESCALATE" and provisional, reasons)
+        if exploited_ and exposed and primary:
+            return out("ESCALATE", "immediate")
+        return out("WATCH" if exploited_ or "critical" in head.title.lower() else "REFERENCE", "soon" if exploited_ else "routine")
+    if mat == "high":
+        if solid:
+            if provisional:
+                reasons.append("single credible report: provisional, follow-up verification required")
+            return out("ESCALATE", "immediate", provisional)
+        reasons.append("high operational materiality but weak evidence: verify before acting")
+        return out("VERIFY", "soon")
+    if status == "unconfirmed" and head.is_candidate and (tier in (1, 2) or head.compromise):
+        # Unconfirmed incident without a demonstrated operational consequence: VERIFY, unless it is a Tier 1 incident
+        # that a credible source describes as major/widespread (severe potential consequences -> provisional escalation).
+        if tier == 1 and head.scale and solid:
+            reasons.append("severe potential consequence, credible single source: provisional escalation")
+            return out("ESCALATE", "immediate", True)
+        return out("VERIFY", "soon")
+    if mat == "medium":
+        return out("WATCH" if solid else "VERIFY", "soon")
+    if status == "confirmed" and head.is_candidate:
+        return out("WATCH" if solid else "REFERENCE", "routine")
+    return out("REFERENCE", "routine")
 
 
 def run(events: list[dict], *, now: datetime | None = None) -> list[Decision]:
