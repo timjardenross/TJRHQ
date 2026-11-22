@@ -513,3 +513,55 @@ class TestLeadershipProducts(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ── Classifier versioning (v1 substring -> v2 whole-word) ─────────────────────
+
+class TestClassifierVersioning(unittest.TestCase):
+    CORPUS = (
+        "We said we maintain our history",                                   # v1 false positive on 'ai'
+        "Power still out after transmission line downed",
+        "AI governance and AI adoption in banks",
+        "recurring incidents and cascading risks to critical infrastructure",
+        "Salesforce degradation Customer360Audiences",
+        "Building trustworthy AI by fencing it in",
+        "Sleep, movement and sustainable coaching habits",
+        "A brief history of syslog timestamps",
+        "Apollo scraps planned loan after rule breaches",
+        "Board accountability and decision-making under uncertainty",
+    )
+
+    def test_versions_are_declared_and_distinct(self):
+        self.assertNotEqual(pillars.CLASSIFIER_VERSION, pillars.LEGACY_CLASSIFIER_VERSION)
+
+    def test_v1_reproduces_the_substring_defect_and_v2_fixes_it(self):
+        _p1, s1 = pillars.classify_pillar_v1_substring("We said we maintain our history")
+        p2, s2 = pillars.classify_pillar("We said we maintain our history")
+        self.assertGreater(s1, 0)
+        self.assertEqual(s2, 0)
+        self.assertEqual(p2, pillars.DEFAULT_PILLAR)
+
+    def test_v2_never_scores_higher_than_v1_except_for_plural_support(self):
+        # whole-word matching can only remove substring hits; the plural suffix cannot add hits
+        # that the substring matcher did not already find.
+        for t in self.CORPUS:
+            self.assertLessEqual(pillars.classify_pillar(t)[1], pillars.classify_pillar_v1_substring(t)[1], t)
+
+    def test_compare_versions_reports_impact(self):
+        r = pillars.compare_versions(list(self.CORPUS))
+        self.assertEqual(r["n"], len(self.CORPUS))
+        self.assertGreaterEqual(r["changed"], 1)
+        self.assertEqual(r["score_higher"], 0)
+        self.assertEqual(r["changed"], len(r["changed_cases"]))
+
+    def test_clearly_on_topic_text_keeps_its_pillar_across_versions(self):
+        for t, key in (("recurring incidents and cascading risks to critical infrastructure", "operational_resilience"),
+                       ("AI governance and AI adoption in banks", "ai_augmented_leadership"),
+                       ("Sleep, movement and sustainable coaching habits", "wellness_sustainable_performance")):
+            self.assertEqual(pillars.classify_pillar(t)[0].key, key)
+            self.assertEqual(pillars.classify_pillar_v1_substring(t)[0].key, key)
+
+    def test_stored_tags_are_not_rewritten_by_the_classifier(self):
+        src = Path(pillars.__file__).read_text()
+        for banned in ("update(", "insert(", "supabase", ".execute("):
+            self.assertNotIn(banned, src)

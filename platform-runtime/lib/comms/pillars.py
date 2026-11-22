@@ -192,6 +192,12 @@ PILLARS: tuple[Pillar, ...] = (
 
 PILLARS_BY_KEY = {p.key: p for p in PILLARS}
 
+# Classifier methodology versions. A change to how keywords match shifts pillar assignments and
+# scores, so it is versioned: any trend that spans a change must flag the discontinuity, and
+# stored pillar tags are NOT rewritten (history keeps the version that produced it).
+CLASSIFIER_VERSION = "pillars-kw-v2-wordboundary"
+LEGACY_CLASSIFIER_VERSION = "pillars-kw-v1-substring"
+
 # A sensible default when nothing matches strongly.
 DEFAULT_PILLAR = PILLARS_BY_KEY["personal_operating_systems"]
 
@@ -223,3 +229,34 @@ def classify_pillar(text: str) -> tuple[Pillar, int]:
         if score > best_score:
             best, best_score = p, score
     return best, best_score
+
+
+def classify_pillar_v1_substring(text: str) -> tuple[Pillar, int]:
+    """The PREVIOUS matcher (plain substring), retained only so the two versions can be compared
+    offline. Not used by any runtime path. Known defect: short keywords ('ai', 'eq', 'org',
+    'ori') match inside ordinary words."""
+    hay = _tokens(text)
+    best = DEFAULT_PILLAR
+    best_score = 0
+    for p in PILLARS:
+        score = sum(1 for kw in p.keywords if kw in hay)
+        if score > best_score:
+            best, best_score = p, score
+    return best, best_score
+
+
+def compare_versions(texts: list[str]) -> dict:
+    """Offline impact of the v1 -> v2 change on a corpus: how many pillar assignments and scores
+    change, and the changed cases. Pure; reads nothing."""
+    changed, score_down, score_up, to_default = [], 0, 0, 0
+    for t in texts:
+        (p1, s1), (p2, s2) = classify_pillar_v1_substring(t), classify_pillar(t)
+        if p1.key != p2.key or s1 != s2:
+            changed.append({"text": t[:90], "v1": (p1.key, s1), "v2": (p2.key, s2)})
+        score_down += s2 < s1
+        score_up += s2 > s1
+        to_default += (s2 == 0 and s1 > 0)
+    n = len(texts)
+    return {"n": n, "changed": len(changed), "pillar_changed": sum(1 for c in changed if c["v1"][0] != c["v2"][0]),
+            "score_lower": score_down, "score_higher": score_up, "now_unclassified": to_default,
+            "changed_cases": changed}
