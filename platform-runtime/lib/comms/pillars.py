@@ -37,7 +37,8 @@ PILLARS: tuple[Pillar, ...] = (
             "resilience", "risk", "outage", "incident", "recovery", "continuity",
             "disruption", "ori", "threat", "exposure",
             # expanded
-            "cyber", "vulnerability", "breach", "ransomware", "failover", "redundancy",
+            "cyber", "cyberattack", "cyber attack", "cybersecurity", "cyber security",
+            "vulnerability", "breach", "ransomware", "failover", "redundancy",
             "apra", "cirmp", "critical infrastructure", "crisis", "cascade",
             "single point of failure", "vendor risk", "supply chain", "high availability",
             "disaster", "backup", "stress test", "systemic risk", "operational risk",

@@ -34,6 +34,14 @@ describe('classifyPillar', () => {
     expect(classifyPillar('AI governance and AI adoption').pillar.key).toBe('ai_augmented_leadership');
   });
 
+  it('classifies compound cyber words as operational resilience (parity with pillars.py)', () => {
+    for (const t of ['Vendors targeted in cyberattack', 'Federal cybersecurity gaps leave food supply exposed', 'US ports face wave of cyberattacks']) {
+      const r = classifyPillar(t);
+      expect(r.pillar.key).toBe('operational_resilience');
+      expect(r.score).toBeGreaterThanOrEqual(1);
+    }
+  });
+
   it('falls back to DEFAULT_PILLAR with score 0 for text matching no keywords', () => {
     const { pillar, score } = classifyPillar('xyzzy plugh qwerty');
     expect(pillar.key).toBe(DEFAULT_PILLAR.key);

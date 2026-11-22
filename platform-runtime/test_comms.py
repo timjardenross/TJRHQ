@@ -561,6 +561,14 @@ class TestClassifierVersioning(unittest.TestCase):
             self.assertEqual(pillars.classify_pillar(t)[0].key, key)
             self.assertEqual(pillars.classify_pillar_v1_substring(t)[0].key, key)
 
+    def test_compound_cyber_words_still_classify_as_resilience(self):
+        # v2's whole-word rule would otherwise lose 'cyber' inside 'cyberattack'/'cybersecurity'.
+        for t in ("Vendors targeted in cyberattack", "Federal cybersecurity gaps leave food supply exposed",
+                  "US ports face wave of cyberattacks"):
+            p, score = pillars.classify_pillar(t)
+            self.assertEqual(p.key, "operational_resilience", t)
+            self.assertGreaterEqual(score, 1)
+
     def test_stored_tags_are_not_rewritten_by_the_classifier(self):
         src = Path(pillars.__file__).read_text()
         for banned in ("update(", "insert(", "supabase", ".execute("):
