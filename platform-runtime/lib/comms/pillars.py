@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cache
 
 
 @dataclass(frozen=True)
@@ -200,8 +200,8 @@ def _tokens(text: str) -> str:
     return (text or "").lower()
 
 
-@lru_cache(maxsize=None)
-def _kw_re(kw: str) -> "re.Pattern[str]":
+@cache
+def _kw_re(kw: str) -> re.Pattern[str]:
     # Whole-word match with an optional plural suffix, so "risk" matches "risks"
     # but "ai" no longer matches inside "said"/"maintain". Must stay identical to
     # keywordRegex() in lcars-portal/src/lib/contentScoring.ts.
