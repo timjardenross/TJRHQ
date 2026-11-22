@@ -71,6 +71,21 @@ def _personal_router_timeout() -> float:
         return 60.0
 
 
+def _router_is_local() -> bool:
+    """Fail-closed check that MODEL_ROUTER_URL points at this machine or a private network address.
+    A personal-data route must not be sent to a router that has been (mis)configured to a public host."""
+    import ipaddress
+    from urllib.parse import urlparse
+    host = (urlparse(_router_url()).hostname or "").lower()
+    if host == "localhost" or host.endswith((".local", ".internal")):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private
+
+
 def _call_router(prompt: str, system_prompt: str | None = None, *, timeout: float | None = None) -> str | None:
     """Call Model Router /api/model/xo-response. Returns text or None."""
     payload: dict = {"prompt": prompt}
@@ -158,6 +173,9 @@ def generate(prompt: str, system_prompt: str | None = None, *, cloud_first: bool
     treated the same way even when the caller did not mark it."""
     if not personal_data_policy.external_ai_allowed() and (
             personal or personal_data_policy.contains_personal_health(f"{system_prompt or ''}\n{prompt}")):
+        if not _router_is_local():
+            log.warning("[llm] personal route refused: MODEL_ROUTER_URL is not a local/private address")
+            return None
         return _call_router(prompt, system_prompt, timeout=_personal_router_timeout())
     if _cloud_disabled():
         return _call_router(prompt, system_prompt)
