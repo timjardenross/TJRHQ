@@ -70,7 +70,8 @@ def evaluate(path, *, with_lists=False):
     for i, u in unit_of.items():
         units.setdefault(u, []).append(i)
     gold_e = {u for u, ids in units.items() if any(lab[i]["label_priority"] == "E" for i in ids)}
-    model_e = {u for u, ids in units.items() if any(inc_of[i].priority == "ESCALATE" for i in ids)}
+    model_e = {u for u, ids in units.items()
+               if any(inc_of[i].priority == "ESCALATE" and not cand_of[i].commentary for i in ids)}
     out["escalation"] = {"recall": rate(len(gold_e & model_e), len(gold_e)),
                          "precision": rate(len(gold_e & model_e), len(model_e)),
                          "missed": sorted(gold_e - model_e), "false_alarms": sorted(model_e - gold_e)}

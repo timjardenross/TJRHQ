@@ -333,7 +333,7 @@ def _impact(c: Candidate) -> str:
     if not c.is_candidate:
         return "none"
     essential = c.consequence == "essential_service"
-    if c.commentary and not c.actual:
+    if c.commentary:                         # commentary/roundups describe an incident, they are not the report of one
         return "potential_high" if essential else "potential_low"
     if c.actual and (essential or c.consequence == "broad_user_impact"):
         major = c.scale or c.consequence == "essential_service" and ("cyber_incident" in c.types or "outage" in c.types)
