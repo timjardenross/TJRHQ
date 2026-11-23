@@ -12,7 +12,6 @@ is kept and routed to VERIFY. Co-occurrence never implies causation (no causal e
 """
 from __future__ import annotations
 
-import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -117,8 +116,8 @@ _TYPE_RX = {k: _rx(v) for k, v in EVENT_TYPES.items()}
 _SECTOR_RX = {k: _rx(v) for k, v in SECTORS.items()}
 _CONSEQ_RX, _EXPOSE_RX, _RETRO_RX, _ONGOING_RX = _rx(CONSEQUENCE), _rx(DATA_EXPOSURE), _rx(RETROSPECTIVE), _rx(ONGOING)
 _SAFETY_RX, _CASCADE_RX, _MINOR_RX = _rx(SAFETY), _rx(CASCADING), _rx(MINOR)
-_CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.I)
-_DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.I)
+_CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.IGNORECASE)
+_DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.IGNORECASE)
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
 # Proportionality (Captain, 2026-11-23): customer count is NOT a universal threshold. For Tier 1 network services (energy,
 # telecom, water) an ONGOING confirmed outage of at least this many customers is high materiality even when described as regional.
