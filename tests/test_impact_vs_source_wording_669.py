@@ -265,3 +265,14 @@ def test_no_recent_incidents_is_insufficient_coverage_not_all_quiet():
 def test_recent_incidents_have_no_coverage_marker():
     _, text = view([ev("a", COLES, "ABC News")])
     assert "EVIDENCE COVERAGE INSUFFICIENT" not in text
+
+
+def test_general_news_at_reference_priority_is_not_published_as_editorial_relevance():
+    """Integration finding: the derived editorial-only rule must not surface never-actionable REFERENCE news (election results, court
+    cases) in the source-quality section or Forward Watch."""
+    es = be.build_evidence([ev("a", "Democrats clinch their largest House majority since 1992", "ABC News", geo="GLOBAL")], now=NOW, window_hours=72)
+    inc = es.incidents[0]
+    assert inc.priority == "REFERENCE"
+    assert "editorial relevance only" not in be._tag(inc)
+    text = "\n".join(be.morning_view(es))
+    assert "Democrats clinch" not in text

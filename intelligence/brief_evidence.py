@@ -189,6 +189,8 @@ _AU_NAMED_RX = re.compile(
 
 
 def _derived_editorial_only(i: IncidentView) -> bool:
+    if i.priority == "REFERENCE":          # never actionable (general news): not published at all, so not an 'editorial relevance' item either
+        return False
     originals = [r for r in i.reports if r["role"] == "original"] or i.reports
     if not originals:
         return False
