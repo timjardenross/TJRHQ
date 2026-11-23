@@ -336,3 +336,16 @@ def test_retrospective_outage_restoration_story_is_excluded():
     es, items = _wk([_ev(1, "AWS says cloud services restored after regional incident overnight", "iTnews",
                          "Engineers restored access after failures affecting customers.")])
     assert (es.incidents[0].event_type, es.incidents[0].impact_status) == ("outage", "retrospective") and items == []
+
+
+def test_offline_capability_in_a_summary_is_not_a_stated_outage():
+    """Codex P2 on 89bf1c86: 'offline support' describes a feature, not a service going offline."""
+    _, items = _wk([_ev(1, "Microsoft releases new software tools for enterprise developers", "iTnews",
+                        "The software adds offline support for enterprise applications running on laptops.")])
+    assert len(items) == 1
+
+
+def test_a_service_stated_to_be_offline_still_excludes_the_item():
+    _, items = _wk([_ev(1, "Microsoft releases new software tools for enterprise developers", "iTnews",
+                        "Customer portals are currently offline after the release.")])
+    assert items == []
