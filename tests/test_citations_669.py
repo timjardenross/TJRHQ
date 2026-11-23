@@ -28,25 +28,68 @@ def incident(events):
     return es, es.incidents[0]
 
 
-def test_citation_includes_report_id_and_url():
+def test_citation_shows_publisher_and_short_id_and_a_short_publisher_url():
     _, i = incident([ev("rep-1", "Telstra mobile outage leaves customers unable to make calls", "ABC News", url="https://example.test/a/1")])
     c = be._cite(i)
-    assert "rep-1" in c and "<https://example.test/a/1>" in c
-    assert c.startswith(f"[{i.incident_id};")          # the incident id, report count and publishers are kept
+    assert "ABC News #rep-1 <https://example.test/a/1>" in c          # readable publisher, short id, the publisher's own short URL
+    assert c.startswith(f"[{i.incident_id};")                          # the incident id and report count are kept
     assert "1 report(s)" in c
 
 
-def test_report_without_a_url_is_cited_by_id_alone():
+def test_uuid_report_ids_are_shortened_to_eight_characters():
+    uuid = "1d9cd2a4-00cd-442e-8936-8ced62bfa3b7"
+    _, i = incident([ev(uuid, "Telstra mobile outage leaves customers unable to make calls", "ABC News")])
+    c = be._cite(i)
+    assert "#1d9cd2a4" in c and uuid not in c
+    assert be.evidence_refs(i)[0]["report_id"] == uuid                  # the full id stays in the evidence data
+
+
+def test_report_without_a_url_is_cited_by_publisher_and_id_alone():
     _, i = incident([ev("rep-1", "Telstra mobile outage leaves customers unable to make calls", "ABC News")])
     c = be._cite(i)
-    assert "rep-1" in c
+    assert "ABC News #rep-1" in c
     assert "None" not in c and "<>" not in c
 
 
-def test_long_urls_are_never_truncated():
-    url = "https://example.test/" + "very-long-path-segment/" * 12 + "article?id=12345"
-    _, i = incident([ev("rep-1", "Telstra mobile outage leaves customers unable to make calls", "ABC News", url=url)])
-    assert f"<{url}>" in be._cite(i)
+def test_long_and_redirect_urls_are_not_shown_but_are_kept_whole_in_the_evidence_data():
+    long_url = "https://example.test/" + "very-long-path-segment/" * 12 + "article?id=12345"
+    redirect = "https://news.google.com/rss/articles/CBMi" + "A" * 300 + "?oc=5"
+    _, i = incident([ev("rep-1", "Telstra mobile outage leaves customers unable to make calls", "ABC News", url=long_url),
+                     ev("rep-2", "Telstra mobile network outage across Australia, customers unable to make calls", "Google News - Telstra", 1, url=redirect)])
+    c = be._cite(i)
+    assert "<https://" not in c                                         # neither is shown inline
+    assert "ABC News #rep-1" in c                                        # but both reports are still cited
+    urls = {r["report_id"]: r["url"] for r in be.evidence_refs(i)}
+    assert urls["rep-1"] == long_url and urls["rep-2"] == redirect        # complete, never truncated
+    assert {r["report_id"]: r["url"] for r in i.reports} == urls          # and the underlying report records are unchanged
+
+
+def test_a_url_is_shown_whole_or_not_at_all():
+    for n in (60, 119, 120, 121, 300):
+        url = "https://example.test/" + "p" * (n - len("https://example.test/"))
+        _, i = incident([ev("rep-1", "Telstra mobile outage leaves customers unable to make calls", "ABC News", url=url)])
+        c = be._cite(i)
+        assert (f"<{url}>" in c) == (len(url) <= be._CITE_URL_MAX)
+        assert "<http" not in c.replace(f"<{url}>", "")                   # never a partial URL
+
+
+def test_colliding_short_ids_are_lengthened_until_they_are_distinct():
+    _, i = incident([ev("seed", "Telstra mobile outage leaves customers unable to make calls", "ABC News")])
+    a, b = "abcdef12-0000-4000-8000-000000000001", "abcdef12-0000-4000-8000-000000000002"
+    i.reports = [_report(a), _report(b)]
+    c = be._cite(i)
+    assert f"#{a}" in c and f"#{b}" in c                                # they differ only in the last character
+    i.reports = [_report("abcdef12-0000-4000-8000-000000000001"), _report("abcdef12-1111-4000-8000-000000000002")]
+    c = be._cite(i)
+    refs = [x.split("#")[1].split(" ")[0] for x in c.split("evidence: ")[1].rstrip("]").split(", ")]
+    assert len(set(refs)) == 2 and all(r.startswith("abcdef12-") for r in refs)    # lengthened just enough to be distinct
+    assert max(len(r) for r in refs) < len("abcdef12-0000-4000-8000-000000000001")  # and not all the way to the full id
+
+
+def test_the_citation_is_much_shorter_than_the_full_url_format():
+    redirect = "https://news.google.com/rss/articles/CBMi" + "A" * 300 + "?oc=5"
+    _, i = incident([ev("1d9cd2a4-00cd-442e-8936-8ced62bfa3b7", "Telstra mobile outage leaves customers unable to make calls", "Google News - Telstra", url=redirect)])
+    assert len(be._cite(i)) < 120
 
 
 def _report(rid, role="original", kind="mainstream", url=True):
@@ -60,7 +103,7 @@ def test_citation_is_bounded_and_says_how_many_more():
     c = be._cite(i)
     assert "6 report(s)" in c
     assert f"+{6 - be._CITE_REFS} more" in c
-    assert c.count("<https://") == be._CITE_REFS
+    assert c.count("<https://") == be._CITE_REFS                       # short publisher URLs are shown
 
 
 def test_originals_and_primary_sources_are_cited_first():
@@ -69,7 +112,7 @@ def test_originals_and_primary_sources_are_cited_first():
                  _report("b-orig"), _report("a-prim", "original", we_primary())]
     c = be._cite(i)
     shown = c.split("evidence:")[1]
-    assert shown.index("a-prim") < shown.index("b-orig") < shown.index("y-synd")
+    assert shown.index("#a-prim") < shown.index("#b-orig") < shown.index("#y-synd")
     assert "z-comm" not in shown                       # the commentary report is the one summarised as "+1 more"
     assert "+1 more" in shown
 
