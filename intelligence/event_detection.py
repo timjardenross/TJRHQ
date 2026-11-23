@@ -160,10 +160,10 @@ def _ongoing_cue(text: str) -> bool:
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
 # A forecast ('will be restored by 5pm', 'restoration expected') says the service is NOT yet restored; a hedged claim ('reportedly restored',
 # 'believed to be restored') is not an affirmative status statement. Neither may override explicit ongoing evidence as 'restored'.
-_FORECAST_RESTORE_RX = _rx((r"(?:will|would|should|could|may|might|expected to|due to|set to|hoped? to|likely to|yet to|not yet|aim(?:s|ing)? to|working to|until)\s+(?:be\s+)?(?:fully\s+)?(?:restored|resolved|back online)",
-                            r"restoration\s+(?:expected|due|estimated|forecast|by|time)", r"(?:until|before)\b[^.;]{0,40}\b(?:restored|resolved)"))
+_FORECAST_RESTORE_RX = _rx((r"(?:will|would|should|could|may|might|expected to|due to|set to|hoped? to|likely to|yet to|not yet|aim(?:s|ing)? to|working to)\s+(?:be\s+)?(?:fully\s+)?(?:restored|resolved|back online)",
+                            r"restoration\s+(?:expected|due|estimated|forecast|by|time)", r"(?:until|before)\s+(?:power|service|services|supply)\s+(?:is|are|can be|has been)\s+(?:restored|resolved)"))
 _HEDGED_RESTORE_RX = _rx((r"(?:reportedly|allegedly|apparently|supposedly|believed to be|said to be|claims? to be|understood to be|thought to be|possibly|perhaps)\s+(?:\w+\s+){0,2}(?:restored|resolved|back online)",
-                          r"(?:restored|resolved|back online)\b[^.;]{0,60}\b(?:reportedly|allegedly|apparently|unconfirmed|according to)"))
+                          r"(?:restored|resolved|back online)\b[^.;]{0,60}\b(?:reportedly|allegedly|apparently|unconfirmed)"))
 # Proportionality (Captain, 2026-11-23): customer count is NOT a universal threshold. For Tier 1 network services (energy,
 # telecom, water) an ONGOING confirmed outage of at least this many customers is high materiality even when described as regional.
 ONGOING_NETWORK_OUTAGE_CUSTOMERS = 10_000
