@@ -378,5 +378,6 @@ def test_genuinely_hypothetical_outage_or_security_patch_stays_eligible():
                     "A flaw could cause outages and leave users unable to log in."):
         _, items = _wk([_ev(1, "Vendor publishes new software security guidance for enterprise teams", "iTnews", summary)])
         assert len(items) == 1, summary
-    es = _demoted([_ev(2, "Cisco patches critical flaw that could allow remote code execution", "iTnews")])
+    es = _demoted([_ev(2, "Cisco patches critical flaw that could allow remote code execution", "iTnews",
+                       "The security vulnerability affects network switches and a patch is available.")])
     assert len(be.worth_knowing(es)) == 1
