@@ -1,0 +1,234 @@
+{
+  "scope": "international incidents",
+  "researched_on": "2026-11-23",
+  "method_note": "Read-only public web research via Firecrawl search/scrape. headline_verbatim values are the page title/H1 text as returned by the scrape or by the news-search result for that URL (site-name suffixes such as '| CISA' removed unless noted). Mainstream 'published' dates come from the search-result date, page metadata, or the dated URL; see per-entry verification_notes. Headlines on live pages can be edited after first publication; they are recorded as they appear on 2026-11-22/23.",
+  "entries": [
+    {
+      "id": "intl-crowdstrike-falcon-windows-2024",
+      "kind": "incident",
+      "sector": "technology / cross-sector (aviation, banking, health)",
+      "event_type": "outage",
+      "date": "2024-07-19",
+      "description": "A faulty CrowdStrike Falcon content update (Channel File 291) affecting Windows hosts caused a global IT outage disrupting banks, airlines and other businesses on 19 July 2024.",
+      "confirmed_at_first_report": "Widespread disruption to airlines, banks and businesses worldwide on 19 July 2024; link to a CrowdStrike update on Windows hosts (per AP/TechCrunch headlines).",
+      "unconfirmed_at_first_report": "Not established from the sources opened: the full scale of affected devices and the detailed root cause (a root-cause summary was published later by CrowdStrike per its hub page).",
+      "sources": [
+        {"role": "official", "publisher": "CrowdStrike", "url": "https://www.crowdstrike.com/falcon-content-update-remediation-and-guidance-hub/", "published": "2024-08-06", "headline_verbatim": "Falcon Content Update Remediation and Guidance Hub | CrowdStrike"},
+        {"role": "mainstream", "publisher": "TechCrunch", "url": "https://techcrunch.com/2024/07/19/faulty-crowdstrike-update-causes-major-global-it-outage-taking-out-banks-airlines-and-businesses-globally/", "published": "2024-07-19", "headline_verbatim": "Faulty CrowdStrike update causes major global IT outage, taking out banks, airlines and businesses globally"},
+        {"role": "mainstream", "publisher": "Associated Press", "url": "https://apnews.com/article/microsoft-crowdstrike-outage-australia-internet-banks-media-0a5f792b6571b37a35181d64028fefc4", "published": "2024-07-19", "headline_verbatim": "A faulty software update causes havoc worldwide for airlines, hospitals and governments"},
+        {"role": "mainstream", "publisher": "NPR", "url": "https://www.npr.org/2024/07/19/g-s1-12222/microsoft-outage-banks-airlines-broadcasters", "published": "2024-07-19", "headline_verbatim": "What we know about the computer update glitch disrupting systems around the world"}
+      ],
+      "first_credible_report_headline": "What we know about the computer update glitch disrupting systems around the world",
+      "verification_notes": "Official 'published' date is the hub page's 'Page last updated 2024-08-06 2119 UTC' stamp (no original publish date shown), not the 19 July first post. Earliest headline is the earliest I verified in search results (all 2024-07-19); I did not establish the true chronological first. Reuters URL slug indicates its headline was changed after first publication so it was not used."
+    },
+    {
+      "id": "intl-aws-us-east-1-2025",
+      "kind": "incident",
+      "sector": "technology / cloud",
+      "event_type": "outage",
+      "date": "2025-10-20",
+      "description": "AWS reported a service disruption in the N. Virginia (us-east-1) Region on October 19 and 20, 2025 stemming from DynamoDB, with knock-on effects on other AWS services and dependent apps.",
+      "confirmed_at_first_report": "Major disruption originating in AWS US-EAST-1 on Monday 20 October 2025; AWS status updates attributed it to DNS resolution of the DynamoDB API endpoint (per Wired).",
+      "unconfirmed_at_first_report": "Not established from the sources opened: the underlying internal root cause beyond DNS resolution (AWS's later summary describes the detail).",
+      "sources": [
+        {"role": "official", "publisher": "Amazon Web Services", "url": "https://aws.amazon.com/message/101925/", "published": null, "headline_verbatim": "Summary of the Amazon DynamoDB Service Disruption in the Northern Virginia (US-EAST-1) Region"},
+        {"role": "mainstream", "publisher": "NBC News", "url": "https://www.nbcnews.com/news/us-news/amazon-web-services-outage-websites-offline-rcna238594", "published": "2025-10-20", "headline_verbatim": "Amazon outage leaves websites and apps lagging across the world"},
+        {"role": "mainstream", "publisher": "WIRED", "url": "https://www.wired.com/story/what-that-huge-aws-outage-reveals-about-the-internet/", "published": "2025-10-20", "headline_verbatim": "What the Huge AWS Outage Reveals About the Internet"}
+      ],
+      "first_credible_report_headline": "Amazon outage leaves websites and apps lagging across the world",
+      "verification_notes": "AWS page shows no publication date (published=null). The AWS page text says the disruption occurred October 19 and 20, 2025 (Pacific times per AWS); I use 2025-10-20 as the date of the public impact reported by mainstream outlets. Reuters coverage (dated 2025-10-21) was seen but its URL slug differs from the headline now shown so it was not used. Earliest headline = earliest verified in search results, not confirmed as chronological first."
+    },
+    {
+      "id": "intl-cloudflare-2025-11-18",
+      "kind": "incident",
+      "sector": "technology / internet infrastructure",
+      "event_type": "outage",
+      "date": "2025-11-18",
+      "description": "On 18 November 2025 from 11:20 UTC, Cloudflare's network began experiencing significant failures delivering core network traffic, which Cloudflare attributes to a bug in generation logic for a Bot Management feature file.",
+      "confirmed_at_first_report": "Cloudflare problems knocked major websites and services (including X and ChatGPT) offline for many users on 18 November 2025; Cloudflare said the issue had been resolved though some services might still show errors.",
+      "unconfirmed_at_first_report": "Not established from the sources opened: the root cause in the first reports (Cloudflare's own write-up later identified the Bot Management feature file bug).",
+      "sources": [
+        {"role": "official", "publisher": "Cloudflare Blog", "url": "https://blog.cloudflare.com/18-november-2025-outage/", "published": "2025-11-18", "headline_verbatim": "Cloudflare outage on November 18, 2025"},
+        {"role": "mainstream", "publisher": "BBC News", "url": "https://www.bbc.com/news/articles/c629pny4gl7o", "published": "2025-11-18", "headline_verbatim": "Cloudflare apologises for outage which took down X and ChatGPT"},
+        {"role": "mainstream", "publisher": "CNBC", "url": "https://www.cnbc.com/2025/11/18/cloudflare-down-outage-traffic-spike-x-chatgpt.html", "published": "2025-11-18", "headline_verbatim": "Cloudflare says outage that hit X, ChatGPT and other sites is resolved"}
+      ],
+      "first_credible_report_headline": "Cloudflare says outage that hit X, ChatGPT and other sites is resolved",
+      "verification_notes": "Cloudflare page metadata shows article:published_time 2025-11-18 (modified 2026-07-17). Both mainstream items are post-resolution articles; earlier same-day live-blog headlines were not captured, so first_credible_report_headline is only the earliest I verified. The Cloudflare Dec 2025 outage was not researched (see dropped)."
+    },
+    {
+      "id": "intl-google-cloud-service-control-2025-06-12",
+      "kind": "incident",
+      "sector": "technology / cloud",
+      "event_type": "outage",
+      "date": "2025-06-12",
+      "description": "Google Cloud, Google Workspace and Google Security Operations products experienced increased 503 errors in external API requests on 12 June 2025, which Google's incident report attributes to a Service Control crash loop triggered by a policy change containing blank fields.",
+      "confirmed_at_first_report": "Google Cloud outage on 12 June 2025 affecting apps such as Spotify and Discord; Google said it began investigating at 11:46 a.m. PT and later said mitigations were implemented (per TechCrunch); Cloudflare said a limited number of its services using Google Cloud were affected.",
+      "unconfirmed_at_first_report": "Not established from the sources opened: root cause (Google's incident report published 13 June 2025 16:45 PDT gives it).",
+      "sources": [
+        {"role": "official", "publisher": "Google Cloud Service Health", "url": "https://status.cloud.google.com/incidents/ow5i3PPK96RduMcb1SsW", "published": "2025-06-13", "headline_verbatim": "Incident details | Google Cloud Service Health"},
+        {"role": "mainstream", "publisher": "TechCrunch", "url": "https://techcrunch.com/2025/06/12/google-cloud-outage-brings-down-a-lot-of-the-internet/", "published": "2025-06-12", "headline_verbatim": "Google Cloud outage brings down a lot of the internet"},
+        {"role": "mainstream", "publisher": "CRN", "url": "https://www.crn.com/news/cloud/2025/multiple-cloud-services-down-as-google-cloudflare-resolve-issues", "published": "2025-06-12", "headline_verbatim": "Cloudflare Blames Google Cloud For Mass Services Outages"}
+      ],
+      "first_credible_report_headline": "Google Cloud outage brings down a lot of the internet",
+      "verification_notes": "Official headline is the generic page title only; the specific incident title on the status page was not captured. Official 'published' = date of the incident report row (13 Jun 2025 16:45 PDT) seen on the page. TechCrunch timestamp 12:34 PM PDT, June 12, 2025. Earliest headline = earliest verified, not confirmed chronological first."
+    },
+    {
+      "id": "intl-log4shell-2021-12",
+      "kind": "incident",
+      "sector": "technology / software supply chain",
+      "event_type": "vulnerability",
+      "date": "2021-12-10",
+      "description": "Log4Shell (CVE-2021-44228), a critical remote code execution vulnerability in Apache's Log4j library (versions 2.0-beta9 to 2.14.1), was disclosed on 10 December 2021 and CISA reported active, widespread exploitation.",
+      "confirmed_at_first_report": "A critical vulnerability in the widely used Log4j tool was already being exploited, including in Minecraft, and was described as a major threat to organizations (Guardian/AP).",
+      "unconfirmed_at_first_report": "Not established from the sources opened: full scope of affected products and whether further related CVEs existed (CVE-2021-45046 and CVE-2021-45105 were added later per CISA AA21-356A).",
+      "sources": [
+        {"role": "official", "publisher": "CISA (with FBI, NSA, ACSC, CCCS, CERT NZ, NZ NCSC, NCSC-UK)", "url": "https://www.cisa.gov/news-events/alerts/2021/12/22/mitigating-log4shell-and-other-log4j-related-vulnerabilities", "published": "2021-12-22", "headline_verbatim": "Mitigating Log4Shell and Other Log4j-Related Vulnerabilities"},
+        {"role": "official", "publisher": "UK National Cyber Security Centre", "url": "https://www.ncsc.gov.uk/information/log4j-vulnerability-what-everyone-needs-to-know", "published": "2021-12-14", "headline_verbatim": "Log4j vulnerability - what everyone needs to know"},
+        {"role": "mainstream", "publisher": "WIRED", "url": "https://www.wired.com/story/log4j-flaw-hacking-internet/", "published": "2021-12-10", "headline_verbatim": "A Log4J Vulnerability Has Set the Internet 'On Fire'"},
+        {"role": "mainstream", "publisher": "The Guardian (Associated Press)", "url": "https://www.theguardian.com/technology/2021/dec/10/software-flaw-most-critical-vulnerability-log-4-shell", "published": "2021-12-11", "headline_verbatim": "Recently uncovered software flaw ‘most critical vulnerability of the last decade’"}
+      ],
+      "first_credible_report_headline": "A Log4J Vulnerability Has Set the Internet 'On Fire'",
+      "verification_notes": "Date 2021-12-10 is the disclosure date stated in the CISA joint advisory PDF; Palo Alto Unit 42 (a vendor blog, not used as a source) says exploitation in the wild was seen from Dec 9. CISA alert page date taken from its URL (2021/12/22); the NCSC page shows 'Published 14 December 2021'. Guardian page metadata publishedTime is 2021-12-11T01:50Z (URL dated 2021/12/10; the page carries an AP author tag). Wired date 'Dec 10, 2021 2:54 PM' from search excerpt. Wired headline quoting as returned by the search tool (straight single quotes)."
+    },
+    {
+      "id": "intl-kaseya-vsa-2021-07",
+      "kind": "incident",
+      "sector": "technology / managed service providers",
+      "event_type": "cyber_incident",
+      "date": "2021-07-02",
+      "description": "On July 2, 2021, Kaseya shut down its SaaS servers and recommended Kaseya VSA customers shut down on-premises VSA servers in response to a ransomware attack affecting managed service providers and their customers.",
+      "confirmed_at_first_report": "US companies were hit by a large ransomware cyber-attack (BBC, 3 July 2021) and Kaseya shut down servers on July 2, 2021 (CISA).",
+      "unconfirmed_at_first_report": "Not established from the sources opened: the number of downstream businesses affected; Kaseya later said up to 1,500 businesses were compromised (CNN, 6 July 2021).",
+      "sources": [
+        {"role": "official", "publisher": "CISA", "url": "https://www.cisa.gov/news-events/news/kaseya-ransomware-attack-guidance-affected-msps-and-their-customers", "published": "2021-07-12", "headline_verbatim": "Kaseya Ransomware Attack: Guidance for Affected MSPs and their Customers"},
+        {"role": "mainstream", "publisher": "BBC News", "url": "https://www.bbc.com/news/world-us-canada-57703836", "published": "2021-07-03", "headline_verbatim": "US companies hit by 'colossal' cyber-attack"},
+        {"role": "mainstream", "publisher": "CNN Business", "url": "https://www.cnn.com/2021/07/06/tech/kaseya-ransomware-attack-businesses-affected", "published": "2021-07-06", "headline_verbatim": "Kaseya says up to 1,500 businesses compromised in massive ransomware attack | CNN Business"}
+      ],
+      "first_credible_report_headline": "US companies hit by 'colossal' cyber-attack",
+      "verification_notes": "CISA date 'July 12, 2021' as shown on the page (page is a revised guidance page). BBC and CNN dates from search-result dates; CNN title includes the '| CNN Business' suffix as returned. Earliest headline is the earliest verified in a date-restricted search (2021-07-02..06), not confirmed chronological first."
+    },
+    {
+      "id": "intl-colonial-pipeline-2021-05",
+      "kind": "incident",
+      "sector": "energy / fuel pipeline",
+      "event_type": "cyber_incident",
+      "date": "2021-05-07",
+      "description": "On May 7, 2021, a ransomware attack on Colonial Pipeline was reported, per CISA, to have captured headlines around the world with lines of cars at gas stations across the eastern seaboard.",
+      "confirmed_at_first_report": "Colonial Pipeline shut down its entire network on Friday after a cyber attack (Reuters, 2021-05-08).",
+      "unconfirmed_at_first_report": "Not established from the sources opened: the attacker identity at first report (Reuters cited Bloomberg News reporting that a cybercrime group was behind it).",
+      "sources": [
+        {"role": "official", "publisher": "CISA", "url": "https://www.cisa.gov/news-events/news/attack-colonial-pipeline-what-weve-learned-what-weve-done-over-past-two-years", "published": "2023-05-07", "headline_verbatim": "The Attack on Colonial Pipeline: What We’ve Learned & What We’ve Done Over the Past Two Years"},
+        {"role": "mainstream", "publisher": "Reuters", "url": "https://www.reuters.com/technology/colonial-pipeline-halts-all-pipeline-operations-after-cybersecurity-attack-2021-05-08/", "published": "2021-05-08", "headline_verbatim": "Cyber attack shuts down U.S. fuel pipeline 'jugular,' Biden briefed"},
+        {"role": "mainstream", "publisher": "NPR", "url": "https://www.npr.org/2021/05/08/995040240/cybersecurity-attack-shuts-down-a-top-u-s-gasoline-pipeline", "published": "2021-05-08", "headline_verbatim": "Ransomware Attack Shuts Down A Top U.S. Gasoline Pipeline"}
+      ],
+      "first_credible_report_headline": "Ransomware Attack Shuts Down A Top U.S. Gasoline Pipeline",
+      "verification_notes": "The official source is a two-year retrospective (dated May 07, 2023 on the page), not a contemporaneous statement; a Colonial Pipeline 2021 statement was not located. Reuters and NPR 'published' dates come from the dated URLs (2021-05-08). Reuters headline is as returned by search (it may have been edited since first publication). Date-restricted search for 2021-05-07..13 returned no results, so earliest-headline claim is weak."
+    },
+    {
+      "id": "intl-change-healthcare-2024-02",
+      "kind": "incident",
+      "sector": "healthcare / health payments",
+      "event_type": "cyber_incident",
+      "date": "2024-02-21",
+      "description": "On February 21, 2024, UnitedHealth Group disclosed that its Change Healthcare unit was experiencing a cyberattack (ransomware per later reporting), disrupting pharmacy claims processing across the United States.",
+      "confirmed_at_first_report": "Pharmacies across the US were having trouble filling prescriptions after a cyberattack on UnitedHealth's Change Healthcare (ABC7, 2024-02-23).",
+      "unconfirmed_at_first_report": "Attribution to the 'Blackcat' ransomware group was reported on 2024-02-26 by Reuters citing two people familiar with the matter (not an official confirmation at that time); duration of outage was not known at first report.",
+      "sources": [
+        {"role": "official", "publisher": "UnitedHealth Group", "url": "https://www.unitedhealthgroup.com/newsroom/2024/2024-03-07-uhg-update-change-healthcare-cyberattack.html", "published": "2024-03-07", "headline_verbatim": "UnitedHealth Group Update on Change Healthcare Cyberattack"},
+        {"role": "mainstream", "publisher": "ABC7 New York", "url": "https://abc7ny.com/post/unitedhealth-change-healthcare-cyberattack-pharmacy-outage/14460194/", "published": "2024-02-23", "headline_verbatim": "Pharmacy outage causing issues with filling prescriptions after UnitedHealth Change Healthcare cyberattack"},
+        {"role": "mainstream", "publisher": "Reuters", "url": "https://www.reuters.com/technology/cybersecurity/cyber-security-outage-change-healthcare-continues-sixth-straight-day-2024-02-26/", "published": "2024-02-26", "headline_verbatim": "US pharmacy outage triggered by 'Blackcat' ransomware at UnitedHealth unit, sources say"},
+        {"role": "mainstream", "publisher": "CNBC", "url": "https://www.cnbc.com/2024/02/27/unitedhealths-change-healthcare-cyberattack-outages-continue-pharmacies-deploy-workarounds.html", "published": "2024-02-27", "headline_verbatim": "Outages from cyberattack at UnitedHealth's Change Healthcare extend to seventh day as pharmacies deploy workarounds"}
+      ],
+      "first_credible_report_headline": "Pharmacy outage causing issues with filling prescriptions after UnitedHealth Change Healthcare cyberattack",
+      "verification_notes": "Incident date 2024-02-21 is from secondary sources (HIPAA Journal/Nixon Peabody/CRS excerpts in search results, which were not opened in full); the official UHG page I used is dated 2024-03-07, two weeks after onset. UHG page https://www.unitedhealthgroup.com/ns/changehealthcare.html redirected to the home page and could not be read. Reuters URL slug differs from its current headline (edited). ABC7 date from search-result date."
+    },
+    {
+      "id": "intl-marks-and-spencer-cyber-2025-04",
+      "kind": "incident",
+      "sector": "retail",
+      "event_type": "cyber_incident",
+      "date": "2025-04-22",
+      "description": "On 22 April 2025 Marks and Spencer announced via a stock exchange RNS that it had been managing a cyber incident over the past few days, had made temporary changes to store operations, and had reported it to data protection authorities and the NCSC.",
+      "confirmed_at_first_report": "M&S confirmed a cyber incident, stores open, website and app operating as normal at 22 April, external experts engaged, regulators and NCSC notified (RNS 7170F, 14:14:18 22 April 2025).",
+      "unconfirmed_at_first_report": "Not established from the sources opened: the nature and scale of the attack and its duration; M&S stopped online clothing/home orders on April 25 and the disruption continued for more than a week (Reuters, 2025-05-02).",
+      "sources": [
+        {"role": "official", "publisher": "Marks and Spencer Group plc via London Stock Exchange RNS", "url": "https://www.londonstockexchange.com/en/news/article/MKS/cyber-incident-update/16999905", "published": "2025-04-22", "headline_verbatim": "Cyber Incident Update - (MKS) | London Stock Exchange"},
+        {"role": "mainstream", "publisher": "TechCrunch", "url": "https://techcrunch.com/2025/04/22/marks-spencer-confirms-cybersecurity-incident-amid-ongoing-disruption/", "published": "2025-04-22", "headline_verbatim": "Marks & Spencer confirms cybersecurity incident amid ongoing disruption"},
+        {"role": "mainstream", "publisher": "BBC News", "url": "https://www.bbc.com/news/articles/cly802x1jz5o", "published": "2025-04-24", "headline_verbatim": "Cyber attack causes further chaos for shoppers at M&S"},
+        {"role": "mainstream", "publisher": "Reuters", "url": "https://www.reuters.com/business/retail-consumer/britains-ms-enters-second-week-sales-disruption-after-cyberattack-2025-05-02/", "published": "2025-05-02", "headline_verbatim": "Cyberattacks blight Britain's retailers as M&S, Co-op's systems' breached"}
+      ],
+      "first_credible_report_headline": "Marks & Spencer confirms cybersecurity incident amid ongoing disruption",
+      "verification_notes": "Date is the public confirmation date (RNS). The Guardian (2025-05-03 article, not used as a source) says M&S first reported problems at Easter (click-and-collect stopped, contactless payments affected), so onset preceded 22 April. Official headline is the RNS page title; the RNS body headline reads 'CYBER INCIDENT UPDATE'. Earlier mainstream coverage (e.g., BBC pre-22 April) was not captured, so first_credible headline is only the earliest verified. Reuters URL slug differs from current headline (edited). Co-op is mentioned only via the Reuters headline."
+    },
+    {
+      "id": "intl-jlr-cyber-2025-08",
+      "kind": "incident",
+      "sector": "automotive manufacturing",
+      "event_type": "cyber_incident",
+      "date": "2025-08-31",
+      "description": "Jaguar Land Rover halted work at its UK facilities on 1 September 2025 after a cyber-attack the night before, and extended the production pause until 1 October 2025 per its own 23 September statement.",
+      "confirmed_at_first_report": "JLR said a cyber incident had severely disrupted manufacturing and retail (Guardian/BBC/Reuters/Bleeping Computer on 2025-09-02).",
+      "unconfirmed_at_first_report": "Not established from the sources opened: duration of the shutdown and whether data was taken; the production pause was later extended to 1 October 2025.",
+      "sources": [
+        {"role": "official", "publisher": "JLR Media Newsroom", "url": "https://media.jaguarlandrover.com/news/2025/09/statement-cyber-incident-4", "published": "2025-09-23", "headline_verbatim": "Statement on Cyber Incident"},
+        {"role": "mainstream", "publisher": "The Guardian", "url": "https://www.theguardian.com/business/2025/sep/02/jaguar-land-rover-cyber-incident-manufacturing-retail", "published": "2025-09-02", "headline_verbatim": "Jaguar Land Rover manufacturing and retail ‘severely disrupted’ by cyber incident"},
+        {"role": "mainstream", "publisher": "BBC News", "url": "https://www.bbc.com/news/articles/c9wywvllq7wo", "published": "2025-09-02", "headline_verbatim": "Jaguar Land Rover production severely hit by cyber-attack"},
+        {"role": "mainstream", "publisher": "Reuters", "url": "https://www.reuters.com/business/autos-transportation/britains-jlr-hit-by-cyber-incident-that-disrupts-production-sales-2025-09-02/", "published": "2025-09-03", "headline_verbatim": "Britain's JLR hit by cyber incident that disrupts production, sales"}
+      ],
+      "first_credible_report_headline": "Jaguar Land Rover manufacturing and retail ‘severely disrupted’ by cyber incident",
+      "verification_notes": "Date 2025-08-31 (attack night) is from a BBC excerpt ('halted on 1 September after a cyber-attack the night before') and Industrial Cyber ('Aug. 31 attack'); neither was opened in full. The official statement I opened is the 23 September extension notice (the first JLR statement was not opened). Reuters search-result date was 2025-09-03 while its URL carries 2025-09-02. A different BBC article (cwydxpdgx61o) was seen with differing title vs H1; not used."
+    },
+    {
+      "id": "intl-heathrow-north-hyde-substation-fire-2025-03",
+      "kind": "incident",
+      "sector": "aviation / electricity infrastructure",
+      "event_type": "physical",
+      "date": "2025-03-20",
+      "description": "On Thursday 20 March 2025 a large fire broke out at North Hyde Electricity Substation in Hayes, London and disrupted power supply to over 70,000 customers and businesses, leading to the closure of Heathrow Airport.",
+      "confirmed_at_first_report": "A fire cut power to Heathrow and the airport closed on 21 March 2025, then began reopening to some flights (NPR/AP, 2025-03-21).",
+      "unconfirmed_at_first_report": "Not established from the sources opened: the cause of the fire; NESO's final report later identified moisture in electrics as the cause per an Energy Institute article headline.",
+      "sources": [
+        {"role": "official", "publisher": "National Energy System Operator (NESO)", "url": "https://www.neso.energy/publications/north-hyde-review", "published": null, "headline_verbatim": "North Hyde Review | National Energy System Operator"},
+        {"role": "official", "publisher": "GOV.UK / Department for Energy Security and Net Zero", "url": "https://www.gov.uk/government/publications/nesos-north-hyde-report-government-response", "published": "2025-11-18", "headline_verbatim": "NESO’s North Hyde report: government response"},
+        {"role": "mainstream", "publisher": "NPR", "url": "https://www.npr.org/2025/03/21/nx-s1-5336092/heathrow-closed-fire-power-london", "published": "2025-03-21", "headline_verbatim": "Heathrow Airport says it will reopen to some flights after a fire cut power"},
+        {"role": "mainstream", "publisher": "Associated Press", "url": "https://apnews.com/article/britain-london-fire-heathrow-airport-6d63b2f6615e8ff39f2647641bfbc160", "published": "2025-03-21", "headline_verbatim": "London’s Heathrow slowly resumes flights after a fire cut power to Europe’s busiest airport"}
+      ],
+      "first_credible_report_headline": "Heathrow Airport says it will reopen to some flights after a fire cut power",
+      "verification_notes": "NESO page publication date not shown on page (metadata 'created' 2025-05-07 is page creation, not the final-report date), so published=null. Fire time 20 March 2025 23:21 comes from a Modern Power Systems excerpt (not opened); the gov.uk page states the 20 March date and 70,000 customers. Mainstream dates from search-result dates. Another search hit (ABC News, dated Feb 2026 by the tool) appeared to be an old story with a wrong date and was discarded. First-credible headline is the earliest verified, not confirmed chronological first."
+    },
+    {
+      "id": "intl-iberian-blackout-2025-04",
+      "kind": "incident",
+      "sector": "energy / electricity grid",
+      "event_type": "physical",
+      "date": "2025-04-28",
+      "description": "On 28 April 2025 at 12:33 CEST the power systems of continental Spain and Portugal experienced a total blackout, which ENTSO-E's expert panel final report (published 20 March 2026) investigated.",
+      "confirmed_at_first_report": "Tens of millions across Spain and Portugal were without power, leaving them without trains, metros, traffic lights, ATMs, phone and internet access; the Portuguese operator initially blamed extreme temperature variations (Guardian, 2025-04-28).",
+      "unconfirmed_at_first_report": "The cause was unknown at first report; the BBC headline on the day said officials were chasing the cause. ENTSO-E's final report later described a combination of interacting factors.",
+      "sources": [
+        {"role": "official", "publisher": "ENTSO-E", "url": "https://www.entsoe.eu/publications/blackout/28-april-2025-iberian-blackout/", "published": "2026-03-20", "headline_verbatim": "28 April 2025 Blackout"},
+        {"role": "mainstream", "publisher": "The Guardian", "url": "https://www.theguardian.com/world/2025/apr/28/spain-portugal-power-outage", "published": "2025-04-28", "headline_verbatim": "Tens of millions across Spain and Portugal hit by huge power outage"},
+        {"role": "mainstream", "publisher": "BBC News", "url": "https://www.bbc.com/news/articles/cd6jenl581vo", "published": "2025-04-28", "headline_verbatim": "Spain and Portugal scramble to restore power as officials chase cause of outage"},
+        {"role": "mainstream", "publisher": "BBC News", "url": "https://www.bbc.com/news/articles/cvg0r3z3lvqo", "published": "2026-03-20", "headline_verbatim": "'Multiple factors' caused 2025 Spain and Portugal blackout, says report"}
+      ],
+      "first_credible_report_headline": "Tens of millions across Spain and Portugal hit by huge power outage",
+      "verification_notes": "ENTSO-E 'published' is the final report date stated on the page (20 March 2026); ENTSO-E's earlier factual report (October 2025 per BBC/IEEFA excerpts) was not opened. Mainstream dates from search-result dates. The NYT result carried an archive suffix '(Published 2025)' and Bloomberg's URL slug differs from its current headline, so both were not used. Earliest headline is the earliest verified, not confirmed chronological first."
+    }
+  ],
+  "dropped": [
+    {"candidate": "SolarWinds Orion supply-chain compromise (Dec 2020)", "reason": "Not researched in this pass; no verbatim headlines or second source collected."},
+    {"candidate": "MOVEit Transfer mass exploitation (May-June 2023)", "reason": "Not researched in this pass; no verbatim headlines or second source collected."},
+    {"candidate": "Microsoft Azure / Microsoft 365 major outage(s)", "reason": "Not researched in this pass. The BBC Cloudflare article excerpt mentions Azure was affected shortly afterwards but no Azure-specific sources were opened."},
+    {"candidate": "Cloudflare outage December 2025", "reason": "Only the 18 November 2025 Cloudflare outage was researched; no sources for a December 2025 event were collected."},
+    {"candidate": "Texas winter storm Uri (Feb 2021)", "reason": "Not researched in this pass; no verbatim headlines or second source collected."},
+    {"candidate": "Co-op Group cyber incident (Apr-May 2025) as a separate entry", "reason": "Only mentioned in a Reuters headline cited under the M&S entry; no Co-op official statement or other source opened."},
+    {"candidate": "ProxyShell / Citrix Bleed / Ivanti exploited vulnerabilities", "reason": "Log4Shell was used as the vulnerability-with-official-advisory entry; these were not researched."}
+  ],
+  "access_problems": [
+    "https://www.unitedhealthgroup.com/ns/changehealthcare.html redirected to the UHG home page; official Feb 2024 update not readable (used the 2024-03-07 UHG newsroom page instead).",
+    "Firecrawl news search with complex boolean/OR queries or includeDomains filters returned empty results; simple queries worked.",
+    "A date-restricted news search for Colonial Pipeline (2021-05-07..13) returned empty; undated web search was used instead.",
+    "Search-tool news titles are the page headline/title as the tool returns them; for several Reuters pieces the URL slug differs from the live headline, indicating post-publication edits.",
+    "Headlines were taken from scrape metadata or search-result titles, not from live-rendered page screenshots; the Google Cloud status page and CrowdStrike hub exposed only generic page titles via the tool."
+  ]
+}
