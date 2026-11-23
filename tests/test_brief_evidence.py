@@ -48,7 +48,7 @@ def test_identity_is_stable_and_shared(evset):
 def test_every_incident_line_cites_incident_and_reports(evset):
     for view in (be.morning_view(evset), be.weekly_view(evset), be.comms_view(evset)):
         for line in view:
-            if line.startswith("- [ESCALATE") or line.startswith("- [VERIFY") or line.startswith("- [WATCH"):
+            if line.startswith(("- [ESCALATE", "- [VERIFY", "- [WATCH")):
                 assert "[inc-" in line and "report(s)" in line
 
 
