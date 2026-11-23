@@ -148,6 +148,22 @@ def _title_words(title):
     return set(re.findall(r"\w{4,}", (title or "").lower()))
 
 
+def _source_name(event):
+    return ((event.get("intelligence_source_registry") or {}).get("source_name") or "").strip()
+
+
+def _independent_pair(a, b):
+    """Same corroboration principle as the evidence briefs (intelligence.weekly_evidence): an aggregator item (Google News) is a
+    discovery route and never corroborates, and the same publisher repeated is not a second source. Events whose source name is
+    unknown are not excluded (nothing to compare)."""
+    from intelligence import weekly_evidence as we
+
+    na, nb = _source_name(a), _source_name(b)
+    if we.AGGREGATOR in (we.source_kind(na), we.source_kind(nb)):
+        return False
+    return not (na and nb and we.publisher_family(na) == we.publisher_family(nb))
+
+
 class SignalScoreRecomputer:
     # Class-level defaults so instances built without __init__ (tests) behave
     # like a normal windowed run.
@@ -255,7 +271,7 @@ class SignalScoreRecomputer:
         def build():
             q = (
                 self.supabase.table("intelligence_events")
-                .select("event_id, sector, raw_title, published_at, collected_at")
+                .select("event_id, sector, raw_title, published_at, collected_at, intelligence_source_registry(source_name)")
                 .eq("suppressed", False)
             )
             if cutoff:
@@ -288,7 +304,7 @@ class SignalScoreRecomputer:
                     continue
                 wa, wb = _title_words(a["raw_title"]), _title_words(b["raw_title"])
                 overlap = len(wa & wb)
-                if overlap < 2:
+                if overlap < 2 or not _independent_pair(a, b):
                     continue
                 pair = (a["event_id"], b["event_id"])
                 rpair = (b["event_id"], a["event_id"])

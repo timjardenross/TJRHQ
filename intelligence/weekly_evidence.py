@@ -144,29 +144,7 @@ def source_kind(source_name: str) -> str:
     return UNKNOWN
 
 
-# A wire copy is recognised by its dateline ("(Reuters) -", "AAP -", "AFP -", "(AP) —") at the start of the title or summary,
-# or by the source name itself. Every outlet carrying the same wire is ONE family: the wire.
-# Two shapes only: "PLACE (Wire) -" (parenthesised wire after an optional place name) or a bare "Wire -" at the very start. Text before a
-# bare wire name ("... flaw in AFP - advisory") is NOT a dateline: AFP is also the Apple Filing Protocol.
-_WIRE_DATELINE = re.compile(
-    r"^\W*(?:(?:[A-Z][A-Za-z .']{0,30}\s)?\(\s*(reuters|ap|afp|aap)\s*\)|(reuters|afp|aap))\s*[-–—]", re.IGNORECASE)
-_WIRE_NAMES = {"reuters": "reuters", "ap": "associated press", "associated press": "associated press", "afp": "afp", "aap": "aap"}
-
-
-def wire_of(source_name: str = "", title: str = "", summary: str = "") -> str | None:
-    """Canonical wire family if the report is a wire copy, else None."""
-    for text in (title, summary):
-        m = _WIRE_DATELINE.match(text or "")
-        if m:
-            return _WIRE_NAMES[(m.group(1) or m.group(2)).lower()]
-    n = re.sub(r"[^a-z0-9]+", " ", (source_name or "").lower()).strip()
-    for k, v in _WIRE_NAMES.items():
-        if _wb(re.escape(k), n):
-            return v
-    return None
-
-
-def publisher_family(source_name: str, title: str = "", summary: str = "") -> str:
+def publisher_family(source_name: str, title: str = "") -> str:
     """Normalised publisher. Aggregator items are attributed to the underlying
     publisher when the title carries a ' - Publisher' suffix."""
     n = (source_name or "unknown").strip().lower()
@@ -175,9 +153,6 @@ def publisher_family(source_name: str, title: str = "", summary: str = "") -> st
         if m:
             return _canonical_publisher(m.group(1).strip().lower())
         return "aggregator"
-    wire = wire_of(source_name, title, summary)
-    if wire:
-        return wire
     return _canonical_publisher(re.sub(r"[^a-z0-9]+", " ", n).strip().split(" — ")[0])
 
 
@@ -623,9 +598,12 @@ def correlate_incidents(events: list[dict], *, now: datetime | None = None,
 
 
 def _independent_families(members: list[dict]) -> set[str]:
-    """Distinct publisher families after collapsing near-identical (syndicated) copies."""
+    """Distinct publisher families after collapsing near-identical (syndicated) copies. An aggregator item (Google News) is a
+    discovery route, never an independent corroborating publisher, whatever outlet its title names."""
     fams: dict[str, str] = {}
     for m in members:
+        if source_kind(m.get("source", "")) == AGGREGATOR:
+            continue
         fam = m["_family"]
         title = m.get("title", "")
         # A copy with a near-identical title from another family is syndication of
@@ -778,7 +756,8 @@ def validate_claims(claims: list[Claim], evidence: dict[str, dict], *, min_suppo
             if num.replace(",", "") not in flat:
                 failures.append(f"{tag}: figure {num} not found in cited evidence")
         if has_causal_language(c.text):
-            fams = {publisher_family(e.get("source", ""), e.get("title", "")) for e in cited}
+            fams = {publisher_family(e.get("source", ""), e.get("title", "")) for e in cited
+                    if source_kind(e.get("source", "")) != AGGREGATOR}      # an aggregator copy never corroborates
             states = any(has_causal_language(f"{e.get('title', '')} {e.get('summary', '')}") for e in cited)
             if len(fams) < 2 or not states:
                 failures.append(f"{tag}: causal claim without two independent sources stating the cause")

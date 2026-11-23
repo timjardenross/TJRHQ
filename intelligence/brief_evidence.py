@@ -63,6 +63,7 @@ class IncidentView:
     last_seen: datetime | None
     record: dict                    # ed.escalation_record()
     reasons: list[str] = field(default_factory=list)
+    urgent_verify: bool = False     # VERIFY + high materiality + immediate urgency + stated impact: potentially severe, not yet corroborated
 
     @property
     def report_ids(self) -> list[str]:
@@ -109,9 +110,10 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             evidence_confidence=d.evidence_confidence, independent_publishers=d.group.independent_publishers,
             provisional=d.provisional, grouping_confidence=d.group.grouping_confidence, reports=reports,
             first_seen=min(times) if times else None, last_seen=max(times) if times else None,
-            record=ed.escalation_record(d, now=now), reasons=list(d.reasons)))
+            record=ed.escalation_record(d, now=now), reasons=list(d.reasons),
+            urgent_verify=(d.priority == "VERIFY" and d.materiality == "high" and d.urgency == "immediate" and d.impact_status == "stated")))
     order = {"ESCALATE": 0, "VERIFY": 1, "WATCH": 2, "REFERENCE": 3}
-    incidents.sort(key=lambda i: (order[i.priority], -(i.last_seen.timestamp() if i.last_seen else 0)))
+    incidents.sort(key=lambda i: (order[i.priority], not i.urgent_verify, -(i.last_seen.timestamp() if i.last_seen else 0)))
     return EvidenceSet(ed.METHOD_VERSION, now, window_hours, len(events), incidents)
 
 
@@ -348,6 +350,26 @@ def _fw_credible(i: IncidentView) -> bool:
     return not (i.evidence_status == "unverified" and kinds <= {we.AGGREGATOR})
 
 
+def _unverified_why(i: IncidentView) -> str:
+    """Why a potentially severe incident is not yet treated as fact, in plain words."""
+    originals = [r for r in i.reports if r["role"] == "original"] or [r for r in i.reports if r["role"] != "commentary"]
+    if originals and all(r["source_kind"] == we.AGGREGATOR for r in originals):
+        named = sorted({r["publisher"] for r in originals if r["publisher"] != "aggregator"})
+        return "seen only via aggregators" + (f" (naming {', '.join(named)})" if named else "") + "; no direct report from a publisher yet"
+    if len(originals) == 1:
+        return "single report from a source not rated credible; no second independent source yet"
+    return "no primary, mainstream or specialist source yet"
+
+
+def _urgent_verify_lines(urgent: list[IncidentView]) -> list[str]:
+    """High materiality + weak evidence: a prominent verification priority (Captain's rule). Nothing at all when there is none."""
+    if not urgent:
+        return []
+    return (["URGENT TO VERIFY (potentially severe, not yet corroborated)"]
+            + [f"- {i.headline} — reported: {_facts(i)}; unverified: {_unverified_why(i)}; next: {i.record['next_verification_action']} {_cite(i)}"
+               for i in urgent[:6]] + [""])
+
+
 def morning_view(ev: EvidenceSet) -> list[str]:
     recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
     editorial = [i for i in recent if i.impact_status not in ("warning", "forecast") and _editorial_only(i)]
@@ -355,7 +377,8 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     firm = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated"
             and i.evidence_status in ("officially_confirmed", "corroborated")]
     single = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated" and i.evidence_status == "reported"]
-    verify = [i for i in active if i.priority == "VERIFY" or (i.priority in ("ESCALATE", "WATCH") and i not in firm and i not in single)]
+    urgent = [i for i in active if i.urgent_verify]       # shown once, in its own prominent section
+    verify = [i for i in active if i not in urgent and (i.priority == "VERIFY" or (i.priority in ("ESCALATE", "WATCH") and i not in firm and i not in single))]
     notices = [i for i in recent if i.impact_status in ("warning", "forecast") and i.priority in _ACTIONABLE]
     # Section choice uses SOURCE QUALITY as well as evidence status: only an incident with an original report from a primary, mainstream
     # or specialist source is an 'impact not yet established' / exposure / retrospective question; the rest is a source question.
@@ -385,6 +408,7 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     if notices or exposure:
         lines.append("Credible warnings and emerging exposures are listed separately below; they are not current disruptions and no operational consequence is inferred from them.")
     lines.append("")
+    lines += _urgent_verify_lines(urgent)
     lines.append("What matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents")
     lines += [_line(i, True) for i in firm[:6]] or ["- None officially confirmed or corroborated in the last 24 hours."]
     imp = [f"- {'tier ' + str(i.sector_tier) if i.sector_tier else 'unclassified sector'}: "

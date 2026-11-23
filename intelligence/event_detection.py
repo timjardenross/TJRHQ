@@ -357,7 +357,7 @@ def detect_candidate(event: dict) -> Candidate:
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
-        family=we.publisher_family(src, title, str(event.get("summary") or "")), kind=we.source_kind(src), legacy=event.get("legacy") or {},
+        family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {},
         summary=str(event.get("summary") or "")[:1500])
 
 
@@ -899,6 +899,9 @@ def decide(group: Group, *, now: datetime | None = None) -> Decision:
             if why.startswith("plausible dependency") and d.priority == "ESCALATE":
                 d.reasons.append("dependency only, no Australian impact evidence: capped at VERIFY")
                 d.priority, d.urgency, d.provisional = "VERIFY", "soon", True
+            elif why.startswith("plausible dependency") and d.priority == "VERIFY" and d.urgency == "immediate":
+                d.reasons.append("dependency only, no Australian impact evidence: ordinary verification, not urgent")
+                d.urgency = "soon"
         elif australian_editorial_relevance(group):
             d.reasons.append("Australian-audience outlet only: editorial relevance, Australian operational impact not established (capped at WATCH)")
             d.priority, d.urgency, d.provisional = "WATCH", "routine", False
@@ -955,8 +958,10 @@ def _decide_core(group: Group, *, now: datetime | None = None) -> Decision:
             if provisional:
                 reasons.append("single credible report: provisional, follow-up verification required")
             return out("ESCALATE", "immediate", provisional)
+        # Captain's rule: high materiality + low confidence is a PROMINENT verification priority, so stricter corroboration never
+        # buries a potentially severe emerging incident (brief_evidence shows it under URGENT TO VERIFY).
         reasons.append("high operational materiality but weak evidence: verify before acting")
-        return out("VERIFY", "soon")
+        return out("VERIFY", "immediate")
     if status == "unconfirmed" and head.is_candidate and (tier in (1, 2) or head.compromise):
         # An unconfirmed incident with no stated operational consequence is VERIFY, whatever the sector or tier.
         return out("VERIFY", "soon")

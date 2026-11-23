@@ -1,5 +1,6 @@
-"""P0: whole-word source_kind, content kinds for wellness/thought-leadership feeds, and wire/aggregator copies not counting as
-independent publishers."""
+"""P0: whole-word source_kind, content kinds for wellness/thought-leadership feeds, and aggregator copies not counting as
+independent publishers. Wire-copy (dateline) detection is deliberately NOT implemented: 0 wire datelines in 2,908 real reports, and
+name-based wire matching collided with real sources (AWS Sydney (ap-southeast-2) -> AP, Thomson Reuters Institute -> Reuters)."""
 import pytest
 
 from intelligence import event_detection as ed
@@ -68,19 +69,6 @@ def test_five_google_news_plus_one_abc_is_one_publisher():
     assert ed.evidence_status(g)[0] != "corroborated"
 
 
-def test_three_outlets_one_reuters_dateline_is_one_family():
-    c = [_cand(i, WORDINGS[i], src, summary="MELBOURNE (Reuters) - " + WORDINGS[i]) for i, src in enumerate(["The Age", "Financial Review", "Guardian Australia"])]
-    g = _group(c)
-    assert len({m.family for m in g.members}) == 1
-    assert g.independent_publishers == 1
-    assert ed.evidence_status(g)[0] != "corroborated"
-
-
-@pytest.mark.parametrize("dl", ["(Reuters) -", "AAP -", "AFP -", "(AP) —"])
-def test_wire_datelines_in_title(dl):
-    assert we.publisher_family("The Age", f"{dl} {TITLE}") == we.publisher_family("ABC News", f"{dl} {TITLE}")
-
-
 def test_independent_originals_corroborate():
     g = _group([_cand(1, WORDINGS[0], "ABC News"), _cand(2, WORDINGS[1], "Bloomberg")])
     assert g.independent_publishers == 2
@@ -92,17 +80,55 @@ def test_same_publisher_repeated_counts_once():
     assert g.independent_publishers == 1
 
 
-# ── wire dateline: only a real dateline shape counts ──────────────────────────────────────────────────────────────
-@pytest.mark.parametrize("title,expected", [
-    ("SYDNEY (Reuters) - Power restored across Sydney after outage", "reuters"),
-    ("Melbourne (AAP) - Storms forecast for Victoria", "aap"),
-    ("(AP) — Wildfire spreads", "associated press"),
-    ("AFP - Talks resume", "afp"),
-    ("Reuters - Markets rally", "reuters"),
-    ("Cisco patches critical flaw in AFP - advisory published", None),     # AFP the protocol, not the wire
-    ("Optus outage: AAP - customers still without service", None),         # wire name mid-headline is not a dateline
-    ("Fed holds rates - Reuters poll shows", None),
-    ("Telstra says outage over, AAP reports", None),
+# ── no wire inference: every source keeps its OWN publisher family and kind ─────────────────────────────────────────
+@pytest.mark.parametrize("source,title,family,kind", [
+    ("AWS Sydney (ap-southeast-2)", "Increased API error rates in ap-southeast-2", "aws sydney ap southeast 2", U),
+    ("AWS Service Health", "Service disruption: Amazon EC2 (Sydney)", "aws service health", U),
+    ("Australian Associated Press", "Storms forecast for Victoria", "australian associated press", M),
+    ("Thomson Reuters Institute", "Future of professionals report", "thomson reuters institute", M),
+    ("Australian Federal Police (AFP)", "AFP charges man over cyber attack on telco", "australian federal police afp", U),
+    ("ABC News", "AFP - Talks resume after outage", "abc news", M),
+    ("ABC News", "SYDNEY (Reuters) - Power restored across Sydney after outage", "abc news", M),
+    ("Bloomberg", "Fed holds rates - Reuters poll shows", "bloomberg", M),
+    ("The Age", "Reuters poll: economists expect RBA to hold", "the age", M),
 ])
-def test_wire_dateline_is_recognised_only_in_dateline_shapes(title, expected):
-    assert we.wire_of("ABC News", title, "") == expected
+def test_family_comes_from_the_source_not_the_headline(source, title, family, kind):
+    assert we.publisher_family(source, title) == family
+    assert we.source_kind(source) == kind
+    assert not hasattr(we, "wire_of")
+
+
+def test_three_outlets_carrying_one_story_stay_three_publishers_without_wire_inference():
+    c = [_cand(i, WORDINGS[i], src, summary="MELBOURNE (Reuters) - " + WORDINGS[i]) for i, src in enumerate(["The Age", "Financial Review", "Guardian Australia"])]
+    assert len({m.family for m in c}) == 3
+
+
+# ── weekly_evidence applies the same corroboration principle ─────────────────────────────────────────────────────
+def _wk(i, title, source):
+    return {"id": f"w{i}", "title": title, "source": source, "geography": "AU", "collected_at": f"2026-11-22T10:{i:02d}:00+00:00"}
+
+
+def test_weekly_google_news_items_never_count_as_independent_publishers():
+    from datetime import datetime, timezone
+    now = datetime(2026, 11, 22, 12, tzinfo=timezone.utc)
+    gn = [_wk(i, f"{WORDINGS[i]} - Outlet{i}", "Google News - Power") for i in range(1, 6)]
+    incs = we.correlate_incidents([_wk(0, WORDINGS[0], "ABC News")] + gn, now=now)
+    assert len(incs) == 1 and incs[0].independent_publishers == 1
+    only_gn = we.correlate_incidents(gn, now=now)
+    assert len(only_gn) == 1 and only_gn[0].independent_publishers == 0
+
+
+def test_weekly_same_publisher_repeated_counts_once_and_independents_count_twice():
+    from datetime import datetime, timezone
+    now = datetime(2026, 11, 22, 12, tzinfo=timezone.utc)
+    same = we.correlate_incidents([_wk(0, WORDINGS[0], "ABC News"), _wk(1, WORDINGS[1], "ABC News Business")], now=now)
+    assert [i.independent_publishers for i in same] == [1]
+    two = we.correlate_incidents([_wk(0, WORDINGS[0], "ABC News"), _wk(1, WORDINGS[1], "Bloomberg")], now=now)
+    assert [i.independent_publishers for i in two] == [2]
+
+
+def test_causal_claim_cannot_be_corroborated_by_aggregator_copies():
+    ev = {"a": {"source": "Google News - X", "title": "Storm caused blackout across Eyre Peninsula - ABC News", "summary": ""},
+          "b": {"source": "Google News - Y", "title": "Storm caused blackout across Eyre Peninsula - Guardian", "summary": ""}}
+    res = we.validate_claims([we.Claim("Storm caused blackout across Eyre Peninsula", ["a", "b"])], ev)
+    assert any("causal claim" in f for f in res.failures)
