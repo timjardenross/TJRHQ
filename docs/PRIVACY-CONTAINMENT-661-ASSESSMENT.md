@@ -40,9 +40,18 @@ missing pytest-asyncio/flask). CI on the earlier head was green; the latest head
 - No schema change, no new dependency, no scheduler change. Services affected: tg-xo, intelligence-scheduler, tg-capacitybot, model-router and others via restart only.
 - **Not verified:** the VM local model. Run `python3 scripts/check_health_llm_local.py` on the VM (exit 0 ok, 2 not configured, 3 unreachable, 4 cloud-tagged). A deterministic fallback is privacy-safe without it.
 
-## 5. Rollback
-- Revert the PR; auto-deploy restores the prior behaviour within about 5 minutes. Do not edit the VM checkout.
-- Emergency alternative without a revert: setting `HEALTH_LLM_EXTERNAL_ALLOWED=1` restores the old external behaviour. It re-enables transmission of personal health data, so it is a Captain decision, not an operational toggle.
+## 5. Containment and recovery (privacy-preserving)
+Re-enabling external health-LLM transmission is **not** an automatic or operational rollback. Recovery from a degraded local model is by restoring local
+processing, never by sending personal health data off the machine.
+1. **Contain:** the fail-closed default already holds: with the local model absent, personal routes return no model output and the deterministic fallback
+   text is shown. Nothing else needs to be done to keep data local.
+2. **Diagnose:** run `python3 scripts/check_health_llm_local.py` (exit 0 ok, 2 not configured, 3 unreachable, 4 cloud-tagged model).
+3. **Restore local processing:** restart the local Ollama/model-router service, confirm the configured model is pulled and is not a `:cloud`/`-cloud` tag, and raise
+   `LLM_PERSONAL_ROUTER_TIMEOUT` if replies are slow. Re-run the diagnostic until it exits 0.
+4. **If the PR itself is faulty,** revert it on `main` (auto-deploy restores the previous code in about 5 minutes). Be aware that the previous code sent personal health
+   content to external providers, so reverting is a privacy regression: it needs the Captain's explicit decision and should be accompanied by disabling the affected
+   jobs (weekly health narrative, nightly consolidation, XO chat) until a fix ships. Prefer a forward fix.
+5. `HEALTH_LLM_EXTERNAL_ALLOWED=1` is **not** part of any recovery procedure. It is a standing policy decision reserved to the Captain.
 
 ## 6. Residual risks
 1. The content detector is pattern-based. Pathways that mark personal routes explicitly (1, 3, 4, 7) do not depend on it; free text elsewhere would. Two gaps were found by audit, so more may exist.
@@ -71,8 +80,8 @@ or the deterministic-fallback posture is explicitly accepted. Add a follow-up ta
 ### Expected service impact
 Merge to `main` auto-deploys within about 5 minutes and restarts ten services plus the portal build. Behaviour changes: XO chat answers only from the local model (it averaged about 80 s per reply on this host against a 60 s limit, so some turns will show the fallback); weekly health narratives, nightly consolidation, correlation synthesis and the debrief use local models only and fall back to deterministic text; the morning-brief email omits personal blocks; the weekly health summary no longer calls Gemini. No schema, dependency or scheduler change.
 
-### Rollback
-Revert the PR on `main`; auto-deploy restores prior behaviour in about 5 minutes. Do not edit the VM checkout. `HEALTH_LLM_EXTERNAL_ALLOWED=1` is an emergency alternative that re-enables external transmission; it is a Captain decision, not an operational toggle.
+### Containment and recovery
+See section 5. In short: the deterministic fallback keeps data local; recover by restoring the local model; a revert is a privacy regression and needs the Captain's decision; the external flag is never a recovery step.
 
 ### Post-merge health checks (operator, within 15 minutes of deploy)
 1. `git -C /opt/starship-endeavour rev-parse --short HEAD` equals the merged commit; `systemctl is-active` for tg-xo, intelligence-scheduler, tg-capacitybot, tg-resiliencebot, human-systems-scheduler, model-router, context-service, command-centre, mint-server, self-improvement-dashboard all `active`.
@@ -80,3 +89,18 @@ Revert the PR on `main`; auto-deploy restores prior behaviour in about 5 minutes
 3. Send XO one chat message and one `/brief`: confirm either a local reply or the fallback text, never silence.
 4. `python3 scripts/check_health_llm_local.py` again; record the exit code.
 5. Confirm no outbound request to a cloud LLM host carried a health prompt: model-router and provider logs show no new `gemini`/`mistral`/`ollama.com` entries for the health jobs.
+
+---
+## 9. Final release checklist (2026-11-23): PASS / FAIL / BLOCKED
+| # | Item | Result | Evidence |
+|---|---|---|---|
+| 1 | All checks on head `44244396` complete and green | **PASS** | 18 of 18 check runs completed, 17 success and 1 skipped (`actionlint`, not applicable), including `merge-gate`, `root-tests`, `pip-audit`, `semgrep` and the xo test job. |
+| 2 | VM confirms `HEALTH_LLM_EXTERNAL_ALLOWED` disabled | **BLOCKED** | Needs an authorised VM operator. Value-free commands are in section 8, row 3. No machine is attached to this session. |
+| 3 | `check_health_llm_local.py` run on the VM, exit code recorded | **BLOCKED** | Same operator action. For reference only, in the build sandbox (no Ollama) it exits 3 ("unreachable"). That is not a VM result. |
+| 4 | Deterministic fallback is privacy-safe when the local model is absent | **PASS** | Live demonstration with cloud keys set and no local model: `generate()` returned `(None, None)`, the only host attempted was `localhost`, permitted providers `['qwen3:8b']`. Also covered by 54 failure-path tests. |
+| 5 | XO fallback delivered; `/brief` and `/priorities` available | **PASS (delivery) / PARTIAL (commands)** | The end-to-end handler test asserts the exact approved text for a timeout and a refusal and that only loopback hosts are requested. The `/brief` and `/priorities` handlers are unchanged by this PR and are not exercised by it; their availability on the VM is part of the post-merge check. |
+| 6 | Privacy-preserving containment and recovery procedure documented | **PASS** | Section 5. |
+| 7 | Logs, exceptions, telemetry free of personal health content | **PASS** | 4 telemetry/log tests; spans carry provider and model only and export to localhost. |
+| 8 | Diff limited to privacy changes | **PASS** | 18 files, all privacy-related. |
+| 9 | No merge without explicit final authorisation | **HOLD** | Not merged. |
+Overall: **BLOCKED on items 2 and 3 (VM operator) and on explicit authorisation.**
