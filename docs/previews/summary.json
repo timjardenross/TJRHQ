@@ -1,12 +1,12 @@
 {
  "events_7d": 2514,
  "events_72h": 868,
- "incidents_7d": 2496,
+ "incidents_7d": 2487,
  "priorities_7d": {
-  "ESCALATE": 6,
-  "VERIFY": 22,
-  "WATCH": 13,
-  "REFERENCE": 2455
+  "ESCALATE": 5,
+  "VERIFY": 21,
+  "WATCH": 24,
+  "REFERENCE": 2437
  },
- "method": "wk-detect/0.5.1-v1"
+ "method": "wk-detect/0.6.0-v1c"
 }

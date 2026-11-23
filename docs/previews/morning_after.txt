@@ -1,20 +1,29 @@
 🛰 EVIDENCE-BASED PICTURE (V1)
-274 incident(s) assessed from 868 report(s); method wk-detect/0.5.1-v1.
+274 incident(s) assessed from 868 report(s); method wk-detect/0.6.0-v1c.
 
-What matters today — CONFIRMED incidents
-- None confirmed in the last 24 hours.
+What matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents
+- None officially confirmed or corroborated in the last 24 hours.
 
-REQUIRES VERIFICATION (unconfirmed or weakly evidenced; not treated as fact)
-- [VERIFY] APRA calls Microsoft outage a "near miss" for financial system - Insurance Business — confirmed, ongoing; confidence 0.30 [inc-5449338675; 2 report(s); Google News - APRA/ASIC Operational Resilience, Google News - Critical Infrastructure/Energy Cyberattack AU]
+REPORTED by one source (provisional until a second or primary source)
+- None.
+
+REQUIRES VERIFICATION (unverified, hedged or weakly evidenced; not treated as fact)
+- [VERIFY · unverified] APRA calls Microsoft outage a "near miss" for financial system - Insurance Business — impact stated in headline, ongoing; confidence 0.30 [inc-5449338675; 2 report(s); Google News - APRA/ASIC Operational Resilience, Google News - Critical Infrastructure/Energy Cyberattack AU]
     next: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
-- [VERIFY] US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News — reported; confidence 0.30 [inc-ebd7b7452d; 1 report(s); Google News - Critical Infrastructure/Energy Cyberattack AU]
+- [VERIFY · unverified] US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News — reported; confidence 0.30 [inc-ebd7b7452d; 1 report(s); Google News - Critical Infrastructure/Energy Cyberattack AU]
     next: obtain the organisation's own statement or the regulator's notice confirming what was affected
-- [VERIFY] Explosion on Russian ship at Libya port likely caused by drone attack, officials say — reported; confidence 0.60 [inc-6c7faa3ef7; 1 report(s); BBC News]
+- [VERIFY · unverified] Explosion on Russian ship at Libya port likely caused by drone attack, officials say — reported; confidence 0.60 [inc-6c7faa3ef7; 1 report(s); BBC News]
     next: confirm casualties, damage and service impact with the responsible authority
+- [WATCH · reported] 'One-in-2,000-year weather' to be investigated post-blackout — reported; confidence 0.60 [inc-becc7c18b7; 1 report(s); ABC News]
+    next: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+
+WARNINGS AND FORECASTS (not confirmed incidents)
+- [WATCH · reported] Breaking: Emergency fire warning issued for Victoria's north-west — warning (not a stated outage); confidence 0.60 [inc-78bf13ed4d; 1 report(s); ABC News]
 
 Operational implications (only what the cited reports state)
-- No operational implication is supported by confirmed reports today.
+- No operational implication is supported by corroborated reports today.
 
 Forward watch, next 24–72 hours
+- Forecast/warning: Breaking: Emergency fire warning issued for Victoria's north-west [inc-78bf13ed4d; 1 report(s); ABC News]
 - Verify: APRA calls Microsoft outage a "near miss" for financial system - Insurance Business → confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
 - Verify: US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News → obtain the organisation's own statement or the regulator's notice confirming what was affected

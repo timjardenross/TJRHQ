@@ -1,0 +1,54 @@
+📊 EVIDENCE-BASED WEEK (V1)
+2487 incidents from 2514 reports: 5 escalate, 21 verify, 24 watch; method wk-detect/0.6.0-v1c.
+
+What changed since the previous snapshot
+- Compared with the snapshot of 2026-11-20: 16 new, 34 continuing, 0 materially changed, 0 resolved, 1 no longer reported.
+  NEW [VERIFY · unverified] US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News — reported; confidence 0.30 [inc-ebd7b7452d; 1 report(s); Google News - Critical Infrastructure/Energy Cyberattack AU]
+  NEW [VERIFY · unverified] Explosion on Russian ship at Libya port likely caused by drone attack, officials say — reported; confidence 0.60 [inc-6c7faa3ef7; 1 report(s); BBC News]
+  NEW [VERIFY · unverified] FBI database reportedly hacked — reported; confidence 0.60 [inc-d289805dd4; 1 report(s); ABC News]
+  NEW [VERIFY · unverified] USDA hit with cyberattack: Sources - KAKE — reported; confidence 0.30 [inc-57ee55c358; 1 report(s); Google News - Critical Infrastructure/Energy Cyberattack AU]
+  NEW [VERIFY · reported] Gateway availability disruption — impact stated in headline, ongoing; confidence 0.30 [inc-09ed5a8062; 1 report(s); Supabase Status]
+  CONTINUING APRA calls Microsoft outage a "near miss" for financial system - Insurance Business [inc-df4dc0ec06; 6 report(s); Google News - APRA/ASIC Operational Resilience, Google News - Critical Infrastructure/Energy Cyberattack AU, Google News - Telstra …]
+  CONTINUING Live: Power still out after SA transmission line downed [inc-62d72ad238; 10 report(s); ABC News, Google News - Telstra]
+  CONTINUING Telstra Outage -Barnaby Joyce Raises Question Of China Involvement - Sydney Times [inc-67ec217390; 6 report(s); ABC News, Google News - Telstra]
+  NO LONGER REPORTED New malware doesn’t call home, it turns your Exchange server into its home (resolution not assessed)
+  Emerging recurring patterns: finance, telecom, transport_water, retail_food
+
+Major incidents
+- [ESCALATE · corroborated] APRA calls Microsoft outage a "near miss" for financial system - Insurance Business — impact stated in headline, 130,000 customers, ongoing; confidence 0.60 [inc-df4dc0ec06; 6 report(s); Google News - APRA/ASIC Operational Resilience, Google News - Critical Infrastructure/Energy Cyberattack AU, Google News - Telstra …]
+    next: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- [ESCALATE · corroborated] Live: Power still out after SA transmission line downed — impact stated in headline, ongoing; confidence 0.70 [inc-62d72ad238; 10 report(s); ABC News, Google News - Telstra]
+    next: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- [ESCALATE · corroborated] Telstra Outage -Barnaby Joyce Raises Question Of China Involvement - Sydney Times — impact stated in headline, ongoing; confidence 0.90 [inc-67ec217390; 6 report(s); ABC News, Google News - Telstra]
+    next: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- [ESCALATE · reported · provisional] Four Qlders died 'avoidable deaths' waiting for an ambulance this month — impact stated in headline, ongoing; confidence 0.60 [inc-cad5f2cd3a; 1 report(s); ABC News]
+    next: confirm with an official source
+- [ESCALATE · reported · provisional] US Airlines Race to Recover From Shutdown — impact stated in headline, ongoing; confidence 0.60 [inc-6eb8a91098; 1 report(s); Bloomberg]
+    next: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+
+Recurring patterns (threshold: ≥3 incidents, ≥3 publishers, ≥2 days)
+- finance: 6 incidents [inc-df4dc0ec06, inc-ef80595f75, inc-62c1f4d006, inc-41697a193d]
+- cloud_platform: 5 incidents [inc-df4dc0ec06, inc-c0edb885a5, inc-834c77695b, inc-786906dd5d]
+- telecom: 3 incidents [inc-67ec217390, inc-196727a4bc, inc-99ff181970]
+- transport_water: 3 incidents [inc-ebd7b7452d, inc-6c7faa3ef7, inc-918b7ff01a]
+- retail_food: 3 incidents [inc-eb00ac63a0, inc-7e0bc55c3e, inc-be46a15f69]
+
+Systemic dependencies (named providers appearing in ≥2 incidents; no causal link asserted)
+- None repeated.
+
+Evidence-supported implications (each cites its incident)
+- APRA calls Microsoft outage a "near miss" for financial system - Insurance Business: impact stated in headline, 130,000 customers, ongoing; evidence corroborated; dependencies cloud_platform, finance [inc-df4dc0ec06; 6 report(s); Google News - APRA/ASIC Operational Resilience, Google News - Critical Infrastructure/Energy Cyberattack AU, Google News - Telstra …]
+- Live: Power still out after SA transmission line downed: impact stated in headline, ongoing; evidence corroborated; dependencies energy [inc-62d72ad238; 10 report(s); ABC News, Google News - Telstra]
+- Telstra Outage -Barnaby Joyce Raises Question Of China Involvement - Sydney Times: impact stated in headline, ongoing; evidence corroborated; dependencies telecom [inc-67ec217390; 6 report(s); ABC News, Google News - Telstra]
+- Four Qlders died 'avoidable deaths' waiting for an ambulance this month: impact stated in headline, ongoing; evidence reported; dependencies emergency_services, health [inc-cad5f2cd3a; 1 report(s); ABC News]
+
+Decisions and emerging risks to monitor
+- DECIDE: confirm or stand down provisional escalation — Four Qlders died 'avoidable deaths' waiting for an ambulance this month (confirm with an official source)
+- DECIDE: confirm or stand down provisional escalation — US Airlines Race to Recover From Shutdown (confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source))
+- MONITOR: US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News — unresolved: obtain the organisation's own statement or the regulator's notice confirming what was affected
+- MONITOR: Explosion on Russian ship at Libya port likely caused by drone attack, officials say — unresolved: confirm casualties, damage and service impact with the responsible authority
+- MONITOR: FBI database reportedly hacked — unresolved: obtain the organisation's own statement or the regulator's notice confirming what was affected
+- MONITOR: USDA hit with cyberattack: Sources - KAKE — unresolved: obtain the organisation's own statement or the regulator's notice confirming what was affected
+- WATCH FORWARD: Breaking: Emergency fire warning issued for Victoria's north-west (warning) [inc-78bf13ed4d; 1 report(s); ABC News]
+- WATCH FORWARD: STPASA - Update of the Forecast Lack Of Reserve Level 2 (LOR2) in the TAS Region on 20/11/2026 (forecast) [inc-c669f71312; 1 report(s); AEMO Market Notices]
+- WATCH FORWARD: BOM confirms 'possible tornado' after severe storm batters NSW coast (warning) [inc-97194862b1; 1 report(s); ABC News]

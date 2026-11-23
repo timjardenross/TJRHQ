@@ -134,3 +134,9 @@ def test_comms_flags_duplicate_of_existing_title():
     ev = be.build_evidence([e("a", "Power still out for 20,000 customers after towers crushed - AEMO update", "AEMO Market Notices")], now=NOW, window_hours=72)
     text = "\n".join(be.comms_view(ev, pillar_fn=lambda t: "Operational Resilience", similarity_fn=lambda t, ex: 0.9, existing_titles=["same"]))
     assert "hold — duplicates existing content" in text
+
+
+def test_metaphorical_flood_and_routine_weather_outlook_not_surfaced():
+    assert prio("Cheap Chinese ecommerce parcels flood the UK") == "REFERENCE"
+    assert prio("Storms to hit south-western Qld as heatwave lingers in far north") == "REFERENCE"
+    assert prio("Flash flood warning issued for Brisbane suburbs") == "WATCH"

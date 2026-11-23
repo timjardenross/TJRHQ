@@ -372,11 +372,11 @@ def _argument(i: IncidentView, entity: str) -> tuple[str, bool]:
     if i.event_type == "outage":
         text = f"When {who} fails, the exposure sits in {deps} concentration, so test dependency and exit plans before the next outage rather than after it."
     elif i.event_type in ("cyber_incident", "data_breach"):
-        text = f"The {who} incident shows that resilience depends on knowing which third-party and {deps} dependencies can disrupt service, not only on preventing intrusion."
+        text = f"The incident at {who} shows that resilience depends on knowing which third-party and {deps} dependencies can disrupt service, not only on preventing intrusion."
     elif i.event_type in ("supply_shortfall", "hazard"):
         text = "Forecast and warning notices are the earliest usable resilience signal, so operating plans should be triggered by them and not by the outage."
     else:
-        text = f"The {who} event is a prompt to check {deps} dependencies against impact tolerances."
+        text = f"This event is a prompt to check {'the ' + deps if deps != 'a shared dependency' else deps} against impact tolerances."
     supported = i.evidence_status in ("officially_confirmed", "corroborated") and i.impact_status == "stated"
     return (text if supported else "Hypothesis (unsupported until verified): " + text), supported
 
@@ -412,6 +412,8 @@ def comms_view(ev: EvidenceSet, *, existing_titles: list[str] | None = None, pil
             continue                                             # no alignment with the Captain's pillars: not worth contributing
         sim = similarity_fn(i.headline, existing_titles) if (similarity_fn and existing_titles) else 0.0
         entity = _entity(i)
+        if not entity and not i.record["critical_service_dependencies"]:
+            continue                                             # nothing specific to argue from: not a topic
         argument, supported = _argument(i, entity)
         if sim >= 0.7:
             ready = "hold — duplicates existing content"

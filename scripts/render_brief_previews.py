@@ -41,7 +41,12 @@ def main(events_path, legacy_path, out_dir, legacy_weekly=None):
     (out / "morning_after.txt").write_text("\n".join(after))
     # WEEKLY
     ev7 = be.build_evidence(since(168), now=NOW, window_hours=168)
-    (out / "weekly_after.txt").write_text("\n".join(be.weekly_view(ev7)))
+    (out / "weekly_after.txt").write_text("\n".join(be.weekly_view(ev7)))            # real condition: no prior snapshot exists
+    # Change-detection DEMONSTRATION only: the earlier snapshot is rebuilt from the same export as at 20 Nov, so this shows the mechanism, not a real week-on-week result.
+    cut_prev = NOW - timedelta(days=3)
+    prev_events = [e for e in events if datetime.fromisoformat(e["collected_at"].replace("+00", "+00:00")) <= cut_prev]
+    prev_ev = be.build_evidence(prev_events, now=cut_prev, window_hours=168)
+    (out / "weekly_after_with_demo_snapshot.txt").write_text("\n".join(be.weekly_view(ev7, be.snapshot_payload(prev_ev))))
     if legacy_weekly and Path(legacy_weekly).exists():
         (out / "weekly_before.txt").write_text(Path(legacy_weekly).read_text())
     # Legacy weekly TECH OSINT block, rebuilt from the SAME snapshot with the unchanged legacy renderer (the LLM paragraph cannot be produced offline).
