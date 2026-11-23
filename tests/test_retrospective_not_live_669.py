@@ -246,3 +246,26 @@ def test_an_outage_continuing_into_another_day_is_still_a_live_outage():
     d = decision(evs)
     assert d.impact_status == "stated"
     assert ed.escalation_record(d, now=NOW)["restoration_status"] == "ongoing"
+
+
+def test_live_outage_wording_with_restored_or_resolved_is_not_retrospective():
+    """Review MEDIUM: forecast / wait / negated restoration describes a live outage, not a retrospective one."""
+    for t in ("Ausgrid outage: power will be restored by 5pm for 8,000 homes",
+              "Telstra outage: services remain down until resolved for 20,000 customers",
+              "Optus outage: power not restored for 5,000 homes"):
+        d = decision([e("a", t, "ABC News", 1)])
+        assert d.group.members[0].status != "retrospective", t
+        rec = ed.escalation_record(d, now=NOW)
+        assert rec["restoration_status"] != "restored", t
+
+
+def test_completed_restoration_is_still_retrospective():
+    d = decision([e("a", "Ausgrid outage: power restored for 8,000 homes", "ABC News", 1)])
+    assert d.group.members[0].status == "retrospective"
+
+
+def test_modal_may_followed_by_a_count_is_not_a_date():
+    d = decision([e("a", "Ausgrid outage may 10,000 homes without power", "ABC News", 1)])
+    assert d.group.members[0].status != "retrospective"
+    assert ed.named_date("Ausgrid outage may 10,000 homes without power", NOW) is None
+    assert ed.named_date("Ausgrid outage on May 10 left homes without power", NOW) is not None

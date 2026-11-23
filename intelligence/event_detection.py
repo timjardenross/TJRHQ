@@ -157,6 +157,35 @@ def _ongoing_cue(text: str) -> bool:
 
 
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
+# Negated / in-progress / partial restoration ('power not restored', 'services yet to come back online', 'being restored', 'partially back
+# online', 'restoration unlikely'): the service is NOT restored. These spans are removed before looking for an affirmative restoration.
+_NEG_RESTORE_RX = re.compile(
+    r"(?:\b(?:not|never|no longer|yet to|\w+n't)\s+(?:\w+\s+){0,3}?(?:be\s+)?(?:restored|resolved|back online))"
+    r"|(?:\bbeing\s+(?:\w+\s+){0,2}?(?:restored|resolved))"
+    r"|(?:\bpartial(?:ly)?\s+(?:\w+\s+){0,1}?(?:restored|resolved|back online))"
+    r"|(?:\brestoration\s+(?:is\s+)?(?:unlikely|delayed|uncertain|postponed))", re.IGNORECASE)
+
+
+def _negated_restore(text: str) -> bool:
+    return bool(_NEG_RESTORE_RX.search(text))
+
+
+def _affirmative_restored(text: str) -> bool:
+    """True when the text affirms restoration, ignoring negated, in-progress and partial phrasings."""
+    return bool(_RESTORED_RX.search(_NEG_RESTORE_RX.sub(" ", text)))
+
+
+# 'restored' / 'resolved' make a report retrospective only when they state a COMPLETED restoration. A forecast ('will be restored by 5pm'),
+# a wait ('remain down until resolved'), or a negated / in-progress / partial restoration describes a live outage.
+_UNTIL_RESTORE_RX = re.compile(r"\buntil\s+(?:\w+\s+){0,3}?(?:restored|resolved|fixed)\b", re.IGNORECASE)
+
+
+def _strip_live_restore(text: str) -> str:
+    text = _NEG_RESTORE_RX.sub(" ", text or "")
+    text = _FORECAST_RESTORE_RX.sub(" ", text)
+    return _UNTIL_RESTORE_RX.sub(" ", text)
+
+
 # A forecast ('will be restored by 5pm', 'restoration expected') says the service is NOT yet restored; a hedged claim ('reportedly restored',
 # 'believed to be restored') is not an affirmative status statement. Neither may override explicit ongoing evidence as 'restored'.
 _FORECAST_RESTORE_RX = _rx((r"(?:will|would|should|could|may|might|expected to|due to|set to|hoped? to|likely to|yet to|not yet|aim(?:s|ing)? to|working to)\s+(?:be\s+)?(?:fully\s+)?(?:restored|resolved|back online)",
@@ -271,20 +300,20 @@ def detect_candidate(event: dict) -> Candidate:
     minor = bool(_MINOR_RX.search(text))
     cm = _CUSTOMERS_RX.search(text)
     customers = int(cm.group(1).replace(",", "")) if cm else None
-    ongoing = _ongoing_cue(text) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
+    ongoing = _ongoing_cue(text) or (not _affirmative_restored(text) and not _RETRO_RX.search(text))
     conflict = bool(_CONFLICT_RX.search(text))
     hedged = bool(_HEDGE_RX.search(text) or _ANON_RX.search(text))
     if _ROUTINE_RX.search(text):
         minor = True        # a routine cause (weather) is not a severe disruption on its own
     forward = bool(_FORECAST_RX.search(text))
     hazardous = any(t in types for t in ("hazard", "supply_shortfall", "water_quality", "service_disruption"))
-    cancelled = bool(_CANCEL_RX.search(text))
+    cancelled = bool(_CANCEL_RX.search(_strip_live_restore(text)))
     is_cand = (bool(types or exposure or (conseq and essential)) and (bool(sectors) or scale or compromise or conseq or exposure or safety
                                            or ("vulnerability" in types and we.exploited(text)))) or hazardous
     consequence = ("essential_service" if essential else "broad_user_impact" if sectors
                    else "unknown" if (types and scale) else "none")
     tier = min((SECTOR_TIER[x] for x in sectors if x in SECTOR_TIER), default=None)
-    retro = bool(_RETRO_RX.search(text)) and not _ongoing_cue(text)
+    retro = bool(_RETRO_RX.search(_strip_live_restore(text))) and not _ongoing_cue(text)
     if commentary or not is_cand:
         status = "potential" if (commentary and is_cand) else "none"
     elif cancelled:
@@ -689,7 +718,7 @@ _MONTHS = ("january", "february", "march", "april", "may", "june", "july", "augu
 _WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 _DMY_RX = re.compile(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b")
 _DAY_MONTH_RX = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(" + "|".join(_MONTHS) + r")\b", re.IGNORECASE)
-_MONTH_DAY_RX = re.compile(r"\b(" + "|".join(_MONTHS) + r")\s+(\d{1,2})(?:st|nd|rd|th)?\b", re.IGNORECASE)
+_MONTH_DAY_RX = re.compile(r"\b(" + "|".join(_MONTHS) + r")\s+(\d{1,2})(?:st|nd|rd|th)?\b(?!,\d)", re.IGNORECASE)
 _WEEKDAY_ORD_RX = re.compile(r"\b(" + "|".join(_WEEKDAYS) + r")\s+(\d{1,2})(?:st|nd|rd|th)\b", re.IGNORECASE)
 
 
@@ -713,6 +742,8 @@ def named_date(title: str, ref: datetime) -> datetime | None:
     for m in _DAY_MONTH_RX.finditer(t):
         add(ref.year, _MONTHS.index(m.group(2).lower()) + 1, int(m.group(1)))
     for m in _MONTH_DAY_RX.finditer(t):
+        if m.group(1).lower() == "may" and m.group(1) != "May":
+            continue                                   # lowercase / shouty 'may 10,000' is the modal verb, not a date
         add(ref.year, _MONTHS.index(m.group(1).lower()) + 1, int(m.group(2)))
     for m in _WEEKDAY_ORD_RX.finditer(t):
         wd, day = _WEEKDAYS.index(m.group(1).lower()), int(m.group(2))
@@ -748,8 +779,9 @@ def _report_state(m: Candidate, now: datetime | None = None, active_default: boo
     restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
     forecast = bool(_FORECAST_RESTORE_RX.search(m.title))
     hedged_restore = bool(_HEDGED_RESTORE_RX.search(m.title))
-    restored = bool(_RESTORED_RX.search(m.title)) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
-    cue = _ongoing_cue(m.title) or forecast or (restored and bool(_PARTIAL_RX.search(m.title)))
+    negated = _negated_restore(m.title)
+    restored = _affirmative_restored(m.title) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
+    cue = _ongoing_cue(m.title) or forecast or negated or (restored and bool(_PARTIAL_RX.search(m.title)))
     if _historic(m):
         # An old dated event: its continuation cue is not current evidence, but a negated or partial restoration ('yet to be
         # restored') can never be read as a restoration either. No state at all unless it cleanly says restored.

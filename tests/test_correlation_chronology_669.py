@@ -272,3 +272,19 @@ def test_an_operator_attributed_restoration_is_affirmative():
               e("b", "Telstra power outage restored for 20,000 customers in Adelaide, according to Telstra", "ABC News", 3)]
     assert len(groups(events)) == 1
     assert record_for(events)["restoration_status"] == "restored"
+
+
+def test_negated_or_in_progress_restoration_is_not_restored():
+    """Review HIGH: 'power not restored', 'being restored', 'partially back online' must not read as restored."""
+    for t in ("Optus outage: power not restored for 5,000 homes",
+              "Telstra outage: services have not been restored for 20,000 customers",
+              "Telstra outage: services yet to come back online for 20,000 customers",
+              "Ausgrid outage: power is being restored to 8,000 homes",
+              "Telstra outage: services partially back online for 20,000 customers",
+              "Optus outage: restoration unlikely before tomorrow for 5,000 homes"):
+        assert record_for([e("a", t, "ABC News", 3)])["restoration_status"] != "restored", t
+
+
+def test_affirmative_restoration_phrasings_still_restore():
+    for t in ("Ausgrid outage: power has been restored to 8,000 homes", "Telstra outage: services restored for 20,000 customers"):
+        assert record_for([e("a", t, "ABC News", 3)])["restoration_status"] == "restored", t
