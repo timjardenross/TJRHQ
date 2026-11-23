@@ -67,10 +67,11 @@ def test_materiality_is_the_same_object_across_briefs(evset):
 def test_morning_separates_confirmed_from_verification_and_has_forward_watch(evset):
     text = "\n".join(be.morning_view(evset))
     confirmed, rest = text.split("REQUIRES VERIFICATION", 1)
+    assert "OFFICIALLY CONFIRMED or CORROBORATED" in confirmed and "confirmed" not in rest.split("WARNINGS")[0].lower().replace("unconfirmed", "")
     assert "20,000 customers" in confirmed and "Coles" not in confirmed
     assert "Coles Group investigating" in rest
     watch = text.split("Forward watch", 1)[1]
-    assert "Ongoing" in watch and "24 Nov" in watch
+    assert "Ongoing" in watch and "24/11/2026" in watch
 
 
 def test_morning_ignores_incidents_older_than_a_day_in_the_confirmed_list(evset):
@@ -79,7 +80,7 @@ def test_morning_ignores_incidents_older_than_a_day_in_the_confirmed_list(evset)
 
 
 def test_weekly_lists_major_incident_and_open_decision_without_causal_claims(evset):
-    text = "\n".join(be.weekly_view(evset, previous_ids=set()))
+    text = "\n".join(be.weekly_view(evset))
     assert "Major incidents" in text and "20,000 customers" in text
     assert "DECIDE: confirm or stand down provisional escalation" in text
     for causal in ("caused by", "because of", "led to", "resulted in"):
@@ -92,7 +93,7 @@ def test_comms_view_is_recommendation_only_and_gates_on_pillar_and_readiness(evs
     text = "\n".join(lines)
     assert "approval-only" in lines[0]
     assert "20,000 customers" in text and "Fed's Logan" not in text and "Coles" not in text
-    assert "publication readiness" in text and "research gap" in text
+    assert "publication readiness" in text and "evidence gaps" in text and "what only you can add" in text
 
 
 def test_flags_default_off(monkeypatch):

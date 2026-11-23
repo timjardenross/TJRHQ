@@ -46,6 +46,8 @@ def evidence_lines_for(opportunities: list, *, sb_get=None) -> list[str]:
     BRIEF_EVIDENCE_V1_COMMS is set; never raises (the legacy brief must render unchanged)."""
     import re as _re
     try:
+        from lib.comms import opportunities as opp
+
         from intelligence import brief_evidence as be
         if not be.enabled("comms"):
             return []
@@ -59,8 +61,14 @@ def evidence_lines_for(opportunities: list, *, sb_get=None) -> list[str]:
         def pillar_fn(text):
             _stream, pkey, hits = editorial.classify_stream(text)
             return pillars.PILLARS_BY_KEY[pkey].name if pkey and hits else None
-        view = be.comms_view(ev, existing_titles=[getattr(o, "title", "") for o in opportunities],
-                             pillar_fn=pillar_fn, similarity_fn=editorial.max_similarity)
+        titles = [t for t in opp._existing_titles() if t]                    # already drafted/published content (portfolio)
+        refs = [(getattr(o, "title", ""), f"{o.source_kind}:{o.source_ref}") for o in opportunities
+                if getattr(o, "source_kind", "") in ("library", "research", "signal")]   # existing research-library / Notion references
+
+        def research_fn(headline):
+            return [f"{t} ({r})" for t, r in refs if editorial.shared_theme(headline, t)][:2]
+        view = be.comms_view(ev, existing_titles=titles + [getattr(o, "title", "") for o in opportunities],
+                             pillar_fn=pillar_fn, similarity_fn=editorial.max_similarity, research_fn=research_fn)
         return [_re.sub(r"([_*`\[])", r"\\\1", x) for x in view]
     except Exception:  # noqa: BLE001 - additive feature-flagged block
         return []

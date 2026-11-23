@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 
 from intelligence import weekly_evidence as we
 
-METHOD_VERSION = "wk-detect/0.5.1-v1"
+METHOD_VERSION = "wk-detect/0.6.0-v1c"
 
 # ── Lexicons (data) ──────────────────────────────────────────────────────────────────────────────────
 EVENT_TYPES = {
@@ -36,6 +36,15 @@ EVENT_TYPES = {
                r"los(?:t|e|es|ing) power", r"supply (?:is )?at risk", r"(?:power|energy|fuel) shortages?",
                r"(?:towers?|lines?|poles?|substations?) (?:\w+ )?(?:crushed|toppled?|downed|collapsed?|damaged)",
                r"(?:crushed|toppl\w+|downed|collapsed) (?:\w+ )?(?:transmission )?(?:towers?|lines?|poles?)"),
+    "hazard": (r"earthquakes?", r"tsunamis?", r"cyclones?", r"bushfires?", r"fire warnings?", r"emergency warnings?", r"flood(?:ing|s)?",
+               r"hail(?:storm)?", r"severe (?:thunder)?storms?", r"heatwaves?", r"tornado(?:es)?", r"tremors?", r"storm warnings?",
+               r"evacuation (?:order|warning)s?", r"damaging winds?"),
+    "supply_shortfall": (r"lack of reserve", r"lor[123]", r"reserve shortfalls?", r"supply (?:gap|shortfall)s?", r"(?:power|energy|gas|fuel) shortages?",
+                         r"load shedding", r"grid (?:emergency|strain)"),
+    "water_quality": (r"contaminat\w+", r"boil[- ]water", r"do not drink", r"unsafe to drink", r"above (?:health |safety )?guidelines",
+                      r"water quality", r"e\.? coli"),
+    "service_disruption": (r"ambulance (?:delays?|ramping|shortages?)", r"waiting for an ambulance", r"hospital (?:bypass|diversion)",
+                           r"ambulances? unavailable", r"tech(?:nology)? failure"),
     "physical": (r"fires?", r"explosions?", r"blasts?", r"sunk", r"sinks?", r"derail\w*", r"collapse[sd]?",
                  r"(?:missile|drone|rocket) (?:strike|attack)s?", r"attacks? on"),
     "vulnerability": (r"cve-\d{4}-\d+", r"vulnerabilit(?:y|ies)", r"zero-?days?", r"known exploited",
@@ -63,7 +72,7 @@ SECTORS = {
     "government": (r"services australia", r"centrelink", r"mygov", r"ato", r"home affairs", r"department of"),
     "emergency_services": (r"emergency services?", r"police", r"fire (?:brigade|service|rescue)s?", r"ambulance",
                            r"triple zero", r"(?<![\d,.])000(?![\d,])", r"state emergency service", r"ses"),
-    "transport_water": (r"water (?:supply|treatment)", r"rail(?:way)?", r"trains?", r"ports?", r"ferry", r"toll"),
+    "transport_water": (r"water (?:supply|treatment)", r"(?:tap|drinking) water", r"water quality", r"rail(?:way)?", r"trains?", r"ports?", r"ferry", r"toll"),
     "consumer_service": (r"tourism", r"resorts?", r"hotels?", r"theme parks?", r"cinemas?", r"holiday parks?", r"gyms?",
                          r"booking (?:portal|service|system)s?", r"portals?", r"national parks", r"campgrounds?",
                          r"customers? (?:data|accounts?)", r"loyalty"),
@@ -92,6 +101,13 @@ RETROSPECTIVE = (r"investigated", r"post-(?:blackout|outage|incident)", r"convic
 HEDGE = (r"likely", r"may have", r"might have", r"possibly", r"suspected", r"reportedly", r"apparent", r"alleged\w*", r"believed to")
 POLITICS = (r"liberal", r"labor", r"coalition", r"opposition", r"minister", r"premier", r"election", r"policy", r"parliament",
             r"senator", r"prime minister", r"government plan", r"throws open")
+WARNING = (r"warnings?", r"alerts?", r"watch", r"advis(?:ory|ed)", r"issued", r"expected", r"possible", r"could")
+FORECAST = (r"forecast", r"lor[123]", r"scheduled", r"planned", r"projected", r"outlook")
+CANCELLED = (r"cancell?ation of", r"cancell?ed:", r"reclassification of", r"ceased operating", r"resolved")
+CONFLICT = (r"troops?", r"military", r"missiles?", r"drones?", r"air ?strikes?", r"\bwar\b", r"rebels?", r"shelling", r"invasion",
+            r"insurgents?", r"strikes on", r"killed in", r"blast after", r"projectile")
+ROUTINE_CAUSE = (r"due to (?:the )?(?:weather|fog|wind|storms?|bad weather|weather conditions)", r"weather (?:conditions|delays?)")
+ANON_SOURCE = (r"(?<![-\w])sources?\b(?!\s+code)", r"anonymous", r"unnamed")
 ONGOING = (r"continues?", r"still", r"ongoing", r"remains?", r"races? to", r"live:")
 SCALE = (r"nation(?:wide|al)", r"global(?:ly)?", r"worldwide", r"widespread", r"millions?", r"major incident",
          r"in (?:three|four|five|\d+) states", r"across (?:the )?(?:country|australia|us|world)", r"hundreds of",
@@ -121,6 +137,8 @@ _SECTOR_RX = {k: _rx(v) for k, v in SECTORS.items()}
 _CONSEQ_RX, _EXPOSE_RX, _RETRO_RX, _ONGOING_RX = _rx(CONSEQUENCE), _rx(DATA_EXPOSURE), _rx(RETROSPECTIVE), _rx(ONGOING)
 _SAFETY_RX, _CASCADE_RX, _MINOR_RX = _rx(SAFETY), _rx(CASCADING), _rx(MINOR)
 _HEDGE_RX, _POLITICS_RX = _rx(HEDGE), _rx(POLITICS)
+_WARN_RX, _FORECAST_RX, _CANCEL_RX, _CONFLICT_RX, _ROUTINE_RX = _rx(WARNING), _rx(FORECAST), _rx(CANCELLED), _rx(CONFLICT), _rx(ROUTINE_CAUSE)
+_ANON_RX = re.compile("|".join(ANON_SOURCE), re.IGNORECASE)
 _CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.IGNORECASE)
 _DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.IGNORECASE)
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
@@ -129,7 +147,7 @@ _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", 
 ONGOING_NETWORK_OUTAGE_CUSTOMERS = 10_000
 _NETWORK_SECTORS = frozenset({"energy", "telecom", "transport_water", "emergency_services"})
 _SCALE_RX, _ACTUAL_RX, _POTENTIAL_RX, _COMM_RX = _rx(SCALE), _rx(ACTUAL), _rx(POTENTIAL), _rx(COMMENTARY)
-_COMPROMISE_RX = re.compile(r"(?<![a-z])(?:hijacked|hacked|breached|ransomware|stolen|skimmers?|compromised|wiped|malware)(?![a-z])", re.IGNORECASE)
+_COMPROMISE_RX = re.compile(r"(?<![a-z])(?:hijacked|hacked|breached|ransomware|stolen|skimmers?|compromised|wiped|malware|hit (?:by|with) (?:a )?(?:cyber\w*|ransomware|malware))(?![a-z])", re.IGNORECASE)
 _PROPER = re.compile(r"\b([A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]{2,})*)\b")
 _PROPER_STOP = frozenset({"breaking", "live", "the", "australia", "australian", "government", "minister", "morning",
                           "why", "how", "what", "who", "nationwide", "monday", "tuesday", "wednesday", "thursday",
@@ -157,18 +175,20 @@ class Candidate:
     family: str
     kind: str
     tier: int | None = None   # 1/2/3 from the sectors found; None = no recognised sector
-    status: str = "none"      # confirmed | unconfirmed | retrospective | potential | none (impact status)
+    status: str = "none"      # stated | unconfirmed | retrospective | potential | warning | forecast | none  (what the HEADLINE says about impact)
     exposure: bool = False    # a data-exposure consequence is stated
     safety: bool = False      # a safety consequence (injury, death, evacuation) is stated
     cascading: bool = False   # cascading / knock-on impact is stated
     minor: bool = False       # the disruption is described as brief/partial/limited
     customers: int | None = None   # affected customers stated in the headline
     ongoing: bool = False     # still in progress (not stated as restored/resolved)
+    conflict: bool = False    # armed-conflict reporting (never escalated on its own)
+    hedged: bool = False      # hedged or anonymously sourced (likely / reportedly / 'sources say')
     legacy: dict = field(default_factory=dict)
 
     @property
     def primary_type(self) -> str:
-        for t in ("cyber_incident", "outage", "physical", "vulnerability"):
+        for t in ("cyber_incident", "outage", "supply_shortfall", "water_quality", "service_disruption", "hazard", "physical", "vulnerability"):
             if t in self.types:
                 return t
         return "other"
@@ -220,18 +240,31 @@ def detect_candidate(event: dict) -> Candidate:
     cm = _CUSTOMERS_RX.search(text)
     customers = int(cm.group(1).replace(",", "")) if cm else None
     ongoing = bool(_ONGOING_RX.search(text)) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
-    is_cand = bool(types or exposure or (conseq and essential)) and (bool(sectors) or scale or compromise or conseq or exposure or safety
-                                           or ("vulnerability" in types and we.exploited(text)))
+    conflict = bool(_CONFLICT_RX.search(text))
+    hedged = bool(_HEDGE_RX.search(text) or _ANON_RX.search(text))
+    if _ROUTINE_RX.search(text):
+        minor = True        # a routine cause (weather) is not a severe disruption on its own
+    forward = bool(_FORECAST_RX.search(text))
+    hazardous = any(t in types for t in ("hazard", "supply_shortfall", "water_quality", "service_disruption"))
+    cancelled = bool(_CANCEL_RX.search(text))
+    is_cand = (bool(types or exposure or (conseq and essential)) and (bool(sectors) or scale or compromise or conseq or exposure or safety
+                                           or ("vulnerability" in types and we.exploited(text)))) or hazardous
     consequence = ("essential_service" if essential else "broad_user_impact" if sectors
                    else "unknown" if (types and scale) else "none")
     tier = min((SECTOR_TIER[x] for x in sectors if x in SECTOR_TIER), default=None)
     retro = bool(_RETRO_RX.search(text)) and not _ONGOING_RX.search(text)
     if commentary or not is_cand:
         status = "potential" if (commentary and is_cand) else "none"
+    elif cancelled:
+        status = "retrospective"                       # a cancelled / resolved notice is no longer live
     elif retro:
         status = "retrospective"
-    elif conseq or exposure or safety:
-        status = "unconfirmed" if _HEDGE_RX.search(text) else "confirmed"       # "likely accessed" is a report, not a confirmation
+    elif hazardous and forward and not any(t in types for t in ("water_quality", "service_disruption")):
+        status = "forecast"                            # a forecast is not a stated outage
+    elif "hazard" in types and bool(_WARN_RX.search(text)):
+        status = "warning"                             # an emergency warning is not a stated consequence
+    elif conseq or exposure or safety or hazardous:
+        status = "unconfirmed" if hedged else "stated"       # "likely accessed" is a report, not a statement of fact
     else:
         status = "unconfirmed"
     src = event.get("source") or ""
@@ -239,7 +272,7 @@ def detect_candidate(event: dict) -> Candidate:
         event_id=str(event.get("id")), title=title, source=src, published=we._parse_ts(event.get("collected_at")),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
-        tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing,
+        tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
         family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {})
 
 
@@ -263,13 +296,23 @@ class Group:
     commentary_ids: list[str]
 
 
+def _comparable(a: Candidate, b: Candidate) -> bool:
+    """True when two reports fall inside the time window of their shared event class (a pair outside it is simply not comparable)."""
+    shared = set(a.types) & set(b.types)
+    if not shared or not (a.published and b.published):
+        return True
+    cls = "outage" if "outage" in shared else "cyber_incident" if "cyber_incident" in shared else min(shared)
+    return abs(a.published - b.published) <= _WINDOW.get(cls, _WINDOW["other"])
+
+
 def _idf(cands: list[Candidate]) -> dict[str, float]:
     """Rarity score per stem. A stem is rare when it appears in at most max(2, 5% of the pool) headlines, so a pair of reports is
     judged the same way whether the pool holds 5 events or 5,000 (a log-IDF cut-off would call everything common in a small pool)."""
     df = Counter()
     for c in cands:
         df.update(_content_stems(c.title))
-    limit = max(2, int(0.05 * len(cands)))
+    n = len(cands)
+    limit = max(2, int(0.05 * n)) if n >= 200 else max(2, int(0.4 * n))      # small pools: a term in under 40% of headlines still carries information
     return {s: (3.0 if d <= limit else 0.0) for s, d in df.items()}
 
 
@@ -347,10 +390,13 @@ def correlate(cands: list[Candidate]) -> list[Group]:
         core_a = [m for m in ca if not cands[m].commentary]
         core_b = [m for m in cb if not cands[m].commentary]
         if core_a and core_b:
-            cross = [(x, y) for x in core_a for y in core_b]
+            # Only pairs that fall inside the class time window are comparable: a week-long incident has early and late reports that were
+            # never within 72 h of each other, which must not count as "not linked".
+            cross = [(x, y) for x in core_a for y in core_b if _comparable(cands[x], cands[y])] or [(x, y) for x in core_a for y in core_b]
             coverage = sum(linked(x, y) for x, y in cross) / len(cross)
-            every_member_tied = all(any(linked(x, y) for y in core_b) for x in core_a) and \
-                all(any(linked(x, y) for x in core_a) for y in core_b)
+            # every member must be tied to the other cluster unless it has no comparable partner there (early and late reports of a long incident)
+            every_member_tied = all(any(linked(x, y) for y in core_b) for x in core_a if any(_comparable(cands[x], cands[y]) for y in core_b)) and \
+                all(any(linked(x, y) for x in core_a) for y in core_b if any(_comparable(cands[x], cands[y]) for x in core_a))
             if coverage < 0.5 or not every_member_tied:
                 continue                               # average linkage: stops one chance pair chaining incidents
         if (not core_a and len(ca) > 1) or (not core_b and len(cb) > 1):
@@ -359,11 +405,31 @@ def correlate(cands: list[Candidate]) -> list[Group]:
         clusters[b] = []
         for m in cb:
             where[m] = a
+    # Follow-up pass: a lone commentary/retrospective report ("blackout prompts questions over the network upgrade", "to be investigated
+    # post-blackout") carries no entity or term that links it to the incident. Attach it, at LOW grouping confidence, only when exactly one
+    # active incident of the same sector and event class lies within 96 h. It can never carry an escalation (commentary/retrospective).
+    followups: dict[int, tuple[int, str]] = {}
+    for k in list(range(len(clusters))):
+        v = clusters[k]
+        if len(v) != 1:
+            continue
+        f = cands[v[0]]
+        if not (f.is_candidate and (f.commentary or f.status == "retrospective") and f.published and f.sectors):
+            continue
+        targets = [kk for kk, vv in enumerate(clusters) if kk != k and vv and any(
+            (not cands[m].commentary) and cands[m].status == "stated" and cands[m].published
+            and set(cands[m].sectors) & set(f.sectors) and set(cands[m].types) & set(f.types)
+            and abs(f.published - cands[m].published) <= timedelta(hours=96) for m in vv)]
+        if len(targets) == 1:
+            followups[v[0]] = (targets[0], "probable follow-up: same sector and event class, only one active incident within 96 h")
+            clusters[targets[0]] = clusters[targets[0]] + v
+            clusters[k] = []
     buckets = {k: v for k, v in enumerate(clusters) if v}
     groups: list[Group] = []
     for n, idxs in enumerate(sorted(buckets.values(), key=lambda v: v[0])):
         members = [cands[i] for i in idxs]
         plist = [(cands[i].event_id, cands[j].event_id, *pairs[(i, j)]) for (i, j) in pairs if i in idxs and j in idxs]
+        plist += [(cands[i].event_id, cands[idxs[0]].event_id, 0.4, followups[i][1]) for i in idxs if i in followups]
         conf = round(min((p[2] for p in plist), default=1.0), 2)
         gid = "inc-" + "-".join(sorted(m.event_id for m in members))[:40]
         synd, seen = [], {}
@@ -374,8 +440,8 @@ def correlate(cands: list[Candidate]) -> list[Group]:
                     synd.append(m.event_id)
                     break
             seen[m.event_id] = key
-            if _SYNDICATION_SUFFIX.search(m.title):
-                synd.append(m.event_id)
+            if len(members) > 1 and _SYNDICATION_SUFFIX.search(m.title):
+                synd.append(m.event_id)         # a wire suffix marks a copy only when the group holds other reports of it
         original = [m for m in members if not m.commentary and m.event_id not in synd]
         fams = {m.family for m in original if m.kind != we.AGGREGATOR or m.family != "aggregator"}
         groups.append(Group(gid, members, plist, conf, len(fams), sorted(set(synd)),
@@ -392,39 +458,63 @@ class Decision:
     headline: Candidate
     sector_tier: int | None   # 1 critical services | 2 systemic dependencies/supply chains | 3 context-dependent | None
     event_type: str
-    impact_status: str        # confirmed | unconfirmed | retrospective | potential | none
+    impact_status: str        # what the headline states: stated | unconfirmed | retrospective | potential | warning | forecast | none
     materiality: str          # high | medium | low (operational, not sector)
     evidence_confidence: float
     urgency: str              # immediate | soon | routine
     priority: str             # ESCALATE | VERIFY | WATCH | REFERENCE
     provisional: bool
     reasons: list[str]
+    evidence_status: str = "unverified"       # officially_confirmed | corroborated | reported | unverified (source-level, see evidence_status())
+    evidence_basis: list[str] = field(default_factory=list)   # the sources that support that status
     method_version: str = METHOD_VERSION
 
 
-_STATUS_ORDER = {"confirmed": 4, "unconfirmed": 3, "retrospective": 2, "potential": 1, "none": 0}
+_STATUS_ORDER = {"stated": 6, "warning": 5, "forecast": 4, "unconfirmed": 3, "retrospective": 2, "potential": 1, "none": 0}
 
 
 def _materiality(c: Candidate) -> str:
-    """Operational materiality from the STATED consequence (rubric v2): severe disruption, major safety consequence,
-    essential-service interruption or cascading impact. A tier never sets materiality by itself."""
-    if not c.is_candidate or c.status in ("none", "potential"):
+    """Operational materiality from the STATED consequence (rubric 2.1): severe disruption, major safety consequence tied to a critical service,
+    essential-service interruption or cascading impact. A tier never sets materiality by itself; armed-conflict reporting and routine causes never
+    reach high; a forecast or warning is a different status, not a stated outage."""
+    if not c.is_candidate or c.status in ("none", "potential", "warning", "forecast"):
         return "low"
-    tier = c.tier or 3
-    if c.status == "confirmed":
-        if c.safety or c.cascading:
+    tier = c.tier or None
+    if c.status == "stated":
+        if c.cascading and not c.conflict:
             return "high"
+        if c.safety:
+            return "high" if (tier and not c.conflict) else "medium"      # needs a dependency link; geography alone is not enough
+        if c.conflict:
+            return "medium"
         if (c.ongoing and c.customers and c.customers >= ONGOING_NETWORK_OUTAGE_CUSTOMERS
                 and "outage" in c.types and set(c.sectors) & _NETWORK_SECTORS):
             return "high"                      # significant active network outage; proportionality, not a universal threshold
         if c.minor:
-            return "medium"                    # brief / partial / regional disruption is not severe on its own
-        if tier == 1 or (tier == 2 and c.scale) or (c.scale and c.exposure):
+            return "medium"                    # brief / partial / routine-cause disruption is not severe on its own
+        if any(t in c.types for t in ("hazard", "supply_shortfall", "water_quality", "service_disruption")) and not ({"outage"} & set(c.types)):
+            return "high" if ("do not drink" in c.title.lower() or "boil" in c.title.lower()) else "medium"
+        if (tier == 1) or (tier == 2 and c.scale) or (c.scale and c.exposure):
             return "high"
         return "medium"
     if c.status == "retrospective":
         return "medium" if tier == 1 else "low"
     return "medium" if tier == 1 else "low"       # unconfirmed: a Tier 1 candidate is worth a look, others are not
+
+
+def evidence_status(group: Group) -> tuple[str, list[str]]:
+    """Source-level evidence status, independent of what the headline says about impact.
+    officially_confirmed: a primary/official source (regulator, operator, advisory body) is among the original reports.
+    corroborated: at least two INDEPENDENT publishers (syndicated copies excluded) including a non-aggregator.
+    reported: one non-aggregator original report. unverified: aggregator-only, hedged or anonymously sourced, or no original report."""
+    originals = [m for m in group.members if not m.commentary and m.event_id not in group.syndicated_ids]
+    basis = [f"{m.source or m.family} ({m.kind})" for m in originals]
+    if any(m.kind == we.PRIMARY and not m.hedged for m in originals):
+        return "officially_confirmed", basis
+    solid = [m for m in originals if m.kind != we.AGGREGATOR and not m.hedged]
+    if not solid:
+        return "unverified", basis
+    return ("corroborated" if group.independent_publishers >= 2 else "reported"), basis
 
 
 def decide(group: Group, *, now: datetime | None = None) -> Decision:
@@ -444,8 +534,20 @@ def decide(group: Group, *, now: datetime | None = None) -> Decision:
     reasons = [f"tier={tier}", f"type={head.primary_type}", f"status={status}", f"materiality={mat}",
                f"evidence confidence {conf}", f"{group.independent_publishers} independent publisher(s)"]
 
+    ev_status, ev_basis = evidence_status(group)
+    reasons.append(f"evidence status {ev_status}")
+
     def out(pr, urgency, prov=False):
-        return Decision(group, head, tier, head.primary_type, status, mat, conf, urgency, pr, prov, reasons)
+        return Decision(group, head, tier, head.primary_type, status, mat, conf, urgency, pr, prov, reasons, ev_status, ev_basis)
+
+    if status in ("warning", "forecast") and head.primary_type != "vulnerability":
+        # A warning or forecast is a different thing from a stated outage: it goes to WATCH (forward watch) when an authoritative or
+        # mainstream source issues it, and only an imminent shortfall (LOR3 / load shedding) is raised to VERIFY.
+        imminent = bool(re.search(r"lor3|load shedding", head.title, re.IGNORECASE))
+        reasons.append(f"{status}, not a stated incident")
+        if imminent and solid:
+            return out("VERIFY", "immediate")
+        return out("WATCH" if solid else "REFERENCE", "soon")
 
     if head.primary_type == "vulnerability":
         exploited_, exposed = we.exploited(head.title), we.known_exposure(head.title)
@@ -454,6 +556,9 @@ def decide(group: Group, *, now: datetime | None = None) -> Decision:
         if exploited_ and exposed and primary:
             return out("ESCALATE", "immediate")
         return out("WATCH" if exploited_ or "critical" in head.title.lower() else "REFERENCE", "soon" if exploited_ else "routine")
+    if mat == "high" and head.hedged:
+        reasons.append("hedged or anonymously sourced: verify before acting")
+        return out("VERIFY", "soon")
     if mat == "high":
         if solid:
             if provisional:
@@ -466,7 +571,7 @@ def decide(group: Group, *, now: datetime | None = None) -> Decision:
         return out("VERIFY", "soon")
     if mat == "medium":
         return out("WATCH" if solid else "VERIFY", "soon")
-    if status == "confirmed" and head.is_candidate:
+    if status == "stated" and head.is_candidate:
         return out("WATCH" if solid else "REFERENCE", "routine")
     return out("REFERENCE", "routine")
 
@@ -495,12 +600,13 @@ def escalation_record(d: Decision) -> dict:
     dur = _DURATION_RX.search(text)
     if any(_RESTORED_RX.search(m.title) for m in originals) and not any(_ONGOING_RX.search(m.title) for m in originals):
         restoration = "restored"
-    elif any(m.ongoing and m.status == "confirmed" for m in originals):
+    elif any(m.ongoing and m.status == "stated" for m in originals):
         restoration = "ongoing"
     else:
         restoration = "unknown"
     return {
-        "impact": "confirmed" if d.impact_status == "confirmed" else "reported" if d.impact_status in ("unconfirmed", "retrospective") else d.impact_status,
+        "impact": "stated in headline" if d.impact_status == "stated" else "reported" if d.impact_status in ("unconfirmed", "retrospective") else d.impact_status,
+        "evidence_status": d.evidence_status, "evidence_basis": d.evidence_basis,
         "affected_customers": max(counts) if counts else None,
         "duration": dur.group(0) if dur else None,
         "restoration_status": restoration,

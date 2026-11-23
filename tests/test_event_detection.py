@@ -135,7 +135,7 @@ class TestStage3And4Decision:
 
     def test_method_version_is_stamped(self):
         by, _ = one([ev("r", "Routine item", "ABC News")])
-        assert by["r"].method_version == ed.METHOD_VERSION == "wk-detect/0.5.1-v1"
+        assert by["r"].method_version == ed.METHOD_VERSION == "wk-detect/0.6.0-v1c"
 
 
 @pytest.mark.parametrize("title", ["", "   ", "Breaking:", "!!!"])
@@ -154,7 +154,7 @@ class TestTieredEscalationPolicy:
 
     def test_tier1_confirmed_disruption_single_credible_source_is_provisional_escalate(self):
         d = self.d("Telstra mobile network outage leaves customers without service nationwide")
-        assert (d.sector_tier, d.impact_status, d.materiality, d.priority, d.provisional) == (1, "confirmed", "high", "ESCALATE", True)
+        assert (d.sector_tier, d.impact_status, d.materiality, d.priority, d.provisional) == (1, "stated", "high", "ESCALATE", True)
 
     def test_unconfirmed_cyber_incident_without_consequence_is_verify_not_escalate(self):
         d = self.d("Coles Group investigating a cyber incident")
@@ -162,7 +162,7 @@ class TestTieredEscalationPolicy:
 
     def test_tier2_confirmed_consequence_without_scale_is_watch(self):
         d = self.d("Supermarket freezers hit by cyber attack, food spoiled", "BBC News")
-        assert d.sector_tier == 2 and d.impact_status == "confirmed" and d.materiality == "medium" and d.priority == "WATCH"
+        assert d.sector_tier == 2 and d.impact_status == "stated" and d.materiality == "medium" and d.priority == "WATCH"
 
     def test_tier2_with_scale_and_confirmed_consequence_escalates(self):
         d = self.d("Microsoft outage disrupts services worldwide", "BBC News")
@@ -170,7 +170,7 @@ class TestTieredEscalationPolicy:
 
     def test_confirmed_breach_at_unrecognised_sector_is_not_escalated_by_a_number_alone(self):
         d = self.d("Cosmetics company data breach affects 340,000 clients", "ABC News")
-        assert d.sector_tier is None and d.impact_status == "confirmed" and d.priority == "WATCH"   # "340,000" must not read as 000 (triple zero)
+        assert d.sector_tier is None and d.impact_status == "stated" and d.priority == "WATCH"   # "340,000" must not read as 000 (triple zero)
 
     def test_sector_alone_never_escalates(self):
         for title in ("Westpac reports record half-year profit", "Qantas announces new Sydney lounge", "NSW Health appoints new director"):
@@ -190,7 +190,7 @@ class TestTieredEscalationPolicy:
 
     def test_safety_consequence_is_high_materiality_in_any_tier(self):
         d = self.d("Resort fire injures 12 guests, evacuation under way", "ABC News")
-        assert d.impact_status == "confirmed" and d.materiality == "high" and d.priority == "ESCALATE" and d.provisional
+        assert d.impact_status == "stated" and d.materiality == "high" and d.priority == "ESCALATE" and d.provisional
 
     def test_cascading_impact_is_high_materiality(self):
         d = self.d("Power outage cascades across multiple sectors in Victoria", "ABC News")
@@ -247,7 +247,7 @@ class TestRegionalOutageProportionality:
     def test_escalation_record_carries_the_required_facts(self):
         d = self.d("Breaking: Transmission towers 'crushed', knocking out power to 20,000 customers")
         r = ed.escalation_record(d)
-        assert r["impact"] == "confirmed" and r["affected_customers"] == 20000 and r["restoration_status"] == "ongoing"
+        assert r["impact"] == "stated in headline" and r["affected_customers"] == 20000 and r["restoration_status"] == "ongoing"
         assert r["critical_service_dependencies"] == ["energy"] and r["sector_tier"] == 1 and r["geographic_scope"] == ["AU"]
         assert r["source_confidence"]["provisional"] is True and r["source_confidence"]["independent_publishers"] == 1
         assert "operator" in r["next_verification_action"] and r["report_ids"] == ["x"]

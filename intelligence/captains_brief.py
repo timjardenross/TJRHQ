@@ -1179,7 +1179,12 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
         if not events:
             return []
         ev = be.build_evidence(events, window_hours=hours)
-        view = be.morning_view(ev) if kind == "morning" else be.weekly_view(ev)
+        if kind == "morning":
+            view = be.morning_view(ev)
+        else:
+            path = os.getenv(be.SNAPSHOT_ENV) or None            # the existing SnapshotStore; no path configured = no read and no write
+            view = be.weekly_view(ev, be.load_previous_snapshot(path, ev.generated_at))
+            be.record_snapshot(path, ev)
         return [_esc(x) for x in view] + [""]
     except Exception as exc:  # noqa: BLE001 - additive feature-flagged block; the legacy brief must still render
         log.warning("Evidence-based %s block unavailable: %s", kind, exc)
