@@ -148,7 +148,7 @@ def test_the_situation_line_counts_real_disruptions_and_does_not_invent_any():
 
 
 def test_a_quiet_day_with_no_exposure_has_no_exposure_sentence():
-    _, text = view([])
+    _, text = view([ev("a", "Some unrelated sports story", "ABC News", age=2)])
     assert "Operational situation: no confirmed" in text and "emerging exposures are listed" not in text
 
 
@@ -182,3 +182,62 @@ def test_aggregator_plus_mainstream_is_credible():
     _, text = view([ev("a", "Telstra mobile outage continues across Australia, thousands still without service - ABC News", AGG, age=2),
                     ev("b", "Telstra mobile outage continues across Australia, thousands still without service", "ABC News", age=1)])
     assert "- Ongoing:" in forward(text)
+
+
+# ── External release review of #678 ─────────────────────────────────────────────────────────────────────────────
+TEL = [ev("a", "Telstra mobile outage leaves customers across Australia without service", "ABC News"),
+       ev("b", "Telstra mobile outage leaves thousands unable to call, company confirms", "Telstra Exchange")]
+
+
+def test_an_incident_with_unknown_current_status_is_not_counted_as_a_current_disruption():
+    es, text = view(TEL, restoration_status="unknown")
+    for i in es.incidents:
+        i.record["restoration_status"] = "unknown"
+    text = "\n".join(be.morning_view(es))
+    line = next(l for l in text.splitlines() if l.startswith("Operational situation:"))
+    assert "0 confirmed" not in line and "1 confirmed" not in line
+    assert "current status unknown — not counted as current disruptions" in line
+
+
+def test_an_incident_with_known_current_status_is_still_counted():
+    es = be.build_evidence(TEL, now=NOW, window_hours=72)
+    for i in es.incidents:
+        i.record["restoration_status"] = "ongoing"
+    line = next(l for l in "\n".join(be.morning_view(es)).splitlines() if l.startswith("Operational situation:"))
+    assert "confirmed or corroborated" in line and "status unknown" not in line
+
+
+def test_a_low_quality_blog_is_a_source_question_not_an_impact_question():
+    _, text = view([ev("a", COLES, "Random Cyber Blog")])
+    impact, source = sections(text)
+    assert "Coles Group" in source and "Coles Group" not in impact
+
+
+def test_forward_watch_verify_lines_carry_the_citation():
+    _, text = view([ev("a", COLES, "ABC News")])
+    verify = next(l for l in text.split("Forward watch")[1].splitlines() if l.startswith("- Verify:"))
+    assert "[" in verify and "report(s)" in verify
+
+
+def test_editorial_relevance_only_is_tagged_and_not_counted_or_listed_as_matters_today():
+    es = be.build_evidence([ev("a", "Power outage hits 20,000 customers in SA", "ABC News")], now=NOW, window_hours=72)
+    es.incidents[0].reasons.append("Australian-audience outlet only")
+    assert "editorial relevance only (Australian operational impact not established)" in be._tag(es.incidents[0])
+    text = "\n".join(be.morning_view(es))
+    line = next(l for l in text.splitlines() if l.startswith("Operational situation:"))
+    assert "no confirmed" in line
+    matters = text[text.index("What matters today"):text.index(IMPACT_H)]
+    assert "20,000" not in matters
+    assert "20,000" in text[text.index(SOURCE_H):text.index("WARNINGS AND FORECASTS")]
+
+
+def test_no_recent_incidents_is_insufficient_coverage_not_all_quiet():
+    _, lines = None, be.morning_view(be.build_evidence([], now=NOW, window_hours=72))
+    assert lines[0].startswith("⚠️ EVIDENCE COVERAGE INSUFFICIENT")
+    sit = next(l for l in lines if l.startswith("Operational situation:"))
+    assert "insufficient" in sit and "no confirmed" not in sit
+
+
+def test_recent_incidents_have_no_coverage_marker():
+    _, text = view([ev("a", COLES, "ABC News")])
+    assert "EVIDENCE COVERAGE INSUFFICIENT" not in text

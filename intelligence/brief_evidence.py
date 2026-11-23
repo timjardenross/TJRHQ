@@ -168,8 +168,23 @@ def _tag(i: IncidentView) -> str:
     # status; operational IMPACT (has the effect on service been established?) is what the report states.
     base = ("SOURCE UNVERIFIED" if i.evidence_status == "unverified" else STATUS_LABEL[i.evidence_status]) + note
     retro = " · retrospective report" if i.impact_status == "retrospective" else ""        # say so, never imply a live disruption
+    retro += _EDITORIAL_TAG if _editorial_only(i) else ""
     impact = " · IMPACT NOT YET ESTABLISHED" if _impact_open(i) else ""
     return f"{i.priority} · {base}{retro}{impact}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
+
+
+EDITORIAL_REASON = "Australian-audience outlet only"
+_EDITORIAL_TAG = " · editorial relevance only (Australian operational impact not established)"
+
+
+def _editorial_only(i: IncidentView) -> bool:
+    """Relevance rests on an Australian-audience outlet alone, not on an established Australian operational impact."""
+    return any(EDITORIAL_REASON in r for r in i.reasons)
+
+
+def _quality_source(i: IncidentView) -> bool:
+    """At least one ORIGINAL report from a primary, mainstream or specialist source (not unknown, content or aggregator-only)."""
+    return any(r["role"] == "original" and r["source_kind"] in (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST) for r in i.reports)
 
 
 def _impact_open(i: IncidentView) -> bool:
@@ -212,21 +227,38 @@ def _fw_credible(i: IncidentView) -> bool:
 
 def morning_view(ev: EvidenceSet) -> list[str]:
     recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
-    active = [i for i in recent if i.impact_status not in ("warning", "forecast")]
+    editorial = [i for i in recent if i.impact_status not in ("warning", "forecast") and _editorial_only(i)]
+    active = [i for i in recent if i.impact_status not in ("warning", "forecast") and i not in editorial]
     firm = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated"
             and i.evidence_status in ("officially_confirmed", "corroborated")]
     single = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated" and i.evidence_status == "reported"]
     verify = [i for i in active if i.priority == "VERIFY" or (i.priority in ("ESCALATE", "WATCH") and i not in firm and i not in single)]
     notices = [i for i in recent if i.impact_status in ("warning", "forecast") and i.priority in _ACTIONABLE]
-    source_open = [i for i in verify if i.evidence_status == "unverified"]
-    retro_open = [i for i in verify if i.evidence_status != "unverified" and i.impact_status == "retrospective"]
-    impact_open = [i for i in verify if i.evidence_status != "unverified" and i.impact_status != "retrospective" and i.event_type != "vulnerability"]
-    exposure = [i for i in verify if i.evidence_status != "unverified" and i.impact_status != "retrospective" and i.event_type == "vulnerability"]
-    lines = ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
-    if firm or single:
-        lines.append(f"Operational situation: {len(firm)} confirmed or corroborated and {len(single)} single-source reported disruption(s) in the last 24 hours.")
+    # Section choice uses SOURCE QUALITY as well as evidence status: only an incident with an original report from a primary, mainstream
+    # or specialist source is an 'impact not yet established' / exposure / retrospective question; the rest is a source question.
+    credible = [i for i in verify if i.evidence_status != "unverified" and _quality_source(i)]
+    # A retrospective report from a weak source that currency rules left at REFERENCE (e.g. a stale aggregator item) stays visible here.
+    stale_ref = [i for i in active if i.priority == "REFERENCE" and i.impact_status == "retrospective" and not (i.evidence_status != "unverified" and _quality_source(i))]
+    source_open = [i for i in verify if i not in credible] + stale_ref + editorial
+    retro_open = [i for i in credible if i.impact_status == "retrospective"]
+    impact_open = [i for i in credible if i.impact_status != "retrospective" and i.event_type != "vulnerability"]
+    exposure = [i for i in credible if i.impact_status != "retrospective" and i.event_type == "vulnerability"]
+    # Only CURRENT evidence counts as a current disruption: an incident whose restoration status is unknown (current status not
+    # established, e.g. a historic outage still being written about) is listed but not counted.
+    firm_n = [i for i in firm if i.record["restoration_status"] != "unknown"]
+    single_n = [i for i in single if i.record["restoration_status"] != "unknown"]
+    stale_n = len(firm) + len(single) - len(firm_n) - len(single_n)
+    stale = (f" ({stale_n} more reported with current status unknown — not counted as current disruptions)" if stale_n else "")
+    lines = []
+    if not recent:
+        lines.append("⚠️ EVIDENCE COVERAGE INSUFFICIENT: no reports collected in the last 24 hours; nothing below should be read as all quiet.")
+    lines += ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
+    if not recent:
+        lines.append("Operational situation: evidence coverage is insufficient (no recent reports), so no judgement about current disruption can be made.")
+    elif firm_n or single_n:
+        lines.append(f"Operational situation: {len(firm_n)} confirmed or corroborated and {len(single_n)} single-source reported disruption(s) in the last 24 hours.{stale}")
     else:
-        lines.append("Operational situation: no confirmed, corroborated or single-source reported current disruption in the last 24 hours.")
+        lines.append(f"Operational situation: no confirmed, corroborated or single-source reported current disruption in the last 24 hours{stale}.")
     if notices or exposure:
         lines.append("Credible warnings and emerging exposures are listed separately below; they are not current disruptions and no operational consequence is inferred from them.")
     lines.append("")
@@ -238,7 +270,7 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines += [_line(i, True) for i in impact_open[:6]] or ["- None."]
     lines += ["", "RETROSPECTIVE REPORTS (about past events; not live disruptions)"]
     lines += [_line(i, True) for i in retro_open[:6]] or ["- None."]
-    lines += ["", "SOURCE NOT YET VERIFIED (hedged, aggregator-only or weakly evidenced; not treated as fact)"]
+    lines += ["", "SOURCE NOT YET VERIFIED (hedged, aggregator-only, low-quality source, editorial relevance only or weakly evidenced; not treated as fact)"]
     lines += [_line(i, True) for i in source_open[:6]] or ["- None."]
     lines += ["", "WARNINGS AND FORECASTS (not confirmed incidents)"]
     lines += [_line(i) for i in notices[:6]] or ["- No active warning or forecast notice."]
@@ -254,7 +286,7 @@ def morning_view(ev: EvidenceSet) -> list[str]:
           for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
     fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev) if i not in notices and _fw_credible(i)][:3]
-    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in [x for x in impact_open + exposure + source_open if _fw_credible(x)][:2]]
+    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']} {_cite(i)}" for i in [x for x in impact_open + exposure + source_open if _fw_credible(x)][:2]]
     lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
     return lines
 
