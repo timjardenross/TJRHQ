@@ -135,3 +135,35 @@ def test_morning_view_carries_the_section_last_and_stays_short():
     idx = [n for n, ln in enumerate(view) if ln.startswith("WORTH KNOWING")]
     assert len(idx) == 1 and idx[0] > max(n for n, ln in enumerate(view) if ln.startswith("Forward watch"))
     assert len(view[idx[0]:]) <= 1 + 5 + 1
+
+
+# ── Clean summaries and attribution ─────────────────────────────────────────────────────────────────────────────
+
+def _line_for(title, source, summary):
+    es = be.build_evidence([_ev(1, title, source, summary)], now=NOW, window_hours=72)
+    es.incidents = [replace(i, priority="REFERENCE") for i in es.incidents]
+    return "\n".join(be.worth_knowing_lines(es)), es
+
+
+def test_a_summary_ends_at_a_complete_sentence_never_mid_sentence():
+    long_first = ("Energy authorities warned the government that its plan to attract more data centres would present a major structural "
+                  "challenge to the state's electricity network, according to documents seen by the newspaper over the weekend. Second sentence.")
+    text, _ = _line_for("Energy officials warned of data centre risk to the state electricity network", "Bloomberg", long_first)
+    assert "…" not in text and "Energy authorities warned" not in text          # too long for one clean sentence: omitted, not cut
+    ok = "Energy authorities warned that the plan would present a major structural challenge to the grid. More detail follows later."
+    text, _ = _line_for("Energy officials warned of data centre risk to the state electricity network", "Bloomberg", ok)
+    assert "Energy authorities warned that the plan would present a major structural challenge to the grid." in text
+    assert "More detail follows" not in text
+
+
+def test_abbreviations_do_not_end_a_sentence_early():
+    text, _ = _line_for("US regulators warn cloud providers over concentration of critical workloads", "Financial Times",
+                        "The U.S. regulator told cloud providers to report concentration risk by March. A second sentence follows here.")
+    assert "The U.S. regulator told cloud providers to report concentration risk by March." in text
+
+
+def test_an_official_confirmation_names_who_confirmed():
+    text, _ = _line_for("Vulnerabilities in nginx Affecting Cisco Products: November 2026", "Cisco Security Advisories",
+                         "On November 18, 2026, nginx announced the availability of a fix for multiple critical vulnerabilities in nginx. Cisco is evaluating its products.")
+    assert "officially confirmed by Cisco Security Advisories" in text
+    assert "On November 18, 2026, nginx announced the availability of a fix for multiple critical vulnerabilities in nginx." in text

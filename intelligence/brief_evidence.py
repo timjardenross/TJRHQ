@@ -299,6 +299,20 @@ def _wk_category(text: str) -> tuple[str, int] | None:
     return best
 
 
+_WK_SUMMARY_MAX = 200
+
+
+def _wk_first_sentence(txt: str) -> str:
+    """The first COMPLETE sentence, at most _WK_SUMMARY_MAX characters; '' when there is none (a summary is omitted rather than cut
+    mid-sentence). Abbreviation-style full stops ('U.S.', 'No. 5') do not end a sentence."""
+    for m in re.finditer(r"[.!?](?=\s|$)", txt):
+        head = txt[:m.end()]
+        if re.search(r"(?:\b[A-Z]|\bNo|\bSt|\bDr|\bMr|\bMs|\bInc|\bLtd|\bCorp|\bvs)\.$", head):
+            continue
+        return head.strip() if 40 <= len(head) <= _WK_SUMMARY_MAX else ""
+    return txt if 40 <= len(txt) <= _WK_SUMMARY_MAX and txt.endswith(("\"", "”")) else ""
+
+
 def _wk_summary(i: IncidentView) -> str:
     """First sentence of the best original report's own summary, trimmed. Empty when it only repeats the headline."""
     head = re.sub(r"\W+", " ", i.headline).strip().lower()
@@ -310,9 +324,9 @@ def _wk_summary(i: IncidentView) -> str:
         txt = re.sub(r"\s+", " ", txt).strip()
         if len(txt) < 40 or re.sub(r"\W+", " ", txt).strip().lower().startswith(head[:50]):
             continue
-        m = re.match(r"(.{40,}?[.!])\s", txt + " ")
-        out = m.group(1) if m else txt
-        return out if len(out) <= 180 else out[:177].rsplit(" ", 1)[0] + "…"
+        sentence = _wk_first_sentence(txt)
+        if sentence:
+            return sentence
     return ""
 
 
@@ -356,12 +370,20 @@ def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[
     return out
 
 
+def _wk_official_source(i: IncidentView) -> str:
+    """The primary publisher the official confirmation comes from (e.g. the vendor advisory feed), named so the line says WHO confirmed."""
+    for r in i.reports:
+        if r["role"] == "original" and r["source_kind"] == we.PRIMARY:
+            return r["source_name"] or r["publisher"]
+    return "a primary source"
+
+
 def _wk_line(i: IncidentView, cat: str) -> str:
     au = "Australian relevance stated in report" if _wk_au(i) else "International development; no Australian operational impact established"
     via = _wk_via_aggregator(i)
     basis = (f"single source via aggregator feed (publisher: {via})" if via
              else "single-source report" if i.evidence_status == "reported"
-             else "officially confirmed" if i.evidence_status == "officially_confirmed"
+             else f"officially confirmed by {_wk_official_source(i)}" if i.evidence_status == "officially_confirmed"
              else f"independently corroborated ({i.independent_publishers} publishers)")
     tags = [cat, basis, au] + (["retrospective report"] if i.impact_status == "retrospective" else [])
     summary = _wk_summary(i)
