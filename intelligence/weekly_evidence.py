@@ -146,8 +146,10 @@ def source_kind(source_name: str) -> str:
 
 # A wire copy is recognised by its dateline ("(Reuters) -", "AAP -", "AFP -", "(AP) —") at the start of the title or summary,
 # or by the source name itself. Every outlet carrying the same wire is ONE family: the wire.
+# Two shapes only: "PLACE (Wire) -" (parenthesised wire after an optional place name) or a bare "Wire -" at the very start. Text before a
+# bare wire name ("... flaw in AFP - advisory") is NOT a dateline: AFP is also the Apple Filing Protocol.
 _WIRE_DATELINE = re.compile(
-    r"^\W*(?:[A-Z][A-Za-z .,']{0,40}\s)?(?:\(\s*(reuters|ap|afp|aap)\s*\)|(reuters|afp|aap))\s*[-–—]", re.IGNORECASE)
+    r"^\W*(?:(?:[A-Z][A-Za-z .']{0,30}\s)?\(\s*(reuters|ap|afp|aap)\s*\)|(reuters|afp|aap))\s*[-–—]", re.IGNORECASE)
 _WIRE_NAMES = {"reuters": "reuters", "ap": "associated press", "associated press": "associated press", "afp": "afp", "aap": "aap"}
 
 

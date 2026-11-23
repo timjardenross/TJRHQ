@@ -90,3 +90,19 @@ def test_independent_originals_corroborate():
 def test_same_publisher_repeated_counts_once():
     g = _group([_cand(1, WORDINGS[0], "ABC News"), _cand(2, WORDINGS[1], "ABC News Business")])
     assert g.independent_publishers == 1
+
+
+# ── wire dateline: only a real dateline shape counts ──────────────────────────────────────────────────────────────
+@pytest.mark.parametrize("title,expected", [
+    ("SYDNEY (Reuters) - Power restored across Sydney after outage", "reuters"),
+    ("Melbourne (AAP) - Storms forecast for Victoria", "aap"),
+    ("(AP) — Wildfire spreads", "associated press"),
+    ("AFP - Talks resume", "afp"),
+    ("Reuters - Markets rally", "reuters"),
+    ("Cisco patches critical flaw in AFP - advisory published", None),     # AFP the protocol, not the wire
+    ("Optus outage: AAP - customers still without service", None),         # wire name mid-headline is not a dateline
+    ("Fed holds rates - Reuters poll shows", None),
+    ("Telstra says outage over, AAP reports", None),
+])
+def test_wire_dateline_is_recognised_only_in_dateline_shapes(title, expected):
+    assert we.wire_of("ABC News", title, "") == expected
