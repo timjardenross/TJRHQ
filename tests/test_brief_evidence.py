@@ -124,7 +124,7 @@ def test_load_events_fails_soft_and_maps_rows():
              "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
     out = be.load_events(lambda *a, **k: rows, hours=24)
     assert out == [{"id": "e1", "title": "T", "summary": "", "source": "ABC News", "geography": "AU",
-                    "collected_at": "2026-11-22T00:00:00Z", "url": "https://x"}]
+                    "collected_at": "2026-11-22T00:00:00Z", "published_at": None, "url": "https://x"}]
 
 
 def test_flagged_hook_adds_a_block_and_a_failure_does_not_break_the_brief(monkeypatch):
