@@ -184,3 +184,12 @@ def test_an_outage_of_unknown_currency_is_first_checked_for_currency():
 def test_other_incident_classes_keep_their_class_specific_action():
     a = action([e("a", "Hijacked website testing tool plants card skimmer on Australian brands' sites", "iTnews", 3)])
     assert "restoration" not in a
+
+
+def test_a_reopened_incident_counts_as_ongoing_only_while_the_reopening_report_is_current():
+    evs = [e("a", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", 30),
+           e("b", "Telstra power outage leaves 20,000 customers in Adelaide without power again", "ABC News", 4)]
+    assert restoration(evs) == "ongoing"                       # reopening report is 4h old
+    old = [e("a", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", 60),
+           e("b", "Telstra power outage leaves 20,000 customers in Adelaide without power again", "ABC News", 40)]
+    assert restoration(old) != "ongoing"                       # 40h old with no continuation cue: not current evidence

@@ -175,3 +175,18 @@ def test_the_undated_fallback_uses_the_same_per_report_state():
 def dataclass_replace_unpublished(c):
     import dataclasses
     return dataclasses.replace(c, published=None)
+
+
+def test_a_reopened_incident_with_no_still_marker_is_ongoing_again():
+    """Codex P2: 'still' -> 'restored' -> 'without power again': the latest stated report has no 'still' word but is active."""
+    events = [e("a", "Power outage still affecting 20,000 Telstra customers in Adelaide", "ABC News", 0),
+              e("b", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", 3),
+              e("c", "Telstra power outage leaves 20,000 customers in Adelaide without power again", "ABC News", 6)]
+    assert len(groups(events)) == 1
+    assert record_for(events)["restoration_status"] == "ongoing"
+
+
+def test_a_later_clean_restoration_still_closes_an_earlier_active_report():
+    events = [e("a", "Telstra power outage leaves 20,000 customers in Adelaide without power", "ABC News", 0),
+              e("b", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", 4)]
+    assert record_for(events)["restoration_status"] == "restored"
