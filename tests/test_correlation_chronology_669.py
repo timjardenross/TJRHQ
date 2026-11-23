@@ -258,3 +258,17 @@ def test_provenance_keeps_both_timestamps_and_says_which_one_informed_chronology
     es = be.build_evidence([ev], now=NOW, window_hours=200)
     r = es.incidents[0].reports[0]
     assert r["collected_at"] == ev["collected_at"] and r["published_at"] and r["published_at"] != r["collected_at"]
+
+
+def test_a_past_restoration_after_before_is_not_a_forecast():
+    """Codex P2: 'affected 20,000 customers before power restored' describes completed restoration."""
+    events = [e("a", "Telstra power outage affected 20,000 customers in Adelaide before power restored", "ABC News", 3)]
+    assert record_for(events)["restoration_status"] != "ongoing"
+
+
+def test_an_operator_attributed_restoration_is_affirmative():
+    """Codex P2: 'according to Telstra' is attribution, not a hedge; it closes an earlier ongoing report."""
+    events = [e("a", ONGOING_T, "ABC News", 0),
+              e("b", "Telstra power outage restored for 20,000 customers in Adelaide, according to Telstra", "ABC News", 3)]
+    assert len(groups(events)) == 1
+    assert record_for(events)["restoration_status"] == "restored"
