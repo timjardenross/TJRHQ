@@ -1360,6 +1360,18 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
         return []
 
 
+def _theme_lines() -> list[str]:
+    """Topic & Theme lane for the morning brief (flag BRIEF_THEMES_V1[_MORNING], default off): developments and running themes in the
+    watched topics. [] when off; never raises, so the legacy brief always renders."""
+    try:
+        from intelligence import brief_themes as bt
+        lines = bt.theme_lines(_sb_get)
+        return [_esc(x) for x in lines] + [""] if lines else []
+    except Exception as exc:  # noqa: BLE001 - additive feature-flagged block
+        log.warning("Theme lane unavailable: %s", exc)
+        return []
+
+
 def generate_morning_brief() -> str:
     now = _now_aest()
     brief = _get_latest_ori_brief()
@@ -1378,6 +1390,8 @@ def generate_morning_brief() -> str:
     # V1 shared evidence foundation (default off): confirmed vs to-verify incidents, implications, 24-72h forward watch.
     evidence_lines = _evidence_lines("morning", 72)
     lines += evidence_lines
+    # Topic & Theme lane (default off): developments and running themes in the watched topics, beside (not inside) the incident picture.
+    lines += _theme_lines()
     # Authority depends on USABLE coverage: lines that announce insufficient coverage are not an authoritative picture.
     evidence_insufficient = any(_EVIDENCE_INSUFFICIENT_MARKER in line for line in evidence_lines)
     evidence_authoritative = bool(evidence_lines) and not evidence_insufficient
