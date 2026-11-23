@@ -135,9 +135,21 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
 
 # ── helpers shared by the views ───────────────────────────────────────────────────────────────────────
 
+_CITE_REFS = 3                                   # report references shown per citation (bounded: briefs are read on a phone)
+_ROLE_ORDER = {"original": 0, "syndicated": 1, "commentary": 2}
+
+
 def _cite(i: IncidentView) -> str:
+    """Incident id, report count and publishers (as before) PLUS retrievable references: report ids and, where a report has
+    one, its URL. #669: the ids and URLs were collected per report but dropped, so a reader could not retrieve the evidence
+    behind an escalation or contribution candidate. Original reports come first, primary sources ahead of the rest; URLs are
+    never truncated (a cut URL is not retrievable); a report without a URL is cited by id alone."""
     pubs = sorted({r["source_name"] or r["publisher"] for r in i.reports if r["role"] != "commentary"})
-    return f"[{i.incident_id}; {len(i.reports)} report(s); " + ", ".join(pubs[:3]) + (" …" if len(pubs) > 3 else "") + "]"
+    ranked = sorted(i.reports, key=lambda r: (_ROLE_ORDER.get(r["role"], 3), r["source_kind"] != we.PRIMARY, r["report_id"]))
+    refs = [f"{r['report_id']} <{r['url']}>" if r.get("url") else str(r["report_id"]) for r in ranked[:_CITE_REFS]]
+    more = f" +{len(ranked) - _CITE_REFS} more" if len(ranked) > _CITE_REFS else ""
+    return (f"[{i.incident_id}; {len(i.reports)} report(s); " + ", ".join(pubs[:3]) + (" …" if len(pubs) > 3 else "")
+            + "; evidence: " + ", ".join(refs) + more + "]")
 
 
 def _facts(i: IncidentView) -> str:
