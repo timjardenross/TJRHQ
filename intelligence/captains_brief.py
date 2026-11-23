@@ -1331,6 +1331,10 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
         ev = be.build_evidence(events, window_hours=hours)
         if kind == "morning":
             view = be.morning_view(ev)
+            recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
+            if not recent and not any(_EVIDENCE_INSUFFICIENT_MARKER in line for line in view):
+                # Reports exist (24-72h old) but nothing was collected in the last 24h: the picture is NOT 'all quiet', it is thin.
+                view = [f"⚠️ {_EVIDENCE_INSUFFICIENT_MARKER}: no reports collected in the last 24 hours; nothing below should be read as all quiet."] + view
         else:
             path = os.getenv(be.SNAPSHOT_ENV) or None            # the existing SnapshotStore; no path configured = no read and no write
             view = be.weekly_view(ev, be.load_previous_snapshot(path, ev.generated_at))

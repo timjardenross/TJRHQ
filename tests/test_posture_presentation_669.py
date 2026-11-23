@@ -110,3 +110,23 @@ def test_other_signals_labelled_only_when_evidence_authoritative(monkeypatch):
     assert "OTHER SIGNALS (24h)" in insufficient and "not evidence-checked)</b>" not in insufficient.split("OTHER SIGNALS")[1].split("\n")[0]
     off = _morning_patched(monkeypatch, evidence=[], signals=_SIGNALS)
     assert "OTHER SIGNALS (24h)" in off and "OTHER SIGNALS (24h;" not in off
+
+
+# ── Codex P2: derive coverage from the actual evidence result, not a mocked marker ──────────────────────────────────
+
+def _old_rows(hours_ago=48):
+    ts = (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return [{"event_id": "o1", "raw_title": "Telstra mobile outage leaves customers across Australia without service", "raw_summary": "",
+             "geography": "AU", "collected_at": ts, "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
+
+
+def test_only_old_reports_means_insufficient_coverage_end_to_end(monkeypatch):
+    text = _morning(monkeypatch, flag=True, rows=_old_rows(48))
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in text
+    assert "LEGACY POSTURE" in text and "What matters today" in text                 # legacy shown, clearly labelled, not suppressed
+    assert "no reports collected in the last 24 hours" in text
+
+
+def test_recent_reports_keep_the_evidence_picture_authoritative_end_to_end(monkeypatch):
+    text = _morning(monkeypatch, flag=True, rows=_rows())
+    assert "EVIDENCE COVERAGE INSUFFICIENT" not in text and "What matters today</b>" not in text
