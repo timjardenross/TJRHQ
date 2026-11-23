@@ -269,3 +269,12 @@ def test_modal_may_followed_by_a_count_is_not_a_date():
     assert d.group.members[0].status != "retrospective"
     assert ed.named_date("Ausgrid outage may 10,000 homes without power", NOW) is None
     assert ed.named_date("Ausgrid outage on May 10 left homes without power", NOW) is not None
+
+
+def test_a_process_word_does_not_swallow_a_following_clause_about_the_outage():
+    """Codex P2 on 491c500e: 'Investigation launched as Telstra outage continues' - the continuation belongs to the outage in the 'as' clause."""
+    assert ed._ongoing_cue("Investigation launched as Telstra outage continues, some services restored across Australia")
+    assert ed._ongoing_cue("Review begins while the outage is still affecting customers")
+    # the process itself continuing is still not a service-continuation cue
+    assert not ed._ongoing_cue("Inquiry continues into the Telstra outage")
+    assert not ed._ongoing_cue("Royal commission hearings ongoing")
