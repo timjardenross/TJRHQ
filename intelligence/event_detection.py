@@ -296,12 +296,27 @@ class Group:
     commentary_ids: list[str]
 
 
+# #669: the class two reports share decides their comparison window and whether they can be one incident. Outages and cyber
+# incidents come first (unchanged); the other prose-correlated classes (hazards, supply shortfalls, water quality, service
+# disruptions) are now correlated on their OWN class instead of being lumped under "vulnerability" and rejected.
+_CLASS_PRIORITY = ("outage", "cyber_incident", "hazard", "supply_shortfall", "water_quality", "service_disruption")
+
+
+def _shared_class(a: Candidate, b: Candidate) -> str | None:
+    shared = set(a.types) & set(b.types)
+    if not shared:
+        return None
+    for cls in _CLASS_PRIORITY:
+        if cls in shared:
+            return cls
+    return "vulnerability" if "vulnerability" in shared else min(shared)
+
+
 def _comparable(a: Candidate, b: Candidate) -> bool:
     """True when two reports fall inside the time window of their shared event class (a pair outside it is simply not comparable)."""
-    shared = set(a.types) & set(b.types)
-    if not shared or not (a.published and b.published):
+    cls = _shared_class(a, b)
+    if cls is None or not (a.published and b.published):
         return True
-    cls = "outage" if "outage" in shared else "cyber_incident" if "cyber_incident" in shared else min(shared)
     return abs(a.published - b.published) <= _WINDOW.get(cls, _WINDOW["other"])
 
 
@@ -320,11 +335,10 @@ def _link(a: Candidate, b: Candidate, idf: dict[str, float]) -> tuple[float, str
     """Confidence (0-1) that two candidates report ONE incident, with the reason; None if they do not."""
     if not (a.is_candidate and b.is_candidate):
         return None
-    shared_types = set(a.types) & set(b.types)
-    if not shared_types:
+    cls = _shared_class(a, b)
+    if cls is None:
         return None
-    cls = "outage" if "outage" in shared_types else "cyber_incident" if "cyber_incident" in shared_types else "vulnerability"
-    if a.published and b.published and abs(a.published - b.published) > _WINDOW[cls]:
+    if a.published and b.published and abs(a.published - b.published) > _WINDOW.get(cls, _WINDOW["other"]):
         return None
     if cls == "vulnerability":
         return None            # advisories are grouped by CVE/product, never by prose similarity
@@ -589,6 +603,33 @@ _VERIFY_NEXT = {
 }
 
 
+def _report_state(m: Candidate) -> str | None:
+    """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing (a mixed
+    'power restored but thousands still without' is ongoing); None when it says neither."""
+    restored, ongoing = bool(_RESTORED_RX.search(m.title)), bool(_ONGOING_RX.search(m.title))
+    if ongoing:
+        return "ongoing"
+    return "restored" if restored else None
+
+
+def _restoration_status(originals: list[Candidate]) -> str:
+    """#669: decide by report CHRONOLOGY. The latest dated report that states restored or ongoing wins, so an earlier 'still
+    without power' report no longer vetoes a later 'power restored' (and a later 'still ongoing' reopens an earlier
+    'restored'). Ties go to 'ongoing'. Reports without a date cannot be ordered, so with no dated statement the previous
+    any-report rule applies."""
+    dated = sorted((m for m in originals if m.published), key=lambda m: m.published)
+    for m in reversed(dated):
+        latest = m.published
+        states = {_report_state(x) for x in dated if x.published == latest} - {None}
+        if states:
+            return "ongoing" if "ongoing" in states else "restored"
+    if any(_RESTORED_RX.search(m.title) for m in originals) and not any(_ONGOING_RX.search(m.title) for m in originals):
+        return "restored"
+    if any(m.ongoing and m.status == "stated" for m in originals):
+        return "ongoing"
+    return "unknown"
+
+
 def escalation_record(d: Decision) -> dict:
     """The facts the Captain needs beside every ESCALATE/VERIFY item: what is confirmed vs merely reported, scale, duration and
     restoration, critical-service dependencies, geography, source confidence and the next verification action. Recomputed whenever the
@@ -598,12 +639,7 @@ def escalation_record(d: Decision) -> dict:
     counts = [m.customers for m in originals if m.customers]
     text = " ".join(m.title for m in originals)
     dur = _DURATION_RX.search(text)
-    if any(_RESTORED_RX.search(m.title) for m in originals) and not any(_ONGOING_RX.search(m.title) for m in originals):
-        restoration = "restored"
-    elif any(m.ongoing and m.status == "stated" for m in originals):
-        restoration = "ongoing"
-    else:
-        restoration = "unknown"
+    restoration = _restoration_status(originals)
     return {
         "impact": "stated in headline" if d.impact_status == "stated" else "reported" if d.impact_status in ("unconfirmed", "retrospective") else d.impact_status,
         "evidence_status": d.evidence_status, "evidence_basis": d.evidence_basis,
