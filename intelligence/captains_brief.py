@@ -1242,7 +1242,7 @@ def _format_weekly_capacity_block_v1(capacity: dict, days: int = 7) -> list[str]
 
 # ── Brief generators ──────────────────────────────────────────────────────────
 
-def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
+def _format_intelligence_posture_block(brief: dict | None, *, evidence_authoritative: bool = False) -> list[str]:
     """Deterministic rendering of the canonical daily brief
     (intelligence_briefs) — the ONE place this Telegram message decides
     posture / what matters / what changed, built on the exact same
@@ -1253,6 +1253,13 @@ def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
     from intelligence.brief.render import RISK_LABEL, build_morning_intelligence_view
 
     view = build_morning_intelligence_view(brief, max_items=3)
+    if evidence_authoritative:
+        # The evidence-based picture (BRIEF_EVIDENCE_V1_MORNING) is the authoritative morning assessment. The legacy posture,
+        # "What matters today" and "Changed since yesterday" are NOT shown beside it: they are not evidence-checked and can carry
+        # stale or contradictory priorities. Only the collection-health warning is kept, as a diagnostic.
+        if view["has_brief"] and view["coverage_note"]:
+            return ["<b>📡 COLLECTION HEALTH</b>", f"  <i>⚠️ {_esc(view['coverage_note'])}</i>", ""]
+        return []
     if not view["has_brief"]:
         return [
             "<b>📡 INTELLIGENCE POSTURE</b>",
@@ -1340,7 +1347,8 @@ def generate_morning_brief() -> str:
     lines += _format_capacity_block(capacity)
 
     # V1 shared evidence foundation (default off): confirmed vs to-verify incidents, implications, 24-72h forward watch.
-    lines += _evidence_lines("morning", 72)
+    evidence_lines = _evidence_lines("morning", 72)
+    lines += evidence_lines
 
     # Intelligence posture — rendered deterministically from the canonical
     # daily brief. This is the one place that decides posture/what-matters/
@@ -1348,7 +1356,7 @@ def generate_morning_brief() -> str:
     # selection from the same brief (Section 26/29 of
     # BRIEFS_CANONICAL_UPLIFT.md). No LLM re-synthesis of the OSINT picture
     # happens here or in build_daily_digest() below.
-    lines += _format_intelligence_posture_block(brief)
+    lines += _format_intelligence_posture_block(brief, evidence_authoritative=bool(evidence_lines))
 
     # Daily digest — platform-only content now: individual HIGH/MEDIUM news
     # signals plus platform events (health/engineering/learning/
