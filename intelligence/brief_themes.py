@@ -44,6 +44,7 @@ SUSTAINED_MIN_REPORTS, SUSTAINED_MIN_PUBLISHERS = 10, 3
 RUNNING_MIN_REPORTS, RUNNING_MAX_REPORTS, RUNNING_MIN_PUBLISHERS, RUNNING_MIN_DAYS = 5, 80, 3, 2
 RUNNING_NEW_HOURS = 48
 MAX_STORY_LINES, MAX_RUNNING_LINES = 4, 3
+MAX_UNVERIFIED_LINES = 2          # aggregator-only surges stay visible, clearly labelled, never as corroborated
 LOAD_HOURS = 192                  # 8 days: 7-day running window plus the baseline
 PAGE_SIZE, MAX_PAGES = 1000, 8
 
@@ -144,15 +145,25 @@ class RunningLine:
 
 
 @dataclass
+class UnverifiedLine:
+    """Meets the report thresholds only when aggregator reports are counted. A lead, never corroboration."""
+    theme: str
+    reports: int
+    independent: int               # non-aggregator publishers (0 or 1: otherwise it would be a story)
+    lead_title: str
+
+
+@dataclass
 class Lane:
     stories: list[StoryLine] = field(default_factory=list)
     running: list[RunningLine] = field(default_factory=list)
+    unverified: list[UnverifiedLine] = field(default_factory=list)
     news_reports: int = 0
     themed_reports: int = 0
 
     @property
     def empty(self) -> bool:
-        return not self.stories and not self.running
+        return not self.stories and not self.running and not self.unverified
 
 
 def _entities(title: str) -> set[str]:
@@ -224,6 +235,7 @@ def build_lane(reports: list[dict], now: datetime, themes: tuple[Theme, ...] | N
             else:
                 groups.append({"ents": [e], "ids": set(ids)})
         cands = []
+        unver = []
         for g in groups:
             names = set(g["ents"])
             rs = [r for r in recent if r["ents"] & names]
@@ -234,11 +246,20 @@ def build_lane(reports: list[dict], now: datetime, themes: tuple[Theme, ...] | N
                 cands.append((g["ents"], rs, pubs, per_day, ratio, "spike"))
             elif len(pubs) >= SUSTAINED_MIN_PUBLISHERS and len(rs) >= SUSTAINED_MIN_REPORTS:
                 cands.append((g["ents"], rs, pubs, per_day, ratio, "sustained"))
+            else:
+                # would qualify if aggregator reports counted as publishers: keep the surge visible, but unverified
+                pubs_all = {(r["source"] if r["kind"] == we.AGGREGATOR else r["publisher"]) for r in rs}   # each aggregator feed is a lead of its own
+                if ((len(pubs_all) >= SPIKE_MIN_PUBLISHERS and len(rs) >= SPIKE_MIN_REPORTS and ratio >= SPIKE_RATIO)
+                        or (len(pubs_all) >= SUSTAINED_MIN_PUBLISHERS and len(rs) >= SUSTAINED_MIN_REPORTS)):
+                    unver.append((set(g["ents"]), rs, len(pubs)))
         cands.sort(key=lambda c: (-len(c[2]), -len(c[1])))
         for ents, rs, pubs, per_day, ratio, why in cands[:3]:
             lead = _pick_lead(rs, set(ents), theme)
             lane.stories.append(StoryLine(theme.name, [e.title() for e in ents[:3]], len(rs), len(pubs), per_day, ratio, why,
                                           lead["title"], lead["source"]))
+        if unver:
+            names, rs, indep = max(unver, key=lambda u: len(u[1]))
+            lane.unverified.append(UnverifiedLine(theme.name, len(rs), indep, _pick_lead(rs, names, theme)["title"]))
         week = [r for r in sub if r["ts"] >= now - timedelta(days=7)]
         new48 = [r for r in week if r["ts"] >= now - timedelta(hours=RUNNING_NEW_HOURS)]
         pubs_week = {r["publisher"] for r in week if r["kind"] != we.AGGREGATOR}
@@ -259,8 +280,14 @@ def build_lane(reports: list[dict], now: datetime, themes: tuple[Theme, ...] | N
                 if len(picks) == 2:
                     break
             lane.running.append(RunningLine(theme.name, len(week), len(pubs_week), len(new48), picks))
+        elif (not unver and RUNNING_MIN_REPORTS <= len(week) <= RUNNING_MAX_REPORTS and new48
+              and len({r["source"] if r["kind"] == we.AGGREGATOR else r["publisher"] for r in week}) >= RUNNING_MIN_PUBLISHERS
+              and len(days_week) >= RUNNING_MIN_DAYS):
+            lane.unverified.append(UnverifiedLine(theme.name, len(week), len(pubs_week), _pick_lead(new48, set(), theme)["title"]))
     lane.stories.sort(key=lambda s: (-s.publishers, -s.reports))
     lane.stories = lane.stories[:MAX_STORY_LINES]
+    lane.unverified.sort(key=lambda u: -u.reports)
+    lane.unverified = lane.unverified[:MAX_UNVERIFIED_LINES]
     lane.running.sort(key=lambda r: -r.new_48h)
     lane.running = lane.running[:MAX_RUNNING_LINES]
     return lane
@@ -287,6 +314,10 @@ def format_lane(lane: Lane) -> list[str]:
         others = s.publishers - 1
         also = f" and {others} other independent publisher{'s' if others != 1 else ''}" if others > 0 else ""
         out.append(f"- {s.theme}: {_short(s.lead_title)} ({s.lead_source}{also}). Coverage is {_how_much(s)}.")
+    for u in lane.unverified:
+        how = ("seen only through aggregators so far; unverified" if u.independent == 0
+               else "1 independent publisher so far, the rest are aggregators; unverified")
+        out.append(f"- {u.theme}: {_short(u.lead_title)} ({how}).")
     for r in lane.running:
         heads = " | ".join(f"{src}: {_short(title, 80)}" for src, title in r.picks)
         out.append(f"- {r.theme} is active this week. Latest: {heads}")

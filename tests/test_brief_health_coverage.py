@@ -230,14 +230,14 @@ def test_feeds_failing_for_days_are_named_and_not_called_quiet(monkeypatch):
 def test_a_feed_is_failing_only_if_every_recent_check_was_bad_and_there_were_enough(monkeypatch):
     registry = reg(("a", "ABC News"), ("x", "One Good Check"), ("y", "Only Two Checks"))
     lines = cov(monkeypatch, registry, busy("a"), checks("x", ["failed", "failed", "ok", "failed"]) + checks("y", ["failed", "failed"]))
-    assert "failing" not in "\n".join(lines)
+    assert "Feeds failing for days" not in "\n".join(lines)
 
 
 def test_wellness_feeds_going_quiet_are_not_a_coverage_gap(monkeypatch):
-    lines = cov(monkeypatch, reg(("a", "ABC News"), ("w", "Greater Good Magazine", "wellness"), ("m", "Mindful.org", "wellness"),
+    lines = cov(monkeypatch, reg(("a", "ABC News"), ("b", "Bloomberg"), ("w", "Greater Good Magazine", "wellness"), ("m", "Mindful.org", "wellness"),
                                  ("t", "MIT Sloan Management Review", "thought_leadership"), ("f", "Failing Wellness", "wellness")),
-                busy("a") + busy("w", today=0) + busy("m", today=0) + busy("t", today=0) + busy("f", today=0),
-                checks("a", ["ok"] * 4) + checks("f", ["failed"] * 4))
+                busy("a") + busy("b") + busy("w", today=0) + busy("m", today=0) + busy("t", today=0) + busy("f", today=0),
+                checks("a", ["ok"] * 4) + checks("b", ["ok"] * 4) + checks("f", ["failed"] * 4))
     text = "\n".join(lines)
     for name in ("Greater Good", "Mindful", "MIT Sloan", "Failing Wellness"):
         assert name not in text, name
@@ -245,7 +245,8 @@ def test_wellness_feeds_going_quiet_are_not_a_coverage_gap(monkeypatch):
 
 
 def test_a_thin_day_is_called_out(monkeypatch):
-    lines = cov(monkeypatch, reg(("a", "ABC News")), [ev("a", 30 + 10 * i) for i in range(6)] * 5 + [ev("a", 3)])
+    lines = cov(monkeypatch, reg(("a", "ABC News"), ("b", "Bloomberg")),
+                [ev(s, 30 + 10 * i) for s in "ab" for i in range(6)] * 3 + [ev("a", 3)])
     assert "Collection is thin today" in lines[1]
 
 
@@ -312,3 +313,96 @@ def test_morning_brief_hooks_never_raise_when_on(monkeypatch):
     health, coverage = cb._health_lines(), cb._coverage_lines()
     assert any("unavailable" in x.lower() for x in health), health          # a failed lane says so, it does not vanish or look quiet
     assert any("could not" in x.lower() for x in coverage), coverage
+
+
+# ── stale collection and sample_size hygiene ─────────────────────────────────────────────────────────────────────
+def _lane(rows, monkeypatch):
+    monkeypatch.setenv(bh.MORNING_FLAG, "1")
+    return bh.health_lines(fake_sb({"health_signals": rows}), now=NOW)
+
+
+def test_quiet_message_flags_stale_health_collection(monkeypatch):
+    lines = _lane([sig("Unrelated cardiology paper", collected="2026-11-15T00:00:00Z")], monkeypatch)
+    assert lines[1].startswith("- Nothing new in your monitored conditions.") and "Health collection looks stale" in lines[1]
+
+
+def test_quiet_message_is_plain_when_collection_is_fresh(monkeypatch):
+    lines = _lane([sig("Unrelated cardiology paper", collected="2026-11-22T20:00:00Z")], monkeypatch)
+    assert lines[1] == "- Nothing new in your monitored conditions." and "stale" not in lines[1]
+
+
+def test_unparseable_collected_at_is_not_fresh_and_never_raises(monkeypatch):
+    lines = _lane([sig("Unrelated cardiology paper", collected="garbage")], monkeypatch)
+    assert "Health collection looks stale" in lines[1]
+
+
+def test_non_numeric_sample_size_is_not_rendered():
+    for bad in ("abc", "", "0", -5, True, "12abc"):
+        assert "people" not in bh._kind({"description": "x", "study_design": "RCT", "sample_size": bad}), bad
+    assert bh._kind({"description": "x", "study_design": "RCT", "sample_size": "120"}) == "randomised trial, 120 people"
+
+
+# ── coverage must not reassure without evidence ──────────────────────────────────────────────────────────────────
+GOOD = checks("a", ["ok"] * 4) + checks("b", ["ok"] * 4)
+TWO = reg(("a", "ABC News"), ("b", "Bloomberg"))
+NORMAL = "- Collection is normal today across your sources."
+NO_HISTORY = "- Not enough collection history to judge today."
+INCOMPLETE = "- Feed health data is incomplete, so failing feeds may be missing here."
+
+
+def test_zero_baseline_cannot_judge_not_normal(monkeypatch):
+    lines = cov(monkeypatch, TWO, [ev("a", 2), ev("a", 5), ev("b", 8)], GOOD)
+    assert NO_HISTORY in lines and NORMAL not in lines
+
+
+def test_tiny_baseline_or_one_reporting_source_cannot_judge(monkeypatch):
+    few = cov(monkeypatch, TWO, busy("a", base=2) + busy("b", base=2), GOOD)
+    one = cov(monkeypatch, TWO, busy("a", base=30), GOOD)
+    for lines in (few, one):
+        assert NO_HISTORY in lines and NORMAL not in lines
+    assert bc.MIN_BASELINE_EVENTS >= 1 and bc.MIN_BASELINE_SOURCES >= 2
+
+
+def test_incomplete_feed_health_is_not_normal(monkeypatch):
+    lines = cov(monkeypatch, TWO, busy("a") + busy("b"), checks("a", ["ok"]))      # 0 of 2 sources have enough checks
+    assert INCOMPLETE in lines and NORMAL not in lines
+
+
+def test_half_the_sources_with_enough_checks_is_complete_enough(monkeypatch):
+    lines = cov(monkeypatch, TWO, busy("a") + busy("b"), checks("a", ["ok"] * bc.FAILING_MIN_CHECKS))
+    assert NORMAL in lines and INCOMPLETE not in lines
+
+
+def test_stale_status_and_invalid_content_count_as_bad(monkeypatch):
+    health = (checks("a", ["ok"] * 4) + [{"source_id": "z", "status": "stale"}] * 3
+              + [{"source_id": "y", "status": "ok", "content_valid": False}] * 3 + [{"source_id": "b", "status": "ok", "content_valid": True}] * 4)
+    lines = cov(monkeypatch, reg(("a", "ABC News"), ("b", "Bloomberg"), ("z", "Stale Feed"), ("y", "Empty Feed")), busy("a") + busy("b"), health)
+    text = "\n".join(lines)
+    assert "Empty Feed, Stale Feed" in text and NORMAL not in lines
+
+
+def test_health_query_selects_content_valid(monkeypatch):
+    seen = []
+    monkeypatch.setenv(bc.MORNING_FLAG, "1")
+    tables = {"intelligence_source_registry": TWO, "intelligence_events": busy("a") + busy("b"), "intelligence_source_health": GOOD}
+    inner = fake_sb(tables)
+    bc.coverage_lines(lambda t, q="": (seen.append((t, q)), inner(t, q))[1], alerts(), now=NOW)
+    assert any(t == "intelligence_source_health" and "content_valid" in q for t, q in seen)
+
+
+def test_events_query_is_newest_first_and_a_full_page_cap_is_flagged(monkeypatch):
+    seen = []
+    monkeypatch.setenv(bc.MORNING_FLAG, "1")
+    full = [ev("a" if i % 2 else "b", 2 + (i % 100)) for i in range(bc.PAGE_SIZE)]    # the fake returns this for every page
+    tables = {"intelligence_source_registry": TWO, "intelligence_events": full, "intelligence_source_health": GOOD}
+    inner = fake_sb(tables)
+    lines = bc.coverage_lines(lambda t, q="": (seen.append((t, q)), inner(t, q))[1], alerts(), now=NOW)
+    assert any(t == "intelligence_events" and "order=collected_at.desc" in q for t, q in seen)
+    assert "- Collection counts may be incomplete." in lines and NORMAL not in lines
+
+
+def test_normal_thin_and_cannot_judge_are_three_different_outputs(monkeypatch):
+    normal = cov(monkeypatch, TWO, busy("a") + busy("b"), GOOD)[1]
+    thin = cov(monkeypatch, TWO, [ev(s, 30 + 10 * i) for s in "ab" for i in range(6)] * 3 + [ev("a", 3)], GOOD)[1]
+    cannot = cov(monkeypatch, TWO, [ev("a", 2)], GOOD)[1]
+    assert len({normal, thin, cannot}) == 3 and normal == NORMAL and "thin" in thin and cannot == NO_HISTORY

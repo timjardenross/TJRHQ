@@ -331,3 +331,51 @@ def test_flag_on_and_the_lane_crashing_leaves_the_brief_intact(monkeypatch):
     with patch("intelligence.brief_themes.theme_lines", side_effect=RuntimeError("boom")):
         text = _morning(monkeypatch, themes_on=True, rows=_raw_rows())
     assert "MORNING BRIEF" in text and "DEVELOPMENTS" not in text
+
+
+# ── aggregator-only coverage stays visible but unverified ────────────────────────────────────────────────────────
+def _agg_reports(n=8, extra=()):
+    titles = [f"Nvidia reinstates Jensen Huang as chief executive, report {i}" for i in range(n)]
+    return [rep(300 + i, t, f"Google News - Source {i}", 2 + i) for i, t in enumerate(titles)] + list(extra)
+
+
+def _lines(reports):
+    return bt.format_lane(bt.build_lane(reports, NOW))
+
+
+def test_aggregator_only_surge_is_shown_as_unverified_never_corroborated():
+    lane = bt.build_lane(_agg_reports(), NOW)
+    assert lane.stories == [] and not lane.empty
+    text = "\n".join(bt.format_lane(lane))
+    assert "(seen only through aggregators so far; unverified)" in text and "Nvidia" in text
+    assert "independent publisher" not in text and "Coverage is" not in text
+
+
+def test_one_independent_publisher_plus_aggregators_is_counted_as_one_only():
+    lines = _lines(_agg_reports(extra=[rep(399, "Nvidia reinstates Jensen Huang as chief executive", "Bloomberg", 2)]))
+    text = "\n".join(lines)
+    assert "unverified" in text and "independent publishers" not in text and "other independent" not in text
+    assert "1 independent publisher" in text and "aggregators" in text
+
+
+def test_unverified_lines_are_capped_at_two():
+    reports = _agg_reports() + [rep(700 + i, f"Telstra outage hits customers again, report {i}", f"Google News - Feed {i}", 2 + i) for i in range(8)] \
+        + [rep(800 + i, f"OpenAI releases model update, report {i}", f"Google News - Wire {i}", 2 + i) for i in range(8)]
+    assert sum("unverified" in l for l in _lines(reports)) <= bt.MAX_UNVERIFIED_LINES == 2
+
+
+def test_no_aggregator_content_leaves_output_unchanged():
+    lines = bt.format_lane(bt.build_lane(nvidia_story(), NOW))
+    assert not any("unverified" in l for l in lines) and any("independent publisher" in l for l in lines)
+    assert bt.format_lane(bt.build_lane([], NOW)) == ["DEVELOPMENTS & THEMES (what moved in your watched topics)", "- Nothing new in your watched topics."]
+
+
+def test_content_feeds_never_count_even_as_aggregator_style_lift():
+    reports = [rep(900 + i, f"Nvidia reinstates Jensen Huang as chief executive, report {i}", f"Psychology Today {i}", 2 + i) for i in range(8)]
+    assert bt.build_lane(reports, NOW).empty
+
+
+def test_aggregator_only_running_theme_is_unverified_not_active():
+    reports = [rep(950 + i, f"Telstra outage hits customers, report {i}", f"Google News - Feed {i}", 3 + 30 * (i % 3)) for i in range(6)]
+    lane = bt.build_lane(reports, NOW)
+    assert lane.running == [] and lane.unverified and "unverified" in "\n".join(bt.format_lane(lane))

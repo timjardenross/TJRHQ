@@ -22,6 +22,7 @@ _TRUE = ("1", "true", "yes", "on")
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "health_watchlist.json"
 
 LOOKBACK_DAYS = 14                 # research moves slowly: a day's window is mostly empty
+STALE_COLLECTION_DAYS = 4          # the freshest loaded signal older than this: say collection looks stale
 FRESH_HOURS = 48                   # 'new' means collected in the last two days; older items only fill a quiet morning
 MAX_MATCHED = 5
 MAX_OLDER = 3
@@ -106,7 +107,11 @@ def _kind(row: dict) -> str:
     desc = (row.get("description") or "").strip()
     m = re.match(r"Status:\s*([A-Z_]+)", desc)
     n = row.get("sample_size")
-    people = f", {n} people" if n else ""
+    try:
+        n = int(str(n).strip()) if n is not None and not isinstance(n, bool) else 0
+    except ValueError:
+        n = 0
+    people = f", {n} people" if n > 0 else ""
     if m:
         status = _TRIAL_STATUS.get(m.group(1))
         return f"registered trial, {status}{people}" if status else f"registered trial{people}"
@@ -164,12 +169,13 @@ def _short(title: str, n: int = 120) -> str:
     return title if len(title) <= n else title[: n - 1].rstrip() + "…"
 
 
-def format_lane(matched: list[Pick], safety: list[Pick]) -> list[str]:
+def format_lane(matched: list[Pick], safety: list[Pick], stale: bool = False) -> list[str]:
     fresh = [p for p in matched if p.fresh][:MAX_MATCHED]
     older = [p for p in matched if not p.fresh][:MAX_OLDER]
     head = "HEALTH WATCH (your monitored conditions)"
     if not fresh and not older and not safety:
-        return [head, "- Nothing new in your monitored conditions."]
+        note = " Health collection looks stale, so this may not mean nothing happened." if stale else ""
+        return [head, f"- Nothing new in your monitored conditions.{note}"]
     out = [head]
     for p in safety:
         tag = f" ({p.condition})" if p.condition else ""
@@ -193,7 +199,9 @@ def health_lines(sb_get, now: datetime | None = None) -> list[str]:
         if not rows:
             return ["HEALTH WATCH", "- Unavailable: no recent health signals could be loaded, so nothing here should be read as quiet."]
         matched, safety = select(rows, load_watchlist(), now)
-        return format_lane(matched, safety)
+        newest = max((w for w in (_parse_time(r.get("collected_at")) for r in rows) if w), default=None)
+        stale = newest is None or now - newest > timedelta(days=STALE_COLLECTION_DAYS)
+        return format_lane(matched, safety, stale)
     except Exception:
         log.warning("health lane unavailable", exc_info=True)
         return ["HEALTH WATCH", "- Unavailable (the health lane failed); nothing here should be read as quiet."]

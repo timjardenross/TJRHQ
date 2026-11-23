@@ -380,7 +380,13 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines = []
     if not recent:
         lines.append("⚠️ EVIDENCE COVERAGE INSUFFICIENT: no reports collected in the last 24 hours; nothing below should be read as all quiet.")
-    lines += ["🛰 EVIDENCE-BASED PICTURE", f"Based on what was reported in the last {ev.window_hours} hours.", ""]
+    if not recent:
+        based = f"Based on reports from the last {ev.window_hours} hours; none were collected in the last 24 hours, so this is not a current picture."
+    elif ev.window_hours > 24:
+        based = f"Based on reports from the last {ev.window_hours} hours (newest within 24 hours)."
+    else:
+        based = f"Based on reports from the last {ev.window_hours} hours."
+    lines += ["🛰 EVIDENCE-BASED PICTURE", based, ""]
     if not recent:
         lines.append("Operational situation: evidence coverage is insufficient (no recent reports), so no judgement about current disruption can be made.")
     elif firm_n or single_n:
