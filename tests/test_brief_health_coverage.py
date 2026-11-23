@@ -1,8 +1,9 @@
 """Health watch and coverage blocks for the Morning brief (both default OFF)."""
 from __future__ import annotations
 
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -80,9 +81,11 @@ def test_a_signal_appears_once_and_duplicates_collapse():
 
 def test_limits_and_ranking():
     rows = [sig(f"ADHD study {i}", rank=i / 10) for i in range(9)] + [sig(f"Safety item {i}", safety=True) for i in range(6)]
-    matched, safety = bh.select(rows, bh.load_watchlist())
-    assert len(matched) == bh.MAX_MATCHED and len(safety) == bh.MAX_SAFETY
-    assert matched[0].title == "ADHD study 8"
+    matched, safety = bh.select(rows, bh.load_watchlist(), NOW)
+    assert len(safety) == bh.MAX_SAFETY and matched[0].title == "ADHD study 8"
+    lines = bh.format_lane(matched, safety)
+    assert sum(1 for x in lines if x.startswith("- Neurodivergence")) == bh.MAX_MATCHED
+    assert sum(1 for x in lines if x.startswith("- SAFETY")) == bh.MAX_SAFETY
 
 
 def test_newer_wins_among_equal_ranks():
@@ -109,83 +112,191 @@ def test_health_lines_when_on(monkeypatch):
     monkeypatch.setenv(bh.MORNING_FLAG, "1")
     lines = bh.health_lines(fake_sb({"health_signals": [sig("ADHD and executive function", study_design="RCT", sample_size=120),
                                                        sig("Drug X adverse events", safety=True)]}), now=NOW)
-    assert lines[0].startswith("HEALTH WATCH") and "2 signals checked" in lines[0]
-    assert lines[1].startswith("- SAFETY") and lines[2].startswith("- Neurodivergence") and "RCT · n=120" in lines[2]
+    assert lines[0].startswith("HEALTH WATCH")
+    assert lines[1].startswith("- SAFETY") and lines[2].startswith("- Neurodivergence") and "randomised trial, 120 people" in lines[2]
+    assert "RCT" not in "\n".join(lines) and "n=" not in "\n".join(lines) and "signals checked" not in lines[0]
 
 
-def test_health_quiet_says_so(monkeypatch):
-    monkeypatch.setenv(bh.MASTER_FLAG, "true")
-    lines = bh.health_lines(fake_sb({"health_signals": [sig("Statin therapy in older adults")]}), now=NOW)
-    assert lines[1] == "- Nothing new in your monitored conditions."
+# ── freshness and plain wording ───────────────────────────────────────────────────────────────────────────────
+def test_fresh_items_come_first_and_old_ones_are_left_out_when_there_is_news():
+    rows = [sig("ADHD old but top ranked", rank=0.9, collected="2026-11-10T00:00:00Z"),
+            sig("ADHD fresh study", rank=0.2, collected="2026-11-23T10:00:00Z")]
+    lines = bh.format_lane(*bh.select(rows, bh.load_watchlist(), NOW))
+    assert any("ADHD fresh study" in x for x in lines)
+    assert not any("old but top ranked" in x for x in lines)           # yesterday's top item does not repeat when something is new
 
 
-def test_health_load_failure_is_unavailable_not_quiet(monkeypatch):
-    monkeypatch.setenv(bh.MORNING_FLAG, "1")
-    for src in ([], RuntimeError("db down")):
-        lines = bh.health_lines(fake_sb({"health_signals": src}), now=NOW)
-        assert "Unavailable" in lines[1] and "quiet" in lines[1]
+def test_a_quiet_two_days_says_so_then_shows_the_most_recent_older_items():
+    rows = [sig(f"Fibromyalgia study {i}", rank=i / 10, collected="2026-11-12T00:00:00Z") for i in range(6)]
+    lines = bh.format_lane(*bh.select(rows, bh.load_watchlist(), NOW))
+    assert "Nothing new in the last two days" in lines[1]
+    assert sum(1 for x in lines if x.startswith("  - Chronic pain")) == bh.MAX_OLDER
 
 
-def test_health_pages_until_a_short_page(monkeypatch):
-    calls = []
+def test_the_two_day_boundary():
+    inside = sig("ADHD inside", collected="2026-11-21T22:30:00Z")        # 47.5h before NOW
+    outside = sig("ADHD outside", collected="2026-11-21T21:00:00Z")      # 49h before NOW
+    m, _ = bh.select([inside, outside], bh.load_watchlist(), NOW)
+    assert {p.title: p.fresh for p in m} == {"ADHD inside": True, "ADHD outside": False}
 
-    def get(table, query=""):
-        calls.append(query)
-        return [sig(f"ADHD {len(calls)}-{i}") for i in range(bh.PAGE_SIZE)] if len(calls) < 3 else [sig("ADHD last")]
-    assert len(bh.load_signals(get, now=NOW)) == 2 * bh.PAGE_SIZE + 1 and len(calls) == 3
+
+@pytest.mark.parametrize("row,expected", [
+    ({"description": "Status: NOT_YET_RECRUITING. Conditions: Autism.", "sample_size": 680}, "registered trial, not yet recruiting, 680 people"),
+    ({"description": "Status: RECRUITING. Conditions: ADHD.", "sample_size": None}, "registered trial, now recruiting"),
+    ({"description": "Status: COMPLETED. Conditions: Fibromyalgia.", "sample_size": 100}, "registered trial, completed, 100 people"),
+    ({"description": "Status: ACTIVE_NOT_RECRUITING.", "sample_size": 131}, "registered trial, under way, 131 people"),
+    ({"description": "", "study_design": "meta_analysis", "sample_size": 709}, "review of many studies"),
+    ({"description": "x", "study_design": "RCT", "sample_size": 90}, "randomised trial, 90 people"),
+    ({"description": "x", "study_design": "observational", "sample_size": None}, "observational study"),
+    ({"description": "x", "study_design": None, "sample_size": None}, "study"),
+])
+def test_evidence_is_described_in_words(row, expected):
+    assert bh._kind(row) == expected
+
+
+def test_the_time_formats_the_database_returns_are_understood():
+    want = datetime(2026, 11, 22, 2, 0, 48, tzinfo=timezone.utc)
+    for v in ("2026-11-22 02:00:48+00", "2026-11-22T02:00:48Z", "2026-11-22T02:00:48+00:00", "2026-11-22 02:00:48"):
+        assert bh._parse_time(v) == want, v
+    assert bh._parse_time("2026-11-22 02:00:48.584851+00") == want.replace(microsecond=584851)
+    assert bh._parse_time(None) is None and bh._parse_time("junk") is None
 
 
 # ── coverage ─────────────────────────────────────────────────────────────────────────────────────────────────────
-REG = [{"source_id": "a", "source_name": "ABC News", "content_expectation": "continuous"},
-       {"source_id": "b", "source_name": "ASIC News Centre", "content_expectation": "continuous"},
-       {"source_id": "c", "source_name": "Quarterly report", "content_expectation": "periodic"}]
+def ago(hours):
+    return (NOW - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def ev(sid, hours):
+    return {"source_id": sid, "collected_at": ago(hours)}
+
+
+def reg(*pairs):
+    """(id, name) or (id, name, category)"""
+    return [{"source_id": p[0], "source_name": p[1], "category": p[2] if len(p) > 2 else "media"} for p in pairs]
+
+
+def busy(sid, today=3, base=6):
+    """A source that reports regularly: `base` reports across the earlier days, `today` in the last 24 hours."""
+    return [ev(sid, 30 + 10 * i) for i in range(base)] + [ev(sid, 2 + i) for i in range(today)]
+
+
+def checks(sid, statuses):
+    return [{"source_id": sid, "status": st} for st in statuses]
 
 
 def alerts(*sevs):
     return lambda limit=500: [{"severity": s, "jurisdiction": j} for s, j in sevs]
 
 
+def cov(monkeypatch, registry, events, health=None, alert_rows=()):
+    monkeypatch.setenv(bc.MORNING_FLAG, "1")
+    sb = fake_sb({"intelligence_source_registry": registry, "intelligence_events": events, "intelligence_source_health": health or []})
+    return bc.coverage_lines(sb, alerts(*alert_rows), now=NOW)
+
+
 def test_coverage_flag_off_is_empty():
     assert bc.coverage_lines(fake_sb({}), alerts()) == []
 
 
-def test_coverage_counts_and_names_silent_continuous_sources_only(monkeypatch):
+def test_a_normal_day_says_so_with_no_numbers(monkeypatch):
+    lines = cov(monkeypatch, reg(("a", "ABC News"), ("b", "Bloomberg")), busy("a") + busy("b"), checks("a", ["ok"] * 5))
+    assert lines[0].startswith("COVERAGE") and lines[1] == "- Collection is normal today across your sources."
+    assert not re.search(r"\d", "\n".join(lines[1:]))
+
+
+def test_a_source_that_normally_reports_and_went_quiet_is_named(monkeypatch):
+    lines = cov(monkeypatch, reg(("a", "ABC News"), ("b", "Bloomberg")), busy("a") + busy("b", today=0))
+    assert "Normally active but quiet in the last 24 hours: Bloomberg." in "\n".join(lines)
+    assert "Collection is normal" not in "\n".join(lines)
+
+
+def test_a_status_feed_that_is_quiet_because_nothing_is_wrong_is_not_a_gap(monkeypatch):
+    # never reports (or only rarely): quiet is its normal state, so it must not be named
+    lines = cov(monkeypatch, reg(("a", "ABC News"), ("s", "Cloudflare Status"), ("r", "Rare Feed")),
+                busy("a") + [ev("r", 40), ev("r", 60)], checks("a", ["ok"] * 4) + checks("s", ["ok"] * 4))
+    text = "\n".join(lines)
+    assert "Cloudflare Status" not in text and "Rare Feed" not in text and "Collection is normal today" in text
+
+
+def test_feeds_failing_for_days_are_named_and_not_called_quiet(monkeypatch):
+    lines = cov(monkeypatch, reg(("a", "ABC News"), ("z", "ASIC News Centre")), busy("a") + busy("z", today=0),
+                checks("z", ["failed", "degraded", "failed", "failed"]))
+    text = "\n".join(lines)
+    assert "Feeds failing for days (their silence is not good news): ASIC News Centre." in text
+    assert "Normally active but quiet" not in text           # reported once, not twice
+
+
+def test_a_feed_is_failing_only_if_every_recent_check_was_bad_and_there_were_enough(monkeypatch):
+    registry = reg(("a", "ABC News"), ("x", "One Good Check"), ("y", "Only Two Checks"))
+    lines = cov(monkeypatch, registry, busy("a"), checks("x", ["failed", "failed", "ok", "failed"]) + checks("y", ["failed", "failed"]))
+    assert "failing" not in "\n".join(lines)
+
+
+def test_wellness_feeds_going_quiet_are_not_a_coverage_gap(monkeypatch):
+    lines = cov(monkeypatch, reg(("a", "ABC News"), ("w", "Greater Good Magazine", "wellness"), ("m", "Mindful.org", "wellness"),
+                                 ("t", "MIT Sloan Management Review", "thought_leadership"), ("f", "Failing Wellness", "wellness")),
+                busy("a") + busy("w", today=0) + busy("m", today=0) + busy("t", today=0) + busy("f", today=0),
+                checks("a", ["ok"] * 4) + checks("f", ["failed"] * 4))
+    text = "\n".join(lines)
+    for name in ("Greater Good", "Mindful", "MIT Sloan", "Failing Wellness"):
+        assert name not in text, name
+    assert "Collection is normal today" in text
+
+
+def test_a_thin_day_is_called_out(monkeypatch):
+    lines = cov(monkeypatch, reg(("a", "ABC News")), [ev("a", 30 + 10 * i) for i in range(6)] * 5 + [ev("a", 3)])
+    assert "Collection is thin today" in lines[1]
+
+
+def test_named_sources_are_capped(monkeypatch):
+    registry = reg(*[(f"s{i}", f"S{i:02d}") for i in range(10)] + [("ok", "Reporter")])
+    events = busy("ok") + [e for i in range(10) for e in busy(f"s{i}", today=0)]
+    assert "and 4 more" in "\n".join(cov(monkeypatch, registry, events))
+
+
+def test_unreadable_feed_health_is_stated_not_assumed_fine(monkeypatch):
+    lines = cov(monkeypatch, reg(("a", "ABC News")), busy("a"), health=[])
+    assert "- Feed health could not be checked." in lines
+    assert "Collection is normal today" not in "\n".join(lines)
+
+
+def test_unreadable_registry_or_events_is_could_not_be_checked_never_zero(monkeypatch):
     monkeypatch.setenv(bc.MORNING_FLAG, "1")
-    sb = fake_sb({"intelligence_source_registry": REG, "intelligence_events": [{"source_id": "a"}] * 40})
-    lines = bc.coverage_lines(sb, alerts(), now=NOW)
-    assert "40 reports from 1 of 3 active sources" in lines[1]
-    assert "1 continuous sources produced nothing: ASIC News Centre." in lines[1]       # the periodic source is not 'silent'
-    assert "Quarterly report" not in lines[1]
+    for tables in ({"intelligence_source_registry": RuntimeError("x")}, {"intelligence_source_registry": reg(("a", "A")), "intelligence_events": []}):
+        lines = bc.coverage_lines(fake_sb(tables), alerts(), now=NOW)
+        assert "could not be checked" in lines[1] and "normal" not in lines[1]
 
 
-def test_coverage_caps_the_named_silent_sources(monkeypatch):
-    monkeypatch.setenv(bc.MORNING_FLAG, "1")
-    reg = [{"source_id": str(i), "source_name": f"S{i:02d}", "content_expectation": "continuous"} for i in range(12)]
-    sb = fake_sb({"intelligence_source_registry": reg, "intelligence_events": [{"source_id": "0"}]})
-    assert "and 5 more" in bc.coverage_lines(sb, alerts(), now=NOW)[1]
+def test_warnings_name_where_and_the_most_serious_in_official_words():
+    line = bc.warnings_line(alerts(("advice", "VIC"), ("watch_and_act", "TAS"), ("advice", "NSW"), ("unknown", "WA")))
+    assert line == "- Official warnings are active in NSW, TAS, VIC, WA. Most serious: Watch and Act (TAS). Some have no stated severity."
+    assert not re.search(r"\d", line)
 
 
-def test_warnings_use_official_wording_most_severe_first(monkeypatch):
-    monkeypatch.setenv(bc.MORNING_FLAG, "1")
-    line = bc.warnings_line(alerts(("advice", "VIC"), ("emergency_warning", "NSW"), ("advice", "NSW"), ("watch_and_act", "QLD"), ("bogus", "WA")))
-    assert line == ("- Official warnings active (Emergency Alert Hub): 1 Emergency Warning, 1 Watch and Act, 2 Advice, 1 Unknown severity "
-                    "across NSW, QLD, VIC, WA.")
+def test_emergency_warning_outranks_the_rest():
+    line = bc.warnings_line(alerts(("advice", "VIC"), ("emergency_warning", "NSW"), ("emergency_warning", "QLD"), ("watch_and_act", "TAS")))
+    assert "Most serious: Emergency Warning (NSW, QLD)." in line
+
+
+def test_only_advice_and_only_unknown_severities():
+    assert "Most serious: Advice (WA)." in bc.warnings_line(alerts(("advice", "WA")))
+    assert bc.warnings_line(alerts(("unknown", "SA"))) == "- Official warnings are active in SA, none with a stated severity."
 
 
 def test_no_warnings_and_failed_hub_are_different_statements():
-    assert "none active" in bc.warnings_line(alerts())
+    assert bc.warnings_line(alerts()) == "- Official warnings: none active."
 
     def boom(limit=500):
         raise RuntimeError("hub down")
     assert "not an all-clear" in bc.warnings_line(boom)
 
 
-def test_coverage_load_failure_is_unavailable_not_zero(monkeypatch):
-    monkeypatch.setenv(bc.MORNING_FLAG, "1")
-    lines = bc.coverage_lines(fake_sb({"intelligence_source_registry": RuntimeError("x")}), alerts(), now=NOW)
-    assert "unavailable" in lines[1] and "0 reports" not in lines[1]
-    lines = bc.coverage_lines(fake_sb({"intelligence_source_registry": REG, "intelligence_events": []}), alerts(), now=NOW)
-    assert "unavailable" in lines[1]
+def test_database_timestamp_formats_are_understood():
+    want = datetime(2026, 11, 22, 2, 0, 48, tzinfo=timezone.utc)
+    for v in ("2026-11-22 02:00:48+00", "2026-11-22T02:00:48Z", "2026-11-22T02:00:48+00:00", "2026-11-22 02:00:48"):
+        assert bc._parse(v) == want, v
+    assert bc._parse(None) is None and bc._parse("junk") is None
 
 
 def test_morning_brief_hooks_add_nothing_when_flags_are_off():
@@ -200,4 +311,4 @@ def test_morning_brief_hooks_never_raise_when_on(monkeypatch):
     monkeypatch.setattr(cb, "_sb_get", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db down")))
     health, coverage = cb._health_lines(), cb._coverage_lines()
     assert any("unavailable" in x.lower() for x in health), health          # a failed lane says so, it does not vanish or look quiet
-    assert any("unavailable" in x.lower() for x in coverage), coverage
+    assert any("could not" in x.lower() for x in coverage), coverage

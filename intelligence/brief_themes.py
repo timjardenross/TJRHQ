@@ -227,7 +227,7 @@ def build_lane(reports: list[dict], now: datetime, themes: tuple[Theme, ...] | N
         for g in groups:
             names = set(g["ents"])
             rs = [r for r in recent if r["ents"] & names]
-            pubs = {r["publisher"] for r in rs}
+            pubs = {r["publisher"] for r in rs if r["kind"] != we.AGGREGATOR}   # an aggregator re-serving a story is not a second publisher
             per_day = sum(1 for r in base if r["ents"] & names) / float(BASELINE_DAYS)
             ratio = len(rs) / (per_day + 1.0)
             if len(pubs) >= SPIKE_MIN_PUBLISHERS and len(rs) >= SPIKE_MIN_REPORTS and ratio >= SPIKE_RATIO:
@@ -241,13 +241,14 @@ def build_lane(reports: list[dict], now: datetime, themes: tuple[Theme, ...] | N
                                           lead["title"], lead["source"]))
         week = [r for r in sub if r["ts"] >= now - timedelta(days=7)]
         new48 = [r for r in week if r["ts"] >= now - timedelta(hours=RUNNING_NEW_HOURS)]
-        pubs_week = {r["publisher"] for r in week}
+        pubs_week = {r["publisher"] for r in week if r["kind"] != we.AGGREGATOR}
         days_week = {r["ts"].date() for r in week}
         if (RUNNING_MIN_REPORTS <= len(week) <= RUNNING_MAX_REPORTS and len(pubs_week) >= RUNNING_MIN_PUBLISHERS
                 and len(days_week) >= RUNNING_MIN_DAYS and new48):
             def pkey(r):
                 t = r["title"]
-                return ((-2.0 if _EVENT_VERBS.search(t) else 0.0) + (3.0 if _SOFT.search(t) else 0.0) - 0.5 * _KIND_WEIGHT.get(r["kind"], 1),
+                # real publishers before aggregators (a Google News proxy is a lead, not a source); then event headlines; then newest
+                return (r["kind"] == we.AGGREGATOR, (-2.0 if _EVENT_VERBS.search(t) else 0.0) + (3.0 if _SOFT.search(t) else 0.0) - 0.5 * _KIND_WEIGHT.get(r["kind"], 1),
                         -r["ts"].timestamp())
             picks, seen = [], set()
             for r in sorted(new48, key=pkey):
@@ -270,17 +271,25 @@ def _short(title: str, n: int = 110) -> str:
     return title if len(title) <= n else title[: n - 1].rstrip() + "…"
 
 
+def _how_much(s: StoryLine) -> str:
+    """Plain words for how unusual the coverage is. The numbers stay in the data, not the brief."""
+    if s.why == "sustained":
+        return "heavy and sustained across several publishers"
+    return "far above normal" if s.ratio >= 4 else "well above normal"
+
+
 def format_lane(lane: Lane) -> list[str]:
-    head = "DEVELOPMENTS & THEMES (your watched topics; last 24h against the prior 3 days)"
+    head = "DEVELOPMENTS & THEMES (what moved in your watched topics)"
     if lane.empty:
         return [head, "- Nothing new in your watched topics."]
     out = [head]
     for s in lane.stories:
-        tag = f"▲{s.ratio:.0f}x the prior-3-day average of {s.per_day:.1f}/day" if s.why == "spike" else "sustained high volume"
-        out.append(f"- {s.theme} — {' / '.join(s.names)}: {s.reports} reports from {s.publishers} publishers ({tag}). Lead: {s.lead_source}: {_short(s.lead_title)}")
+        others = s.publishers - 1
+        also = f" and {others} other independent publisher{'s' if others != 1 else ''}" if others > 0 else ""
+        out.append(f"- {s.theme}: {_short(s.lead_title)} ({s.lead_source}{also}). Coverage is {_how_much(s)}.")
     for r in lane.running:
         heads = " | ".join(f"{src}: {_short(title, 80)}" for src, title in r.picks)
-        out.append(f"- {r.theme} (running theme: {r.reports} reports from {r.publishers} publishers this week, {r.new_48h} new in 48h) — {heads}")
+        out.append(f"- {r.theme} is active this week. Latest: {heads}")
     return out
 
 

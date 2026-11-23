@@ -1,13 +1,16 @@
 """Coverage block for the Morning brief (flag BRIEF_COVERAGE_V1[_MORNING], default OFF).
 
-States what the brief actually looked at, so a quiet section is not mistaken for a quiet world: reports and publishers in the last 24h,
-continuous sources that produced nothing, and the official warnings active in the Emergency Alert Hub (official wording, never
-paraphrased). Deterministic and fail-soft: if a figure cannot be loaded the line says so rather than showing zero.
+States what the brief could and could not see, in plain words, so a quiet section is not mistaken for a quiet world. Three things matter:
+sources that normally report but sent nothing in the last 24 hours, feeds that have been failing for days (their silence is not good
+news), and the official warnings active in the Emergency Alert Hub (official wording, never paraphrased). A status page that is quiet
+because nothing is wrong is NOT a gap: only a source that reported regularly in the prior days and then stopped is. Counts are not
+shown; the block says "normal" or names the sources. Deterministic and fail-soft: a figure that cannot be loaded says so, never zero.
 """
 from __future__ import annotations
 
 import logging
 import os
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
@@ -16,11 +19,19 @@ MASTER_FLAG = "BRIEF_COVERAGE_V1"
 MORNING_FLAG = "BRIEF_COVERAGE_V1_MORNING"
 _TRUE = ("1", "true", "yes", "on")
 PAGE_SIZE = 1000
-MAX_PAGES = 6
-MAX_SILENT_NAMED = 6
+MAX_PAGES = 8
+MAX_NAMED = 6
+BASELINE_DAYS = 6                  # the days before the last 24 hours
+NORMALLY_ACTIVE_MIN = 5            # reports in the baseline for a source to count as 'normally reports'
+THIN_RATIO = 0.5                   # today below this share of a normal day is 'thin'
+FAILING_DAYS = 3
+FAILING_MIN_CHECKS = 3             # a feed is failing only if it has been checked at least this often and every check was bad
+_BAD_STATUS = frozenset({"failed", "degraded"})
+# registry categories that are not part of the resilience picture: a quiet or failing wellness feed is not a coverage gap
+NOT_RESILIENCE_CATEGORIES = frozenset({"wellness", "thought_leadership"})
 
 # Official severity wording, most severe first (matches intelligence/brief/external_domains.py)
-_SEVERITY_ORDER = (("emergency_warning", "Emergency Warning"), ("watch_and_act", "Watch and Act"), ("advice", "Advice"), ("unknown", "Unknown severity"))
+_SEVERITY_ORDER = (("emergency_warning", "Emergency Warning"), ("watch_and_act", "Watch and Act"), ("advice", "Advice"), ("unknown", "Unknown"))
 _KNOWN_SEVERITIES = frozenset(k for k, _ in _SEVERITY_ORDER)
 
 
@@ -31,7 +42,7 @@ def enabled() -> bool:
 
 
 def _paged(sb_get, table: str, query: str, select: str) -> list[dict]:
-    """All rows across pages. The caller treats an empty result as 'could not load', since a day always has reports."""
+    """All rows across pages. A loader failure or an empty table both come back empty; callers treat that as 'could not load'."""
     out: list[dict] = []
     for page in range(MAX_PAGES):
         rows = sb_get(table, f"{query}&limit={PAGE_SIZE}&offset={page * PAGE_SIZE}&select={select}")
@@ -41,44 +52,103 @@ def _paged(sb_get, table: str, query: str, select: str) -> list[dict]:
     return out
 
 
-def collection_line(sb_get, now: datetime) -> str:
-    since = (now - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _names(names: list[str]) -> str:
+    names = sorted(names)
+    extra = len(names) - MAX_NAMED
+    return ", ".join(names[:MAX_NAMED]) + (f" and {extra} more" if extra > 0 else "")
+
+
+def _stamp(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse(value) -> datetime | None:
+    text = str(value or "").strip().replace(" ", "T").replace("Z", "+00:00")
+    if len(text) > 3 and text[-3] in "+-" and text[-2:].isdigit() and ":" not in text[-6:]:
+        text += ":00"
     try:
-        registry = sb_get("intelligence_source_registry", "active=eq.true&select=source_id,source_name,content_expectation&limit=1000")
-        events = _paged(sb_get, "intelligence_events", f"collected_at=gte.{since}&suppressed=eq.false", "source_id")
+        when = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+
+
+def collection_lines(sb_get, now: datetime) -> list[str]:
+    try:
+        registry = sb_get("intelligence_source_registry", "active=eq.true&select=source_id,source_name,category&limit=1000")
+        events = _paged(sb_get, "intelligence_events",
+                        f"collected_at=gte.{_stamp(now - timedelta(days=BASELINE_DAYS + 1))}&suppressed=eq.false", "source_id,collected_at")
         if not registry or not events:
-            return "- Collection: unavailable (source or report counts could not be loaded); do not read the sections below as quiet."
-        reporting = {str(e.get("source_id")) for e in events}
-        continuous = [r for r in registry if (r.get("content_expectation") or "continuous") == "continuous"]
-        silent = sorted(r["source_name"] for r in continuous if str(r["source_id"]) not in reporting)
-        line = f"- Collection: {len(events)} reports from {len(reporting)} of {len(registry)} active sources in the last 24h."
-        if silent:
-            named = ", ".join(silent[:MAX_SILENT_NAMED]) + (f" and {len(silent) - MAX_SILENT_NAMED} more" if len(silent) > MAX_SILENT_NAMED else "")
-            line += f" {len(silent)} continuous sources produced nothing: {named}."
-        return line
+            return ["- Collection: could not be checked, so do not read the sections below as quiet."]
+        names = {str(r["source_id"]): r["source_name"] for r in registry if (r.get("category") or "") not in NOT_RESILIENCE_CATEGORIES}
+        cut = now - timedelta(hours=24)
+        today, base = Counter(), Counter()
+        for e in events:
+            when = _parse(e.get("collected_at"))
+            if when is None:
+                continue
+            (today if when > cut else base)[str(e.get("source_id"))] += 1
+        failing = _failing_sources(sb_get, now, names)
+        quiet = [names[sid] for sid, n in base.items() if sid in names and n >= NORMALLY_ACTIVE_MIN and today[sid] == 0
+                 and names[sid] not in (failing or [])]
+        normal_day = sum(base.values()) / float(BASELINE_DAYS)
+        thin = normal_day > 0 and sum(today.values()) < THIN_RATIO * normal_day
+        out = []
+        if thin:
+            out.append("- Collection is thin today: well below a normal day, so quiet sections may just be missing reports.")
+        if quiet:
+            out.append(f"- Normally active but quiet in the last 24 hours: {_names(quiet)}.")
+        if failing:
+            out.append(f"- Feeds failing for days (their silence is not good news): {_names(failing)}.")
+        if failing is None:
+            out.append("- Feed health could not be checked.")
+        if not out:
+            out.append("- Collection is normal today across your sources.")
+        return out
     except Exception:
-        log.warning("coverage collection line unavailable", exc_info=True)
-        return "- Collection: unavailable (the coverage check failed); do not read the sections below as quiet."
+        log.warning("coverage collection lines unavailable", exc_info=True)
+        return ["- Collection: could not be checked, so do not read the sections below as quiet."]
+
+
+def _failing_sources(sb_get, now: datetime, names: dict[str, str]) -> list[str] | None:
+    """Names of active sources whose every recent health check was bad; None when the health table could not be read."""
+    try:
+        rows = _paged(sb_get, "intelligence_source_health", f"checked_at=gte.{_stamp(now - timedelta(days=FAILING_DAYS))}", "source_id,status")
+    except Exception:
+        log.warning("coverage health read failed", exc_info=True)
+        return None
+    if not rows:
+        return None
+    checks, bad = Counter(), Counter()
+    for r in rows:
+        sid = str(r.get("source_id"))
+        checks[sid] += 1
+        bad[sid] += (r.get("status") or "").lower() in _BAD_STATUS
+    return [names[sid] for sid in checks if sid in names and checks[sid] >= FAILING_MIN_CHECKS and bad[sid] == checks[sid]]
 
 
 def warnings_line(load_alerts) -> str:
-    """Active official warnings, counted by official severity. `load_alerts` raises on failure (store.load_active_emergency_alerts does)."""
+    """Active official warnings in plain words. `load_alerts` raises on failure (store.load_active_emergency_alerts does)."""
     try:
         alerts = load_alerts(limit=500)
     except Exception:
         log.warning("coverage warnings line unavailable", exc_info=True)
-        return "- Official warnings: unavailable (the Emergency Alert Hub could not be read); absence here is not an all-clear."
+        return "- Official warnings: could not be read from the Emergency Alert Hub; absence here is not an all-clear."
     if not alerts:
-        return "- Official warnings: none active in the Emergency Alert Hub."
-    counts: dict[str, int] = {}
+        return "- Official warnings: none active."
+    by_sev: dict[str, set] = {}
     for a in alerts:
         sev = (a.get("severity") or "unknown").strip().lower()
-        if sev not in _KNOWN_SEVERITIES:
-            sev = "unknown"
-        counts[sev] = counts.get(sev, 0) + 1
-    parts = [f"{counts[k]} {label}" for k, label in _SEVERITY_ORDER if counts.get(k)]
+        by_sev.setdefault(sev if sev in _KNOWN_SEVERITIES else "unknown", set()).add(a.get("jurisdiction"))
     states = sorted({a.get("jurisdiction") for a in alerts if a.get("jurisdiction")})
-    return f"- Official warnings active (Emergency Alert Hub): {', '.join(parts)}" + (f" across {', '.join(states)}." if states else ".")
+    top, label = next(((k, lbl) for k, lbl in _SEVERITY_ORDER if k in by_sev and k != "unknown"), (None, None))
+    where = f" in {', '.join(states)}" if states else ""
+    if top is None:
+        return f"- Official warnings are active{where}, none with a stated severity."
+    top_states = sorted(s for s in by_sev[top] if s)
+    most = f"Most serious: {label}" + (f" ({', '.join(top_states)})" if top_states else "") + "."
+    tail = " Some have no stated severity." if "unknown" in by_sev else ""
+    return f"- Official warnings are active{where}. {most}{tail}"
 
 
 def coverage_lines(sb_get, load_alerts, now: datetime | None = None) -> list[str]:
@@ -87,7 +157,7 @@ def coverage_lines(sb_get, load_alerts, now: datetime | None = None) -> list[str
         return []
     try:
         now = now or datetime.now(timezone.utc)
-        return ["COVERAGE (what this brief looked at)", collection_line(sb_get, now), warnings_line(load_alerts)]
+        return ["COVERAGE (what this brief could see)", *collection_lines(sb_get, now), warnings_line(load_alerts)]
     except Exception:
         log.warning("coverage block unavailable", exc_info=True)
-        return ["COVERAGE", "- Unavailable (the coverage block failed); do not read the sections below as quiet."]
+        return ["COVERAGE", "- Could not be checked, so do not read the sections below as quiet."]
