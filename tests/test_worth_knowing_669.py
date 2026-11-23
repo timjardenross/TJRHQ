@@ -363,3 +363,20 @@ def test_affects_users_in_a_patch_report_is_not_a_service_disruption():
     _, items = _wk([_ev(1, "Microsoft releases new software tools for enterprise developers", "iTnews",
                         "The software update fixes a security vulnerability that affects users of Windows devices.")])
     assert len(items) == 1
+
+
+def test_a_precaution_in_the_same_sentence_does_not_negate_a_stated_outage():
+    """The potential-impact exception is per clause: 'to avoid further problems' is advice, not a hypothetical outage."""
+    _, items = _wk([_ev(1, "Telstra issues update on mobile network operations", "iTnews",
+                        "Customers are unable to make calls and should use Wi-Fi to avoid further problems.")])
+    assert items == []
+
+
+def test_genuinely_hypothetical_outage_or_security_patch_stays_eligible():
+    for summary in ("A flaw in the load balancer could cause outages if exploited.",
+                    "The vulnerability may leave devices unavailable if attackers exploit it.",
+                    "A flaw could cause outages and leave users unable to log in."):
+        _, items = _wk([_ev(1, "Vendor publishes new software security guidance for enterprise teams", "iTnews", summary)])
+        assert len(items) == 1, summary
+    es = _demoted([_ev(2, "Cisco patches critical flaw that could allow remote code execution", "iTnews")])
+    assert len(be.worth_knowing(es)) == 1

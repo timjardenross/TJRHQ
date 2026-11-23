@@ -284,10 +284,30 @@ def _wk_disruption(i: IncidentView) -> bool:
     if i.impact_status == "stated" or (i.event_type == "outage" and i.impact_status in ("unconfirmed", "retrospective")):
         return True      # a retrospective outage-restoration story ("services restored after ...") is a past incident, not a development
     texts = [i.headline] + [r.get("summary") or "" for r in i.reports if r["role"] == "original"]
-    # The summary shown beneath the heading may state an outage the headline does not. The potential-impact exception applies to the SENTENCE
-    # that states the consequence, so an unrelated precaution ("to avoid further problems") cannot negate a stated outage elsewhere.
-    return any(_WK_SUMMARY_DISRUPTION_RX.search(sent) and not _WK_POTENTIAL_RX.search(sent)
-               for t in texts for sent in re.split(r"(?<=[.!?])\s+", t))
+    # The summary shown beneath the heading may state an outage the headline does not. The potential-impact exception applies to the CLAUSE
+    # that states the consequence, so an unrelated precaution or purpose clause ("should use Wi-Fi to avoid further problems") cannot negate
+    # a stated outage elsewhere, even in the same sentence.
+    return any(_wk_clause_disruption(sent) for t in texts for sent in re.split(r"(?<=[.!?])\s+", t))
+
+
+_WK_CLAUSE_SPLIT_RX = re.compile(r"(\s*;\s*|\s*,\s*|\s+(?:and|but|so that|so|while|as)\s+|\s+(?=to (?:avoid|prevent)\b))", re.IGNORECASE)
+_WK_MODAL_RX = re.compile(r"\b(?:could|may|might|would|can)\b", re.IGNORECASE)
+_WK_SOFT_JOINERS = frozenset({",", "and"})
+
+
+def _wk_clause_disruption(sentence: str) -> bool:
+    """True when some clause of the sentence states a disruption and is not itself potential/hypothetical. A modal clause ('could cause
+    outages') also covers an immediately coordinated clause joined by a comma or 'and' ('... and leave users unable to log in')."""
+    parts = _WK_CLAUSE_SPLIT_RX.split(sentence)
+    prev_modal = False
+    for idx in range(0, len(parts), 2):
+        clause = parts[idx]
+        joiner = parts[idx - 1].strip().lower() if idx else ""
+        inherited = prev_modal and joiner in _WK_SOFT_JOINERS
+        if _WK_SUMMARY_DISRUPTION_RX.search(clause) and not _WK_POTENTIAL_RX.search(clause) and not inherited:
+            return True
+        prev_modal = bool(_WK_MODAL_RX.search(clause)) or (inherited and clause.strip() != "")
+    return False
 
 
 def _wk_credible_original(i: IncidentView) -> bool:
