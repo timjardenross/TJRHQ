@@ -1,0 +1,222 @@
+{
+ "_note": "Topic & Theme Layer watchlist (Morning brief, flag BRIEF_THEMES_V1_MORNING, default OFF). Edit this file to change the topics; no code change is needed. 'entities' match whole words case-insensitively, 'acronyms' match case-sensitively, 'phrases' are case-insensitive regexes. Prefer phrases over single ambiguous words (a bare 'Visa' or 'Outlook' creates false matches). 'pillar' ties a theme to the Captain's content pillars. 'health_themes_proposed' is documentation for a later health lane and is not read.",
+ "themes": {
+  "AI & chips": {
+   "pillar": "AI-Augmented Leadership",
+   "entities": [
+    "Nvidia",
+    "Jensen Huang",
+    "Huang",
+    "OpenAI",
+    "Sam Altman",
+    "Altman",
+    "Anthropic",
+    "Dario Amodei",
+    "Amodei",
+    "DeepMind",
+    "Demis Hassabis",
+    "ChatGPT",
+    "Copilot",
+    "xAI",
+    "Mistral",
+    "TSMC",
+    "ASML",
+    "Broadcom",
+    "Perplexity",
+    "Hugging Face"
+   ],
+   "acronyms": [
+    "AI",
+    "AMD",
+    "GPU",
+    "GPUs",
+    "LLM",
+    "LLMs"
+   ],
+   "phrases": [
+    "artificial intelligence",
+    "\\bchips?\\b",
+    "semiconductor",
+    "AI (?:bubble|boom|rally|stocks?)",
+    "generative AI",
+    "Google Gemini|Gemini (?:AI|3|2\\.5|model)",
+    "Claude (?:AI|Code|Opus|Sonnet)|Anthropic's Claude"
+   ]
+  },
+  "Tech outages & resilience": {
+   "pillar": "Operational Resilience / Business Continuity",
+   "entities": [
+    "Brad Smith",
+    "Microsoft 365",
+    "Azure",
+    "Amazon Web Services",
+    "Cloudflare",
+    "CrowdStrike",
+    "Slack",
+    "Atlassian",
+    "Triple Zero"
+   ],
+   "acronyms": [
+    "AWS",
+    "CPS 230",
+    "CPS230"
+   ],
+   "phrases": [
+    "tech(?:nology)? outages?",
+    "\\boutages?\\b.{0,60}\\b(?:microsoft|azure|aws|amazon|cloudflare|google|crowdstrike|outlook|teams|slack|telstra|optus|cloud|bank|payments?)\\b",
+    "\\b(?:microsoft|azure|aws|cloudflare|crowdstrike|outlook|slack|telstra|optus)\\b.{0,60}\\boutages?\\b",
+    "operational resilience",
+    "business continuity",
+    "\\bAPRA\\b.{0,60}(?:outage|resilien)",
+    "single point of failure",
+    "Microsoft Outlook|Outlook (?:and|&) Teams|Outlook outage"
+   ]
+  },
+  "Cyber": {
+   "pillar": "Operational Resilience",
+   "entities": [
+    "Salt Typhoon",
+    "Volt Typhoon",
+    "LockBit",
+    "Scattered Spider",
+    "Palo Alto",
+    "Fortinet",
+    "Ivanti",
+    "Okta"
+   ],
+   "acronyms": [
+    "CISA",
+    "ACSC",
+    "ASD",
+    "KEV"
+   ],
+   "phrases": [
+    "ransomware",
+    "cyber ?attacks?",
+    "hack(?:ed|ers?|ing)\\b",
+    "zero-day",
+    "vulnerabilit",
+    "\\bexploit",
+    "(?:data|security|privacy|cyber) breach(?:es)?",
+    "breached by (?:hackers|attackers)"
+   ]
+  },
+  "Cloud & data centres": {
+   "pillar": "Operational Resilience / AI-Augmented Leadership",
+   "entities": [
+    "Google Cloud",
+    "Oracle Cloud",
+    "AirTrunk",
+    "NextDC",
+    "Equinix",
+    "Digital Realty",
+    "Firmus",
+    "hyperscaler",
+    "hyperscalers",
+    "undersea cable"
+   ],
+   "acronyms": [
+    "AWS"
+   ],
+   "phrases": [
+    "cloud (?:provider|region|migration|spending)",
+    "data cent(?:er|re)s?"
+   ]
+  },
+  "Telco & payments (AU)": {
+   "pillar": "Operational Resilience / Business Continuity",
+   "entities": [
+    "Telstra",
+    "Optus",
+    "Vodafone",
+    "TPG",
+    "Aussie Broadband",
+    "Superloop",
+    "Commonwealth Bank",
+    "Westpac",
+    "Stripe",
+    "PayPal",
+    "Reserve Bank"
+   ],
+   "acronyms": [
+    "NBN",
+    "ANZ",
+    "NAB",
+    "CBA",
+    "RBA"
+   ],
+   "phrases": [
+    "payments? (?:outage|system|failure)",
+    "mobile network",
+    "triple zero",
+    "scam losses",
+    "\\bVisa (?:and|&) Mastercard\\b|\\bVisa Inc\\b|\\bMastercard\\b"
+   ]
+  },
+  "AI policy & governance": {
+   "pillar": "Decision Quality & Governance",
+   "entities": [
+    "eSafety",
+    "Ed Husic",
+    "Husic",
+    "AI Safety Institute",
+    "Productivity Commission",
+    "digital duty of care"
+   ],
+   "acronyms": [],
+   "phrases": [
+    "AI (?:act|regulation|rules|safety|framework|governance|standard)",
+    "privacy reform",
+    "online safety",
+    "tech regulation",
+    "antitrust.{0,30}(?:google|apple|meta|amazon|microsoft)"
+   ]
+  },
+  "Work & AI adoption": {
+   "pillar": "Future of Work / AI-Augmented Leadership",
+   "entities": [],
+   "acronyms": [],
+   "phrases": [
+    "future of work",
+    "AI (?:adoption|agents?|productivity|jobs?|layoffs?|workforce)",
+    "job cuts.{0,40}\\bAI\\b",
+    "\\bAI\\b.{0,40}job (?:cuts|losses)",
+    "remote work",
+    "four-day week"
+   ]
+  }
+ },
+ "health_themes_proposed": {
+  "Neurodivergence (core, weight 1.0)": [
+   "ADHD",
+   "autism",
+   "AuDHD",
+   "neurodivergent",
+   "executive function",
+   "sensory processing",
+   "masking",
+   "burnout"
+  ],
+  "Chronic pain & sleep (0.7)": [
+   "fibromyalgia",
+   "central sensitisation",
+   "neuropathic pain",
+   "chronic pain",
+   "sleep apnoea",
+   "CPAP"
+  ],
+  "Mental health & performance (0.7)": [
+   "depression",
+   "anxiety",
+   "cognitive performance",
+   "recovery"
+  ],
+  "Safety signals (bypass)": [
+   "adverse event",
+   "FDA",
+   "TGA",
+   "recall",
+   "contraindication"
+  ]
+ }
+}
