@@ -631,6 +631,21 @@ _VERIFY_NEXT = {
 }
 
 
+def _next_action(primary_type: str, impact_status: str, restoration: str) -> str:
+    """The verification step that fits the incident class AND its chronology. A retrospective investigation, or a disruption reported
+    restored, never receives a live-restoration task; a disruption whose current status is unknown is first checked for currency."""
+    if primary_type == "outage" and restoration == "restored":
+        return "confirm the restoration time, root cause and any customer remediation with the operator (reported restored; no live restoration action)"
+    if impact_status == "retrospective":
+        return "read the cited review, inquiry or analysis and confirm its findings and any remedial actions with the operator or regulator (no live restoration action)"
+    if primary_type == "outage":
+        if restoration == "ongoing":
+            return "confirm the customer count, affected area and restoration estimate with the operator or regulator (primary source)"
+        return ("confirm the disruption is current (operator status page or a dated primary statement); if it is not, treat the report as "
+                "historical and take no live restoration action")
+    return _VERIFY_NEXT.get(primary_type, "confirm with an official source")
+
+
 # A report that says service is restored AND says some of it is not: 'restored to some customers but thousands without power',
 # 'partially restored', 'yet to be restored', 'not all restored'. It has no 'still' / 'continues' word, but it is not a restoration.
 _PARTIAL_RX = _rx((r"restored (?:to|for) (?:some|part|parts|a number)", r"partial(?:ly)? restor\w*", r"(?:yet|not yet) (?:to be )?restored",
@@ -763,7 +778,7 @@ def escalation_record(d: Decision, *, now: datetime | None = None) -> dict:
         "geographic_scope": sorted({m.geography for m in originals if m.geography}),
         "source_confidence": {"evidence_confidence": d.evidence_confidence, "independent_publishers": d.group.independent_publishers,
                               "source_kinds": sorted({m.kind for m in originals}), "provisional": d.provisional},
-        "next_verification_action": _VERIFY_NEXT.get(h.primary_type, "confirm with an official source"),
+        "next_verification_action": _next_action(h.primary_type, d.impact_status, restoration),
         "report_ids": [m.event_id for m in d.group.members],
         "reassess": "re-run when new reports arrive; customer count is a proportionality input, not a universal threshold",
     }
