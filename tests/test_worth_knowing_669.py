@@ -200,3 +200,16 @@ def test_aggregator_headline_with_detector_hedge_words_is_not_admitted():
     for head in ("OpenAI likely to release new AI model for enterprise customers", "Anonymous sources: OpenAI new AI model for enterprise customers"):
         _, items = _wk([_ev(1, head + " - iTnews", "Google News - AI")])
         assert items == [], head
+
+
+def test_similar_headlines_naming_different_vendors_are_separate_developments():
+    """Codex P2: 'OpenAI releases new AI model ...' and 'Anthropic releases new AI model ...' are two launches, not duplicate coverage."""
+    _, items = _wk([_ev(1, "OpenAI releases new AI model for enterprise customers", "iTnews"),
+                    _ev(2, "Anthropic releases new AI model for enterprise customers", "Financial Times")])
+    assert len(items) == 2
+
+
+def test_the_same_vendor_reported_by_two_publishers_is_still_one_development():
+    _, items = _wk([_ev(1, "OpenAI releases new AI model for enterprise customers", "iTnews"),
+                    _ev(2, "OpenAI releases new AI model for enterprise customers this week", "Financial Times")])
+    assert len(items) == 1

@@ -294,7 +294,17 @@ def _wk_tokens(i: IncidentView) -> frozenset:
     return frozenset(t for t in re.findall(r"[a-z0-9]+", ed.core_title(i.headline).lower()) if len(t) > 2 and t not in ed._STOP)
 
 
-def _wk_same_development(a: frozenset, b: frozenset) -> bool:
+def _wk_entities(i: IncidentView) -> frozenset:
+    """Named entities in the headline (capitalised words and mixed-case names such as 'OpenAI'), used to tell apart similar-looking
+    developments from different vendors."""
+    return frozenset(w.lower() for w in re.findall(r"\b[A-Z][A-Za-z0-9]{2,}\b", ed.core_title(i.headline)) if w.lower() not in ed._STOP)
+
+
+def _wk_same_development(a: frozenset, b: frozenset, ea: frozenset = frozenset(), eb: frozenset = frozenset()) -> bool:
+    """Same development = similar wording AND compatible named entities. 'OpenAI releases new AI model' and 'Anthropic releases new
+    AI model' share most words but name different vendors: separate developments."""
+    if ea and eb and not (ea & eb):
+        return False
     return bool(a and b) and len(a & b) / len(a | b) >= 0.5
 
 
@@ -379,10 +389,10 @@ def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[
     scored.sort(key=lambda t: (-t[2], -(t[0].last_seen.timestamp())))
     out, per, seen = [], Counter(), []
     for i, cat, score in scored:
-        toks = _wk_tokens(i)
-        if any(_wk_same_development(toks, t) for t in seen):   # the same development from another publisher must not use a second slot
+        toks, ents = _wk_tokens(i), _wk_entities(i)
+        if any(_wk_same_development(toks, t, ents, e) for t, e in seen):   # the same development from another publisher must not use a second slot
             continue
-        seen.append(toks)
+        seen.append((toks, ents))
         if per[cat] >= _WK_PER_CATEGORY:
             continue
         per[cat] += 1
