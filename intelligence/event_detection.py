@@ -185,6 +185,7 @@ class Candidate:
     conflict: bool = False    # armed-conflict reporting (never escalated on its own)
     hedged: bool = False      # hedged or anonymously sourced (likely / reportedly / 'sources say')
     legacy: dict = field(default_factory=dict)
+    summary: str = ""         # the report's summary text (used only for Australian-relevance checks, never for classification)
 
     @property
     def primary_type(self) -> str:
@@ -273,7 +274,8 @@ def detect_candidate(event: dict) -> Candidate:
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
-        family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {})
+        family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {},
+        summary=str(event.get("summary") or "")[:1500])
 
 
 # ── Stage 2: incident correlation ──────────────────────────────────────────────────────────────────────────
@@ -518,52 +520,74 @@ def evidence_status(group: Group) -> tuple[str, list[str]]:
 
 
 # #669: an incident enters the AUSTRALIAN operational brief only with demonstrated Australian relevance or dependency.
-# Relevance: the collected geography is Australian, or a report names Australia, an Australian state/city or an Australian
-# organisation. Dependency: a global platform or vendor that Australian services run on (a Microsoft or AWS outage is an
-# Australian dependency even when the report says nothing about Australia). Advisories (vulnerabilities) are exempt: they are
-# judged by exposure, not geography.
+# OPERATIONAL relevance: the collected geography is Australian, or a report (title or summary) names Australia, an Australian
+# state/city or an Australian organisation; or the incident is an outage or compromise of a global platform that Australian
+# services run on (cloud, payments, telecommunications, critical software, supply-chain chokepoints). A provider's own status
+# page counts: 'Supabase Status' reporting a Supabase disruption is a dependency report. Advisories (vulnerabilities) are
+# exempt: they are judged by exposure, not geography. A publisher's nationality is NOT operational relevance (see below).
 _AU_MARKER_RX = _rx((r"australia\w*", r"nsw", r"queensland\w*", r"tasmania\w*", r"victorian", r"sydney", r"melbourne", r"brisbane",
-                     r"perth", r"adelaide", r"canberra", r"hobart", r"darwin", r"asx", r"nbn", r"apra", r"asic", r"acsc", r"aemo",
+                     r"perth", r"adelaide", r"canberra", r"hobart", r"darwin", r"asx", r"nbn", r"apra", r"acsc", r"aemo",
                      r"ausgrid", r"electranet", r"telstra", r"optus", r"tpg", r"qantas", r"jetstar", r"virgin australia", r"westpac",
-                     r"anz", r"commonwealth bank", r"nab", r"coles", r"woolworths", r"medibank", r"services australia", r"centrelink"))
-_AU_DEPENDENCY_RX = _rx((r"microsoft", r"azure", r"office 365", r"aws", r"amazon web services", r"google cloud", r"cloudflare",
-                         r"crowdstrike", r"cisco", r"okta", r"oracle", r"salesforce", r"atlassian", r"github", r"zoom", r"akamai",
-                         r"mastercard", r"swift network", r"swift messaging", r"apple pay", r"google pay", r"paypal", r"stripe payments?"))
-# Outlets whose whole editorial scope is Australia (a report from one is Australian-audience reporting). General outlets that
-# also carry international news (ABC News, iTWire, iTnews, BBC ...) are deliberately NOT here: the outlet alone proves nothing.
+                     r"anz", r"commonwealth bank", r"coles", r"woolworths", r"medibank", r"services australia", r"centrelink"))
+_AU_DEPENDENCY_RX = _rx((
+    # cloud and hosting
+    r"microsoft", r"azure", r"office 365", r"aws", r"amazon web services", r"google cloud", r"cloudflare", r"akamai", r"fastly",
+    r"oracle cloud", r"ibm cloud", r"alibaba cloud", r"digitalocean", r"vercel", r"netlify", r"supabase", r"snowflake", r"databricks",
+    # payments
+    r"mastercard", r"swift network", r"swift messaging", r"apple pay", r"google pay", r"paypal", r"stripe", r"adyen", r"worldpay", r"fiserv",
+    # telecommunications
+    r"subsea cables?", r"submarine cables?", r"undersea cables?", r"starlink", r"inmarsat", r"intelsat", r"equinix", r"digital realty",
+    # critical software and SaaS
+    r"crowdstrike", r"cisco", r"okta", r"oracle", r"salesforce", r"atlassian", r"github", r"zoom", r"servicenow", r"citrix", r"vmware",
+    r"fortinet", r"palo alto networks", r"ivanti", r"solarwinds", r"twilio", r"sendgrid", r"slack", r"pagerduty", r"datadog",
+    r"openai", r"anthropic",
+    # supply chain
+    r"maersk", r"cma cgm", r"hapag-lloyd", r"dp world", r"suez canal", r"panama canal", r"strait of hormuz", r"red sea shipping"))
+# Outlets whose whole editorial scope is Australia. Australian-audience reporting is EDITORIAL relevance only: it keeps an item
+# visible at WATCH, but it never establishes an Australian operational impact on its own (the Captain's rule).
 _AU_AUDIENCE_SOURCE_RX = _rx((r"the mandarin", r"innovationaus", r"smartcompany", r"government news", r"cyber daily", r"information age"))
 
 
+def _outlet(m: Candidate) -> str:
+    suffix = _PUBLISHER_SUFFIX.search(m.title)            # aggregator feeds carry the real outlet as a trailing ' - Outlet'
+    return f"{m.source or ''} {suffix.group(0) if suffix else ''}"
+
+
 def australian_relevance(group: Group) -> str | None:
-    """Why this incident belongs in the Australian brief ('australian geography', 'names Australia or an Australian
-    organisation', 'depends on a global platform used in Australia'), or None when no relevance is demonstrated."""
+    """Why this incident has demonstrated Australian OPERATIONAL relevance ('australian geography', 'names Australia or an
+    Australian organisation', 'depends on a global platform used in Australia'), or None."""
     for m in group.members:
         if (m.geography or "").upper().startswith("AU"):
             return "australian geography"
     for m in group.members:
-        if _AU_MARKER_RX.search(m.title):
+        if _AU_MARKER_RX.search(f"{m.title} {m.summary}"):
             return "names Australia or an Australian organisation"
     for m in group.members:
-        if _AU_DEPENDENCY_RX.search(m.title):
+        if _AU_DEPENDENCY_RX.search(f"{m.title} {m.summary} {m.source or ''}"):
             return "depends on a global platform used in Australia"
-    for m in group.members:
-        suffix = _PUBLISHER_SUFFIX.search(m.title)            # aggregator feeds carry the outlet as a trailing ' - Outlet'
-        if _AU_AUDIENCE_SOURCE_RX.search(m.source or "") or (suffix and _AU_AUDIENCE_SOURCE_RX.search(suffix.group(0))):
-            return "reported by an Australian-audience outlet"
     return None
 
 
+def australian_editorial_relevance(group: Group) -> bool:
+    """True when a report comes from an outlet whose whole scope is Australia. Editorial relevance only."""
+    return any(_AU_AUDIENCE_SOURCE_RX.search(_outlet(m)) for m in group.members)
+
+
 def decide(group: Group, *, now: datetime | None = None) -> Decision:
-    """Priority rules (see _decide_core) plus the Australian-relevance gate: an incident that would be escalated, verified
-    or watched but shows no Australian relevance or dependency is kept as REFERENCE, with the reason recorded."""
+    """Priority rules (see _decide_core) plus the Australian-relevance gate. An incident that would be escalated, verified or
+    watched but shows no Australian operational relevance or dependency is kept as REFERENCE, with the reason recorded. If its
+    only Australian link is an Australian-audience outlet it keeps editorial relevance: visible, but never above WATCH."""
     d = _decide_core(group, now=now)
     if d.priority in ("ESCALATE", "VERIFY", "WATCH") and d.event_type != "vulnerability":
         why = australian_relevance(group)
-        if why is None:
+        if why is not None:
+            d.reasons.append(f"Australian relevance: {why}")
+        elif australian_editorial_relevance(group):
+            d.reasons.append("Australian-audience outlet only: editorial relevance, Australian operational impact not established (capped at WATCH)")
+            d.priority, d.urgency, d.provisional = "WATCH", "routine", False
+        else:
             d.reasons.append("no demonstrated Australian relevance or dependency: kept as reference, not escalated into the Australian brief")
             d.priority, d.urgency, d.provisional = "REFERENCE", "routine", False
-        else:
-            d.reasons.append(f"Australian relevance: {why}")
     return d
 
 

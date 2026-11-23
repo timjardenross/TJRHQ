@@ -73,14 +73,28 @@ def test_a_payments_platform_outage_is_an_australian_dependency():
     assert any("depends on a global platform" in r for r in d.reasons)
 
 
-def test_an_australian_audience_outlet_is_relevance_but_a_general_outlet_is_not():
-    """Also from the audit: The Mandarin (Australian public sector) reports are Australian-audience; BBC / iTWire carry the world."""
+def test_an_australian_audience_outlet_is_editorial_relevance_never_operational_impact():
+    """Captain: Australian publisher identity can support editorial relevance but must not alone establish Australian operational impact."""
     mand = [e("a", "Staff didn\u2019t work because of an outage on Friday\u2026 did somebody say SLA? - The Mandarin", "The Mandarin")]
-    assert core(mand).priority in ACTIONABLE                              # the gate is what would hide it
-    assert one(mand).priority == core(mand).priority
-    assert any("Australian-audience outlet" in r for r in one(mand).reasons)
-    via_feed = [e("a", "Staff didn\u2019t work because of an outage on Friday\u2026 did somebody say SLA? - The Mandarin", "Google News - Government")]
-    assert one(via_feed).priority == core(via_feed).priority and one(via_feed).priority in ACTIONABLE   # outlet named in the title suffix
+    assert core(mand).priority in ACTIONABLE
+    d = one(mand)
+    assert d.priority == "WATCH"                                            # visible, but capped
+    assert any("editorial relevance" in r and "not established" in r for r in d.reasons)
+    assert not any(r.startswith("Australian relevance") for r in d.reasons)  # and never recorded as operational relevance
+    g = ed.correlate([ed.detect_candidate(mand[0])])[0]
+    assert ed.australian_relevance(g) is None and ed.australian_editorial_relevance(g)
+
+
+def test_an_outlet_only_incident_is_never_escalated_or_verified_by_its_outlet():
+    for src, title in (("The Mandarin", "Cyberattack disrupts government payments system - The Mandarin"),
+                       ("SmartCompany", "Cyberattack on retailer takes online store offline - SmartCompany"),
+                       ("Google News - Government", "Cyberattack disrupts agency systems - The Mandarin")):
+        evs = [e("a", title, src)]
+        if core(evs).priority in ACTIONABLE:
+            assert one(evs).priority in ("WATCH", "REFERENCE"), title
+
+
+def test_general_outlets_are_not_even_editorial_relevance():
     for src in ("BBC News", "iTWire"):
         assert one([e("a", LIBYA, src)]).priority == "REFERENCE", src
 
@@ -135,3 +149,70 @@ def test_the_morning_view_no_longer_lists_the_unrelated_international_incidents(
                            now=NOW, window_hours=72)
     text = "\n".join(be.morning_view(ev))
     assert "Libya" not in text and "US ports" not in text
+
+
+# ── Captain's check 2: credible dependencies by category; summaries; provider status pages ───────────────────────────
+def _kept(title, source="BBC News", summary=""):
+    ev = e("a", title, source)
+    ev["summary"] = summary
+    d = one([ev])
+    return d.priority in ACTIONABLE and any("depends on a global platform" in r or r.startswith("Australian relevance") for r in d.reasons)
+
+
+def test_credible_dependencies_are_kept_in_each_category():
+    cases = {
+        "cloud": "Cloudflare outage takes thousands of websites offline worldwide",
+        "payments": "Mastercard network outage leaves cardholders unable to pay in shops worldwide",
+        "telecommunications": "Internet outage across Asia after undersea cable cut",
+        "critical software": "Fortinet customers hit by outage after cyberattack",
+        "supply chain": "Maersk hit by cyberattack, port terminals disrupted",
+    }
+    for cat, title in cases.items():
+        ev = e("a", title, "BBC News")
+        assert core([ev]).priority in ACTIONABLE, cat                       # the underlying rules surface it (the gate is the test)
+        d = one([ev])
+        assert d.priority == core([ev]).priority, cat                       # and the gate does not demote it
+        assert any("depends on a global platform" in r for r in d.reasons), cat
+
+
+def test_a_providers_own_status_page_is_a_dependency_report():
+    """Found in the audit: 'Gateway availability disruption' from Supabase Status (a dependency of this platform) was hidden."""
+    ev = e("a", "Gateway availability disruption", "Supabase Status")
+    ev["summary"] = "Between 18:00 and 18:20 UTC, an upstream provider experienced an issue that affected gateway availability for some customers."
+    assert core([ev]).priority in ACTIONABLE
+    d = one([ev])
+    assert d.priority in ACTIONABLE and any("depends on a global platform" in r for r in d.reasons)
+
+
+def test_the_summary_can_demonstrate_relevance_or_dependency():
+    """Found in the audit: two US 'series of tech outages' stories name Microsoft only in their summary."""
+    ev = e("a", "US tech outages blamed on rush to fix bugs found by AI", "Financial Times")
+    ev["summary"] = "Experts say a race to patch software flaws likely created instability in computer systems at Microsoft, JPMorgan, the FAA and others"
+    assert core([ev]).priority in ACTIONABLE
+    assert one([ev]).priority in ACTIONABLE
+    ev2 = e("a", LIBYA, "BBC News")
+    ev2["summary"] = "Australian-flagged vessels were also in the port at the time."
+    assert one([ev2]).priority in ACTIONABLE
+
+
+def test_a_summary_with_no_link_changes_nothing():
+    ev = e("a", LIBYA, "BBC News")
+    ev["summary"] = "The ship was moored at the port when the blast occurred, officials said."
+    assert one([ev]).priority == "REFERENCE"
+
+
+def test_unverified_third_party_software_is_not_assumed_to_be_an_australian_dependency():
+    """Optimizely Web is credible critical software, but nothing shows Australian use, so it stays for human review."""
+    ev = e("a", "Cyberattack via Optimizely Web exposes banking, media and insurance websites to malware - Beinsure", "Google News - Critical Infrastructure/Energy Cyberattack AU")
+    ev["summary"] = "Cyberattack via Optimizely Web exposes banking, media and insurance websites to malware"
+    if core([ev]).priority in ACTIONABLE:
+        assert one([ev]).priority == "REFERENCE"
+
+
+def test_generic_words_are_not_markers():
+    """'ASIC' (chips) and 'nab' (the verb) are not Australian markers; bare 'visa' / 'swift' / 'square' are not dependencies."""
+    for title in ("Bitcoin ASIC miners lose power in Texas blackout", "Police nab suspect after Ohio blackout cuts power to thousands",
+                  "US visa processing outage disrupts consulates", "Power outage hits Times Square in New York"):
+        c = ed.detect_candidate(e("a", title, "BBC News"))
+        if c and c.is_candidate:
+            assert one([e("a", title, "BBC News")]).priority == "REFERENCE", title
