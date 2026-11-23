@@ -149,3 +149,38 @@ def test_the_morning_view_does_not_call_the_historic_item_ongoing():
     es = be.build_evidence([e("a", MS13, "Google News - Critical Infrastructure/Energy Cyberattack AU", 5.4)], now=NOW, window_hours=72)
     view = "\n".join(be.morning_view(es))
     assert "ongoing" not in view.lower()
+
+
+# ── Context-specific verification actions ───────────────────────────────────────────────────────────────────
+
+LIVE_RX = ("restoration estimate", "customer count")
+
+
+def action(events, member="a"):
+    return ed.escalation_record(decision(events, member), now=NOW)["next_verification_action"]
+
+
+def test_a_retrospective_investigation_gets_no_live_restoration_task():
+    a = action([e("a", "'One-in-2,000-year weather' to be investigated post-blackout", "ABC News", 20)])
+    assert "restoration estimate" not in a and "customer count" not in a
+    assert "no live restoration action" in a
+
+
+def test_a_disruption_reported_restored_gets_a_post_incident_action():
+    a = action([e("a", "Power restored after Eyre Peninsula blackout leaves 11,000 without electricity", "ABC News", 6)])
+    assert "restoration estimate" not in a and "restoration time" in a
+
+
+def test_a_live_outage_keeps_the_restoration_estimate_action():
+    a = action([e("a", "Telstra mobile outage continues across Australia, thousands still without service", "ABC News", 3)])
+    assert "restoration estimate" in a and "network operator" not in a
+
+
+def test_an_outage_of_unknown_currency_is_first_checked_for_currency():
+    a = action([e("a", MS13, "Google News - Critical Infrastructure/Energy Cyberattack AU", 5.4)])
+    assert "confirm the disruption is current" in a and "restoration estimate" not in a
+
+
+def test_other_incident_classes_keep_their_class_specific_action():
+    a = action([e("a", "Hijacked website testing tool plants card skimmer on Australian brands' sites", "iTnews", 3)])
+    assert "restoration" not in a
