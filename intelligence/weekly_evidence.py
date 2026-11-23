@@ -146,9 +146,27 @@ def publisher_family(source_name: str, title: str = "") -> str:
     if source_kind(source_name) == AGGREGATOR:
         m = re.search(r"\s[-–]\s([^-–]{2,40})$", title or "")
         if m:
-            return m.group(1).strip().lower()
+            return _canonical_publisher(m.group(1).strip().lower())
         return "aggregator"
-    return re.sub(r"[^a-z0-9]+", " ", n).strip().split(" — ")[0]
+    return _canonical_publisher(re.sub(r"[^a-z0-9]+", " ", n).strip().split(" — ")[0])
+
+
+# One organisation under several names must be ONE publisher, otherwise an aggregator re-posting of an outlet's own story
+# (e.g. a Google News item whose title ends "- Australian Broadcasting Corporation") counts as an independent second source
+# for that outlet's reporting. Narrow, evidence-based table: only name variants seen in the real feed for the same organisation.
+_PUBLISHER_ALIASES = {
+    "abc news": "abc news", "abc news business": "abc news", "abc": "abc news", "abc net au": "abc news",
+    "australian broadcasting corporation": "abc news", "abc news australia": "abc news",
+    "guardian australia": "guardian australia", "the guardian": "guardian australia", "guardian": "guardian australia",
+    "the guardian australia": "guardian australia", "theguardian com": "guardian australia",
+    "bbc news": "bbc news", "bbc": "bbc news", "bbc com": "bbc news",
+    "afr": "afr", "australian financial review": "afr", "financial review": "afr",
+}
+
+
+def _canonical_publisher(name: str) -> str:
+    key = re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+    return _PUBLISHER_ALIASES.get(key, name)
 
 
 # ── Materiality lexicon ───────────────────────────────────────────────────────
