@@ -321,6 +321,24 @@ describe('fail-closed behaviour', () => {
   });
 });
 
+describe('Codex P2: local deadline covers the body for non-streaming calls', () => {
+  it('a local model that sends headers then stalls its body times out (→ 424) instead of hanging', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_u: unknown, init?: { signal?: AbortSignal }) => {
+      const body = new ReadableStream({ start(c) { init?.signal?.addEventListener('abort', () => c.error(Object.assign(new Error('aborted'), { name: 'AbortError' }))); } });
+      return new Response(body, { status: 200 });
+    }));
+    const t0 = Date.now();
+    const r = await sendToLocal([{ role: 'user', content: 'x' }], false, { ...LOCAL_ENV, CHAT_LOCAL_TIMEOUT_MS: '60' });
+    expect(r).toMatchObject({ ok: false, reason: 'local_timeout' });
+    expect(Date.now() - t0).toBeLessThan(2000);
+  });
+  it('streaming is not cut off at the deadline once headers arrive', async () => {
+    mockFetch(() => ndjson('streamed'));
+    const r = await sendToLocal([{ role: 'user', content: 'x' }], true, LOCAL_ENV);
+    expect(r.ok).toBe(true);
+  });
+});
+
 describe('telemetry is counts-only', () => {
   it('records event names and counts, never content', async () => {
     mockFetch(() => ndjson('x'));

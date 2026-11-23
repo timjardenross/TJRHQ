@@ -120,6 +120,11 @@ export async function sendToLocal(
         redirect: 'error',
       });
       if (!res.ok) return { ok: false, reason: 'local_error_status', status: res.status };
+      if (!stream) {
+        // Non-streaming: keep the deadline active until the whole body is read (a stalled body must time out, not hang).
+        const text = await res.text();
+        return { ok: true, response: new Response(text, { status: res.status, headers: res.headers }) };
+      }
       return { ok: true, response: res };
     } catch (err) {
       return { ok: false, reason: err instanceof Error && err.name === 'AbortError' ? 'local_timeout' : 'local_unreachable' };
