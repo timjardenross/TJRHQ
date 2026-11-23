@@ -1,0 +1,21 @@
+*Weekly Thought Leadership Brief — Mon 23 Nov 2026*
+_Communications & Presence Officer · "What should I be talking about this week?"_
+
+*Recommended this week — prioritised, evidence-backed:*
+1. *Specialists Advise, Captains Decide* — _AI-Augmented Leadership_ · suggest a *Lessons Learned*
+     ↳ evidence: Specialists Advise, Captains Decide _(source lesson:LL-003)_
+     ↳ advances: Career & Professional Impact
+2. *Authority Hierarchy Must Be Explicit* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Authority Hierarchy Must Be Explicit _(source lesson:LL-006)_
+     ↳ advances: Career & Professional Impact
+3. *Competing Authority Claims Accumulate Unless Prevented* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Competing Authority Claims Accumulate Unless Prevented _(source lesson:LL-007)_
+     ↳ advances: Career & Professional Impact
+4. *Authority Separation Is a First-Class Architectural Constraint* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Authority Separation Is a First-Class Architectural Constraint _(source lesson:LL-009)_
+     ↳ advances: Career & Professional Impact
+
+*Themes in the pipeline:* Operational Resilience (3) · AI-Augmented Leadership (1)
+*Strategic alignment:* Career & Professional Impact (4)
+
+_Generate a draft with `/comms draft <n>`. Communications & Presence Officer scaffolds; the Captain writes, edits, and publishes._

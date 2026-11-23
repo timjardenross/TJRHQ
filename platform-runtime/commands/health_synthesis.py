@@ -187,7 +187,13 @@ _MEDICAL_OFFICER_SYSTEM = (
 
 
 def _llm_synthesis(raw_summary: str) -> str | None:
-    """Attempt to enrich the summary via Gemini. Returns None if unavailable."""
+    """Attempt to enrich the summary via Gemini. Returns None if unavailable.
+
+    The weekly summary is the Captain's own nervous-system / energy / sleep data, so it is never sent
+    to an external model unless HEALTH_LLM_EXTERNAL_ALLOWED=1; the deterministic summary stands alone."""
+    from core.security import personal_data_policy
+    if not personal_data_policy.external_ai_allowed():
+        return None
     try:
         sys.path.insert(0, str(os.path.dirname(__file__) + "/.."))
         from llm import generate_with_gemini

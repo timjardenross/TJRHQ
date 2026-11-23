@@ -1,0 +1,18 @@
+<legacy code path: _format_intelligence_posture_block + _format_signals_block>
+<b>📡 INTELLIGENCE POSTURE</b>
+  Posture: <b>🟡 AMBER</b>
+  <b>What matters today</b>
+  1. Microsoft's Friday 13th outage continues with fraud and employee risk warnings - Insurance Business — Assess dependency on affected platform; activate contingency if critical
+  2. US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News — Assess exposure, review controls, monitor ACSC advisories
+  3. What's next after no deal at COP31 climate talks? — Monitor situation; assess operational exposure and escalate if conditions worsen
+  <b>Changed since yesterday</b>
+  - New: Microsoft's Friday 13th outage continues with fraud and employee risk warnings - Insurance Business
+  - New: US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News
+  - New: What's next after no deal at COP31 climate talks?
+  <i>⚠️ 4 intelligence sources were unavailable during this morning collection cycle.</i>
+
+<b>📡 OTHER SIGNALS (24h)</b> <i>(4 HIGH)</i>
+  🔴 Guardian Australia: Victoria faced devastating bushfires and an ‘extinction emergency’ this year. So why is nature missing from the election?
+  🔴 ABC News: Giants clash over Australia's gas reservation policy
+  🔴 ABC News: Foreign minister to elevate AI as national security challenge
+  🔴 Guardian Australia: Fred Nile, former NSW politician and figurehead of the rightwing Christian Democratic Party, dies aged 92

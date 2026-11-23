@@ -146,7 +146,7 @@ def _themes() -> str:
 
 def _weekly() -> str:
     items = opp.gather_opportunities()
-    return weekly.compose_weekly_brief(items)
+    return weekly.compose_weekly_brief(items, evidence_lines=weekly.evidence_lines_for(items))
 
 
 def _opportunities() -> str:
@@ -200,11 +200,21 @@ def _draft(rest: str) -> str:
             content_id=f"{o.source_kind}-{o.source_ref}", title=o.title, pillar=o.pillar_key,
             source_kind=o.source_kind, source_ref=o.source_ref, classification=o.classification,
             status="draft", fmt=(fmt_key or o.suggested_format), strategic_domain=o.strategic_domain,
-            notes=f"draft_mode={mode}",
+            notes=_draft_notes(o, mode),
         )
     except Exception as _exc:  # noqa: BLE001 - draft content-lifecycle record, non-blocking  # pragma: no cover
         log.debug("[commands.comms] record_content failed, continuing: %s", _exc)
     return body
+
+
+def _draft_notes(o, mode: str) -> str:
+    """draft_mode plus (editorial V2) the score breakdown, for traceability."""
+    notes = f"draft_mode={mode}"
+    sc = getattr(o, "escore", None)
+    if sc is not None:
+        import json
+        notes += " | editorial=" + json.dumps(sc.as_dict(), separators=(",", ":"))
+    return notes
 
 
 def _pillars() -> str:

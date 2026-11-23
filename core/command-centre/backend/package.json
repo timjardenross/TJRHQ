@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "node --watch app.js",
-    "test": "node --test tests/number-one-adapter.test.js"
+    "test": "node --test tests/number-one-adapter.test.js tests/capture-privacy.test.js"
   },
   "author": "Captain TJR",
   "license": "PROPRIETARY",

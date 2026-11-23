@@ -1,0 +1,373 @@
+{
+ "reviewer": "week-scan",
+ "incidents": [
+  {
+   "slug": "sa-regional-blackout",
+   "priority": "E",
+   "member_ids": [
+    "735f411c",
+    "75657c62",
+    "4893fe2f",
+    "12dbf4fb",
+    "342b2fd9",
+    "f932c96c",
+    "35c916c9"
+   ],
+   "headline": "Breaking: Transmission towers 'crushed', knocking out power to 20,000",
+   "note": "Transmission towers crushed; ~20,000 then 11,000 without power, days to restore; provisional E."
+  },
+  {
+   "slug": "coles-cyber-incident",
+   "priority": "V",
+   "member_ids": [
+    "e19610c6",
+    "249d258d",
+    "997b22a6",
+    "ef9960e2",
+    "4e356803",
+    "2e345266",
+    "1fba2db8"
+   ],
+   "headline": "Coles investigating \u2018cybersecurity incident\u2019 and apologises to customers",
+   "note": "Major retailer cyber incident; impact and data exposure unconfirmed."
+  },
+  {
+   "slug": "supermarket-cooling-ot-attacks",
+   "priority": "V",
+   "member_ids": [
+    "d739163e"
+   ],
+   "headline": "CISA, federal partners flag exposed OT controllers as cyberattacks disrupt supermarket cooling systems across Europe - Industrial Cyber",
+   "note": "CISA flags attacks disrupting supermarket cooling; store or supply consequences unsubstantiated."
+  },
+  {
+   "slug": "optimizely-supply-chain-compromise",
+   "priority": "V",
+   "member_ids": [
+    "5e73ee8a",
+    "2a22c5ab",
+    "cee7c94e",
+    "6fc4c84c",
+    "2c86939c"
+   ],
+   "headline": "Cyberattack via Optimizely Web exposes banking, media and insurance websites to malware - Beinsure",
+   "note": "Hijacked testing tool hit banks, media, Australian brand sites; scope unconfirmed."
+  },
+  {
+   "slug": "card-networks-third-party-attack",
+   "priority": "V",
+   "member_ids": [
+    "64362801"
+   ],
+   "headline": "JPMorgan, Visa, Mastercard say third-party vendors targeted in cyberattack",
+   "note": "JPMorgan, Visa, Mastercard report vendors targeted; consequences unclear."
+  },
+  {
+   "slug": "bell-financial-data-access",
+   "priority": "V",
+   "member_ids": [
+    "465ebde5"
+   ],
+   "headline": "Australia's Bell Financial says some client data likely accessed",
+   "note": "Australian broker says client data likely accessed; unconfirmed."
+  },
+  {
+   "slug": "norway-energy-cyber-intrusions",
+   "priority": "V",
+   "member_ids": [
+    "1ad6b640",
+    "754ffb06"
+   ],
+   "headline": "Equinor says production unaffected as cyberattack disrupts IT - iTWire",
+   "note": "Equinor IT disrupted, Skagerak intrusion; production reportedly unaffected."
+  },
+  {
+   "slug": "fbi-database-hack",
+   "priority": "V",
+   "member_ids": [
+    "3600f8ce",
+    "900a5825"
+   ],
+   "headline": "FBI reportedly investigating apparent hack of its criminal database",
+   "note": "Reported hack of FBI criminal database; unconfirmed."
+  },
+  {
+   "slug": "usda-cyberattack",
+   "priority": "V",
+   "member_ids": [
+    "062cf024"
+   ],
+   "headline": "USDA hit with cyberattack: Sources - KAKE",
+   "note": "Anonymous-source report of USDA cyberattack; unverified."
+  },
+  {
+   "slug": "telstra-outage-aftermath",
+   "priority": "W",
+   "member_ids": [
+    "1beab7d3",
+    "42e7c791",
+    "457b3598",
+    "9a704a54",
+    "4753e9e8",
+    "de762a8b"
+   ],
+   "headline": "Telstra Outage -Barnaby Joyce Raises Question Of China Involvement - Sydney Times",
+   "note": "Past Telstra outage; complaints and compensation claims, 4G/5G problems persist."
+  },
+  {
+   "slug": "microsoft-m365-outage",
+   "priority": "W",
+   "member_ids": [
+    "d1f78bc2",
+    "314e752e",
+    "5faa0a3f",
+    "cd458e26",
+    "1d9cd2a4",
+    "55d3fe5f",
+    "9dfb638c"
+   ],
+   "headline": "Microsoft says three-month-old bug behind global M365 outage",
+   "note": "Global Outlook/Teams outage restored; APRA near miss; retrospective."
+  },
+  {
+   "slug": "us-tech-outage-series",
+   "priority": "W",
+   "member_ids": [
+    "ab585890",
+    "d413948e",
+    "489f2428",
+    "2a6acc36",
+    "b59d4700",
+    "59b7dcae",
+    "c1628f4a",
+    "f902dd5c",
+    "6ab9395c",
+    "302ced6d",
+    "deb3db4a",
+    "a7f802cf",
+    "f48aad89"
+   ],
+   "headline": "The FAA Ground Stop Is a Wake-Up Call for Leaders on Crisis Communication",
+   "note": "FAA, NSA outages; cyber chief removed; retrospective commentary."
+  },
+  {
+   "slug": "us-bank-online-delays",
+   "priority": "W",
+   "member_ids": [
+    "e5d67d3f"
+   ],
+   "headline": "What to know about the online banking delays affecting major US banks",
+   "note": "Online banking delays at major US banks."
+  },
+  {
+   "slug": "apple-pay-outage",
+   "priority": "W",
+   "member_ids": [
+    "3733e8cd"
+   ],
+   "headline": "Apple Pay outage a \u201cdifficult situation\u201d for retailers in Black Friday sales mode - SmartCompany",
+   "note": "Apple Pay outage during Black Friday sales."
+  },
+  {
+   "slug": "ai-platform-status-errors",
+   "priority": "W",
+   "member_ids": [
+    "3a6e5415",
+    "1a86867b",
+    "459eb562",
+    "5cad157a",
+    "31d1d5c7",
+    "abbc1c6f",
+    "82b25cb8",
+    "659003e1"
+   ],
+   "headline": "Elevated errors for Claude Sonnet 5.5 and Claude Fable 5.2",
+   "note": "Elevated errors on Claude, OpenAI, Notion sign-in; minor."
+  },
+  {
+   "slug": "java4shell-vulnerability",
+   "priority": "W",
+   "member_ids": [
+    "90388b88",
+    "ce474b88",
+    "71263b17",
+    "12099bd4",
+    "f783ed51",
+    "b7f775c8"
+   ],
+   "headline": "Vulnerability in Oracle OpenJDK (Java4Shell) Affecting Cisco Products: November 2026",
+   "note": "Critical Java flaw; CISA urges immediate patching; exploitation unconfirmed."
+  },
+  {
+   "slug": "nginx-critical-flaws",
+   "priority": "W",
+   "member_ids": [
+    "bcd5b145",
+    "5a0664de"
+   ],
+   "headline": "Nginx servers rootable through critical flaws, unpatched Linux kernel bug",
+   "note": "Nginx servers rootable via critical flaws."
+  },
+  {
+   "slug": "noisytcp-linux-bug",
+   "priority": "W",
+   "member_ids": [
+    "90e46654"
+   ],
+   "headline": "Kernel-crashing NoisyTCP bug sat in Linux for 11 years",
+   "note": "Kernel-crashing Linux TCP bug disclosed."
+  },
+  {
+   "slug": "unimelb-exam-tech-failure",
+   "priority": "W",
+   "member_ids": [
+    "b9890b65"
+   ],
+   "headline": "Tech failure forces hundreds of University of Melbourne students to abandon final exams mid-test",
+   "note": "Hundreds abandoned final exams after tech failure."
+  },
+  {
+   "slug": "canberra-triple-zero-outage",
+   "priority": "W",
+   "member_ids": [
+    "ef242803"
+   ],
+   "headline": "Authorities investigating four-minute Triple Zero outage in Canberra",
+   "note": "Four-minute emergency call outage; restored, under investigation."
+  },
+  {
+   "slug": "sydney-airport-weather-cancellations",
+   "priority": "W",
+   "member_ids": [
+    "67c5c764",
+    "a61861d6"
+   ],
+   "headline": "104 flights cancelled due to weather conditions at Sydney Airport",
+   "note": "104 flights cancelled; Qantas stranding."
+  },
+  {
+   "slug": "nsw-qld-severe-storms",
+   "priority": "W",
+   "member_ids": [
+    "988f1797",
+    "de6cb6d5",
+    "9f5d79da",
+    "53a4bab4"
+   ],
+   "headline": "Hailstorm blankets Mudgee as giant hail warning issued for north-east NSW",
+   "note": "Hail, possible tornado, crop damage."
+  },
+  {
+   "slug": "nt-timor-earthquake",
+   "priority": "W",
+   "member_ids": [
+    "bb07c90d",
+    "5680948d",
+    "475f6104"
+   ],
+   "headline": "Breaking: Magnitude-6.6 earthquake tremors felt in Darwin",
+   "note": "M6.6 quake felt in Darwin; tsunami response window concerns."
+  },
+  {
+   "slug": "qld-ambulance-delay-deaths",
+   "priority": "W",
+   "member_ids": [
+    "d77127be",
+    "e6c2e402",
+    "817f37f5",
+    "09d3c409"
+   ],
+   "headline": "Four Qlders died 'avoidable deaths' waiting for an ambulance this month",
+   "note": "Deaths linked to ambulance delays in Queensland."
+  },
+  {
+   "slug": "orange-tap-water-metals",
+   "priority": "W",
+   "member_ids": [
+    "5b15e8bd"
+   ],
+   "headline": "Orange tap water called 'safe to drink' had metals above guidelines",
+   "note": "Orange water above metal guidelines despite safe claim."
+  },
+  {
+   "slug": "nsw-vape-hospitalisations",
+   "priority": "W",
+   "member_ids": [
+    "e41df433"
+   ],
+   "headline": "Vape users hospitalised after losing consciousness, prompting public health warning in New South Wales",
+   "note": "Vape users losing consciousness; public health warning."
+  },
+  {
+   "slug": "woolworths-gift-card-draining",
+   "priority": "W",
+   "member_ids": [
+    "333f3f17"
+   ],
+   "headline": "Woolworths shoppers call for answers over gift card draining issue",
+   "note": "Shoppers report gift cards drained; cause unknown."
+  },
+  {
+   "slug": "tas-lor2-forecast",
+   "priority": "W",
+   "member_ids": [
+    "7e761033",
+    "8b223cb3"
+   ],
+   "headline": "STPASA - Update of the Forecast Lack Of Reserve Level 2 (LOR2) in the TAS Region on 20/11/2026",
+   "note": "Forecast reserve shortfall in Tasmania; later cancelled."
+  },
+  {
+   "slug": "waymo-freeway-pause",
+   "priority": "W",
+   "member_ids": [
+    "0b3cd7a1"
+   ],
+   "headline": "Waymo pulls driverless taxis from all US freeways",
+   "note": "Waymo pulls driverless taxis from US freeways."
+  },
+  {
+   "slug": "gulf-us-iran-strikes",
+   "priority": "W",
+   "member_ids": [
+    "a730cbb5",
+    "0057695c",
+    "7d378413",
+    "b4c29459",
+    "d9005d4e"
+   ],
+   "headline": "US Strikes Iran\u2019s Qeshm Island as Bahrain and Kuwait Face Fresh Drone Attacks",
+   "note": "US-Iran strikes, Bahrain/Kuwait attacks; energy shipping relevance."
+  },
+  {
+   "slug": "deutsche-bank-data-leak",
+   "priority": "W",
+   "member_ids": [
+    "6f8875d1",
+    "51d1ed81",
+    "63e267ef",
+    "651588ec"
+   ],
+   "headline": "Leak of 15mn Deutsche Bank files exposes systemic failures",
+   "note": "15mn files leaked; bank limiting fallout."
+  },
+  {
+   "slug": "us-ports-cyberattacks",
+   "priority": "W",
+   "member_ids": [
+    "f74e8dd7"
+   ],
+   "headline": "US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News",
+   "note": "Los Angeles port blocks 120 million attempts."
+  },
+  {
+   "slug": "vic-fire-warning",
+   "priority": "W",
+   "member_ids": [
+    "51b77d4e"
+   ],
+   "headline": "Breaking: Emergency fire warning issued for Victoria's north-west",
+   "note": "Emergency fire warning, Victoria north-west."
+  }
+ ]
+}

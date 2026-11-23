@@ -1,0 +1,19 @@
+📊 WEEKLY INTELLIGENCE REPORT  (legacy logic; LLM paragraph omitted — see note)
+
+🛰 TECH OSINT — WEEKLY (1000)
+  🔴 327 high  ·  🟡 447 medium  ·  🟢 33 low  ·  ⚪ 193 unscored
+  🔴 Cloudflare Status: Cloudflare Dashboard and Cloudflare API service issues in EU region (resolved)
+  🔴 Java4Shell, NGINX2Shell and more: Why we are not at "Yellow", (Wed, Nov 18th)
+  🔴 Religion should be removed from terrorism definition under Australian law as it gives ‘false credibi
+
+🩺 HEALTH OSINT — WEEKLY (392)
+  🔴 0 high  ·  🟡 270 medium  ·  🟢 122 low
+  🟡 Community Services Navigation to Advance Health Equity in Breast Cancer Screening
+  🟡 Optimising Kangaroo Care to Reduce Neonatal Severe Infection/Sepsis and Resistant Bacterial Colonisa
+  🟡 Integrating Malaria Vaccine With Seasonal Malaria Chemoprevention in West Africa
+
+⚡ CAPACITY THIS WEEK
+  █░░░░░░░░░ Recovery confidence 10%  ·  2 pulse(s) logged across 1 day(s) (of 7)
+  Latest: Energy Low
+
+🗄 Supabase DB: 262 MB of 500 MB (52%)

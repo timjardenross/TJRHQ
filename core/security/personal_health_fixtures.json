@@ -1,0 +1,19 @@
+{
+ "_comment": "Parity fixtures for the structured detector. Python (tests/test_privacy_remediation_pathways.py) and Node (core/command-centre/backend/tests/capture-privacy.test.js) must both agree.",
+ "structured_positive": [
+  "sleep_hours=4 pain_score 7",
+  "Captain pain 7/10, slept 4h, CPAP used, nervous system tense",
+  "energy=low body=tense ns=dysregulated",
+  "Recovery confidence 40%",
+  "I slept badly and my pain is back",
+  "captain_capacity_rating: Amber",
+  "weekly health brief for the Captain",
+  "Dysregulated: 3/7 days"
+ ],
+ "structured_negative": [
+  "Summarise today's cyber incidents affecting Australian banks",
+  "Telstra outage hits 20,000 customers in South Australia",
+  "New study on CPAP therapy adherence published",
+  "Add retry logic to the model router deploy script"
+ ]
+}
