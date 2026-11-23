@@ -9,6 +9,9 @@ import { decideRoute, recordChatPrivacyEvent } from './chatPrivacy';
 import { sendToCloud, sendToLocal, type LocalMessage } from './chatTransport';
 
 export const LOCAL_UNAVAILABLE = 'local_model_unavailable';
+export const LOCAL_UNAVAILABLE_AFTER_CLOUD_MESSAGE =
+  'The request could not be completed: it was a validated technical question that was sent to the cloud model, ' +
+  'which failed, and the local model is also unavailable. Try again shortly.';
 export const LOCAL_UNAVAILABLE_MESSAGE =
   'The local model is unavailable, so this request was not sent anywhere. Number One\'s built-in commands still work; ' +
   'try again once the local model is back.';
@@ -18,21 +21,30 @@ export interface ChatMsg { role: 'user' | 'assistant' | 'system'; content: strin
 const MAX_MESSAGES = 100;
 const MAX_TOTAL_CHARS = 200_000;
 
-/** Strict request-shape validation. Returns null if malformed. */
+/**
+ * Strict request-shape validation. Returns null if malformed. Over-long HISTORY is trimmed (oldest first) to the
+ * supported budget rather than rejected, so long existing threads keep working; only a latest message that alone
+ * exceeds the budget is rejected.
+ */
 export function validateMessages(raw: unknown): ChatMsg[] | null {
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_MESSAGES) return null;
-  let total = 0;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
   const out: ChatMsg[] = [];
   for (const m of raw) {
     if (!m || typeof m !== 'object') return null;
     const { role, content, id } = m as Record<string, unknown>;
     if (role !== 'user' && role !== 'assistant' && role !== 'system') return null;
     if (typeof content !== 'string') return null;
-    total += content.length;
-    if (total > MAX_TOTAL_CHARS) return null;
     out.push({ role, content, ...(typeof id === 'string' ? { id } : {}) });
   }
-  return out;
+  if (out[out.length - 1].content.length > MAX_TOTAL_CHARS) return null;
+  let total = 0;
+  let start = out.length;
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out.length - i > MAX_MESSAGES || total + out[i].content.length > MAX_TOTAL_CHARS) break;
+    total += out[i].content.length;
+    start = i;
+  }
+  return out.slice(start);
 }
 
 export interface LocalFirstOptions {
@@ -62,6 +74,7 @@ export async function handleLocalFirstChat(opts: LocalFirstOptions, env: Record<
   );
   recordChatPrivacyEvent(`decision_${decision.route}_${decision.reason}`);
 
+  let cloudAttempted = false;
   if (decision.route === 'cloud' && decision.candidate) {
     const sent = await sendToCloud({ intent: decision.candidate.intent, slot: decision.candidate.slot, model: opts.cloudModel, stream: opts.stream }, env);
     if (sent.ok) {
@@ -69,6 +82,8 @@ export async function handleLocalFirstChat(opts: LocalFirstOptions, env: Record<
       return respond(sent.response, opts);
     }
     recordChatPrivacyEvent(`cloud_failed_${sent.reason}`); // falling back to LOCAL is always safe
+    // The validated slot may already have reached the cloud (non-2xx, timeout, unreachable); only a pre-flight refusal did not.
+    cloudAttempted = !['validation_failed', 'cloud_not_configured', 'gate_error'].includes(sent.reason);
   }
 
   let system: string;
@@ -84,7 +99,10 @@ export async function handleLocalFirstChat(opts: LocalFirstOptions, env: Record<
   const local = await sendToLocal(localMessages, opts.stream, env);
   if (!local.ok) {
     recordChatPrivacyEvent(`local_failed_${local.reason}`);
-    return NextResponse.json({ error: LOCAL_UNAVAILABLE_MESSAGE, code: LOCAL_UNAVAILABLE }, { status: 424 });
+    return NextResponse.json(
+      { error: cloudAttempted ? LOCAL_UNAVAILABLE_AFTER_CLOUD_MESSAGE : LOCAL_UNAVAILABLE_MESSAGE, code: LOCAL_UNAVAILABLE, cloud_attempted: cloudAttempted },
+      { status: 424 },
+    );
   }
   recordChatPrivacyEvent('local_sent');
   return respond(local.response, opts);

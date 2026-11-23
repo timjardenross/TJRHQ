@@ -7,9 +7,10 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/ai-context', () => ({ buildShipContext: async () => ({ text: 'SHIP-CONTEXT-PRIVATE', sources: [] }) }));
 vi.mock('@/lib/ai-actions', () => ({ parseAndProposeActions: async () => [] }));
 vi.mock('@/lib/rateLimit', () => ({ checkRateLimit: () => true }));
+const dispatchSpy = vi.fn(async (..._a: unknown[]) => ({ handled: true, reply: 'Captured.' }));
 vi.mock('@/lib/number-one/intent-router', () => ({
-  classifyIntent: (t: string) => (/^remember this/i.test(t) ? { kind: 'remember' } : null),
-  dispatchIntent: async () => ({ handled: true, reply: 'Captured.' }),
+  classifyIntent: (t: string) => (/^(remember this|i'm stuck)/i.test(t) ? { kind: 'x' } : null),
+  dispatchIntent: (...a: unknown[]) => dispatchSpy(...a),
 }));
 
 import { POST as chatPOST } from '../../app/api/ai/chat/route';
@@ -121,6 +122,16 @@ describe('flag ON — local-first boundary', () => {
     expect(await sse(handled)).toContain('Captured.');
     const chat = await chatPOST(req({ messages: [{ role: 'user', content: 'how are you' }], role: 'number_one', stream: true }));
     expect(chat.status).toBe(424);
+  });
+  it('Codex P1: Number One model-backed intents are told not to use the model when the flag is ON (and are unchanged when OFF)', async () => {
+    stub(() => nd('x'));
+    dispatchSpy.mockClear();
+    await chatPOST(req({ messages: [{ id: 'm1', role: 'user', content: "I'm stuck" }], role: 'number_one', stream: true }));
+    expect(dispatchSpy.mock.calls[0][3]).toEqual({ modelBacked: false });
+    delete process.env.CHAT_LOCAL_FIRST_V1;
+    dispatchSpy.mockClear();
+    await chatPOST(req({ messages: [{ id: 'm2', role: 'user', content: "I'm stuck" }], role: 'number_one', stream: true }));
+    expect(dispatchSpy.mock.calls[0][3]).toEqual({});
   });
   it('/api/ai/chat: malformed bodies → 400, no outbound', async () => {
     const calls = stub(() => nd('x'));

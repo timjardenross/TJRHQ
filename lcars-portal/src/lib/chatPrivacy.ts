@@ -100,13 +100,21 @@ function msgOk(rawMsg: string): boolean {
 }
 
 const LEVEL = '(?:INFO|WARN|WARNING|ERROR|DEBUG|CRITICAL)';
-const LINE_GRAMMARS: { rx: RegExp; groups: string[] }[] = [
-  { rx: new RegExp(`^\\d{4}-\\d\\d-\\d\\d[T ][\\d:.]+Z?\\s+${LEVEL}\\s+[\\w.-]+:\\s+(.*)$`), groups: ['msg'] },
-  { rx: /^\s*at\s+([\w.$<>[\]/-]+)\s*\(([^)]*)\)\s*$/, groups: ['fn', 'msg'] },
+// Every variable capture is validated: `msg` fields through msgOk (vocabulary + kv rules), identifier-like fields
+// (log component, source file path) through identOk (every sub-word in the closed vocabulary).
+const LINE_GRAMMARS: { rx: RegExp; groups: ('msg' | 'ident')[] }[] = [
+  { rx: new RegExp(`^\\d{4}-\\d\\d-\\d\\d[T ][\\d:.]+Z?\\s+${LEVEL}\\s+([\\w.-]+):\\s+(.*)$`), groups: ['ident', 'msg'] },
+  { rx: /^\s*at\s+([\w.$<>[\]/-]+)\s*\(([^)]*)\)\s*$/, groups: ['msg', 'msg'] },
   { rx: /^Traceback \(most recent call last\):\s*$/, groups: [] },
-  { rx: /^\s*File "[^"]+", line \d+, in (\w+)\s*$/, groups: ['msg'] },
-  { rx: /^([A-Za-z]+(?:Error|Exception)): (.*)$/, groups: ['msg', 'm2'] },
+  { rx: /^\s*File "([^"]+)", line \d+, in (\w+)\s*$/, groups: ['ident', 'ident'] },
+  { rx: /^([A-Za-z]+(?:Error|Exception)): (.*)$/, groups: ['msg', 'msg'] },
 ];
+
+/** An identifier / path: only [\w.\-/], and every sub-word must be in the closed vocabulary. */
+function identOk(v: string): boolean {
+  if (!/^[\w.\-/]+$/.test(v)) return false;
+  return subwords(v).every(subOk);
+}
 
 function sensitiveVeto(text: string): boolean {
   try {
@@ -132,7 +140,8 @@ export function artifactEligible(text: unknown): boolean {
         matched = true;
         for (let i = 0; i < g.groups.length; i++) {
           const v = m[i + 1];
-          if (v && !msgOk(v)) return false;
+          if (!v) continue;
+          if (g.groups[i] === 'ident' ? !identOk(v) : !msgOk(v)) return false;
         }
         break;
       }
