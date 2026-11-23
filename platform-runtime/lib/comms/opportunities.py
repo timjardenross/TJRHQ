@@ -186,12 +186,19 @@ def library_opportunities(rows: list[dict]) -> list[ContentOpportunity]:
 MIN_SIGNAL_MATCH_TERMS = 3
 
 
+def _signal_text(s: dict) -> str:
+    """The signal's OWN text (the underlying event's title and summary). #669: never the template ``suggested_angle``,
+    which is filled from fixed pillar templates and matches unrelated topics; and never the source name."""
+    return f"{s.get('raw_title') or ''} {s.get('raw_summary') or ''}".strip()
+
+
 def _signal_matches(o: ContentOpportunity, s: dict) -> bool:
-    """A signal corroborates a topic only if it shares >=3 distinct terms with it AND, when both
-    carry a stream, belongs to the same editorial stream. (Was: >=2 terms, no stream check.)"""
-    terms = editorial.shared_theme(f"{o.title} {o.excerpt}",
-                                   f"{s.get('suggested_angle') or ''} {s.get('source_name') or ''}",
-                                   minimum=MIN_SIGNAL_MATCH_TERMS)
+    """A signal corroborates a topic only if its own title/summary shares >=3 distinct terms with it AND, when both
+    carry a stream, belongs to the same editorial stream. A signal whose text could not be read never matches."""
+    text = _signal_text(s)
+    if not text:
+        return False
+    terms = editorial.shared_theme(f"{o.title} {o.excerpt}", text, minimum=MIN_SIGNAL_MATCH_TERMS)
     if not terms:
         return False
     sig_stream = editorial.PILLAR_STREAM.get(s.get("pillar_key") or "")
@@ -200,15 +207,18 @@ def _signal_matches(o: ContentOpportunity, s: dict) -> bool:
 
 def attach_signals(opps: list[ContentOpportunity], signals: list[dict]) -> None:
     """Pure: attach external content_signals as graded corroboration and timeliness."""
+    lookup_failed = any((s or {}).get("text_status") == "lookup_failed" for s in signals or [])
     for o in opps:
         if o.info is None:
             continue
+        if lookup_failed:
+            o.info.signal_lookup_failed = True        # distinct from "read, but nothing matched"
         for s in [s for s in signals or [] if _signal_matches(o, s)][:6]:
             name = s.get("source_name") or ""
             o.info.external_refs.append(f"signal:{s.get('event_id_text')} ({name})")
             o.info.external_sources.append({"ref": str(s.get("event_id_text")),
                                             "kind": editorial.grade_signal_source(name),
-                                            "family": name.strip().lower() or "unknown"})
+                                            "family": editorial.publisher_family(name)})
             when = str(s.get("scored_at") or "")
             if when and (o.info.as_of is None or when > o.info.as_of):
                 o.info.as_of = when
@@ -219,7 +229,10 @@ def apply_editorial(opps: list[ContentOpportunity], *, existing_titles: list[str
     """Pure: score every opportunity, drop duplicates, demote confidential, rank."""
     for o in opps:
         if o.info is None:
+            # #669: assign the stream BEFORE signals attach, so the cross-stream rejection applies to every opportunity.
+            stream, _p, _h = editorial.classify_stream(f"{o.title} {o.excerpt}")
             o.info = editorial.EditorialInfo(
+                stream=stream,
                 evidence_grade="internal_evidence" if o.source_kind in _INTERNAL_GRADE_KINDS else None,
                 internal_refs=[f"{o.source_kind}:{o.source_ref}"])
     attach_signals(opps, signals or [])
@@ -266,6 +279,35 @@ def _existing_titles() -> list[str]:
         return []
 
 
+def _with_event_text(c, rows: list[dict]) -> list[dict]:
+    """Attach each signal's own raw_title/raw_summary from intelligence_events (content_signals stores no text).
+    Read-only and fail closed. Each row gets ``text_status``: ``ok`` (text read), ``not_found`` (the lookup worked but
+    this event has no row: a genuine non-match) or ``lookup_failed`` (the read itself failed: an outage, not a non-match).
+    A signal without text never matches either way; the status only lets the brief say which it was."""
+    ids = [r["event_id"] for r in rows if r.get("event_id")]
+    if not ids:
+        for r in rows:
+            r["text_status"] = "not_found"
+        return rows
+    try:
+        res = (c.raw_client.table("intelligence_events").select("event_id,raw_title,raw_summary")
+               .in_("event_id", ids).execute())
+        text = {str(e["event_id"]): e for e in (res.data or [])}
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort read, fail closed
+        log.warning("[comms.opportunities] signal text lookup failed (%s): signals will not corroborate", type(exc).__name__)
+        for r in rows:
+            r["text_status"] = "lookup_failed"
+        return rows
+    for r in rows:
+        e = text.get(str(r.get("event_id")))
+        if e:
+            r["raw_title"], r["raw_summary"] = e.get("raw_title"), e.get("raw_summary")
+            r["text_status"] = "ok"
+        else:
+            r["text_status"] = "not_found"
+    return rows
+
+
 def _gather_signals(limit: int = 50) -> list[dict]:
     """External content_signals (read-only, graceful). [] when offline."""
     c = _client()
@@ -273,9 +315,10 @@ def _gather_signals(limit: int = 50) -> list[dict]:
         return []
     try:
         res = (c.raw_client.table("content_signals")
-               .select("event_id_text,source_name,pillar_key,suggested_angle,scored_at,rank_score")
+               .select("event_id,event_id_text,source_name,pillar_key,suggested_angle,scored_at,rank_score")
                .eq("suppressed", False).order("scored_at", desc=True).limit(limit).execute())
-        return list(res.data or [])
+        rows = list(res.data or [])
+        return _with_event_text(c, rows)
     except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort signals read
         log.debug("[comms.opportunities] signals unavailable: %s", exc)
         return []
