@@ -712,7 +712,10 @@ def escalation_record(d: Decision) -> dict:
     counts = [m.customers for m in originals if m.customers]
     text = " ".join(m.title for m in originals)
     dur = _DURATION_RX.search(text)
-    restoration = _restoration_status(originals)
+    # A probable follow-up was attached only by sector/class proximity (low confidence), not by an incident-specific link, so its
+    # restoration wording must not close the incident (Codex P2: an unrelated operator's 'restored' report removed an ongoing outage).
+    speculative = {p[0] for p in d.group.pairs if str(p[3]).startswith("probable follow-up")}
+    restoration = _restoration_status([m for m in originals if m.event_id not in speculative] or originals)
     return {
         "impact": "stated in headline" if d.impact_status == "stated" else "reported" if d.impact_status in ("unconfirmed", "retrospective") else d.impact_status,
         "evidence_status": d.evidence_status, "evidence_basis": d.evidence_basis,
