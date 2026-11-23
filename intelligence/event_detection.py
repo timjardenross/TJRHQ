@@ -142,6 +142,24 @@ _ANON_RX = re.compile("|".join(ANON_SOURCE), re.IGNORECASE)
 _CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.IGNORECASE)
 _DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.IGNORECASE)
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
+# Negated / in-progress / partial restoration ('power not restored', 'services yet to come back online', 'being restored', 'partially back
+# online', 'restoration unlikely'): the service is NOT restored. These spans are removed before looking for an affirmative restoration.
+_NEG_RESTORE_RX = re.compile(
+    r"(?:\b(?:not|never|no longer|yet to|\w+n't)\s+(?:\w+\s+){0,3}?(?:be\s+)?(?:restored|resolved|back online))"
+    r"|(?:\bbeing\s+(?:\w+\s+){0,2}?(?:restored|resolved))"
+    r"|(?:\bpartial(?:ly)?\s+(?:\w+\s+){0,1}?(?:restored|resolved|back online))"
+    r"|(?:\brestoration\s+(?:is\s+)?(?:unlikely|delayed|uncertain|postponed))", re.IGNORECASE)
+
+
+def _negated_restore(text: str) -> bool:
+    return bool(_NEG_RESTORE_RX.search(text))
+
+
+def _affirmative_restored(text: str) -> bool:
+    """True when the text affirms restoration, ignoring negated, in-progress and partial phrasings."""
+    return bool(_RESTORED_RX.search(_NEG_RESTORE_RX.sub(" ", text)))
+
+
 # A forecast ('will be restored by 5pm', 'restoration expected') says the service is NOT yet restored; a hedged claim ('reportedly restored',
 # 'believed to be restored') is not an affirmative status statement. Neither may override explicit ongoing evidence as 'restored'.
 _FORECAST_RESTORE_RX = _rx((r"(?:will|would|should|could|may|might|expected to|due to|set to|hoped? to|likely to|yet to|not yet|aim(?:s|ing)? to|working to)\s+(?:be\s+)?(?:fully\s+)?(?:restored|resolved|back online)",
@@ -256,7 +274,7 @@ def detect_candidate(event: dict) -> Candidate:
     minor = bool(_MINOR_RX.search(text))
     cm = _CUSTOMERS_RX.search(text)
     customers = int(cm.group(1).replace(",", "")) if cm else None
-    ongoing = bool(_ONGOING_RX.search(text)) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
+    ongoing = bool(_ONGOING_RX.search(text)) or (not _affirmative_restored(text) and not _RETRO_RX.search(text))
     conflict = bool(_CONFLICT_RX.search(text))
     hedged = bool(_HEDGE_RX.search(text) or _ANON_RX.search(text))
     if _ROUTINE_RX.search(text):
@@ -655,8 +673,9 @@ def _report_state(m: Candidate) -> str | None:
     restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
     forecast = bool(_FORECAST_RESTORE_RX.search(m.title))
     hedged_restore = bool(_HEDGED_RESTORE_RX.search(m.title))
-    restored = bool(_RESTORED_RX.search(m.title)) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
-    if _ONGOING_RX.search(m.title) or forecast or (restored and _PARTIAL_RX.search(m.title)):
+    negated = _negated_restore(m.title)
+    restored = _affirmative_restored(m.title) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
+    if _ONGOING_RX.search(m.title) or forecast or negated or (restored and _PARTIAL_RX.search(m.title)):
         return "ongoing"
     if not restored and m.ongoing and m.status == "stated":
         return "ongoing"                    # a stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration
