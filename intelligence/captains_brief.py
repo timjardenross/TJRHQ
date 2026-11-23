@@ -569,6 +569,63 @@ def _get_weekly_capacity(days: int = 7) -> dict:
     than a masked structural failure, since capacity_checkins is written
     interactively by the XO bot on every check-in, not by a dead
     scheduled job."""
+    since = (datetime.now(_AEST).date() - timedelta(days=days - 1)).isoformat()
+    log_entries = _sb_get(
+        "captains_log_entries",
+        f"log_date=gte.{since}&order=log_date.asc"
+        f"&select=log_date,captain_capacity_rating,energy,pain_score,sleep_hours",
+    )
+    if log_entries:
+        return {"source": "log", "entries": log_entries}
+
+    pulses = _sb_get(
+        "recovery_pulses",
+        f"log_date=gte.{since}&order=log_date.asc,captured_at.asc"
+        f"&select=log_date,pulse_type,energy,nervous_system,body_signals,readiness",
+    )
+    if pulses:
+        return {"source": "pulse", "entries": pulses}
+
+    checkins = _sb_get(
+        "capacity_checkins",
+        f"checkin_type=eq.capacity&log_date=gte.{since}&order=log_date.asc,captured_at.asc"
+        f"&select=log_date,capacity_state,stimulation_state,pain_score,regulation_state",
+    )
+    if checkins:
+        return {"source": "checkin", "entries": checkins}
+
+    return {"source": "none", "entries": []}
+
+
+def _get_weekly_capacity_v1(days: int = 7) -> dict:
+    """captains_log_entries rows across the last `days` days (inclusive of
+    today) — a real weekly trend, not the single-day snapshot the daily
+    briefs use.
+
+    2026-08-10 fix (XO product review): captains_log_entries stopped being
+    written to on 2026-06-28 — this was the one fetcher in the file that
+    still trusted it unconditionally, so the weekly Capacity block silently
+    rendered "No capacity logs this week" every week regardless of reality.
+    Falls back to recovery_pulses, aggregated across the window instead of a
+    single day. Returns {"source": "log"|"pulse"|"checkin"|"none", "entries": [...]}
+    so the renderer can tell which shape it got.
+
+    2026-09-13 fix (capability-portfolio data-quality pass): both
+    captains_log_entries and recovery_pulses have been permanently frozen
+    since 2026-06-28/2026-08-21 respectively, so by now this fetcher's first
+    two tiers can never return anything real — every week silently rendered
+    "No capacity logs or recovery pulses this week", identical to a
+    genuinely quiet week, when the truth was "the only two sources this
+    function knows how to read stopped being written to months ago." This
+    was flagged as a known open gap in this function's own prior comment
+    (_get_capacity_today() already made the same cutover for the daily
+    briefs back on 2026-08-22; this weekly fetcher just never followed).
+    Third tier now reads capacity_checkins (checkin_type='capacity') — the
+    live replacement — before finally giving up. "none" is now a real,
+    meaningful signal (the Captain logged zero check-ins all week) rather
+    than a masked structural failure, since capacity_checkins is written
+    interactively by the XO bot on every check-in, not by a dead
+    scheduled job."""
     today = datetime.now(_AEST).date()
     since = (today - timedelta(days=days - 1)).isoformat()
     until = today.isoformat()
@@ -1037,6 +1094,73 @@ def _capacity_sufficiency_line(n: int, distinct_days: int) -> str | None:
 
 
 def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
+    """captains_log_entries across the 7-day window — a real weekly
+    Green/Amber/Red trend instead of a single day's snapshot.
+
+    2026-08-10 fix (XO product review): when captains_log_entries has
+    nothing this week (see _get_weekly_capacity's fallback), render the
+    recovery_pulses-based signal instead of unconditionally showing "No
+    capacity logs this week" — mirrors Morning/EOD's existing
+    recovery-confidence fallback, aggregated across the window. With
+    pulse-logging currently sparse (per the same audit), the honest output
+    may be as small as "1 pulse logged this week" — that's a real signal
+    about logging adherence, not a bug to hide."""
+    source = capacity.get("source")
+    entries = capacity.get("entries") or []
+
+    if source == "log":
+        counts = Counter((e.get("captain_capacity_rating") or "Unknown").capitalize() for e in entries)
+        order = ["Green", "Amber", "Red"]
+        parts = [f"{counts[c]} {c}" for c in order if counts.get(c)]
+        parts += [f"{v} {k}" for k, v in counts.items() if k not in order]
+        trend = " ".join(_rating_emoji(e.get("captain_capacity_rating")) for e in entries)
+        return [
+            f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s))</b>",
+            f"  {_esc(' · '.join(parts)) if parts else 'no ratings logged'}",
+            f"  <code>{trend}</code>",
+            "",
+        ]
+
+    if source == "pulse":
+        days_logged = len({e.get("log_date") for e in entries})
+        possible = max(1, days * 3)
+        conf = round(100.0 * len(entries) / possible)
+        latest = entries[-1]  # ordered log_date,captured_at ascending
+        signals_str = [
+            s for s in (
+                f"Energy {latest['energy'].capitalize()}" if latest.get("energy") else None,
+                f"NS {latest['nervous_system'].capitalize()}" if latest.get("nervous_system") else None,
+                f"Body {latest['body_signals'].capitalize()}" if latest.get("body_signals") else None,
+            ) if s
+        ]
+        lines = [
+            "<b>⚡ CAPACITY THIS WEEK</b>",
+            (f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>"
+             f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})"),
+        ]
+        if signals_str:
+            lines.append(f"  Latest: {_esc(' · '.join(signals_str))}")
+        lines.append("")
+        return lines
+
+    if source == "checkin":
+        counts = Counter((e.get("capacity_state") or "unknown") for e in entries)
+        order = ["green", "orange", "red"]
+        parts = [f"{counts[c]} {c.capitalize()}" for c in order if counts.get(c)]
+        parts += [f"{v} {k.capitalize()}" for k, v in counts.items() if k not in order]
+        days_logged = len({e.get("log_date") for e in entries})
+        trend = " ".join(_capacity_state_emoji(e.get("capacity_state")) for e in entries)
+        return [
+            f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} check-in(s) across {days_logged} day(s))</b>",
+            f"  {_esc(' · '.join(parts)) if parts else 'no state recorded'}",
+            f"  <code>{trend}</code>",
+            "",
+        ]
+
+    return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity check-ins, logs, or recovery pulses this week.", ""]
+
+
+def _format_weekly_capacity_block_v1(capacity: dict, days: int = 7) -> list[str]:
     """Weekly capacity block.
 
     Every branch states how many observations it rests on and over how many
@@ -1165,6 +1289,15 @@ def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
 
     lines.append("")
     return lines
+
+
+CAPACITY_QUALITY_FLAG = "BRIEF_CAPACITY_QUALITY_V1"
+
+
+def _capacity_quality_enabled() -> bool:
+    """Weekly capacity data-quality correction (future-dated rows excluded, observation counts, no recovery claim on a thin sample).
+    Independent of BRIEF_EVIDENCE_V1*: default off, and the legacy weekly capacity block is unchanged while it is off."""
+    return os.getenv(CAPACITY_QUALITY_FLAG, "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _evidence_lines(kind: str, hours: int) -> list[str]:
@@ -1374,7 +1507,8 @@ def generate_weekly_report() -> str:
     tech_summary = _generate_tech_osint_summary(tech_signals)
     health_summary = _generate_health_osint_summary(health_signals)
     content_items = _get_weekly_content_activity(days=7)
-    capacity_entries = _get_weekly_capacity(days=7)
+    capacity_quality = _capacity_quality_enabled()
+    capacity_entries = (_get_weekly_capacity_v1 if capacity_quality else _get_weekly_capacity)(days=7)
     outage_alerts = _get_weekly_outage_alerts(days=7)
 
     lines = [
@@ -1401,7 +1535,7 @@ def generate_weekly_report() -> str:
         summary=health_summary, empty_caveat=_health_osint_collector_caveat() if not health_signals else None,
     )
     lines += _format_weekly_content_block(content_items)
-    lines += _format_weekly_capacity_block(capacity_entries)
+    lines += (_format_weekly_capacity_block_v1 if capacity_quality else _format_weekly_capacity_block)(capacity_entries)
 
     # USS-TJR-MSN-0412 Stream 4: the Free plan goes read-only at 500 MB.
     from intelligence import db_size
