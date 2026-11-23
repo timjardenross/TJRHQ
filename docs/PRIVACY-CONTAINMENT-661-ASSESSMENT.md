@@ -53,3 +53,30 @@ missing pytest-asyncio/flask). CI on the earlier head was green; the latest head
 ## 7. Recommendation
 Approve #661 for merge after (a) CI is green on the latest head, (b) the Captain accepts the XO chat latency trade-off, (c) the VM diagnostic is run
 or the deterministic-fallback posture is explicitly accepted. Add a follow-up task for residual risks 1–2.
+
+---
+## 8. Final release checklist (Captain's direction of 2026-11-23: conditional approval; do not merge without explicit final authorisation)
+| # | Item | Status (evidence) |
+|---|---|---|
+| 1 | CI and merge-gate on the latest commit | Re-check on the final head before merge; the last confirmed fully green head was `63eb87e5`. |
+| 2 | Diff limited to privacy changes | Confirmed: 18 files (policy, call guards, health provider, diagnostic, XO fallback, tests, this doc). |
+| 3 | `HEALTH_LLM_EXTERNAL_ALLOWED` not enabled in the VM environment | **Operator action.** On the VM run, without printing values: `systemctl show -p Environment tg-xo intelligence-scheduler model-router \| grep -c HEALTH_LLM_EXTERNAL_ALLOWED` (expect 0) and `grep -rls HEALTH_LLM_EXTERNAL_ALLOWED /etc/systemd /opt/starship-endeavour/.env* 2>/dev/null` (expect no output). A test asserts no repository file enables it. |
+| 4 | `python3 scripts/check_health_llm_local.py` on the VM | **Operator action; exit code to be recorded:** 0 ok · 2 not configured · 3 unreachable · 4 cloud-tagged model. Exit 3 or 2 is acceptable for privacy (the deterministic fallback applies) but means narratives and XO chat will be unavailable. |
+| 5 | Deterministic fallback is privacy-safe when the local model is unavailable | Confirmed by tests: timeout, refusal, bad JSON, empty reply, bad config → no off-box request, deterministic text. |
+| 6 | XO fallback wording | Done: "The local AI assistant is unavailable right now. You can still use /brief or /priorities." |
+| 7 | End-to-end test of the XO handler | Done: `telegram-bots/xo/test_xo_local_fallback.py` runs the real `cmd_message` with a timing-out and a refusing router, asserts that exact reply and that only loopback hosts were requested. Skips where python-telegram-bot is absent. |
+| 8 | Logs, exceptions, telemetry | Confirmed: no personal text in logs or exception text; LLM spans carry provider/model only and export to localhost. |
+| 9 | Seven pathways | Confirmed by 126 privacy tests plus the XO end-to-end test. External fallback stays disabled. |
+
+### Expected service impact
+Merge to `main` auto-deploys within about 5 minutes and restarts ten services plus the portal build. Behaviour changes: XO chat answers only from the local model (it averaged about 80 s per reply on this host against a 60 s limit, so some turns will show the fallback); weekly health narratives, nightly consolidation, correlation synthesis and the debrief use local models only and fall back to deterministic text; the morning-brief email omits personal blocks; the weekly health summary no longer calls Gemini. No schema, dependency or scheduler change.
+
+### Rollback
+Revert the PR on `main`; auto-deploy restores prior behaviour in about 5 minutes. Do not edit the VM checkout. `HEALTH_LLM_EXTERNAL_ALLOWED=1` is an emergency alternative that re-enables external transmission; it is a Captain decision, not an operational toggle.
+
+### Post-merge health checks (operator, within 15 minutes of deploy)
+1. `git -C /opt/starship-endeavour rev-parse --short HEAD` equals the merged commit; `systemctl is-active` for tg-xo, intelligence-scheduler, tg-capacitybot, tg-resiliencebot, human-systems-scheduler, model-router, context-service, command-centre, mint-server, self-improvement-dashboard all `active`.
+2. `journalctl -u tg-xo --since "15 min ago" | grep -ci "personal health content"` (blocks logged by name only; any count is expected, not a failure) and no tracebacks.
+3. Send XO one chat message and one `/brief`: confirm either a local reply or the fallback text, never silence.
+4. `python3 scripts/check_health_llm_local.py` again; record the exit code.
+5. Confirm no outbound request to a cloud LLM host carried a health prompt: model-router and provider logs show no new `gemini`/`mistral`/`ollama.com` entries for the health jobs.

@@ -285,10 +285,12 @@ class TestTelemetryAndFallbackVisibility:
         assert '_PHOENIX_ENDPOINT = "http://localhost:' in text
 
     def test_xo_chat_has_a_visible_fallback_when_the_local_model_returns_nothing(self):
+        # The handler itself is exercised end to end in telegram-bots/xo/test_xo_local_fallback.py (needs python-telegram-bot).
         text = (_REPO / "telegram-bots" / "xo" / "app.py").read_text()
+        assert 'XO_LOCAL_AI_UNAVAILABLE = "The local AI assistant is unavailable right now. You can still use /brief or /priorities."' in text
         i = text.index("personal=True)")
-        tail = text[i:i + 700]
-        assert "if reply:" in tail and "LLM unreachable" in tail and "/brief" in tail
+        tail = text[i:i + 500]
+        assert "if reply:" in tail and "XO_LOCAL_AI_UNAVAILABLE" in tail
 
     def test_no_repository_file_enables_the_external_health_flag(self):
         import subprocess

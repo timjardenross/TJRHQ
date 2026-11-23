@@ -1182,6 +1182,10 @@ async def cmd_advise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 # ── Free-text conversation ────────────────────────────────────────────────────
 
+# Shown when the local model times out or fails (personal chat never falls back to a cloud model).
+XO_LOCAL_AI_UNAVAILABLE = "The local AI assistant is unavailable right now. You can still use /brief or /priorities."
+
+
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (update.message.text or "").strip()
     if not text:
@@ -1373,10 +1377,7 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             _log_conversation_turn(db, update.effective_chat.id, "xo", reply)
             await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
         else:
-            await update.message.reply_text(
-                "XO here\\. LLM unreachable — use /brief or /priorities for now\\.",
-                parse_mode="MarkdownV2",
-            )
+            await update.message.reply_text(_escape(XO_LOCAL_AI_UNAVAILABLE), parse_mode="MarkdownV2")
     except Exception:
         log.exception("[cmd_message] failed")
         await update.message.reply_text(
