@@ -131,7 +131,7 @@ def test_flagged_hook_adds_a_block_and_a_failure_does_not_break_the_brief(monkey
     from intelligence import captains_brief as cb
     monkeypatch.setenv("BRIEF_EVIDENCE_V1_MORNING", "1")
     monkeypatch.setattr(cb, "_sb_get", lambda *a, **k: [])
-    assert cb._evidence_lines("morning", 72) == []            # no events: nothing added
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in cb._evidence_lines("morning", 72)[0]   # no events: labelled insufficient, never silent
     rows = [{"event_id": "p1", "raw_title": EVENTS[0]["title"], "raw_summary": "", "geography": "AU",
              "collected_at": (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
              "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
@@ -139,7 +139,8 @@ def test_flagged_hook_adds_a_block_and_a_failure_does_not_break_the_brief(monkey
     out = "\n".join(cb._evidence_lines("morning", 72))
     assert "EVIDENCE-BASED PICTURE" in out and "inc-" in out
     monkeypatch.setattr(be, "build_evidence", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
-    assert cb._evidence_lines("morning", 72) == []
+    failed = cb._evidence_lines("morning", 72)                # failure: never raises, labelled insufficient
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in failed[0] and "evidence layer unavailable" in failed[0]
 
 
 def test_aggregator_only_evidence_is_never_ready_to_draft_and_is_labelled():
