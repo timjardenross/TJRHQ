@@ -11,10 +11,10 @@ both are the same model family under one rubric, and both leaned on default labe
 covers 235 events; A's, "no operational relevance", covers 269). Reviewer B's process also applied a default REFERENCE to headlines it did not individually flag, by its
 own report. A shared false-negative rate for REFERENCE can be estimated only by human review of a stratified negative sample, below.
 
-## 3. Human review queue (`docs/review/human_review_queue_v2.csv`, 103 events)
+## 3. Human review queue (`docs/review/human_review_queue_v2.csv`, 98 events; the five Captain-adjudicated events are excluded)
 | Group | Count | Reason |
 |---|---|---|
-| ESCALATE by at least one reviewer | 13 | every positive, including the five disputed cases (adjudication pack) |
+| ESCALATE by at least one reviewer | 8 | every remaining positive (the 5 adjudicated cases are settled) |
 | Other priority disagreements | 27 | all disputed non-E cases |
 | Stratified REFERENCE sample | 63 | of 348 events both reviewers called REFERENCE; deterministic md5 selection stratified by set × source kind (aggregator / primary advisory / other) |
 Each row has the AI labels, notes, source and URL, and empty `human_priority`, `human_materiality`, `human_notes` columns. Reviewers: two humans where possible, blind to the AI
@@ -34,10 +34,10 @@ REFERENCE with its interval, and corrected labels written to new files tagged `r
 ## 5. Third-holdout protocol and readiness
 | Prerequisite | Status |
 |---|---|
-| Rubric frozen | **Not yet.** v2.0 is frozen; v2.1 (regional-outage rule, escalation record) is a draft awaiting the Captain's sign-off (`docs/rubrics/weekly-evidence-rubric-v2.1-DRAFT.md`). |
-| Model frozen (hash + method version) | Not yet. `wk-detect/0.5.0-tiered-v2` is development-grade; freeze after the Captain approves v2.1 and the human review corrects labels. |
+| Rubric frozen | **Yes.** v2.1 frozen 2026-11-23 (`docs/rubrics/weekly-evidence-rubric-v2.1.md`). |
+| Model frozen (hash + method version) | Not yet. `wk-detect/0.5.0-tiered-v2` is development-grade; freeze after the human review corrects labels. |
 | Human-reviewed development labels | **No.** Review queue prepared, reviewers not yet assigned. |
-| Adjudication of the five disputed cases | Pack prepared, awaiting the Captain. |
+| Adjudication of the five disputed cases | **Complete** (`docs/review/adjudication_v2_final_decisions.csv`). |
 | Sampling window of untouched events | Available: only events after 2 Nov that no reviewer or developer has seen. The database holds about three weeks, so the window should be drawn from events collected after the freeze (forward collection) or an unused earlier slice. |
 | Positives sufficient | **No.** About 10–13 ESCALATE positives exist in 437 events; 59 incident-level positives are needed for a zero-miss claim at 95% recall (93 with one miss). |
 | Verified historical challenge set | In progress; unverified entries are excluded from ground truth. |

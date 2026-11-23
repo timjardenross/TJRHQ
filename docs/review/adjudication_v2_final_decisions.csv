@@ -1,0 +1,6 @@
+id,reviewer_A_original,reviewer_B_original,final_classification,provisional,basis,decided_by
+735f41,W,E,ESCALATE,provisional,"SA Eyre Peninsula outage; one incident (with 4893fe, 12dbf4)",Captain decision 2026-11-23: one provisional ESCALATE at incident level
+4893fe,W,E,ESCALATE,provisional,member of the same SA incident as 735f41,resolved under frozen rubric 2.1 per the Captain's incident-level decision
+12dbf4,W,E,ESCALATE,provisional,member of the same SA incident as 735f41,resolved under frozen rubric 2.1 per the Captain's incident-level decision
+2fa557,E,W,VERIFY,,freezer cyber-attack; consequences not yet substantiated (closures / supply interruption),Captain decision 2026-11-23
+84bb81,E,V,VERIFY,,Hormuz ship sinking; evidence of wider disruption pending,Captain decision 2026-11-23

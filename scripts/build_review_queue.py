@@ -20,8 +20,9 @@ for name in ("weekly_evidence_holdout2_unlabelled.json",):
     for r in d["rows"]:
         info[r[0]] = (r[c.index("title")], r[c.index("source")], r[c.index("url")])
 ids = list(A)
-esc = [i for i in ids if "E" in (A[i]["priority"], B[i]["priority"])]
-dis = [i for i in ids if A[i]["priority"] != B[i]["priority"] and i not in esc]
+ADJUDICATED = {"735f41", "4893fe", "12dbf4", "2fa557", "84bb81"}      # settled by the Captain, see adjudication_v2_final_decisions.csv
+esc = [i for i in ids if "E" in (A[i]["priority"], B[i]["priority"]) and i not in ADJUDICATED]
+dis = [i for i in ids if A[i]["priority"] != B[i]["priority"] and i not in esc and i not in ADJUDICATED]
 both_r = [i for i in ids if A[i]["priority"] == B[i]["priority"] == "R"]
 
 

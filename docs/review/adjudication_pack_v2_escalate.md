@@ -1,3 +1,5 @@
+> **Final decisions are recorded in `adjudication_v2_final_decisions.csv` (Captain, 2026-11-23). The recommendations below were accepted as stated.**
+
 # Adjudication pack — the five disputed ESCALATE labels (rubric 2.0 labels; recommendations under the Captain's 2026-11-23 rule)
 
 Original reviewer labels are preserved unchanged in `tests/fixtures/labels_v2_reviewer{A,B}.json`; nothing here overwrites them. The
