@@ -142,6 +142,12 @@ _ANON_RX = re.compile("|".join(ANON_SOURCE), re.IGNORECASE)
 _CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.IGNORECASE)
 _DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.IGNORECASE)
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
+# A forecast ('will be restored by 5pm', 'restoration expected') says the service is NOT yet restored; a hedged claim ('reportedly restored',
+# 'believed to be restored') is not an affirmative status statement. Neither may override explicit ongoing evidence as 'restored'.
+_FORECAST_RESTORE_RX = _rx((r"(?:will|would|should|could|may|might|expected to|due to|set to|hoped? to|likely to|yet to|not yet|aim(?:s|ing)? to|working to|until)\s+(?:be\s+)?(?:fully\s+)?(?:restored|resolved|back online)",
+                            r"restoration\s+(?:expected|due|estimated|forecast|by|time)", r"(?:until|before)\b[^.;]{0,40}\b(?:restored|resolved)"))
+_HEDGED_RESTORE_RX = _rx((r"(?:reportedly|allegedly|apparently|supposedly|believed to be|said to be|claims? to be|understood to be|thought to be|possibly|perhaps)\s+(?:\w+\s+){0,2}(?:restored|resolved|back online)",
+                          r"(?:restored|resolved|back online)\b[^.;]{0,60}\b(?:reportedly|allegedly|apparently|unconfirmed|according to)"))
 # Proportionality (Captain, 2026-11-23): customer count is NOT a universal threshold. For Tier 1 network services (energy,
 # telecom, water) an ONGOING confirmed outage of at least this many customers is high materiality even when described as regional.
 ONGOING_NETWORK_OUTAGE_CUSTOMERS = 10_000
@@ -647,8 +653,10 @@ _PARTIAL_RX = _rx((r"restored (?:to|for) (?:some|part|parts|a number)", r"partia
 def _report_state(m: Candidate) -> str | None:
     """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
     restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
-    restored = bool(_RESTORED_RX.search(m.title))
-    if _ONGOING_RX.search(m.title) or (restored and _PARTIAL_RX.search(m.title)):
+    forecast = bool(_FORECAST_RESTORE_RX.search(m.title))
+    hedged_restore = bool(_HEDGED_RESTORE_RX.search(m.title))
+    restored = bool(_RESTORED_RX.search(m.title)) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
+    if _ONGOING_RX.search(m.title) or forecast or (restored and _PARTIAL_RX.search(m.title)):
         return "ongoing"
     if not restored and m.ongoing and m.status == "stated":
         return "ongoing"                    # a stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration

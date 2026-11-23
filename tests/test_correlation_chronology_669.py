@@ -222,3 +222,39 @@ def test_load_events_carries_published_at():
              "published_at": "2026-11-22T03:00:00Z", "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
     out = be.load_events(lambda *a, **k: rows, hours=24)
     assert out[0]["published_at"] == "2026-11-22T03:00:00Z"
+
+
+# ── Forecast and hedged restoration must not override explicit ongoing evidence (release review, High) ───────────────────────
+
+ONGOING_T = "Telstra power outage still affecting 20,000 customers in Adelaide"
+
+
+def test_a_forecast_restoration_does_not_override_an_explicit_ongoing_report():
+    for later in ("Telstra power outage in Adelaide will be restored by 5pm for 20,000 customers",
+                  "Telstra power outage in Adelaide expected to be restored by evening for 20,000 customers",
+                  "Adelaide power outage: restoration expected overnight for 20,000 customers"):
+        events = [e("a", ONGOING_T, "ABC News", 0), e("b", later, "ABC News", 3)]
+        assert len(groups(events)) == 1, later
+        assert record_for(events)["restoration_status"] == "ongoing", later
+
+
+def test_a_hedged_restoration_does_not_override_an_explicit_ongoing_report():
+    for later in ("Telstra power outage in Adelaide reportedly restored for 20,000 customers",
+                  "Telstra power outage in Adelaide believed to be restored for 20,000 customers, company yet to confirm",
+                  "Telstra says power outage restored for 20,000 Adelaide customers, unconfirmed"):
+        events = [e("a", ONGOING_T, "ABC News", 0), e("b", later, "ABC News", 3)]
+        assert len(groups(events)) == 1, later
+        assert record_for(events)["restoration_status"] == "ongoing", later
+
+
+def test_an_affirmative_restoration_still_closes_the_incident():
+    events = [e("a", ONGOING_T, "ABC News", 0), e("b", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", 3)]
+    assert record_for(events)["restoration_status"] == "restored"
+
+
+def test_provenance_keeps_both_timestamps_and_says_which_one_informed_chronology():
+    from intelligence import brief_evidence as be
+    ev = _pub("a", "Telstra power outage still affecting 20,000 customers in Adelaide", "ABC News", collected_h=3.1, published_h=3.0)
+    es = be.build_evidence([ev], now=NOW, window_hours=200)
+    r = es.incidents[0].reports[0]
+    assert r["collected_at"] == ev["collected_at"] and r["published_at"] and r["published_at"] != r["collected_at"]
