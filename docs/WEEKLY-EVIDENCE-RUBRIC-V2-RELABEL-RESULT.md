@@ -1,4 +1,7 @@
-# Rubric v2 relabelling (437 events) and model 0.5.0 on those labels — DEVELOPMENT EVIDENCE ONLY
+# Rubric v2 relabelling (437 events) and model 0.5.0 on those labels — PROVISIONAL DEVELOPMENT EVIDENCE ONLY
+
+> **The 437 labels are AI-produced (two instances of the same model family) and are provisional development evidence, not independent ground truth.**
+> Release-grade claims need human-reviewed labels (see `docs/WEEKLY-EVIDENCE-HUMAN-REVIEW-AND-THIRD-HOLDOUT-PROTOCOL.md`).
 
 Rubric 2.0 (`docs/rubrics/weekly-evidence-rubric-v2.md`) was frozen and committed (`fad77804`) before any v2 label was written.
 The 150-event dev set, the 127-event historical holdout and the 160-event holdout2 were merged into one md5-ordered, label-free input
