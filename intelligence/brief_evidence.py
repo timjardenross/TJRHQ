@@ -109,7 +109,7 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             evidence_confidence=d.evidence_confidence, independent_publishers=d.group.independent_publishers,
             provisional=d.provisional, grouping_confidence=d.group.grouping_confidence, reports=reports,
             first_seen=min(times) if times else None, last_seen=max(times) if times else None,
-            record=ed.escalation_record(d), reasons=list(d.reasons)))
+            record=ed.escalation_record(d, now=now), reasons=list(d.reasons)))
     order = {"ESCALATE": 0, "VERIFY": 1, "WATCH": 2, "REFERENCE": 3}
     incidents.sort(key=lambda i: (order[i.priority], -(i.last_seen.timestamp() if i.last_seen else 0)))
     return EvidenceSet(ed.METHOD_VERSION, now, window_hours, len(events), incidents)
@@ -231,7 +231,8 @@ def _tag(i: IncidentView) -> str:
     if i.evidence_status in ("corroborated", "reported") and kinds <= {we.AGGREGATOR}:
         note = " via aggregator feeds only"
     base = STATUS_LABEL[i.evidence_status] + note
-    return f"{i.priority} · {base}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
+    retro = " · retrospective report" if i.impact_status == "retrospective" else ""        # #669: say so, never imply a live disruption
+    return f"{i.priority} · {base}{retro}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
 
 
 def _line(i: IncidentView, with_action: bool = False) -> str:
