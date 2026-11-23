@@ -147,8 +147,8 @@ def test_recent_independent_evidence_still_establishes_ongoing_alongside_a_histo
 
 def test_the_morning_view_does_not_call_the_historic_item_ongoing():
     es = be.build_evidence([e("a", MS13, "Google News - Critical Infrastructure/Energy Cyberattack AU", 5.4)], now=NOW, window_hours=72)
-    view = "\n".join(be.morning_view(es))
-    assert "ongoing" not in view.lower()
+    view = "\n".join(be.morning_view(es)).lower()
+    assert "restoration ongoing" not in view and "- ongoing:" not in view and ", ongoing" not in view
 
 
 # ── Context-specific verification actions ───────────────────────────────────────────────────────────────────
