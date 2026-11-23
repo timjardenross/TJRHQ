@@ -714,12 +714,15 @@ def _historic(m: Candidate) -> bool:
     return d is not None and m.published - d > timedelta(hours=HISTORIC_DATE_HOURS)
 
 
-def _report_state(m: Candidate) -> str | None:
+def _report_state(m: Candidate, now: datetime | None = None, active_default: bool = False) -> str | None:
     """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
     restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
     restored = bool(_RESTORED_RX.search(m.title))
     if not _historic(m) and (_ONGOING_RX.search(m.title) or (restored and _PARTIAL_RX.search(m.title))):
         return "ongoing"                    # a continuation cue in a headline about a much older dated event is not current evidence
+    if (active_default and not restored and m.ongoing and m.status == "stated" and not _historic(m)
+            and (now is None or (m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS)))):
+        return "ongoing"                    # a stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration
     return "restored" if restored else None
 
 
@@ -734,7 +737,7 @@ def _restoration_status(originals: list[Candidate], now: datetime | None = None)
     dated = sorted((m for m in originals if m.published), key=lambda m: m.published)
     for m in reversed(dated):
         latest = m.published
-        states = {_report_state(x) for x in dated if x.published == latest} - {None}
+        states = {_report_state(x, now, active_default=True) for x in dated if x.published == latest} - {None}
         if states:
             return "ongoing" if "ongoing" in states else "restored"
     states = {_report_state(m) for m in originals}
