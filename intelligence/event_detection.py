@@ -549,7 +549,7 @@ _AU_CO_SIGNAL_RX = re.compile(r"\.au\b|\b(?:NSW|Vic|Qld|WA|SA|Tas|NT|ACT)\b")
 _NAB_RX = re.compile(r"\bNAB\b")                       # case-sensitive: the verb 'nab' is not the bank
 _DATELINE_RX = re.compile(
     r"\b[A-Z][A-Z .'-]{2,30}(?:,\s*[A-Za-z .]{2,30})?\s*\((?:Reuters|AP|AFP|AAP|Bloomberg|UPI|CNN|dpa|EFE|Xinhua)\)\s*[-\u2013\u2014:]?"
-    r"|\b(?:[A-Za-z]+(?: [A-Za-z]+)?)\s+(?:bureau|dateline)\b|\b[A-Za-z]+-based\s+(?:reporter|correspondent|journalist|newsroom)\b",
+    r"|\b[A-Za-z]+(?: [A-Za-z]+)?\s+(?:bureau|dateline)\b(?!\s+of\b)|\b(?:reporting|reported|report|story|filed|written)\s+by\b[^.\n]{0,60}?\bbureau\b|\b[A-Za-z]+-based\s+(?:reporter|correspondent|journalist|newsroom)\b",
     re.IGNORECASE)
 
 def _au_marker(text: str) -> bool:
@@ -640,7 +640,26 @@ _CLAUSE_SPLIT = re.compile(r"[;:,]|\s[-\u2013\u2014|]\s|\b(?:after|following|due
 # An unrelated physical event in the clause: the outage is of a plant, grid or building, not of the platform.
 _PHYSICAL_RX = _rx((r"power", r"grid", r"blackouts?", r"electricity", r"plant", r"factory", r"refinery", r"substation", r"hospital",
                     r"fire", r"wildfire", r"storm", r"flood\w*", r"earthquake", r"cyclone", r"hurricane", r"gas", r"pipeline", r"warehouse"))
-_CHANNEL_BEFORE_RX = re.compile(r"\b(?:used|using|via|through|over|on|per)\s+$", re.IGNORECASE)
+# Real channel-use constructions only. A bare 'on' is NOT one: 'cyberattack/outage/failure on <platform>' means the platform is the
+# affected service; 'on' is a channel only after a communication verb ('chatted on Zoom', 'met on Teams', 'on a call on Zoom').
+_CHANNEL_BEFORE_RX = re.compile(
+    r"\b(?:(?:used|using|via|through|over|per)|(?:call|calls|meeting|meetings|chat|chats|chatted|talk|talks|talked|met|meet|joined|hosted|held|"
+    r"posted|shared|announced|streamed|webinar)\s+on)\s+$", re.IGNORECASE)
+_PLATFORM_DOWN_RX = re.compile(
+    r"^\s*(?P<gap>(?:[\w.\-]+\s+){0,1}?)(?:outages?|down|offline|disrupt\w*|unavailable|unavailability|degraded|failures?|failed|not working)\b",
+    re.IGNORECASE)
+_DENIAL_RX = re.compile(
+    r"\b(?:not|never|n't|hasn't|haven't)\s+(?:\w+\s+){0,2}?(?:affected|impacted|hit|disrupted)\b|\bunaffected\b|\bunimpacted\b|"
+    r"\bno\s+(?:\w+\s+){0,3}?(?:impact|australian\w*|disruption|effect)\b|\b(?:were |was |been |remain(?:s|ed)? )?spared\b|\bwithout\s+(?:\w+\s+){0,2}?(?:impact|disruption)\b",
+    re.IGNORECASE)
+
+
+def _platform_stated_down(clause: str, hit) -> bool:
+    """The platform itself is stated as down/offline/disrupted right after its name ('Microsoft Azure offline', 'Cloudflare outage')."""
+    m = _PLATFORM_DOWN_RX.match(clause[hit.end():])
+    return bool(m and not _PHYSICAL_RX.search(m.group("gap")))
+
+
 _VICTIM_AFTER_RX = re.compile(r"\s*(?:users?|customers?|staff|employees|workers|clients|subscribers)\b", re.IGNORECASE)
 
 
@@ -648,10 +667,13 @@ def _platform_in_clause(clause: str) -> str | None:
     """The platform named in this clause when the clause says the PLATFORM is what is disrupted: an incident word after it, or
     before it when the platform is not merely the affected users' tool. Not a channel mention ('staff used Zoom'), and not a
     clause about an unrelated physical event ('Oracle plant fire', 'Texas power outage')."""
-    if _PHYSICAL_RX.search(clause):
-        return None
+    physical = bool(_PHYSICAL_RX.search(clause))
     for hit in _AU_DEPENDENCY_RX.finditer(clause):
         if _CHANNEL_BEFORE_RX.search(clause[:hit.start()]):
+            continue
+        if physical:                              # a physical cause may be named, but only a platform stated as down is the affected thing
+            if _platform_stated_down(clause, hit):
+                return hit.group(0)
             continue
         rest = clause[hit.end():]
         if _INCIDENT_RX.search(hit.group(0)) or _INCIDENT_RX.search(rest):
@@ -674,7 +696,7 @@ def _dependency_platform(m: Candidate) -> str | None:
     if hit:
         return hit.group(0)
     for sentence in _SENTENCE_SPLIT.split(summary):
-        if _COMMS_CHANNEL_RX.search(sentence):
+        if _COMMS_CHANNEL_RX.search(sentence) or _DENIAL_RX.search(sentence):
             continue
         for clause in _CLAUSE_SPLIT.split(sentence):
             platform = _platform_in_clause(clause)
@@ -689,7 +711,7 @@ def _marker_in_member(m: Candidate) -> bool:
     title, summary = _relevance_parts(m)
     if _au_marker(title):
         return True
-    return any(_au_marker(sent) and _INCIDENT_RX.search(sent) for sent in _SENTENCE_SPLIT.split(summary))
+    return any(_au_marker(sent) and _INCIDENT_RX.search(sent) and not _DENIAL_RX.search(sent) for sent in _SENTENCE_SPLIT.split(summary))
 
 
 def australian_relevance(group: Group) -> str | None:

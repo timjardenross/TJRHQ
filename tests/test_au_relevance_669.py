@@ -370,3 +370,65 @@ def test_geography_must_be_exactly_au():
         return ed.australian_relevance(ed.correlate([ed.detect_candidate(e("a", "Outage hits customers across the region", "BBC News", geo=geo))])[0])
     assert rel("AU") == "australian geography" and rel("au") == "australian geography"
     assert rel("AUT") is None and rel("AUSTRIA") is None
+
+
+# ---- Codex round 3 (P2 x4) ----
+def _with_summary(title, summary=""):
+    ev = e("a", title, "BBC News")
+    ev["summary"] = summary
+    return [ev]
+
+
+def test_attack_or_outage_on_a_platform_is_a_dependency_incident_at_the_verify_cap():
+    for title in ("Cyberattack on Microsoft disrupts services worldwide", "Global outage on AWS leaves millions of users offline"):
+        evs = _with_summary(title)
+        d = one(evs)
+        assert core(evs).priority == "ESCALATE", title
+        assert d.priority == "VERIFY", title
+        assert any("plausible dependency on" in r for r in d.reasons)
+
+
+def test_a_platform_used_as_a_channel_is_still_not_a_dependency():
+    for title in ("Hospital outage in Houston, Texas; staff used Zoom", "Power outage in Ohio as officials chatted on Zoom"):
+        assert one(_with_summary(title)).priority == "REFERENCE", title
+
+
+def test_an_organisation_name_containing_bureau_keeps_its_australian_marker():
+    for title, summary in (("Cyberattack disrupts Australian Bureau of Statistics systems", ""),
+                           ("Australian Bureau of Meteorology outage disrupts weather services", ""),
+                           ("Global outage disrupts services", "The Australian Bureau of Statistics said its systems were hit by the outage.")):
+        evs = _with_summary(title, summary)
+        d = one(evs)
+        assert d.priority == core(evs).priority and d.priority in ACTIONABLE, title
+        assert any("names Australia" in r for r in d.reasons)
+
+
+def test_a_bureau_byline_credit_is_still_stripped():
+    d = one(_with_summary("Cyberattack hits firm", "Sydney bureau staff said. Reporting by Reuters Sydney bureau."))
+    assert d.priority == "REFERENCE"
+
+
+def test_a_platform_stated_down_is_a_dependency_even_with_a_physical_cause_named():
+    for title in ("Power failure knocks Microsoft Azure offline worldwide", "Cloudflare outage takes hospital websites offline worldwide"):
+        evs = _with_summary(title)
+        d = one(evs)
+        assert core(evs).priority == "ESCALATE", title
+        assert d.priority == "VERIFY", title
+
+
+def test_a_physical_event_with_an_incidental_platform_is_still_vetoed():
+    for title in ("Oracle plant fire causes outage in Texas", "Cisco warns of outage in Houston plant"):
+        assert one(_with_summary(title)).priority == "REFERENCE", title
+
+
+def test_a_summary_that_denies_impact_does_not_establish_australian_relevance():
+    for summary in ("Australian ports were not affected by the cyberattack.", "Qantas passengers unaffected by the outage.",
+                    "Services in Australia had no impact from the outage.", "Australian operations were spared."):
+        evs = _with_summary("Cyberattack disrupts ports across Europe after outage", summary)
+        assert core(evs).priority in ACTIONABLE
+        assert one(evs).priority == "REFERENCE", summary
+
+
+def test_a_summary_that_affirms_impact_still_establishes_australian_relevance():
+    evs = _with_summary("Cyberattack disrupts ports across Europe", "Australian ports were also affected by the cyberattack.")
+    assert one(evs).priority in ACTIONABLE
