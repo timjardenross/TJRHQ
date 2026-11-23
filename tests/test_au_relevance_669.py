@@ -62,7 +62,7 @@ def test_a_global_platform_outage_is_an_australian_dependency():
     evs = [e("a", "Microsoft Azure outage disrupts services worldwide for thousands of customers", "BBC News")]
     d = one(evs)
     assert d.priority == core(evs).priority and d.priority in ACTIONABLE
-    assert any("depends on a global platform" in r for r in d.reasons)
+    assert any("plausible dependency on" in r for r in d.reasons)
 
 
 def test_a_payments_platform_outage_is_an_australian_dependency():
@@ -70,7 +70,7 @@ def test_a_payments_platform_outage_is_an_australian_dependency():
     evs = [e("a", "Apple Pay outage a difficult situation for retailers in Black Friday sales mode - SmartCompany", "SmartCompany")]
     d = one(evs)
     assert d.priority == core(evs).priority and d.priority in ACTIONABLE
-    assert any("depends on a global platform" in r for r in d.reasons)
+    assert any("plausible dependency on" in r for r in d.reasons)
 
 
 def test_an_australian_audience_outlet_is_editorial_relevance_never_operational_impact():
@@ -141,7 +141,7 @@ def test_australian_relevance_helper_reports_why():
     assert ed.australian_relevance(g(LIBYA)) is None
     assert ed.australian_relevance(g("Outage hits Optus customers", "GLOBAL")) == "names Australia or an Australian organisation"
     assert ed.australian_relevance(g("Any title here with an outage", "AU")) == "australian geography"
-    assert ed.australian_relevance(g("Cloudflare outage takes sites offline")) == "depends on a global platform used in Australia"
+    assert ed.australian_relevance(g("Cloudflare outage takes sites offline")) == "plausible dependency on Cloudflare (Australian impact not established)"
 
 
 def test_the_morning_view_no_longer_lists_the_unrelated_international_incidents():
@@ -156,7 +156,7 @@ def _kept(title, source="BBC News", summary=""):
     ev = e("a", title, source)
     ev["summary"] = summary
     d = one([ev])
-    return d.priority in ACTIONABLE and any("depends on a global platform" in r or r.startswith("Australian relevance") for r in d.reasons)
+    return d.priority in ACTIONABLE and any("plausible dependency on" in r or r.startswith("Australian relevance") for r in d.reasons)
 
 
 def test_credible_dependencies_are_kept_in_each_category():
@@ -172,7 +172,7 @@ def test_credible_dependencies_are_kept_in_each_category():
         assert core([ev]).priority in ACTIONABLE, cat                       # the underlying rules surface it (the gate is the test)
         d = one([ev])
         assert d.priority == core([ev]).priority, cat                       # and the gate does not demote it
-        assert any("depends on a global platform" in r for r in d.reasons), cat
+        assert any("plausible dependency on" in r for r in d.reasons), cat
 
 
 def test_a_providers_own_status_page_is_a_dependency_report():
@@ -181,7 +181,7 @@ def test_a_providers_own_status_page_is_a_dependency_report():
     ev["summary"] = "Between 18:00 and 18:20 UTC, an upstream provider experienced an issue that affected gateway availability for some customers."
     assert core([ev]).priority in ACTIONABLE
     d = one([ev])
-    assert d.priority in ACTIONABLE and any("depends on a global platform" in r for r in d.reasons)
+    assert d.priority in ACTIONABLE and any("plausible dependency on" in r for r in d.reasons)
 
 
 def test_the_summary_can_demonstrate_relevance_or_dependency():
@@ -258,4 +258,32 @@ def test_a_direct_source_dash_clause_is_headline_content_not_a_publisher_suffix(
     ev = e("a", "Global email outage - Microsoft investigates disruption", "BBC News")
     assert core([ev]).priority in ACTIONABLE
     d = one([ev])
-    assert d.priority == core([ev]).priority and any("depends on a global platform" in r for r in d.reasons)
+    assert d.priority == core([ev]).priority and any("plausible dependency on" in r for r in d.reasons)
+
+
+# ── Release review (HIGH): a dependency must be tied to the AFFECTED service ────────────────────────────────────────
+def test_a_communication_channel_mention_in_the_summary_is_not_a_dependency():
+    ev = e("a", "Power outage leaves 200,000 customers without electricity in Texas", "BBC News")
+    ev["summary"] = "The utility posted an update on Microsoft Teams."
+    assert core([ev]).priority in ACTIONABLE
+    d = one([ev])
+    assert d.priority == "REFERENCE", d.reasons
+    assert not any("plausible dependency" in r for r in d.reasons)
+
+
+def test_a_summary_sentence_describing_the_platform_disrupted_still_counts():
+    ev = e("a", "Widespread collaboration outage reported by businesses worldwide", "BBC News")
+    ev["summary"] = "Users report a Microsoft Teams outage affecting messaging and calls."
+    assert core([ev]).priority in ACTIONABLE
+    d = one([ev])
+    assert d.priority in ACTIONABLE, d.reasons
+    assert any("plausible dependency on Microsoft" in r for r in d.reasons), d.reasons
+
+
+def test_a_plausible_dependency_is_worded_as_unproven_and_a_proven_link_is_not():
+    d = one([e("a", "Global Outlook outage disrupts email for millions", "BBC News")])
+    assert d.priority in ACTIONABLE
+    assert any(r.startswith("Australian relevance: plausible dependency on ") and r.endswith("(Australian impact not established)")
+               for r in d.reasons), d.reasons
+    d2 = one([e("a", "Outage hits Optus customers", "BBC News")])
+    assert "Australian relevance: names Australia or an Australian organisation" in d2.reasons

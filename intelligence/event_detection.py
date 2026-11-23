@@ -582,9 +582,38 @@ def _relevance_text(m: Candidate) -> str:
     return f"{title} {summary}"
 
 
+# A summary mention of a platform only counts when the SAME sentence says that platform is being disrupted, and is not merely
+# the channel an unrelated party used to communicate ('the utility posted an update on Microsoft Teams').
+_DISRUPTION_RX = _rx((r"outages?", r"down", r"disrupt\w*", r"unavailable", r"unavailability", r"degraded", r"degradation", r"failures?",
+                      r"failed", r"offline", r"not working", r"faults?", r"unstable", r"instability"))
+_COMMS_CHANNEL_RX = re.compile(
+    r"\b(?:posted|tweeted|(?:re)?shared on|said on|(?:updates?|updated|announced|statements?|published|communicated|messaged)"
+    r"\s+(?:on|via|through|over)|x/twitter|twitter|facebook|teams channel)\b", re.IGNORECASE)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+def _dependency_platform(m: Candidate) -> str | None:
+    """The global platform this report says is AFFECTED, or None. A headline match stands; a status page's own name stands;
+    a summary match needs a sentence that also describes that platform being disrupted and is not a communication-channel mention."""
+    summary = m.summary or ""
+    text = _relevance_text(m)
+    title = text[:len(text) - len(summary)] if summary and text.endswith(summary) else text
+    if summary and not text.endswith(summary):          # aggregator path may have stripped the outlet from the summary
+        title, summary = (m.title or ""), text[len(title):] if text.startswith(m.title or "") else summary
+    hit = _AU_DEPENDENCY_RX.search(title) or _AU_DEPENDENCY_RX.search(m.source or "")
+    if hit:
+        return hit.group(0)
+    for sentence in _SENTENCE_SPLIT.split(summary):
+        hit = _AU_DEPENDENCY_RX.search(sentence)
+        if hit and _DISRUPTION_RX.search(sentence) and not _COMMS_CHANNEL_RX.search(sentence):
+            return hit.group(0)
+    return None
+
+
 def australian_relevance(group: Group) -> str | None:
     """Why this incident has demonstrated Australian OPERATIONAL relevance ('australian geography', 'names Australia or an
-    Australian organisation', 'depends on a global platform used in Australia'), or None."""
+    Australian organisation'), or a PLAUSIBLE dependency ('plausible dependency on <platform> (Australian impact not
+    established)'), or None."""
     for m in group.members:
         if (m.geography or "").upper().startswith("AU"):
             return "australian geography"
@@ -592,8 +621,9 @@ def australian_relevance(group: Group) -> str | None:
         if _AU_MARKER_RX.search(_relevance_text(m)):
             return "names Australia or an Australian organisation"
     for m in group.members:
-        if _AU_DEPENDENCY_RX.search(f"{_relevance_text(m)} {m.source or ''}"):
-            return "depends on a global platform used in Australia"
+        platform = _dependency_platform(m)
+        if platform:
+            return f"plausible dependency on {platform} (Australian impact not established)"
     return None
 
 
