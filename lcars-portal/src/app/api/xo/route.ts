@@ -6,6 +6,8 @@ import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { chatLocalFirstEnabled } from '@/lib/chatPrivacy';
+import { handleLocalFirstChat } from '@/lib/chatLocalFirst';
 
 /**
  * XO Chat endpoint (MSN-IOS-001 WP4).
@@ -98,7 +100,7 @@ function streamXOResponse(upstream: Response): Response {
       } catch {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`));
       } finally {
-        controller.close();
+        try { controller.close(); } catch { /* already closed after the final chunk */ }
         reader.releaseLock();
       }
     },
@@ -120,6 +122,34 @@ export async function POST(request: NextRequest) {
   // boundary (single-user app, no distributed limiter configured).
   if (!checkRateLimit('xo-chat', 20, 60_000)) {
     return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 });
+  }
+
+  // #664: CHAT_LOCAL_FIRST_V1 (default OFF) — see /api/ai/chat. XO is always streamed; flag OFF leaves the code below unchanged.
+  if (chatLocalFirstEnabled()) {
+    let lfBody: { messages?: unknown; cloudIntent?: { intent?: unknown; slot?: unknown } };
+    try {
+      lfBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+    return handleLocalFirstChat({
+      messages: lfBody?.messages,
+      role: 'xo',
+      explicit: lfBody?.cloudIntent ?? null,
+      stream: true,
+      cloudModel: DEFAULT_MODEL,
+      roleId: 'xo',
+      streamResponse: streamXOResponse,
+      buildLocalSystem: async () => {
+        let contextText = '';
+        try {
+          contextText = (await buildShipContext()).text;
+        } catch {
+          /* best-effort */
+        }
+        return [getRoleById('xo').systemPrompt, XO_MOBILE_DOCTRINE, contextText].filter(Boolean).join('\n\n');
+      },
+    });
   }
 
   if (process.env.OLLAMA_CLOUD_ENABLED !== 'true') {

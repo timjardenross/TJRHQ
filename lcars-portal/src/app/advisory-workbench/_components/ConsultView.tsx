@@ -82,6 +82,14 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
         setLoading(false);
         return;
       }
+      if (res.status === 424) {
+        // Local model unavailable (CHAT_LOCAL_FIRST_V1): nothing was sent anywhere. Not "offline" — the advisor stays usable.
+        const unavailable = await res.json().catch(() => null) as { error?: string } | null;
+        const notice: Msg = { id: (Date.now() + 1).toString(), role: 'assistant', content: unavailable?.error || 'The local model is unavailable, so this request was not sent anywhere.', error: true };
+        setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), notice] }));
+        setLoading(false);
+        return;
+      }
       if (res.status === 422) {
         // Privacy refusal: explain it, and keep the rejected message from blocking later safe questions.
         const refusal = await res.json().catch(() => null) as { code?: string; error?: string } | null;
