@@ -52,6 +52,13 @@ def test_editorial_quality_excludes_promotional_awards_howto_and_speculative_hea
     assert items == []
 
 
+def test_company_results_and_funding_news_are_not_technology_intelligence():
+    _, items = _wk([_ev(1, "Arinco sees growth as AI agents reshape delivery of cloud services", "ARN",
+                        "Arinco has achieved 26.8 per cent year-on-year revenue growth across the region."),
+                    _ev(2, "Record Anthropic IPO set to trigger global cash crunch for AI models", "Financial Newswire")])
+    assert items == []
+
+
 def test_ai_is_a_technology_subject_not_a_market_talking_point():
     _, items = _wk([_ev(1, "Barclays nervously overweight equities on AI strength", "Financial Newswire"),
                     _ev(2, "Tech suppliers raise AI server prices up to 45% months after deals are signed", "Financial Times")])
