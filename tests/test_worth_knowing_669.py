@@ -349,3 +349,17 @@ def test_a_service_stated_to_be_offline_still_excludes_the_item():
     _, items = _wk([_ev(1, "Microsoft releases new software tools for enterprise developers", "iTnews",
                         "Customer portals are currently offline after the release.")])
     assert items == []
+
+
+def test_a_precaution_in_another_sentence_does_not_negate_a_stated_outage():
+    """Codex P2 on ef62eebe: 'to avoid further problems' must not disable disruption detection for the whole summary."""
+    _, items = _wk([_ev(1, "Telstra issues update on mobile network operations", "iTnews",
+                        "A nationwide outage has left customers unable to make calls. The operator recommends using Wi-Fi to avoid further problems.")])
+    assert items == []
+
+
+def test_affects_users_in_a_patch_report_is_not_a_service_disruption():
+    """Codex P2 on ef62eebe: 'a vulnerability that affects users' is a security development, not an outage."""
+    _, items = _wk([_ev(1, "Microsoft releases new software tools for enterprise developers", "iTnews",
+                        "The software update fixes a security vulnerability that affects users of Windows devices.")])
+    assert len(items) == 1

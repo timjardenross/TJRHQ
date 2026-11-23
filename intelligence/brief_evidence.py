@@ -271,7 +271,7 @@ _WK_HEDGE_RX = re.compile(r"\b(?:reportedly|allegedly|alleged|claims?|claimed|so
 
 _WK_SUMMARY_DISRUPTION_RX = re.compile(r"\b(?:outage|outages|blackout|without (?:power|service|electricity|internet|mobile)|(?:unable|cannot|can't|can not|couldn't) (?:to )?(?:make|access|use|connect|log|call|send|reach|load|pay)|"
                                         r"(?:currently |now )?unavailable|degraded (?:service|performance|network)|dropped calls?|(?:elevated )?error rates?|hit by errors|"
-                                        r"network (?:fault|faults|problems?|issues?|failure)|stranded|(?:affects?|affecting|affected) (?:customers|users|subscribers)|"
+                                        r"network (?:fault|faults|problems?|issues?|failure)|stranded|"
                                         r"went offline|knocked offline|taken offline|(?:is|are|was|were|remain(?:s|ed)?|still|now|currently|been) offline\b|service(?:s)? (?:is|are|was|were) down|systems? (?:is|are|was|were) down|disrupt(?:ed|ion|s)\b)", re.IGNORECASE)
 _WK_POTENTIAL_RX = re.compile(r"\b(?:could|may|might|risk of|potential(?:ly)?|warns? (?:of|that)|warned (?:of|that)|would|if exploited|can lead to|could lead to|prevent|avoid)\b", re.IGNORECASE)
 
@@ -284,7 +284,10 @@ def _wk_disruption(i: IncidentView) -> bool:
     if i.impact_status == "stated" or (i.event_type == "outage" and i.impact_status in ("unconfirmed", "retrospective")):
         return True      # a retrospective outage-restoration story ("services restored after ...") is a past incident, not a development
     texts = [i.headline] + [r.get("summary") or "" for r in i.reports if r["role"] == "original"]
-    return any(_WK_SUMMARY_DISRUPTION_RX.search(t) and not _WK_POTENTIAL_RX.search(t) for t in texts)      # the summary shown beneath the heading may state an outage the headline does not
+    # The summary shown beneath the heading may state an outage the headline does not. The potential-impact exception applies to the SENTENCE
+    # that states the consequence, so an unrelated precaution ("to avoid further problems") cannot negate a stated outage elsewhere.
+    return any(_WK_SUMMARY_DISRUPTION_RX.search(sent) and not _WK_POTENTIAL_RX.search(sent)
+               for t in texts for sent in re.split(r"(?<=[.!?])\s+", t))
 
 
 def _wk_credible_original(i: IncidentView) -> bool:
