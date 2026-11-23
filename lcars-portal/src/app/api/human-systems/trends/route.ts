@@ -28,6 +28,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { SUMMARY_SYSTEM_PROMPT, buildSummaryPrompt, type TrendDayRow } from './summary';
 import { fetchTrendRows } from './data';
+import { generatePersonalHealthText } from '@/lib/personalHealthGuard';
 
 export type { TrendDayRow } from './summary';
 
@@ -117,7 +118,10 @@ async function generateSummary(trends: TrendDayRow[]): Promise<string | null> {
   if (recordedCount < 2) return null;
   const prompt = buildSummaryPrompt(windowed);
   try {
-    return (await callGemini(prompt)) ?? (await callMistral(prompt));
+    // Personal capacity/pain/recovery data: local model only; Gemini -> Mistral only on explicit opt-in
+    // (HEALTH_LLM_EXTERNAL_ALLOWED=1). Null (no summary) is the deterministic fallback the page already handles.
+    return await generatePersonalHealthText(SUMMARY_SYSTEM_PROMPT, prompt, { maxTokens: 512 },
+      async () => (await callGemini(prompt)) ?? (await callMistral(prompt)));
   } catch (err) {
     console.error('[human-systems/trends] summary generation failed:', err);
     return null;
