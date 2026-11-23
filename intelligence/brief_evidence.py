@@ -23,6 +23,7 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 from intelligence import event_detection as ed
 from intelligence import weekly_evidence as we
@@ -135,9 +136,74 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
 
 # ── helpers shared by the views ───────────────────────────────────────────────────────────────────────
 
+_CITE_REFS = 3                                   # report references shown per citation (bounded: briefs are read on a phone)
+_ROLE_ORDER = {"original": 0, "syndicated": 1, "commentary": 2}
+_CITE_URL_MAX = 120                              # a URL longer than this is not shown inline (it stays in the evidence data)
+_REDIRECT_HOSTS = ("news.google.com",)           # aggregator wrapper links: long, and they hide the publisher
+
+
+_UUID_RX = re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}")
+
+
+def _short_id(report_id: str) -> str:
+    """First 8 characters of the report id (the leading segment of a UUID); enough to find the report in the evidence data."""
+    rid = str(report_id)
+    return rid.split("-")[0] if _UUID_RX.fullmatch(rid) else rid[:8]
+
+
+def _resolve_short_ids(report_ids: list[str]) -> dict[str, str]:
+    """Short ids that are unique across ALL of an incident's reports (not just the ones displayed), so a displayed reference
+    can never be ambiguous with a hidden one. Colliding ids are lengthened just enough to be distinct (the full id at worst)."""
+    ids = [str(r) for r in report_ids]
+    out = {r: _short_id(r) for r in ids}
+    by_short: dict[str, list[str]] = {}
+    for r, sid in out.items():
+        by_short.setdefault(sid, []).append(r)
+    for group in by_short.values():
+        if len(group) < 2:
+            continue
+        n = len(out[group[0]])
+        while n < max(len(g) for g in group) and len({g[:n] for g in group}) < len(group):
+            n += 1
+        for g in group:
+            out[g] = g[:n]
+    return out
+
+
+def _url_for_display(url: str | None) -> str | None:
+    """Selective display (Captain, Option A): show a URL inline only when it is short and is the publisher's own link. Never a
+    truncated URL: a link is either shown whole or not shown. The complete URL is always kept in ``IncidentView.reports``."""
+    if not url or len(url) > _CITE_URL_MAX:
+        return None
+    try:
+        host = (urlsplit(url).hostname or "").lower()                # handles ports, userinfo and an upper-case scheme
+    except ValueError:
+        return None
+    return None if any(host == h or host.endswith("." + h) for h in _REDIRECT_HOSTS) else url
+
+
+def evidence_refs(i: IncidentView) -> list[dict]:
+    """Every report behind an incident with its COMPLETE source URL (never shortened), in citation order: originals before
+    syndicated copies and commentary, primary sources first. This is the underlying evidence data; the brief shows a subset.
+    ``short_id`` is unique across all of the incident's reports and is the id the citation prints."""
+    ranked = sorted(i.reports, key=lambda r: (_ROLE_ORDER.get(r["role"], 3), r["source_kind"] != we.PRIMARY, r["report_id"]))
+    short = _resolve_short_ids([r["report_id"] for r in ranked])
+    return [{"report_id": r["report_id"], "short_id": short[str(r["report_id"])], "publisher": r["source_name"] or r["publisher"],
+             "url": r.get("url"), "role": r["role"], "source_kind": r["source_kind"]} for r in ranked]
+
+
 def _cite(i: IncidentView) -> str:
-    pubs = sorted({r["source_name"] or r["publisher"] for r in i.reports if r["role"] != "commentary"})
-    return f"[{i.incident_id}; {len(i.reports)} report(s); " + ", ".join(pubs[:3]) + (" …" if len(pubs) > 3 else "") + "]"
+    """Incident id and report count, then up to three references, each ``<publisher> #<short id>`` with the publisher's own
+    URL only when it is short and not an aggregator redirect. #669: ids and URLs were collected per report but dropped, so a
+    reader could not retrieve the evidence behind an escalation or contribution candidate. Originals come first, primary
+    sources ahead of the rest. Complete URLs stay available through ``evidence_refs()``."""
+    refs = evidence_refs(i)
+    parts = []
+    for r in refs[:_CITE_REFS]:
+        shown_url = _url_for_display(r["url"])
+        parts.append(f"{r['publisher']} #{r['short_id']}" + (f" <{shown_url}>" if shown_url else ""))
+    more = f" +{len(refs) - _CITE_REFS} more" if len(refs) > _CITE_REFS else ""
+    return f"[{i.incident_id}; {len(i.reports)} report(s); evidence: " + ", ".join(parts) + more + "]"
 
 
 def _facts(i: IncidentView) -> str:
