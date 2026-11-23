@@ -18,7 +18,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIPT="$REPO_ROOT/deploy/auto-deploy.sh"
+SCRIPT="${AUTO_DEPLOY_SCRIPT_UNDER_TEST:-$REPO_ROOT/deploy/auto-deploy.sh}"
 
 PASS=0
 FAIL=0
@@ -408,6 +408,109 @@ if [ "$rc" -eq 0 ] && ! grep -q "npm" "$log" && ! grep -q "restart lcars-portal.
   pass "fresh BUILD_ID: no rebuild"
 else
   fail "fresh BUILD_ID (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+
+# --- 2026-11-23: tree-comparison freshness (merge-commit regression, #666) ---------------------
+# Pushes a PR-style branch whose commit is BACKDATED (older than every unit's start time) and merges
+# it with --no-ff, so the merge commit's tree equals the branch head's tree. `git log -1 -- <path>`
+# skips that merge and reports the old branch commit time, which made the old timestamp check call
+# the unit fresh and skip the rebuild. Args: file to change, content.
+push_backdated_merge() {
+  local tmp="$1" file="$2" content="$3"
+  git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+  (
+    cd "$tmp/pusher"
+    git config user.email test@example.com
+    git config user.name Test
+    git checkout --quiet -b feature
+    mkdir -p "$(dirname "$file")"
+    echo "$content" > "$file"
+    git add -A
+    old="$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%S)"
+    GIT_AUTHOR_DATE="$old" GIT_COMMITTER_DATE="$old" git commit --quiet -m "PR commit (older than service start)"
+    git checkout --quiet main
+    git merge --quiet --no-ff feature -m "Merge pull request #1 from feature"
+    git push --quiet origin main 2>&1
+  )
+}
+
+echo "test: MERGE commit (tree == PR head, PR commit older than unit start) touching lcars-portal/ -> rebuilds and restarts (the #666 defect)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+push_backdated_merge "$tmp" lcars-portal/page.tsx "from the PR"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if grep -q "npm ci" "$log" && grep -q "npm run build" "$log" && grep -q "systemctl restart lcars-portal.service" "$log"; then
+  pass "merge commit with a backdated PR commit still rebuilds lcars-portal"
+else
+  fail "merge-commit lcars-portal (log: $(cat "$log") / out: $out)"
+fi
+rm -rf "$tmp"
+
+echo "test: MERGE commit that does NOT touch lcars-portal/ -> no rebuild, no lcars restart; repo-wide services still restart"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+push_backdated_merge "$tmp" core_change.txt "backend via merge"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if ! grep -q "npm " "$log" && ! grep -q "restart lcars-portal.service" "$log" && grep -q "systemctl restart context-service.service" "$log"; then
+  pass "merge commit outside lcars-portal/: selective deployment preserved"
+else
+  fail "merge-commit non-lcars (log: $(cat "$log") / out: $out)"
+fi
+rm -rf "$tmp"
+
+echo "test: plain commit that only touches an unrelated file -> lcars-portal untouched"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+( cd "$tmp/pusher"; git config user.email test@example.com; git config user.name Test
+  echo "two" > README.md; git add -A; git commit --quiet -m "docs only"; git push --quiet origin HEAD 2>&1 )
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if ! grep -q "npm " "$log" && ! grep -q "restart lcars-portal.service" "$log"; then
+  pass "unchanged lcars-portal/ is not rebuilt or restarted"
+else
+  fail "unchanged lcars-portal (log: $(cat "$log") / out: $out)"
+fi
+rm -rf "$tmp"
+
+echo "test: after a successful deploy the commit is recorded -> the next cycle with nothing new restarts nothing"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+push_backdated_merge "$tmp" lcars-portal/page.tsx "from the PR"
+run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+: > "$log"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+state="$tmp/clone/.git/auto-deploy-state"
+if ! grep -q "systemctl restart" "$log" && ! grep -q "npm " "$log" \
+   && [ "$(cat "$state/lcars-portal.sha" 2>/dev/null)" = "$(git -C "$tmp/clone" rev-parse HEAD)" ] \
+   && [ -z "$(git -C "$tmp/clone" status --porcelain --untracked-files=all | grep auto-deploy-state)" ]; then
+  pass "deployed commit recorded inside .git (tree stays clean); second cycle is a no-op"
+else
+  fail "record/no-op (log: $(cat "$log") / state: $(ls "$state" 2>&1) / out: $out)"
+fi
+rm -rf "$tmp"
+
+echo "test: a failed lcars-portal restart is NOT recorded as deployed -> the next cycle retries the rebuild"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+push_backdated_merge "$tmp" lcars-portal/page.tsx "from the PR"
+FAIL_SYSTEMCTL_FOR="lcars-portal.service" run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+recorded="$( [ -f "$tmp/clone/.git/auto-deploy-state/lcars-portal.sha" ] && echo yes || echo no )"
+: > "$log"
+run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+if [ "$recorded" = "no" ] && grep -q "npm run build" "$log" && grep -q "systemctl restart lcars-portal.service" "$log"; then
+  pass "failed restart is not recorded; retried next cycle"
+else
+  fail "failed restart handling (recorded=$recorded log: $(cat "$log"))"
+fi
+rm -rf "$tmp"
+
+echo "test: a recorded commit that no longer exists falls back safely (no crash, redeploys)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+mkdir -p "$tmp/clone/.git/auto-deploy-state"
+echo "0000000000000000000000000000000000000000" > "$tmp/clone/.git/auto-deploy-state/lcars-portal.sha"
+push_backdated_merge "$tmp" lcars-portal/page.tsx "from the PR"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -q "npm run build" "$log"; then
+  pass "unknown recorded commit: falls back to the bootstrap baseline and still deploys"
+else
+  fail "bad recorded sha (rc=$rc log: $(cat "$log") / out: $out)"
 fi
 rm -rf "$tmp"
 

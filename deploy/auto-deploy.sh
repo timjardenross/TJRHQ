@@ -275,10 +275,44 @@ unit_active_since_epoch() {
   date -d "$ts" +%s 2>/dev/null || return 1
 }
 
-# Epoch seconds of the newest commit touching the given path (or the whole
-# repo if no path given) - 0 if the path has no history at all.
-newest_commit_epoch() {
-  git log -1 --format=%ct -- "${1:-.}" 2>/dev/null || echo 0
+# 2026-11-23: freshness is decided by comparing TREES, not commit timestamps.
+# `git log -1 --format=%ct -- <path>` is wrong for merge commits: when a merge's tree equals its
+# second parent's (the usual "merge the PR head" case), history simplification drops the merge and
+# reports the PR branch's own, older commit time - which can predate the unit's start, so the
+# service looked fresh while the pulled code (#666: lcars-portal/) was never built. The branch
+# commit time also says nothing about WHEN the code reached this checkout.
+#
+# Instead each component records the commit it was last deployed from (inside .git, so it never
+# dirties the tree and is never part of history), and is stale iff its path differs between that
+# commit's tree and HEAD's tree. Merge commits need no special handling: only trees are compared.
+# With no record yet (first run after this change, or a record for a commit that no longer exists),
+# the baseline is the newest first-parent commit at or before the unit's start/build time, which
+# errs toward redeploying rather than skipping.
+STATE_DIR="${AUTO_DEPLOY_STATE_DIR:-$(git rev-parse --absolute-git-dir)/auto-deploy-state}"
+mkdir -p "$STATE_DIR" 2>/dev/null || true
+
+# $1 = component key, $2 = fallback epoch (bootstrap only). Prints the baseline commit, or nothing.
+baseline_for() {
+  local f="$STATE_DIR/$1.sha" sha
+  if [ -f "$f" ]; then
+    sha="$(cat "$f" 2>/dev/null || true)"
+    if [ -n "$sha" ] && git cat-file -e "$sha^{commit}" 2>/dev/null; then echo "$sha"; return 0; fi
+  fi
+  [ -n "${2:-}" ] && git rev-list -1 --first-parent --before="@$2" HEAD 2>/dev/null || true
+}
+
+# $1 = baseline commit (may be empty), $2 = path (default: whole repo). True if the path differs.
+# No baseline, or any git error, counts as changed: deploy rather than skip.
+component_changed() {
+  [ -z "${1:-}" ] && return 0
+  ! git diff --quiet "$1" HEAD -- "${2:-.}" 2>/dev/null
+}
+
+# $1 = component key. Records HEAD as deployed (atomic; best-effort - a failed write only means a redeploy).
+record_deployed() {
+  local f="$STATE_DIR/$1.sha"
+  git rev-parse HEAD > "$f.tmp" 2>/dev/null && mv "$f.tmp" "$f" 2>/dev/null \
+    || echo "$LOG_PREFIX WARNING: could not record deployed commit for $1 (will be treated as stale next cycle)" >&2
 }
 
 # A unit the Captain has deliberately MASKED (`systemctl mask`, see PAUSES.md)
@@ -292,7 +326,6 @@ unit_is_masked() {
   [ "$(systemctl show -p LoadState --value "$1" 2>/dev/null || true)" = "masked" ]
 }
 
-LP_COMMIT_TS="$(newest_commit_epoch lcars-portal)"
 if unit_is_masked lcars-portal.service; then
   echo "$LOG_PREFIX SKIP lcars-portal.service: unit is masked (deliberately held off) - no rebuild, no restart"
 elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
@@ -309,10 +342,15 @@ elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
     LP_BUILD_TS="$(stat -c %Y "$LP_BUILD_ID_FILE" 2>/dev/null || true)"
   fi
   LP_STALE_REASON=""
-  if [ "$LP_COMMIT_TS" -gt "$LP_START_TS" ]; then
-    LP_STALE_REASON="running since before the newest lcars-portal/ commit"
-  elif [ -n "$LP_BUILD_TS" ] && [ "$LP_COMMIT_TS" -gt "$LP_BUILD_TS" ]; then
-    LP_STALE_REASON="built (.next/BUILD_ID) before the newest lcars-portal/ commit"
+  LP_BOOT_TS="$LP_START_TS"
+  if [ -n "$LP_BUILD_TS" ] && [ "$LP_BUILD_TS" -lt "$LP_START_TS" ]; then LP_BOOT_TS="$LP_BUILD_TS"; fi
+  LP_BASE="$(baseline_for lcars-portal "$LP_BOOT_TS")"
+  if component_changed "$LP_BASE" lcars-portal; then
+    if [ ! -f "$STATE_DIR/lcars-portal.sha" ] && [ -n "$LP_BUILD_TS" ] && [ "$LP_BUILD_TS" -lt "$LP_START_TS" ]; then
+      LP_STALE_REASON="built (.next/BUILD_ID) before the newest lcars-portal/ change"
+    else
+      LP_STALE_REASON="lcars-portal/ differs from the last deployed state"
+    fi
   fi
   if [ -n "$LP_STALE_REASON" ]; then
     echo "$LOG_PREFIX lcars-portal.service is stale ($LP_STALE_REASON) - rebuilding"
@@ -328,7 +366,11 @@ elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
       exit 1
     fi
     echo "$LOG_PREFIX restarting lcars-portal.service"
-    "$SYSTEMCTL" restart lcars-portal.service || echo "$LOG_PREFIX WARNING: restart failed for lcars-portal.service" >&2
+    if "$SYSTEMCTL" restart lcars-portal.service; then
+      record_deployed lcars-portal
+    else
+      echo "$LOG_PREFIX WARNING: restart failed for lcars-portal.service" >&2
+    fi
   fi
 else
   echo "$LOG_PREFIX WARNING: lcars-portal.service has no ActiveEnterTimestamp (never started / wrong unit name?) - skipping staleness check for it" >&2
@@ -355,7 +397,6 @@ in_brief_window() {
 }
 
 if [ -f "$SERVICES_CONF" ]; then
-  REPO_COMMIT_TS="$(newest_commit_epoch)"
   while IFS= read -r line; do
     svc="$(echo "$line" | sed 's/#.*//' | xargs || true)"
     [ -z "$svc" ] && continue
@@ -364,7 +405,7 @@ if [ -f "$SERVICES_CONF" ]; then
       continue
     fi
     if svc_start_ts="$(unit_active_since_epoch "$svc")"; then
-      if [ "$REPO_COMMIT_TS" -gt "$svc_start_ts" ]; then
+      if component_changed "$(baseline_for "svc-$svc" "$svc_start_ts")"; then
         case " $BRIEF_PROTECTED_SERVICES " in
           *" $svc "*)
             if in_brief_window; then
@@ -373,8 +414,12 @@ if [ -f "$SERVICES_CONF" ]; then
             fi
             ;;
         esac
-        echo "$LOG_PREFIX $svc is stale (running since before the newest repo commit) - restarting"
-        "$SYSTEMCTL" restart "$svc" || echo "$LOG_PREFIX WARNING: restart failed for $svc (wrong/stale unit name?)" >&2
+        echo "$LOG_PREFIX $svc is stale (repo differs from the last deployed state) - restarting"
+        if "$SYSTEMCTL" restart "$svc"; then
+          record_deployed "svc-$svc"
+        else
+          echo "$LOG_PREFIX WARNING: restart failed for $svc (wrong/stale unit name?)" >&2
+        fi
       fi
     else
       echo "$LOG_PREFIX WARNING: $svc has no ActiveEnterTimestamp (never started / wrong unit name?) - skipping staleness check for it" >&2
