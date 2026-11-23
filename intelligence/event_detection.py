@@ -676,11 +676,8 @@ def named_date(title: str, ref: datetime) -> datetime | None:
             dt = datetime(y, mo, d, tzinfo=timezone.utc)
         except ValueError:
             return
-        if dt > ref:                                   # a month-day with no year that lands in the future means last year
-            try:
-                dt = datetime(y - 1, mo, d, tzinfo=timezone.utc)
-            except ValueError:
-                return
+        if dt > ref:                                   # a future date (e.g. an estimated restoration time) is never a historical reference
+            return
         found.append(dt)
 
     for m in _DMY_RX.finditer(t):
@@ -718,8 +715,13 @@ def _report_state(m: Candidate, now: datetime | None = None, active_default: boo
     """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
     restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
     restored = bool(_RESTORED_RX.search(m.title))
-    if not _historic(m) and (_ONGOING_RX.search(m.title) or (restored and _PARTIAL_RX.search(m.title))):
-        return "ongoing"                    # a continuation cue in a headline about a much older dated event is not current evidence
+    cue = bool(_ONGOING_RX.search(m.title)) or (restored and bool(_PARTIAL_RX.search(m.title)))
+    if _historic(m):
+        # An old dated event: its continuation cue is not current evidence, but a negated or partial restoration ('yet to be
+        # restored') can never be read as a restoration either. No state at all unless it cleanly says restored.
+        return None if cue else ("restored" if restored else None)
+    if cue:
+        return "ongoing"
     if (active_default and not restored and m.ongoing and m.status == "stated" and not _historic(m)
             and (now is None or (m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS)))):
         return "ongoing"                    # a stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration

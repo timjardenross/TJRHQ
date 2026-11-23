@@ -193,3 +193,24 @@ def test_a_reopened_incident_counts_as_ongoing_only_while_the_reopening_report_i
     old = [e("a", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", 60),
            e("b", "Telstra power outage leaves 20,000 customers in Adelaide without power again", "ABC News", 40)]
     assert restoration(old) != "ongoing"                       # 40h old with no continuation cue: not current evidence
+
+
+# ── Codex P2s on the historic-date guard ────────────────────────────────────────────────────────────────────
+
+def test_a_historic_partial_restoration_is_never_read_as_restored():
+    ev0 = [e("a", "Power from 13 November outage yet to be restored for 3,000 Adelaide customers", "ABC News", 5)]      # collected 22 Nov
+    assert restoration(ev0) != "restored"
+    assert "reported restored" not in action(ev0)
+
+
+def test_a_historic_clean_restoration_is_still_restored():
+    assert restoration([e("a", "Power from 13 November outage restored for 3,000 Adelaide customers", "ABC News", 5)]) == "restored"
+
+
+def test_a_future_restoration_estimate_is_not_a_historical_date():
+    ref = datetime(2026, 11, 23, 0, 30, tzinfo=timezone.utc)
+    assert ed.named_date("Telstra outage continues across Australia, restoration expected on 24/11/2026", ref) is None
+    assert ed.named_date("Telstra outage continues across Australia, restoration expected on 24 November", ref) is None
+    evs = [e("a", "Telstra outage continues across Australia, restoration expected on 24/11/2026", "ABC News", 3)]
+    assert restoration(evs) == "ongoing"
+    assert "restoration estimate" in action(evs)
