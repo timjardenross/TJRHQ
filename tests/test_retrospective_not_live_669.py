@@ -178,7 +178,7 @@ def test_a_live_outage_keeps_the_restoration_estimate_action():
 
 def test_an_outage_of_unknown_currency_is_first_checked_for_currency():
     a = action([e("a", MS13, "Google News - Critical Infrastructure/Energy Cyberattack AU", 5.4)])
-    assert "confirm the disruption is current" in a and "restoration estimate" not in a
+    assert "restoration estimate" not in a and "no live restoration action" in a
 
 
 def test_other_incident_classes_keep_their_class_specific_action():
@@ -215,3 +215,26 @@ def test_a_future_restoration_estimate_is_not_a_historical_date():
     evs = [e("a", "Telstra outage continues across Australia, restoration expected on 24/11/2026", "ABC News", 3)]
     assert restoration(evs) == "ongoing"
     assert "restoration estimate" in action(evs)
+
+
+# ── Currency applies to priority, not only to status; an inquiry continuing is not a service disruption continuing (release review, High) ──
+
+def test_a_recent_headline_about_an_old_dated_outage_is_not_escalated():
+    d = decision([e("a", MS13, "Insurance Business", 5.4)])
+    assert d.priority != "ESCALATE" and d.impact_status == "retrospective"
+    assert ed.escalation_record(d, now=NOW)["restoration_status"] != "ongoing"
+
+
+def test_an_inquiry_continuing_is_not_a_service_disruption_continuing():
+    for t in ("Inquiry continues into Telstra outage that cut triple zero for thousands", "Review ongoing after Optus outage left millions offline",
+              "Court case continues over Telstra triple zero outage"):
+        d = decision([e("a", t, "ABC News", 3)])
+        assert d.priority != "ESCALATE", t
+        assert d.impact_status == "retrospective", t
+        assert ed.escalation_record(d, now=NOW)["restoration_status"] != "ongoing", t
+
+
+def test_a_genuinely_continuing_outage_is_still_ongoing_and_escalated():
+    d = decision([e("a", "Telstra mobile outage continues across Australia, thousands still without service", "ABC News", 3)])
+    assert d.impact_status == "stated"
+    assert ed.escalation_record(d, now=NOW)["restoration_status"] == "ongoing"
