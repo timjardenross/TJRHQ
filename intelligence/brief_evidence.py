@@ -269,12 +269,20 @@ _WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported":
 _WK_HEDGE_RX = re.compile(r"\b(?:reportedly|allegedly|alleged|claims?|claimed|sources?|rumou?rs?|unconfirmed|said to|may have|might|suspected)\b", re.IGNORECASE)
 
 
+_WK_SUMMARY_DISRUPTION_RX = re.compile(r"\b(?:outage|outages|blackout|without (?:power|service|electricity|internet|mobile)|unable to (?:make|access|use|connect|log)|"
+                                        r"went offline|knocked offline|taken offline|offline|service(?:s)? (?:is|are|was|were) down|systems? (?:is|are|was|were) down|disrupt(?:ed|ion|s)\b)", re.IGNORECASE)
+_WK_POTENTIAL_RX = re.compile(r"\b(?:could|may|might|risk of|potential(?:ly)?|warns? (?:of|that)|warned (?:of|that)|would|if exploited|can lead to|could lead to|prevent|avoid)\b", re.IGNORECASE)
+
+
 def _wk_disruption(i: IncidentView) -> bool:
     """A stated disruption, or an outage whose impact is only unconfirmed, is an incident (even when the Australian-relevance gate demoted it
     to REFERENCE) and must not be republished under a 'no outage or service impact' heading. Informative reporting (vulnerability or
     advisory-style cyber warnings, potential or retrospective impact, no stated impact) stays eligible; an unconfirmed cyber_incident is
     kept because advisory headlines ('FBI warns hackers ...') classify that way."""
-    return i.impact_status == "stated" or (i.event_type == "outage" and i.impact_status == "unconfirmed")
+    if i.impact_status == "stated" or (i.event_type == "outage" and i.impact_status == "unconfirmed"):
+        return True
+    return any(_WK_SUMMARY_DISRUPTION_RX.search(r.get("summary") or "") and not _WK_POTENTIAL_RX.search(r.get("summary") or "")
+               for r in i.reports if r["role"] == "original")      # the summary shown beneath the heading may state an outage the headline does not
 
 
 def _wk_credible_original(i: IncidentView) -> bool:

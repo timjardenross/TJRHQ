@@ -294,3 +294,16 @@ def test_aggregator_exception_acceptance_criteria():
     unknown = _demoted([_ev(2, "Malware campaign targets cloud servers worldwide - Some Outlet", "Google News - Cyber")])
     hedged = _demoted([_ev(3, "Hackers reportedly weaponizing AI framework to automate attacks on energy, telecom - Industrial Cyber", "Google News - Cyber")])
     assert be.worth_knowing(unknown) == [] and be.worth_knowing(hedged) == []
+
+
+def test_a_stated_outage_in_the_summary_excludes_the_item():
+    """Codex P2: the headline is neutral but the summary states an outage; it must not appear under the 'no outage' heading."""
+    _, items = _wk([_ev(1, "Telstra issues update on mobile network operations for enterprise cloud customers", "iTnews",
+                        "A nationwide outage has left customers unable to make calls across Australia.")])
+    assert items == []
+
+
+def test_a_potential_outage_in_the_summary_does_not_exclude_an_advisory():
+    _, items = _wk([_ev(1, "Researchers detail phishing technique aimed at enterprise cloud accounts", "iTnews",
+                        "The flaw could cause outages if exploited. Vendors recommend phishing-resistant authentication.")])
+    assert len(items) == 1
