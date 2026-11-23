@@ -163,9 +163,17 @@ def _tag(i: IncidentView) -> str:
     note = ""
     if i.evidence_status in ("corroborated", "reported") and kinds <= {we.AGGREGATOR}:
         note = " via aggregator feeds only"
-    base = STATUS_LABEL[i.evidence_status] + note
-    retro = " · retrospective report" if i.impact_status == "retrospective" else ""        # #669: say so, never imply a live disruption
-    return f"{i.priority} · {base}{retro}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
+    # #669: two different uncertainties, worded differently. SOURCE credibility (is the report itself reliable?) is the evidence
+    # status; operational IMPACT (has the effect on service been established?) is what the report states.
+    base = ("SOURCE UNVERIFIED" if i.evidence_status == "unverified" else STATUS_LABEL[i.evidence_status]) + note
+    retro = " · retrospective report" if i.impact_status == "retrospective" else ""        # say so, never imply a live disruption
+    impact = " · IMPACT NOT YET ESTABLISHED" if _impact_open(i) else ""
+    return f"{i.priority} · {base}{retro}{impact}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
+
+
+def _impact_open(i: IncidentView) -> bool:
+    """A credible source whose report does not establish an operational impact (investigation, unconfirmed or potential effect)."""
+    return i.evidence_status != "unverified" and i.impact_status in ("unconfirmed", "potential", "none")
 
 
 def _line(i: IncidentView, with_action: bool = False) -> str:
@@ -207,8 +215,12 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines += [_line(i, True) for i in firm[:6]] or ["- None officially confirmed or corroborated in the last 24 hours."]
     lines += ["", "REPORTED by one source (provisional until a second or primary source)"]
     lines += [_line(i, True) for i in single[:6]] or ["- None."]
-    lines += ["", "REQUIRES VERIFICATION (unverified, hedged or weakly evidenced; not treated as fact)"]
-    lines += [_line(i, True) for i in verify[:6]] or ["- Nothing awaiting verification."]
+    source_open = [i for i in verify if i.evidence_status == "unverified"]
+    impact_open = [i for i in verify if i.evidence_status != "unverified"]
+    lines += ["", "IMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)"]
+    lines += [_line(i, True) for i in impact_open[:6]] or ["- None."]
+    lines += ["", "SOURCE NOT YET VERIFIED (hedged, aggregator-only or weakly evidenced; not treated as fact)"]
+    lines += [_line(i, True) for i in source_open[:6]] or ["- None."]
     lines += ["", "WARNINGS AND FORECASTS (not confirmed incidents)"]
     lines += [_line(i) for i in notices[:6]] or ["- No active warning or forecast notice."]
     lines += ["", "Operational implications (only what the cited reports state)"]
@@ -221,7 +233,7 @@ def morning_view(ev: EvidenceSet) -> list[str]:
           for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH")][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
     fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev)[:3] if i not in notices]
-    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in verify[:2]]
+    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in (impact_open + source_open)[:2]]
     lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
     return lines
 

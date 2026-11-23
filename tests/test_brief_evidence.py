@@ -66,7 +66,7 @@ def test_materiality_is_the_same_object_across_briefs(evset):
 
 def test_morning_separates_confirmed_from_verification_and_has_forward_watch(evset):
     text = "\n".join(be.morning_view(evset))
-    confirmed, rest = text.split("REQUIRES VERIFICATION", 1)
+    confirmed, rest = text.split("IMPACT NOT YET ESTABLISHED", 1)
     assert "OFFICIALLY CONFIRMED or CORROBORATED" in confirmed and "confirmed" not in rest.split("WARNINGS")[0].lower().replace("unconfirmed", "")
     assert "20,000 customers" in confirmed and "Coles" not in confirmed
     assert "Coles Group investigating" in rest
@@ -75,7 +75,7 @@ def test_morning_separates_confirmed_from_verification_and_has_forward_watch(evs
 
 
 def test_morning_ignores_incidents_older_than_a_day_in_the_confirmed_list(evset):
-    text = "\n".join(be.morning_view(evset)).split("REQUIRES VERIFICATION")[0]
+    text = "\n".join(be.morning_view(evset)).split("IMPACT NOT YET ESTABLISHED")[0]
     assert "Microsoft platforms" not in text
 
 
