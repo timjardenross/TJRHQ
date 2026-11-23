@@ -1372,6 +1372,31 @@ def _theme_lines() -> list[str]:
         return []
 
 
+def _health_lines() -> list[str]:
+    """Health watch for the morning brief (flag BRIEF_HEALTH_V1[_MORNING], default off): monitored conditions plus safety-flagged signals.
+    [] when off; never raises, so the legacy brief always renders."""
+    try:
+        from intelligence import brief_health as bh
+        lines = bh.health_lines(_sb_get)
+        return [_esc(x) for x in lines] + [""] if lines else []
+    except Exception as exc:  # noqa: BLE001 - additive feature-flagged block
+        log.warning("Health lane unavailable: %s", exc)
+        return []
+
+
+def _coverage_lines() -> list[str]:
+    """Coverage block for the morning brief (flag BRIEF_COVERAGE_V1[_MORNING], default off): what the brief looked at, silent sources and
+    official warnings. [] when off; never raises."""
+    try:
+        from intelligence import brief_coverage as bc
+        from intelligence.persistence import intelligence_store as store
+        lines = bc.coverage_lines(_sb_get, store.load_active_emergency_alerts)
+        return [_esc(x) for x in lines] + [""] if lines else []
+    except Exception as exc:  # noqa: BLE001 - additive feature-flagged block
+        log.warning("Coverage block unavailable: %s", exc)
+        return []
+
+
 def generate_morning_brief() -> str:
     now = _now_aest()
     brief = _get_latest_ori_brief()
@@ -1392,6 +1417,9 @@ def generate_morning_brief() -> str:
     lines += evidence_lines
     # Topic & Theme lane (default off): developments and running themes in the watched topics, beside (not inside) the incident picture.
     lines += _theme_lines()
+    # Health watch (default off): monitored conditions and safety-flagged signals; and a coverage block (default off) stating what was looked at.
+    lines += _health_lines()
+    lines += _coverage_lines()
     # Authority depends on USABLE coverage: lines that announce insufficient coverage are not an authoritative picture.
     evidence_insufficient = any(_EVIDENCE_INSUFFICIENT_MARKER in line for line in evidence_lines)
     evidence_authoritative = bool(evidence_lines) and not evidence_insufficient
