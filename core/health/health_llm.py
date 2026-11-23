@@ -7,10 +7,14 @@ Both share request/response mechanics via core/llm/provider_chain.py (ADR-024);
 this module owns none of the intelligence/ package's domain logic (source
 registry, classification, workflow gate) and imports nothing from it.
 
-Provider order:
-  1. Gemini 2.5 Flash   (cloud — if GEMINI_API_KEY set)
-  2. Mistral Small      (cloud — if MISTRAL_API_KEY set)
-  3. Ollama local       (local — if Ollama is running)
+Provider order (Captain's review, Gate 1 — personal health data fails CLOSED):
+  Default: Ollama local ONLY. The prompt carries pain, sleep, mood, CPAP, free
+  text and a profile excerpt, so it is never sent to a cloud provider unless
+  HEALTH_LLM_EXTERNAL_ALLOWED=1 is set deliberately.
+  When that opt-in is set the legacy order applies:
+    1. Gemini (cloud — if GEMINI_API_KEY set)
+    2. Mistral Small (cloud — if MISTRAL_API_KEY set)
+    3. Ollama local
 
 If all providers fail:
   - Returns (None, None)
@@ -50,7 +54,13 @@ _CAPTAIN_PROFILE_PATH = Path(__file__).resolve().parents[2] / "knowledge" / "mem
 
 
 def _load_captain_profile_excerpt() -> str:
-    """Return the HEALTH PROFILE and EXECUTIVE FUNCTION SUPPORT sections from the captain profile."""
+    """Return the HEALTH PROFILE and EXECUTIVE FUNCTION SUPPORT sections from the captain profile.
+
+    R8: returns '' when external providers are permitted, so the health profile can only enter a
+    prompt that is processed locally. (Duplicates the flag check on purpose: this runs at import,
+    before external_providers_allowed() is defined, and must not depend on another module.)"""
+    if os.getenv("HEALTH_LLM_EXTERNAL_ALLOWED", "").strip().lower() in ("1", "true", "yes", "on"):
+        return ""
     try:
         text = _CAPTAIN_PROFILE_PATH.read_text(encoding="utf-8", errors="replace")
         # Extract from HEALTH PROFILE through end of EXECUTIVE FUNCTION SUPPORT
@@ -81,11 +91,35 @@ _EXPECTED_KEYS = {"situation", "patterns_noticed", "what_it_means",
                   "recommended_focus", "watch_items"}
 
 
+def _model_leaves_host(model: str) -> bool:
+    """True for Ollama cloud-hosted tags (':cloud' / '-cloud'): the request would be proxied off
+    this machine, so such a model is NOT 'local' for personal data."""
+    m = (model or "").strip().lower()
+    return m.endswith((":cloud", "-cloud"))
+
+
+def external_providers_allowed() -> bool:
+    """True only when the Captain has explicitly opted in to cloud providers for
+    personal health data. Default False (fail closed)."""
+    return os.getenv("HEALTH_LLM_EXTERNAL_ALLOWED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 class HealthLLMProvider:
     """
-    Attempts each provider in preference order.
-    Never raises — returns (None, None) on total failure.
+    Attempts each permitted provider in order.
+    Never raises — returns (None, None) on total failure, which makes the
+    weekly synthesis use its deterministic template narrative.
     """
+
+    def permitted_providers(self) -> list[str]:
+        """Names of the providers that may receive personal health data right now.
+        Exposed so the privacy posture can be validated without generating text."""
+        external = external_providers_allowed()
+        # A cloud-hosted "Ollama" model is not local; without the explicit opt-in it is refused.
+        names = [] if (_model_leaves_host(_OLLAMA_MODEL) and not external) else [_OLLAMA_MODEL]
+        if external:
+            names = ["gemini-3.5-flash-lite", "mistral-small", *names]
+        return names
 
     def generate(self, prompt: str) -> tuple[str | None, str | None]:
         """
@@ -97,6 +131,8 @@ class HealthLLMProvider:
             ("mistral-small",    self._mistral),
             (_OLLAMA_MODEL,      self._ollama),
         ]
+        allowed = set(self.permitted_providers())
+        providers = [(n, f) for n, f in providers if n in allowed]
         for name, fn in providers:
             try:
                 result = fn(prompt)

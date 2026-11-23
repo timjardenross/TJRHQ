@@ -82,7 +82,7 @@ async def _distill(transcript: str) -> list[str] | None:
     from telegram_bots.llm import generate_async
 
     try:
-        reply = await generate_async(transcript, _DISTILL_SYSTEM_PROMPT)
+        reply = await generate_async(transcript, _DISTILL_SYSTEM_PROMPT, personal=True)
     except Exception as exc:  # noqa: BLE001 - LLM call surface is unpredictable, already logged
         log.warning("[nightly-consolidation] LLM distillation call failed: %s", exc)
         return None

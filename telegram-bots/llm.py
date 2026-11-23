@@ -31,6 +31,8 @@ import urllib.error
 import urllib.request
 from functools import partial
 
+from core.security import personal_data_policy
+
 log = logging.getLogger(__name__)
 
 _DEFAULT_ROUTER_URL = "http://127.0.0.1:8891"
@@ -61,7 +63,30 @@ def _cloud_disabled() -> bool:
     return os.getenv("OLLAMA_CLOUD_DISABLED", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
+def _personal_router_timeout() -> float:
+    """Personal-data routes may not fall through to the cloud, so give the local router longer."""
+    try:
+        return float(os.getenv("LLM_PERSONAL_ROUTER_TIMEOUT", "60"))
+    except ValueError:
+        return 60.0
+
+
+def _router_is_local() -> bool:
+    """Fail-closed check that MODEL_ROUTER_URL points at this machine or a private network address.
+    A personal-data route must not be sent to a router that has been (mis)configured to a public host."""
+    import ipaddress
+    from urllib.parse import urlparse
+    host = (urlparse(_router_url()).hostname or "").lower()
+    if host == "localhost" or host.endswith((".local", ".internal")):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private
+
+
+def _call_router(prompt: str, system_prompt: str | None = None, *, timeout: float | None = None) -> str | None:
     """Call Model Router /api/model/xo-response. Returns text or None."""
     payload: dict = {"prompt": prompt}
     if system_prompt:
@@ -74,7 +99,7 @@ def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=_ROUTER_TIMEOUT) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var with fixed local default, not user input - reviewed 2026-09-12
+        with urllib.request.urlopen(req, timeout=timeout or _ROUTER_TIMEOUT) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var with fixed local default, not user input - reviewed 2026-09-12
             body = json.loads(resp.read())
         content = (body.get("response") or body.get("content") or "").strip()
         if content:
@@ -87,7 +112,16 @@ def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
 
 
 def _call_cloud(prompt: str, system_prompt: str | None = None, *, degraded: bool = True) -> str | None:
-    """Call Ollama Cloud (glm-5.2) as controlled overflow. Returns text or None."""
+    """Call Ollama Cloud (glm-5.2) as controlled overflow. Returns text or None.
+
+    Default-deny (R1): personal health content is never sent here unless the Captain has opted in
+    (HEALTH_LLM_EXTERNAL_ALLOWED=1); the content check below is a backstop for callers that forgot
+    to mark the route as personal."""
+    try:
+        personal_data_policy.assert_may_leave_host(prompt, system_prompt or "", route="Ollama Cloud")
+    except personal_data_policy.PersonalDataBlockedError as exc:
+        log.warning("[llm] %s", exc)
+        return None
     if _cloud_disabled():
         log.info("[llm] cloud tier disabled (OLLAMA_CLOUD_DISABLED) - not sent")
         return None
@@ -127,10 +161,22 @@ def _call_cloud(prompt: str, system_prompt: str | None = None, *, degraded: bool
         return None
 
 
-def generate(prompt: str, system_prompt: str | None = None, *, cloud_first: bool = False) -> str | None:
+def generate(prompt: str, system_prompt: str | None = None, *, cloud_first: bool = False,
+             personal: bool = False) -> str | None:
     """Return text from the Model Router and Ollama Cloud, tried in that order
     (or cloud first when cloud_first=True). None if both fail. With
-    OLLAMA_CLOUD_DISABLED set, only the local router is used."""
+    OLLAMA_CLOUD_DISABLED set, only the local router is used.
+
+    personal=True marks a route that carries the Captain's personal health data. Such a route uses
+    the LOCAL router only and returns None (callers show a deterministic fallback) rather than
+    reaching the cloud, unless HEALTH_LLM_EXTERNAL_ALLOWED=1. Content that looks personal is
+    treated the same way even when the caller did not mark it."""
+    if not personal_data_policy.external_ai_allowed() and (
+            personal or personal_data_policy.contains_personal_health(f"{system_prompt or ''}\n{prompt}")):
+        if not _router_is_local():
+            log.warning("[llm] personal route refused: MODEL_ROUTER_URL is not a local/private address")
+            return None
+        return _call_router(prompt, system_prompt, timeout=_personal_router_timeout())
     if _cloud_disabled():
         return _call_router(prompt, system_prompt)
     if cloud_first:
@@ -146,7 +192,8 @@ def generate(prompt: str, system_prompt: str | None = None, *, cloud_first: bool
 
 
 async def generate_async(
-    prompt: str, system_prompt: str | None = None, *, cloud_first: bool = False
+    prompt: str, system_prompt: str | None = None, *, cloud_first: bool = False, personal: bool = False
 ) -> str | None:
     """Non-blocking wrapper for use in async Telegram handlers."""
-    return await asyncio.to_thread(partial(generate, prompt, system_prompt, cloud_first=cloud_first))
+    return await asyncio.to_thread(
+        partial(generate, prompt, system_prompt, cloud_first=cloud_first, personal=personal))

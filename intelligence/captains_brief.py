@@ -1405,13 +1405,43 @@ def generate_weekly_debrief_digest() -> str:
 _MORNING_BRIEF_EMAIL_TO = "tim.jarden-ross@anz.com"
 
 
+_PERSONAL_BLOCK_HEADERS = ("CAPACITY", "RECOVERY", "PULSE", "SLEEP", "PAIN")
+
+
+def _strip_personal_blocks(text: str) -> str:
+    """R7: drop the personal capacity/recovery blocks from text that leaves the Captain's own
+    Telegram chat. A block runs from a header line containing a personal keyword to the next
+    blank line."""
+    out, skipping = [], False
+    for line in text.split("\n"):
+        plain = re.sub(r"<[^>]+>", "", line).upper()
+        if not skipping and any(k in plain for k in _PERSONAL_BLOCK_HEADERS) and plain.strip()[:1] in ("⚡", "🫀", "😴", "🩺", "🔋") :
+            skipping = True
+            continue
+        if skipping:
+            if not line.strip():
+                skipping = False
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
 def _email_morning_brief(text: str) -> None:
     """Best-effort email copy of the morning brief. Never raises and never
     affects the return value of send_brief() — Telegram is still the
     brief's real delivery/failure signal (see resend_email.send_email's own
-    fail-open contract)."""
-    from core.notifications.resend_email import send_email
+    fail-open contract).
 
+    R7: the email goes to a work mailbox, so personal capacity/pain/recovery blocks are removed
+    first, and the email is NOT sent at all if personal health content is still detected."""
+    from core.notifications.resend_email import send_email
+    from core.security import personal_data_policy
+
+    text = _strip_personal_blocks(text)
+    leftover = personal_data_policy.contains_personal_health(re.sub(r"<[^>]+>", "", text))
+    if leftover:
+        log.warning("Morning brief email withheld: personal health content still present (%s)", ", ".join(leftover))
+        return
     html = text.replace("\n", "<br>\n")
     subject = f"USS TJR — Morning Brief — {datetime.now(_AEST).date().isoformat()}"
     ok = send_email(_MORNING_BRIEF_EMAIL_TO, subject, html)
