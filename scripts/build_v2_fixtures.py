@@ -23,8 +23,8 @@ def combine(i, mode):
         pri = "E" if "E" in (a["priority"], b["priority"]) else max((a["priority"], b["priority"]), key=ORDER.get)
     else:
         mat = min((a["materiality"], b["materiality"]), key={"low": 0, "medium": 1, "high": 2}.get)
-        pri = "E" if (a["priority"] == b["priority"] == "E") else min((p for p in (a["priority"], b["priority"]) if p != "E") or ["R"], key=ORDER.get) \
-            if "E" in (a["priority"], b["priority"]) else min((a["priority"], b["priority"]), key=ORDER.get)
+        non_e = [x for x in (a["priority"], b["priority"]) if x != "E"]
+        pri = min(non_e, key=ORDER.get) if non_e else "E"      # E only when BOTH reviewers say E
     return M[mat], pri
 
 
