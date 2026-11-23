@@ -362,9 +362,33 @@ def _link(a: Candidate, b: Candidate, idf: dict[str, float]) -> tuple[float, str
     # distinct-incident guard: same organisation but disjoint specific services/locations -> separate incidents
     if shared_orgs and _service_conflict(a, b):
         return None
+    # #669: hazards, supply shortfalls, water quality and service disruptions are place-specific. Two reports that each name a
+    # place, and name DIFFERENT places, are different incidents however alike their headlines (a Sydney and a Melbourne boil
+    # water notice). Outage and cyber links keep their existing guards.
+    if cls in _PLACE_SPECIFIC_CLASSES and _location_conflict(a, b):
+        return None
     if score >= 0.6 or (score >= 0.5 and (shared_orgs or rare >= 2)):
         return round(min(1.0, score), 2), "; ".join(reasons) + f"; class {cls}"
     return None
+
+
+_PLACE_SPECIFIC_CLASSES = ("hazard", "supply_shortfall", "water_quality", "service_disruption")
+_PLACES = ("sydney", "melbourne", "brisbane", "perth", "adelaide", "canberra", "hobart", "darwin", "newcastle", "wollongong", "illawarra",
+           "gold coast", "sunshine coast", "geelong", "cairns", "townsville", "launceston", "alice springs", "kimberley", "pilbara",
+           "eyre peninsula", "nsw", "new south wales", "victoria", "victorian", "queensland", "tasmania", "tasmanian", "south australia",
+           "western australia", "northern territory", "act")
+_PLACE_RX = re.compile(r"\b(" + "|".join(re.escape(p) for p in sorted(_PLACES, key=len, reverse=True)) + r")\b", re.IGNORECASE)
+_PLACE_ALIAS = {"victorian": "victoria", "tasmanian": "tasmania", "new south wales": "nsw"}
+
+
+def _places(title: str) -> frozenset:
+    return frozenset(_PLACE_ALIAS.get(m.lower(), m.lower()) for m in _PLACE_RX.findall(title))
+
+
+def _location_conflict(a: Candidate, b: Candidate) -> bool:
+    """True when both reports name places and share none of them."""
+    pa, pb = _places(a.title), _places(b.title)
+    return bool(pa and pb and not (pa & pb))
 
 
 _SERVICE_RX = re.compile(r"\b(outlook|teams|azure|aws|gmail|sharepoint|onedrive|exchange|office|xbox|github|"
@@ -603,11 +627,17 @@ _VERIFY_NEXT = {
 }
 
 
+# A report that says service is restored AND says some of it is not: 'restored to some customers but thousands without power',
+# 'partially restored', 'yet to be restored', 'not all restored'. It has no 'still' / 'continues' word, but it is not a restoration.
+_PARTIAL_RX = _rx((r"restored (?:to|for) (?:some|part|parts|a number)", r"partial(?:ly)? restor\w*", r"(?:yet|not yet) (?:to be )?restored",
+                   r"not all (?:\w+ ){0,3}restored", r"(?:but|although|while|however)\b[^.;]{0,60}\b(?:without|remain\w*|yet to|outstanding|still)"))
+
+
 def _report_state(m: Candidate) -> str | None:
-    """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing (a mixed
-    'power restored but thousands still without' is ongoing); None when it says neither."""
-    restored, ongoing = bool(_RESTORED_RX.search(m.title)), bool(_ONGOING_RX.search(m.title))
-    if ongoing:
+    """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
+    restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
+    restored = bool(_RESTORED_RX.search(m.title))
+    if _ONGOING_RX.search(m.title) or (restored and _PARTIAL_RX.search(m.title)):
         return "ongoing"
     return "restored" if restored else None
 
@@ -623,7 +653,10 @@ def _restoration_status(originals: list[Candidate]) -> str:
         states = {_report_state(x) for x in dated if x.published == latest} - {None}
         if states:
             return "ongoing" if "ongoing" in states else "restored"
-    if any(_RESTORED_RX.search(m.title) for m in originals) and not any(_ONGOING_RX.search(m.title) for m in originals):
+    states = {_report_state(m) for m in originals}
+    if "ongoing" in states:                  # an explicit 'still' / 'partly restored' statement, whatever the report order
+        return "ongoing"
+    if "restored" in states:
         return "restored"
     if any(m.ongoing and m.status == "stated" for m in originals):
         return "ongoing"
