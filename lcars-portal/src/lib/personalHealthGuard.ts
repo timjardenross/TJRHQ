@@ -83,7 +83,7 @@ export function localOllamaTarget(
 export async function generateLocalOnly(
   system: string,
   prompt: string,
-  opts: { json?: boolean; maxTokens?: number } = {},
+  opts: { json?: boolean; maxTokens?: number; timeoutMs?: number } = {},
   env: Record<string, string | undefined> = process.env,
 ): Promise<string | null> {
   const target = localOllamaTarget(env);
@@ -99,7 +99,7 @@ export async function generateLocalOnly(
         messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
         options: { temperature: 0.3, num_predict: opts.maxTokens ?? 512 },
       }),
-      signal: AbortSignal.timeout(LOCAL_TIMEOUT_MS),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? LOCAL_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const data = await res.json();
