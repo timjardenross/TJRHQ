@@ -1,4 +1,4 @@
-"""Staged event detection (method wk-detect/0.5.0-tiered-v2) — offline, not wired into any live path.
+"""Staged event detection (method wk-detect/0.5.1-v1) — offline, not wired into any live path.
 
 Replaces title-term scoring with four stages. Every rule is deterministic; the lexicons are data, below.
 
@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 
 from intelligence import weekly_evidence as we
 
-METHOD_VERSION = "wk-detect/0.5.0-tiered-v2"
+METHOD_VERSION = "wk-detect/0.5.1-v1"
 
 # ── Lexicons (data) ──────────────────────────────────────────────────────────────────────────────────
 EVENT_TYPES = {
@@ -78,16 +78,20 @@ SECTOR_TIER = {"emergency_services": 1, "energy": 1, "telecom": 1, "health": 1, 
                "cloud_platform": 2, "retail_food": 2, "government": 2, "consumer_service": 3}
 CONSEQUENCE = (r"outages?", r"offline", r"(?:is|are|went|goes) down", r"disabled", r"grounded", r"ground stops?",
                r"without power", r"power (?:is |still )?out", r"unable to (?:access|use|log ?in)", r"suspend\w*", r"cancell?ed",
-               r"spoil\w*", r"useless", r"knock\w* out", r"halted", r"shut ?down", r"los(?:t|e|ing) power", r"fail(?:ure|ed|s)?",
-               r"sunk", r"disrupt\w+", r"wiped", r"taken offline", r"blackouts?")
+               r"spoil\w*", r"useless", r"knock\w* out", r"halted", r"shut ?down", r"los(?:t|e|ing) power", r"(?:power|grid|network|service|system|payment|platform|cloud|server)s? (?:\w+ )?fail\w*",
+               r"(?:system|network|service|power) failures?", r"sunk", r"disrupt\w+", r"wiped", r"taken offline", r"blackouts?")
 DATA_EXPOSURE = (r"data (?:was |were |has been )?(?:stolen|exposed|leaked|accessed)", r"(?:stolen|leaked|exposed) (?:data|details)",
                  r"breach(?:es)? (?:affects?|exposes?|hits?)", r"personal data", r"customer (?:data|details)",
                  r"client data", r"card details", r"\d{2,3},\d{3}\s+(?:clients|customers|users|people)")
 SAFETY = (r"injur\w+", r"deaths?", r"killed", r"fatal\w*", r"evacuat\w+", r"hospitali[sz]ed", r"casualt\w+", r"trapped")
 CASCADING = (r"cascad\w+", r"knock-?on", r"flow-?on", r"across (?:multiple|several) (?:sectors|services|industries)")
 MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"partial(?:ly)?", r"limited", r"intermittent", r"isolated")
-RETROSPECTIVE = (r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
+RETROSPECTIVE = (r"investigated", r"post-(?:blackout|outage|incident)", r"convicted", r"charged", r"sentenced", r"jailed", r"guilty", r"trial", r"verdict", r"inquest", r"court", r"fined",
+                 r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
                  r"apolog\w+", r"lessons?", r"anniversary", r"fallout")
+HEDGE = (r"likely", r"may have", r"might have", r"possibly", r"suspected", r"reportedly", r"apparent", r"alleged\w*", r"believed to")
+POLITICS = (r"liberal", r"labor", r"coalition", r"opposition", r"minister", r"premier", r"election", r"policy", r"parliament",
+            r"senator", r"prime minister", r"government plan", r"throws open")
 ONGOING = (r"continues?", r"still", r"ongoing", r"remains?", r"races? to", r"live:")
 SCALE = (r"nation(?:wide|al)", r"global(?:ly)?", r"worldwide", r"widespread", r"millions?", r"major incident",
          r"in (?:three|four|five|\d+) states", r"across (?:the )?(?:country|australia|us|world)", r"hundreds of",
@@ -100,7 +104,7 @@ POTENTIAL = (r"warns?", r"could", r"risk", r"threat", r"may ", r"might", r"fears
              r"at risk", r"vulnerab\w+", r"potential")
 COMMENTARY = (r"exposes? (?:global )?reliance", r"under scrutiny", r"opinion", r"analysis[:,]", r"what we know",
               r"lessons?", r"why ", r"how .* (?:could|might)", r"just the start", r"puts? .* (?:under|at risk)",
-              r"reliance on", r"explainer", r"fallout")
+              r"reliance on", r"explainer", r"fallout", r"wake-?up call", r"shows? how", r"anxiety", r"unready", r"unprepared")
 # A single named-feed suffix marks a syndicated copy of that wire/outlet's story.
 _SYNDICATION_SUFFIX = re.compile(r"\s[-–]\s(reuters|ap news|aap|bloomberg|afp)\s*$", re.IGNORECASE)
 
@@ -116,6 +120,7 @@ _TYPE_RX = {k: _rx(v) for k, v in EVENT_TYPES.items()}
 _SECTOR_RX = {k: _rx(v) for k, v in SECTORS.items()}
 _CONSEQ_RX, _EXPOSE_RX, _RETRO_RX, _ONGOING_RX = _rx(CONSEQUENCE), _rx(DATA_EXPOSURE), _rx(RETROSPECTIVE), _rx(ONGOING)
 _SAFETY_RX, _CASCADE_RX, _MINOR_RX = _rx(SAFETY), _rx(CASCADING), _rx(MINOR)
+_HEDGE_RX, _POLITICS_RX = _rx(HEDGE), _rx(POLITICS)
 _CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.IGNORECASE)
 _DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.IGNORECASE)
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
@@ -192,7 +197,7 @@ def _orgs(title: str) -> frozenset:
 
 def detect_candidate(event: dict) -> Candidate:
     title = event.get("title") or ""
-    text = f"{title} {event.get('summary') or ''}"
+    text = title        # headline only: this is what every measurement was made on; summaries add unmeasured noise
     types = tuple(k for k, rx in _TYPE_RX.items() if rx.search(text))
     sectors = tuple(k for k, rx in _SECTOR_RX.items() if rx.search(text))
     scale = bool(_SCALE_RX.search(text))
@@ -200,7 +205,9 @@ def detect_candidate(event: dict) -> Candidate:
     potential = bool(_POTENTIAL_RX.search(text))
     # A multi-topic roundup headline ("A, B, C") reports no single incident, so it can never carry one.
     roundup = len([seg for seg in re.split(r",(?!\d{3})", title) if len(seg.split()) >= 2]) >= 3   # not the comma in 20,000
-    commentary = bool(_COMM_RX.search(text)) or we.is_commentary(title) or roundup
+    commentary = (bool(_COMM_RX.search(text)) or we.is_commentary(title) or roundup
+                  or we.source_kind(event.get("source") or "") == we.CONTENT
+                  or (bool(_POLITICS_RX.search(text)) and not _SAFETY_RX.search(text) and not _COMPROMISE_RX.search(text)))       # magazines/newsletters comment, they do not report
     essential = any(s in ESSENTIAL for s in sectors)
     # Recall-oriented: any disruption/cyber/vulnerability type plus a sector OR a scale cue. A bare cyber mention with no
     # sector and no scale is NOT a candidate (otherwise every security-vendor press release would be).
@@ -224,7 +231,7 @@ def detect_candidate(event: dict) -> Candidate:
     elif retro:
         status = "retrospective"
     elif conseq or exposure or safety:
-        status = "confirmed"
+        status = "unconfirmed" if _HEDGE_RX.search(text) else "confirmed"       # "likely accessed" is a report, not a confirmation
     else:
         status = "unconfirmed"
     src = event.get("source") or ""

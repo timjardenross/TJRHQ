@@ -135,7 +135,7 @@ class TestStage3And4Decision:
 
     def test_method_version_is_stamped(self):
         by, _ = one([ev("r", "Routine item", "ABC News")])
-        assert by["r"].method_version == ed.METHOD_VERSION == "wk-detect/0.5.0-tiered-v2"
+        assert by["r"].method_version == ed.METHOD_VERSION == "wk-detect/0.5.1-v1"
 
 
 @pytest.mark.parametrize("title", ["", "   ", "Breaking:", "!!!"])
@@ -256,3 +256,35 @@ class TestRegionalOutageProportionality:
         by, _ = one([ev("a", "Transmission towers crushed, knocking out power to 20,000 customers", "ABC News", hours=0),
                      ev("b", "Power still out for 20,000 customers after towers crushed - AEMO update", "AEMO Market Notices", hours=3)])
         assert by["a"].group is by["b"].group and by["a"].provisional is False
+
+
+class TestV1PrecisionGuards:
+    """Defects found when the V1 pipeline was run on a real week (2,514 reports): false escalations from summaries, court verdicts,
+    commentary magazines, politics, market words and hedged reports."""
+
+    def d(self, title, source="ABC News"):
+        by, _ = one([ev("x", title, source)])
+        return by["x"]
+
+    def test_detection_uses_the_headline_only(self):
+        e = ev("a", "Bloomberg wrap of the day", "Bloomberg", summary="a data breach, outage and blackout were discussed")
+        assert not ed.detect_candidate(e).is_candidate
+
+    def test_court_verdict_about_a_fire_is_not_an_incident(self):
+        assert self.d("Man convicted of starting deadly Palisades fire in Los Angeles", "BBC News").priority != "ESCALATE"
+
+    def test_magazine_commentary_is_not_an_incident_report(self):
+        assert self.d("All these outages show how corporate America needs to modernize", "Inc. Magazine — Leadership").priority == "REFERENCE"
+
+    def test_political_framing_of_blackout_risk_is_not_a_confirmed_blackout(self):
+        assert self.d("Blackout warnings as Victorian Liberal leader throws open doors to gas").priority != "ESCALATE"
+
+    def test_hedged_data_exposure_is_unconfirmed_and_goes_to_verify(self):
+        d = self.d("Australia's Bell Financial says some client data likely accessed", "iTnews")
+        assert d.impact_status == "unconfirmed" and d.priority == "VERIFY"
+
+    def test_deal_failure_is_not_a_system_failure(self):
+        assert self.d("Breaking: COP31 deal failure 'very disappointing', Chris Bowen says").priority == "REFERENCE"
+
+    def test_post_incident_investigation_is_retrospective(self):
+        assert self.d("'One-in-2,000-year weather' to be investigated post-blackout").priority != "ESCALATE"

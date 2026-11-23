@@ -268,7 +268,9 @@ def comms_view(ev: EvidenceSet, *, existing_titles: list[str] | None = None, pil
     lines = ["📡 EVIDENCE-BASED CONTRIBUTION CANDIDATES (V1) — recommendation only; publication is approval-only", ""]
     for i, pillar, sim, kinds, ready in rows[:5]:
         lines.append(f"- {i.headline} {_cite(i)}")
-        lines.append(f"    relevance: {pillar or 'unclassified'} · originality: {'duplicate of existing content' if sim >= 0.7 else 'new angle'} (similarity {sim:.2f})")
+        orig = ("not assessed (no existing-content titles supplied)" if not existing_titles
+                else f"duplicate of existing content (similarity {sim:.2f})" if sim >= 0.7 else f"new angle (similarity {sim:.2f})")
+        lines.append(f"    relevance: {pillar or 'unclassified'} · originality: {orig}")
         lines.append(f"    evidence: confidence {i.evidence_confidence:.2f}, sources {', '.join(kinds)}, {i.independent_publishers} independent publisher(s)")
         lines.append(f"    publication readiness: {ready}")
         lines.append(f"    research gap: {i.record['next_verification_action']}")
