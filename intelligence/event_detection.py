@@ -514,7 +514,10 @@ def evidence_status(group: Group) -> tuple[str, list[str]]:
     solid = [m for m in originals if m.kind != we.AGGREGATOR and not m.hedged]
     if not solid:
         return "unverified", basis
-    return ("corroborated" if group.independent_publishers >= 2 else "reported"), basis
+    # #669: corroboration needs two independent publishers among the SOLID reports. group.independent_publishers also
+    # counts hedged / anonymously sourced publishers, so a "reportedly ..." second report must not lift the status.
+    solid_publishers = {m.family for m in solid}
+    return ("corroborated" if len(solid_publishers) >= 2 and group.independent_publishers >= 2 else "reported"), basis
 
 
 def decide(group: Group, *, now: datetime | None = None) -> Decision:
