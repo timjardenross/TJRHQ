@@ -97,7 +97,7 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             e = meta.get(m.event_id, {})
             role = "commentary" if m.commentary else "syndicated" if m.event_id in d.group.syndicated_ids else "original"
             reports.append({"report_id": m.event_id, "publisher": m.family, "source_name": m.source, "source_kind": m.kind,
-                            "title": m.title, "url": e.get("url"), "collected_at": m.published.isoformat() if m.published else None,
+                            "title": m.title, "summary": e.get("summary") or "", "url": e.get("url"), "collected_at": m.published.isoformat() if m.published else None,
                             "role": role})
         times = [m.published for m in members if m.published]
         incidents.append(IncidentView(
@@ -222,7 +222,126 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev)[:3] if i not in notices]
     fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in verify[:2]]
     lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
+    lines += worth_knowing_lines(ev)
     return lines
+
+
+# ── Worth Knowing (informative developments that do not meet an escalation threshold) ───────────────────────────
+# Selects and arranges only: it never changes an incident's priority, evidence status or escalation outcome. It adds credible, relevant
+# technology news that has no confirmed outage or immediate operational impact, so the brief informs as well as alerts.
+WORTH_KNOWING_LIMIT = 5
+WORTH_KNOWING_HOURS = 72
+_WK_PER_CATEGORY = 2
+_WK_CATEGORIES = (   # (name, weight, pattern); the highest-weight match names the item
+    ("cyber", 3, (r"ransomware|malware|zero[- ]day|vulnerabilit(?:y|ies)|cyber ?(?:attack|attacks|security|incident|crime|criminal|espionage|threat)s?|data breach|"
+                 r"\bhack(?:ed|er|ers|ing)?\b|phishing|exploited|CVE-\d|botnet|ddos|infostealer|spyware|backdoor|supply[- ]chain attack")),
+    ("critical infrastructure", 3, (r"critical infrastructure|power grid|scada|industrial control|operational technology|semiconductors?|chip ?makers?|"
+                                   r"submarine cable|undersea cable")),
+    ("cloud", 3, r"\bcloud\b|\baws\b|\bazure\b|google cloud|data ?cent(?:er|re)s?|hyperscal|cloudflare"),
+    ("telecommunications", 3, r"telecom|\btelcos?\b|telstra|optus|\btpg\b|vodafone|\b5g\b|mobile network|broadband|\bnbn\b|satellite|spectrum"),
+    ("payments", 3, r"\bpayments?\b|mastercard|\bvisa (?:inc|payments|network)|paypal|stripe|eftpos|bpay|apple pay|fintech|digital wallet"),
+    # AI counts only as a technology subject (models, chips, servers, agents, safety, regulation …), not as a market or insurance talking point.
+    ("AI", 2, (r"(?:\bAI\b|artificial intelligence|\bllms?\b|generative ai|chatbots?|openai|anthropic|nvidia)[^.]{0,60}(?:models?|chips?|servers?|compute|data ?cent(?:er|re)s?|agents?|safety|"
+               r"regulation|cyber|security|infrastructure|training|launch|release|outage|breach|vulnerab)|(?:models?|chips?|servers?|compute|agents?|safety|regulation|"
+               r"security|infrastructure)[^.]{0,60}(?:\bAI\b|artificial intelligence|\bllms?\b|generative ai|openai|anthropic|nvidia)|\bgpus?\b|large language model")),
+    ("software", 2, (r"software|\bsaas\b|open[- ]source|firmware|operating system|\bwindows (?:\d+|update|server)|\blinux\b|\bandroid\b|microsoft|oracle|vmware|"
+                     r"google chrome|chrome (?:browser|update|extension)|web browser")),
+)
+_WK_CAT_RX = [(n, w, re.compile(p, re.IGNORECASE)) for n, w, p in _WK_CATEGORIES]
+_WK_AU_RX = re.compile(r"\baustralia(?:n|ns)?\b|\bsydney\b|\bmelbourne\b|\bbrisbane\b|\bperth\b|\badelaide\b|\bcanberra\b|\bnsw\b|\bqueensland\b|"
+                       r"\basic\b|\bapra\b|\bacsc\b|\bofaic\b|telstra|optus|\bnbn\b|\btpg\b", re.IGNORECASE)
+# Editorial quality: promotional, list, awards, how-to, opinion and speculative-question headlines do not qualify as intelligence.
+_WK_LOW_QUALITY_RX = re.compile(r"\b(?:how to|best|top \d+|\d+ (?:ways|things|tips)|reviews?|sponsored|webinar|podcast|opinion|fast 50|awards?|ranked|ranking|"
+                                r"hiring|jobs?|(?:best|top|black friday|cyber monday) deals?|giveaway|quiz|sale|discount|coupon)\b|^(?:could|should|why|what|how|is|are|will|can|does|do)\b|\?\s*(?:-\s.*)?$", re.IGNORECASE)
+_WK_CREDIBLE_KINDS = (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST)
+_WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported": 1}
+
+
+def _wk_text(i: IncidentView) -> str:
+    return " ".join([i.headline] + [r["title"] for r in i.reports if r["role"] != "commentary"])
+
+
+def _wk_au(i: IncidentView) -> bool:
+    """Australia is named in the headline, a report title or a report summary (publisher identity alone does not count)."""
+    return bool(_WK_AU_RX.search(" ".join([_wk_text(i)] + [r.get("summary") or "" for r in i.reports if r["role"] != "commentary"])))
+
+
+def _wk_category(text: str) -> tuple[str, int] | None:
+    best = None
+    for name, weight, rx in _WK_CAT_RX:
+        if rx.search(text) and (best is None or weight > best[1]):
+            best = (name, weight)
+    return best
+
+
+def _wk_summary(i: IncidentView) -> str:
+    """First sentence of the best original report's own summary, trimmed. Empty when it only repeats the headline."""
+    head = re.sub(r"\W+", " ", i.headline).strip().lower()
+    for r in i.reports:
+        if r["role"] != "original":
+            continue
+        txt = re.sub(r"<[^>]+>|&\w+;", " ", r.get("summary") or "")
+        txt = re.sub(r"get our (?:breaking )?news .*$", " ", txt, flags=re.IGNORECASE)   # newsletter boilerplate some feeds append
+        txt = re.sub(r"\s+", " ", txt).strip()
+        if len(txt) < 40 or re.sub(r"\W+", " ", txt).strip().lower().startswith(head[:50]):
+            continue
+        m = re.match(r"(.{40,}?[.!])\s", txt + " ")
+        out = m.group(1) if m else txt
+        return out if len(out) <= 180 else out[:177].rsplit(" ", 1)[0] + "…"
+    return ""
+
+
+def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[tuple[IncidentView, str, int]]:
+    """Credible, relevant technology developments from the last 72 hours that are NOT actionable incidents (priority REFERENCE).
+
+    Topic relevance and editorial quality decide inclusion (``disposition = BRIEF`` is deliberately not used: it admits sport and politics).
+    Needs a non-aggregator original report from a primary, mainstream or specialist publisher; aggregator-only, hedged or anonymous
+    (unverified) items are left out. Returns (incident, category, score) best first, at most ``limit``, at most two per category.
+    """
+    cutoff = ev.generated_at - timedelta(hours=WORTH_KNOWING_HOURS)
+    scored = []
+    for i in ev.incidents:
+        if i.priority != "REFERENCE" or not i.last_seen or i.last_seen < cutoff or i.evidence_status not in _WK_EVIDENCE_POINTS:
+            continue
+        if len(i.headline) < 25 or _WK_LOW_QUALITY_RX.search(i.headline):
+            continue
+        if not any(r["role"] == "original" and r["source_kind"] in _WK_CREDIBLE_KINDS for r in i.reports):
+            continue
+        text = _wk_text(i)
+        cat = _wk_category(text)
+        if not cat:
+            continue
+        kinds = {r["source_kind"] for r in i.reports if r["role"] == "original"}
+        score = (cat[1] + _WK_EVIDENCE_POINTS[i.evidence_status] + (2 if we.PRIMARY in kinds else 1 if we.SPECIALIST in kinds else 0)
+                 + (2 if _wk_au(i) else 0) + (1 if i.last_seen >= ev.generated_at - timedelta(hours=24) else 0)
+                 + (1 if i.materiality in ("high", "medium") else 0))
+        scored.append((i, cat[0], score))
+    scored.sort(key=lambda t: (-t[2], -(t[0].last_seen.timestamp())))
+    out, per = [], Counter()
+    for i, cat, score in scored:
+        if per[cat] >= _WK_PER_CATEGORY:
+            continue
+        per[cat] += 1
+        out.append((i, cat, score))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _wk_line(i: IncidentView, cat: str) -> str:
+    au = "Australian relevance stated in report" if _wk_au(i) else "International development; no Australian operational impact established"
+    basis = ("single-source report" if i.evidence_status == "reported"
+             else "officially confirmed" if i.evidence_status == "officially_confirmed"
+             else f"independently corroborated ({i.independent_publishers} publishers)")
+    tags = [cat, basis, au] + (["retrospective report"] if i.impact_status == "retrospective" else [])
+    summary = _wk_summary(i)
+    return f"- [{' · '.join(tags)}] {i.headline}" + (f" — {summary}" if summary else "") + f" {_cite(i)}"
+
+
+def worth_knowing_lines(ev: EvidenceSet) -> list[str]:
+    items = worth_knowing(ev)
+    lines = ["", f"WORTH KNOWING (last {WORTH_KNOWING_HOURS}h; credible technology developments with no confirmed outage or immediate service impact; informative, not escalated)"]
+    return lines + ([_wk_line(i, c) for i, c, _ in items] or ["- No credible technology development outside the incident sections."])
 
 
 # ── Weekly change detection (existing SnapshotStore; no database migration) ─────────────────────────────
