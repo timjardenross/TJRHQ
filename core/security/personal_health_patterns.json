@@ -1,0 +1,95 @@
+{
+ "_comment": "Single source of truth for the personal-health content detector (R1-R8). Read by core/security/personal_data_policy.py (Python), core/command-centre/backend/services/personal_health_guard.js and lcars-portal/src/lib/personalHealthGuard.ts. Patterns are valid in Python and JavaScript (case-insensitive). 'structured' mirrors the prompt-builder / first-person forms; 'conservative_free_text' is a deliberately broad lexicon used ONLY for free-text captures where over-blocking is the safe error.",
+ "structured": [
+  {
+   "name": "sleep_metric",
+   "regex": "\\bsleep(?:_hours)?\\s*[=:]\\s*\\d"
+  },
+  {
+   "name": "cpap_status",
+   "regex": "\\bcpap\\s*(?:[✓✗]|\\(cpap|compliant)|cpap_compliant"
+  },
+  {
+   "name": "pain_metric",
+   "regex": "\\bpain(?:_score|_state| score| level)\\s*[=:]?\\s*\\d|\\bpain_state\\b"
+  },
+  {
+   "name": "nervous_system",
+   "regex": "\\bnervous[_ ]system(?:_state)?\\s*[=:]|\\bns\\s*=\\s*\\w"
+  },
+  {
+   "name": "body_signals",
+   "regex": "\\bbody(?:_signals)?\\s*=\\s*\\w|\\bbody signals\\b"
+  },
+  {
+   "name": "energy_state",
+   "regex": "\\benergy\\s*=\\s*(?:low|moderate|high)"
+  },
+  {
+   "name": "capacity_state",
+   "regex": "\\bcapacity[_ ](?:state|score|rating|check-?in)\\b|\\bcaptain_capacity_rating\\b"
+  },
+  {
+   "name": "recovery_state",
+   "regex": "\\brecovery (?:confidence|state|status)\\b"
+  },
+  {
+   "name": "regulation_state",
+   "regex": "\\b(?:regulation|stimulation)_state\\b"
+  },
+  {
+   "name": "risk_flags",
+   "regex": "\\brisk_flags\\b|\\bwellness context\\b"
+  },
+  {
+   "name": "first_person_health",
+   "regex": "\\b(?:my|i)\\s+(?:slept|woke|pain|sleep|energy|mood|migraine|flare)\\b"
+  },
+  {
+   "name": "captain_health",
+   "regex": "\\bcaptain(?:'s)?\\s+(?:pain|sleep|energy|mood|capacity|recovery)\\b"
+  },
+  {
+   "name": "health_profile",
+   "regex": "\\bhealth profile\\b|\\bexecutive function support\\b"
+  },
+  {
+   "name": "captain_condition",
+   "regex": "\\bcaptain\\b[^.\\n]{0,40}\\b(?:chronic|spinal|stabilisation|stabilization)\\b|\\bstage 1 stabili[sz]ation\\b"
+  },
+  {
+   "name": "weekly_health_brief",
+   "regex": "\\bweekly health (?:brief|data)\\b|\\bmedical officer\\b[^\\n]{0,40}\\b(?:brief|interpret)"
+  },
+  {
+   "name": "sleep_average",
+   "regex": "\\bsleep\\b\\W{0,6}avg\\s*\\d"
+  },
+  {
+   "name": "state_distribution",
+   "regex": "\\b(?:dysregulated|regulated|calm|activated)\\s*:\\s*\\d+\\s*/\\s*\\d+"
+  },
+  {
+   "name": "recovery_posture",
+   "regex": "\\brecovery posture\\b"
+  }
+ ],
+ "conservative_free_text": [
+  "\\bpain\\b",
+  "\\bmigraine",
+  "\\b(?:sleep|slept|sleeping|insomnia|cpap)\\b",
+  "\\b(?:fatigue|fatigued|exhaust\\w*|burn(?:ed|t)?[- ]?out)\\b",
+  "\\bsymptoms?\\b",
+  "\\b(?:medication|meds|dosage|prescri\\w+)\\b",
+  "\\b(?:anxiety|anxious|panic|depress\\w*)\\b",
+  "\\bmood\\b",
+  "\\bnervous[ _]system\\b",
+  "\\b(?:flare[- ]?up|flares?)\\b",
+  "\\b(?:spine|spinal|stabili[sz]ation)\\b",
+  "\\brecovery\\b",
+  "\\b(?:capacity|energy)\\b[^.\\n]{0,30}\\b(?:low|high|crash|drain\\w*|depleted|today|this week)\\b",
+  "\\b(?:feel(?:ing)?|felt)\\s+(?:unwell|sick|awful|terrible|drained|wiped|exhausted|tired|dizzy|nauseous)\\b",
+  "\\b(?:doctor|psychologist|psychiatrist|physio\\w*|specialist|gp)\\b[^.\\n]{0,30}\\b(?:appointment|visit|session|review)\\b",
+  "\\b(?:therapy|therapist|diagnos\\w+|chronic|health (?:data|log|profile|check))\\b"
+ ]
+}

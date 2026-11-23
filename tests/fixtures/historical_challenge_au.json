@@ -1,0 +1,412 @@
+{
+  "scope": "AU incidents",
+  "researched_on": "2026-11-23",
+  "method_note": "Headlines are copied from page metadata (og:title / title) or the in-page headline as returned by a read-only page fetch on 2026-11-23. Where a page showed more than one headline variant (e.g. updated headline vs. original), the variant is stated in verification_notes. Dates are as shown in page metadata or the page body; 'date' on each entry is the date of first public disclosure/occurrence per sources.",
+  "entries": [
+    {
+      "id": "au-optus-national-outage-2023-11",
+      "kind": "incident",
+      "sector": "telecommunications",
+      "event_type": "outage",
+      "date": "2023-11-08",
+      "description": "Optus experienced a nation-wide network outage on 8 November 2023 that caused significant disruption across Australia for individuals and businesses, and the ACMA later found 2,145 people were not given access to the emergency call service during the outage.",
+      "confirmed_at_first_report": "Per the earliest verified mainstream piece (ABC, 8 Nov 2023): more than 10 million customers were affected by the Optus outage (headline claim).",
+      "unconfirmed_at_first_report": "Cause not stated in the verified headline; the ACMA's later investigation report attributes it to self-isolation of core network routers. Triple Zero impact figures (2,145 people; 369 missed welfare checks) were only established in the ACMA investigation, published 8 Nov 2024.",
+      "sources": [
+        {
+          "role": "official",
+          "publisher": "Australian Communications and Media Authority (ACMA)",
+          "url": "https://www.acma.gov.au/articles/2024-11/optus-pays-12-million-penalty-triple-zero-outage",
+          "published": "2024-11-08",
+          "headline_verbatim": "Optus pays $12 million penalty for Triple Zero outage"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "ABC News",
+          "url": "https://www.abc.net.au/news/2023-11-09/how-the-optus-outage-played-out/103079768",
+          "published": "2023-11-08",
+          "headline_verbatim": "More than 10 million customers were affected by the Optus outage. Here's how it played out"
+        }
+      ],
+      "first_credible_report_headline": "More than 10 million customers were affected by the Optus outage. Here's how it played out",
+      "verification_notes": "ABC headline and 8 Nov 2023 1:18pm posted time were read from a search-result excerpt of the page (page itself not separately opened); the URL carries 2023-11-09 because the page was updated 9 Nov. This is an explainer, not necessarily the earliest ABC item that day, so it is the earliest headline I verified, not provably the earliest published. ACMA headline/date verified by opening the page (dcterms.date + on-page '08 November 2024'). ACMA investigation report PDF and infrastructure.gov.au review page appeared in search results but were not opened."
+    },
+    {
+      "id": "au-dp-world-ports-cyber-2023-11",
+      "kind": "incident",
+      "sector": "transport_ports_logistics",
+      "event_type": "cyber_incident",
+      "date": "2023-11-10",
+      "description": "DP World Australia detected unauthorised access to its Australian corporate network on Friday 10 November 2023 and disconnected internet connectivity to contain it, which stopped normal operation of key systems at its ports in Melbourne, Sydney, Brisbane and Fremantle.",
+      "confirmed_at_first_report": "Per ABC (11 Nov 2023): operator began responding on Friday; ships could unload but freight could not leave the port site; internet connectivity was disconnected; Home Affairs minister and National Cyber Security Coordinator involved; operator responsible for 40 per cent of maritime freight.",
+      "unconfirmed_at_first_report": "Duration of disruption ('likely to continue for a number of days' per government statement quoted by ABC); nature/extent of the intrusion. DP World's 28 Nov 2023 statement is the verified later update.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "ABC News",
+          "url": "https://www.abc.net.au/news/2023-11-11/dp-world-australian-ports-cyber-security-incident/103094358",
+          "published": "2023-11-11",
+          "headline_verbatim": "Major Australian port operator shuts down amid cyber security incident, impacting goods in and out of the country"
+        },
+        {
+          "role": "official",
+          "publisher": "DP World (company statement)",
+          "url": "https://www.dpworld.com/en/news/releases/australia/media-statement-update-on-cybersecurity-incident",
+          "published": "2023-11-28",
+          "headline_verbatim": "Media Statement: Update on Cybersecurity Incident"
+        }
+      ],
+      "first_credible_report_headline": "Major Australian port operator shuts down amid cyber security incident, impacting goods in and out of the country",
+      "verification_notes": "ABC headline and body read from a search-result page excerpt (posted 11 Nov 2023 2:18am, timezone of the excerpt not stated; URL date 2023-11-11). DP World headline, dateline and the 10 Nov detection date verified by opening the page. A Reuters piece dated 2023-11-11 (URL) exists but its full headline was truncated in search results and was not opened, so it is not cited."
+    },
+    {
+      "id": "au-medibank-data-breach-2022-10",
+      "kind": "incident",
+      "sector": "health_insurance",
+      "event_type": "data_breach",
+      "date": "2022-10-13",
+      "description": "Medibank reported on 13 October 2022 that it detected unusual activity on its network and would isolate and remove access to some customer-facing systems; the OAIC later alleged a data breach of Medibank and ahm exposed the personal information of 9.7 million Australians.",
+      "confirmed_at_first_report": "Per Reuters (13 Oct 2022): unusual activity detected; Medibank taking steps to contain the incident and removing access to some customer-facing systems; shares on trading halt; Medibank said there was no evidence at that stage that sensitive data including customer data had been accessed.",
+      "unconfirmed_at_first_report": "Whether customer data had been accessed or stolen (Medibank said no evidence at that stage); on 19 Oct 2022 Medibank said it had received messages from a group wishing to negotiate over alleged removal of customer data; the OAIC's 9.7 million figure and 25 Oct 2022 breach notification date appear only in the 2024 OAIC release.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "Reuters",
+          "url": "https://www.reuters.com/technology/australias-medibank-reports-cyber-incident-2022-10-13/",
+          "published": "2022-10-13",
+          "headline_verbatim": "Australia's Medibank reports cyber incident, shares on trading halt"
+        },
+        {
+          "role": "official",
+          "publisher": "Medibank (company newsroom)",
+          "url": "https://www.medibank.com.au/livebetter/newsroom/post/medibank-cyber-incident-update-19-October",
+          "published": "2022-10-19",
+          "headline_verbatim": "Medibank cyber incident update"
+        },
+        {
+          "role": "official",
+          "publisher": "Office of the Australian Information Commissioner (OAIC)",
+          "url": "https://www.oaic.gov.au/news/media-centre/oaic-takes-civil-penalty-action-against-medibank",
+          "published": "2024-06-05",
+          "headline_verbatim": "OAIC takes civil penalty action against Medibank"
+        }
+      ],
+      "first_credible_report_headline": "Australia's Medibank reports cyber incident, shares on trading halt",
+      "verification_notes": "All three pages opened and headline/date read from metadata. AFR (2022-10-13 per URL, 'Medibank Private hit by cyberattack, enters trading halt') and ABC (2022-10-19) results were seen only as search excerpts and are not cited. Event date is the first public disclosure date; the OAIC concise statement refers to internal triage on 11 Oct 2022 (search excerpt only)."
+    },
+    {
+      "id": "au-latitude-financial-breach-2023-03",
+      "kind": "incident",
+      "sector": "financial_services",
+      "event_type": "data_breach",
+      "date": "2023-03-16",
+      "description": "Latitude Financial said on 16 March 2023 it had been hit by a cyber-attack in which an attacker used employee login credentials to steal personal information held by two service providers; the company later said about 14 million customer records were stolen.",
+      "confirmed_at_first_report": "Per Guardian/iTnews (16 Mar 2023): more than 100,000 identification documents and 225,000 customer records stolen; employee login credentials used; data held by two service providers; share trading suspended.",
+      "unconfirmed_at_first_report": "Total scale: on 27 Mar 2023 Latitude said about 14m customer records (7.9m driver licence numbers, 53,000 passport numbers, 6.1m other records) had been stolen, far above the initial figures.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "The Guardian (Australia)",
+          "url": "https://www.theguardian.com/australia-news/2023/mar/16/hundreds-of-thousands-of-customer-records-stolen-from-lender-latitude-in-cyber-attack",
+          "published": "2023-03-16",
+          "headline_verbatim": "Hundreds of thousands of customer records stolen from lender Latitude in cyber-attack"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "iTnews",
+          "url": "https://www.itnews.com.au/news/latitude-financial-breach-impacts-225000-customers-592152",
+          "published": "2023-03-16",
+          "headline_verbatim": "Latitude Financial breach impacts 225,000 customers"
+        },
+        {
+          "role": "other",
+          "publisher": "The Guardian (Australia) - follow-up, same publisher as source 1",
+          "url": "https://www.theguardian.com/australia-news/2023/mar/27/latitude-financial-cyber-data-breach-hack-14m-customer-records-stolen",
+          "published": "2023-03-27",
+          "headline_verbatim": "Latitude Financial cyber-attack worse than first thought with 14m customer records stolen"
+        }
+      ],
+      "first_credible_report_headline": "Hundreds of thousands of customer records stolen from lender Latitude in cyber-attack",
+      "verification_notes": "Earliest headline I verified directly (Guardian 02:41Z vs iTnews 11:04AM local on 16 Mar); an AFR item dated 2023-03-16 was listed by a third-party aggregator but not opened. Guardian 16 Mar and iTnews pages opened (published times 2023-03-16T02:41Z and 'Mar 16 2023 11:04AM'). The 27 Mar Guardian headline was read from a search-result page body and its date from the URL; it is same-publisher so is not counted as independent. An attempted ABC URL taken from a third-party aggregator redirected to an unrelated page and was discarded. Latitude's own incident page was seen only as an undated excerpt and is not cited."
+    },
+    {
+      "id": "au-aemo-nem-market-suspension-2022-06",
+      "kind": "incident",
+      "sector": "energy_electricity",
+      "event_type": "outage",
+      "date": "2022-06-15",
+      "description": "On 15 June 2022 AEMO suspended the wholesale electricity spot market in all National Electricity Market regions because a confluence of events made it impossible to continue operating the spot market while ensuring secure and reliable supply, and it lifted the suspension from 2pm on 24 June 2022.",
+      "confirmed_at_first_report": "Per SMH (15 Jun 2022): AEMO made an unprecedented intervention to suspend trading across the east coast electricity network; NSW Energy Minister urged residents to minimise non-critical usage between 5.30pm and 8.30pm.",
+      "unconfirmed_at_first_report": "Duration (suspension later lifted 24 Jun 2022, per AEMO); whether blackouts would occur (SMH description: 'reduce the risk of electricity blackouts').",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "The Sydney Morning Herald",
+          "url": "https://www.smh.com.au/politics/federal/energy-market-suspended-after-chaos-made-it-impossible-to-operate-20220615-p5atyk.html",
+          "published": "2022-06-15",
+          "headline_verbatim": "Energy market suspended after chaos made it ‘impossible to operate’"
+        },
+        {
+          "role": "official",
+          "publisher": "Australian Energy Market Operator (AEMO)",
+          "url": "https://www.aemo.com.au/newsroom/media-release/aemo-lifts-market-suspension",
+          "published": "2022-06-24",
+          "headline_verbatim": "AEMO lifts market suspension"
+        }
+      ],
+      "first_credible_report_headline": "Energy market suspended after chaos made it ‘impossible to operate’",
+      "verification_notes": "Both pages opened. SMH page title tag differs ('Energy crisis: Energy market suspended by AEMO to restore calm'); the og:title (used above) is the final headline, the title tag may be the original. AEMO's own suspension announcement ('AEMO suspends NEM wholesale market' on energy.gov.au) and AEMO's formal event report PDF appeared in search results but were not opened; AEMO's 24 Jun release links the 15 Jun announcement."
+    },
+    {
+      "id": "au-qantas-contact-centre-breach-2025-07",
+      "kind": "incident",
+      "sector": "aviation",
+      "event_type": "data_breach",
+      "date": "2025-07-02",
+      "description": "Qantas said on 2 July 2025 that a cyber criminal targeted one of its airline contact centres and gained access to a third-party customer servicing platform containing customer data (initially reported as six million customer accounts).",
+      "confirmed_at_first_report": "Per Reuters (2 Jul 2025): hacker targeted a call centre and accessed a third-party customer service platform holding six million names, email addresses, phone numbers, birth dates and frequent flyer numbers.",
+      "unconfirmed_at_first_report": "Final affected count (a later Qantas update/third-party sources cited 5.7 million; not verified from an opened page); whether data would be released (Qantas page update of 12 Oct 2025 says data was released by cyber criminals).",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "Reuters",
+          "url": "https://www.reuters.com/world/asia-pacific/australias-qantas-confirms-cyber-incident-one-its-contact-centres-2025-07-01/",
+          "published": "2025-07-02",
+          "headline_verbatim": "Australia's Qantas says 6 million customer accounts accessed in cyber hack"
+        },
+        {
+          "role": "official",
+          "publisher": "Qantas (company customer information page)",
+          "url": "https://www.qantas.com/en-au/help/cyber-safety-scams/cyber-incident",
+          "published": "2025-10-12",
+          "headline_verbatim": "Information for customers on cyber incident"
+        }
+      ],
+      "first_credible_report_headline": "Australia's Qantas says 6 million customer accounts accessed in cyber hack",
+      "verification_notes": "Reuters page opened (published 2025-07-02T08:04Z; URL slug 2025-07-01 and slug text differ from final headline, i.e. headline was updated). Qantas page is a rolling page: the 'published' date used is the latest dated update shown on the scraped page (12 Oct 2025); a search excerpt shows an earlier '9 July 2025' entry. The page modified-time metadata reads 2026-11-05. Other Qantas-incident pages (cybersecuritydive, AMI, IDM, NYT) were seen only as excerpts."
+    },
+    {
+      "id": "au-medisecure-ransomware-2024-05",
+      "kind": "incident",
+      "sector": "healthcare_digital",
+      "event_type": "data_breach",
+      "date": "2024-05-16",
+      "description": "The national cyber security coordinator announced a large-scale ransomware data breach on 16 May 2024, which the ABC confirmed was at e-script provider MediSecure; MediSecure later said about 12.9 million individuals may have had personal and health information exposed.",
+      "confirmed_at_first_report": "Per ABC (16 May 2024): the ABC could confirm MediSecure was the organisation at the centre of the breach; MediSecure's website was pulled; MediSecure said a cyber security incident affected personal and health information; AFP also looking into the breach.",
+      "unconfirmed_at_first_report": "Number of people affected (12.9 million disclosed by MediSecure in July 2024); MediSecure spokesperson said it was too early to detail the nature and extent; ABC later reported the theft itself took place earlier and continued until November 2023.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "ABC News",
+          "url": "https://www.abc.net.au/news/2024-05-16/health-organisation-part-of-large-scale-ransomware-data-breach/103856582",
+          "published": "2024-05-16",
+          "headline_verbatim": "Script provider MediSecure is at centre of 'large-scale ransomware' data breach, ABC can confirm"
+        },
+        {
+          "role": "official",
+          "publisher": "Australian Government Department of Home Affairs (National Cyber Security Coordinator)",
+          "url": "https://www.homeaffairs.gov.au/about-us/our-portfolios/cyber-security/cyber-coordinator/medisecure-cyber-security-incident",
+          "published": null,
+          "headline_verbatim": "MediSecure cyber security incident"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "ABC News - follow-up, same publisher as source 1",
+          "url": "https://www.abc.net.au/news/2024-07-18/medisecure-data-cyber-hack-12-million/104112736",
+          "published": "2024-07-18",
+          "headline_verbatim": "MediSecure reveals 12.9 million Australians had personal data stolen in cyber attack earlier this year"
+        }
+      ],
+      "first_credible_report_headline": "Script provider MediSecure is at centre of 'large-scale ransomware' data breach, ABC can confirm",
+      "verification_notes": "ABC 16 May page opened (published_time 2024-05-16T03:21Z; the on-page 'Posted 15 May 11:21pm' reflects the fetcher's US timezone). On-page title variant: 'Australian government investigating 'large-scale ransomware' data breach of script provider MediSecure'. Home Affairs page is undated (no publication date in metadata); 'published' left null rather than guessed. The 18 Jul ABC headline was read from a search-result page body and date from the URL."
+    },
+    {
+      "id": "au-akamai-bank-websites-outage-2021-06",
+      "kind": "incident",
+      "sector": "banking_payments",
+      "event_type": "outage",
+      "date": "2021-06-17",
+      "description": "On 17 June 2021 an hour-long outage hit most major Australian lenders (including CBA, Westpac and ANZ) and other websites; Reuters reported it was caused by a glitch at content delivery network provider Akamai.",
+      "confirmed_at_first_report": "Per Reuters (17 Jun 2021): websites of dozens of financial institutions and airlines in Australia and the US were briefly down on Thursday, attributed to server-related glitches at CDN provider Akamai; SMH: online banking resumed after an hour-long outage that also disrupted the RBA and Virgin Australia sites.",
+      "unconfirmed_at_first_report": "Root cause was initially unclear in the original SMH URL slug ('urgently investigating'); later reporting said an Akamai software bug, not a cyber-attack or vulnerability (Reuters search excerpt).",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "The Sydney Morning Herald",
+          "url": "https://www.smh.com.au/business/banking-and-finance/urgently-investigating-major-banks-face-service-outages-20210617-p581xq.html",
+          "published": "2021-06-17",
+          "headline_verbatim": "‘Widespread impact’: Banks back online after nationwide tech outage"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "Reuters",
+          "url": "https://www.reuters.com/world/asia-pacific/internet-outages-hit-virgin-australia-australian-lenders-2021-06-17/",
+          "published": "2021-06-17",
+          "headline_verbatim": "Major Australian banks, U.S. airlines briefly hit by widespread internet outages"
+        }
+      ],
+      "first_credible_report_headline": "Major Australian banks, U.S. airlines briefly hit by widespread internet outages",
+      "verification_notes": "Both pages opened. SMH published 2021-06-17T05:32Z, with title tag 'Banks back online after Akamai outage linked to CBA, Westpac, ANZ internet banking disruptions'; the URL slug 'urgently-investigating-major-banks-face-service-outages' suggests an earlier headline that I could not see, so the earliest SMH headline is NOT verified. Reuters (17:56Z) is later than SMH, so first_credible_report_headline is only the earliest verified, not the earliest published. No official source (bank/Akamai/regulator) was opened, hence two mainstream sources."
+    },
+    {
+      "id": "au-cba-netbank-outage-2023-06",
+      "kind": "incident",
+      "sector": "banking_payments",
+      "event_type": "outage",
+      "date": "2023-06-26",
+      "description": "On Monday 26 June 2023 Commonwealth Bank suffered an outage, starting around 7:30am AEST, that left customers unable to access accounts, including transfers and payments, for several hours before CBA said it was resolved.",
+      "confirmed_at_first_report": "Per Guardian/AFR (26 Jun 2023): customers could not check balances or transfer funds in the Netbank app; some could not make purchases; CBA later said it had resolved the outage and advised some payments would be delayed.",
+      "unconfirmed_at_first_report": "Cause: Guardian description says CBA reported the issue resolved without reporting the cause.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "The Guardian",
+          "url": "https://www.theguardian.com/news/2023/jun/26/commbank-down-outage-commonwealth-bank-cba-netbank-online-banking-accounts",
+          "published": "2023-06-26",
+          "headline_verbatim": "Major Commonwealth Bank outage prevents some customers from accessing accounts"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "Australian Financial Review",
+          "url": "https://www.afr.com/companies/financial-services/cba-sorry-for-nationwide-internet-banking-outage-20230626-p5djka",
+          "published": "2023-06-26",
+          "headline_verbatim": "CBA ‘sorry’ for nationwide internet banking outage"
+        }
+      ],
+      "first_credible_report_headline": "Major Commonwealth Bank outage prevents some customers from accessing accounts",
+      "verification_notes": "Both pages opened (Guardian published 2023-06-26T06:30Z; AFR 2023-06-26T07:41Z). AFR title tag differs: 'CBA outage: Commonwealth Bank chief information officer Gavin Munroe apologises to customers for app outage'. No official CBA statement opened, so no official source for this entry; sources are two independent mainstream outlets."
+    },
+    {
+      "id": "au-optus-data-breach-2022-09",
+      "kind": "incident",
+      "sector": "telecommunications",
+      "event_type": "data_breach",
+      "date": "2022-09-22",
+      "description": "Optus announced on 22 September 2022 that a cyber attack had compromised customer information; the OAIC opened an investigation on 11 October 2022 into the data breach made public by Optus on 22 September 2022.",
+      "confirmed_at_first_report": "Per ABC (22 Sep 2022): Optus said it had been hit by a cyber attack that compromised customer information (names, dates of birth, phone numbers, email addresses) and that the attack had been shut down.",
+      "unconfirmed_at_first_report": "Scale and data types: Reuters (23 Sep 2022) reported Optus would contact up to 10 million customers and that addresses, driver licence and passport numbers were accessed.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "ABC News",
+          "url": "https://www.abc.net.au/news/2022-09-22/optus-hit-with-cyber-attack-impacting-customers-/101466036",
+          "published": "2022-09-22",
+          "headline_verbatim": "Optus says customer information compromised in cyber attack"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "Reuters",
+          "url": "https://www.reuters.com/technology/australias-optus-says-up-10-mln-customers-caught-cyber-attack-2022-09-23/",
+          "published": "2022-09-23",
+          "headline_verbatim": "Australia's Optus says up to 10 million customers caught in cyber attack"
+        },
+        {
+          "role": "official",
+          "publisher": "Office of the Australian Information Commissioner (OAIC)",
+          "url": "https://www.oaic.gov.au/news/media-centre/oaic-opens-investigation-into-optus-over-data-breach",
+          "published": "2022-10-11",
+          "headline_verbatim": "OAIC opens investigation into Optus over data breach"
+        }
+      ],
+      "first_credible_report_headline": "Optus says customer information compromised in cyber attack",
+      "verification_notes": "All three pages opened. ABC page title tag variant: 'Optus says it has been hit by a cyber attack that has compromised customer information - ABC News'; ABC published_time 2022-09-22T04:26Z (updated 28 Sep). OAIC page metadata shows publishedDate '11 October 2022' (a separate 2023 metadata field reflects page migration). The Guardian 22 Sep 2022 item exists (URL date) but its headline was truncated in search results, so it is not cited. ACMA statement on the breach was seen only as a search excerpt."
+    },
+    {
+      "id": "au-optus-triple-zero-failure-2025-09",
+      "kind": "incident",
+      "sector": "telecommunications",
+      "event_type": "outage",
+      "date": "2025-09-18",
+      "description": "During a network upgrade on 18 September 2025 a technical failure on the Optus network meant triple-0 calls could not go through, and three people were reported to have died; the ACMA later launched Federal Court proceedings alleging Optus breached two legal obligations on 1,005 occasions during the outage.",
+      "confirmed_at_first_report": "Per ABC (19 Sep 2025): three people, including an eight-week-old baby, died after a technical failure on the Optus network meant triple-0 calls were unable to go through; Optus CEO said approximately 600 customers were potentially impacted during a network upgrade.",
+      "unconfirmed_at_first_report": "Full number of failed calls and affected states (the ABC piece says 'several states' and 'hundreds of triple-0 calls'); ACMA's 1,005-occasion allegation came later (minister statement dated 2026-07-30).",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "ABC News",
+          "url": "https://www.abc.net.au/news/2025-09-19/optus-network-failure-three-people-dead-triple-zero/105796226",
+          "published": "2025-09-19",
+          "headline_verbatim": "Optus network failure impacted triple-0 calls in several states where patients died after 'totally unacceptable' lapse"
+        },
+        {
+          "role": "official",
+          "publisher": "Minister for Communications (Department of Infrastructure, Transport, Regional Development, Communications, Sport and the Arts)",
+          "url": "https://minister.infrastructure.gov.au/wells/media-release/statement-2025-optus-triple-zero-service-outage-court-proceedings-launched",
+          "published": "2026-07-30",
+          "headline_verbatim": "Statement - 2025 Optus Triple Zero Service Outage - Court proceedings launched"
+        }
+      ],
+      "first_credible_report_headline": "Optus network failure impacted triple-0 calls in several states where patients died after 'totally unacceptable' lapse",
+      "verification_notes": "Both pages opened. ABC og:title variant: 'Three people died after Optus network failure impacted triple-0 calls' (published_time 2025-09-19T08:02Z, updated later same day). Incident date 2025-09-18 comes from the ACMA allegation text in a search excerpt of the minister page. The ABC piece is the earliest I verified, not necessarily the earliest published; an ABC live item of the same day was seen only as a truncated search result. The minister statement date (2026-07-30) is from dcterms.created."
+    },
+    {
+      "id": "au-airservices-flight-plan-it-outage-2025-11",
+      "kind": "incident",
+      "sector": "aviation",
+      "event_type": "outage",
+      "date": "2025-11-18",
+      "description": "On 18 November 2025 an IT/communications issue at Airservices Australia prevented flight plans being processed automatically, forcing manual processing and causing delays at Melbourne, Perth and Adelaide airports before flights resumed.",
+      "confirmed_at_first_report": "Per Nine (18 Nov 2025): large-scale IT outage prevented Airservices Australia from processing flight plans automatically; staff entered details manually; major delays in Melbourne, Perth and Adelaide. Per news.com.au: Airservices confirmed it was working to address an issue with systems at its Melbourne Air Traffic Service Centre.",
+      "unconfirmed_at_first_report": "Root cause: Australian Aviation (19 Nov 2025) says it understood the issue was unrelated to a global Cloudflare outage; no official cause statement was opened.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "Nine.com.au",
+          "url": "https://www.nine.com.au/australia-news/airservices-australia-it-outage-flights-cancelled-delayed-virgin-qantas-20251118-p5nghs.html",
+          "published": "2025-11-18",
+          "headline_verbatim": "Flights delayed across Australia amid large-scale IT outage"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "news.com.au",
+          "url": "https://www.news.com.au/travel/travel-updates/flights-have-been-delayed-across-major-aussie-airports-following-a-technical-issue-at-air-traffic-control/news-story/5f5c97190cd3427e83e45ea6415ea033",
+          "published": "2025-11-18",
+          "headline_verbatim": "Flights resume after technical issue sends Australian airports into chaos"
+        },
+        {
+          "role": "other",
+          "publisher": "Australian Aviation (cites media reports; not independent of source 1)",
+          "url": "https://australianaviation.com.au/2025/11/airservices-resolves-comms-outage-that-delayed-flights/",
+          "published": "2025-11-19",
+          "headline_verbatim": "Airservices resolves comms outage that delayed flights"
+        }
+      ],
+      "first_credible_report_headline": "Flights delayed across Australia amid large-scale IT outage",
+      "verification_notes": "Nine page: og:title is the headline used; the first line of the page body returned was 'Huge technical issues causing flight delays' (variant). news.com.au: og:title 'Major update after Aus airport chaos', title tag 'Air traffic control issue resolved after flight chaos'; the headline used is the in-page headline returned by the fetch, and the original (earlier) headline was not seen. Nine published 2025-11-18T09:37Z, news.com.au 09:56Z. No official Airservices statement about this incident was found (a search returned only unrelated Airservices pages), so there is no official source for this entry."
+    }
+  ],
+  "dropped": [
+    {
+      "candidate": "Telstra widespread network outage affecting triple-zero calls (July 2026)",
+      "reason": "Found in search but dated 2026, outside the 2021-2025 scope; not researched further."
+    },
+    {
+      "candidate": "ABC Latitude 'latitude-financial-data-breach-14-million-customers' (27 Mar 2023) as second independent source",
+      "reason": "The URL taken from a third-party aggregator resolved to an unrelated ABC page ('Three-doored shipping container'), so no ABC headline could be verified; iTnews was used instead."
+    },
+    {
+      "candidate": "Optus 2022 breach - Guardian 22 Sep 2022 'Customers' personal data stolen as Optus suffers massive ...'",
+      "reason": "Headline truncated in search results and page not opened; not cited. Entry retained using ABC, Reuters and OAIC."
+    },
+    {
+      "candidate": "DP World Australia - Reuters 2023-11-11 'Australia ports operator suffers cybersecurity incident, suspends ...'",
+      "reason": "Headline truncated in search results and page not opened; not cited as a source (entry has two verified sources without it)."
+    },
+    {
+      "candidate": "Sydney Trains / Metro outage",
+      "reason": "Not researched in this pass (time/effort); no candidate verified."
+    },
+    {
+      "candidate": "Coles/Woolworths-type retail incidents; Services Australia / other government incidents",
+      "reason": "Not researched in this pass; no candidate verified."
+    },
+    {
+      "candidate": "Qantas/Virgin check-in system failure (SBS 'Airport delays continue after system crash')",
+      "reason": "Date of the incident could not be established from the search excerpt and the page was not opened."
+    },
+    {
+      "candidate": "Wikipedia-only candidates (2023 Optus outage, 2022 Optus data breach pages)",
+      "reason": "Not used as sources; they are tertiary and not independent primary reporting."
+    }
+  ]
+}

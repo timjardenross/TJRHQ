@@ -1,0 +1,112 @@
+{
+ "eyre_ids": [
+  "35c916c9-e410-4822-ae5d-ce0728f59dcd",
+  "f932c96c-ec08-4279-9f15-655bb4203373",
+  "342b2fd9-e6a1-46d9-9fbc-692de8464d70",
+  "12dbf4fb-fceb-4055-ad73-016566c08742",
+  "4893fe2f-058d-4ef1-88e3-e725b23c5a9a",
+  "75657c62-2149-41f1-affe-47c6814c7d5b",
+  "735f411c-2683-40e8-b19c-2c0dfe5bbe5e"
+ ],
+ "m365_ids": [
+  "55d3fe5f-06f5-4fb2-9cfb-560e75a4be01",
+  "1d9cd2a4-00cd-442e-8936-8ced62bfa3b7",
+  "cd458e26-5923-451c-a997-2fd57d8f0958",
+  "5faa0a3f-792a-43cc-9336-9dd84b8867d1",
+  "d1f78bc2-a4b4-4a29-9c4c-e3e2b8575591",
+  "314e752e-3934-49e4-bc87-d8358283ca0a"
+ ],
+ "events": [
+  {
+   "id": "55d3fe5f-06f5-4fb2-9cfb-560e75a4be01",
+   "title": "Microsoft's Friday 13th outage continues with fraud and employee risk warnings - Insurance Business",
+   "source": "Google News - Critical Infrastructure/Energy Cyberattack AU",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 19:04:27.88617+00"
+  },
+  {
+   "id": "35c916c9-e410-4822-ae5d-ce0728f59dcd",
+   "title": "'One-in-2,000-year weather' to be investigated post-blackout",
+   "source": "ABC News",
+   "geography": "AU",
+   "collected_at": "2026-11-22 06:44:09.848263+00"
+  },
+  {
+   "id": "f932c96c-ec08-4279-9f15-655bb4203373",
+   "title": "Eyre Peninsula residents worried about further blackouts",
+   "source": "ABC News",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-21 08:44:56.608926+00"
+  },
+  {
+   "id": "342b2fd9-e6a1-46d9-9fbc-692de8464d70",
+   "title": "Blackout prompts questions over ElectraNet's recent $300m network upgrade",
+   "source": "ABC News",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-20 21:25:29.914747+00"
+  },
+  {
+   "id": "1d9cd2a4-00cd-442e-8936-8ced62bfa3b7",
+   "title": "APRA calls Microsoft outage a \"near miss\" for financial system - Insurance Business",
+   "source": "Google News - APRA/ASIC Operational Resilience",
+   "geography": "AU",
+   "collected_at": "2026-11-20 19:00:06.619272+00"
+  },
+  {
+   "id": "cd458e26-5923-451c-a997-2fd57d8f0958",
+   "title": "Microsoft access being restored after global Outlook disruption - ABC News & Headlines – Australian Broadcasting Corporation",
+   "source": "Google News - Telstra",
+   "geography": "AU",
+   "collected_at": "2026-11-19 23:11:43.930978+00"
+  },
+  {
+   "id": "12dbf4fb-fceb-4055-ad73-016566c08742",
+   "title": "Live: Power still out after SA transmission line downed",
+   "source": "ABC News",
+   "geography": "AU",
+   "collected_at": "2026-11-19 23:11:43.4743+00"
+  },
+  {
+   "id": "4893fe2f-058d-4ef1-88e3-e725b23c5a9a",
+   "title": "11,000 still without power after storm cell topples transmission towers",
+   "source": "ABC News",
+   "geography": "AU",
+   "collected_at": "2026-11-19 19:00:55.986063+00"
+  },
+  {
+   "id": "75657c62-2149-41f1-affe-47c6814c7d5b",
+   "title": "Government in emergency talks after 'crushed' transmission towers cut power - ABC News & Headlines – Australian Broadcasting Corporation",
+   "source": "Google News - Telstra",
+   "geography": "AU",
+   "collected_at": "2026-11-19 10:07:19.366578+00"
+  },
+  {
+   "id": "735f411c-2683-40e8-b19c-2c0dfe5bbe5e",
+   "title": "Breaking: Transmission towers 'crushed', knocking out power to 20,000",
+   "source": "ABC News",
+   "geography": "AU",
+   "collected_at": "2026-11-19 07:07:17.97292+00"
+  },
+  {
+   "id": "5faa0a3f-792a-43cc-9336-9dd84b8867d1",
+   "title": "Microsoft restores services after global Outlook and Teams outage hits more than 130,000 users - Yahoo Finance Australia",
+   "source": "Google News - Telstra",
+   "geography": "AU",
+   "collected_at": "2026-11-18 13:59:36.885485+00"
+  },
+  {
+   "id": "d1f78bc2-a4b4-4a29-9c4c-e3e2b8575591",
+   "title": "Microsoft says three-month-old bug behind global M365 outage",
+   "source": "iTnews",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-16 19:00:05.3854+00"
+  },
+  {
+   "id": "314e752e-3934-49e4-bc87-d8358283ca0a",
+   "title": "Microsoft unlikely to compensate for loss of productivity",
+   "source": "ABC News",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-16 04:53:26.757252+00"
+  }
+ ]
+}

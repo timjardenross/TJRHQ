@@ -109,7 +109,7 @@ def _build_message(job: str):
         opps = _opp.gather_opportunities()
         if not any(getattr(o, "is_publishable", True) for o in opps):
             return None
-        body = _weekly.compose_weekly_brief(opps)
+        body = _weekly.compose_weekly_brief(opps, evidence_lines=_weekly.evidence_lines_for(opps))
         return push.PushMessage(
             kind="influence", output_class="action",
             title="Weekly Thought Leadership Brief", body=body, severity="info", raw=True,

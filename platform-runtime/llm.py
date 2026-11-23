@@ -414,7 +414,20 @@ def is_gemini_available() -> bool:
 
 
 def generate_with_gemini(prompt: str, system_prompt: str | None = None, model: str | None = None) -> str:
-    """Generate via Google AI (Gemini) REST API. Raises LLMUnavailableError on failure."""
+    """Generate via Google AI (Gemini) REST API. Raises LLMUnavailableError on failure.
+
+    R5: this path has no redaction guard, so personal health content is refused here (default
+    deny; HEALTH_LLM_EXTERNAL_ALLOWED=1 is the only override)."""
+    try:
+        from core.security import personal_data_policy
+    except ImportError:  # platform-runtime may run with only its own directory on sys.path
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from core.security import personal_data_policy
+    try:
+        personal_data_policy.assert_may_leave_host(prompt, system_prompt or "", route="direct Gemini")
+    except personal_data_policy.PersonalDataBlockedError as exc:
+        raise LLMUnavailableError(str(exc)) from exc
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise LLMUnavailableError("Google AI (Gemini) credentials are not configured.")

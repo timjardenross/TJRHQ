@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
 import { buildShipContext } from '@/lib/ai-context';
+import { PERSONAL_HEALTH_CLOUD_REFUSAL, personalHealthBlockedReasons } from '@/lib/personalHealthGuard';
 import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
 import { classifyIntent, dispatchIntent } from '@/lib/number-one/intent-router';
+import { chatLocalFirstEnabled } from '@/lib/chatPrivacy';
+import { handleLocalFirstChat } from '@/lib/chatLocalFirst';
 
 // Ollama Cloud base URL — configurable without code changes
 const OLLAMA_BASE_URL =
@@ -136,7 +139,7 @@ function streamOllamaResponse(upstream: Response): Response {
           )
         );
       } finally {
-        controller.close();
+        try { controller.close(); } catch { /* already closed after the final chunk */ }
         reader.releaseLock();
       }
     },
@@ -191,7 +194,7 @@ export async function POST(request: NextRequest) {
 
   const { messages = [], model, role, stream = false, systemPrompt } = body as ChatRequest & { systemPrompt?: string };
 
-  if (!messages.length) {
+  if (!Array.isArray(messages) || !messages.length) {
     return NextResponse.json({ error: 'messages array is required' }, { status: 400 });
   }
 
@@ -213,7 +216,7 @@ export async function POST(request: NextRequest) {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
     const classified = lastUserMessage ? classifyIntent(lastUserMessage.content) : null;
     if (classified) {
-      const dispatchResult = await dispatchIntent(classified, supabase, lastUserMessage?.id ?? null).catch(() => ({ handled: false } as const));
+      const dispatchResult = await dispatchIntent(classified, supabase, lastUserMessage?.id ?? null, chatLocalFirstEnabled() ? { modelBacked: false } : {}).catch(() => ({ handled: false } as const));
       if (dispatchResult.handled && dispatchResult.reply) {
         return stream
           ? sseFromText(dispatchResult.reply)
@@ -222,11 +225,43 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // #664: CHAT_LOCAL_FIRST_V1 (default OFF). When ON, the new privacy boundary owns the rest of the request: local by
+  // default, cloud only for a validated intent, never a cloud fallback for a local failure, and the legacy
+  // HEALTH_LLM_EXTERNAL_ALLOWED opt-in is not consulted. When OFF the code below is unchanged (#663/#666 behaviour).
+  if (chatLocalFirstEnabled()) {
+    const resolvedRoleLF = getRoleById(role ?? 'chief_engineer');
+    return handleLocalFirstChat({
+      messages,
+      role,
+      systemPrompt,
+      explicit: (body as { cloudIntent?: { intent?: unknown; slot?: unknown } }).cloudIntent ?? null,
+      stream: stream === true,
+      cloudModel: DEFAULT_MODEL,
+      roleId: resolvedRoleLF.id,
+      streamResponse: streamOllamaResponse,
+      buildLocalSystem: async () => {
+        const base = (typeof systemPrompt === 'string' && systemPrompt.trim()) || resolvedRoleLF.systemPrompt;
+        try {
+          const ctx = await buildShipContext();
+          return ctx.text ? `${base}\n\n${ctx.text}` : base;
+        } catch {
+          return base;
+        }
+      },
+    });
+  }
+
   if (!process.env.OLLAMA_CLOUD_ENABLED || process.env.OLLAMA_CLOUD_ENABLED !== 'true') {
     return NextResponse.json(
       { error: 'AI Console is not enabled. Set OLLAMA_CLOUD_ENABLED=true in environment.' },
       { status: 503 }
     );
+  }
+
+  // Privacy: structured personal-health content is never sent to the cloud model (unless explicitly opted in).
+  const blocked = personalHealthBlockedReasons([systemPrompt ?? '', ...messages.map((m) => m.content)]);
+  if (blocked.length > 0) {
+    return NextResponse.json({ error: PERSONAL_HEALTH_CLOUD_REFUSAL, code: 'personal_health_blocked' }, { status: 422 });
   }
 
   // Use client-provided system prompt if supplied (user edited), else role preset

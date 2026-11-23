@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { fetchTrendRows } from '../trends/data';
+import { generatePersonalHealthText } from '@/lib/personalHealthGuard';
 import {
   REPORT_SYSTEM_PROMPT,
   REPORT_WINDOW_DAYS,
@@ -97,7 +98,9 @@ export async function GET(request: NextRequest) {
     let source: 'llm' | 'fallback' = 'fallback';
     if (stats.recordedDays >= 2) {
       try {
-        const raw = (await callGemini(prompt)) ?? (await callMistral(prompt));
+        // Local model only; Gemini -> Mistral only on explicit opt-in. No answer -> buildFallbackReport below.
+        const raw = await generatePersonalHealthText(REPORT_SYSTEM_PROMPT, prompt, { json: true, maxTokens: 512 },
+          async () => (await callGemini(prompt)) ?? (await callMistral(prompt)));
         report = raw ? parseReportResponse(raw) : null;
         if (report) source = 'llm';
       } catch (err) {

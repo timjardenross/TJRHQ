@@ -37,6 +37,7 @@ from core.llm.provider_chain import (
     call_mistral,
     call_ollama,
 )
+from core.security import personal_data_policy
 from intelligence.config import (
     GEMINI_API_KEY,
     MISTRAL_API_KEY,
@@ -60,6 +61,17 @@ from intelligence.config import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _may_use_external(*texts: str) -> bool:
+    """False when any text carries personal health content (or cannot be classified) and the Captain has not opted in.
+    Fails closed: a detector error is treated as 'personal'."""
+    if personal_data_policy.external_ai_allowed():
+        return True
+    try:
+        return not any(personal_data_policy.contains_personal_health(t) for t in texts)
+    except Exception:  # noqa: BLE001 - fail closed: unclassifiable text is treated as personal and stays on this host
+        return False
 
 # 2026-08-22: generalized from a banking/CPS230-only frame to the daily
 # educational digest frame. This is the same LLM call chain (Model Router →
@@ -105,6 +117,9 @@ class LLMProvider:
         """
         if not MISTRAL_API_KEY or not MISTRAL_QA_AGENT_ID:
             return None
+        if not _may_use_external(brief_text):
+            log.info("[qa-validation] skipped: brief contains personal health content (local-only)")
+            return None
         prompt = (
             f"{_SYSTEM_PROMPT}\n\n"
             "You are the QA Validation Officer. Review the finished brief below for one thing "
@@ -136,6 +151,9 @@ class LLMProvider:
         earned by the events. Non-blocking, log-only. Never raises.
         """
         if not MISTRAL_API_KEY or not MISTRAL_CHALLENGE_AGENT_ID:
+            return None
+        if not _may_use_external(brief_text):
+            log.info("[risk-challenge] skipped: brief contains personal health content (local-only)")
             return None
         prompt = (
             f"{_SYSTEM_PROMPT}\n\n"
@@ -188,6 +206,9 @@ class LLMProvider:
             ("mistral-small",           self._mistral),
             (OLLAMA_MODEL,              self._ollama),
         ]
+        if not local_only and not _may_use_external(prompt):
+            log.warning("LLM prompt contains personal health content: routing local-only (no Model Router, Gemini or Mistral)")
+            local_only = True
         if local_only:
             providers = [(OLLAMA_MODEL, self._ollama)]
         elif not use_mistral_pipeline:
@@ -211,6 +232,7 @@ class LLMProvider:
         Call Model Router :8891/api/model/intelligence-brief.
         Logs WARNING when falling through so the Captain can see local vs cloud usage.
         """
+        personal_data_policy.assert_may_leave_host(prompt, route="Model Router (cloud)")
         url = f"{MODEL_ROUTER_URL.rstrip('/')}/api/model/intelligence-brief"
         body = json.dumps({"prompt": prompt}).encode()
         req = urllib.request.Request(
@@ -257,6 +279,7 @@ class LLMProvider:
         if not MISTRAL_RESEARCH_AGENT_ID or not MISTRAL_BRIEFING_AGENT_ID:
             raise RuntimeError("MISTRAL_RESEARCH_AGENT_ID or MISTRAL_BRIEFING_AGENT_ID not configured")
 
+        personal_data_policy.assert_may_leave_host(prompt, route="Mistral brief pipeline")
         log.info("[pipeline] Starting Mistral brief pipeline")
 
         # One client for the whole run instead of one per stage. mistralai's
@@ -481,6 +504,7 @@ class LLMProvider:
         outside the pipeline (check_brief_quality/check_risk_rating, each a
         single one-off call) can omit it and get a fresh one as before.
         """
+        personal_data_policy.assert_may_leave_host(prompt, route=f"Mistral agent ({stage})")
         if client is None:
             from mistralai import Mistral
             client = Mistral(api_key=MISTRAL_API_KEY)
@@ -593,6 +617,7 @@ class LLMProvider:
     # ─── Gemini 2.5 Flash ─────────────────────────────────────────────────────
 
     def _gemini(self, prompt: str) -> str | None:
+        personal_data_policy.assert_may_leave_host(prompt, route="Gemini")
         result = call_gemini(
             _SYSTEM_PROMPT, prompt,
             api_key=GEMINI_API_KEY, max_output_tokens=2048, temperature=0.3, timeout=30,
@@ -603,6 +628,7 @@ class LLMProvider:
     # ─── Mistral Small ────────────────────────────────────────────────────────
 
     def _mistral(self, prompt: str) -> str | None:
+        personal_data_policy.assert_may_leave_host(prompt, route="Mistral Small")
         result = call_mistral(
             _SYSTEM_PROMPT, prompt,
             api_key=MISTRAL_API_KEY, max_tokens=2048, temperature=0.3, timeout=30,

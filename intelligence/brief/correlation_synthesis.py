@@ -24,6 +24,8 @@ import logging
 import re
 from typing import Any
 
+from core.security import personal_data_policy
+
 log = logging.getLogger(__name__)
 
 
@@ -131,7 +133,9 @@ def synthesize_correlation_insights(
     prompt = _build_prompt(correlation_data)
 
     try:
-        raw_response, provider = llm_provider.generate(prompt)
+        # R2: pain/energy/sleep/CPAP/mood statistics stay on this machine unless the Captain opts in.
+        raw_response, provider = llm_provider.generate(
+            prompt, local_only=not personal_data_policy.external_ai_allowed())
     except Exception as exc:  # noqa: BLE001 - already logged; caller returns a structured error-status dict
         log.error(f"LLM generation failed: {exc}")
         return {

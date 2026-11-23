@@ -44,6 +44,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
+from core.security import personal_data_policy
 
 log = logging.getLogger("xo-bot.debrief")
 
@@ -258,6 +259,10 @@ def _call_provider_chain(system_prompt: str, prompt: str, *, max_tokens: int = 3
         ("mistral", lambda: call_mistral(system_prompt, prompt, api_key=_MISTRAL_API_KEY, max_tokens=max_tokens).text),
         ("ollama", lambda: call_ollama(system_prompt, prompt, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL, num_predict=max_tokens).text),
     ]
+    # R4: debrief turns are the Captain's own words about stressors, energy and mood. Local only
+    # unless HEALTH_LLM_EXTERNAL_ALLOWED=1; on failure the callers use their deterministic fallback.
+    if not personal_data_policy.external_ai_allowed():
+        providers = [(n, f) for n, f in providers if n == "ollama"]
     for name, fn in providers:
         try:
             result = fn()

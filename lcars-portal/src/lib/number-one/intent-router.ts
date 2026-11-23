@@ -144,6 +144,9 @@ export async function dispatchIntent(
    * 'remember' needs this; every other intent mutates an existing row via
    * UPDATE, which is naturally idempotent without one. */
   requestId?: string | null,
+  /** #664: CHAT_LOCAL_FIRST_V1 passes modelBacked:false so "I'm stuck" & co never call the (cloud-configured) decompose model;
+   * they use the deterministic reply. Default (flag OFF) is unchanged. */
+  options: { modelBacked?: boolean } = {},
 ): Promise<DispatchResult> {
   const ctx = await getNumberOneContext(sb);
 
@@ -206,7 +209,7 @@ export async function dispatchIntent(
       const task = await getTaskById(sb, ctx.object_id);
       if (!task) return { handled: true, reply: "That task isn't there anymore — what would you like to work on?" };
       const mode = classified.intent === 'stuck' ? 'first' : 'smaller';
-      const action = await decompose(task.title, mode as 'first' | 'smaller');
+      const action = options.modelBacked === false ? null : await decompose(task.title, mode as 'first' | 'smaller');
       await setNumberOneContext(sb, { ...ctx, last_intent: classified.intent });
       const note = await evidenceAwareNote(sb);
       if (!action) {

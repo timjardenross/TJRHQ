@@ -1,0 +1,1285 @@
+{
+ "reviewer": "A",
+ "labels": [
+  {
+   "id": "31a73b",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "report on ED strain; no incident"
+  },
+  {
+   "id": "3b48f7",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "data offshore concern; no stated consequence"
+  },
+  {
+   "id": "de43fc",
+   "materiality": "H",
+   "priority": "E",
+   "group": "g-php-vuln",
+   "role": "original",
+   "note": "critical flaw drives breach spike, mainstream report"
+  },
+  {
+   "id": "502294",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "340k client breach, non-essential retailer"
+  },
+  {
+   "id": "17ede0",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "Cloudflare global issue, resolved"
+  },
+  {
+   "id": "20fadb",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "d4968c",
+   "materiality": "H",
+   "priority": "E",
+   "group": "g-fedcourt-breach",
+   "role": "original",
+   "note": "Federal Court data breach deepening"
+  },
+  {
+   "id": "a31309",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "29d51b",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "1093af",
+   "materiality": "L",
+   "priority": "W",
+   "group": null,
+   "role": "commentary",
+   "note": "agency warning, no incident"
+  },
+  {
+   "id": "60f9f4",
+   "materiality": "M",
+   "priority": "W",
+   "group": "g-php-vuln",
+   "role": "original",
+   "note": "critical PHP CVE advisory"
+  },
+  {
+   "id": "720d5c",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "18e7d8",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "minor Cloudflare logging unavailable"
+  },
+  {
+   "id": "82c268",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "regional R2 errors, resolved"
+  },
+  {
+   "id": "0b19f0",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "27dbe0",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "regional network issue, resolved"
+  },
+  {
+   "id": "0ba0cd",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "57c3d2",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "routine patch roundup, advisory only"
+  },
+  {
+   "id": "79a646",
+   "materiality": "M",
+   "priority": "W",
+   "group": "g-fedcourt-breach",
+   "role": "commentary",
+   "note": "historic concerns re court breach"
+  },
+  {
+   "id": "202b43",
+   "materiality": "H",
+   "priority": "E",
+   "group": null,
+   "role": "original",
+   "note": "Google Cloud failure, banks offline in Europe"
+  },
+  {
+   "id": "b6bc6a",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "holiday park breach and scams"
+  },
+  {
+   "id": "126c72",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "degraded traffic, investigating"
+  },
+  {
+   "id": "c62aed",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "37589b",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "b5ad66",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "530457",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "6d6672",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "b93bae",
+   "materiality": "L",
+   "priority": "R",
+   "group": "g-airbnb-rules",
+   "role": "original",
+   "note": "Airbnb policy change"
+  },
+  {
+   "id": "2ca862",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "London network issue, resolved"
+  },
+  {
+   "id": "62c6d8",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "7f13f0",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "7d3a64",
+   "materiality": "L",
+   "priority": "R",
+   "group": "g-haines-attack",
+   "role": "commentary",
+   "note": "online abuse after MP attack"
+  },
+  {
+   "id": "d59618",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "54056e",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "ae04a1",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "spyware report, scale unclear"
+  },
+  {
+   "id": "0f2516",
+   "materiality": "H",
+   "priority": "E",
+   "group": null,
+   "role": "original",
+   "note": "Binance withdrawals suspended after apparent hack"
+  },
+  {
+   "id": "ae0b37",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "25d8f5",
+   "materiality": "H",
+   "priority": "E",
+   "group": null,
+   "role": "original",
+   "note": "Aramco fire after attack at oil hub"
+  },
+  {
+   "id": "a84fe7",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "0bb5d9",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "b752d2",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "commentary",
+   "note": "roundup of Japanese cyberattack compensation"
+  },
+  {
+   "id": "809a16",
+   "materiality": "H",
+   "priority": "V",
+   "group": null,
+   "role": "original",
+   "note": "extraordinary claim via aggregator; unconfirmed"
+  },
+  {
+   "id": "eb1ca7",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "commentary",
+   "note": "cyber recovery commentary"
+  },
+  {
+   "id": "49c428",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "8406ac",
+   "materiality": "H",
+   "priority": "E",
+   "group": "g-php-vuln",
+   "role": "original",
+   "note": "critical PHP flaws exploited widely"
+  },
+  {
+   "id": "5920bd",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "d611bd",
+   "materiality": "L",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "minor Slack feature issue"
+  },
+  {
+   "id": "10e251",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "KEV listing only"
+  },
+  {
+   "id": "3efc32",
+   "materiality": "H",
+   "priority": "E",
+   "group": null,
+   "role": "original",
+   "note": "energy retailer customer data breach"
+  },
+  {
+   "id": "999fda",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "d7cd79",
+   "materiality": "H",
+   "priority": "E",
+   "group": null,
+   "role": "original",
+   "note": "Telstra hit by AWS outage"
+  },
+  {
+   "id": "7cf502",
+   "materiality": "L",
+   "priority": "R",
+   "group": "g-us-execution",
+   "role": "commentary",
+   "note": "regulator and livestream commentary"
+  },
+  {
+   "id": "33578d",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "ad7103",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "Salesforce disruption, scope unclear"
+  },
+  {
+   "id": "67fd1e",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "company staffing consequences, not incident"
+  },
+  {
+   "id": "2a2d61",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "765965",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "962097",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "AEMO internal system outage, limited"
+  },
+  {
+   "id": "11ff10",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "83a79e",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "regional ChatGPT errors"
+  },
+  {
+   "id": "35ea29",
+   "materiality": "M",
+   "priority": "W",
+   "group": "g-php-vuln",
+   "role": "commentary",
+   "note": "PHP vulnerability wrap-up"
+  },
+  {
+   "id": "045b29",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "Fortinet advisory, exploitation unstated"
+  },
+  {
+   "id": "cf25ab",
+   "materiality": "L",
+   "priority": "R",
+   "group": "g-haines-attack",
+   "role": "commentary",
+   "note": "attacker medical background"
+  },
+  {
+   "id": "585d40",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "6668bf",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "c5e8b1",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "Supabase upgrade failures, limited"
+  },
+  {
+   "id": "7cdf01",
+   "materiality": "M",
+   "priority": "W",
+   "group": "g-php-vuln",
+   "role": "original",
+   "note": "Notion PHP2Shell vendor notice"
+  },
+  {
+   "id": "6c5b30",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "myGov disruption, unclear detail"
+  },
+  {
+   "id": "e1c833",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "Chromium advisory, no exploitation"
+  },
+  {
+   "id": "12cda4",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "Vercel build failures"
+  },
+  {
+   "id": "010197",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "849940",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "b81779",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "2023c3",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "eca664",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "430929",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "Fastly Mumbai performance retrospective"
+  },
+  {
+   "id": "6b5b69",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "4f8e58",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "7cfa8e",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "03bbaf",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "5f48a0",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "1bcc4e",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "2bb078",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "0d15f8",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "ddbefe",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "12d35a",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "5edfa2",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "aa4017",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "a69c6c",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "0d70b3",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "532872",
+   "materiality": "L",
+   "priority": "R",
+   "group": "g-airbnb-rules",
+   "role": "original",
+   "note": "Airbnb policy change"
+  },
+  {
+   "id": "bc8561",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "b21a65",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "07f28c",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "8d2dc1",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "2b1123",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "73e104",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "cancellation of contingency event"
+  },
+  {
+   "id": "566ef0",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "c19f80",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "528811",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "fb62fc",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "a9af4a",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "5402db",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "f326cf",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "008dbc",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "KEV listing only"
+  },
+  {
+   "id": "5db7b7",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "0d4658",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "6f7ef7",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "26106e",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "d0ca5e",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "ba7fb7",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "476550",
+   "materiality": "M",
+   "priority": "W",
+   "group": "g-php-vuln",
+   "role": "original",
+   "note": "NCSC PHP advisory"
+  },
+  {
+   "id": "0e2a3d",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "76644f",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "a615fb",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "KEV listing only"
+  },
+  {
+   "id": "b76b4a",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "9ed8e3",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "planned trackwork"
+  },
+  {
+   "id": "a4a49f",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "754255",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "OT advisory, no exploitation"
+  },
+  {
+   "id": "0f8391",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "31e8af",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "eb7c23",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "b88c26",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "8276c9",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "degraded performance, limited"
+  },
+  {
+   "id": "2fdb93",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "5715ce",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "87a80d",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "5193e1",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "a3e9be",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "cf56e6",
+   "materiality": "L",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "geopolitical; unclear operational impact"
+  },
+  {
+   "id": "f1f57c",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "9d88c6",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "d42590",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "21d26c",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "8bdff3",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "e43608",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "8cd6ef",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "7c0f93",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "921d56",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "a95ea5",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "f88c1a",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "e4a70b",
+   "materiality": "L",
+   "priority": "R",
+   "group": "g-us-execution",
+   "role": "original",
+   "note": "minister comment on livestream"
+  },
+  {
+   "id": "41d6fe",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "c6ba5b",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "0d0e10",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "84bb81",
+   "materiality": "H",
+   "priority": "E",
+   "group": null,
+   "role": "original",
+   "note": "container ship sunk in Hormuz"
+  },
+  {
+   "id": "d45824",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "697a79",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "c89416",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "87afed",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "5a1098",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "47ef27",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "AGM fallout from earlier outage"
+  },
+  {
+   "id": "cb1640",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "772fff",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "8e93bc",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "48c49d",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "98dd4c",
+   "materiality": "L",
+   "priority": "R",
+   "group": "g-haines-attack",
+   "role": "commentary",
+   "note": "profile of alleged attacker"
+  },
+  {
+   "id": "5d703b",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "03d82f",
+   "materiality": "L",
+   "priority": "R",
+   "group": null,
+   "role": "original",
+   "note": "no operational incident"
+  },
+  {
+   "id": "ce0542",
+   "materiality": "M",
+   "priority": "W",
+   "group": null,
+   "role": "original",
+   "note": "Notion access outage, unclear scope"
+  }
+ ]
+}

@@ -12,6 +12,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
+import { chatLocalFirstEnabled } from '@/lib/chatPrivacy';
+import { callWorkbenchLocal } from '@/lib/workbenchLocalLlm';
 
 // 2026-09-26: no-op touch to force a real Vercel build (Ignored Build Step
 // was skipping redeploys with no file diff, so env var changes weren't
@@ -37,6 +39,8 @@ function serviceClient() {
 }
 
 async function callLLM(system: string, user: string): Promise<string> {
+  // #664 PR B: with CHAT_LOCAL_FIRST_V1 on, drafts are processed by the local model only (no cloud, no bypass).
+  if (chatLocalFirstEnabled()) return callWorkbenchLocal(system, user);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (OLLAMA_API_KEY) headers['Authorization'] = `Bearer ${OLLAMA_API_KEY}`;
 

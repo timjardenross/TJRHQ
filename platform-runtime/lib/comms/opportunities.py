@@ -26,7 +26,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from lib.comms import pillars
+from lib.comms import editorial, pillars, research_library
 
 # Classification buckets (mission WP1).
 PUBLISHABLE = "publishable"
@@ -45,6 +45,8 @@ _BASE_IMPACT = {
     "research": 0.65, "ADR": 0.4, "resilience": 0.5, "objective": 0.45,
     # MSN-0078: real, evidence-backed outcomes are strong content assets.
     "outcome": 0.62,
+    # Editorial uplift: Notion Research Library rows.
+    "library": 0.6,
 }
 
 # Default content format per source kind (WP4 formats).
@@ -53,6 +55,7 @@ _DEFAULT_FORMAT = {
     "capability": "behind_the_scenes", "research": "insight_article",
     "ADR": "framework_explanation", "resilience": "industry_commentary",
     "objective": "executive_insight", "outcome": "lessons_learned",
+    "library": "article_draft",
 }
 
 # MSN-0078 WP4: outcome content_classification → suggested COMMS format.
@@ -85,6 +88,9 @@ class ContentOpportunity:
     # MSN-0079: the underlying outcome content_classification (sensitivity routing).
     # None for the 8 Command-Memory sources; set for outcome-sourced opportunities.
     content_classification: str | None = None
+    # Editorial uplift (COMMS_EDITORIAL_V2): inputs + computed score. None when off.
+    info: editorial.EditorialInfo | None = None
+    escore: editorial.EditorialScore | None = None
 
     @property
     def is_publishable(self) -> bool:
@@ -155,6 +161,126 @@ def outcome_opportunities(candidates: list[dict]) -> list[ContentOpportunity]:
     return out
 
 
+# ── Editorial uplift (COMMS_EDITORIAL_V2; pure) ───────────────────────────────
+
+_INTERNAL_GRADE_KINDS = ("outcome", "lesson", "decision")
+
+
+def library_opportunities(rows: list[dict]) -> list[ContentOpportunity]:
+    """Pure: Research Library rows → opportunities (graded unverified until re-verified)."""
+    out: list[ContentOpportunity] = []
+    for r in rows or []:
+        o = build_opportunity("library", ref=str(r.get("url") or r.get("id") or ""),
+                              title=str(r.get("name") or ""), body=str(r.get("summary") or ""))
+        stream, _p, _h = editorial.classify_stream(f"{o.title} {r.get('summary') or ''}",
+                                                   area=r.get("area") or None)
+        refs = [r["source"]] if str(r.get("source") or "").startswith("http") and "claude.ai" not in str(r.get("source")) and "chatgpt.com" not in str(r.get("source")) else []
+        o.info = editorial.EditorialInfo(
+            stream=stream, evidence_grade="unverified_library",
+            research_status=r.get("status") or None, as_of=r.get("cut_off") or None,
+            external_refs=refs, internal_refs=[f"library:{o.source_ref}"])
+        out.append(o)
+    return out
+
+
+MIN_SIGNAL_MATCH_TERMS = 3
+
+
+def _signal_matches(o: ContentOpportunity, s: dict) -> bool:
+    """A signal corroborates a topic only if it shares >=3 distinct terms with it AND, when both
+    carry a stream, belongs to the same editorial stream. (Was: >=2 terms, no stream check.)"""
+    terms = editorial.shared_theme(f"{o.title} {o.excerpt}",
+                                   f"{s.get('suggested_angle') or ''} {s.get('source_name') or ''}",
+                                   minimum=MIN_SIGNAL_MATCH_TERMS)
+    if not terms:
+        return False
+    sig_stream = editorial.PILLAR_STREAM.get(s.get("pillar_key") or "")
+    return not (sig_stream and o.info and o.info.stream and sig_stream != o.info.stream)
+
+
+def attach_signals(opps: list[ContentOpportunity], signals: list[dict]) -> None:
+    """Pure: attach external content_signals as graded corroboration and timeliness."""
+    for o in opps:
+        if o.info is None:
+            continue
+        for s in [s for s in signals or [] if _signal_matches(o, s)][:6]:
+            name = s.get("source_name") or ""
+            o.info.external_refs.append(f"signal:{s.get('event_id_text')} ({name})")
+            o.info.external_sources.append({"ref": str(s.get("event_id_text")),
+                                            "kind": editorial.grade_signal_source(name),
+                                            "family": name.strip().lower() or "unknown"})
+            when = str(s.get("scored_at") or "")
+            if when and (o.info.as_of is None or when > o.info.as_of):
+                o.info.as_of = when
+
+
+def apply_editorial(opps: list[ContentOpportunity], *, existing_titles: list[str],
+                    signals: list[dict] | None = None, now=None) -> list[ContentOpportunity]:
+    """Pure: score every opportunity, drop duplicates, demote confidential, rank."""
+    for o in opps:
+        if o.info is None:
+            o.info = editorial.EditorialInfo(
+                evidence_grade="internal_evidence" if o.source_kind in _INTERNAL_GRADE_KINDS else None,
+                internal_refs=[f"{o.source_kind}:{o.source_ref}"])
+    attach_signals(opps, signals or [])
+    kept: list[ContentOpportunity] = []
+    for o in opps:
+        o.escore = editorial.score_candidate(o.title, o.excerpt, o.info, source_kind=o.source_kind,
+                                             existing_titles=existing_titles, now=now)
+        if o.escore.duplicate:
+            continue
+        if o.escore.blocked_terms:
+            o.classification = INTERNAL_ONLY
+        kept.append(o)
+    kept.sort(key=lambda o: (-int(o.escore.eligible), -o.escore.total, -o.score))
+    return kept
+
+
+def _finalize(out: list[ContentOpportunity], publishable_only: bool) -> list[ContentOpportunity]:
+    if editorial.enabled():
+        out = out + library_opportunities(_gather_library())
+        out = apply_editorial(out, existing_titles=_existing_titles(), signals=_gather_signals())
+        if publishable_only:
+            out = [o for o in out if o.is_publishable]
+        return out
+    if publishable_only:
+        out = [o for o in out if o.is_publishable]
+    out.sort(key=lambda o: -o.score)
+    return out
+
+
+def _gather_library() -> list[dict]:
+    try:
+        return research_library.fetch_rows()
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort library read
+        log.debug("[comms.opportunities] library unavailable: %s", exc)
+        return []
+
+
+def _existing_titles() -> list[str]:
+    try:
+        from lib.comms import portfolio
+        return portfolio.fetch_titles(("draft", "review", "approved", "ready_to_publish", "published"))
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort dedupe read
+        log.debug("[comms.opportunities] existing titles unavailable: %s", exc)
+        return []
+
+
+def _gather_signals(limit: int = 50) -> list[dict]:
+    """External content_signals (read-only, graceful). [] when offline."""
+    c = _client()
+    if c is None:
+        return []
+    try:
+        res = (c.raw_client.table("content_signals")
+               .select("event_id_text,source_name,pillar_key,suggested_angle,scored_at,rank_score")
+               .eq("suppressed", False).order("scored_at", desc=True).limit(limit).execute())
+        return list(res.data or [])
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort signals read
+        log.debug("[comms.opportunities] signals unavailable: %s", exc)
+        return []
+
+
 # ── Supabase access (graceful) ────────────────────────────────────────────────
 
 def _client():
@@ -190,10 +316,7 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
     c = _client()
     if c is None:
         # No Command Memory client — return outcome-derived opportunities only.
-        if publishable_only:
-            out = [o for o in out if o.is_publishable]
-        out.sort(key=lambda o: -o.score)
-        return out
+        return _finalize(out, publishable_only)
 
     def add(kind, ref, title, body, quality=None):
         try:
@@ -258,10 +381,7 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
     except Exception as _exc:  # noqa: BLE001 - best-effort objectives source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
 
-    if publishable_only:
-        out = [o for o in out if o.is_publishable]
-    out.sort(key=lambda o: -o.score)
-    return out
+    return _finalize(out, publishable_only)
 
 
 def _gather_outcome_candidates(limit: int) -> list[dict]:

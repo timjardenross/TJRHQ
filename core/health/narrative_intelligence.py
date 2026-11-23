@@ -37,7 +37,13 @@ _CAPTAIN_PROFILE_PATH = _REPO_ROOT / "knowledge" / "memory" / "captain_profile.t
 
 
 def _load_health_exec_excerpt() -> str:
-    """Return HEALTH PROFILE + EXECUTIVE FUNCTION SUPPORT sections from the captain profile."""
+    """Return HEALTH PROFILE + EXECUTIVE FUNCTION SUPPORT sections from the captain profile.
+
+    R8: returns '' when external AI is permitted, so the health profile can only ever enter a
+    prompt that is processed locally."""
+    from core.security import personal_data_policy
+    if not personal_data_policy.profile_excerpt_allowed():
+        return ""
     try:
         text = _CAPTAIN_PROFILE_PATH.read_text(encoding="utf-8", errors="replace")
         m = re.search(
