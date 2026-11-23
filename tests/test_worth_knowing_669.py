@@ -167,3 +167,36 @@ def test_an_official_confirmation_names_who_confirmed():
                          "On November 18, 2026, nginx announced the availability of a fix for multiple critical vulnerabilities in nginx. Cisco is evaluating its products.")
     assert "officially confirmed by Cisco Security Advisories" in text
     assert "On November 18, 2026, nginx announced the availability of a fix for multiple critical vulnerabilities in nginx." in text
+
+
+def test_same_development_from_two_publishers_uses_one_slot():
+    _, items = _wk([_ev(1, "OpenAI releases new AI model for enterprise customers", "iTnews", "The model targets enterprise software teams building agents."),
+                    _ev(2, "OpenAI releases new AI model for enterprise customers", "Reuters", "The model targets enterprise software teams building agents.")])
+    assert len(items) == 1
+
+
+def test_summary_hedge_or_anonymous_sourcing_excludes_item():
+    _, items = _wk([_ev(1, "OpenAI prepares new AI model release for enterprise customers", "iTnews",
+                        "Unnamed sources say the company may have developed a new model for enterprise customers.")])
+    assert items == []
+
+
+def test_ambiguous_cloud_and_payments_words_need_technology_context():
+    _, items = _wk([_ev(1, "Rare cloud formations create spectacular sunset over Sydney", "ABC News"),
+                    _ev(2, "Trump promises new tariff payments to American households", "Reuters")])
+    assert items == []
+    _, items = _wk([_ev(3, "Provider adds new sovereign cloud region for government agencies", "iTnews",
+                        "The region keeps workloads onshore for regulated customers.")])
+    assert len(items) == 1
+
+
+def test_non_profit_description_is_not_company_results():
+    _, items = _wk([_ev(1, "Linux Foundation launches new software security initiative", "iTnews",
+                        "The non-profit organisation launched a new programme to harden open-source software projects.")])
+    assert len(items) == 1
+
+
+def test_aggregator_headline_with_detector_hedge_words_is_not_admitted():
+    for head in ("OpenAI likely to release new AI model for enterprise customers", "Anonymous sources: OpenAI new AI model for enterprise customers"):
+        _, items = _wk([_ev(1, head + " - iTnews", "Google News - AI")])
+        assert items == [], head

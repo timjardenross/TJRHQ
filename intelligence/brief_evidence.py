@@ -237,9 +237,11 @@ _WK_CATEGORIES = (   # (name, weight, pattern); the highest-weight match names t
                  r"\bhack(?:ed|er|ers|ing)?\b|phishing|exploited|CVE-\d|botnet|ddos|infostealer|spyware|backdoor|supply[- ]chain attack")),
     ("critical infrastructure", 3, (r"critical infrastructure|power grid|scada|industrial control|operational technology|semiconductors?|chip ?makers?|"
                                    r"submarine cable|undersea cable")),
-    ("cloud", 3, r"\bcloud\b|\baws\b|\bazure\b|google cloud|data ?cent(?:er|re)s?|hyperscal|cloudflare"),
+    ("cloud", 3, (r"\bcloud (?:computing|services?|platforms?|providers?|storage|infrastructure|security|outages?|migration|regions?|native|customers?|software|accounts?|environments?|workloads?)\b|"
+                r"\b(?:public|private|hybrid|multi|sovereign)[- ]cloud\b|\bcloud-(?:based|native)\b|\bin the cloud\b|\baws\b|\bazure\b|google cloud|data ?cent(?:er|re)s?|hyperscal|cloudflare")),
     ("telecommunications", 3, r"telecom|\btelcos?\b|telstra|optus|\btpg\b|vodafone|\b5g\b|mobile network|broadband|\bnbn\b|satellite|spectrum"),
-    ("payments", 3, r"\bpayments?\b|mastercard|\bvisa (?:inc|payments|network)|paypal|stripe|eftpos|bpay|apple pay|fintech|digital wallet"),
+    ("payments", 3, (r"\bpayments? (?:systems?|platforms?|networks?|providers?|processors?|processing|fraud|cards?|terminals?|rails?|infrastructure|security|apps?|outages?|gateways?|services?|schemes?)\b|"
+                    r"\b(?:card|online|digital|mobile|real-time|instant|contactless|cross-border|instalment|merchant) payments?\b|mastercard|\bvisa (?:inc|payments|network)|paypal|stripe|eftpos|bpay|apple pay|fintech|digital wallet")),
     # AI counts only as a technology subject (models, chips, servers, agents, safety, regulation …), not as a market or insurance talking point.
     ("AI", 2, (r"(?:\bAI\b|artificial intelligence|\bllms?\b|generative ai|chatbots?|openai|anthropic|nvidia)[^.]{0,60}(?:models?|chips?|servers?|compute|data ?cent(?:er|re)s?|agents?|safety|"
                r"regulation|cyber|security|infrastructure|training|launch|release|outage|breach|vulnerab)|(?:models?|chips?|servers?|compute|agents?|safety|regulation|"
@@ -254,7 +256,7 @@ _WK_AU_RX = re.compile(r"\baustralia(?:n|ns)?\b|\bsydney\b|\bmelbourne\b|\bbrisb
 _WK_LOW_QUALITY_RX = re.compile(r"\b(?:how to|best|top \d+|\d+ (?:ways|things|tips)|reviews?|sponsored|webinar|podcast|opinion|fast 50|awards?|ranked|ranking|"
                                 r"hiring|jobs?|(?:best|top|black friday|cyber monday) deals?|giveaway|quiz|sale|discount|coupon)\b|^(?:could|should|why|what|how|is|are|will|can|does|do)\b|\?\s*(?:-\s.*)?$", re.IGNORECASE)
 # Company results and funding news is business reporting, not technology intelligence (checked against headline and summary).
-_WK_CORPORATE_RX = re.compile(r"\b(?:revenue|year[- ]on[- ]year|yoy|profits?|earnings|funding round|series [a-d]|ipo|share price|market cap)\b", re.IGNORECASE)
+_WK_CORPORATE_RX = re.compile(r"\b(?:revenue|year[- ]on[- ]year|yoy|(?<!non-)(?<!non )(?<!for-)(?<!for )profits?|earnings|funding round|series [a-d]|ipo|share price|market cap)\b", re.IGNORECASE)
 _WK_CREDIBLE_KINDS = (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST)
 _WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported": 1}
 # An aggregator feed item whose trailing ' - Outlet' names a primary or specialist publisher is attributable reporting by that outlet
@@ -274,12 +276,26 @@ def _wk_credible_original(i: IncidentView) -> bool:
 
 def _wk_via_aggregator(i: IncidentView) -> str | None:
     """The attributed primary/specialist publisher when the only support is an aggregator feed item that names one, else None."""
-    if i.evidence_status != "unverified" or _WK_HEDGE_RX.search(i.headline):
+    if (i.evidence_status != "unverified" or _WK_HEDGE_RX.search(i.headline) or ed._HEDGE_RX.search(i.headline) or ed._ANON_RX.search(i.headline)):
         return None
     for r in i.reports:
         if r["role"] == "original" and r["source_kind"] == we.AGGREGATOR and we.source_kind(r["publisher"]) in (we.PRIMARY, we.SPECIALIST):
             return r["publisher"]
     return None
+
+
+def _wk_summary_hedged(i: IncidentView) -> bool:
+    """A hedged or anonymously sourced original report summary ('unnamed sources say', 'may have') disqualifies the item here only."""
+    return any(ed._HEDGE_RX.search(r.get("summary") or "") or ed._ANON_RX.search(r.get("summary") or "")
+               for r in i.reports if r["role"] == "original")
+
+
+def _wk_tokens(i: IncidentView) -> frozenset:
+    return frozenset(t for t in re.findall(r"[a-z0-9]+", ed.core_title(i.headline).lower()) if len(t) > 2 and t not in ed._STOP)
+
+
+def _wk_same_development(a: frozenset, b: frozenset) -> bool:
+    return bool(a and b) and len(a & b) / len(a | b) >= 0.5
 
 
 def _wk_text(i: IncidentView) -> str:
@@ -347,6 +363,8 @@ def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[
             continue
         if not via and not _wk_credible_original(i):
             continue
+        if _wk_summary_hedged(i):
+            continue
         if _WK_CORPORATE_RX.search(i.headline + " " + " ".join(r.get("summary") or "" for r in i.reports if r["role"] == "original")):
             continue
         text = _wk_text(i)
@@ -359,8 +377,12 @@ def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[
                  + (1 if i.materiality in ("high", "medium") else 0))
         scored.append((i, cat[0], score))
     scored.sort(key=lambda t: (-t[2], -(t[0].last_seen.timestamp())))
-    out, per = [], Counter()
+    out, per, seen = [], Counter(), []
     for i, cat, score in scored:
+        toks = _wk_tokens(i)
+        if any(_wk_same_development(toks, t) for t in seen):   # the same development from another publisher must not use a second slot
+            continue
+        seen.append(toks)
         if per[cat] >= _WK_PER_CATEGORY:
             continue
         per[cat] += 1
