@@ -190,3 +190,35 @@ def test_a_later_clean_restoration_still_closes_an_earlier_active_report():
     events = [e("a", "Telstra power outage leaves 20,000 customers in Adelaide without power", "ABC News", 0),
               e("b", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", 4)]
     assert record_for(events)["restoration_status"] == "restored"
+
+
+def _pub(i, title, source, collected_h, published_h):
+    ev = e(i, title, source, collected_h)
+    ev["published_at"] = (T0 + timedelta(hours=published_h)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return ev
+
+
+def test_report_chronology_follows_publication_time_not_collection_time():
+    """Codex P2: an older restoration article collected AFTER a newer ongoing report must not make the incident 'restored'."""
+    events = [_pub("a", "Telstra power outage still affecting 20,000 customers in Adelaide", "ABC News", collected_h=3.1, published_h=3.0),
+              _pub("b", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", collected_h=3.2, published_h=0.0)]
+    assert len(groups(events)) == 1
+    assert record_for(events)["restoration_status"] == "ongoing"
+
+
+def test_a_missing_or_implausible_published_at_falls_back_to_collection_time():
+    ev = e("a", "Telstra power outage still affecting 20,000 customers in Adelaide", "ABC News", 3)
+    c = ed.detect_candidate(ev)
+    assert c.published == ed.we._parse_ts(ev["collected_at"])
+    ev["published_at"] = (T0 + timedelta(hours=40)).strftime("%Y-%m-%dT%H:%M:%SZ")           # later than collection: ignored
+    assert ed.detect_candidate(ev).published == c.published
+    ev["published_at"] = "not a date"
+    assert ed.detect_candidate(ev).published == c.published
+
+
+def test_load_events_carries_published_at():
+    from intelligence import brief_evidence as be
+    rows = [{"event_id": "x", "raw_title": "T", "raw_summary": "", "geography": "AU", "collected_at": "2026-11-22T06:10:00Z",
+             "published_at": "2026-11-22T03:00:00Z", "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
+    out = be.load_events(lambda *a, **k: rows, hours=24)
+    assert out[0]["published_at"] == "2026-11-22T03:00:00Z"

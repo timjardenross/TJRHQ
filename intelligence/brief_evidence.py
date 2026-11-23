@@ -121,7 +121,7 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
     try:
         rows = sb_get("intelligence_events",
                       f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE&order=collected_at.desc&limit={limit}"
-                      "&select=event_id,raw_title,raw_summary,geography,collected_at,canonical_url,intelligence_source_registry(source_name)")
+                      "&select=event_id,raw_title,raw_summary,geography,collected_at,published_at,canonical_url,intelligence_source_registry(source_name)")
     except Exception:  # noqa: BLE001 - evidence layer is additive; the legacy brief must still render
         return []
     out = []
@@ -129,7 +129,7 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
         reg = r.get("intelligence_source_registry") or {}
         out.append({"id": str(r.get("event_id")), "title": r.get("raw_title") or "", "summary": r.get("raw_summary") or "",
                     "source": reg.get("source_name") or "", "geography": r.get("geography") or "",
-                    "collected_at": r.get("collected_at"), "url": r.get("canonical_url")})
+                    "collected_at": r.get("collected_at"), "published_at": r.get("published_at"), "url": r.get("canonical_url")})
     return out
 
 

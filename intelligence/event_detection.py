@@ -219,6 +219,17 @@ def _orgs(title: str) -> frozenset:
     return frozenset(o for o in found if o not in _PROPER_STOP and len(o) > 2)
 
 
+def _report_time(event: dict):
+    """When the report was PUBLISHED. Report chronology (restored vs ongoing) must follow publication, not ingestion: an older
+    restoration article collected after a newer ongoing report must not win. The stored ``published_at`` is used when it parses
+    and is not later than collection (plus a small clock skew); otherwise collection time, which is the only time we have."""
+    collected = we._parse_ts(event.get("collected_at"))
+    published = we._parse_ts(event.get("published_at")) if event.get("published_at") else None
+    if published and (collected is None or published <= collected + timedelta(hours=1)):
+        return published
+    return collected
+
+
 def detect_candidate(event: dict) -> Candidate:
     title = event.get("title") or ""
     text = title        # headline only: this is what every measurement was made on; summaries add unmeasured noise
@@ -273,7 +284,7 @@ def detect_candidate(event: dict) -> Candidate:
         status = "unconfirmed"
     src = event.get("source") or ""
     return Candidate(
-        event_id=str(event.get("id")), title=title, source=src, published=we._parse_ts(event.get("collected_at")),
+        event_id=str(event.get("id")), title=title, source=src, published=_report_time(event),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
