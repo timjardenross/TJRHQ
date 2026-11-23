@@ -231,6 +231,7 @@ def morning_view(ev: EvidenceSet) -> list[str]:
 # technology news that has no confirmed outage or immediate operational impact, so the brief informs as well as alerts.
 WORTH_KNOWING_LIMIT = 5
 WORTH_KNOWING_HOURS = 72
+_WK_FUTURE_SKEW_HOURS = 1     # last_seen must lie in [generated_at - 72h, generated_at + 1h]: a future-dated story is not "last 72 hours"
 _WK_PER_CATEGORY = 2
 _WK_CATEGORIES = (   # (name, weight, pattern); the highest-weight match names the item
     ("cyber", 3, (r"ransomware|malware|zero[- ]day|vulnerabilit(?:y|ies)|cyber ?(?:attack|attacks|security|incident|crime|criminal|espionage|threat)s?|data breach|"
@@ -261,8 +262,18 @@ _WK_CREDIBLE_KINDS = (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST)
 _WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported": 1}
 # An aggregator feed item whose trailing ' - Outlet' names a primary or specialist publisher is attributable reporting by that outlet
 # (e.g. 'Industrial Cyber'). It is evidence_status 'unverified' only because of the feed, so it is allowed here, labelled "via aggregator
-# feed", and only when the headline carries no hedge.
+# feed", and only when the headline carries no hedge. DELIBERATE EXCEPTION (acceptance criteria, see tests): primary/specialist outlet
+# attributed through an aggregator feed + non-hedged headline + no stated disruption => eligible, always labelled
+# "single source via aggregator feed"; unknown/mainstream-only attributions and hedged headlines stay excluded.
 _WK_HEDGE_RX = re.compile(r"\b(?:reportedly|allegedly|alleged|claims?|claimed|sources?|rumou?rs?|unconfirmed|said to|may have|might|suspected)\b", re.IGNORECASE)
+
+
+def _wk_disruption(i: IncidentView) -> bool:
+    """A stated disruption, or an outage whose impact is only unconfirmed, is an incident (even when the Australian-relevance gate demoted it
+    to REFERENCE) and must not be republished under a 'no outage or service impact' heading. Informative reporting (vulnerability or
+    advisory-style cyber warnings, potential or retrospective impact, no stated impact) stays eligible; an unconfirmed cyber_incident is
+    kept because advisory headlines ('FBI warns hackers ...') classify that way."""
+    return i.impact_status == "stated" or (i.event_type == "outage" and i.impact_status == "unconfirmed")
 
 
 def _wk_credible_original(i: IncidentView) -> bool:
@@ -321,9 +332,29 @@ def _wk_text(i: IncidentView) -> str:
     return " ".join([i.headline] + [r["title"] for r in i.reports if r["role"] != "commentary"])
 
 
+def _wk_au_text(i: IncidentView) -> str:
+    """Text checked for an Australian mention. For aggregator-fed reports the trailing ' - Outlet' attribution (e.g. ' - Guardian Australia')
+    is stripped from the title and the outlet name from the summary: the publisher's identity is not the story's geography."""
+    agg = any(r["source_kind"] == we.AGGREGATOR for r in i.reports)
+    parts = [ed.core_title(i.headline) if agg else i.headline]
+    for r in i.reports:
+        if r["role"] == "commentary":
+            continue
+        title, summary = r["title"] or "", r.get("summary") or ""
+        if r["source_kind"] == we.AGGREGATOR:
+            core = ed.core_title(title)
+            outlet = title[len(core):].lstrip(" -–|").strip() if core != title else ""
+            for name in {outlet, r.get("publisher") or ""} - {""}:
+                summary = re.sub(re.escape(name), " ", summary, flags=re.IGNORECASE)
+            title = core
+        parts += [title, summary]
+    return " ".join(parts)
+
+
 def _wk_au(i: IncidentView) -> bool:
-    """Australia is named in the headline, a report title or a report summary (publisher identity alone does not count)."""
-    return bool(_WK_AU_RX.search(" ".join([_wk_text(i)] + [r.get("summary") or "" for r in i.reports if r["role"] != "commentary"])))
+    """Australia is named in the headline, a report title or a report summary (publisher identity alone, including an aggregator's
+    ' - Outlet' attribution, does not count)."""
+    return bool(_WK_AU_RX.search(_wk_au_text(i)))
 
 
 def _wk_category(text: str) -> tuple[str, int] | None:
@@ -373,10 +404,13 @@ def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[
     (unverified) items are left out. Returns (incident, category, score) best first, at most ``limit``, at most two per category.
     """
     cutoff = ev.generated_at - timedelta(hours=WORTH_KNOWING_HOURS)
+    latest = ev.generated_at + timedelta(hours=_WK_FUTURE_SKEW_HOURS)
     scored = []
     for i in ev.incidents:
         via = _wk_via_aggregator(i)
-        if i.priority != "REFERENCE" or not i.last_seen or i.last_seen < cutoff or (i.evidence_status not in _WK_EVIDENCE_POINTS and not via):
+        if i.priority != "REFERENCE" or not i.last_seen or not (cutoff <= i.last_seen <= latest) or (i.evidence_status not in _WK_EVIDENCE_POINTS and not via):
+            continue
+        if _wk_disruption(i):
             continue
         if len(i.headline) < 25 or _WK_LOW_QUALITY_RX.search(i.headline):
             continue

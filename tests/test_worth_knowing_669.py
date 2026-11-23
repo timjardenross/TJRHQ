@@ -1,6 +1,6 @@
 """#669 — WORTH KNOWING: credible, relevant technology developments that do not meet an escalation threshold."""
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from intelligence import brief_evidence as be
 
@@ -226,3 +226,71 @@ def test_genuine_anonymous_sourcing_in_a_summary_still_excludes():
     _, items = _wk([_ev(1, "Linux Foundation prepares new software security initiative for developers", "iTnews",
                         "Unnamed sources say the foundation may release software to help developers secure applications.")])
     assert items == []
+
+
+# ── Release-review fixes (eligibility by incident type and stated impact; window bounds; aggregator attribution) ─────
+def _demoted(events):
+    es = be.build_evidence(events, now=NOW, window_hours=72)
+    es.incidents = [replace(i, priority="REFERENCE") for i in es.incidents]      # as the Australian-relevance gate (#677) demotes overseas incidents
+    return es
+
+
+def test_a_demoted_overseas_outage_is_not_republished_as_no_outage_news():
+    es = _demoted([_ev(1, "Verizon outage leaves customers across Texas without mobile service", "BBC News")])
+    assert es.incidents[0].impact_status == "stated" and es.incidents[0].priority == "REFERENCE"
+    assert be.worth_knowing(es) == []
+    es = _demoted([_ev(2, "Telecommunications outage cuts mobile network service for customers across Ohio", "iTnews")])
+    assert es.incidents[0].impact_status == "stated" and be.worth_knowing(es) == []
+
+
+def test_an_unconfirmed_outage_or_stated_cyber_incident_is_not_informative_news():
+    es = _demoted([_ev(1, "Cyber attack hits telecommunications provider, customers report problems", "iTnews")])
+    assert len(be.worth_knowing(es)) == 1
+    for et, st in (("outage", "unconfirmed"), ("cyber_incident", "stated")):
+        es.incidents = [replace(i, impact_status=st, event_type=et) for i in es.incidents]
+        assert be.worth_knowing(es) == []
+
+
+def test_a_future_dated_story_is_outside_the_window():
+    ev = _ev(1, "Researchers detail new phishing technique aimed at enterprise cloud accounts", "iTnews")
+    es = be.build_evidence([ev], now=NOW, window_hours=72)
+    assert len(be.worth_knowing(es)) == 1
+    es.incidents = [replace(i, last_seen=NOW + timedelta(days=2)) for i in es.incidents]
+    assert be.worth_knowing(es) == []
+    es.incidents = [replace(i, last_seen=NOW + timedelta(minutes=30)) for i in es.incidents]   # small clock skew is tolerated
+    assert len(be.worth_knowing(es)) == 1
+
+
+def test_an_aggregator_outlet_suffix_does_not_make_an_international_story_australian():
+    es = be.build_evidence([_ev(1, "Chipmaker discloses firmware vulnerability affecting server boards - iTnews Australia", "Google News - Cyber",
+                                "iTnews Australia reports the flaw affects server boards. Vendors recommend firmware updates soon.")],
+                           now=NOW, window_hours=72)
+    es.incidents = [replace(i, priority="REFERENCE") for i in es.incidents]
+    assert be.worth_knowing(es)
+    text = "\n".join(be.worth_knowing_lines(es))
+    assert "Australian relevance stated" not in text and "International development" in text
+
+
+def test_guardian_australia_attribution_alone_is_not_australian_relevance():
+    es = be.build_evidence([_ev(1, "Chipmaker discloses firmware vulnerability affecting server boards - Guardian Australia", "Google News - Cyber",
+                                "Guardian Australia reports the flaw affects server boards.")], now=NOW, window_hours=72)
+    assert not be._wk_au(es.incidents[0])
+
+
+def test_a_genuine_australian_mention_in_an_aggregator_title_still_counts():
+    es = be.build_evidence([_ev(1, "Australian hospitals warned of new firmware vulnerability in imaging devices - Industrial Cyber", "Google News - Cyber")],
+                           now=NOW, window_hours=72)
+    es.incidents = [replace(i, priority="REFERENCE") for i in es.incidents]
+    assert "Australian relevance stated in report" in "\n".join(be.worth_knowing_lines(es))
+
+
+def test_aggregator_exception_acceptance_criteria():
+    """Written-down exception: a primary/specialist outlet attributed through an aggregator feed is allowed when non-hedged, and is
+    always labelled 'single source via aggregator feed'; an unknown outlet or a hedged headline is not."""
+    ok = _demoted([_ev(1, "FBI warns hackers weaponizing AI framework to automate attacks on energy, manufacturing, telecom - Industrial Cyber",
+                       "Google News - Cyber")])
+    assert len(be.worth_knowing(ok)) == 1
+    assert "single source via aggregator feed" in "\n".join(be.worth_knowing_lines(ok))
+    unknown = _demoted([_ev(2, "Malware campaign targets cloud servers worldwide - Some Outlet", "Google News - Cyber")])
+    hedged = _demoted([_ev(3, "Hackers reportedly weaponizing AI framework to automate attacks on energy, telecom - Industrial Cyber", "Google News - Cyber")])
+    assert be.worth_knowing(unknown) == [] and be.worth_knowing(hedged) == []
