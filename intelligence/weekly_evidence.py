@@ -161,20 +161,48 @@ _PUBLISHER_ALIASES = {
     "the guardian australia": "guardian australia", "theguardian com": "guardian australia",
     "bbc news": "bbc news", "bbc": "bbc news", "bbc com": "bbc news",
     "afr": "afr", "australian financial review": "afr", "financial review": "afr",
+    "reserve bank of australia": "rba",
+}
+
+# Controlled sub-brand sets: the same organisation's other desks/editions are one publisher (a repost from "BBC Sport" is not
+# an independent second source for "BBC News"). Exact, closed lists on purpose: "ABC7 Chicago" (a US affiliate, one token
+# "abc7") and "BBC Watch Blog" are NOT in them and keep their own family.
+_SUB_BRANDS = {
+    "guardian": ("guardian australia", frozenset({"us", "uk", "australia", "international", "europe", "world", "business"})),
+    "the guardian": ("guardian australia", frozenset({"us", "uk", "australia", "international", "europe", "world", "business"})),
+    "bbc": ("bbc news", frozenset({"sport", "world service", "culture", "world", "news world", "news uk", "future", "worklife",
+                                   "travel", "earth", "innovation", "reel", "science"})),
+    "abc": ("abc news", frozenset({"radio national", "science", "news australia", "sport", "triple j", "rural", "life",
+                                   "radio", "listen", "everyday", "health"})),
+    "afr": ("afr", frozenset({"weekend", "street talk", "chanticleer", "rear window", "markets", "companies", "property"})),
 }
 
 
 # Organisations that register several feeds under one name prefix ("APRA Media Releases", "APRA Publications"). Matched on
 # the first whole token only, so "Cisco ..." is not cisa and "Asian ..." is not asic. abc/bbc are handled by the alias table.
 _ORG_PREFIXES = frozenset({"apra", "asic", "cisa", "acsc", "aemo", "nist", "rba"})
+# ...and only when everything after the org token is a known feed-descriptor word. An unknown suffix ("CISA-Watch Blog",
+# "rba-watch.com", "Rba Foo") is a different publisher that merely shares a prefix, so it keeps its own family.
+_FEED_SUFFIX_WORDS = frozenset({
+    "media", "releases", "release", "publications", "alerts", "news", "advisories", "feed", "rss", "updates", "press",
+    "announcements", "enforcement", "known", "exploited", "vulnerabilities", "market", "notices", "csrc", "bulletin",
+    "speeches", "statements", "reports", "guidance", "gov", "au", "com", "us",
+})
 
 
 def _canonical_publisher(name: str) -> str:
     key = re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
     if key in _PUBLISHER_ALIASES:
         return _PUBLISHER_ALIASES[key]
-    first = key.split(" ", 1)[0]
-    return first if first in _ORG_PREFIXES else name
+    toks = key.split(" ")
+    first, rest = toks[0], toks[1:]
+    if first in _ORG_PREFIXES and all(t in _FEED_SUFFIX_WORDS for t in rest):
+        return first
+    for brand in (" ".join(toks[:2]), first):
+        sub = _SUB_BRANDS.get(brand)
+        if sub and " ".join(toks[len(brand.split(" ")):]) in sub[1]:
+            return sub[0]
+    return name
 
 
 # ── Materiality lexicon ───────────────────────────────────────────────────────

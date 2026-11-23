@@ -85,3 +85,39 @@ def test_abc_and_guardian_still_corroborate_after_org_rule():
                   "Network operator says restoration will take days after two towers fell in the storm.")]
     es = be.build_evidence(events, now=NOW, window_hours=72)
     assert any(i.independent_publishers == 2 for i in es.incidents)
+
+
+# ── review items 8/9: org-prefix needs a known feed suffix; sub-brands of one organisation merge ──
+
+def test_org_prefix_requires_known_feed_suffix():
+    for n in ("CISA-Watch Blog", "rba-watch.com", "Rba Foo", "APRA Tracker Blog", "NIST Unofficial"):
+        assert we.publisher_family(n, "x") not in _ORGS, n
+    assert we.publisher_family("CISA-Watch Blog", "x") != we.publisher_family("CISA Alerts", "x")
+    assert we.publisher_family("RBA Media Releases", "x") == "rba"  # negative control
+
+
+_ORGS = {"apra", "asic", "cisa", "acsc", "aemo", "nist", "rba"}
+
+
+def test_unknown_suffix_does_not_hide_second_source():
+    es = be.build_evidence([_ev(1, T1, "CISA Alerts", SUM), _ev(2, T2, "CISA-Watch Blog", SUM)], now=NOW, window_hours=72)
+    assert any(i.independent_publishers == 2 for i in es.incidents)
+
+
+def test_sub_brands_and_full_names_merge():
+    fam = we.publisher_family
+    assert fam("Guardian US", "x") == fam("The Guardian", "x") == "guardian australia"
+    assert {fam(n, "x") for n in ("BBC Sport", "BBC World Service", "BBC Culture", "BBC News")} == {"bbc news"}
+    assert {fam(n, "x") for n in ("ABC Radio National", "ABC Science", "ABC News")} == {"abc news"}
+    assert fam("AFR Weekend", "x") == fam("AFR", "x") == "afr"
+    assert fam("Reserve Bank of Australia", "x") == fam("RBA", "x") == "rba"
+    assert fam("Google News - BBC Sport", "x - BBC Sport") == "bbc news"
+
+
+def test_sub_brand_negative_controls():
+    fam = we.publisher_family
+    assert fam("ABC7 Chicago", "x") != "abc news"
+    assert fam("ABC Foo Gazette", "x") != "abc news"
+    assert fam("BBC Watch Blog", "x") != "bbc news"
+    assert fam("Guardian Angel Security", "x") != "guardian australia"
+    assert fam("Reuters", "x") not in ("rba", "bbc news")
