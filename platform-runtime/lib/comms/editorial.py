@@ -207,18 +207,22 @@ _FEED_WORDS = (
 
 
 def publisher_family(source_name: str) -> str:
-    """Normalise a feed/source name to its owning publisher ('apra media releases' and 'APRA Publications' -> 'apra')."""
+    """Normalise a feed/source name to its owning publisher ('apra media releases' and 'APRA Publications' -> 'apra').
+    Only the PUBLISHER portion (before a ' - ', em dash, ' / ', '|' or ':' separator) is considered, never the feed's
+    topic, so 'Google News \u2014 APRA/ASIC Operational Resilience' belongs to the aggregator, not to APRA."""
     import re as _re
     n = _re.sub(r"\([^)]*\)", " ", (source_name or "").lower())
     n = _re.sub(r"\s+", " ", n).strip(" -\u2013\u2014/|:")
     if not n:
         return "unknown"
-    words = set(_re.findall(r"[a-z0-9.]+", n))
+    head = _re.split(r"\s[-\u2013\u2014/|:]\s", n)[0].strip()          # "Inc. Magazine \u2014 Leadership" -> "inc. magazine"
+    if head.startswith("google news"):
+        return "google news"                                               # one aggregator, whatever the search topic
+    words = set(_re.findall(r"[a-z0-9.]+", head))
     for owner, tokens in _PUBLISHER_OWNERS:
         for t in tokens:
-            if (" " in t and n.startswith(t)) or (" " not in t and t in words):
+            if (" " in t and head.startswith(t)) or (" " not in t and t in words):
                 return owner
-    head = _re.split(r"\s[-\u2013\u2014/|:]\s", n)[0].strip()      # "Inc. Magazine — Leadership" -> "inc. magazine"
     changed = True
     while changed:
         changed = False
@@ -249,6 +253,8 @@ class EditorialInfo:
     # [{"ref","kind","family"}] parallel detail for external_refs added by graded signals
     external_sources: list[dict] = field(default_factory=list)
     internal_refs: list[str] = field(default_factory=list)
+    # #669: True when a signal's own text could not be read (lookup failed), as opposed to read and genuinely not matching
+    signal_lookup_failed: bool = False
 
 
 @dataclass
@@ -323,6 +329,8 @@ def score_candidate(title: str, body: str, info: EditorialInfo, *, source_kind: 
     if ev >= READY_EVIDENCE and not (has_primary and len(fams) >= STRONG_EVIDENCE_MIN_FAMILIES):
         ev = READY_EVIDENCE - 1
     evidence = round(max(0, min(WEIGHTS["evidence"], ev)))
+    if info.signal_lookup_failed:
+        gaps.append("external signal corroboration unavailable (source lookup failed); not the same as no matching signals")
     if not info.external_refs:
         gaps.append("no independent external source cited")
     if info.evidence_grade in ("unverified_library", "signal", None):

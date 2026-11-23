@@ -207,9 +207,12 @@ def _signal_matches(o: ContentOpportunity, s: dict) -> bool:
 
 def attach_signals(opps: list[ContentOpportunity], signals: list[dict]) -> None:
     """Pure: attach external content_signals as graded corroboration and timeliness."""
+    lookup_failed = any((s or {}).get("text_status") == "lookup_failed" for s in signals or [])
     for o in opps:
         if o.info is None:
             continue
+        if lookup_failed:
+            o.info.signal_lookup_failed = True        # distinct from "read, but nothing matched"
         for s in [s for s in signals or [] if _signal_matches(o, s)][:6]:
             name = s.get("source_name") or ""
             o.info.external_refs.append(f"signal:{s.get('event_id_text')} ({name})")
@@ -278,21 +281,30 @@ def _existing_titles() -> list[str]:
 
 def _with_event_text(c, rows: list[dict]) -> list[dict]:
     """Attach each signal's own raw_title/raw_summary from intelligence_events (content_signals stores no text).
-    Read-only; on any failure the rows are returned without text and therefore never match a topic (fail closed)."""
+    Read-only and fail closed. Each row gets ``text_status``: ``ok`` (text read), ``not_found`` (the lookup worked but
+    this event has no row: a genuine non-match) or ``lookup_failed`` (the read itself failed: an outage, not a non-match).
+    A signal without text never matches either way; the status only lets the brief say which it was."""
     ids = [r["event_id"] for r in rows if r.get("event_id")]
     if not ids:
+        for r in rows:
+            r["text_status"] = "not_found"
         return rows
     try:
         res = (c.raw_client.table("intelligence_events").select("event_id,raw_title,raw_summary")
                .in_("event_id", ids).execute())
         text = {str(e["event_id"]): e for e in (res.data or [])}
     except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort read, fail closed
-        log.debug("[comms.opportunities] signal text unavailable: %s", exc)
+        log.warning("[comms.opportunities] signal text lookup failed (%s): signals will not corroborate", type(exc).__name__)
+        for r in rows:
+            r["text_status"] = "lookup_failed"
         return rows
     for r in rows:
         e = text.get(str(r.get("event_id")))
         if e:
             r["raw_title"], r["raw_summary"] = e.get("raw_title"), e.get("raw_summary")
+            r["text_status"] = "ok"
+        else:
+            r["text_status"] = "not_found"
     return rows
 
 

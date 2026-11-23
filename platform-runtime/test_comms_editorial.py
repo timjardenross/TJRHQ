@@ -403,6 +403,21 @@ class TestSignalIntegrity669(unittest.TestCase):
         self.assertEqual(f(""), "unknown")
         self.assertEqual(f(None), "unknown")
 
+    def test_aggregator_feed_about_a_regulator_is_not_owned_by_the_regulator(self):
+        """Codex P2: alias matching must use the publisher portion only (registered feed, migration 0189 naming)."""
+        f = editorial.publisher_family
+        self.assertEqual(f("Google News \u2014 APRA/ASIC Operational Resilience"), "google news")
+        self.assertEqual(f("Google News - APRA/ASIC Operational Resilience"), "google news")
+        self.assertEqual(f("Google News \u2014 Telstra"), "google news")
+        self.assertNotEqual(f("Google News \u2014 APRA/ASIC Operational Resilience"), f("APRA Media Releases"))
+
+    def test_aggregator_and_regulator_signals_stay_separate_families_and_keep_the_aggregator_evidence(self):
+        o = opp.library_opportunities([dict(ROW_S1, source=None, cut_off=None)])[0]
+        text = {"raw_title": "Essential service continuity and cascading disruption", "scored_at": "2026-11-21T00:00:00Z"}
+        opp.attach_signals([o], [dict(text, event_id_text="e1", source_name="Google News \u2014 APRA/ASIC Operational Resilience"),
+                                 dict(text, event_id_text="e2", source_name="APRA Media Releases")])
+        self.assertEqual({x["family"] for x in o.info.external_sources}, {"google news", "apra"})
+
     def test_two_feeds_of_one_publisher_count_as_one_family(self):
         o = opp.library_opportunities([ROW_S1])[0]
         text = {"raw_title": "Essential service continuity and cascading disruption", "scored_at": "2026-11-21T00:00:00Z"}
@@ -436,6 +451,21 @@ class TestSignalIntegrity669(unittest.TestCase):
         self.assertNotIn("raw_title", rows[1])
         failed = opp._with_event_text(C(boom=True), [{"event_id": "x1"}])
         self.assertNotIn("raw_title", failed[0])           # no text -> _signal_matches() is False
+        self.assertEqual(rows[0]["text_status"], "ok")
+        self.assertEqual(rows[1]["text_status"], "not_found")          # lookup worked, no such event
+        self.assertEqual(failed[0]["text_status"], "lookup_failed")    # the read itself failed
+
+    def test_failed_lookup_is_reported_distinctly_from_a_genuine_non_match(self):
+        row = dict(ROW_S1, source=None, cut_off=None)
+        sig = {"event_id_text": "e1", "source_name": "Regulator", "scored_at": "2026-11-21T00:00:00Z"}
+        genuine = _scored([row], signals=[dict(sig, text_status="not_found")])[0]
+        outage = _scored([row], signals=[dict(sig, text_status="lookup_failed")])[0]
+        self.assertFalse(genuine.info.signal_lookup_failed)
+        self.assertTrue(outage.info.signal_lookup_failed)
+        self.assertFalse(any("lookup failed" in g for g in genuine.escore.gaps))
+        self.assertTrue(any("lookup failed" in g for g in outage.escore.gaps))
+        self.assertNotEqual(outage.escore.readiness, "Ready for drafting")    # unverified corroboration never reads as ready
+        self.assertEqual(outage.info.external_sources, [])                    # and nothing is attached on a failed read
 
 
 class TestCrossPRCompatibility(unittest.TestCase):
