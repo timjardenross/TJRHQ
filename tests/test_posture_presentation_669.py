@@ -54,10 +54,12 @@ def test_flag_off_leaves_the_legacy_output_unchanged(monkeypatch):
     assert "COLLECTION HEALTH" not in text
 
 
-def test_flag_on_but_no_evidence_falls_back_to_the_full_legacy_block(monkeypatch):
+def test_flag_on_but_no_evidence_is_labelled_insufficient_not_silent(monkeypatch):
     text = _morning(monkeypatch, flag=True, rows=[])
     assert "EVIDENCE-BASED PICTURE" not in text
-    assert "INTELLIGENCE POSTURE" in text and "What matters today" in text
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in text and "no reports collected in the last 72 hours" in text
+    assert "LEGACY POSTURE (previous method, not evidence-checked; evidence coverage insufficient today)" in text
+    assert "What matters today" in text and "COLLECTION HEALTH" not in text
 
 
 def test_the_block_itself_defaults_to_the_legacy_rendering():
@@ -130,3 +132,65 @@ def test_only_old_reports_means_insufficient_coverage_end_to_end(monkeypatch):
 def test_recent_reports_keep_the_evidence_picture_authoritative_end_to_end(monkeypatch):
     text = _morning(monkeypatch, flag=True, rows=_rows())
     assert "EVIDENCE COVERAGE INSUFFICIENT" not in text and "What matters today</b>" not in text
+
+
+# ── Codex P2: empty / failing evidence query must not be a silent legacy brief ─────────────────────────────────────
+
+def _raise(*a, **k):
+    raise RuntimeError("supabase down")
+
+
+def _lines_with(monkeypatch, *, flag, sb):
+    for k in ("BRIEF_EVIDENCE_V1", "BRIEF_EVIDENCE_V1_MORNING"):
+        monkeypatch.delenv(k, raising=False)
+    if flag:
+        monkeypatch.setenv("BRIEF_EVIDENCE_V1_MORNING", "1")
+    with patch.object(cb, "_sb_get", sb):
+        return cb._evidence_lines("morning", 72)
+
+
+def test_empty_events_yield_insufficient_marker_block(monkeypatch):
+    lines = _lines_with(monkeypatch, flag=True, sb=lambda *a, **k: [])
+    assert lines and "EVIDENCE COVERAGE INSUFFICIENT" in lines[0] and "all quiet" in lines[0]
+    assert "no reports collected in the last 72 hours" in lines[0]
+
+
+def test_evidence_failure_yields_insufficient_marker_block_and_never_raises(monkeypatch):
+    # load_events swallows a failing query into [] (empty path); a failure later in the evidence layer hits the except path.
+    lines = _lines_with(monkeypatch, flag=True, sb=_raise)
+    assert lines and "EVIDENCE COVERAGE INSUFFICIENT" in lines[0] and "all quiet" in lines[0]
+    from intelligence import brief_evidence as be
+    with patch.object(be, "build_evidence", _raise):
+        lines = _lines_with(monkeypatch, flag=True, sb=lambda *a, **k: _rows())
+    assert lines and "EVIDENCE COVERAGE INSUFFICIENT" in lines[0] and "evidence layer unavailable" in lines[0]
+
+
+def test_flag_off_empty_or_failing_returns_nothing(monkeypatch):
+    assert _lines_with(monkeypatch, flag=False, sb=lambda *a, **k: []) == []
+    assert _lines_with(monkeypatch, flag=False, sb=_raise) == []
+
+
+def test_weekly_empty_unchanged(monkeypatch):
+    monkeypatch.setenv("BRIEF_EVIDENCE_V1_WEEKLY", "1")
+    with patch.object(cb, "_sb_get", lambda *a, **k: []):
+        assert cb._evidence_lines("weekly", 168) == []
+
+
+def test_morning_brief_end_to_end_when_query_fails_is_labelled(monkeypatch):
+    monkeypatch.setenv("BRIEF_EVIDENCE_V1_MORNING", "1")
+    with patch.object(cb, "_get_latest_ori_brief", return_value=BRIEF), \
+         patch.object(cb, "_get_capacity_today", return_value=CAPACITY), \
+         patch.object(cb, "_get_recent_signals", return_value=[]), \
+         patch.object(cb, "_get_infra_verification", return_value={"state": "ok"}), \
+         patch.object(cb, "_sb_get", _raise), \
+         patch.object(cb, "build_daily_digest", None):
+        text = cb.generate_morning_brief()
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in text and "no reports collected in the last 72 hours" in text
+    from intelligence import brief_evidence as be
+    with patch.object(be, "build_evidence", _raise):
+        text2 = _morning(monkeypatch, flag=True, rows=_rows())
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in text2 and "evidence layer unavailable" in text2
+    assert "LEGACY POSTURE (previous method, not evidence-checked; evidence coverage insufficient today)" in text2
+    text = text2
+    assert "LEGACY POSTURE (previous method, not evidence-checked; evidence coverage insufficient today)" in text
+    assert "What matters today" in text and "4 intelligence sources were unavailable" in text

@@ -1317,6 +1317,12 @@ def _capacity_quality_enabled() -> bool:
     return os.getenv(CAPACITY_QUALITY_FLAG, "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def _evidence_unavailable_lines(reason: str) -> list[str]:
+    """Morning block (flag on) when the evidence layer yields nothing usable. Starts with the insufficient-coverage marker so the
+    brief takes its labelled 'evidence insufficient' path instead of silently reading as all quiet."""
+    return [f"⚠️ {_EVIDENCE_INSUFFICIENT_MARKER}: {reason}; nothing below should be read as all quiet.", ""]
+
+
 def _evidence_lines(kind: str, hours: int) -> list[str]:
     """V1 shared-evidence block for the morning or weekly brief. Returns [] unless its feature flag is on (BRIEF_EVIDENCE_V1 or
     BRIEF_EVIDENCE_V1_MORNING / _WEEKLY); never raises, so the legacy brief always renders unchanged when the flag is off or the
@@ -1327,6 +1333,8 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
             return []
         events = be.load_events(_sb_get, hours=hours)
         if not events:
+            if kind == "morning":
+                return _evidence_unavailable_lines(f"no reports collected in the last {hours} hours (or the evidence query failed)")
             return []
         ev = be.build_evidence(events, window_hours=hours)
         if kind == "morning":
@@ -1342,6 +1350,13 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
         return [_esc(x) for x in view] + [""]
     except Exception as exc:  # noqa: BLE001 - additive feature-flagged block; the legacy brief must still render
         log.warning("Evidence-based %s block unavailable: %s", kind, exc)
+        if kind == "morning":
+            try:
+                from intelligence import brief_evidence as be
+                if be.enabled(kind):
+                    return _evidence_unavailable_lines("evidence layer unavailable")
+            except Exception as exc2:  # noqa: BLE001 - never raise; flag state unknown means the legacy brief renders unchanged
+                log.debug("Evidence flag check failed: %s", exc2)
         return []
 
 
