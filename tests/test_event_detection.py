@@ -218,3 +218,41 @@ class TestTieredEscalationPolicy:
         d = self.d("Telstra mobile network outage leaves customers without service nationwide")
         for field in ("sector_tier", "event_type", "impact_status", "materiality", "evidence_confidence", "urgency", "priority"):
             assert hasattr(d, field)
+
+
+class TestRegionalOutageProportionality:
+    """Captain, 2026-11-23: a credible report of a significant active regional electricity outage of about 20,000 customers is
+    a provisional ESCALATE; customer count is not a universal threshold; the record carries the facts to verify."""
+
+    def d(self, title, source="ABC News", **kw):
+        by, _ = one([ev("x", title, source, **kw)])
+        return by["x"]
+
+    def test_thousands_separator_comma_is_not_a_roundup_boundary(self):
+        c = ed.detect_candidate(ev("a", "Breaking: Transmission towers 'crushed', knocking out power to 20,000 customers"))
+        assert not c.commentary and c.customers == 20000
+
+    def test_active_regional_outage_of_20000_customers_is_provisional_escalate(self):
+        d = self.d("Regional power outage still affecting 20,000 customers after transmission towers crushed")
+        assert d.priority == "ESCALATE" and d.provisional and d.materiality == "high"
+
+    def test_restored_outage_is_not_escalated(self):
+        d = self.d("Power restored to 20,000 customers after storm")
+        assert d.priority != "ESCALATE"
+
+    def test_small_regional_outage_is_not_escalated_by_the_rule(self):
+        d = self.d("Power out for 300 customers after a car hits a pole, partial outage in one suburb")
+        assert d.priority != "ESCALATE"
+
+    def test_escalation_record_carries_the_required_facts(self):
+        d = self.d("Breaking: Transmission towers 'crushed', knocking out power to 20,000 customers")
+        r = ed.escalation_record(d)
+        assert r["impact"] == "confirmed" and r["affected_customers"] == 20000 and r["restoration_status"] == "ongoing"
+        assert r["critical_service_dependencies"] == ["energy"] and r["sector_tier"] == 1 and r["geographic_scope"] == ["AU"]
+        assert r["source_confidence"]["provisional"] is True and r["source_confidence"]["independent_publishers"] == 1
+        assert "operator" in r["next_verification_action"] and r["report_ids"] == ["x"]
+
+    def test_more_reports_reassess_the_same_incident_and_clear_provisional(self):
+        by, _ = one([ev("a", "Transmission towers crushed, knocking out power to 20,000 customers", "ABC News", hours=0),
+                     ev("b", "Power still out for 20,000 customers after towers crushed - AEMO update", "AEMO Market Notices", hours=3)])
+        assert by["a"].group is by["b"].group and by["a"].provisional is False

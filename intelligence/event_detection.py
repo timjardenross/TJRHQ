@@ -86,8 +86,7 @@ DATA_EXPOSURE = (r"data (?:was |were |has been )?(?:stolen|exposed|leaked|access
                  r"client data", r"card details", r"\d{2,3},\d{3}\s+(?:clients|customers|users|people)")
 SAFETY = (r"injur\w+", r"deaths?", r"killed", r"fatal\w*", r"evacuat\w+", r"hospitali[sz]ed", r"casualt\w+", r"trapped")
 CASCADING = (r"cascad\w+", r"knock-?on", r"flow-?on", r"across (?:multiple|several) (?:sectors|services|industries)")
-MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"partial(?:ly)?", r"limited", r"intermittent",
-         r"regional", r"isolated")
+MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"partial(?:ly)?", r"limited", r"intermittent", r"isolated")
 RETROSPECTIVE = (r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
                  r"apolog\w+", r"lessons?", r"anniversary", r"fallout")
 ONGOING = (r"continues?", r"still", r"ongoing", r"remains?", r"races? to", r"live:")
@@ -118,6 +117,13 @@ _TYPE_RX = {k: _rx(v) for k, v in EVENT_TYPES.items()}
 _SECTOR_RX = {k: _rx(v) for k, v in SECTORS.items()}
 _CONSEQ_RX, _EXPOSE_RX, _RETRO_RX, _ONGOING_RX = _rx(CONSEQUENCE), _rx(DATA_EXPOSURE), _rx(RETROSPECTIVE), _rx(ONGOING)
 _SAFETY_RX, _CASCADE_RX, _MINOR_RX = _rx(SAFETY), _rx(CASCADING), _rx(MINOR)
+_CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.I)
+_DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.I)
+_RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
+# Proportionality (Captain, 2026-11-23): customer count is NOT a universal threshold. For Tier 1 network services (energy,
+# telecom, water) an ONGOING confirmed outage of at least this many customers is high materiality even when described as regional.
+ONGOING_NETWORK_OUTAGE_CUSTOMERS = 10_000
+_NETWORK_SECTORS = frozenset({"energy", "telecom", "transport_water", "emergency_services"})
 _SCALE_RX, _ACTUAL_RX, _POTENTIAL_RX, _COMM_RX = _rx(SCALE), _rx(ACTUAL), _rx(POTENTIAL), _rx(COMMENTARY)
 _COMPROMISE_RX = re.compile(r"(?<![a-z])(?:hijacked|hacked|breached|ransomware|stolen|skimmers?|compromised|wiped|malware)(?![a-z])", re.IGNORECASE)
 _PROPER = re.compile(r"\b([A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]{2,})*)\b")
@@ -152,6 +158,8 @@ class Candidate:
     safety: bool = False      # a safety consequence (injury, death, evacuation) is stated
     cascading: bool = False   # cascading / knock-on impact is stated
     minor: bool = False       # the disruption is described as brief/partial/limited
+    customers: int | None = None   # affected customers stated in the headline
+    ongoing: bool = False     # still in progress (not stated as restored/resolved)
     legacy: dict = field(default_factory=dict)
 
     @property
@@ -192,7 +200,7 @@ def detect_candidate(event: dict) -> Candidate:
     actual = bool(_ACTUAL_RX.search(text))
     potential = bool(_POTENTIAL_RX.search(text))
     # A multi-topic roundup headline ("A, B, C") reports no single incident, so it can never carry one.
-    roundup = len([seg for seg in title.split(",") if len(seg.split()) >= 2]) >= 3
+    roundup = len([seg for seg in re.split(r",(?!\d{3})", title) if len(seg.split()) >= 2]) >= 3   # not the comma in 20,000
     commentary = bool(_COMM_RX.search(text)) or we.is_commentary(title) or roundup
     essential = any(s in ESSENTIAL for s in sectors)
     # Recall-oriented: any disruption/cyber/vulnerability type plus a sector OR a scale cue. A bare cyber mention with no
@@ -203,6 +211,9 @@ def detect_candidate(event: dict) -> Candidate:
     safety = bool(_SAFETY_RX.search(text))
     cascading = bool(_CASCADE_RX.search(text))
     minor = bool(_MINOR_RX.search(text))
+    cm = _CUSTOMERS_RX.search(text)
+    customers = int(cm.group(1).replace(",", "")) if cm else None
+    ongoing = bool(_ONGOING_RX.search(text)) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
     is_cand = bool(types or exposure) and (bool(sectors) or scale or compromise or conseq or exposure or safety
                                            or ("vulnerability" in types and we.exploited(text)))
     consequence = ("essential_service" if essential else "broad_user_impact" if sectors
@@ -222,7 +233,7 @@ def detect_candidate(event: dict) -> Candidate:
         event_id=str(event.get("id")), title=title, source=src, published=we._parse_ts(event.get("collected_at")),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
-        tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor,
+        tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing,
         family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {})
 
 
@@ -247,11 +258,13 @@ class Group:
 
 
 def _idf(cands: list[Candidate]) -> dict[str, float]:
+    """Rarity score per stem. A stem is rare when it appears in at most max(2, 5% of the pool) headlines, so a pair of reports is
+    judged the same way whether the pool holds 5 events or 5,000 (a log-IDF cut-off would call everything common in a small pool)."""
     df = Counter()
     for c in cands:
         df.update(_content_stems(c.title))
-    n = max(1, len(cands))
-    return {s: math.log((n + 1) / (d + 0.5)) for s, d in df.items()}
+    limit = max(2, int(0.05 * len(cands)))
+    return {s: (3.0 if d <= limit else 0.0) for s, d in df.items()}
 
 
 def _link(a: Candidate, b: Candidate, idf: dict[str, float]) -> tuple[float, str] | None:
@@ -395,6 +408,9 @@ def _materiality(c: Candidate) -> str:
     if c.status == "confirmed":
         if c.safety or c.cascading:
             return "high"
+        if (c.ongoing and c.customers and c.customers >= ONGOING_NETWORK_OUTAGE_CUSTOMERS
+                and "outage" in c.types and set(c.sectors) & _NETWORK_SECTORS):
+            return "high"                      # significant active network outage; proportionality, not a universal threshold
         if c.minor:
             return "medium"                    # brief / partial / regional disruption is not severe on its own
         if tier == 1 or (tier == 2 and c.scale) or (c.scale and c.exposure):
@@ -452,3 +468,42 @@ def decide(group: Group, *, now: datetime | None = None) -> Decision:
 def run(events: list[dict], *, now: datetime | None = None) -> list[Decision]:
     cands = [detect_candidate(e) for e in events]
     return [decide(g, now=now) for g in correlate(cands)]
+
+
+_VERIFY_NEXT = {
+    "outage": "confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)",
+    "cyber_incident": "obtain the organisation's own statement or the regulator's notice confirming what was affected",
+    "physical": "confirm casualties, damage and service impact with the responsible authority",
+    "vulnerability": "check the vendor advisory and whether affected products are in our estate",
+}
+
+
+def escalation_record(d: Decision) -> dict:
+    """The facts the Captain needs beside every ESCALATE/VERIFY item: what is confirmed vs merely reported, scale, duration and
+    restoration, critical-service dependencies, geography, source confidence and the next verification action. Recomputed whenever the
+    incident gains reports, so the classification is reassessed on new evidence."""
+    originals = [m for m in d.group.members if not m.commentary] or d.group.members
+    h = d.headline
+    counts = [m.customers for m in originals if m.customers]
+    text = " ".join(m.title for m in originals)
+    dur = _DURATION_RX.search(text)
+    if any(_RESTORED_RX.search(m.title) for m in originals) and not any(_ONGOING_RX.search(m.title) for m in originals):
+        restoration = "restored"
+    elif any(m.ongoing and m.status == "confirmed" for m in originals):
+        restoration = "ongoing"
+    else:
+        restoration = "unknown"
+    return {
+        "impact": "confirmed" if d.impact_status == "confirmed" else "reported" if d.impact_status in ("unconfirmed", "retrospective") else d.impact_status,
+        "affected_customers": max(counts) if counts else None,
+        "duration": dur.group(0) if dur else None,
+        "restoration_status": restoration,
+        "critical_service_dependencies": sorted({x for m in originals for x in m.sectors}),
+        "sector_tier": d.sector_tier,
+        "geographic_scope": sorted({m.geography for m in originals if m.geography}),
+        "source_confidence": {"evidence_confidence": d.evidence_confidence, "independent_publishers": d.group.independent_publishers,
+                              "source_kinds": sorted({m.kind for m in originals}), "provisional": d.provisional},
+        "next_verification_action": _VERIFY_NEXT.get(h.primary_type, "confirm with an official source"),
+        "report_ids": [m.event_id for m in d.group.members],
+        "reassess": "re-run when new reports arrive; customer count is a proportionality input, not a universal threshold",
+    }
