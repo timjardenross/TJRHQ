@@ -164,9 +164,17 @@ _PUBLISHER_ALIASES = {
 }
 
 
+# Organisations that register several feeds under one name prefix ("APRA Media Releases", "APRA Publications"). Matched on
+# the first whole token only, so "Cisco ..." is not cisa and "Asian ..." is not asic. abc/bbc are handled by the alias table.
+_ORG_PREFIXES = frozenset({"apra", "asic", "cisa", "acsc", "aemo", "nist", "rba"})
+
+
 def _canonical_publisher(name: str) -> str:
     key = re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
-    return _PUBLISHER_ALIASES.get(key, name)
+    if key in _PUBLISHER_ALIASES:
+        return _PUBLISHER_ALIASES[key]
+    first = key.split(" ", 1)[0]
+    return first if first in _ORG_PREFIXES else name
 
 
 # ── Materiality lexicon ───────────────────────────────────────────────────────

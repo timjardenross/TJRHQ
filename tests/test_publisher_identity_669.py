@@ -43,3 +43,45 @@ def test_genuinely_independent_publisher_still_corroborates():
                   "Network operator says restoration will take days after two towers fell in the storm.")]
     es = be.build_evidence(events, now=NOW, window_hours=72)
     assert any(i.evidence_status == "corroborated" and i.independent_publishers == 2 for i in es.incidents)
+
+
+# ── organisation-prefix rule: several registered feeds of one organisation are one publisher ──
+
+def test_same_organisation_feeds_share_one_family():
+    fams = {we.publisher_family(n, "x") for n in ("APRA Media Releases", "APRA Publications", "APRA")}
+    assert fams == {"apra"}
+    assert we.publisher_family("ASIC Media Releases", "x") == we.publisher_family("ASIC Enforcement", "x") == "asic"
+    assert we.publisher_family("CISA Alerts", "x") == we.publisher_family("CISA Known Exploited Vulnerabilities", "x") == "cisa"
+    assert we.publisher_family("AEMO Market Notices", "x") == we.publisher_family("AEMO News", "x") == "aemo"
+    assert {we.publisher_family(n, "x") for n in ("ACSC Alerts", "ACSC Advisories")} == {"acsc"}
+    assert {we.publisher_family(n, "x") for n in ("NIST News", "NIST CSRC")} == {"nist"}
+    assert {we.publisher_family(n, "x") for n in ("RBA Media Releases", "RBA Bulletin")} == {"rba"}
+
+
+def test_aggregator_suffix_maps_to_same_organisation_family():
+    assert we.publisher_family("Google News - APRA", "Bank capital rule - APRA Media Releases") == "apra"
+    assert we.publisher_family("Google News - APRA", "Bank capital rule - APRA Publications") == "apra"
+
+
+def test_organisation_prefix_uses_token_boundaries():
+    assert we.publisher_family("Cisco Security Advisories", "x") != "cisa"
+    assert we.publisher_family("Asian Banker", "x") != "asic"
+    assert we.publisher_family("Apraxia News", "x") != "apra"
+    assert we.publisher_family("ABC News", "x") == "abc news"
+    assert we.publisher_family("Guardian Australia", "x") == "guardian australia"
+    assert we.publisher_family("BBC News", "x") == "bbc news"
+
+
+def test_same_organisation_feeds_do_not_corroborate_each_other():
+    es = be.build_evidence([_ev(1, T1, "APRA Media Releases", SUM), _ev(2, T2, "APRA Publications", SUM)], now=NOW, window_hours=72)
+    grouped = [i for i in es.incidents if len(i.reports) >= 2]
+    assert grouped and all(i.independent_publishers == 1 for i in grouped)
+
+
+def test_abc_and_guardian_still_corroborate_after_org_rule():
+    events = [_ev(1, "Eyre Peninsula blackout: 20,000 without power after transmission towers crushed", "ABC News",
+                  "Storm cell toppled transmission towers on the Eyre Peninsula line, cutting supply to about 20,000 customers."),
+              _ev(2, "South Australia power outage hits 20,000 customers as storm downs transmission towers", "Guardian Australia",
+                  "Network operator says restoration will take days after two towers fell in the storm.")]
+    es = be.build_evidence(events, now=NOW, window_hours=72)
+    assert any(i.independent_publishers == 2 for i in es.incidents)
