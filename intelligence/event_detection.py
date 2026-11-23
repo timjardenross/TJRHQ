@@ -1066,6 +1066,17 @@ def _historic(m: Candidate) -> bool:
     return _historic_at(m.title, m.published)
 
 
+CUE_MAX_AGE_HOURS = 48     # a continuation cue ('continues', 'still' ...) is current evidence only in a report this recent
+
+
+def _live_cue(m: Candidate, now: datetime | None) -> bool:
+    """An explicit continuation cue in the headline that is not stale: with a clock, the report's own time (_report_time, via
+    ``m.published``) must be within CUE_MAX_AGE_HOURS of ``now``. No clock, or an undated report, keeps the previous behaviour."""
+    if not _ongoing_cue(m.title):
+        return False
+    return now is None or m.published is None or now - m.published <= timedelta(hours=CUE_MAX_AGE_HOURS)
+
+
 def _report_state(m: Candidate, now: datetime | None = None, active_default: bool = False) -> str | None:
     """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
     restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
@@ -1073,7 +1084,7 @@ def _report_state(m: Candidate, now: datetime | None = None, active_default: boo
     hedged_restore = bool(_HEDGED_RESTORE_RX.search(m.title))
     negated = _negated_restore(m.title)
     restored = _affirmative_restored(m.title) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
-    cue = _ongoing_cue(m.title) or forecast or negated or (restored and bool(_PARTIAL_RX.search(m.title)))
+    cue = _live_cue(m, now) or forecast or negated or (restored and bool(_PARTIAL_RX.search(m.title)))
     if _historic(m):
         # An old dated event: its continuation cue is not current evidence, but a negated or partial restoration ('yet to be
         # restored') can never be read as a restoration either. No state at all unless it cleanly says restored.
@@ -1104,7 +1115,7 @@ def _restoration_status(originals: list[Candidate], now: datetime | None = None)
         states = {_report_state(x, now, active_default=True) for x in dated if x.published == latest} - {None}
         if states:
             return "ongoing" if "ongoing" in states else "unknown" if "reopened" in states else "restored"
-    states = {_report_state(m) for m in originals}
+    states = {_report_state(m, now) for m in originals}
     if "ongoing" in states:                  # an explicit 'still' / 'partly restored' statement, whatever the report order
         return "ongoing"
     if "restored" in states:
@@ -1117,7 +1128,7 @@ def _restoration_status(originals: list[Candidate], now: datetime | None = None)
     for m in originals:
         if m.status != "stated" or _historic(m):   # retrospective, unconfirmed, warning or a re-surfaced old dated event: not a live disruption
             continue
-        if _ongoing_cue(m.title):
+        if _live_cue(m, now):
             return "ongoing"
         if m.ongoing and m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS):
             return "ongoing"
