@@ -1,0 +1,6 @@
+id,set,title,source,A_priority,A_note,B_priority,B_note,captain_decision,captain_notes
+12dbf4,dev150,Live: Power still out after SA transmission line downed,ABC News,W,"power still out, regional",E,power still out after line downed,,
+4893fe,dev150,"11,000 still without power after storm cell topples transmission towers",ABC News,W,"11,000 without power, regional",E,11000 still without power,,
+84bb81,h2_160,"Container ship hit by projectile sinks in Strait of Hormuz, Singapore says",BBC News,E,"ship sunk by projectile, Hormuz",V,"ship sunk by projectile, wider impact unclear",,
+2fa557,hist127,'All this food is now useless': Piles of rubbish after shop freezers hit by cyber-attack,BBC News,E,food destroyed across stores,W,"supermarket freezers hit, food lost",,
+735f41,dev150,"Breaking: Transmission towers 'crushed', knocking out power to 20,000",ABC News,W,"20,000 without power, regional",E,"towers crushed, 20000 without power",,
