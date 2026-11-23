@@ -245,3 +245,17 @@ def test_a_demoted_incident_is_not_published_as_a_dated_forward_watch_notice():
     assert es.incidents[0].priority == "REFERENCE"
     assert be.forward_dated_items(es) == []
     assert "Chicago" not in "\n".join(be.morning_view(es))
+
+
+def test_a_direct_source_dash_clause_is_content_not_a_publisher_suffix():
+    """Codex P2: only an aggregator's trailing ' - Outlet' is attribution; a BBC headline's own dash clause can carry the dependency."""
+    d = one([e("a", "Global email outage - Microsoft investigates disruption", "BBC News")])
+    assert d.priority in ACTIONABLE, d.reasons
+
+
+def test_a_direct_source_dash_clause_is_headline_content_not_a_publisher_suffix():
+    """Codex P2: 'Global email outage - Microsoft investigates disruption' (BBC, GLOBAL) lost 'Microsoft' as a fake publisher suffix."""
+    ev = e("a", "Global email outage - Microsoft investigates disruption", "BBC News")
+    assert core([ev]).priority in ACTIONABLE
+    d = one([ev])
+    assert d.priority == core([ev]).priority and any("depends on a global platform" in r for r in d.reasons)

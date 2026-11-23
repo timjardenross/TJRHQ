@@ -549,21 +549,37 @@ _AU_DEPENDENCY_RX = _rx((
 _AU_AUDIENCE_SOURCE_RX = _rx((r"the mandarin", r"innovationaus", r"smartcompany", r"government news", r"cyber daily", r"information age"))
 
 
+def _publisher_suffix(m: Candidate):
+    """The trailing ' - Outlet' of an aggregator feed title, but only when it is established to be publisher attribution: the report
+    comes through an aggregator, or the clause names a recognised publisher. A direct-source clause such as ' - Microsoft investigates
+    disruption' is headline content and is kept."""
+    suffix = _PUBLISHER_SUFFIX.search(m.title or "")
+    if not suffix:
+        return None
+    outlet = re.sub(r"^\s[-–|]\s", "", suffix.group(0)).strip()
+    if we.source_kind(m.source or "") == we.AGGREGATOR or we.source_kind(outlet) != we.UNKNOWN:
+        return suffix
+    return None
+
+
 def _outlet(m: Candidate) -> str:
-    suffix = _PUBLISHER_SUFFIX.search(m.title)            # aggregator feeds carry the real outlet as a trailing ' - Outlet'
+    suffix = _publisher_suffix(m)                         # aggregator feeds carry the real outlet as a trailing ' - Outlet'
     return f"{m.source or ''} {suffix.group(0) if suffix else ''}"
 
 
 def _relevance_text(m: Candidate) -> str:
     """Title and summary WITHOUT the publisher attribution: an outlet called 'The Australian' or 'Guardian Australia' must not
     establish operational relevance (the aggregator's trailing ' - Outlet' and any copy of the outlet name in the summary)."""
-    suffix = _PUBLISHER_SUFFIX.search(m.title or "")
+    if m.kind != we.AGGREGATOR:                  # a direct-source headline's dash clause is content ('Global email outage - Microsoft investigates'), not attribution
+        return f"{m.title} {m.summary or ''}"
+    suffix = _publisher_suffix(m)
     summary = m.summary or ""
+    title = m.title[:suffix.start()].strip() if suffix else (m.title or "")
     if suffix:
         outlet = re.sub(r"^\s[-–|]\s", "", suffix.group(0)).strip()
         if outlet:
             summary = re.sub(re.escape(outlet), " ", summary, flags=re.IGNORECASE)
-    return f"{core_title(m.title)} {summary}"
+    return f"{title} {summary}"
 
 
 def australian_relevance(group: Group) -> str | None:
