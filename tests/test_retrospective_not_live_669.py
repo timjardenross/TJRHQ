@@ -238,3 +238,11 @@ def test_a_genuinely_continuing_outage_is_still_ongoing_and_escalated():
     d = decision([e("a", "Telstra mobile outage continues across Australia, thousands still without service", "ABC News", 3)])
     assert d.impact_status == "stated"
     assert ed.escalation_record(d, now=NOW)["restoration_status"] == "ongoing"
+
+
+def test_an_outage_continuing_into_another_day_is_still_a_live_outage():
+    """Codex P2: 'continues into a third day' with no process subject is the outage continuing."""
+    evs = [e("a", "Telstra outage continues into a third day, some services restored across Australia", "ABC News", 3)]
+    d = decision(evs)
+    assert d.impact_status == "stated"
+    assert ed.escalation_record(d, now=NOW)["restoration_status"] == "ongoing"
