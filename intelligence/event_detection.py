@@ -97,7 +97,8 @@ CASCADING = (r"cascad\w+", r"knock-?on", r"flow-?on", r"across (?:multiple|sever
 MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"partial(?:ly)?", r"limited", r"intermittent", r"isolated")
 RETROSPECTIVE = (r"investigated", r"post-(?:blackout|outage|incident)", r"convicted", r"charged", r"sentenced", r"jailed", r"guilty", r"trial", r"verdict", r"inquest", r"court", r"fined",
                  r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
-                 r"apolog\w+", r"lessons?", r"anniversary", r"fallout")
+                 r"apolog\w+", r"lessons?", r"anniversary", r"fallout",
+                 r"near[- ]miss(?:es)?", r"post-?mortems?", r"root[- ]cause")        # #669: commentary and analysis about a PAST event
 HEDGE = (r"likely", r"may have", r"might have", r"possibly", r"suspected", r"reportedly", r"apparent", r"alleged\w*", r"believed to")
 POLITICS = (r"liberal", r"labor", r"coalition", r"opposition", r"minister", r"premier", r"election", r"policy", r"parliament",
             r"senator", r"prime minister", r"government plan", r"throws open")
@@ -612,7 +613,10 @@ def _report_state(m: Candidate) -> str | None:
     return "restored" if restored else None
 
 
-def _restoration_status(originals: list[Candidate]) -> str:
+FRESH_REPORT_HOURS = 12       # a stated, non-retrospective report this recent is current evidence that a disruption is live
+
+
+def _restoration_status(originals: list[Candidate], now: datetime | None = None) -> str:
     """#669: decide by report CHRONOLOGY. The latest dated report that states restored or ongoing wins, so an earlier 'still
     without power' report no longer vetoes a later 'power restored' (and a later 'still ongoing' reopens an earlier
     'restored'). Ties go to 'ongoing'. Reports without a date cannot be ordered, so with no dated statement the previous
@@ -625,12 +629,22 @@ def _restoration_status(originals: list[Candidate]) -> str:
             return "ongoing" if "ongoing" in states else "restored"
     if any(_RESTORED_RX.search(m.title) for m in originals) and not any(_ONGOING_RX.search(m.title) for m in originals):
         return "restored"
-    if any(m.ongoing and m.status == "stated" for m in originals):
-        return "ongoing"
+    if now is None:                         # callers that do not say what time it is keep the previous rule
+        return "ongoing" if any(m.ongoing and m.status == "stated" for m in originals) else "unknown"
+    # #669: "ongoing" needs CURRENT evidence: an explicit continuation cue (still / ongoing / continues ...) in a stated
+    # report, or a stated, non-retrospective report from the last FRESH_REPORT_HOURS. Retrospective reporting about a past
+    # event, or an old report with no continuation cue, is "unknown" rather than a live disruption.
+    for m in originals:
+        if m.status != "stated":                # retrospective, unconfirmed, warning, ... are not a stated live disruption
+            continue
+        if _ONGOING_RX.search(m.title):
+            return "ongoing"
+        if m.ongoing and m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS):
+            return "ongoing"
     return "unknown"
 
 
-def escalation_record(d: Decision) -> dict:
+def escalation_record(d: Decision, *, now: datetime | None = None) -> dict:
     """The facts the Captain needs beside every ESCALATE/VERIFY item: what is confirmed vs merely reported, scale, duration and
     restoration, critical-service dependencies, geography, source confidence and the next verification action. Recomputed whenever the
     incident gains reports, so the classification is reassessed on new evidence."""
@@ -639,7 +653,7 @@ def escalation_record(d: Decision) -> dict:
     counts = [m.customers for m in originals if m.customers]
     text = " ".join(m.title for m in originals)
     dur = _DURATION_RX.search(text)
-    restoration = _restoration_status(originals)
+    restoration = _restoration_status(originals, now)
     return {
         "impact": "stated in headline" if d.impact_status == "stated" else "reported" if d.impact_status in ("unconfirmed", "retrospective") else d.impact_status,
         "evidence_status": d.evidence_status, "evidence_basis": d.evidence_basis,
