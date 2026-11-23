@@ -284,10 +284,19 @@ def _wk_via_aggregator(i: IncidentView) -> str | None:
     return None
 
 
+_WK_SOFTWARE_SOURCE_RX = re.compile(r"\b(?:open[- ]source|source[- ]code|source[- ]available|source[- ]control|source[- ]map|data source|resource)\b", re.IGNORECASE)
+
+
 def _wk_summary_hedged(i: IncidentView) -> bool:
-    """A hedged or anonymously sourced original report summary ('unnamed sources say', 'may have') disqualifies the item here only."""
-    return any(ed._HEDGE_RX.search(r.get("summary") or "") or ed._ANON_RX.search(r.get("summary") or "")
-               for r in i.reports if r["role"] == "original")
+    """A hedged or anonymously sourced original report summary ('unnamed sources say', 'may have') disqualifies the item here only.
+    Software terminology that merely contains the word 'source' ('open source software', 'source code') is not anonymous sourcing."""
+    for r in i.reports:
+        if r["role"] != "original":
+            continue
+        txt = _WK_SOFTWARE_SOURCE_RX.sub(" ", r.get("summary") or "")
+        if ed._HEDGE_RX.search(txt) or ed._ANON_RX.search(txt):
+            return True
+    return False
 
 
 def _wk_tokens(i: IncidentView) -> frozenset:

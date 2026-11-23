@@ -213,3 +213,16 @@ def test_the_same_vendor_reported_by_two_publishers_is_still_one_development():
     _, items = _wk([_ev(1, "OpenAI releases new AI model for enterprise customers", "iTnews"),
                     _ev(2, "OpenAI releases new AI model for enterprise customers this week", "Financial Times")])
     assert len(items) == 1
+
+
+def test_open_source_software_wording_is_not_anonymous_sourcing():
+    """Codex P2: 'open source software' in a summary must not exclude a factual item."""
+    _, items = _wk([_ev(1, "Linux Foundation launches new software security initiative for developers", "iTnews",
+                        "The foundation released open source software to help developers secure their applications.")])
+    assert len(items) == 1
+
+
+def test_genuine_anonymous_sourcing_in_a_summary_still_excludes():
+    _, items = _wk([_ev(1, "Linux Foundation prepares new software security initiative for developers", "iTnews",
+                        "Unnamed sources say the foundation may release software to help developers secure applications.")])
+    assert items == []
