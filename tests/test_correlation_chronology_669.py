@@ -116,3 +116,62 @@ def test_snapshot_comparison_sees_the_chronological_status():
     ev = be.build_evidence([e("a", OUTAGE_STILL, "ABC News", 0), e("b", OUTAGE_RESTORED, "The Guardian", 6)], now=NOW, window_hours=24 * 7)
     states = {i.record["restoration_status"] for i in ev.incidents}
     assert "ongoing" not in states
+
+
+# ── Codex review of #674: same-class incidents at different places, and partial restoration ──────────────────────
+def test_same_class_reports_naming_different_places_are_different_incidents():
+    """Codex P2: two AU boil-water notices six hours apart for Sydney and Melbourne merged (shared sector + generic terms)."""
+    g = groups([e("a", "Boil water notice for Sydney suburbs after contamination in drinking water", "ABC News", 0),
+                e("b", "Boil water notice for Melbourne suburbs after contamination in drinking water", "The Guardian", 6)])
+    assert g == [["a"], ["b"]]
+
+
+def test_same_class_reports_naming_the_same_place_still_merge():
+    g = groups([e("a", "Boil water notice issued for Sydney suburbs after contamination detected", "ABC News"),
+                e("b", "Boil water notice for Sydney suburbs as contamination detected in water supply", "The Guardian", 1)])
+    assert g == [["a", "b"]]
+
+
+def test_a_report_naming_no_place_is_not_blocked_from_merging():
+    a = ed.detect_candidate(e("a", "Boil water notice for Sydney suburbs after contamination in drinking water", "ABC News"))
+    b = ed.detect_candidate(e("b", "Boil water notice for suburbs after contamination in drinking water", "The Guardian", 1))
+    assert not ed._location_conflict(a, b)
+
+
+def test_place_aliases_are_normalised():
+    assert ed._places("Victorian floods and flooding in victoria and NSW and New South Wales") == frozenset({"victoria", "nsw"})
+
+
+def test_the_location_guard_does_not_apply_to_outage_or_cyber_links():
+    """Outage / cyber links keep their existing guards; a national outage is not split by the cities it names."""
+    g = groups([e("a", "Telstra mobile outage leaves customers in Sydney unable to make calls", "ABC News", 0),
+                e("b", "Telstra mobile outage leaves customers in Melbourne unable to make calls", "The Guardian", 1)])
+    assert g == [["a", "b"]]
+
+
+def test_a_partly_restored_report_after_a_still_report_stays_ongoing():
+    """Codex P2: 'restored to some ... but thousands without power' has no 'still' word but is not a restoration."""
+    rec = record_for([e("a", "Power outage still affecting 20,000 Telstra customers in Adelaide", "ABC News", 0),
+                      e("b", "Power restored to some Telstra customers in Adelaide but thousands without power", "The Guardian", 6)])
+    assert rec["restoration_status"] == "ongoing"          # pre-fix: "restored"
+
+
+def test_partial_restoration_phrases_are_not_restoration():
+    for t in ("Telstra outage partially restored in Adelaide", "Power yet to be restored for 3,000 Adelaide customers",
+              "Not all Adelaide customers restored after Telstra outage", "Power restored in Adelaide but 4,000 homes remain offline"):
+        assert ed._report_state(ed.detect_candidate(e("a", t, "ABC News"))) in ("ongoing", None), t
+
+
+def test_a_clean_restoration_is_still_restored():
+    assert ed._report_state(ed.detect_candidate(e("a", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News"))) == "restored"
+    assert record_for([e("a", OUTAGE_STILL, "ABC News", 3), e("b", OUTAGE_RESTORED, "The Guardian", 6)])["restoration_status"] == "restored"
+
+
+def test_the_undated_fallback_uses_the_same_per_report_state():
+    cands = [ed.detect_candidate(e("a", "Power restored to some customers in Adelaide but thousands without power", "ABC News"))]
+    assert ed._restoration_status([dataclass_replace_unpublished(c) for c in cands]) == "ongoing"
+
+
+def dataclass_replace_unpublished(c):
+    import dataclasses
+    return dataclasses.replace(c, published=None)
