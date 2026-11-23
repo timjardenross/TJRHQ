@@ -136,3 +136,37 @@ def test_every_citation_in_the_morning_and_weekly_views_carries_an_evidence_refe
 def test_snapshot_identity_is_unchanged_by_the_new_citation_format():
     _, i = incident([ev("rep-1", "Telstra mobile outage leaves customers unable to make calls", "ABC News", url="https://example.test/a/1")])
     assert i.incident_id == be._incident_id(["rep-1"])
+
+
+# ── Codex review of #675 ───────────────────────────────────────────────────────────────────────────────────────────
+def test_a_displayed_short_id_never_collides_with_a_hidden_report():
+    """Codex P2: a fourth, hidden report sharing the 8-character prefix of a displayed one made '#abcdef12' ambiguous."""
+    _, i = incident([ev("seed", "Telstra mobile outage leaves customers unable to make calls", "ABC News")])
+    shown_a = "abcdef12-0000-4000-8000-000000000001"
+    hidden = "abcdef12-1111-4000-8000-000000000002"
+    i.reports = [_report(shown_a), _report("11111111-0000-4000-8000-000000000003"), _report("22222222-0000-4000-8000-000000000004"),
+                 _report(hidden, role="syndicated")]
+    c = be._cite(i)
+    assert "#abcdef12 " not in c and "#abcdef12," not in c and not c.endswith("#abcdef12")       # pre-fix: the ambiguous '#abcdef12'
+    refs = {r["report_id"]: r["short_id"] for r in be.evidence_refs(i)}
+    assert len(set(refs.values())) == len(refs)                       # unique across ALL reports, shown or not
+    assert f"#{refs[shown_a]}" in c
+
+
+def test_evidence_refs_short_ids_match_the_citation():
+    _, i = incident([ev("seed", "Telstra mobile outage leaves customers unable to make calls", "ABC News")])
+    i.reports = [_report("abcdef12-0000-4000-8000-000000000001"), _report("abcdef12-1111-4000-8000-000000000002")]
+    c = be._cite(i)
+    for r in be.evidence_refs(i):
+        assert f"#{r['short_id']}" in c
+
+
+def test_redirect_hosts_are_filtered_whatever_the_url_form():
+    """Codex P2: an explicit port or an upper-case scheme bypassed the string-based host check."""
+    for url in ("https://news.google.com:443/rss/articles/abc", "HTTPS://news.google.com/rss/articles/abc",
+                "https://NEWS.GOOGLE.COM/rss/articles/abc", "https://user@news.google.com/rss/articles/abc",
+                "https://sub.news.google.com/x"):
+        assert be._url_for_display(url) is None, url
+    assert be._url_for_display("HTTPS://www.abc.net.au/news/x") == "HTTPS://www.abc.net.au/news/x"
+    assert be._url_for_display("https://www.abc.net.au:8443/news/x") == "https://www.abc.net.au:8443/news/x"
+    assert be._url_for_display("https://[::1") is None               # a malformed URL is not shown rather than raising
