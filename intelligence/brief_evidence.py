@@ -210,14 +210,22 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     single = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated" and i.evidence_status == "reported"]
     verify = [i for i in active if i.priority == "VERIFY" or (i.priority in ("ESCALATE", "WATCH") and i not in firm and i not in single)]
     notices = [i for i in recent if i.impact_status in ("warning", "forecast") and i.priority in _ACTIONABLE]
+    source_open = [i for i in verify if i.evidence_status == "unverified"]
+    retro_open = [i for i in verify if i.evidence_status != "unverified" and i.impact_status == "retrospective"]
+    impact_open = [i for i in verify if i.evidence_status != "unverified" and i.impact_status != "retrospective" and i.event_type != "vulnerability"]
+    exposure = [i for i in verify if i.evidence_status != "unverified" and i.impact_status != "retrospective" and i.event_type == "vulnerability"]
     lines = ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
+    if firm or single:
+        lines.append(f"Operational situation: {len(firm)} confirmed or corroborated and {len(single)} single-source reported disruption(s) in the last 24 hours.")
+    else:
+        lines.append("Operational situation: no confirmed, corroborated or single-source reported current disruption in the last 24 hours.")
+    if notices or exposure:
+        lines.append("Credible warnings and emerging exposures are listed separately below; they are not current disruptions and no operational consequence is inferred from them.")
+    lines.append("")
     lines.append("What matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents")
     lines += [_line(i, True) for i in firm[:6]] or ["- None officially confirmed or corroborated in the last 24 hours."]
     lines += ["", "REPORTED by one source (provisional until a second or primary source)"]
     lines += [_line(i, True) for i in single[:6]] or ["- None."]
-    source_open = [i for i in verify if i.evidence_status == "unverified"]
-    retro_open = [i for i in verify if i.evidence_status != "unverified" and i.impact_status == "retrospective"]
-    impact_open = [i for i in verify if i.evidence_status != "unverified" and i.impact_status != "retrospective"]
     lines += ["", "IMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)"]
     lines += [_line(i, True) for i in impact_open[:6]] or ["- None."]
     lines += ["", "RETROSPECTIVE REPORTS (about past events; not live disruptions)"]
@@ -226,6 +234,8 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines += [_line(i, True) for i in source_open[:6]] or ["- None."]
     lines += ["", "WARNINGS AND FORECASTS (not confirmed incidents)"]
     lines += [_line(i) for i in notices[:6]] or ["- No active warning or forecast notice."]
+    lines += ["", "EMERGING EXPOSURE (credible advisories and risks; no confirmed current disruption; nothing here states an operational consequence)"]
+    lines += [_line(i, True) for i in exposure[:6]] or ["- None."]
     lines += ["", "Operational implications (only what the cited reports state)"]
     imp = [f"- {'tier ' + str(i.sector_tier) if i.sector_tier else 'unclassified sector'}: "
            f"{', '.join(i.record['critical_service_dependencies']) or 'no recognised service'} — {_facts(i)} {_cite(i)}"
@@ -236,7 +246,7 @@ def morning_view(ev: EvidenceSet) -> list[str]:
           for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH")][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
     fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev)[:3] if i not in notices]
-    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in (impact_open + source_open)[:2]]
+    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in (impact_open + exposure + source_open)[:2]]
     lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
     return lines
 

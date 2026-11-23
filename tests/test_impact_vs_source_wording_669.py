@@ -122,3 +122,31 @@ def test_every_section_heading_is_present_and_empty_ones_say_none():
     for h in (IMPACT_H, RETRO_H, SOURCE_H):
         assert h in text
     assert retro_section(text).strip().endswith("- None.")
+
+
+# ── Operational situation versus emerging exposure ──────────────────────────────────────────────────────────
+
+CISA = "CISA Adds One Known Exploited Vulnerability to Catalog"
+
+
+def test_the_brief_states_the_operational_situation_and_separates_emerging_exposure():
+    _, text = view([ev("a", CISA, "CISA Alerts")])
+    assert "Operational situation: no confirmed, corroborated or single-source reported current disruption" in text
+    assert "emerging exposures are listed separately" in text and "no operational consequence is inferred" in text
+    assert "EMERGING EXPOSURE" in text
+    exposure = text[text.index("EMERGING EXPOSURE"):text.index("Operational implications")]
+    assert CISA in exposure
+    assert CISA not in sections(text)[0]                       # a vulnerability advisory is not an unestablished service impact
+
+
+def test_the_situation_line_counts_real_disruptions_and_does_not_invent_any():
+    _, text = view([ev("a", "Telstra mobile outage leaves customers across Australia without service", "ABC News"),
+                    ev("b", "Telstra mobile outage leaves thousands unable to call, company confirms", "Telstra Exchange")])
+    assert "Operational situation: 1 confirmed or corroborated" in text or "Operational situation: 0 confirmed or corroborated and 1" in text
+    _, quiet = view([ev("a", CISA, "CISA Alerts")])
+    assert "Operational implications (only what the cited reports state)\n- No operational implication" in quiet
+
+
+def test_a_quiet_day_with_no_exposure_has_no_exposure_sentence():
+    _, text = view([])
+    assert "Operational situation: no confirmed" in text and "emerging exposures are listed" not in text
