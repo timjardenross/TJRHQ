@@ -16,8 +16,8 @@ NOW = datetime(2026, 11, 23, 0, 30, tzinfo=timezone.utc)
 
 
 def e(i, title, source, age_hours, geo="AU"):
-    return {"id": i, "title": title, "source": source, "geography": geo, "summary": "",
-            "collected_at": (NOW - timedelta(hours=age_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    t = (NOW - timedelta(hours=age_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")     # #692: published time = verified report time
+    return {"id": i, "title": title, "source": source, "geography": geo, "summary": "", "collected_at": t, "published_at": t}
 
 
 def decision(events, member="a"):

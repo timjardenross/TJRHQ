@@ -16,8 +16,8 @@ SOURCE_H = "SOURCE NOT YET VERIFIED"
 
 
 def ev(i, title, source, age=3, geo="AU"):
-    return {"id": i, "title": title, "source": source, "geography": geo, "summary": "",
-            "collected_at": (NOW - timedelta(hours=age)).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    t = (NOW - timedelta(hours=age)).strftime("%Y-%m-%dT%H:%M:%SZ")     # #692: published time = verified report time
+    return {"id": i, "title": title, "source": source, "geography": geo, "summary": "", "collected_at": t, "published_at": t}
 
 
 def view(events, **override):

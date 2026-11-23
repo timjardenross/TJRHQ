@@ -159,7 +159,8 @@ def test_a_partly_restored_report_after_a_still_report_stays_ongoing():
 def test_partial_restoration_phrases_are_not_restoration():
     for t in ("Telstra outage partially restored in Adelaide", "Power yet to be restored for 3,000 Adelaide customers",
               "Not all Adelaide customers restored after Telstra outage", "Power restored in Adelaide but 4,000 homes remain offline"):
-        assert ed._report_state(ed.detect_candidate(e("a", t, "ABC News"))) in ("ongoing", None), t
+        # #692: partial wording ('partially restored', 'not all ... restored') is now its own 'partially_restored' state; never 'restored'
+        assert ed._report_state(ed.detect_candidate(e("a", t, "ABC News"))) in ("ongoing", "partially_restored", None), t
 
 
 def test_a_clean_restoration_is_still_restored():
