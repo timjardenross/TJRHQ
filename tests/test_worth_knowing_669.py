@@ -307,3 +307,32 @@ def test_a_potential_outage_in_the_summary_does_not_exclude_an_advisory():
     _, items = _wk([_ev(1, "Researchers detail phishing technique aimed at enterprise cloud accounts", "iTnews",
                         "The flaw could cause outages if exploited. Vendors recommend phishing-resistant authentication.")])
     assert len(items) == 1
+
+
+def test_live_service_failure_stories_typed_other_none_are_excluded():
+    """Review leak 1: incidents typed other/none that describe a live network/service failure (headline or summary) never appear."""
+    cases = [("Telstra network problems hit customers across Sydney metro area", "iTnews",
+              "Customers report they cannot make calls or use mobile data after a fault."),
+             ("Vodafone network fault affects customers nationwide this morning", "iTnews",
+              "Vodafone's network is currently unavailable for many users and the company is investigating."),
+             ("Telstra mobile network issue under investigation by engineers", "iTnews",
+              "Customers are experiencing degraded service and dropped calls."),
+             ("Optus mobile network problems leave customers stranded in Sydney - Industrial Cyber", "Google News",
+              "Callers cannot connect to emergency services.")]
+    for n, (t, s, m) in enumerate(cases, 1):
+        _, items = _wk([_ev(n, t, s, m)])
+        assert items == [], t
+
+
+def test_potential_risk_and_security_developments_stay_eligible_after_widening():
+    _, a = _wk([_ev(1, "Researchers detail phishing technique that could affect customers of enterprise cloud accounts", "iTnews",
+                    "The flaw could cause outages if exploited. Vendors recommend phishing-resistant authentication.")])
+    _, b = _wk([_ev(2, "Researchers detail new phishing technique aimed at enterprise cloud accounts", "iTnews",
+                    "The technique may leave devices unavailable if exploited. Researchers recommend phishing-resistant authentication.")])
+    assert len(a) == 1 and len(b) == 1
+
+
+def test_retrospective_outage_restoration_story_is_excluded():
+    es, items = _wk([_ev(1, "AWS says cloud services restored after regional incident overnight", "iTnews",
+                         "Engineers restored access after failures affecting customers.")])
+    assert (es.incidents[0].event_type, es.incidents[0].impact_status) == ("outage", "retrospective") and items == []

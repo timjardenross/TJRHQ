@@ -269,7 +269,9 @@ _WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported":
 _WK_HEDGE_RX = re.compile(r"\b(?:reportedly|allegedly|alleged|claims?|claimed|sources?|rumou?rs?|unconfirmed|said to|may have|might|suspected)\b", re.IGNORECASE)
 
 
-_WK_SUMMARY_DISRUPTION_RX = re.compile(r"\b(?:outage|outages|blackout|without (?:power|service|electricity|internet|mobile)|unable to (?:make|access|use|connect|log)|"
+_WK_SUMMARY_DISRUPTION_RX = re.compile(r"\b(?:outage|outages|blackout|without (?:power|service|electricity|internet|mobile)|(?:unable|cannot|can't|can not|couldn't) (?:to )?(?:make|access|use|connect|log|call|send|reach|load|pay)|"
+                                        r"(?:currently |now )?unavailable|degraded (?:service|performance|network)|dropped calls?|(?:elevated )?error rates?|hit by errors|"
+                                        r"network (?:fault|faults|problems?|issues?|failure)|stranded|(?:affects?|affecting|affected) (?:customers|users|subscribers)|"
                                         r"went offline|knocked offline|taken offline|offline|service(?:s)? (?:is|are|was|were) down|systems? (?:is|are|was|were) down|disrupt(?:ed|ion|s)\b)", re.IGNORECASE)
 _WK_POTENTIAL_RX = re.compile(r"\b(?:could|may|might|risk of|potential(?:ly)?|warns? (?:of|that)|warned (?:of|that)|would|if exploited|can lead to|could lead to|prevent|avoid)\b", re.IGNORECASE)
 
@@ -279,10 +281,10 @@ def _wk_disruption(i: IncidentView) -> bool:
     to REFERENCE) and must not be republished under a 'no outage or service impact' heading. Informative reporting (vulnerability or
     advisory-style cyber warnings, potential or retrospective impact, no stated impact) stays eligible; an unconfirmed cyber_incident is
     kept because advisory headlines ('FBI warns hackers ...') classify that way."""
-    if i.impact_status == "stated" or (i.event_type == "outage" and i.impact_status == "unconfirmed"):
-        return True
-    return any(_WK_SUMMARY_DISRUPTION_RX.search(r.get("summary") or "") and not _WK_POTENTIAL_RX.search(r.get("summary") or "")
-               for r in i.reports if r["role"] == "original")      # the summary shown beneath the heading may state an outage the headline does not
+    if i.impact_status == "stated" or (i.event_type == "outage" and i.impact_status in ("unconfirmed", "retrospective")):
+        return True      # a retrospective outage-restoration story ("services restored after ...") is a past incident, not a development
+    texts = [i.headline] + [r.get("summary") or "" for r in i.reports if r["role"] == "original"]
+    return any(_WK_SUMMARY_DISRUPTION_RX.search(t) and not _WK_POTENTIAL_RX.search(t) for t in texts)      # the summary shown beneath the heading may state an outage the headline does not
 
 
 def _wk_credible_original(i: IncidentView) -> bool:
