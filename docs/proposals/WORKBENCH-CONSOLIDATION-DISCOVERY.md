@@ -1,9 +1,26 @@
 # Workbench Consolidation — Discovery, Target Architecture and Phased Plan
 
-**Status:** PROPOSAL FOR APPROVAL. Discovery only. No code, route, database, deployment or migration change is made or implied by this document.
+**Status:** DIRECTION ACCEPTED WITH REFINEMENTS (see §0). **Implementation NOT authorised.** Each phase needs separate authorisation. No code, route, database, deployment or migration change is made or implied by this document. PR #682 is not to be merged without separate approval.
 **Author role:** Chief Engineer (Advisory authority, USS-TJR-003). **Decision owner:** Captain TJR.
-**Timing:** Post-Morning-V1. Nothing here should start, or delay, the Morning V1 release (see §8 — do-not-touch list).
+**Timing:** No implementation begins until Morning V1 is **activated and stable**. Nothing here may start, or delay, the Morning V1 release (see §8 — do-not-touch list).
 **Evidence basis:** read of the repo at branch `claude/adoring-maxwell-8z10ii` (cut from `main` at `fcc7f62`). Nothing was run: no app launch, no test run, no production telemetry. Claims are tagged **[verified]** (read in code this session) or **[doc-only]** (taken from a doc, not re-checked).
+
+---
+
+## 0. Captain's decision notes (binding refinements to this proposal)
+
+Recorded on PR #682. Where the body below conflicts with these notes, **these notes govern**; the body has been amended to match.
+
+1. **Phases 0–2 are the preferred sequence, not blanket implementation approval.** Each phase requires separate authorisation.
+2. **The five Personal surfaces remain planned for TJR Life**, preserving personal-health and Pain Recovery Studio privacy, consent and clinical-safety boundaries. They are outside the one-or-two count and are not merged into HQ.
+3. **One HQ workbench with Know and Act modes is the preferred target.** The final one-versus-two decision is deferred to Phase 3.
+4. **The user's last selected mode is preserved.** Recovery posture may inform *recommendations* but must not unexpectedly switch navigation.
+5. **`CaptainIntelligencePanel` is on HOLD for investigation.** Do not wire it in or delete it until its unique functionality, API consumers and operational value are established.
+6. **Retirement requires at least 60 days of route telemetry, plus verified checks of external callers, Python consumers and deep links.** Zero observed traffic alone is insufficient.
+7. **Canonical confidence, risk, posture and capacity vocabulary is a correctness requirement**, not merely a UI improvement.
+8. **No implementation begins until Morning V1 is activated and stable.**
+
+**Standing constraint:** no merge of PR #682, production change, route alteration or implementation start without separate approval.
 
 ---
 
@@ -91,7 +108,7 @@ Operations, platform and personal surfaces (per-route data, vocab, writes, LOC a
 | D11 | Weekly Review re-queries the same tables as the workbenches instead of calling their APIs | `api/weekly-review/route.ts:64-267` |
 | D12 | `useAttentionCounts` fetches the full `/api/human-systems?domain=recovery` payload just to count risk flags | `captainsChairData.ts:493-510` |
 | D13 | Two parallel Human Systems data stacks: `/api/human-systems` and the browser-side `ros-data`/RPC stack (still used by Missions "suitable today") | `lib/ros-data.ts`; consumers partly unverified |
-| D14 | Orphaned UI: `CaptainIntelligencePanel` has zero importers; its three `/api/captain-intelligence/*` routes are live (one triggers a 50–260 s LLM run) | `grep` — only a docs mention |
+| D14 | **HOLD (investigate, do not wire or delete):** `CaptainIntelligencePanel` has zero importers; its three `/api/captain-intelligence/*` routes are live (one triggers a 50–260 s LLM run). Unique functionality, API consumers (including Python and Command Centre) and operational value are not yet established | `grep` — only a docs mention; consumers not investigated |
 
 ### 4.2 Inconsistent statuses and vocabularies (exact values)
 
@@ -124,15 +141,15 @@ Operations, platform and personal surfaces (per-route data, vocab, writes, LOC a
 | Fragmentation fixed | Fully: one shell, one switcher, one nav entry | Mostly: two shells, two switcher entries |
 | Cost of shared foundation | Same | Same — **the foundation work is identical** |
 | Cross-mode flows (signal → decision → mission) | In-shell, no context loss | Cross-route hop, needs deep-link contract |
-| Cognitive load on a low-capacity day | Mode toggle must default correctly (recovery-posture aware) | Natural separation of "reading" from "acting" |
+| Cognitive load on a low-capacity day | Mode is the user's last selection (persisted); posture may suggest, never switch | Natural separation of "reading" from "acting" |
 | Blast radius of a bad deploy | One surface carries writes and reads | Reads isolated from write-bearing Act surface |
 | Reuses existing patterns | `WorkbenchShell` `mode` prop and `DomainToggle` already exist | Same patterns, run twice |
 | Reversibility | High (modes can later split into routes) | High (can later join) |
 | Risk of "mode creep" back into many workbenches | Needs a hard rule: modes are fixed at two | Same |
 
-**Recommendation: Option A — one workbench with two modes (Know / Act), default mode chosen by recovery posture.** It fully satisfies the "one, or max two" target without a second shell to maintain, and the mode switch is a presentation choice over the shared foundation, which is exactly the stated principle.
+**Recommendation (accepted as preferred target; final decision deferred to Phase 3): Option A — one workbench with two modes (Know / Act). The mode is the user's last selection and is persisted; recovery posture may inform recommendations (for example a suggestion, never an automatic switch) but must not change navigation unexpectedly.** It fully satisfies the "one, or max two" target without a second shell to maintain, and the mode switch is a presentation choice over the shared foundation, which is exactly the stated principle.
 
-**Honest caveats.** (1) The shell choice is the *cheapest and most reversible* part of this programme; the value is in the foundation (§7, Phases 1–2). (2) Option A and Option B share Phases 0–2 unchanged, so **the Captain does not need to decide A vs B until Phase 3**. (3) I would switch to B if the Captain wants reads strictly isolated from the write-bearing surface, or if low-capacity-day usage shows the mode toggle adds load.
+**Honest caveats.** (1) The shell choice is the *cheapest and most reversible* part of this programme; the value is in the foundation (§7, Phases 1–2). (2) Option A and Option B share Phases 0–2 unchanged, so **the Captain does not need to decide A vs B until Phase 3**. (3) I would switch to B if the Captain wants reads strictly isolated from the write-bearing surface, or if low-capacity-day usage shows the mode toggle adds load. Because a persisted mode never auto-switches, the earlier "default by posture" risk is removed by design.
 
 ---
 
@@ -173,7 +190,7 @@ Data           Existing tables only. No schema change required for Phases 0–3.
 | **Retain (own boundary or unique capability)** | Pain Recovery Studio (consent/safety boundary); Human Systems (single-owner read model); Shopping List; Ready Room; Hub (the PWA start URL) — all five move to TJR Life per the existing plan, not into HQ. Content pipeline (QA-gated state machine); Missions (capacity-cost matrix, audited PATCH); Capture (AI enrichment, `?filter=` contract); Improvements lifecycle engine; HQ Status interpreter; Advisory (privacy-gated consult); Knowledge Memory/Exercises; Settings; Model Crew |
 | **Merge** | Technical + Health OSINT → one evidence workbench with a domain lens (D1); the four duplicated APIs → one parametrised handler with the old paths as thin aliases (D2); the two brief-detail pages → one, gate actions behind the existing role-gated bridge (D3); curation → inside the Health lens (D4); Hub/Chair orchestration → one `useCommandState()` (D9, D12); the two note-capture inserts → one capture path (D10); Search + Timeline data access → one API (D7, D8) |
 | **Convert to a view/lens** | Emergency Alerts → "Alerts" lens (split the 1,346-line page into components first; silence engine preserved unchanged); Briefs Domains → lens; Weekly Review → Review view; Timeline → Search view; Delivery → Status view (currently nav-orphaned); Handoffs (already a Decisions tab) |
-| **Retire (after redirect + zero-hit window)** | `(app)/intelligence`, `/home`, `/stage-progression`, `black-preview`, `/health-osint-curation` route, remaining `(app)` compatibility notices; `CaptainIntelligencePanel` **only after the Captain decides wire-or-delete** (it is not currently reachable, but its routes are live); legacy `PostureBand`/`ros-data` stack **only after Missions' dependency is moved** |
+| **Retire (after redirect + zero-hit window)** | `(app)/intelligence`, `/home`, `/stage-progression`, `black-preview`, `/health-osint-curation` route, remaining `(app)` compatibility notices; `CaptainIntelligencePanel` is **excluded from retirement and from wiring — HOLD** pending the investigation in Phase 0 (it is not currently reachable, but its routes are live); legacy `PostureBand`/`ros-data` stack **only after Missions' dependency is moved** |
 
 **Capability-preservation rule:** the capability checklist in Appendix B must be 100% green on the new surface before any old route stops serving real content.
 
@@ -184,18 +201,22 @@ Data           Existing tables only. No schema change required for Phases 0–3.
 Every phase is a separate, individually revertable PR set, behind a flag where a UI path changes. **No phase includes a table drop, destructive migration or data rewrite.** Each phase needs its own Captain approval.
 
 ### Phase 0 — Baseline and gate (docs and tests only)
-- Pre-condition: Morning V1 released and stable.
+- Pre-condition: Morning V1 **activated and stable**, and separate Captain authorisation for this phase.
 - Regenerate `LIVE-WORKBENCHES.md` from `workbenches.ts`; complete the quarantine table; fix the dangling `strategic-posture` references (doc/comment only).
 - Capture the baseline: route list, API response-shape snapshots for every route in §8, row counts for tables in §3.2, and a screenshot set per surface.
 - Add **characterisation tests** for the surfaces with none: Technical OSINT, Health OSINT, curation, Emergency Alerts, `/briefs/[id]`, Search, Timeline (all currently untested at page level).
-- Start route-hit telemetry (Vercel pageviews / runtime logs) to evidence "zero-hit" later. *Unknown today: actual usage per route.*
+- Start route-hit telemetry (Vercel pageviews / runtime logs). The 60-day retirement clock starts here. *Unknown today: actual usage per route.*
+- **`CaptainIntelligencePanel` investigation (HOLD item, read-only):** establish its unique functionality versus the Captain's Chair Intelligence panel; every consumer of `/api/captain-intelligence/{insights,generate,insights/[id]/outcome}` including Python, Command Centre, Telegram and scheduled jobs; the `insight_outcomes` data and its operational value; and the cost and gating of the `generate` LLM run. Output is a findings note for a later Captain decision. No wiring or deletion in the meantime.
+- **Consumer inventory for retirement checks:** compile external-caller, Python/Command Centre-consumer and deep-link registers (Telegram links, PWA `start_url`, bookmarks) that Phase 5 will rely on.
 
 ### Phase 1 — Foundation, no UI relocation
-- One vocabulary module: risk, confidence (stop rendering confidence through the risk mapper), posture, capacity labels, lifecycle ("done"), reject reasons (API/`0186` as source of truth).
+*Requires separate authorisation. The vocabulary work is a **correctness requirement**, not a UI nicety: today a stored legacy `amber` capacity code can read as null, confidence can colour as an error through the risk mapper, and the same day can show different posture labels on different surfaces.*
+- One canonical vocabulary module with tests that fail on divergence: risk, confidence, posture, capacity, lifecycle ("done"), reject reasons. Legacy aliases normalise on read; stored values are not rewritten.
+- Stop rendering confidence through the risk mapper; make `0186`/the API the source of truth for reject reasons.
 - Fix un-normalised capacity readers; import `ReadyRoomPosture` from `types.ts`.
 - `EvidenceRepository` behind the existing routes; collapse the four duplicate API pairs into one handler with the old paths kept as aliases (response shapes unchanged, verified by Phase 0 snapshots).
 - One `useCommandState()`; replace the `useAttentionCounts` full-payload fetch with a thin endpoint.
-- Exit gate: snapshots identical; no UI diff.
+- Exit gate: API snapshots identical; no UI diff except the explicitly listed correctness fixes (confidence colouring, capacity null-reads, posture labels), each shown before and after.
 
 ### Phase 2 — Know mode: merge the intelligence family
 - One shell for Today / Watching-or-Evidence / Library with Technical and Health as lenses; Alerts and Briefs as lenses; one brief-detail page with gate actions; curation inside the Health lens.
@@ -209,11 +230,11 @@ Every phase is a separate, individually revertable PR set, behind a flag where a
 - One search API; Timeline as a Search view; Weekly Review reads through the repository (D11).
 
 ### Phase 4 — Navigation switch-over
-- Replace the 21-entry switcher with the mode-based IA behind a flag; enable for the Captain only, then default-on.
+- Replace the 21-entry switcher with the mode-based IA behind a flag; enable for the Captain only, then default-on. The selected mode persists across sessions and is never changed automatically; recovery posture may surface a suggestion only. (Phases 3–5 are outside the currently preferred 0–2 sequence and need their own authorisation.)
 
 ### Phase 5 — Retirement
-- Remove redirect stubs only after the telemetry window (proposed ≥ 60 days) shows zero hits and a search for inbound links, external deep links and API callers is clean (the rule already in `LEGACY-ROUTE-QUARANTINE.md`).
-- Remove orphan API routes only after Python and external callers are checked (§9).
+- **Retirement gate (all required, none sufficient alone):** ≥ 60 days of route telemetry; verified check of external callers (Telegram, bookmarks, PWA, other services); verified check of Python and Command Centre consumers; verified check of deep-link contracts and inbound links (extending the rule in `LEGACY-ROUTE-QUARANTINE.md`). **Zero observed traffic is not, by itself, grounds to retire.**
+- Remove orphan API routes only after the same retirement gate passes (≥ 60 days telemetry, external callers, Python/Command Centre consumers, deep links). `CaptainIntelligencePanel` and `/api/captain-intelligence/*` stay on HOLD until the Phase 0 investigation and a separate Captain decision.
 
 ### Controls
 
@@ -248,14 +269,20 @@ Phase 1's capacity-reader fix touches portal code only, never these tables or vi
 
 **Security note:** no new exposure found. `/api/captain-intelligence/generate` triggers a 50–260 s LLM run and is session-gated; keep that gate through any move.
 
-## 10. Decisions requested
+## 10. Decision status
 
-1. Approve this plan **as direction**, with Phases 0–2 as no-regret and Phase 3+ gated on a later decision.
-2. Confirm the Personal group (5 surfaces) moves to TJR Life as already planned in `workbenches.ts`, and is excluded from the 1-or-2 count.
-3. Option A (one workbench, two modes) vs Option B (two workbenches) — needed only by Phase 3.
-4. `CaptainIntelligencePanel`: wire it in or delete it.
-5. Telemetry window length before retiring routes (proposed ≥ 60 days).
-6. Start date — proposed only after Morning V1 is stable.
+| # | Decision | Status |
+|---|---|---|
+| 1 | Plan accepted as direction; Phases 0–2 preferred sequence | **Accepted.** Each phase needs separate authorisation; not blanket approval |
+| 2 | Personal group (5 surfaces) moves to TJR Life, outside the 1-or-2 count | **Confirmed**, with personal-health and Pain Recovery Studio privacy, consent and clinical-safety boundaries preserved |
+| 3 | One workbench (Know/Act) vs two | **Preferred: one.** Final decision deferred to Phase 3 |
+| 4 | Mode behaviour | **Decided:** last selected mode persists; posture informs recommendations only, never switches navigation |
+| 5 | `CaptainIntelligencePanel` | **HOLD for investigation.** No wiring, no deletion (Phase 0 investigates) |
+| 6 | Telemetry before retirement | **Decided:** ≥ 60 days plus verified external-caller, Python-consumer and deep-link checks; zero traffic alone is insufficient |
+| 7 | Vocabulary | **Decided:** canonical confidence/risk/posture/capacity vocabulary is a correctness requirement |
+| 8 | Start date | **Decided:** not before Morning V1 is activated and stable; each phase separately authorised |
+
+**Still not authorised:** merging PR #682, any production change, route alteration, or implementation start.
 
 ---
 
