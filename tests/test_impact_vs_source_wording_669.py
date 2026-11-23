@@ -278,3 +278,73 @@ def test_general_news_at_reference_priority_is_not_published_as_editorial_releva
     assert "editorial relevance only" not in be._tag(inc)
     text = "\n".join(be.morning_view(es))
     assert "Democrats clinch" not in text
+
+
+# ── relevance routing is outlet-independent and defers to #677's verdict when present ──────────────────────────────────
+
+import pytest
+
+from intelligence import event_detection as _ed
+
+HAS_677 = hasattr(_ed, "australian_relevance")
+LONDON_STATED = "Power outage leaves 20,000 customers in London without electricity"
+AWS = "Global outage on AWS leaves millions of users offline"
+
+
+def _classify(title, source, geo="GB"):
+    es = be.build_evidence([ev("a", title, source, geo=geo)], now=NOW, window_hours=72)
+    inc = es.incidents[0]
+    text = "\n".join(be.morning_view(es))
+    sit = next(l for l in text.splitlines() if l.startswith("Operational situation:"))
+    fw = text[text.index("Forward watch"):]
+    return inc, be._editorial_only(inc), be._tag(inc), sit, fw, inc.priority
+
+
+@pytest.mark.parametrize("title", [LONDON_STATED, AWS])
+def test_same_foreign_incident_is_classified_identically_whichever_outlet_reports_it(title):
+    a = _classify(title, "ABC News")
+    b = _classify(title, "BBC News")
+    assert a[1] == b[1]                                   # editorial classification
+    assert a[2] == b[2]                                   # tag
+    assert a[3] == b[3]                                   # disruption count line
+    assert a[4].replace("ABC News", "X") == b[4].replace("BBC News", "X")   # Forward Watch treatment
+    assert a[5] == b[5]
+
+
+def test_a_foreign_incident_with_no_au_link_is_editorial_only_for_any_outlet_without_upstream_verdict():
+    for outlet in ("ABC News", "BBC News", "Reuters"):
+        es = be.build_evidence([ev("a", LONDON_STATED, outlet, geo="GB")], now=NOW, window_hours=72)
+        inc = es.incidents[0]
+        if be._upstream_verdict(inc) is None and inc.priority != "REFERENCE":
+            assert be._editorial_only(inc), outlet
+
+
+def test_a_plausible_dependency_keeps_its_caveat_and_is_not_editorial_only():
+    inc, editorial, tag, *_ = _classify(AWS, "BBC News")
+    if inc.priority == "REFERENCE":
+        pytest.skip("hidden as reference")
+    assert not editorial
+    assert "plausible dependency; Australian impact not established" in tag
+
+
+@pytest.mark.skipif(not HAS_677, reason="needs #677 relevance gate")
+def test_upstream_reasons_drive_the_classification_when_present():
+    es = be.build_evidence([ev("a", AWS, "BBC News", geo="GB")], now=NOW, window_hours=72)
+    inc = es.incidents[0]
+    assert be._upstream_verdict(inc) == "plausible"
+    inc.reasons = ["Australian-audience outlet only: editorial relevance, Australian operational impact not established (capped at WATCH)"]
+    assert be._editorial_only(inc)
+
+
+def test_upstream_verdict_is_read_from_reasons():
+    es = be.build_evidence([ev("a", AWS, "BBC News", geo="GB")], now=NOW, window_hours=72)
+    inc = es.incidents[0]
+    inc.priority = "VERIFY"
+    inc.reasons = ["Australian relevance: plausible dependency on AWS (Australian impact not established)"]
+    assert not be._editorial_only(inc) and "plausible dependency; Australian impact not established" in be._tag(inc)
+    inc.reasons = ["Australian relevance: australian geography"]
+    assert not be._editorial_only(inc) and "plausible dependency" not in be._tag(inc)
+    inc.reasons = ["no demonstrated Australian relevance or dependency: kept as reference"]
+    assert not be._editorial_only(inc)
+    inc.reasons = ["Australian-audience outlet only: editorial relevance"]
+    assert be._editorial_only(inc)

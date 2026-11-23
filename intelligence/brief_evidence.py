@@ -168,19 +168,22 @@ def _tag(i: IncidentView) -> str:
     # status; operational IMPACT (has the effect on service been established?) is what the report states.
     base = ("SOURCE UNVERIFIED" if i.evidence_status == "unverified" else STATUS_LABEL[i.evidence_status]) + note
     retro = " · retrospective report" if i.impact_status == "retrospective" else ""        # say so, never imply a live disruption
-    retro += _EDITORIAL_TAG if _editorial_only(i) else ""
+    cls = _relevance_class(i)
+    retro += _EDITORIAL_TAG if cls == "editorial" else (_DEPENDENCY_TAG if cls == "plausible" else "")
     impact = " · IMPACT NOT YET ESTABLISHED" if _impact_open(i) else ""
     return f"{i.priority} · {base}{retro}{impact}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
 
 
 EDITORIAL_REASON = "Australian-audience outlet only"
 _EDITORIAL_TAG = " · editorial relevance only (Australian operational impact not established)"
+_DEPENDENCY_TAG = " · plausible dependency; Australian impact not established"
+_RELEVANCE_PREFIX = "Australian relevance:"
+_NO_RELEVANCE_REASON = "no demonstrated Australian relevance"
 
-
-# Derived from the evidence itself so it holds with or without the upstream relevance gate (which records EDITORIAL_REASON).
-_AU_AUDIENCE_OUTLET_RX = re.compile(
-    r"abc news|abc\.net\.au|\bsbs\b|news\.com\.au|the mandarin|innovationaus|smartcompany|government news|cyber daily|information age|"
-    r"itnews|guardian australia|9news|7news|sky news australia|australian financial review|\bafr\b|\baap\b", re.IGNORECASE)
+# Global platforms an Australian organisation plausibly depends on (used ONLY when the upstream relevance gate is absent).
+_DEPENDENCY_RX = re.compile(
+    r"\baws\b|amazon web services|\bazure\b|microsoft 365|office 365|microsoft 365|google cloud|\bgcp\b|cloudflare|akamai|fastly|"
+    r"crowdstrike|okta|\bslack\b|\bzoom\b|github|atlassian|salesforce|openai|anthropic|\bstripe\b", re.IGNORECASE)
 _AU_NAMED_RX = re.compile(
     r"australia\w*|aussie\w*|\bnsw\b|new south wales|queensland\w*|tasmania\w*|victorian\b|sydney|melbourne|brisbane|perth|adelaide|"
     r"canberra|hobart|darwin|\basx\b|\bnbn\b|\bapra\b|\bacsc\b|\baemo\b|ausgrid|endeavour energy|ergon|energex|essential energy|ausnet|"
@@ -188,22 +191,50 @@ _AU_NAMED_RX = re.compile(
     r"medibank|services australia|centrelink|\bagl\b|origin energy|suncorp|\bbhp\b|woodside|transurban", re.IGNORECASE)
 
 
-def _derived_editorial_only(i: IncidentView) -> bool:
-    if i.priority == "REFERENCE":          # never actionable (general news): not published at all, so not an 'editorial relevance' item either
-        return False
+def _upstream_verdict(i: IncidentView) -> str | None:
+    """The relevance gate's own decision (event_detection.decide, #677), read from the recorded reasons; None when that gate is absent.
+    'editorial' | 'plausible' | 'relevant' | 'reference'."""
+    verdict = None
+    for r in i.reasons:
+        if EDITORIAL_REASON in r:
+            return "editorial"
+        if r.startswith(_RELEVANCE_PREFIX):
+            verdict = "plausible" if "plausible dependency" in r else "relevant"
+        elif _NO_RELEVANCE_REASON in r:
+            verdict = "reference"
+    return verdict
+
+
+def _fallback_class(i: IncidentView) -> str:
+    """Outlet-independent local derivation used only without the upstream verdict: a foreign incident is 'editorial' (or 'plausible'
+    when it names a global platform) whichever outlet reports it; AU geography or an Australian marker makes it 'relevant'."""
+    if i.priority == "REFERENCE":          # never-actionable general news is not published at all
+        return "reference"
     originals = [r for r in i.reports if r["role"] == "original"] or i.reports
     if not originals:
-        return False
+        return "relevant"
     if any((r.get("geography") or "").strip().upper() == "AU" for r in originals):
-        return False
-    if any(_AU_NAMED_RX.search(f"{r.get('title') or ''} {r.get('summary') or ''}") for r in originals):
-        return False
-    return all(_AU_AUDIENCE_OUTLET_RX.search(f"{r.get('source_name') or ''} {r.get('publisher') or ''}") for r in originals)
+        return "relevant"
+    texts = [f"{r.get('title') or ''} {r.get('summary') or ''}" for r in originals]
+    if any(_AU_NAMED_RX.search(t) for t in texts):
+        return "relevant"
+    if any(_DEPENDENCY_RX.search(r.get("title") or "") for r in originals):
+        return "plausible"
+    return "editorial"
+
+
+def _relevance_class(i: IncidentView) -> str:
+    return _upstream_verdict(i) or _fallback_class(i)
+
+
+def _derived_editorial_only(i: IncidentView) -> bool:
+    return _fallback_class(i) == "editorial"
 
 
 def _editorial_only(i: IncidentView) -> bool:
-    """Relevance rests on an Australian-audience outlet alone, not on an established Australian operational impact."""
-    return any(EDITORIAL_REASON in r for r in i.reasons) or _derived_editorial_only(i)
+    """Relevance rests on editorial grounds alone, not on an established Australian operational impact. Uses the upstream relevance
+    decision when present, else an outlet-independent local derivation."""
+    return _relevance_class(i) == "editorial"
 
 
 def _quality_source(i: IncidentView) -> bool:
