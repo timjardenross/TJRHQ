@@ -13,8 +13,6 @@ data/
 Missions/
 .claude/skills/*-workspace/
 .claude/skills/bot-reviews/
-.claude/skills/workbench-reviews/
-.claude/skills/archive/
 *.json
 *.sql
 *.png
