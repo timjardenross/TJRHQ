@@ -1,0 +1,734 @@
+{
+ "reviewer": "blind-classifier",
+ "labels": [
+  {
+   "n": 1,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "geopolitical shipping attack, not resilience-relevant"
+  },
+  {
+   "n": 2,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 3,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 4,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 5,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 6,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "interview, general AI infrastructure; unclear"
+  },
+  {
+   "n": 7,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 8,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 9,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 10,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 11,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 12,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 13,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 14,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 15,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 16,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 17,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 18,
+   "priority": "W",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "energy shipping decline; geopolitical, indirect resilience relevance"
+  },
+  {
+   "n": 19,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 20,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 21,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 22,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 23,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 24,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "regulatory revamp lobbying, minor relevance"
+  },
+  {
+   "n": 25,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 26,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 27,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 28,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 29,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "CDN possible impact; scope unclear"
+  },
+  {
+   "n": 30,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 31,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "routine market notice"
+  },
+  {
+   "n": 32,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 33,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 34,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 35,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 36,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 37,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 38,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 39,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 40,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 41,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 42,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "routine KEV addition"
+  },
+  {
+   "n": 43,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "cyber chief removed after US tech outages"
+  },
+  {
+   "n": 44,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "retrospective",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "outages attributed to rushed AI-found bug fixes"
+  },
+  {
+   "n": 45,
+   "priority": "W",
+   "materiality": "medium",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "critical Java flaw patching advisory"
+  },
+  {
+   "n": 46,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "reported FBI database hack, unverified"
+  },
+  {
+   "n": 47,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "third-party provider incident hit multiple websites"
+  },
+  {
+   "n": 48,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "Coles cyber incident investigated; consequences unclear"
+  },
+  {
+   "n": 49,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 50,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "irrelevant"
+  },
+  {
+   "n": 51,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "Apple Pay outage during peak retail trading"
+  },
+  {
+   "n": 52,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "hijacked third-party script skimmer on Australian sites"
+  },
+  {
+   "n": 53,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "Telstra mobile outage, complaints surge; restored"
+  },
+  {
+   "n": 54,
+   "priority": "R",
+   "materiality": "low",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "weather cancellations, routine"
+  },
+  {
+   "n": 55,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "large bank data leak, control failures"
+  },
+  {
+   "n": 56,
+   "priority": "W",
+   "materiality": "medium",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "Java flaw unpatchable on some systems"
+  },
+  {
+   "n": 57,
+   "priority": "W",
+   "materiality": "medium",
+   "impact_status": "retrospective",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "AI-driven cyber claims trend"
+  },
+  {
+   "n": 58,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "Salesforce disruption; extent unclear"
+  },
+  {
+   "n": 59,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "supermarket cooling cyberattacks; consequences unsubstantiated"
+  },
+  {
+   "n": 60,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "third-party script compromise across banks, media, insurers"
+  },
+  {
+   "n": 61,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "speculation about Telstra outage cause"
+  },
+  {
+   "n": 62,
+   "priority": "W",
+   "materiality": "medium",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "claimed automated AI cyberattack"
+  },
+  {
+   "n": 63,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "Microsoft Outlook outage; APRA near miss comment"
+  },
+  {
+   "n": 64,
+   "priority": "W",
+   "materiality": "medium",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "FBI warning on AI attack framework"
+  },
+  {
+   "n": 65,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "attempted attacks blocked, no impact"
+  },
+  {
+   "n": 66,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "Equinor IT disrupted, production unaffected"
+  },
+  {
+   "n": 67,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "vendor status gateway disruption, limited"
+  },
+  {
+   "n": 68,
+   "priority": "V",
+   "materiality": "high",
+   "impact_status": "retrospective",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "SA blackout investigation; same incident as item 76"
+  },
+  {
+   "n": 69,
+   "priority": "W",
+   "materiality": "medium",
+   "impact_status": "retrospective",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "Microsoft outage follow-on warnings"
+  },
+  {
+   "n": 70,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "GAO food supply cyber gaps report"
+  },
+  {
+   "n": 71,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "retrospective",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "airline recovery after shutdown; cause unclear"
+  },
+  {
+   "n": 72,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "commentary on outage and SLAs"
+  },
+  {
+   "n": 73,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "payment firms' vendors targeted by cyberattack"
+  },
+  {
+   "n": 74,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "routine KEV additions"
+  },
+  {
+   "n": 75,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "none",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "official comment on outages"
+  },
+  {
+   "n": 76,
+   "priority": "E",
+   "materiality": "high",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "SA transmission blackout, about 11-20k without power"
+  },
+  {
+   "n": 77,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "retrospective",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "Microsoft M365 outage root cause"
+  },
+  {
+   "n": 78,
+   "priority": "W",
+   "materiality": "low",
+   "impact_status": "potential",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "routine KEV additions"
+  },
+  {
+   "n": 79,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "unconfirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "broker client data likely accessed"
+  },
+  {
+   "n": 80,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": false,
+   "note": "NSA outage amid US tech outages"
+  },
+  {
+   "n": 81,
+   "priority": "V",
+   "materiality": "medium",
+   "impact_status": "confirmed",
+   "is_single_incident": true,
+   "worth_a_public_contribution": true,
+   "note": "brief emergency call outage in Canberra"
+  }
+ ]
+}

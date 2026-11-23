@@ -44,6 +44,11 @@ def main(events_path, legacy_path, out_dir, legacy_weekly=None):
     (out / "weekly_after.txt").write_text("\n".join(be.weekly_view(ev7)))
     if legacy_weekly and Path(legacy_weekly).exists():
         (out / "weekly_before.txt").write_text(Path(legacy_weekly).read_text())
+    # Legacy weekly TECH OSINT block, rebuilt from the SAME snapshot with the unchanged legacy renderer (the LLM paragraph cannot be produced offline).
+    tech = sorted([{"raw_title": r["title"], "rank_score": r.get("rank") or 0, "osint_confidence_level": r.get("conf")}
+                   for r in raw if "github status" not in (r.get("source") or "").lower()], key=lambda x: -x["rank_score"])[:1000]
+    (out / "weekly_before_same_snapshot.txt").write_text("\n".join(["<legacy renderer _format_weekly_osint_block; LLM paragraph omitted>"]
+        + cb._format_weekly_osint_block("TECH OSINT", "🛰", tech, "osint_confidence_level", "raw_title", summary=None)))
     # COMMS
     opps = [opp.build_opportunity("lesson", ref=r, title=t, body="") for r, t in leg["lessons"]]
     (out / "comms_before.txt").write_text(weekly._compose_weekly_brief_core(opps))
