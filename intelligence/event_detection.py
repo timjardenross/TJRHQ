@@ -517,7 +517,50 @@ def evidence_status(group: Group) -> tuple[str, list[str]]:
     return ("corroborated" if group.independent_publishers >= 2 else "reported"), basis
 
 
+# #669: an incident enters the AUSTRALIAN operational brief only with demonstrated Australian relevance or dependency.
+# Relevance: the collected geography is Australian, or a report names Australia, an Australian state/city or an Australian
+# organisation. Dependency: a global platform or vendor that Australian services run on (a Microsoft or AWS outage is an
+# Australian dependency even when the report says nothing about Australia). Advisories (vulnerabilities) are exempt: they are
+# judged by exposure, not geography.
+_AU_MARKER_RX = _rx((r"australia\w*", r"nsw", r"queensland\w*", r"tasmania\w*", r"victorian", r"sydney", r"melbourne", r"brisbane",
+                     r"perth", r"adelaide", r"canberra", r"hobart", r"darwin", r"asx", r"nbn", r"apra", r"asic", r"acsc", r"aemo",
+                     r"ausgrid", r"electranet", r"telstra", r"optus", r"tpg", r"qantas", r"jetstar", r"virgin australia", r"westpac",
+                     r"anz", r"commonwealth bank", r"nab", r"coles", r"woolworths", r"medibank", r"services australia", r"centrelink"))
+_AU_DEPENDENCY_RX = _rx((r"microsoft", r"azure", r"office 365", r"aws", r"amazon web services", r"google cloud", r"cloudflare",
+                         r"crowdstrike", r"cisco", r"okta", r"oracle", r"salesforce", r"atlassian", r"github", r"zoom", r"akamai",
+                         r"visa", r"mastercard", r"swift"))
+
+
+def australian_relevance(group: Group) -> str | None:
+    """Why this incident belongs in the Australian brief ('australian geography', 'names Australia or an Australian
+    organisation', 'depends on a global platform used in Australia'), or None when no relevance is demonstrated."""
+    for m in group.members:
+        if (m.geography or "").upper().startswith("AU"):
+            return "australian geography"
+    for m in group.members:
+        if _AU_MARKER_RX.search(m.title):
+            return "names Australia or an Australian organisation"
+    for m in group.members:
+        if _AU_DEPENDENCY_RX.search(m.title):
+            return "depends on a global platform used in Australia"
+    return None
+
+
 def decide(group: Group, *, now: datetime | None = None) -> Decision:
+    """Priority rules (see _decide_core) plus the Australian-relevance gate: an incident that would be escalated, verified
+    or watched but shows no Australian relevance or dependency is kept as REFERENCE, with the reason recorded."""
+    d = _decide_core(group, now=now)
+    if d.priority in ("ESCALATE", "VERIFY", "WATCH") and d.event_type != "vulnerability":
+        why = australian_relevance(group)
+        if why is None:
+            d.reasons.append("no demonstrated Australian relevance or dependency: kept as reference, not escalated into the Australian brief")
+            d.priority, d.urgency, d.provisional = "REFERENCE", "routine", False
+        else:
+            d.reasons.append(f"Australian relevance: {why}")
+    return d
+
+
+def _decide_core(group: Group, *, now: datetime | None = None) -> Decision:
     originals = [m for m in group.members if not m.commentary] or group.members
     head = max(originals, key=lambda c: (_STATUS_ORDER[c.status], -(c.tier or 3), c.kind == we.PRIMARY,
                                          c.published or datetime.min.replace(tzinfo=timezone.utc)))
