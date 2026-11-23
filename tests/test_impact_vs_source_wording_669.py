@@ -28,11 +28,19 @@ def view(events, **override):
     return es, "\n".join(be.morning_view(es))
 
 
+RETRO_H = "RETROSPECTIVE REPORTS"
+
+
 def sections(text):
     a = text.index(IMPACT_H)
+    r = text.index(RETRO_H)
     b = text.index(SOURCE_H)
     c = text.index("WARNINGS AND FORECASTS")
-    return text[a:b], text[b:c]
+    return text[a:r], text[b:c]
+
+
+def retro_section(text):
+    return text[text.index(RETRO_H):text.index(SOURCE_H)]
 
 
 COLES = "Coles Group investigating a cyber incident"
@@ -85,3 +93,32 @@ def test_retrospective_reports_keep_their_own_label_and_are_not_called_impact_qu
     es = be.build_evidence([ev("a", 'APRA calls Microsoft outage a "near miss" for financial system', "Insurance Business", 3)], now=NOW, window_hours=72)
     tag = be._tag(es.incidents[0])
     assert "retrospective report" in tag and "IMPACT NOT YET ESTABLISHED" not in tag
+
+
+# ── Codex review of #678 ───────────────────────────────────────────────────────────────────────────────────────────
+def test_a_credible_retrospective_report_has_its_own_section_not_the_impact_section():
+    """Codex P2: 'Post-mortem of the Optus outage released' (ABC News, retrospective) appeared under 'effect on service not yet shown'."""
+    _, text = view([ev("a", "Post-mortem of the Optus outage released", "ABC News", 3)])
+    impact, source = sections(text)
+    retro = retro_section(text)
+    assert "Optus" in retro and "Optus" not in impact and "Optus" not in source          # pre-fix: under the impact section
+    assert "retrospective report" in retro
+
+
+def test_retrospective_reports_stay_visible_not_filtered_out():
+    es, text = view([ev("a", "Post-mortem of the Optus outage released", "ABC News", 3)])
+    assert any(i.impact_status == "retrospective" for i in es.incidents)
+    assert text.count("Optus") >= 1
+
+
+def test_an_unverified_retrospective_report_is_a_source_question():
+    _, text = view([ev("a", "Post-mortem of the Optus outage released", "ABC News", 3)], evidence_status="unverified")
+    _impact, source = sections(text)
+    assert "Optus" in source and "retrospective report" in source
+
+
+def test_every_section_heading_is_present_and_empty_ones_say_none():
+    _, text = view([ev("a", "Power outage hits 20,000 customers in SA", "ABC News")])
+    for h in (IMPACT_H, RETRO_H, SOURCE_H):
+        assert h in text
+    assert retro_section(text).strip().endswith("- None.")
