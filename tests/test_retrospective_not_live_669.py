@@ -108,3 +108,44 @@ def test_a_root_cause_that_has_been_found_is_retrospective():
               "Root cause analysis released for the Optus network failure", "Report reveals root cause of the Qantas systems failure"):
         c = ed.detect_candidate(e("a", t, "ABC News", 5))
         assert c is None or c.status != "stated", t
+
+
+# ── A re-surfaced headline about a much older dated event (Microsoft "Friday 13th outage continues", seen on the 22nd) ──────────
+
+MS13 = "Microsoft's Friday 13th outage continues with fraud and employee risk warnings - Insurance Business"
+
+
+def test_a_continues_headline_naming_an_old_date_does_not_establish_ongoing():
+    evs = [e("a", MS13, "Google News - Critical Infrastructure/Energy Cyberattack AU", 5.4)]      # collected 22 Nov; names Friday 13 Nov
+    assert restoration(evs) == "unknown"                                  # pre-fix: "ongoing"
+    assert restoration(evs, now=None) == "unknown"
+
+
+def test_named_date_resolution_is_read_not_inferred():
+    ref = datetime(2026, 11, 22, 19, 4, tzinfo=timezone.utc)
+    assert ed.named_date(MS13, ref) == datetime(2026, 11, 13, tzinfo=timezone.utc)
+    assert ed.named_date("Outage on 13 November continues", ref) == datetime(2026, 11, 13, tzinfo=timezone.utc)
+    assert ed.named_date("Power out 14/11/2026 still", ref) == datetime(2026, 11, 14, tzinfo=timezone.utc)
+    assert ed.named_date("Telstra outage continues", ref) is None
+
+
+def test_a_continues_headline_with_no_old_date_is_still_ongoing():
+    evs = [e("a", "Telstra mobile outage continues across Australia", "ABC News", 30)]
+    assert restoration(evs) == "ongoing"
+
+
+def test_a_recent_date_in_the_headline_does_not_make_a_continuation_historic():
+    ref_title = "Outage on 22 November continues across Australia"                   # same day as the report
+    assert restoration([e("a", ref_title, "ABC News", 5)]) == "ongoing"
+
+
+def test_recent_independent_evidence_still_establishes_ongoing_alongside_a_historic_headline():
+    evs = [e("a", MS13, "Google News - Critical Infrastructure/Energy Cyberattack AU", 5.4),
+           e("b", "Microsoft outage still affecting Australian businesses, services remain down", "ABC News", 2)]
+    assert restoration(evs, now=NOW) == "ongoing"
+
+
+def test_the_morning_view_does_not_call_the_historic_item_ongoing():
+    es = be.build_evidence([e("a", MS13, "Google News - Critical Infrastructure/Energy Cyberattack AU", 5.4)], now=NOW, window_hours=72)
+    view = "\n".join(be.morning_view(es))
+    assert "ongoing" not in view.lower()

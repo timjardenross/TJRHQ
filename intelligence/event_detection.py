@@ -637,12 +637,74 @@ _PARTIAL_RX = _rx((r"restored (?:to|for) (?:some|part|parts|a number)", r"partia
                    r"not all (?:\w+ ){0,3}restored", r"(?:but|although|while|however)\b[^.;]{0,60}\b(?:without|remain\w*|yet to|outstanding|still)"))
 
 
+# ── Historical dated references ────────────────────────────────────────────────────────────────────────────
+# A headline such as "Microsoft's Friday 13th outage continues ..." re-surfaced on the 22nd names an event nine days old. 'continues'
+# in such a headline is a historical reference, not current evidence that the service is still disrupted. A report that names a
+# calendar date well before its own publication time cannot, by its wording alone, establish an ongoing status.
+HISTORIC_DATE_HOURS = 48
+_MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december")
+_WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+_DMY_RX = re.compile(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b")
+_DAY_MONTH_RX = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(" + "|".join(_MONTHS) + r")\b", re.IGNORECASE)
+_MONTH_DAY_RX = re.compile(r"\b(" + "|".join(_MONTHS) + r")\s+(\d{1,2})(?:st|nd|rd|th)?\b", re.IGNORECASE)
+_WEEKDAY_ORD_RX = re.compile(r"\b(" + "|".join(_WEEKDAYS) + r")\s+(\d{1,2})(?:st|nd|rd|th)\b", re.IGNORECASE)
+
+
+def named_date(title: str, ref: datetime) -> datetime | None:
+    """The latest calendar date the headline names that is not after ``ref`` (a weekday-and-day-of-month such as 'Friday 13th', a
+    'day month', a 'month day', or dd/mm/yyyy), or None. Dates are read, never inferred."""
+    t = core_title(title or "")
+    found: list[datetime] = []
+
+    def add(y: int, mo: int, d: int):
+        try:
+            dt = datetime(y, mo, d, tzinfo=timezone.utc)
+        except ValueError:
+            return
+        if dt > ref:                                   # a month-day with no year that lands in the future means last year
+            try:
+                dt = datetime(y - 1, mo, d, tzinfo=timezone.utc)
+            except ValueError:
+                return
+        found.append(dt)
+
+    for m in _DMY_RX.finditer(t):
+        add(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    for m in _DAY_MONTH_RX.finditer(t):
+        add(ref.year, _MONTHS.index(m.group(2).lower()) + 1, int(m.group(1)))
+    for m in _MONTH_DAY_RX.finditer(t):
+        add(ref.year, _MONTHS.index(m.group(1).lower()) + 1, int(m.group(2)))
+    for m in _WEEKDAY_ORD_RX.finditer(t):
+        wd, day = _WEEKDAYS.index(m.group(1).lower()), int(m.group(2))
+        y, mo = ref.year, ref.month
+        for _ in range(14):                            # latest month (back from ref) whose day-th falls on that weekday
+            try:
+                dt = datetime(y, mo, day, tzinfo=timezone.utc)
+                if dt <= ref and dt.weekday() == wd:
+                    found.append(dt)
+                    break
+            except ValueError:
+                pass
+            mo -= 1
+            if mo == 0:
+                y, mo = y - 1, 12
+    return max(found) if found else None
+
+
+def _historic(m: Candidate) -> bool:
+    """True when the report names a date more than HISTORIC_DATE_HOURS before it was published."""
+    if not m.published:
+        return False
+    d = named_date(m.title, m.published)
+    return d is not None and m.published - d > timedelta(hours=HISTORIC_DATE_HOURS)
+
+
 def _report_state(m: Candidate) -> str | None:
     """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
     restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
     restored = bool(_RESTORED_RX.search(m.title))
-    if _ONGOING_RX.search(m.title) or (restored and _PARTIAL_RX.search(m.title)):
-        return "ongoing"
+    if not _historic(m) and (_ONGOING_RX.search(m.title) or (restored and _PARTIAL_RX.search(m.title))):
+        return "ongoing"                    # a continuation cue in a headline about a much older dated event is not current evidence
     return "restored" if restored else None
 
 
@@ -666,12 +728,12 @@ def _restoration_status(originals: list[Candidate], now: datetime | None = None)
     if "restored" in states:
         return "restored"
     if now is None:                         # callers that do not say what time it is keep the previous rule
-        return "ongoing" if any(m.ongoing and m.status == "stated" for m in originals) else "unknown"
+        return "ongoing" if any(m.ongoing and m.status == "stated" and not _historic(m) for m in originals) else "unknown"
     # #669: "ongoing" needs CURRENT evidence: an explicit continuation cue (still / ongoing / continues ...) in a stated
     # report, or a stated, non-retrospective report from the last FRESH_REPORT_HOURS. Retrospective reporting about a past
     # event, or an old report with no continuation cue, is "unknown" rather than a live disruption.
     for m in originals:
-        if m.status != "stated":                # retrospective, unconfirmed, warning, ... are not a stated live disruption
+        if m.status != "stated" or _historic(m):   # retrospective, unconfirmed, warning or a re-surfaced old dated event: not a live disruption
             continue
         if _ONGOING_RX.search(m.title):
             return "ongoing"
