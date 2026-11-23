@@ -639,6 +639,8 @@ def _report_state(m: Candidate) -> str | None:
     restored = bool(_RESTORED_RX.search(m.title))
     if _ONGOING_RX.search(m.title) or (restored and _PARTIAL_RX.search(m.title)):
         return "ongoing"
+    if not restored and m.ongoing and m.status == "stated":
+        return "ongoing"                    # a stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration
     return "restored" if restored else None
 
 
