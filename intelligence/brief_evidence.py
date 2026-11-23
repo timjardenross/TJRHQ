@@ -23,6 +23,7 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 from intelligence import event_detection as ed
 from intelligence import weekly_evidence as we
@@ -97,8 +98,9 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             e = meta.get(m.event_id, {})
             role = "commentary" if m.commentary else "syndicated" if m.event_id in d.group.syndicated_ids else "original"
             reports.append({"report_id": m.event_id, "publisher": m.family, "source_name": m.source, "source_kind": m.kind,
-                            "title": m.title, "url": e.get("url"), "collected_at": m.published.isoformat() if m.published else None,
-                            "role": role})
+                            "title": m.title, "url": e.get("url"), "collected_at": e.get("collected_at"),
+                            "published_at": m.published.isoformat() if m.published else None,
+                            "role": role, "geography": e.get("geography") or "", "summary": e.get("summary") or ""})
         times = [m.published for m in members if m.published]
         incidents.append(IncidentView(
             incident_id=_incident_id([m.event_id for m in members]), headline=d.headline.title, priority=d.priority,
@@ -107,7 +109,7 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             evidence_confidence=d.evidence_confidence, independent_publishers=d.group.independent_publishers,
             provisional=d.provisional, grouping_confidence=d.group.grouping_confidence, reports=reports,
             first_seen=min(times) if times else None, last_seen=max(times) if times else None,
-            record=ed.escalation_record(d), reasons=list(d.reasons)))
+            record=ed.escalation_record(d, now=now), reasons=list(d.reasons)))
     order = {"ESCALATE": 0, "VERIFY": 1, "WATCH": 2, "REFERENCE": 3}
     incidents.sort(key=lambda i: (order[i.priority], -(i.last_seen.timestamp() if i.last_seen else 0)))
     return EvidenceSet(ed.METHOD_VERSION, now, window_hours, len(events), incidents)
@@ -121,7 +123,7 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
     try:
         rows = sb_get("intelligence_events",
                       f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE&order=collected_at.desc&limit={limit}"
-                      "&select=event_id,raw_title,raw_summary,geography,collected_at,canonical_url,intelligence_source_registry(source_name)")
+                      "&select=event_id,raw_title,raw_summary,geography,collected_at,published_at,canonical_url,intelligence_source_registry(source_name)")
     except Exception:  # noqa: BLE001 - evidence layer is additive; the legacy brief must still render
         return []
     out = []
@@ -129,15 +131,80 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
         reg = r.get("intelligence_source_registry") or {}
         out.append({"id": str(r.get("event_id")), "title": r.get("raw_title") or "", "summary": r.get("raw_summary") or "",
                     "source": reg.get("source_name") or "", "geography": r.get("geography") or "",
-                    "collected_at": r.get("collected_at"), "url": r.get("canonical_url")})
+                    "collected_at": r.get("collected_at"), "published_at": r.get("published_at"), "url": r.get("canonical_url")})
     return out
 
 
 # ── helpers shared by the views ───────────────────────────────────────────────────────────────────────
 
+_CITE_REFS = 3                                   # report references shown per citation (bounded: briefs are read on a phone)
+_ROLE_ORDER = {"original": 0, "syndicated": 1, "commentary": 2}
+_CITE_URL_MAX = 120                              # a URL longer than this is not shown inline (it stays in the evidence data)
+_REDIRECT_HOSTS = ("news.google.com",)           # aggregator wrapper links: long, and they hide the publisher
+
+
+_UUID_RX = re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}")
+
+
+def _short_id(report_id: str) -> str:
+    """First 8 characters of the report id (the leading segment of a UUID); enough to find the report in the evidence data."""
+    rid = str(report_id)
+    return rid.split("-")[0] if _UUID_RX.fullmatch(rid) else rid[:8]
+
+
+def _resolve_short_ids(report_ids: list[str]) -> dict[str, str]:
+    """Short ids that are unique across ALL of an incident's reports (not just the ones displayed), so a displayed reference
+    can never be ambiguous with a hidden one. Colliding ids are lengthened just enough to be distinct (the full id at worst)."""
+    ids = [str(r) for r in report_ids]
+    out = {r: _short_id(r) for r in ids}
+    by_short: dict[str, list[str]] = {}
+    for r, sid in out.items():
+        by_short.setdefault(sid, []).append(r)
+    for group in by_short.values():
+        if len(group) < 2:
+            continue
+        n = len(out[group[0]])
+        while n < max(len(g) for g in group) and len({g[:n] for g in group}) < len(group):
+            n += 1
+        for g in group:
+            out[g] = g[:n]
+    return out
+
+
+def _url_for_display(url: str | None) -> str | None:
+    """Selective display (Captain, Option A): show a URL inline only when it is short and is the publisher's own link. Never a
+    truncated URL: a link is either shown whole or not shown. The complete URL is always kept in ``IncidentView.reports``."""
+    if not url or len(url) > _CITE_URL_MAX:
+        return None
+    try:
+        host = (urlsplit(url).hostname or "").lower()                # handles ports, userinfo and an upper-case scheme
+    except ValueError:
+        return None
+    return None if any(host == h or host.endswith("." + h) for h in _REDIRECT_HOSTS) else url
+
+
+def evidence_refs(i: IncidentView) -> list[dict]:
+    """Every report behind an incident with its COMPLETE source URL (never shortened), in citation order: originals before
+    syndicated copies and commentary, primary sources first. This is the underlying evidence data; the brief shows a subset.
+    ``short_id`` is unique across all of the incident's reports and is the id the citation prints."""
+    ranked = sorted(i.reports, key=lambda r: (_ROLE_ORDER.get(r["role"], 3), r["source_kind"] != we.PRIMARY, r["report_id"]))
+    short = _resolve_short_ids([r["report_id"] for r in ranked])
+    return [{"report_id": r["report_id"], "short_id": short[str(r["report_id"])], "publisher": r["source_name"] or r["publisher"],
+             "url": r.get("url"), "role": r["role"], "source_kind": r["source_kind"]} for r in ranked]
+
+
 def _cite(i: IncidentView) -> str:
-    pubs = sorted({r["source_name"] or r["publisher"] for r in i.reports if r["role"] != "commentary"})
-    return f"[{i.incident_id}; {len(i.reports)} report(s); " + ", ".join(pubs[:3]) + (" …" if len(pubs) > 3 else "") + "]"
+    """Incident id and report count, then up to three references, each ``<publisher> #<short id>`` with the publisher's own
+    URL only when it is short and not an aggregator redirect. #669: ids and URLs were collected per report but dropped, so a
+    reader could not retrieve the evidence behind an escalation or contribution candidate. Originals come first, primary
+    sources ahead of the rest. Complete URLs stay available through ``evidence_refs()``."""
+    refs = evidence_refs(i)
+    parts = []
+    for r in refs[:_CITE_REFS]:
+        shown_url = _url_for_display(r["url"])
+        parts.append(f"{r['publisher']} #{r['short_id']}" + (f" <{shown_url}>" if shown_url else ""))
+    more = f" +{len(refs) - _CITE_REFS} more" if len(refs) > _CITE_REFS else ""
+    return f"[{i.incident_id}; {len(i.reports)} report(s); evidence: " + ", ".join(parts) + more + "]"
 
 
 def _facts(i: IncidentView) -> str:
@@ -163,8 +230,87 @@ def _tag(i: IncidentView) -> str:
     note = ""
     if i.evidence_status in ("corroborated", "reported") and kinds <= {we.AGGREGATOR}:
         note = " via aggregator feeds only"
-    base = STATUS_LABEL[i.evidence_status] + note
-    return f"{i.priority} · {base}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
+    # #669: two different uncertainties, worded differently. SOURCE credibility (is the report itself reliable?) is the evidence
+    # status; operational IMPACT (has the effect on service been established?) is what the report states.
+    base = ("SOURCE UNVERIFIED" if i.evidence_status == "unverified" else STATUS_LABEL[i.evidence_status]) + note
+    retro = " · retrospective report" if i.impact_status == "retrospective" else ""        # say so, never imply a live disruption
+    cls = _relevance_class(i)
+    retro += _EDITORIAL_TAG if cls == "editorial" else (_DEPENDENCY_TAG if cls == "plausible" else "")
+    impact = " · IMPACT NOT YET ESTABLISHED" if _impact_open(i) else ""
+    return f"{i.priority} · {base}{retro}{impact}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
+
+
+EDITORIAL_REASON = "Australian-audience outlet only"
+_EDITORIAL_TAG = " · editorial relevance only (Australian operational impact not established)"
+_DEPENDENCY_TAG = " · plausible dependency; Australian impact not established"
+_RELEVANCE_PREFIX = "Australian relevance:"
+_NO_RELEVANCE_REASON = "no demonstrated Australian relevance"
+
+# Global platforms an Australian organisation plausibly depends on (used ONLY when the upstream relevance gate is absent).
+_DEPENDENCY_RX = re.compile(
+    r"\baws\b|amazon web services|\bazure\b|microsoft 365|office 365|microsoft 365|google cloud|\bgcp\b|cloudflare|akamai|fastly|"
+    r"crowdstrike|okta|\bslack\b|\bzoom\b|github|atlassian|salesforce|openai|anthropic|\bstripe\b", re.IGNORECASE)
+_AU_NAMED_RX = re.compile(
+    r"australia\w*|aussie\w*|\bnsw\b|new south wales|queensland\w*|tasmania\w*|victorian\b|sydney|melbourne|brisbane|perth|adelaide|"
+    r"canberra|hobart|darwin|\basx\b|\bnbn\b|\bapra\b|\bacsc\b|\baemo\b|ausgrid|endeavour energy|ergon|energex|essential energy|ausnet|"
+    r"powercor|jemena|western power|telstra|optus|\btpg\b|qantas|jetstar|westpac|\banz\b|\bNAB\b|commonwealth bank|coles|woolworths|"
+    r"medibank|services australia|centrelink|\bagl\b|origin energy|suncorp|\bbhp\b|woodside|transurban", re.IGNORECASE)
+
+
+def _upstream_verdict(i: IncidentView) -> str | None:
+    """The relevance gate's own decision (event_detection.decide, #677), read from the recorded reasons; None when that gate is absent.
+    'editorial' | 'plausible' | 'relevant' | 'reference'."""
+    verdict = None
+    for r in i.reasons:
+        if EDITORIAL_REASON in r:
+            return "editorial"
+        if r.startswith(_RELEVANCE_PREFIX):
+            verdict = "plausible" if "plausible dependency" in r else "relevant"
+        elif _NO_RELEVANCE_REASON in r:
+            verdict = "reference"
+    return verdict
+
+
+def _fallback_class(i: IncidentView) -> str:
+    """Outlet-independent local derivation used only without the upstream verdict: a foreign incident is 'editorial' (or 'plausible'
+    when it names a global platform) whichever outlet reports it; AU geography or an Australian marker makes it 'relevant'."""
+    if i.priority == "REFERENCE":          # never-actionable general news is not published at all
+        return "reference"
+    originals = [r for r in i.reports if r["role"] == "original"] or i.reports
+    if not originals:
+        return "relevant"
+    if any((r.get("geography") or "").strip().upper() == "AU" for r in originals):
+        return "relevant"
+    texts = [f"{r.get('title') or ''} {r.get('summary') or ''}" for r in originals]
+    if any(_AU_NAMED_RX.search(t) for t in texts):
+        return "relevant"
+    if any(_DEPENDENCY_RX.search(r.get("title") or "") for r in originals):
+        return "plausible"
+    return "editorial"
+
+
+def _relevance_class(i: IncidentView) -> str:
+    return _upstream_verdict(i) or _fallback_class(i)
+
+
+def _derived_editorial_only(i: IncidentView) -> bool:
+    return _fallback_class(i) == "editorial"
+
+
+def _editorial_only(i: IncidentView) -> bool:
+    """Relevance rests on editorial grounds alone, not on an established Australian operational impact. Uses the upstream relevance
+    decision when present, else an outlet-independent local derivation."""
+    return _relevance_class(i) == "editorial"
+
+
+def _quality_source(i: IncidentView) -> bool:
+    """At least one ORIGINAL report from a primary, mainstream or specialist source (not unknown, content or aggregator-only)."""
+    return any(r["role"] == "original" and r["source_kind"] in (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST) for r in i.reports)
+
+
+def _impact_open(i: IncidentView) -> bool:
+    """A credible source whose report does not establish an operational impact (investigation, unconfirmed or potential effect)."""
+    return i.evidence_status != "unverified" and i.impact_status in ("unconfirmed", "potential", "none")
 
 
 def _line(i: IncidentView, with_action: bool = False) -> str:
@@ -181,6 +327,8 @@ def forward_dated_items(ev: EvidenceSet, *, hours: int = 72) -> list[tuple[Incid
     """Notices whose headline names a date inside the next ``hours`` (e.g. 'LOR1 forecast … on 20/11/2026'). Dates are read, never inferred."""
     out = []
     for i in ev.incidents:
+        if i.priority == "REFERENCE":      # demoted by the relevance gate (or never actionable): not published as a dated notice
+            continue
         for m in _DATE_RX.finditer(i.headline):
             try:
                 d = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), tzinfo=timezone.utc)
@@ -193,23 +341,64 @@ def forward_dated_items(ev: EvidenceSet, *, hours: int = 72) -> list[tuple[Incid
 
 # ── Morning Command Brief view ────────────────────────────────────────────────────────────────────────
 
+def _fw_credible(i: IncidentView) -> bool:
+    """A 24-72h Forward Watch entry needs a credible current reason. A report supported ONLY by an aggregator feed (evidence status
+    'unverified') is not one: it stays visible in its own 'source not yet verified' section but is not carried into the watch list."""
+    kinds = {r["source_kind"] for r in i.reports if r["role"] != "commentary"}
+    return not (i.evidence_status == "unverified" and kinds <= {we.AGGREGATOR})
+
+
 def morning_view(ev: EvidenceSet) -> list[str]:
     recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
-    active = [i for i in recent if i.impact_status not in ("warning", "forecast")]
+    editorial = [i for i in recent if i.impact_status not in ("warning", "forecast") and _editorial_only(i)]
+    active = [i for i in recent if i.impact_status not in ("warning", "forecast") and i not in editorial]
     firm = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated"
             and i.evidence_status in ("officially_confirmed", "corroborated")]
     single = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated" and i.evidence_status == "reported"]
     verify = [i for i in active if i.priority == "VERIFY" or (i.priority in ("ESCALATE", "WATCH") and i not in firm and i not in single)]
     notices = [i for i in recent if i.impact_status in ("warning", "forecast") and i.priority in _ACTIONABLE]
-    lines = ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
+    # Section choice uses SOURCE QUALITY as well as evidence status: only an incident with an original report from a primary, mainstream
+    # or specialist source is an 'impact not yet established' / exposure / retrospective question; the rest is a source question.
+    credible = [i for i in verify if i.evidence_status != "unverified" and _quality_source(i)]
+    # A retrospective report from a weak source that currency rules left at REFERENCE (e.g. a stale aggregator item) stays visible here.
+    stale_ref = [i for i in active if i.priority == "REFERENCE" and i.impact_status == "retrospective" and not (i.evidence_status != "unverified" and _quality_source(i))]
+    source_open = [i for i in verify if i not in credible] + stale_ref + editorial
+    retro_open = [i for i in credible if i.impact_status == "retrospective"]
+    impact_open = [i for i in credible if i.impact_status != "retrospective" and i.event_type != "vulnerability"]
+    exposure = [i for i in credible if i.impact_status != "retrospective" and i.event_type == "vulnerability"]
+    # Only CURRENT evidence counts as a current disruption: an incident whose restoration status is unknown (current status not
+    # established, e.g. a historic outage still being written about) is listed but not counted.
+    firm_n = [i for i in firm if i.record["restoration_status"] != "unknown"]
+    single_n = [i for i in single if i.record["restoration_status"] != "unknown"]
+    stale_n = len(firm) + len(single) - len(firm_n) - len(single_n)
+    stale = (f" ({stale_n} more reported with current status unknown — not counted as current disruptions)" if stale_n else "")
+    lines = []
+    if not recent:
+        lines.append("⚠️ EVIDENCE COVERAGE INSUFFICIENT: no reports collected in the last 24 hours; nothing below should be read as all quiet.")
+    lines += ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
+    if not recent:
+        lines.append("Operational situation: evidence coverage is insufficient (no recent reports), so no judgement about current disruption can be made.")
+    elif firm_n or single_n:
+        lines.append(f"Operational situation: {len(firm_n)} confirmed or corroborated and {len(single_n)} single-source reported disruption(s) in the last 24 hours.{stale}")
+    else:
+        lines.append(f"Operational situation: no confirmed, corroborated or single-source reported current disruption in the last 24 hours{stale}.")
+    if notices or exposure:
+        lines.append("Credible warnings and emerging exposures are listed separately below; they are not current disruptions and no operational consequence is inferred from them.")
+    lines.append("")
     lines.append("What matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents")
     lines += [_line(i, True) for i in firm[:6]] or ["- None officially confirmed or corroborated in the last 24 hours."]
     lines += ["", "REPORTED by one source (provisional until a second or primary source)"]
     lines += [_line(i, True) for i in single[:6]] or ["- None."]
-    lines += ["", "REQUIRES VERIFICATION (unverified, hedged or weakly evidenced; not treated as fact)"]
-    lines += [_line(i, True) for i in verify[:6]] or ["- Nothing awaiting verification."]
+    lines += ["", "IMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)"]
+    lines += [_line(i, True) for i in impact_open[:6]] or ["- None."]
+    lines += ["", "RETROSPECTIVE REPORTS (about past events; not live disruptions)"]
+    lines += [_line(i, True) for i in retro_open[:6]] or ["- None."]
+    lines += ["", "SOURCE NOT YET VERIFIED (hedged, aggregator-only, low-quality source, editorial relevance only or weakly evidenced; not treated as fact)"]
+    lines += [_line(i, True) for i in source_open[:6]] or ["- None."]
     lines += ["", "WARNINGS AND FORECASTS (not confirmed incidents)"]
     lines += [_line(i) for i in notices[:6]] or ["- No active warning or forecast notice."]
+    lines += ["", "EMERGING EXPOSURE (credible advisories and risks; no confirmed current disruption; nothing here states an operational consequence)"]
+    lines += [_line(i, True) for i in exposure[:6]] or ["- None."]
     lines += ["", "Operational implications (only what the cited reports state)"]
     imp = [f"- {'tier ' + str(i.sector_tier) if i.sector_tier else 'unclassified sector'}: "
            f"{', '.join(i.record['critical_service_dependencies']) or 'no recognised service'} — {_facts(i)} {_cite(i)}"
@@ -217,12 +406,291 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines += imp or ["- No operational implication is supported by corroborated reports today."]
     lines += ["", "Forward watch, next 24–72 hours"]
     fw = [f"- Ongoing: {i.headline} (restoration {i.record['restoration_status']}) {_cite(i)}"
-          for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH")][:4]
+          for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
-    fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev)[:3] if i not in notices]
-    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in verify[:2]]
+    fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev) if i not in notices and _fw_credible(i)][:3]
+    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']} {_cite(i)}" for i in [x for x in impact_open + exposure + source_open if _fw_credible(x)][:2]]
     lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
+    lines += worth_knowing_lines(ev)
     return lines
+
+
+# ── Worth Knowing (informative developments that do not meet an escalation threshold) ───────────────────────────
+# Selects and arranges only: it never changes an incident's priority, evidence status or escalation outcome. It adds credible, relevant
+# technology news that has no confirmed outage or immediate operational impact, so the brief informs as well as alerts.
+WORTH_KNOWING_LIMIT = 5
+WORTH_KNOWING_HOURS = 72
+_WK_FUTURE_SKEW_HOURS = 1     # last_seen must lie in [generated_at - 72h, generated_at + 1h]: a future-dated story is not "last 72 hours"
+_WK_PER_CATEGORY = 2
+_WK_CATEGORIES = (   # (name, weight, pattern); the highest-weight match names the item
+    ("cyber", 3, (r"ransomware|malware|zero[- ]day|vulnerabilit(?:y|ies)|cyber ?(?:attack|attacks|security|incident|crime|criminal|espionage|threat)s?|data breach|"
+                 r"\bhack(?:ed|er|ers|ing)?\b|phishing|exploited|CVE-\d|botnet|ddos|infostealer|spyware|backdoor|supply[- ]chain attack")),
+    ("critical infrastructure", 3, (r"critical infrastructure|power grid|scada|industrial control|operational technology|semiconductors?|chip ?makers?|"
+                                   r"submarine cable|undersea cable")),
+    ("cloud", 3, (r"\bcloud (?:computing|services?|platforms?|providers?|storage|infrastructure|security|outages?|migration|regions?|native|customers?|software|accounts?|environments?|workloads?)\b|"
+                r"\b(?:public|private|hybrid|multi|sovereign)[- ]cloud\b|\bcloud-(?:based|native)\b|\bin the cloud\b|\baws\b|\bazure\b|google cloud|data ?cent(?:er|re)s?|hyperscal|cloudflare")),
+    ("telecommunications", 3, r"telecom|\btelcos?\b|telstra|optus|\btpg\b|vodafone|\b5g\b|mobile network|broadband|\bnbn\b|satellite|spectrum"),
+    ("payments", 3, (r"\bpayments? (?:systems?|platforms?|networks?|providers?|processors?|processing|fraud|cards?|terminals?|rails?|infrastructure|security|apps?|outages?|gateways?|services?|schemes?)\b|"
+                    r"\b(?:card|online|digital|mobile|real-time|instant|contactless|cross-border|instalment|merchant) payments?\b|mastercard|\bvisa (?:inc|payments|network)|paypal|stripe|eftpos|bpay|apple pay|fintech|digital wallet")),
+    # AI counts only as a technology subject (models, chips, servers, agents, safety, regulation …), not as a market or insurance talking point.
+    ("AI", 2, (r"(?:\bAI\b|artificial intelligence|\bllms?\b|generative ai|chatbots?|openai|anthropic|nvidia)[^.]{0,60}(?:models?|chips?|servers?|compute|data ?cent(?:er|re)s?|agents?|safety|"
+               r"regulation|cyber|security|infrastructure|training|launch|release|outage|breach|vulnerab)|(?:models?|chips?|servers?|compute|agents?|safety|regulation|"
+               r"security|infrastructure)[^.]{0,60}(?:\bAI\b|artificial intelligence|\bllms?\b|generative ai|openai|anthropic|nvidia)|\bgpus?\b|large language model")),
+    ("software", 2, (r"software|\bsaas\b|open[- ]source|firmware|operating system|\bwindows (?:\d+|update|server)|\blinux\b|\bandroid\b|microsoft|oracle|vmware|"
+                     r"google chrome|chrome (?:browser|update|extension)|web browser")),
+)
+_WK_CAT_RX = [(n, w, re.compile(p, re.IGNORECASE)) for n, w, p in _WK_CATEGORIES]
+_WK_AU_RX = re.compile(r"\baustralia(?:n|ns)?\b|\bsydney\b|\bmelbourne\b|\bbrisbane\b|\bperth\b|\badelaide\b|\bcanberra\b|\bnsw\b|\bqueensland\b|"
+                       r"\basic\b|\bapra\b|\bacsc\b|\bofaic\b|telstra|optus|\bnbn\b|\btpg\b", re.IGNORECASE)
+# Editorial quality: promotional, list, awards, how-to, opinion and speculative-question headlines do not qualify as intelligence.
+_WK_LOW_QUALITY_RX = re.compile(r"\b(?:how to|best|top \d+|\d+ (?:ways|things|tips)|reviews?|sponsored|webinar|podcast|opinion|fast 50|awards?|ranked|ranking|"
+                                r"hiring|jobs?|(?:best|top|black friday|cyber monday) deals?|giveaway|quiz|sale|discount|coupon)\b|^(?:could|should|why|what|how|is|are|will|can|does|do)\b|\?\s*(?:-\s.*)?$", re.IGNORECASE)
+# Company results and funding news is business reporting, not technology intelligence (checked against headline and summary).
+_WK_CORPORATE_RX = re.compile(r"\b(?:revenue|year[- ]on[- ]year|yoy|(?<!non-)(?<!non )(?<!for-)(?<!for )profits?|earnings|funding round|series [a-d]|ipo|share price|market cap)\b", re.IGNORECASE)
+_WK_CREDIBLE_KINDS = (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST)
+_WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported": 1}
+# An aggregator feed item whose trailing ' - Outlet' names a primary or specialist publisher is attributable reporting by that outlet
+# (e.g. 'Industrial Cyber'). It is evidence_status 'unverified' only because of the feed, so it is allowed here, labelled "via aggregator
+# feed", and only when the headline carries no hedge. DELIBERATE EXCEPTION (acceptance criteria, see tests): primary/specialist outlet
+# attributed through an aggregator feed + non-hedged headline + no stated disruption => eligible, always labelled
+# "single source via aggregator feed"; unknown/mainstream-only attributions and hedged headlines stay excluded.
+_WK_HEDGE_RX = re.compile(r"\b(?:reportedly|allegedly|alleged|claims?|claimed|sources?|rumou?rs?|unconfirmed|said to|may have|might|suspected)\b", re.IGNORECASE)
+
+
+_WK_SUMMARY_DISRUPTION_RX = re.compile(r"\b(?:outage|outages|blackout|without (?:power|service|electricity|internet|mobile)|(?:unable|cannot|can't|can not|couldn't) (?:to )?(?:make|access|use|connect|log|call|send|reach|load|pay)|"
+                                        r"(?:currently |now )?unavailable|degraded (?:service|performance|network)|dropped calls?|(?:elevated )?error rates?|hit by errors|"
+                                        r"network (?:fault|faults|problems?|issues?|failure)|stranded|"
+                                        r"went offline|knocked offline|taken offline|(?:is|are|was|were|remain(?:s|ed)?|still|now|currently|been) offline\b|service(?:s)? (?:is|are|was|were) down|systems? (?:is|are|was|were) down|disrupt(?:ed|ion|s)\b)", re.IGNORECASE)
+_WK_POTENTIAL_RX = re.compile(r"\b(?:could|may|might|risk of|potential(?:ly)?|warns? (?:of|that)|warned (?:of|that)|would|if exploited|can lead to|could lead to|prevent|avoid)\b", re.IGNORECASE)
+
+
+def _wk_disruption(i: IncidentView) -> bool:
+    """A stated disruption, or an outage whose impact is only unconfirmed, is an incident (even when the Australian-relevance gate demoted it
+    to REFERENCE) and must not be republished under a 'no outage or service impact' heading. Informative reporting (vulnerability or
+    advisory-style cyber warnings, potential or retrospective impact, no stated impact) stays eligible; an unconfirmed cyber_incident is
+    kept because advisory headlines ('FBI warns hackers ...') classify that way."""
+    if i.impact_status == "stated" or (i.event_type == "outage" and i.impact_status in ("unconfirmed", "retrospective")):
+        return True      # a retrospective outage-restoration story ("services restored after ...") is a past incident, not a development
+    texts = [i.headline] + [r.get("summary") or "" for r in i.reports if r["role"] == "original"]
+    # The summary shown beneath the heading may state an outage the headline does not. The potential-impact exception applies to the CLAUSE
+    # that states the consequence, so an unrelated precaution or purpose clause ("should use Wi-Fi to avoid further problems") cannot negate
+    # a stated outage elsewhere, even in the same sentence.
+    return any(_wk_clause_disruption(sent) for t in texts for sent in re.split(r"(?<=[.!?])\s+", t))
+
+
+_WK_CLAUSE_SPLIT_RX = re.compile(r"(\s*;\s*|\s*,\s*|\s+(?:and|but|so that|so|while|as)\s+|\s+(?=to (?:avoid|prevent)\b))", re.IGNORECASE)
+_WK_MODAL_RX = re.compile(r"\b(?:could|may|might|would|can)\b", re.IGNORECASE)
+_WK_SOFT_JOINERS = frozenset({",", "and"})
+
+
+def _wk_clause_disruption(sentence: str) -> bool:
+    """True when some clause of the sentence states a disruption and is not itself potential/hypothetical. A modal clause ('could cause
+    outages') also covers an immediately coordinated clause joined by a comma or 'and' ('... and leave users unable to log in')."""
+    parts = _WK_CLAUSE_SPLIT_RX.split(sentence)
+    prev_modal = False
+    for idx in range(0, len(parts), 2):
+        clause = parts[idx]
+        joiner = parts[idx - 1].strip().lower() if idx else ""
+        inherited = prev_modal and joiner in _WK_SOFT_JOINERS
+        if _WK_SUMMARY_DISRUPTION_RX.search(clause) and not _WK_POTENTIAL_RX.search(clause) and not inherited:
+            return True
+        prev_modal = bool(_WK_MODAL_RX.search(clause)) or (inherited and clause.strip() != "")
+    return False
+
+
+def _wk_credible_original(i: IncidentView) -> bool:
+    for r in i.reports:
+        if r["role"] != "original":
+            continue
+        if r["source_kind"] in _WK_CREDIBLE_KINDS:
+            return True
+    return False
+
+
+def _wk_via_aggregator(i: IncidentView) -> str | None:
+    """The attributed primary/specialist publisher when the only support is an aggregator feed item that names one, else None."""
+    if (i.evidence_status != "unverified" or _WK_HEDGE_RX.search(i.headline) or ed._HEDGE_RX.search(i.headline) or ed._ANON_RX.search(i.headline)):
+        return None
+    for r in i.reports:
+        if r["role"] == "original" and r["source_kind"] == we.AGGREGATOR and we.source_kind(r["publisher"]) in (we.PRIMARY, we.SPECIALIST):
+            return r["publisher"]
+    return None
+
+
+_WK_SOFTWARE_SOURCE_RX = re.compile(r"\b(?:open[- ]source|source[- ]code|source[- ]available|source[- ]control|source[- ]map|data source|resource)\b", re.IGNORECASE)
+
+
+def _wk_summary_hedged(i: IncidentView) -> bool:
+    """A hedged or anonymously sourced original report summary ('unnamed sources say', 'may have') disqualifies the item here only.
+    Software terminology that merely contains the word 'source' ('open source software', 'source code') is not anonymous sourcing."""
+    for r in i.reports:
+        if r["role"] != "original":
+            continue
+        txt = _WK_SOFTWARE_SOURCE_RX.sub(" ", r.get("summary") or "")
+        if ed._HEDGE_RX.search(txt) or ed._ANON_RX.search(txt):
+            return True
+    return False
+
+
+def _wk_tokens(i: IncidentView) -> frozenset:
+    return frozenset(t for t in re.findall(r"[a-z0-9]+", ed.core_title(i.headline).lower()) if len(t) > 2 and t not in ed._STOP)
+
+
+def _wk_entities(i: IncidentView) -> frozenset:
+    """Named entities in the headline (capitalised words and mixed-case names such as 'OpenAI'), used to tell apart similar-looking
+    developments from different vendors."""
+    return frozenset(w.lower() for w in re.findall(r"\b[A-Z][A-Za-z0-9]{2,}\b", ed.core_title(i.headline)) if w.lower() not in ed._STOP)
+
+
+def _wk_same_development(a: frozenset, b: frozenset, ea: frozenset = frozenset(), eb: frozenset = frozenset()) -> bool:
+    """Same development = similar wording AND compatible named entities. 'OpenAI releases new AI model' and 'Anthropic releases new
+    AI model' share most words but name different vendors: separate developments."""
+    if ea and eb and not (ea & eb):
+        return False
+    return bool(a and b) and len(a & b) / len(a | b) >= 0.5
+
+
+def _wk_text(i: IncidentView) -> str:
+    return " ".join([i.headline] + [r["title"] for r in i.reports if r["role"] != "commentary"])
+
+
+def _wk_au_text(i: IncidentView) -> str:
+    """Text checked for an Australian mention. For aggregator-fed reports the trailing ' - Outlet' attribution (e.g. ' - Guardian Australia')
+    is stripped from the title and the outlet name from the summary: the publisher's identity is not the story's geography."""
+    agg = any(r["source_kind"] == we.AGGREGATOR for r in i.reports)
+    parts = [ed.core_title(i.headline) if agg else i.headline]
+    for r in i.reports:
+        if r["role"] == "commentary":
+            continue
+        title, summary = r["title"] or "", r.get("summary") or ""
+        if r["source_kind"] == we.AGGREGATOR:
+            core = ed.core_title(title)
+            outlet = title[len(core):].lstrip(" -–|").strip() if core != title else ""
+            for name in {outlet, r.get("publisher") or ""} - {""}:
+                summary = re.sub(re.escape(name), " ", summary, flags=re.IGNORECASE)
+            title = core
+        parts += [title, summary]
+    return " ".join(parts)
+
+
+def _wk_au(i: IncidentView) -> bool:
+    """Australia is named in the headline, a report title or a report summary (publisher identity alone, including an aggregator's
+    ' - Outlet' attribution, does not count)."""
+    return bool(_WK_AU_RX.search(_wk_au_text(i)))
+
+
+def _wk_category(text: str) -> tuple[str, int] | None:
+    best = None
+    for name, weight, rx in _WK_CAT_RX:
+        if rx.search(text) and (best is None or weight > best[1]):
+            best = (name, weight)
+    return best
+
+
+_WK_SUMMARY_MAX = 200
+
+
+def _wk_first_sentence(txt: str) -> str:
+    """The first COMPLETE sentence, at most _WK_SUMMARY_MAX characters; '' when there is none (a summary is omitted rather than cut
+    mid-sentence). Abbreviation-style full stops ('U.S.', 'No. 5') do not end a sentence."""
+    for m in re.finditer(r"[.!?](?=\s|$)", txt):
+        head = txt[:m.end()]
+        if re.search(r"(?:\b[A-Z]|\bNo|\bSt|\bDr|\bMr|\bMs|\bInc|\bLtd|\bCorp|\bvs)\.$", head):
+            continue
+        return head.strip() if 40 <= len(head) <= _WK_SUMMARY_MAX else ""
+    return txt if 40 <= len(txt) <= _WK_SUMMARY_MAX and txt.endswith(("\"", "”")) else ""
+
+
+def _wk_summary(i: IncidentView) -> str:
+    """First sentence of the best original report's own summary, trimmed. Empty when it only repeats the headline."""
+    head = re.sub(r"\W+", " ", i.headline).strip().lower()
+    for r in i.reports:
+        if r["role"] != "original":
+            continue
+        txt = re.sub(r"<[^>]+>|&\w+;", " ", r.get("summary") or "")
+        txt = re.sub(r"get our (?:breaking )?news .*$", " ", txt, flags=re.IGNORECASE)   # newsletter boilerplate some feeds append
+        txt = re.sub(r"\s+", " ", txt).strip()
+        if len(txt) < 40 or re.sub(r"\W+", " ", txt).strip().lower().startswith(head[:50]):
+            continue
+        sentence = _wk_first_sentence(txt)
+        if sentence:
+            return sentence
+    return ""
+
+
+def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[tuple[IncidentView, str, int]]:
+    """Credible, relevant technology developments from the last 72 hours that are NOT actionable incidents (priority REFERENCE).
+
+    Topic relevance and editorial quality decide inclusion (``disposition = BRIEF`` is deliberately not used: it admits sport and politics).
+    Needs a non-aggregator original report from a primary, mainstream or specialist publisher; aggregator-only, hedged or anonymous
+    (unverified) items are left out. Returns (incident, category, score) best first, at most ``limit``, at most two per category.
+    """
+    cutoff = ev.generated_at - timedelta(hours=WORTH_KNOWING_HOURS)
+    latest = ev.generated_at + timedelta(hours=_WK_FUTURE_SKEW_HOURS)
+    scored = []
+    for i in ev.incidents:
+        via = _wk_via_aggregator(i)
+        if i.priority != "REFERENCE" or not i.last_seen or not (cutoff <= i.last_seen <= latest) or (i.evidence_status not in _WK_EVIDENCE_POINTS and not via):
+            continue
+        if _wk_disruption(i):
+            continue
+        if len(i.headline) < 25 or _WK_LOW_QUALITY_RX.search(i.headline):
+            continue
+        if not via and not _wk_credible_original(i):
+            continue
+        if _wk_summary_hedged(i):
+            continue
+        if _WK_CORPORATE_RX.search(i.headline + " " + " ".join(r.get("summary") or "" for r in i.reports if r["role"] == "original")):
+            continue
+        text = _wk_text(i)
+        cat = _wk_category(text)
+        if not cat:
+            continue
+        kinds = {r["source_kind"] for r in i.reports if r["role"] == "original"}
+        score = (cat[1] + _WK_EVIDENCE_POINTS.get(i.evidence_status, 0) + (2 if we.PRIMARY in kinds else 1 if we.SPECIALIST in kinds else 0)
+                 + (2 if _wk_au(i) else 0) + (1 if i.last_seen >= ev.generated_at - timedelta(hours=24) else 0)
+                 + (1 if i.materiality in ("high", "medium") else 0))
+        scored.append((i, cat[0], score))
+    scored.sort(key=lambda t: (-t[2], -(t[0].last_seen.timestamp())))
+    out, per, seen = [], Counter(), []
+    for i, cat, score in scored:
+        toks, ents = _wk_tokens(i), _wk_entities(i)
+        if any(_wk_same_development(toks, t, ents, e) for t, e in seen):   # the same development from another publisher must not use a second slot
+            continue
+        seen.append((toks, ents))
+        if per[cat] >= _WK_PER_CATEGORY:
+            continue
+        per[cat] += 1
+        out.append((i, cat, score))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _wk_official_source(i: IncidentView) -> str:
+    """The primary publisher the official confirmation comes from (e.g. the vendor advisory feed), named so the line says WHO confirmed."""
+    for r in i.reports:
+        if r["role"] == "original" and r["source_kind"] == we.PRIMARY:
+            return r["source_name"] or r["publisher"]
+    return "a primary source"
+
+
+def _wk_line(i: IncidentView, cat: str) -> str:
+    au = "Australian relevance stated in report" if _wk_au(i) else "International development; no Australian operational impact established"
+    via = _wk_via_aggregator(i)
+    basis = (f"single source via aggregator feed (publisher: {via})" if via
+             else "single-source report" if i.evidence_status == "reported"
+             else f"officially confirmed by {_wk_official_source(i)}" if i.evidence_status == "officially_confirmed"
+             else f"independently corroborated ({i.independent_publishers} publishers)")
+    tags = [cat, basis, au] + (["retrospective report"] if i.impact_status == "retrospective" else [])
+    summary = _wk_summary(i)
+    return f"- [{' · '.join(tags)}] {i.headline}" + (f" — {summary}" if summary else "") + f" {_cite(i)}"
+
+
+def worth_knowing_lines(ev: EvidenceSet) -> list[str]:
+    items = worth_knowing(ev)
+    lines = ["", f"WORTH KNOWING (last {WORTH_KNOWING_HOURS}h; credible technology developments with no confirmed outage or immediate service impact; informative, not escalated)"]
+    return lines + ([_wk_line(i, c) for i, c, _ in items] or ["- No credible technology development outside the incident sections."])
 
 
 # ── Weekly change detection (existing SnapshotStore; no database migration) ─────────────────────────────
