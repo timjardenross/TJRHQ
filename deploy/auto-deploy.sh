@@ -308,10 +308,14 @@ component_changed() {
   ! git diff --quiet "$1" HEAD -- "${2:-.}" 2>/dev/null
 }
 
-# $1 = component key. Records HEAD as deployed (atomic; best-effort - a failed write only means a redeploy).
+# $1 = component key, $2 = the commit that was actually deployed. Callers capture it BEFORE building or
+# restarting and pass that fixed value: the checkout is shared (other services and sessions advance it
+# independently - see AGENTS.md), so HEAD at write time may be newer than the code that was deployed.
+# Recording the later HEAD would mark unbuilt code as deployed and suppress the retry (atomic; best-effort -
+# a failed write only means a redeploy).
 record_deployed() {
   local f="$STATE_DIR/$1.sha"
-  git rev-parse HEAD > "$f.tmp" 2>/dev/null && mv "$f.tmp" "$f" 2>/dev/null \
+  [ -n "${2:-}" ] && printf '%s\n' "$2" > "$f.tmp" 2>/dev/null && mv "$f.tmp" "$f" 2>/dev/null \
     || echo "$LOG_PREFIX WARNING: could not record deployed commit for $1 (will be treated as stale next cycle)" >&2
 }
 
@@ -354,6 +358,7 @@ elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
   fi
   if [ -n "$LP_STALE_REASON" ]; then
     echo "$LOG_PREFIX lcars-portal.service is stale ($LP_STALE_REASON) - rebuilding"
+    LP_DEPLOY_SHA="$(git rev-parse HEAD)"   # fixed before the build; this is what gets recorded on success
     ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
     # 2026-09-21: OLLAMA_MODEL_DEFAULT misconfig (misspelled secret key ->
     # code fell back to a model Ollama doesn't have) silently killed AI
@@ -367,7 +372,7 @@ elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
     fi
     echo "$LOG_PREFIX restarting lcars-portal.service"
     if "$SYSTEMCTL" restart lcars-portal.service; then
-      record_deployed lcars-portal
+      record_deployed lcars-portal "$LP_DEPLOY_SHA"
     else
       echo "$LOG_PREFIX WARNING: restart failed for lcars-portal.service" >&2
     fi
@@ -415,8 +420,9 @@ if [ -f "$SERVICES_CONF" ]; then
             ;;
         esac
         echo "$LOG_PREFIX $svc is stale (repo differs from the last deployed state) - restarting"
+        svc_deploy_sha="$(git rev-parse HEAD)"   # fixed before the restart; this is what gets recorded on success
         if "$SYSTEMCTL" restart "$svc"; then
-          record_deployed "svc-$svc"
+          record_deployed "svc-$svc" "$svc_deploy_sha"
         else
           echo "$LOG_PREFIX WARNING: restart failed for $svc (wrong/stale unit name?)" >&2
         fi

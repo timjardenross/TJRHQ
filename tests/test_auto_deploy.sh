@@ -87,6 +87,11 @@ SHEOF
   cat > "$bin/npm" <<'EOF'
 #!/bin/bash
 echo "npm $*" >> "$CALL_LOG"
+# Test hook: simulate another process advancing the shared checkout (touching lcars-portal/) DURING the build.
+if [ -n "$ADVANCE_CLONE_DURING_BUILD" ] && [ "$1" = "run" ] && [ "$2" = "build" ]; then
+  (cd "$ADVANCE_CLONE_DURING_BUILD" && echo "advanced during build" >> lcars-portal/page.tsx \
+    && git -c user.name=t -c user.email=t@example.com commit --quiet -am "advanced during build")
+fi
 exit 0
 EOF
   # 2026-09-22: captured NOW, right after the fixture's own "initial"
@@ -511,6 +516,23 @@ if [ "$rc" -eq 0 ] && grep -q "npm run build" "$log"; then
   pass "unknown recorded commit: falls back to the bootstrap baseline and still deploys"
 else
   fail "bad recorded sha (rc=$rc log: $(cat "$log") / out: $out)"
+fi
+rm -rf "$tmp"
+
+
+echo "test: checkout advances DURING the portal build -> the built commit (not the newer HEAD) is recorded, so the next cycle rebuilds (Codex P1)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+push_backdated_merge "$tmp" lcars-portal/page.tsx "from the PR"
+built_sha="$(git -C "$tmp/origin.git" rev-parse main)"
+ADVANCE_CLONE_DURING_BUILD="$tmp/clone" run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+recorded="$(cat "$tmp/clone/.git/auto-deploy-state/lcars-portal.sha" 2>/dev/null)"
+: > "$log"
+run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+if [ "$recorded" = "$built_sha" ] && [ "$recorded" != "$(git -C "$tmp/clone" rev-parse HEAD)" ] \
+   && grep -q "npm run build" "$log" && grep -q "systemctl restart lcars-portal.service" "$log"; then
+  pass "recorded the pre-build commit; code that arrived mid-build is rebuilt next cycle"
+else
+  fail "mid-build advance (recorded=$recorded built=$built_sha head=$(git -C "$tmp/clone" rev-parse HEAD) log: $(cat "$log"))"
 fi
 rm -rf "$tmp"
 
