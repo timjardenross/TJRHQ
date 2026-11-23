@@ -528,7 +528,10 @@ _AU_MARKER_RX = _rx((r"australia\w*", r"nsw", r"queensland\w*", r"tasmania\w*", 
                      r"anz", r"commonwealth bank", r"nab", r"coles", r"woolworths", r"medibank", r"services australia", r"centrelink"))
 _AU_DEPENDENCY_RX = _rx((r"microsoft", r"azure", r"office 365", r"aws", r"amazon web services", r"google cloud", r"cloudflare",
                          r"crowdstrike", r"cisco", r"okta", r"oracle", r"salesforce", r"atlassian", r"github", r"zoom", r"akamai",
-                         r"visa", r"mastercard", r"swift"))
+                         r"visa", r"mastercard", r"swift", r"apple pay", r"google pay", r"paypal", r"stripe", r"square"))
+# Outlets whose whole editorial scope is Australia (a report from one is Australian-audience reporting). General outlets that
+# also carry international news (ABC News, iTWire, iTnews, BBC ...) are deliberately NOT here: the outlet alone proves nothing.
+_AU_AUDIENCE_SOURCE_RX = _rx((r"the mandarin", r"innovationaus", r"smartcompany", r"government news", r"cyber daily", r"information age"))
 
 
 def australian_relevance(group: Group) -> str | None:
@@ -543,6 +546,9 @@ def australian_relevance(group: Group) -> str | None:
     for m in group.members:
         if _AU_DEPENDENCY_RX.search(m.title):
             return "depends on a global platform used in Australia"
+    for m in group.members:
+        if _AU_AUDIENCE_SOURCE_RX.search(m.source or ""):
+            return "reported by an Australian-audience outlet"
     return None
 
 

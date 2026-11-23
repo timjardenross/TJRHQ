@@ -65,6 +65,24 @@ def test_a_global_platform_outage_is_an_australian_dependency():
     assert any("depends on a global platform" in r for r in d.reasons)
 
 
+def test_a_payments_platform_outage_is_an_australian_dependency():
+    """Found in the real-export audit: an Apple Pay outage hitting retailers was demoted by the first version of the gate."""
+    evs = [e("a", "Apple Pay outage a difficult situation for retailers in Black Friday sales mode - SmartCompany", "SmartCompany")]
+    d = one(evs)
+    assert d.priority == core(evs).priority and d.priority in ACTIONABLE
+    assert any("depends on a global platform" in r for r in d.reasons)
+
+
+def test_an_australian_audience_outlet_is_relevance_but_a_general_outlet_is_not():
+    """Also from the audit: The Mandarin (Australian public sector) reports are Australian-audience; BBC / iTWire carry the world."""
+    mand = [e("a", "Staff didn\u2019t work because of an outage on Friday\u2026 did somebody say SLA? - The Mandarin", "The Mandarin")]
+    assert core(mand).priority in ACTIONABLE                              # the gate is what would hide it
+    assert one(mand).priority == core(mand).priority
+    assert any("Australian-audience outlet" in r for r in one(mand).reasons)
+    for src in ("BBC News", "iTWire"):
+        assert one([e("a", LIBYA, src)]).priority == "REFERENCE", src
+
+
 def test_australian_geography_is_relevance_enough():
     evs = [e("a", "Power outage hits 20,000 customers in SA", "ABC News", geo="AU")]
     d = one(evs)
