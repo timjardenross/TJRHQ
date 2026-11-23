@@ -722,9 +722,13 @@ def _report_state(m: Candidate, now: datetime | None = None, active_default: boo
         return None if cue else ("restored" if restored else None)
     if cue:
         return "ongoing"
-    if (active_default and not restored and m.ongoing and m.status == "stated" and not _historic(m)
-            and (now is None or (m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS)))):
-        return "ongoing"                    # a stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration
+    if active_default and not restored and m.ongoing and m.status == "stated":
+        # A stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration. It is
+        # live evidence only while current; once it ages out it can no longer establish an outage, but it still INVALIDATES the earlier
+        # restoration, so the status becomes unknown rather than resurrecting 'restored'.
+        if now is None or (m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS)):
+            return "ongoing"
+        return "reopened"
     return "restored" if restored else None
 
 
@@ -741,7 +745,7 @@ def _restoration_status(originals: list[Candidate], now: datetime | None = None)
         latest = m.published
         states = {_report_state(x, now, active_default=True) for x in dated if x.published == latest} - {None}
         if states:
-            return "ongoing" if "ongoing" in states else "restored"
+            return "ongoing" if "ongoing" in states else "unknown" if "reopened" in states else "restored"
     states = {_report_state(m) for m in originals}
     if "ongoing" in states:                  # an explicit 'still' / 'partly restored' statement, whatever the report order
         return "ongoing"

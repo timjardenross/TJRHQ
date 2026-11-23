@@ -192,7 +192,8 @@ def test_a_reopened_incident_counts_as_ongoing_only_while_the_reopening_report_i
     assert restoration(evs) == "ongoing"                       # reopening report is 4h old
     old = [e("a", "Telstra power outage restored for 20,000 customers in Adelaide", "ABC News", 60),
            e("b", "Telstra power outage leaves 20,000 customers in Adelaide without power again", "ABC News", 40)]
-    assert restoration(old) != "ongoing"                       # 40h old with no continuation cue: not current evidence
+    assert restoration(old) == "unknown"                       # 40h old with no cue: not live, but it still invalidates the earlier restoration
+    assert "reported restored" not in action(old)
 
 
 # ── Codex P2s on the historic-date guard ────────────────────────────────────────────────────────────────────
