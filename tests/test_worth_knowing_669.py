@@ -1,4 +1,5 @@
 """#669 — WORTH KNOWING: credible, relevant technology developments that do not meet an escalation threshold."""
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from intelligence import brief_evidence as be
@@ -68,6 +69,23 @@ def test_ai_is_a_technology_subject_not_a_market_talking_point():
 def test_aggregator_only_and_unverified_items_are_excluded():
     _, items = _wk([_ev(1, "Malware campaign targets cloud servers worldwide - Some Outlet", "Google News - Cyber")])
     assert items == []
+
+
+def test_an_aggregator_item_attributed_to_a_specialist_outlet_is_allowed_and_labelled_as_such():
+    es = be.build_evidence([_ev(1, "FBI warns hackers weaponizing AI framework to automate attacks on energy, manufacturing, telecom - Industrial Cyber",
+                                "Google News - Critical Infrastructure/Energy Cyberattack AU")], now=NOW, window_hours=72)
+    es.incidents = [replace(i, priority="REFERENCE") for i in es.incidents]       # as the Australian-relevance gate (#677) demotes it
+    items = be.worth_knowing(es)
+    assert len(items) == 1 and items[0][0].evidence_status == "unverified"
+    line = "\n".join(be.worth_knowing_lines(es))
+    assert "single source via aggregator feed (publisher: industrial cyber)" in line
+
+
+def test_a_hedged_aggregator_item_is_still_excluded():
+    es = be.build_evidence([_ev(1, "Hackers reportedly weaponizing AI framework to automate attacks on energy, telecom - Industrial Cyber",
+                                "Google News - Critical Infrastructure/Energy Cyberattack AU")], now=NOW, window_hours=72)
+    es.incidents = [replace(i, priority="REFERENCE") for i in es.incidents]
+    assert be.worth_knowing(es) == []
 
 
 def test_international_item_is_labelled_not_dropped_and_australian_named_item_is_labelled():

@@ -257,6 +257,29 @@ _WK_LOW_QUALITY_RX = re.compile(r"\b(?:how to|best|top \d+|\d+ (?:ways|things|ti
 _WK_CORPORATE_RX = re.compile(r"\b(?:revenue|year[- ]on[- ]year|yoy|profits?|earnings|funding round|series [a-d]|ipo|share price|market cap)\b", re.IGNORECASE)
 _WK_CREDIBLE_KINDS = (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST)
 _WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported": 1}
+# An aggregator feed item whose trailing ' - Outlet' names a primary or specialist publisher is attributable reporting by that outlet
+# (e.g. 'Industrial Cyber'). It is evidence_status 'unverified' only because of the feed, so it is allowed here, labelled "via aggregator
+# feed", and only when the headline carries no hedge.
+_WK_HEDGE_RX = re.compile(r"\b(?:reportedly|allegedly|alleged|claims?|claimed|sources?|rumou?rs?|unconfirmed|said to|may have|might|suspected)\b", re.IGNORECASE)
+
+
+def _wk_credible_original(i: IncidentView) -> bool:
+    for r in i.reports:
+        if r["role"] != "original":
+            continue
+        if r["source_kind"] in _WK_CREDIBLE_KINDS:
+            return True
+    return False
+
+
+def _wk_via_aggregator(i: IncidentView) -> str | None:
+    """The attributed primary/specialist publisher when the only support is an aggregator feed item that names one, else None."""
+    if i.evidence_status != "unverified" or _WK_HEDGE_RX.search(i.headline):
+        return None
+    for r in i.reports:
+        if r["role"] == "original" and r["source_kind"] == we.AGGREGATOR and we.source_kind(r["publisher"]) in (we.PRIMARY, we.SPECIALIST):
+            return r["publisher"]
+    return None
 
 
 def _wk_text(i: IncidentView) -> str:
@@ -303,11 +326,12 @@ def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[
     cutoff = ev.generated_at - timedelta(hours=WORTH_KNOWING_HOURS)
     scored = []
     for i in ev.incidents:
-        if i.priority != "REFERENCE" or not i.last_seen or i.last_seen < cutoff or i.evidence_status not in _WK_EVIDENCE_POINTS:
+        via = _wk_via_aggregator(i)
+        if i.priority != "REFERENCE" or not i.last_seen or i.last_seen < cutoff or (i.evidence_status not in _WK_EVIDENCE_POINTS and not via):
             continue
         if len(i.headline) < 25 or _WK_LOW_QUALITY_RX.search(i.headline):
             continue
-        if not any(r["role"] == "original" and r["source_kind"] in _WK_CREDIBLE_KINDS for r in i.reports):
+        if not via and not _wk_credible_original(i):
             continue
         if _WK_CORPORATE_RX.search(i.headline + " " + " ".join(r.get("summary") or "" for r in i.reports if r["role"] == "original")):
             continue
@@ -316,7 +340,7 @@ def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[
         if not cat:
             continue
         kinds = {r["source_kind"] for r in i.reports if r["role"] == "original"}
-        score = (cat[1] + _WK_EVIDENCE_POINTS[i.evidence_status] + (2 if we.PRIMARY in kinds else 1 if we.SPECIALIST in kinds else 0)
+        score = (cat[1] + _WK_EVIDENCE_POINTS.get(i.evidence_status, 0) + (2 if we.PRIMARY in kinds else 1 if we.SPECIALIST in kinds else 0)
                  + (2 if _wk_au(i) else 0) + (1 if i.last_seen >= ev.generated_at - timedelta(hours=24) else 0)
                  + (1 if i.materiality in ("high", "medium") else 0))
         scored.append((i, cat[0], score))
@@ -334,7 +358,9 @@ def worth_knowing(ev: EvidenceSet, *, limit: int = WORTH_KNOWING_LIMIT) -> list[
 
 def _wk_line(i: IncidentView, cat: str) -> str:
     au = "Australian relevance stated in report" if _wk_au(i) else "International development; no Australian operational impact established"
-    basis = ("single-source report" if i.evidence_status == "reported"
+    via = _wk_via_aggregator(i)
+    basis = (f"single source via aggregator feed (publisher: {via})" if via
+             else "single-source report" if i.evidence_status == "reported"
              else "officially confirmed" if i.evidence_status == "officially_confirmed"
              else f"independently corroborated ({i.independent_publishers} publishers)")
     tags = [cat, basis, au] + (["retrospective report"] if i.impact_status == "retrospective" else [])
