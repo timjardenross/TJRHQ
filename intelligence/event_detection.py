@@ -98,7 +98,10 @@ MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"parti
 RETROSPECTIVE = (r"investigated", r"post-(?:blackout|outage|incident)", r"convicted", r"charged", r"sentenced", r"jailed", r"guilty", r"trial", r"verdict", r"inquest", r"court", r"fined",
                  r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
                  r"apolog\w+", r"lessons?", r"anniversary", r"fallout",
-                 r"near[- ]miss(?:es)?", r"post-?mortems?", r"root[- ]cause")        # #669: commentary and analysis about a PAST event
+                 r"near[- ]miss(?:es)?", r"post-?mortems?",
+                 # a root cause that HAS BEEN found is retrospective; 'engineers investigate root cause' is a live incident
+                 r"root[- ]cause\b[^.;]{0,40}\b(?:identified|found|revealed|confirmed|analysis|report)",
+                 r"(?:identified|found|reveals?|revealed|confirmed|confirms)\b[^.;]{0,40}\broot[- ]cause")        # #669: commentary and analysis about a PAST event
 HEDGE = (r"likely", r"may have", r"might have", r"possibly", r"suspected", r"reportedly", r"apparent", r"alleged\w*", r"believed to")
 POLITICS = (r"liberal", r"labor", r"coalition", r"opposition", r"minister", r"premier", r"election", r"policy", r"parliament",
             r"senator", r"prime minister", r"government plan", r"throws open")
