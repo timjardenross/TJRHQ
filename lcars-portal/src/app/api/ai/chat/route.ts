@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
 import { buildShipContext } from '@/lib/ai-context';
+import { PERSONAL_HEALTH_CLOUD_REFUSAL, personalHealthBlockedReasons } from '@/lib/personalHealthGuard';
 import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
@@ -227,6 +228,12 @@ export async function POST(request: NextRequest) {
       { error: 'AI Console is not enabled. Set OLLAMA_CLOUD_ENABLED=true in environment.' },
       { status: 503 }
     );
+  }
+
+  // Privacy: structured personal-health content is never sent to the cloud model (unless explicitly opted in).
+  const blocked = personalHealthBlockedReasons([systemPrompt ?? '', ...messages.map((m) => m.content)]);
+  if (blocked.length > 0) {
+    return NextResponse.json({ error: PERSONAL_HEALTH_CLOUD_REFUSAL, code: 'personal_health_blocked' }, { status: 422 });
   }
 
   // Use client-provided system prompt if supplied (user edited), else role preset

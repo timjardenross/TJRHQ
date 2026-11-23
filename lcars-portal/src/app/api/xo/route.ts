@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
 import { buildShipContext } from '@/lib/ai-context';
+import { PERSONAL_HEALTH_CLOUD_REFUSAL, personalHealthBlockedReasons } from '@/lib/personalHealthGuard';
 import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
@@ -143,7 +144,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'messages array is required' }, { status: 400 });
   }
 
-  // Live ship context (reused) + XO role + mobile doctrine.
+  // Privacy: structured personal-health content is never sent to the cloud model (unless explicitly opted in).
+  if (personalHealthBlockedReasons(messages.map((m) => m.content)).length > 0) {
+    return NextResponse.json({ error: PERSONAL_HEALTH_CLOUD_REFUSAL, code: 'personal_health_blocked' }, { status: 422 });
+  }
+
+  // Live ship context (reused; personal-health sections excluded) + XO role + mobile doctrine.
   let contextText = '';
   let sources: string[] = [];
   try {

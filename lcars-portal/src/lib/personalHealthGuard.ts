@@ -34,6 +34,37 @@ export function assessPersonalHealthText(...texts: string[]): { personal: boolea
   }
 }
 
+/** Structured-forms-only check (no broad lexicon): for free chat where ordinary words like "recovery" or "capacity" are common. */
+export function containsStructuredPersonalHealth(...texts: string[]): string[] {
+  try {
+    const hay = texts.filter(Boolean).join('\n');
+    return STRUCTURED.filter((p) => p.rx.test(hay)).map((p) => p.name);
+  } catch {
+    return ['detector_unavailable'];
+  }
+}
+
+/** Drop any line that matches a structured personal-health form (defence in depth for assembled prompt context). */
+export function scrubPersonalHealthLines(text: string): string {
+  return text.split('\n').filter((line) => containsStructuredPersonalHealth(line).length === 0).join('\n');
+}
+
+/**
+ * Cloud chat routes: user-supplied text that carries structured personal health content is refused before any
+ * upstream call unless the Captain has opted in. Returns the reasons (empty = fine).
+ */
+export function personalHealthBlockedReasons(
+  texts: string[],
+  env: Record<string, string | undefined> = process.env,
+): string[] {
+  if (externalHealthAiAllowed(env)) return [];
+  return containsStructuredPersonalHealth(...texts);
+}
+
+export const PERSONAL_HEALTH_CLOUD_REFUSAL =
+  'This message looks like personal health information, which is never sent to the cloud model. ' +
+  'Use the local tools (Human Systems, Pain Recovery Studio) for health questions.';
+
 export function localOllamaTarget(
   env: Record<string, string | undefined> = process.env,
 ): { baseUrl: string; model: string } | null {
