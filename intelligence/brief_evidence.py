@@ -86,6 +86,9 @@ def _incident_id(report_ids: list[str]) -> str:
     return "inc-" + hashlib.sha1("|".join(sorted(report_ids)).encode(), usedforsecurity=False).hexdigest()[:10]  # nosec B324 - identity hash, not security
 
 
+URGENT_MAX_AGE_HOURS = 24      # 'urgent' is about what is happening now: an incident whose newest report is older than this is never flagged (nor promoted in the weekly view)
+
+
 def build_evidence(events: list[dict], *, now: datetime | None = None, window_hours: int = 24) -> EvidenceSet:
     """events: dicts with id, title, source, geography, collected_at, optional url. Pure; no I/O."""
     now = now or datetime.now(timezone.utc)
@@ -111,7 +114,8 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             provisional=d.provisional, grouping_confidence=d.group.grouping_confidence, reports=reports,
             first_seen=min(times) if times else None, last_seen=max(times) if times else None,
             record=ed.escalation_record(d, now=now), reasons=list(d.reasons),
-            urgent_verify=(d.priority == "VERIFY" and d.materiality == "high" and d.urgency == "immediate" and d.impact_status == "stated")))
+            urgent_verify=(d.priority == "VERIFY" and d.materiality == "high" and d.urgency == "immediate" and d.impact_status == "stated"
+                           and bool(times) and now - max(times) <= timedelta(hours=URGENT_MAX_AGE_HOURS))))
     order = {"ESCALATE": 0, "VERIFY": 1, "WATCH": 2, "REFERENCE": 3}
     incidents.sort(key=lambda i: (order[i.priority], not i.urgent_verify, -(i.last_seen.timestamp() if i.last_seen else 0)))
     return EvidenceSet(ed.METHOD_VERSION, now, window_hours, len(events), incidents)

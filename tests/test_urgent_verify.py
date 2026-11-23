@@ -101,7 +101,7 @@ def test_f2_platform_outage_with_only_a_plausible_dependency_is_not_urgent():
 def test_g_item_older_than_24h_never_in_urgent_section():
     old = [ev("o1", T1 + " - ABC News", "Google News - Power", 30), ev("o2", T2 + " - The Guardian", "Google News - Energy", 29)]
     es, i = _one(old)
-    assert i.urgent_verify                     # still flagged, but the morning view's 24-hour recency rule applies
+    assert i.urgent_verify is False            # not urgent: its newest report is older than the 24-hour recency
     assert HEADING not in be.morning_view(es)
 
 
@@ -129,3 +129,20 @@ def test_j_weekly_view_still_renders_and_lists_urgent_item_for_monitoring():
     es = be.build_evidence(GN_ONLY + [ev("a1", "Coles Group investigating a cyber incident", "ABC News", 5)], now=NOW)
     text = "\n".join(be.weekly_view(es))
     assert "EVIDENCE-BASED WEEK" in text and "MONITOR: Eyre Peninsula blackout" in text
+
+
+# ── recency: urgent is about NOW (found in integrated regression on real history) ───────────────────────────────────────────────
+def test_urgent_flag_requires_a_recent_newest_report():
+    gn = lambda h: [ev("a", "Eyre Peninsula blackout leaves 20,000 customers without power - ABC News & Headlines", "Google News - Telstra", h)]
+    assert _one(gn(3))[1].urgent_verify is True
+    assert _one(gn(23))[1].urgent_verify is True
+    assert _one(gn(25))[1].urgent_verify is False        # beyond the 24h recency the morning view uses
+    assert _one(gn(9 * 24))[1].urgent_verify is False    # a 9-day-old story must not be flagged urgent
+
+
+def test_a_stale_urgent_item_is_not_promoted_in_the_weekly_view():
+    stale = [ev("s1", T1 + " - ABC News", "Google News - Power", 9 * 24)]
+    mid = [ev("r1", "Optus outage hits customers across Sydney, services patchy - ABC News", "Google News - Telstra", 5 * 24)]
+    es = be.build_evidence(stale + mid, now=NOW, window_hours=240)
+    assert not any(i.urgent_verify for i in es.incidents)         # the 9-day-old blackout is not flagged, so it cannot head the list
+    assert be.weekly_view(es, None)                               # and the weekly view still renders
