@@ -1167,6 +1167,25 @@ def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
     return lines
 
 
+def _evidence_lines(kind: str, hours: int) -> list[str]:
+    """V1 shared-evidence block for the morning or weekly brief. Returns [] unless its feature flag is on (BRIEF_EVIDENCE_V1 or
+    BRIEF_EVIDENCE_V1_MORNING / _WEEKLY); never raises, so the legacy brief always renders unchanged when the flag is off or the
+    evidence layer fails."""
+    try:
+        from intelligence import brief_evidence as be
+        if not be.enabled(kind):
+            return []
+        events = be.load_events(_sb_get, hours=hours)
+        if not events:
+            return []
+        ev = be.build_evidence(events, window_hours=hours)
+        view = be.morning_view(ev) if kind == "morning" else be.weekly_view(ev)
+        return [_esc(x) for x in view] + [""]
+    except Exception as exc:  # noqa: BLE001 - additive feature-flagged block; the legacy brief must still render
+        log.warning("Evidence-based %s block unavailable: %s", kind, exc)
+        return []
+
+
 def generate_morning_brief() -> str:
     now = _now_aest()
     brief = _get_latest_ori_brief()
@@ -1181,6 +1200,9 @@ def generate_morning_brief() -> str:
     ]
 
     lines += _format_capacity_block(capacity)
+
+    # V1 shared evidence foundation (default off): confirmed vs to-verify incidents, implications, 24-72h forward watch.
+    lines += _evidence_lines("morning", 72)
 
     # Intelligence posture — rendered deterministically from the canonical
     # daily brief. This is the one place that decides posture/what-matters/
@@ -1361,6 +1383,9 @@ def generate_weekly_report() -> str:
     # real-time); the weekly reference here is retrospective/audit, not the
     # first notice, so it goes first, ahead of the OSINT roll-up.
     lines += _format_weekly_outage_alerts_block(outage_alerts)
+
+    # V1 shared evidence foundation (default off): same incident identities, materiality and provenance as the other briefs.
+    lines += _evidence_lines("weekly", 168)
 
     lines += _format_weekly_osint_block(
         "TECH OSINT", "🛰", tech_signals, "osint_confidence_level", "raw_title",

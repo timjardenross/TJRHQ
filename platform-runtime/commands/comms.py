@@ -146,7 +146,7 @@ def _themes() -> str:
 
 def _weekly() -> str:
     items = opp.gather_opportunities()
-    return weekly.compose_weekly_brief(items)
+    return weekly.compose_weekly_brief(items, evidence_lines=weekly.evidence_lines_for(items))
 
 
 def _opportunities() -> str:
