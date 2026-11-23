@@ -531,7 +531,8 @@ _AU_MARKER_RX = _rx((r"australia\w*", r"nsw", r"queensland\w*", r"tasmania\w*", 
                      r"anz", r"commonwealth bank", r"coles", r"woolworths", r"medibank", r"services australia", r"centrelink"))
 _AU_DEPENDENCY_RX = _rx((
     # cloud and hosting
-    r"microsoft", r"azure", r"office 365", r"aws", r"amazon web services", r"google cloud", r"cloudflare", r"akamai", r"fastly",
+    r"microsoft", r"azure", r"office 365", r"microsoft 365", r"m365", r"exchange online", r"onedrive", r"sharepoint",
+    r"outlook(?:\.com)? (?:outage|down|email|service|not working)", r"aws", r"amazon web services", r"google cloud", r"cloudflare", r"akamai", r"fastly",
     r"oracle cloud", r"ibm cloud", r"alibaba cloud", r"digitalocean", r"vercel", r"netlify", r"supabase", r"snowflake", r"databricks",
     # payments
     r"mastercard", r"swift network", r"swift messaging", r"apple pay", r"google pay", r"paypal", r"stripe", r"adyen", r"worldpay", r"fiserv",
@@ -553,6 +554,18 @@ def _outlet(m: Candidate) -> str:
     return f"{m.source or ''} {suffix.group(0) if suffix else ''}"
 
 
+def _relevance_text(m: Candidate) -> str:
+    """Title and summary WITHOUT the publisher attribution: an outlet called 'The Australian' or 'Guardian Australia' must not
+    establish operational relevance (the aggregator's trailing ' - Outlet' and any copy of the outlet name in the summary)."""
+    suffix = _PUBLISHER_SUFFIX.search(m.title or "")
+    summary = m.summary or ""
+    if suffix:
+        outlet = re.sub(r"^\s[-–|]\s", "", suffix.group(0)).strip()
+        if outlet:
+            summary = re.sub(re.escape(outlet), " ", summary, flags=re.IGNORECASE)
+    return f"{core_title(m.title)} {summary}"
+
+
 def australian_relevance(group: Group) -> str | None:
     """Why this incident has demonstrated Australian OPERATIONAL relevance ('australian geography', 'names Australia or an
     Australian organisation', 'depends on a global platform used in Australia'), or None."""
@@ -560,10 +573,10 @@ def australian_relevance(group: Group) -> str | None:
         if (m.geography or "").upper().startswith("AU"):
             return "australian geography"
     for m in group.members:
-        if _AU_MARKER_RX.search(f"{m.title} {m.summary}"):
+        if _AU_MARKER_RX.search(_relevance_text(m)):
             return "names Australia or an Australian organisation"
     for m in group.members:
-        if _AU_DEPENDENCY_RX.search(f"{m.title} {m.summary} {m.source or ''}"):
+        if _AU_DEPENDENCY_RX.search(f"{_relevance_text(m)} {m.source or ''}"):
             return "depends on a global platform used in Australia"
     return None
 

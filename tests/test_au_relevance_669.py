@@ -216,3 +216,32 @@ def test_generic_words_are_not_markers():
         c = ed.detect_candidate(e("a", title, "BBC News"))
         if c and c.is_candidate:
             assert one([e("a", title, "BBC News")]).priority == "REFERENCE", title
+
+
+# ── Codex review findings (P2 ×3) ───────────────────────────────────────────────────────────────────────────
+
+def test_microsoft_product_names_without_the_provider_are_a_dependency():
+    for title in ("Global Outlook outage leaves millions of users unable to access email", "M365 outage takes services offline worldwide"):
+        assert core([e("a", title, "BBC News")]).priority in ACTIONABLE
+        assert one([e("a", title, "BBC News")]).priority in ACTIONABLE, title
+
+
+def test_an_australian_outlet_name_in_the_aggregator_suffix_does_not_establish_relevance():
+    for outlet in ("The Australian", "Guardian Australia"):
+        d = one([e("a", f"{US_PORTS.rsplit(' - ', 1)[0]} - {outlet}", "Google News - Critical Infrastructure/Energy Cyberattack AU")])
+        assert d.priority == "REFERENCE", outlet
+
+
+def test_an_outlet_name_repeated_in_the_summary_does_not_establish_relevance():
+    ev = e("a", "US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - The Australian",
+           "Google News - Critical Infrastructure/Energy Cyberattack AU")
+    ev["summary"] = "US ports face wave of cyberattacks &nbsp;The Australian"
+    assert one([ev]).priority == "REFERENCE"
+
+
+def test_a_demoted_incident_is_not_published_as_a_dated_forward_watch_notice():
+    ev = e("a", "Planned power outage in Chicago on 24/11/2026", "BBC News")
+    es = be.build_evidence([ev], now=NOW, window_hours=72)
+    assert es.incidents[0].priority == "REFERENCE"
+    assert be.forward_dated_items(es) == []
+    assert "Chicago" not in "\n".join(be.morning_view(es))

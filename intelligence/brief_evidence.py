@@ -181,6 +181,8 @@ def forward_dated_items(ev: EvidenceSet, *, hours: int = 72) -> list[tuple[Incid
     """Notices whose headline names a date inside the next ``hours`` (e.g. 'LOR1 forecast … on 20/11/2026'). Dates are read, never inferred."""
     out = []
     for i in ev.incidents:
+        if i.priority == "REFERENCE":      # demoted by the relevance gate (or never actionable): not published as a dated notice
+            continue
         for m in _DATE_RX.finditer(i.headline):
             try:
                 d = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), tzinfo=timezone.utc)
