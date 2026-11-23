@@ -6,6 +6,8 @@ import { resourceLibrary } from '@/lib/pain-recovery-resource-library';
 import { authoredGuidance } from '@/lib/pain-recovery-authored-guidance';
 import { externalHealthAiAllowed, generateLocalOnly, localOllamaTarget } from '@/lib/personalHealthGuard';
 
+// The page aborts this request after 10 s; the local attempt must leave room for the authored fallback and database writes.
+const LOCAL_GUIDE_TIMEOUT_MS = 7000;
 const ROUTER_BASE = process.env.MODEL_ROUTER_URL ?? 'http://127.0.0.1:8891';
 type GuidanceResponse = {message:string; next_action:string|null; choices:string[]; action_type:string; safety_instruction:string; practice:{title:string;duration:string;steps:string[];revisit:string}|null; resources:{title:string;source:string;region:string;kind:string;url:string;why:string}[]};
 function parseModelResponse(value: unknown) {
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
   // the Model Router (Gemini) only on the explicit HEALTH_LLM_EXTERNAL_ALLOWED opt-in; otherwise the authored fallback below.
   let provider='safe_fallback'; let model_name='none';
   try {
-    const local = await generateLocalOnly('Return JSON only.', prompt, { json: true, maxTokens: 700 });
+    const local = await generateLocalOnly('Return JSON only.', prompt, { json: true, maxTokens: 700, timeoutMs: LOCAL_GUIDE_TIMEOUT_MS });
     if (local) { result=parseModelResponse(local); success=true; provider='local-ollama'; model_name=localOllamaTarget()?.model ?? 'local'; }
     else if (externalHealthAiAllowed()) {
       const headers: Record<string,string>={'Content-Type':'application/json'}; if(process.env.MODEL_ROUTER_AUTH_TOKEN) headers.Authorization=`Bearer ${process.env.MODEL_ROUTER_AUTH_TOKEN}`;
@@ -68,7 +70,8 @@ export async function POST(req: NextRequest) {
   await supabase.from('pain_recovery_model_interactions').insert({user_id:user.id, provider, model_name,task_type:'pain-recovery-guidance', input_context:{current_stage:context.current_stage,adaptation_mode:context.adaptation_mode,safety_signal_present:context.safety_signal_present}, response:{action_type:result.action_type,safety_instruction:result.safety_instruction,success},latency_ms:Date.now()-started, success, failure_reason:failure_reason ?? null});
   const sessionDate = new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne'}).format(new Date());
   const { data: currentSession } = await supabase.from('pain_recovery_sessions').select('id').eq('user_id',user.id).eq('session_date',sessionDate).maybeSingle();
-  if (currentSession?.id) await supabase.from('pain_recovery_sessions').update({current_action: result.next_action ?? result.message,current_stage: stageForAction(result.action_type),safety_status: result.safety_instruction === 'show_card' ? 'safety_hold' : 'general_boundary',active_practice: result.practice,practice_step: 0}).eq('id',currentSession.id).eq('user_id',user.id);
+  // A client that already gave up (10 s deadline) must not have its session advanced by a reply it never received.
+  if (currentSession?.id && !req.signal.aborted) await supabase.from('pain_recovery_sessions').update({current_action: result.next_action ?? result.message,current_stage: stageForAction(result.action_type),safety_status: result.safety_instruction === 'show_card' ? 'safety_hold' : 'general_boundary',active_practice: result.practice,practice_step: 0}).eq('id',currentSession.id).eq('user_id',user.id);
   if (!result.practice && result.action_type !== 'safety_card') {
     result = authoredGuidance(typeof body.user_request === 'string' ? body.user_request : '', typeof body.chosen_colour === 'string' ? body.chosen_colour : undefined, typeof body.current_stage === 'string' ? body.current_stage : undefined, { morning: morning_context, recipe: recipe ?? [] });
   }

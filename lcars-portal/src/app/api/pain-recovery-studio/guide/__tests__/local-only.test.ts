@@ -4,12 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // In-app consent is not authorisation for external processing: guidance is local-only unless HEALTH_LLM_EXTERNAL_ALLOWED=1.
 
 const inserts: unknown[] = [];
+const updates: string[] = [];
 function table(name: string) {
-  const payload: Record<string, unknown> = { pain_recovery_consents: { status: 'granted', main_consent: true, free_text_consent: false, medications_consent: false } };
+  const payload: Record<string, unknown> = { pain_recovery_sessions: { id: 's1' }, pain_recovery_consents: { status: 'granted', main_consent: true, free_text_consent: false, medications_consent: false } };
   const b: any = new Proxy({}, {
     get(_t, prop) {
       if (prop === 'then') return (res: (v: unknown) => void) => res({ data: name === 'pain_recovery_consents' ? payload[name] : [], error: null });
       if (prop === 'maybeSingle') return () => Promise.resolve({ data: payload[name] ?? null, error: null });
+      if (prop === 'update') return () => { updates.push(name); return b; };
       if (prop === 'insert') return (row: unknown) => { inserts.push(row); return Promise.resolve({ error: null }); };
       return () => b;
     },
@@ -39,7 +41,7 @@ function stub(local: 'down' | string) {
 }
 const call = () => POST(new NextRequest('http://localhost/api/pain-recovery-studio/guide', { method: 'POST', body: JSON.stringify({ current_stage: 'morning', user_request: 'plan my day' }) }));
 
-beforeEach(() => { inserts.length = 0; vi.stubEnv('HEALTH_LLM_EXTERNAL_ALLOWED', ''); });
+beforeEach(() => { inserts.length = 0; updates.length = 0; vi.stubEnv('HEALTH_LLM_EXTERNAL_ALLOWED', ''); });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('pain recovery guide: local-only by default', () => {
@@ -64,5 +66,30 @@ describe('pain recovery guide: local-only by default', () => {
     const json = await (await call()).json();
     expect(json.source).toBe('gemini');
     expect(urls.some((u) => u.includes(':8891'))).toBe(true);
+  });
+});
+
+
+describe('pain recovery guide: deadline handling', () => {
+  it('bounds the local attempt to ~7 s so the fallback can answer inside the client\'s 10 s deadline', async () => {
+    stub('down');
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    await call();
+    const ms = spy.mock.calls.map((c) => c[0]);
+    expect(ms).toContain(7000);
+    expect(ms).not.toContain(20000);
+    spy.mockRestore();
+  });
+  it('does not advance the session for a request the client already abandoned', async () => {
+    stub(GOOD);
+    const ac = new AbortController();
+    ac.abort();
+    await POST(new NextRequest('http://localhost/api/pain-recovery-studio/guide', { method: 'POST', body: JSON.stringify({ current_stage: 'morning' }), signal: ac.signal }));
+    expect(updates).not.toContain('pain_recovery_sessions');
+  });
+  it('still advances the session for a live request', async () => {
+    stub(GOOD);
+    await call();
+    expect(updates).toContain('pain_recovery_sessions');
   });
 });
