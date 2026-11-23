@@ -432,3 +432,40 @@ def test_a_summary_that_denies_impact_does_not_establish_australian_relevance():
 def test_a_summary_that_affirms_impact_still_establishes_australian_relevance():
     evs = _with_summary("Cyberattack disrupts ports across Europe", "Australian ports were also affected by the cyberattack.")
     assert one(evs).priority in ACTIONABLE
+
+
+# --- geography=AU is a weak keyword tag (classifier.py), not proof the event is in Australia -----------------------------------
+
+def eg(i, title, summary, geo="AU", source="Reuters"):
+    x = e(i, title, source, geo=geo)
+    x["summary"] = summary
+    return x
+
+
+def test_au_geography_does_not_override_an_explicit_australia_not_affected_denial():
+    evs = [eg("a", "California port outage halts container terminals at Los Angeles and Long Beach",
+              "Australian ports were not affected.")]
+    assert core(evs).priority in ACTIONABLE
+    assert ed.australian_relevance(next(iter(ed.correlate([ed.detect_candidate(evs[0])])))) is None
+    d = one(evs)
+    assert d.priority == "REFERENCE" and d.priority != "ESCALATE"
+
+
+def test_au_geography_alone_is_weak_when_text_names_a_foreign_place_and_no_australian_marker():
+    evs = [eg("a", "Port outage halts container terminals in Los Angeles", "Operators are restoring systems.")]
+    assert one(evs).priority == "REFERENCE"
+
+
+def test_genuine_australian_impact_with_au_geography_still_passes():
+    for title, summary in (("Port of Melbourne outage halts container terminals", "Terminal operators are investigating."),
+                           ("Telstra outage leaves customers unable to make calls", "")):
+        evs = [eg("a", title, summary)]
+        d = one(evs)
+        assert d.priority == core(evs).priority and d.priority in ACTIONABLE, title
+
+
+def test_au_geography_with_no_denial_and_no_foreign_marker_is_unchanged():
+    evs = [eg("a", "Power outage hits 20,000 customers in SA", "Crews are working to restore supply.")]
+    d = one(evs)
+    assert d.priority == core(evs).priority
+    assert any("australian geography" in r for r in d.reasons)

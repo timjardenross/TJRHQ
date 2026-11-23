@@ -714,12 +714,39 @@ def _marker_in_member(m: Candidate) -> bool:
     return any(_au_marker(sent) and _INCIDENT_RX.search(sent) and not _DENIAL_RX.search(sent) for sent in _SENTENCE_SPLIT.split(summary))
 
 
+# geography == "AU" is a keyword guess over the headline+summary (classification/classifier.py: substring hits on 'australian',
+# 'victoria', 'sa', 'act', ...), not a verified location: the sentence 'Australian ports were not affected' itself tags a California
+# incident AU. So the tag is WEAK evidence: explicit text beats it.
+_FOREIGN_PLACE_RX = _rx((r"u\.?s\.?a?", r"united states", r"america\w*", r"uk", r"britain", r"british", r"england", r"canada", r"canadian",
+                         r"europe\w*", r"china", r"chinese", r"russia\w*", r"ukrain\w*", r"libya", r"india\w*", r"japan\w*", r"korea\w*",
+                         r"los angeles", r"long beach", r"new york", r"california", r"texas", r"florida", r"london", r"singapore", r"germany",
+                         r"france", r"israel\w*", r"iran\w*", r"brazil\w*", r"mexic\w*", r"nigeria\w*", r"south africa\w*"))
+
+
+def _denies_au_impact(text: str) -> bool:
+    """A sentence that explicitly says Australia/an Australian organisation was not affected, or 'no Australian ...'."""
+    for sent in _SENTENCE_SPLIT.split(text):
+        if _DENIAL_RX.search(sent) and (_au_marker(sent) or re.search(r"\bno\s+(?:\w+\s+){0,3}?australian", sent, re.IGNORECASE)):
+            return True
+    return False
+
+
+def _geography_tag_is_credible(m: Candidate) -> bool:
+    """geography=AU establishes relevance unless the text denies Australian impact, or names a clearly foreign place with no
+    Australian marker (then the tag is collection scope / audience, not where the event is)."""
+    title, summary = _relevance_parts(m)
+    text = f"{title}. {summary}"
+    if _denies_au_impact(text):
+        return False
+    return not (_FOREIGN_PLACE_RX.search(text) and not _au_marker(text))
+
+
 def australian_relevance(group: Group) -> str | None:
     """Why this incident has demonstrated Australian OPERATIONAL relevance ('australian geography', 'names Australia or an
     Australian organisation'), or a PLAUSIBLE dependency ('plausible dependency on <platform> (Australian impact not
     established)'), or None."""
     for m in group.members:
-        if (m.geography or "").strip().upper() == "AU":
+        if (m.geography or "").strip().upper() == "AU" and _geography_tag_is_credible(m):
             return "australian geography"
     for m in group.members:
         if _marker_in_member(m):
