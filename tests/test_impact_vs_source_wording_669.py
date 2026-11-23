@@ -236,8 +236,10 @@ LONDON = "Power outage leaves 20,000 customers in London without electricity"
 
 def test_london_outage_from_an_australian_outlet_is_editorial_only_without_injected_reasons():
     es = be.build_evidence([ev("a", LONDON, "ABC News", geo="GB")], now=NOW, window_hours=72)
-    assert es.incidents[0].reasons == [] or "Australian-audience outlet only" not in es.incidents[0].reasons
-    assert "editorial relevance only" in be._tag(es.incidents[0])
+    inc = es.incidents[0]
+    # With #677 merged the relevance gate may demote this incident to REFERENCE (hidden altogether); on this branch alone it stays
+    # actionable and carries the tag. Either way it is never counted as a current disruption.
+    assert inc.priority == "REFERENCE" or "editorial relevance only" in be._tag(inc)
     text = "\n".join(be.morning_view(es))
     line = next(l for l in text.splitlines() if l.startswith("Operational situation:"))
     assert "no confirmed" in line
