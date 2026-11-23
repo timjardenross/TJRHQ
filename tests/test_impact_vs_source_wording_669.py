@@ -231,6 +231,30 @@ def test_editorial_relevance_only_is_tagged_and_not_counted_or_listed_as_matters
     assert "20,000" in text[text.index(SOURCE_H):text.index("WARNINGS AND FORECASTS")]
 
 
+LONDON = "Power outage leaves 20,000 customers in London without electricity"
+
+
+def test_london_outage_from_an_australian_outlet_is_editorial_only_without_injected_reasons():
+    es = be.build_evidence([ev("a", LONDON, "ABC News", geo="GB")], now=NOW, window_hours=72)
+    assert es.incidents[0].reasons == [] or "Australian-audience outlet only" not in es.incidents[0].reasons
+    assert "editorial relevance only" in be._tag(es.incidents[0])
+    text = "\n".join(be.morning_view(es))
+    line = next(l for l in text.splitlines() if l.startswith("Operational situation:"))
+    assert "no confirmed" in line
+    assert "20,000" not in text[text.index("What matters today"):text.index(IMPACT_H)]
+
+
+def test_an_au_geography_incident_is_not_editorial_only():
+    es = be.build_evidence([ev("a", LONDON, "ABC News", geo="AU")], now=NOW, window_hours=72)
+    assert "editorial relevance only" not in be._tag(es.incidents[0])
+
+
+def test_a_gb_incident_naming_an_australian_operator_is_not_editorial_only():
+    es = be.build_evidence([ev("a", "Telstra outage leaves 20,000 customers without service", "ABC News", geo="GB")],
+                           now=NOW, window_hours=72)
+    assert "editorial relevance only" not in be._tag(es.incidents[0])
+
+
 def test_no_recent_incidents_is_insufficient_coverage_not_all_quiet():
     _, lines = None, be.morning_view(be.build_evidence([], now=NOW, window_hours=72))
     assert lines[0].startswith("⚠️ EVIDENCE COVERAGE INSUFFICIENT")

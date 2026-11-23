@@ -99,7 +99,7 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             reports.append({"report_id": m.event_id, "publisher": m.family, "source_name": m.source, "source_kind": m.kind,
                             "title": m.title, "url": e.get("url"), "collected_at": e.get("collected_at"),
                             "published_at": m.published.isoformat() if m.published else None,
-                            "role": role})
+                            "role": role, "geography": e.get("geography") or "", "summary": e.get("summary") or ""})
         times = [m.published for m in members if m.published]
         incidents.append(IncidentView(
             incident_id=_incident_id([m.event_id for m in members]), headline=d.headline.title, priority=d.priority,
@@ -177,9 +177,31 @@ EDITORIAL_REASON = "Australian-audience outlet only"
 _EDITORIAL_TAG = " · editorial relevance only (Australian operational impact not established)"
 
 
+# Derived from the evidence itself so it holds with or without the upstream relevance gate (which records EDITORIAL_REASON).
+_AU_AUDIENCE_OUTLET_RX = re.compile(
+    r"abc news|abc\.net\.au|\bsbs\b|news\.com\.au|the mandarin|innovationaus|smartcompany|government news|cyber daily|information age|"
+    r"itnews|guardian australia|9news|7news|sky news australia|australian financial review|\bafr\b|\baap\b", re.IGNORECASE)
+_AU_NAMED_RX = re.compile(
+    r"australia\w*|aussie\w*|\bnsw\b|new south wales|queensland\w*|tasmania\w*|victorian\b|sydney|melbourne|brisbane|perth|adelaide|"
+    r"canberra|hobart|darwin|\basx\b|\bnbn\b|\bapra\b|\bacsc\b|\baemo\b|ausgrid|endeavour energy|ergon|energex|essential energy|ausnet|"
+    r"powercor|jemena|western power|telstra|optus|\btpg\b|qantas|jetstar|westpac|\banz\b|\bNAB\b|commonwealth bank|coles|woolworths|"
+    r"medibank|services australia|centrelink|\bagl\b|origin energy|suncorp|\bbhp\b|woodside|transurban", re.IGNORECASE)
+
+
+def _derived_editorial_only(i: IncidentView) -> bool:
+    originals = [r for r in i.reports if r["role"] == "original"] or i.reports
+    if not originals:
+        return False
+    if any((r.get("geography") or "").strip().upper() == "AU" for r in originals):
+        return False
+    if any(_AU_NAMED_RX.search(f"{r.get('title') or ''} {r.get('summary') or ''}") for r in originals):
+        return False
+    return all(_AU_AUDIENCE_OUTLET_RX.search(f"{r.get('source_name') or ''} {r.get('publisher') or ''}") for r in originals)
+
+
 def _editorial_only(i: IncidentView) -> bool:
     """Relevance rests on an Australian-audience outlet alone, not on an established Australian operational impact."""
-    return any(EDITORIAL_REASON in r for r in i.reasons)
+    return any(EDITORIAL_REASON in r for r in i.reasons) or _derived_editorial_only(i)
 
 
 def _quality_source(i: IncidentView) -> bool:
