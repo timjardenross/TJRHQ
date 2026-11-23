@@ -1,0 +1,1468 @@
+{
+ "verified_on": "2026-11-23",
+ "method_note": "Pages fetched via Firecrawl (rendered, not search snippets). Headlines taken from an h1-only re-scrape or from the first visible heading in an extraction of the rendered page; title tag/og:title were used only to explain mismatches. 'verified' = every attribute (organisation, event type, date, consequence) supported by an opened source and >=2 independent opened sources and >=1 headline exact/minor_difference. Entries with a single source cap at partial. Dates seen only in page metadata are listed in problems, not published_on_page.",
+ "entries": {
+  "au-optus-national-outage-2023-11": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "ACMA and ABC both opened. Router-isolation cause not checked. ABC visible times are in New York time (page metadata 2023-11-08T18:18Z)."
+   },
+   "sources": [
+    {
+     "url": "https://www.acma.gov.au/articles/2024-11/optus-pays-12-million-penalty-triple-zero-outage",
+     "opened": true,
+     "rendered_headline": "Optus pays $12 million penalty for Triple Zero outage",
+     "headline_matches_input": "exact",
+     "published_on_page": "08 November 2024",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "ACMA: Optus subsidiaries paid >$12m penalties over breaches from nation-wide outage on 8 Nov 2023; 2,145 people lacked emergency call access; 369 welfare checks missed.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.abc.net.au/news/2023-11-09/how-the-optus-outage-played-out/103079768",
+     "opened": true,
+     "rendered_headline": "More than 10 million customers were affected by the Optus outage. Here's how it played out",
+     "headline_matches_input": "exact",
+     "published_on_page": "Posted 8 Nov 2023 at 1:18pm, updated 9 Nov 2023 at 5:38pm",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "ABC: Optus outage Wednesday 8 Nov 2023; more than 10 million customers affected, at least nine hours without phone or internet.",
+     "problems": "Page og:title differs from visible H1; visible H1 matches input. Explainer updated next day. Visible times appear rendered in scraper timezone (America/New_York), not local newsroom time."
+    }
+   ]
+  },
+  "au-dp-world-ports-cyber-2023-11": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "DP World statement dates detection to Fri 10 Nov 2023; ABC dated 11 Nov. Named ports in description confirmed by ABC."
+   },
+   "sources": [
+    {
+     "url": "https://www.abc.net.au/news/2023-11-11/dp-world-australian-ports-cyber-security-incident/103094358",
+     "opened": true,
+     "rendered_headline": "Major Australian port operator shuts down amid cyber security incident, impacting goods in and out of the country",
+     "headline_matches_input": "exact",
+     "published_on_page": "Posted 11 Nov 2023 at 2:18am, updated 11 Nov 2023 at 3:23am",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "ABC: DP World Australia (Melbourne, Sydney, Brisbane, Fremantle) responding to cyber incident from Friday; interruption to continue days, impacting goods movement.",
+     "problems": "og:title differs from visible headline; visible matches input. Visible times appear rendered in scraper timezone (America/New_York), not local newsroom time."
+    },
+    {
+     "url": "https://www.dpworld.com/en/news/releases/australia/media-statement-update-on-cybersecurity-incident",
+     "opened": true,
+     "rendered_headline": "Media Statement: Update on Cybersecurity Incident",
+     "headline_matches_input": "exact",
+     "published_on_page": "28 November 2023",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "DP World Australia: unauthorised access to corporate network detected Fri 10 Nov 2023; network disconnected from internet, impacting land-side port operations.",
+     "problems": "Update dated 28 Nov, about 18 days after event."
+    }
+   ]
+  },
+  "au-medibank-data-breach-2022-10": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "OAIC page confirms civil penalty proceedings over Oct 2022 breach; description detail on ahm/personal information not quoted from page."
+   },
+   "sources": [
+    {
+     "url": "https://www.reuters.com/technology/australias-medibank-reports-cyber-incident-2022-10-13/",
+     "opened": true,
+     "rendered_headline": "Australia's Medibank reports cyber incident, shares on trading halt",
+     "headline_matches_input": "exact",
+     "published_on_page": "October 13, 2022 11:52 AM EDT",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Reuters: Medibank detected unusual network activity, isolated customer-facing systems (AHM, international student policy systems offline), trading halt; no evidence data accessed yet.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.medibank.com.au/livebetter/newsroom/post/medibank-cyber-incident-update-19-October",
+     "opened": true,
+     "rendered_headline": "Medibank cyber incident update",
+     "headline_matches_input": "exact",
+     "published_on_page": "19 October 2022",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Medibank: received messages from group wishing to negotiate over alleged removal of customer data; entered trading halt (19 Oct 2022).",
+     "problems": ""
+    },
+    {
+     "url": "https://www.oaic.gov.au/news/media-centre/oaic-takes-civil-penalty-action-against-medibank",
+     "opened": true,
+     "rendered_headline": "OAIC takes civil penalty action against Medibank",
+     "headline_matches_input": "exact",
+     "published_on_page": "Published 5 June 2024",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "OAIC: Information Commissioner filed Federal Court civil penalty proceedings against Medibank Private over its October 2022 data breach.",
+     "problems": ""
+    }
+   ]
+  },
+  "au-latitude-financial-breach-2023-03": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Employee-login detail appears only in iTnews standfirst/description metadata; 14m figure from Guardian 27 Mar."
+   },
+   "sources": [
+    {
+     "url": "https://www.theguardian.com/australia-news/2023/mar/16/hundreds-of-thousands-of-customer-records-stolen-from-lender-latitude-in-cyber-attack",
+     "opened": true,
+     "rendered_headline": "Hundreds of thousands of customer records stolen from lender Latitude in cyber-attack",
+     "headline_matches_input": "exact",
+     "published_on_page": "date line not quoted)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Guardian: Latitude Financial hit by cyber-attack; 100,000+ ID documents and 225,000 customer records stolen, per market statement Thursday.",
+     "problems": "Visible date text not quoted by extraction; date from article:published_time metadata. Date from page metadata only, not a visible date: 2023-03-16 (page metadata."
+    },
+    {
+     "url": "https://www.itnews.com.au/news/latitude-financial-breach-impacts-225000-customers-592152",
+     "opened": true,
+     "rendered_headline": "Latitude Financial breach impacts 225,000 customers",
+     "headline_matches_input": "exact",
+     "published_on_page": "Mar 16 2023 11:04AM",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "iTnews: Latitude cyber attack/data breach impacts ~225,000 customers, ~103,000 ID documents stolen from service provider; ASX trading halt.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.theguardian.com/australia-news/2023/mar/27/latitude-financial-cyber-data-breach-hack-14m-customer-records-stolen",
+     "opened": true,
+     "rendered_headline": "Latitude Financial cyber-attack worse than first thought with 14m customer records stolen",
+     "headline_matches_input": "exact",
+     "published_on_page": "visible date not quoted)",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "Guardian: Latitude revealed 14m customer records stolen in cyber-attack, far worse than initial ~100,000 ID documents and 225,000 records disclosed mid-March.",
+     "problems": "Visible date not quoted by extraction. Date from page metadata only, not a visible date: 2023-03-27 (page metadata."
+    }
+   ]
+  },
+  "au-aemo-nem-market-suspension-2022-06": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "SMH and AEMO both opened; SMH H1 matches (title tag differs)."
+   },
+   "sources": [
+    {
+     "url": "https://www.smh.com.au/politics/federal/energy-market-suspended-after-chaos-made-it-impossible-to-operate-20220615-p5atyk.html",
+     "opened": true,
+     "rendered_headline": "Energy market suspended after chaos made it ‘impossible to operate’",
+     "headline_matches_input": "exact",
+     "published_on_page": "Updated June 15, 2022 — 6:42pm, first published 3:31pm",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "SMH: AEMO suspended entire east coast electricity market for first time; no blackouts expected; NSW urged to conserve energy.",
+     "problems": "Title tag differs from visible H1; H1 matches input."
+    },
+    {
+     "url": "https://www.aemo.com.au/newsroom/media-release/aemo-lifts-market-suspension",
+     "opened": true,
+     "rendered_headline": "AEMO lifts market suspension",
+     "headline_matches_input": "exact",
+     "published_on_page": "24/06/2022",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "AEMO: ends suspension of NEM wholesale spot market from 2pm AEST 24 Jun 2022; suspension was announced 15 June 2022.",
+     "problems": ""
+    }
+   ]
+  },
+  "au-qantas-contact-centre-breach-2025-07": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Reuters visible H1 differs from input (input equals title tag). Qantas page is a rolling update page (12 Oct 2025) and dates detection to 30 June 2025."
+   },
+   "sources": [
+    {
+     "url": "https://www.reuters.com/world/asia-pacific/australias-qantas-confirms-cyber-incident-one-its-contact-centres-2025-07-01/",
+     "opened": true,
+     "rendered_headline": "Qantas says 6 million customer accounts exposed in cyber attack",
+     "headline_matches_input": "minor_difference",
+     "published_on_page": "July 2 (Reuters)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Reuters: hacker accessed Qantas call-centre third-party platform holding six million customers' names, emails, phone numbers, DOBs, frequent flyer numbers; statement Wednesday.",
+     "problems": "Input equals title tag/og:title ('Australia's Qantas says 6 million customer accounts accessed in cyber hack'); visible H1 is reworded. Date from page metadata only, not a visible date: 2025-07-02 (metadata)."
+    },
+    {
+     "url": "https://www.qantas.com/en-au/help/cyber-safety-scams/cyber-incident",
+     "opened": true,
+     "rendered_headline": "Information for customers on cyber incident",
+     "headline_matches_input": "exact",
+     "published_on_page": "Update: 12 October 2025",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "Qantas: unusual activity detected Mon 30 June 2025 on third-party platform used by a contact centre; customer data stolen; data later released by criminals.",
+     "problems": "Rolling customer-information page, updated."
+    }
+   ]
+  },
+  "au-medisecure-ransomware-2024-05": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "ABC 16 May article visible H1 differs from input (input equals og:title); ABC 18 Jul headline exact. Home Affairs page has no visible date."
+   },
+   "sources": [
+    {
+     "url": "https://www.abc.net.au/news/2024-05-16/health-organisation-part-of-large-scale-ransomware-data-breach/103856582",
+     "opened": true,
+     "rendered_headline": "Australian government investigating 'large-scale ransomware' data breach of script provider MediSecure",
+     "headline_matches_input": "different",
+     "published_on_page": "Posted 15 May 2024 at 11:21pm, updated 16 May 2024 at 6:48am",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "ABC: MediSecure confirmed as health organisation at centre of large-scale ransomware data breach announced by national cyber security coordinator.",
+     "problems": "Input is og:title (updated headline); visible H1 on rendered page differs. Visible times appear rendered in scraper timezone (America/New_York), not local newsroom time."
+    },
+    {
+     "url": "https://www.homeaffairs.gov.au/about-us/our-portfolios/cyber-security/cyber-coordinator/medisecure-cyber-security-incident",
+     "opened": true,
+     "rendered_headline": "MediSecure cyber security incident",
+     "headline_matches_input": "exact",
+     "published_on_page": null,
+     "evidence_type": "retrospective",
+     "facts_confirmed": "Home Affairs: advised ~12.9 million individuals may have had personal and health information exposed in MediSecure cyber incident; eRx not affected.",
+     "problems": "Rolling page; no visible date; headline from title tag."
+    },
+    {
+     "url": "https://www.abc.net.au/news/2024-07-18/medisecure-data-cyber-hack-12-million/104112736",
+     "opened": true,
+     "rendered_headline": "MediSecure reveals 12.9 million Australians had personal data stolen in cyber attack earlier this year",
+     "headline_matches_input": "exact",
+     "published_on_page": "Posted 18 Jul 2024 at 4:22am, updated 18 Jul 2024 at 9:48pm",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "ABC: MediSecure revealed 12.9m Australians' data stolen in ransomware attack; theft continued until Nov 2023; company in voluntary administration.",
+     "problems": "og:title differs from visible headline. Visible times appear rendered in scraper timezone (America/New_York), not local newsroom time."
+    }
+   ]
+  },
+  "au-akamai-bank-websites-outage-2021-06": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Akamai attribution from Reuters body; CBA/Westpac/ANZ names appear in SMH title tag, not quoted body."
+   },
+   "sources": [
+    {
+     "url": "https://www.smh.com.au/business/banking-and-finance/urgently-investigating-major-banks-face-service-outages-20210617-p581xq.html",
+     "opened": true,
+     "rendered_headline": "‘Widespread impact’: Banks back online after nationwide tech outage",
+     "headline_matches_input": "exact",
+     "published_on_page": "Updated June 17, 2021 — 6:53pm, first published 3:32pm",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "SMH: major outage at a tech company hit large Australian companies; CBA 'urgently investigating'; millions unable to access internet banking; banks back online.",
+     "problems": "Visible article does not name Akamai in the quoted excerpt (title tag does). Original slug headline 'urgently investigating' not the current H1."
+    },
+    {
+     "url": "https://www.reuters.com/world/asia-pacific/internet-outages-hit-virgin-australia-australian-lenders-2021-06-17/",
+     "opened": true,
+     "rendered_headline": "Major Australian banks, U.S. airlines briefly hit by widespread internet outages",
+     "headline_matches_input": "exact",
+     "published_on_page": "June 17, 2021 1:56 PM EDT",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Reuters: websites of financial institutions and airlines in Australia/US briefly down Thursday due to Akamai CDN glitches; Australian banks and Virgin Australia affected.",
+     "problems": ""
+    }
+   ]
+  },
+  "au-cba-netbank-outage-2023-06": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "AFR paywalled (headline/standfirst only); Guardian gives duration and 4pm resolution. Start time 7:30am AEST from AFR standfirst."
+   },
+   "sources": [
+    {
+     "url": "https://www.theguardian.com/news/2023/jun/26/commbank-down-outage-commonwealth-bank-cba-netbank-online-banking-accounts",
+     "opened": true,
+     "rendered_headline": "Major Commonwealth Bank outage prevents some customers from accessing accounts",
+     "headline_matches_input": "exact",
+     "published_on_page": "visible date not quoted)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Guardian: Commonwealth Bank major outage Monday, customers unable to access accounts, transfers and payments for several hours; resolved by 4pm, cause not stated.",
+     "problems": "Visible date line not quoted. Date from page metadata only, not a visible date: 2023-06-26 (page metadata."
+    },
+    {
+     "url": "https://www.afr.com/companies/financial-services/cba-sorry-for-nationwide-internet-banking-outage-20230626-p5djka",
+     "opened": true,
+     "rendered_headline": "CBA ‘sorry’ for nationwide internet banking outage",
+     "headline_matches_input": "exact",
+     "published_on_page": "Jun 26, 2023 – 5.41pm",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "AFR standfirst: CBA outage started around 7:30am AEST, affected most of the nation, intermittent effects.",
+     "problems": "Paywalled; only headline/date/standfirst visible. Title tag differs from H1."
+    }
+   ]
+  },
+  "au-optus-data-breach-2022-09": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "ABC visible H1 differs from input (og:title); Reuters and OAIC headlines exact."
+   },
+   "sources": [
+    {
+     "url": "https://www.abc.net.au/news/2022-09-22/optus-hit-with-cyber-attack-impacting-customers-/101466036",
+     "opened": true,
+     "rendered_headline": "Optus says it has been hit by a cyber attack that has compromised customer information",
+     "headline_matches_input": "different",
+     "published_on_page": "Posted 22 Sep 2022 at 12:26am, updated 28 Sep 2022 at 1:00am",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "ABC: Optus hit by cyber attack compromising customer information, per company statement; CEO cannot confirm number of customers affected.",
+     "problems": "Input is og:title; visible H1 differs. Visible times appear rendered in scraper timezone (America/New_York), not local newsroom time."
+    },
+    {
+     "url": "https://www.reuters.com/technology/australias-optus-says-up-10-mln-customers-caught-cyber-attack-2022-09-23/",
+     "opened": true,
+     "rendered_headline": "Australia's Optus says up to 10 million customers caught in cyber attack",
+     "headline_matches_input": "exact",
+     "published_on_page": "September 23, 2022 4:02 PM EDT",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Reuters: Optus said it will contact up to 10 million customers whose details were taken in 'sophisticated' hack; 9.8m accounts worst case.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.oaic.gov.au/news/media-centre/oaic-opens-investigation-into-optus-over-data-breach",
+     "opened": true,
+     "rendered_headline": "OAIC opens investigation into Optus over data breach",
+     "headline_matches_input": "exact",
+     "published_on_page": "11 October 2022",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "OAIC commenced investigation into Optus companies over data breach made public 22 September 2022.",
+     "problems": ""
+    }
+   ]
+  },
+  "au-optus-triple-zero-failure-2025-09": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Cause \"network upgrade\" not confirmed in quoted text. Minister page states 18 Sept 2025 outage and ACMA allegations of 1,005 breaches."
+   },
+   "sources": [
+    {
+     "url": "https://www.abc.net.au/news/2025-09-19/optus-network-failure-three-people-dead-triple-zero/105796226",
+     "opened": true,
+     "rendered_headline": "Optus network failure impacted triple-0 calls in several states where patients died after 'totally unacceptable' lapse",
+     "headline_matches_input": "exact",
+     "published_on_page": "Posted 19 Sep 2025 at 4:02am, updated 19 Sep 2025 at 9:17am",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "ABC: Optus network technical failure meant triple-0 calls could not go through; three people died including an eight-week-old baby.",
+     "problems": "og:title differs from visible H1. Visible times appear rendered in scraper timezone (America/New_York), not local newsroom time."
+    },
+    {
+     "url": "https://minister.infrastructure.gov.au/wells/media-release/statement-2025-optus-triple-zero-service-outage-court-proceedings-launched",
+     "opened": true,
+     "rendered_headline": "Statement - 2025 Optus Triple Zero Service Outage - Court proceedings launched",
+     "headline_matches_input": "exact",
+     "published_on_page": "Thursday 30 July 2026",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "ACMA alleges Optus breached two legal obligations on 1,005 occasions during the September 18, 2025 outage (emergency call access); Federal Court action.",
+     "problems": "Ministerial statement ~10 months after event."
+    }
+   ]
+  },
+  "au-airservices-flight-plan-it-outage-2025-11": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Three outlets agree: Tuesday 18 Nov 2025 flight-plan processing fault; resolved overnight."
+   },
+   "sources": [
+    {
+     "url": "https://www.nine.com.au/australia-news/airservices-australia-it-outage-flights-cancelled-delayed-virgin-qantas-20251118-p5nghs.html",
+     "opened": true,
+     "rendered_headline": "Flights delayed across Australia amid large-scale IT outage",
+     "headline_matches_input": "exact",
+     "published_on_page": "Updated November 18, 2025 - 9.25am.",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Nine: large-scale IT outage prevented Airservices Australia processing flight plans automatically; flights delayed across Australia.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.news.com.au/travel/travel-updates/flights-have-been-delayed-across-major-aussie-airports-following-a-technical-issue-at-air-traffic-control/news-story/5f5c97190cd3427e83e45ea6415ea033",
+     "opened": true,
+     "rendered_headline": "Flights resume after technical issue sends Australian airports into chaos",
+     "headline_matches_input": "exact",
+     "published_on_page": "November 19, 2025 - 10:24AM",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "news.com.au: technical issue with air traffic control communications caused delays at major airports Tuesday evening; flights resumed; Airservices apologised.",
+     "problems": "Title tag and og:title differ from visible H1; visible H1 matches input."
+    },
+    {
+     "url": "https://australianaviation.com.au/2025/11/airservices-resolves-comms-outage-that-delayed-flights/",
+     "opened": true,
+     "rendered_headline": "Airservices resolves comms outage that delayed flights",
+     "headline_matches_input": "exact",
+     "published_on_page": "November 19, 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Australian Aviation: Airservices comms outage delayed flights Tuesday; controllers processed flight plans manually at Melbourne, Perth, Adelaide; resolved overnight; unrelated to Cloudflare.",
+     "problems": "Page has noindex robots meta."
+    }
+   ]
+  },
+  "intl-crowdstrike-falcon-windows-2024": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "CrowdStrike hub visible H1 differs from input (input equals title tag); three news sources exact."
+   },
+   "sources": [
+    {
+     "url": "https://www.crowdstrike.com/falcon-content-update-remediation-and-guidance-hub/",
+     "opened": true,
+     "rendered_headline": "Remediation and Guidance Hub: Channel File 291 Incident",
+     "headline_matches_input": "different",
+     "published_on_page": null,
+     "evidence_type": "retrospective",
+     "facts_confirmed": "CrowdStrike: 19 July 2024 content configuration update for Windows sensor caused system crash; ~99% of sensors back online (rolling hub page).",
+     "problems": "Input is the title tag; visible H1 differs. Rolling hub page, no visible date. Date from page metadata only, not a visible date: Metadata modified 2024-10-28 (no visible date line quoted)."
+    },
+    {
+     "url": "https://techcrunch.com/2024/07/19/faulty-crowdstrike-update-causes-major-global-it-outage-taking-out-banks-airlines-and-businesses-globally/",
+     "opened": true,
+     "rendered_headline": "Faulty CrowdStrike update causes major global IT outage, taking out banks, airlines and businesses globally",
+     "headline_matches_input": "exact",
+     "published_on_page": "5:01 PM PDT · July 19, 2024",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "TechCrunch: CrowdStrike software update caused Windows outages across airlines, banks, retailers, media and railways on 19 July 2024.",
+     "problems": ""
+    },
+    {
+     "url": "https://apnews.com/article/microsoft-crowdstrike-outage-australia-internet-banks-media-0a5f792b6571b37a35181d64028fefc4",
+     "opened": true,
+     "rendered_headline": "A faulty software update causes havoc worldwide for airlines, hospitals and governments",
+     "headline_matches_input": "exact",
+     "published_on_page": "Updated 7:46 PM EST, July 19, 2024",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "AP: global outages highlighted fragility of digitized world; thousands of flights cancelled, tens of thousands delayed (faulty software update).",
+     "problems": "Title tag differs from H1; Headline confirmed by h1-only re-scrape."
+    },
+    {
+     "url": "https://www.npr.org/2024/07/19/g-s1-12222/microsoft-outage-banks-airlines-broadcasters",
+     "opened": true,
+     "rendered_headline": "What we know about the computer update glitch disrupting systems around the world",
+     "headline_matches_input": "exact",
+     "published_on_page": "Updated July 19, 2024 3:17 PM ET; Originally published July 19, 2024 7:56 AM ET",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "NPR: overnight outage blamed on cybersecurity firm's software update to Microsoft customers; airline travellers stranded, hospital appointments delayed, broadcasts cut.",
+     "problems": "Title tag differs from H1; Headline confirmed by h1-only re-scrape."
+    }
+   ]
+  },
+  "intl-aws-us-east-1-2025": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "AWS page gives event window 19-20 Oct 2025 PDT with no visible publish date; NBC visible H1 differs from input."
+   },
+   "sources": [
+    {
+     "url": "https://aws.amazon.com/message/101925/",
+     "opened": true,
+     "rendered_headline": "Summary of the Amazon DynamoDB Service Disruption in the Northern Virginia (US-EAST-1) Region",
+     "headline_matches_input": "exact",
+     "published_on_page": null,
+     "evidence_type": "retrospective",
+     "facts_confirmed": "AWS post-event summary: us-east-1 disruption 11:48 PM PDT Oct 19 to 2:20 PM PDT Oct 20, 2025; DynamoDB DNS defect; EC2 impact.",
+     "problems": "No publication date visible on page (only event dates); post-event summary; robots noindex."
+    },
+    {
+     "url": "https://www.nbcnews.com/news/us-news/amazon-web-services-outage-websites-offline-rcna238594",
+     "opened": true,
+     "rendered_headline": "Amazon says it has resolved internet services outage that left websites and apps lagging around the world",
+     "headline_matches_input": "different",
+     "published_on_page": "Oct. 20, 2025, 7:30 PM EDT",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "NBC: websites/services struggled to recover Monday after AWS problem with core database product; AWS first reported problem 3:11 a.m.",
+     "problems": "Input is og:title; visible H1 differs."
+    },
+    {
+     "url": "https://www.wired.com/story/what-that-huge-aws-outage-reveals-about-the-internet/",
+     "opened": true,
+     "rendered_headline": "What the Huge AWS Outage Reveals About the Internet",
+     "headline_matches_input": "exact",
+     "published_on_page": "Oct 20, 2025 10:22 AM",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Wired: AWS experienced DNS resolution issues Monday morning, taking down wide swaths of the web.",
+     "problems": ""
+    }
+   ]
+  },
+  "intl-cloudflare-2025-11-18": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Cloudflare blog has no visible date line in extraction (metadata 2025-11-18)."
+   },
+   "sources": [
+    {
+     "url": "https://blog.cloudflare.com/18-november-2025-outage/",
+     "opened": true,
+     "rendered_headline": "Cloudflare outage on November 18, 2025",
+     "headline_matches_input": "exact",
+     "published_on_page": null,
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Cloudflare: network began failing 11:20 UTC 18 Nov 2025; Bot Management feature file doubled in size; traffic normal by 14:30, all systems 17:06.",
+     "problems": "Visible date line not quoted; published_time metadata 2025-11-18 (modified 2026-07)."
+    },
+    {
+     "url": "https://www.bbc.com/news/articles/c629pny4gl7o",
+     "opened": true,
+     "rendered_headline": "Cloudflare apologises for outage which took down X and ChatGPT",
+     "headline_matches_input": "exact",
+     "published_on_page": "18 November 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "BBC: X, ChatGPT and other sites down Tuesday due to Cloudflare configuration file fault; Cloudflare apologised; shares ~3% lower.",
+     "problems": "Headline confirmed by h1-only re-scrape."
+    },
+    {
+     "url": "https://www.cnbc.com/2025/11/18/cloudflare-down-outage-traffic-spike-x-chatgpt.html",
+     "opened": true,
+     "rendered_headline": "Cloudflare says outage that hit X, ChatGPT and other sites is resolved",
+     "headline_matches_input": "exact",
+     "published_on_page": "Published Tue, Nov 18 2025 8:41 AM EST; Updated 11:22 AM EST",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "CNBC: Cloudflare outage knocked ChatGPT, Shopify, X offline for several hours on 18 Nov 2025; resolved.",
+     "problems": ""
+    }
+   ]
+  },
+  "intl-google-cloud-service-control-2025-06-12": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Google status page input is generic title tag; visible incident title differs. TechCrunch and CRN exact."
+   },
+   "sources": [
+    {
+     "url": "https://status.cloud.google.com/incidents/ow5i3PPK96RduMcb1SsW",
+     "opened": true,
+     "rendered_headline": "Multiple GCP products are experiencing Service issues.",
+     "headline_matches_input": "different",
+     "published_on_page": "Incident report dated 13 Jun 2025 16:45 PDT",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "Google Cloud: incident 2025-06-12 10:51 to 18:18 PDT; Service Control null-pointer crash loop caused 503 errors across Cloud, Workspace, Security Operations APIs.",
+     "problems": "Input is the generic page title ('Incident details | Google Cloud Service Health'); visible heading is the incident title."
+    },
+    {
+     "url": "https://techcrunch.com/2025/06/12/google-cloud-outage-brings-down-a-lot-of-the-internet/",
+     "opened": true,
+     "rendered_headline": "Google Cloud outage brings down a lot of the internet",
+     "headline_matches_input": "exact",
+     "published_on_page": "12:34 PM PDT · June 12, 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "TechCrunch: large swaths of internet down Thursday incl. Cloudflare and Spotify; Google Cloud outage appears root cause.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.crn.com/news/cloud/2025/multiple-cloud-services-down-as-google-cloudflare-resolve-issues",
+     "opened": true,
+     "rendered_headline": "Cloudflare Blames Google Cloud For Mass Services Outages",
+     "headline_matches_input": "exact",
+     "published_on_page": "June 12, 2025, 5:19 PM EDT",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "CRN: Google Cloud investigating service disruption; Cloudflare and apps (Spotify, Discord) affected on 12 June 2025.",
+     "problems": "URL slug differs from current headline."
+    }
+   ]
+  },
+  "intl-log4shell-2021-12": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Version range and \"disclosed 10 December\" not stated explicitly on opened pages; Wired/Guardian dated 10-11 Dec and CISA 22 Dec confirm active exploitation. Wired visible H1 differs from input."
+   },
+   "sources": [
+    {
+     "url": "https://www.cisa.gov/news-events/alerts/2021/12/22/mitigating-log4shell-and-other-log4j-related-vulnerabilities",
+     "opened": true,
+     "rendered_headline": "Mitigating Log4Shell and Other Log4j-Related Vulnerabilities",
+     "headline_matches_input": "exact",
+     "published_on_page": "December 22, 2021",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "CISA/FBI/NSA and AU/CA/NZ/UK agencies released joint advisory on Log4j vulnerabilities (CVE-2021-44228 Log4Shell etc.); actors actively scanning/exploiting.",
+     "problems": "Title tag adds ' | CISA'; H1 matches. Dated ~12 days after disclosure."
+    },
+    {
+     "url": "https://www.ncsc.gov.uk/information/log4j-vulnerability-what-everyone-needs-to-know",
+     "opened": true,
+     "rendered_headline": "Log4j vulnerability - what everyone needs to know",
+     "headline_matches_input": "exact",
+     "published_on_page": "14 December 2021",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "NCSC: Log4shell critical vulnerability in Log4j used by millions of computers; attackers can steal data and infect networks if unfixed.",
+     "problems": "Title tag differs from H1; page is an information page and may have been updated after 14 Dec."
+    },
+    {
+     "url": "https://www.wired.com/story/log4j-flaw-hacking-internet/",
+     "opened": true,
+     "rendered_headline": "‘The Internet Is on Fire’",
+     "headline_matches_input": "different",
+     "published_on_page": "Dec 10, 2021 2:54 PM",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Wired: Log4j logging framework vulnerability; hackers already attempting exploitation; Cloudflare CEO says issue 'so bad'.",
+     "problems": "Input is title tag ('A Log4J Vulnerability Has Set the Internet 'On Fire''); visible H1 differs."
+    },
+    {
+     "url": "https://www.theguardian.com/technology/2021/dec/10/software-flaw-most-critical-vulnerability-log-4-shell",
+     "opened": true,
+     "rendered_headline": "Recently uncovered software flaw ‘most critical vulnerability of the last decade’",
+     "headline_matches_input": "exact",
+     "published_on_page": "visible date not quoted)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Guardian/AP: critical flaw 'Log4Shell' quickly exploited in Minecraft; rated 10/10 by Apache; major threat to organisations worldwide.",
+     "problems": "Headline confirmed by h1-only re-scrape. Visible date not quoted (metadata 2021-12-11). Date from page metadata only, not a visible date: 2021-12-11 (metadata only."
+    }
+   ]
+  },
+  "intl-kaseya-vsa-2021-07": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": false,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Ransomware via Kaseya VSA hitting MSPs and customers confirmed (CISA, BBC, CNN); the specific SaaS-server shutdown and on-premises shutdown advice is not in the quoted text."
+   },
+   "sources": [
+    {
+     "url": "https://www.cisa.gov/news-events/news/kaseya-ransomware-attack-guidance-affected-msps-and-their-customers",
+     "opened": true,
+     "rendered_headline": "Kaseya Ransomware Attack: Guidance for Affected MSPs and their Customers",
+     "headline_matches_input": "exact",
+     "published_on_page": "July 12, 2021",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "CISA/FBI: since July 2, 2021 responding to ransomware attacks leveraging Kaseya VSA vulnerability against MSPs and downstream customers.",
+     "problems": "Official guidance 10 days after event; title tag adds ' | CISA'."
+    },
+    {
+     "url": "https://www.bbc.com/news/world-us-canada-57703836",
+     "opened": true,
+     "rendered_headline": "US companies hit by 'colossal' cyber-attack",
+     "headline_matches_input": "exact",
+     "published_on_page": "3 July 2021",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "BBC: about 200 US businesses hit by 'colossal' ransomware attack, per cyber-security firm; REvil suspected.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.cnn.com/2021/07/06/tech/kaseya-ransomware-attack-businesses-affected",
+     "opened": true,
+     "rendered_headline": "Kaseya says up to 1,500 businesses compromised in massive ransomware attack",
+     "headline_matches_input": "minor_difference",
+     "published_on_page": "PUBLISHED Jul 6, 2021, 4:08 AM ET; Updated Jul 6, 2021",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "CNN: Kaseya says 800 to 1,500 businesses compromised by ransomware attack that ricocheted around the world; many are MSP customers.",
+     "problems": "Input includes ' | CNN Business' title-tag suffix; visible H1 does not."
+    }
+   ]
+  },
+  "intl-colonial-pipeline-2021-05": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "CISA dates attack to 7 May 2021; Reuters/NPR dated 8 May report pipeline shutdown. NPR visible H1 differs from input."
+   },
+   "sources": [
+    {
+     "url": "https://www.cisa.gov/news-events/news/attack-colonial-pipeline-what-weve-learned-what-weve-done-over-past-two-years",
+     "opened": true,
+     "rendered_headline": "The Attack on Colonial Pipeline: What We’ve Learned & What We’ve Done Over the Past Two Years",
+     "headline_matches_input": "exact",
+     "published_on_page": "May 07, 2023",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "CISA: 7 May 2021 ransomware attack on Colonial Pipeline caused fuel-supply panic along eastern seaboard; two-year retrospective.",
+     "problems": "Two years after event."
+    },
+    {
+     "url": "https://www.reuters.com/technology/colonial-pipeline-halts-all-pipeline-operations-after-cybersecurity-attack-2021-05-08/",
+     "opened": true,
+     "rendered_headline": "Cyber attack shuts down U.S. fuel pipeline ‘jugular,’ Biden briefed",
+     "headline_matches_input": "exact",
+     "published_on_page": "NEW YORK, May 8 (Reuters)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Reuters: Colonial Pipeline shut entire network, nearly half of US East Coast fuel supply, after Friday cyber attack involving ransomware.",
+     "problems": "Headline confirmed by h1-only re-scrape. Date from page metadata only, not a visible date: 2021-05-08 (metadata)."
+    },
+    {
+     "url": "https://www.npr.org/2021/05/08/995040240/cybersecurity-attack-shuts-down-a-top-u-s-gasoline-pipeline",
+     "opened": true,
+     "rendered_headline": "Ransomware Attack Shuts Down Colonial Pipeline",
+     "headline_matches_input": "different",
+     "published_on_page": "Updated May 9, 2021 11:07 AM ET; Originally published May 8, 2021 1:01 PM ET",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "NPR: ransomware attack shut down Colonial Pipeline, ~45% of East Coast fuel, carrying gasoline, diesel, jet fuel Texas to New York.",
+     "problems": "Input is og:title; visible H1 differs."
+    }
+   ]
+  },
+  "intl-change-healthcare-2024-02": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Reuters, CNBC, ABC7, UHG pages opened. 21 Feb onset inferred from CNBC \"seventh day\" on 27 Feb; ABC7 says filing \"Thursday\". ABC7 visible H1 differs from input."
+   },
+   "sources": [
+    {
+     "url": "https://www.unitedhealthgroup.com/newsroom/2024/2024-03-07-uhg-update-change-healthcare-cyberattack.html",
+     "opened": true,
+     "rendered_headline": "UnitedHealth Group Update on Change Healthcare Cyberattack",
+     "headline_matches_input": "exact",
+     "published_on_page": "March 07, 2024",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "UnitedHealth Group: unprecedented cyberattack on Change Healthcare claims and payment infrastructure; announcing immediate actions for customers (press release, ~2 weeks after onset).",
+     "problems": "Title tag adds ' - UnitedHealth Group'."
+    },
+    {
+     "url": "https://abc7ny.com/post/unitedhealth-change-healthcare-cyberattack-pharmacy-outage/14460194/",
+     "opened": true,
+     "rendered_headline": "Pharmacies across US are having trouble processing some prescriptions because of cyberattack",
+     "headline_matches_input": "different",
+     "published_on_page": "Friday, February 23, 2024",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "ABC7: pharmacies across US having difficulty getting prescriptions to patients after cyberattack on UnitedHealth unit Change Healthcare; SEC filing Thursday.",
+     "problems": "Input is title tag; visible H1 differs."
+    },
+    {
+     "url": "https://www.reuters.com/technology/cybersecurity/cyber-security-outage-change-healthcare-continues-sixth-straight-day-2024-02-26/",
+     "opened": true,
+     "rendered_headline": "US pharmacy outage triggered by 'Blackcat' ransomware at UnitedHealth unit, sources say",
+     "headline_matches_input": "exact",
+     "published_on_page": "WASHINGTON, Feb 26 (Reuters)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Reuters: 'Blackcat' ransomware gang behind outage at UnitedHealth technology unit Change Healthcare, snarling prescription deliveries for six days.",
+     "problems": "Headline confirmed by h1-only re-scrape. Date from page metadata only, not a visible date: 2024-02-26 (metadata)."
+    },
+    {
+     "url": "https://www.cnbc.com/2024/02/27/unitedhealths-change-healthcare-cyberattack-outages-continue-pharmacies-deploy-workarounds.html",
+     "opened": true,
+     "rendered_headline": "Outages from cyberattack at UnitedHealth’s Change Healthcare extend to seventh day as pharmacies deploy workarounds",
+     "headline_matches_input": "minor_difference",
+     "published_on_page": "Published Tue, Feb 27 2024 10:13 AM EST; Updated 3:47 PM EST",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "CNBC: Change Healthcare systems down seventh straight day after threat actor accessed network last week; pharmacies and health systems disrupted.",
+     "problems": "Apostrophe typography differs (curly vs straight); title tag differs from H1."
+    }
+   ]
+  },
+  "intl-marks-and-spencer-cyber-2025-04": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "LSE announcement page shows no date in extraction; 22 Apr date confirmed by TechCrunch. BBC visible H1 reworded vs input."
+   },
+   "sources": [
+    {
+     "url": "https://www.londonstockexchange.com/en/news/article/MKS/cyber-incident-update/16999905",
+     "opened": true,
+     "rendered_headline": "CYBER INCIDENT UPDATE",
+     "headline_matches_input": "minor_difference",
+     "published_on_page": null,
+     "evidence_type": "unclear",
+     "facts_confirmed": "M&S regulatory announcement: managing a cyber incident 'over the past few days'; temporary store operation changes; external experts engaged; reported to regulators and NCSC.",
+     "problems": "Input is title tag ('Cyber Incident Update - (MKS) | London Stock Exchange'); no date quoted from page, so 2025-04-22 not confirmed by this page."
+    },
+    {
+     "url": "https://techcrunch.com/2025/04/22/marks-spencer-confirms-cybersecurity-incident-amid-ongoing-disruption/",
+     "opened": true,
+     "rendered_headline": "Marks & Spencer confirms cybersecurity incident amid ongoing disruption",
+     "headline_matches_input": "exact",
+     "published_on_page": "7:20 AM PDT · April 22, 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "TechCrunch: M&S confirmed cybersecurity incident as customers report ongoing disruption; CEO notice cites operational changes.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.bbc.com/news/articles/cly802x1jz5o",
+     "opened": true,
+     "rendered_headline": "Cyber attack causes further chaos for M&S shoppers",
+     "headline_matches_input": "minor_difference",
+     "published_on_page": "24 April 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "BBC: customers reported problems on the weekend; retailer confirmed Tuesday it was dealing with a 'cyber incident'; click and collect and payments affected.",
+     "problems": "Input word order ('for shoppers at M&S') matches title tag/og:title; extracted visible heading differs slightly."
+    },
+    {
+     "url": "https://www.reuters.com/business/retail-consumer/britains-ms-enters-second-week-sales-disruption-after-cyberattack-2025-05-02/",
+     "opened": true,
+     "rendered_headline": "Cyberattacks blight Britain's retailers as M&S, Co-op's systems' breached",
+     "headline_matches_input": "exact",
+     "published_on_page": "May 2, 2025 12:39 PM EDT",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "Reuters: M&S entered second week unable to take online orders after major cyberattack; Co-op said hackers stole data; ~£700m wiped off M&S value.",
+     "problems": "Ongoing-incident update about 10 days after onset."
+    }
+   ]
+  },
+  "intl-jlr-cyber-2025-08": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "JLR 23 Sept statement confirms pause to 1 Oct 2025; BBC says attack began Sunday before 1 Sept."
+   },
+   "sources": [
+    {
+     "url": "https://media.jaguarlandrover.com/news/2025/09/statement-cyber-incident-4",
+     "opened": true,
+     "rendered_headline": "Statement on Cyber Incident",
+     "headline_matches_input": "exact",
+     "published_on_page": "23 September 2025",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "JLR: extended pause in production until Wed 1 October 2025 following the cyber incident; phased restart being planned.",
+     "problems": "Statement 3 weeks after onset; URL redirects to media.jlr.com; robots noindex."
+    },
+    {
+     "url": "https://www.theguardian.com/business/2025/sep/02/jaguar-land-rover-cyber-incident-manufacturing-retail",
+     "opened": true,
+     "rendered_headline": "Jaguar Land Rover manufacturing and retail ‘severely disrupted’ by cyber incident",
+     "headline_matches_input": "exact",
+     "published_on_page": "visible date not quoted)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Guardian: JLR manufacturing and retail 'severely disrupted' by cyber incident, systems shut down; no evidence customer data stolen.",
+     "problems": "Visible date not quoted. Date from page metadata only, not a visible date: 2025-09-02 (page metadata."
+    },
+    {
+     "url": "https://www.bbc.com/news/articles/c9wywvllq7wo",
+     "opened": true,
+     "rendered_headline": "Jaguar Land Rover production severely hit by cyber-attack",
+     "headline_matches_input": "exact",
+     "published_on_page": "2 September 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "BBC: cyber-attack 'severely disrupted' JLR vehicle production incl. two main UK plants; began Sunday; IT systems shut down.",
+     "problems": "Title tag/og use 'cyber attack' without hyphen; visible H1 hyphenated."
+    },
+    {
+     "url": "https://www.reuters.com/business/autos-transportation/britains-jlr-hit-by-cyber-incident-that-disrupts-production-sales-2025-09-02/",
+     "opened": true,
+     "rendered_headline": "Britain's JLR hit by cyber incident that disrupts production, sales",
+     "headline_matches_input": "exact",
+     "published_on_page": "Sept 2 (Reuters)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Reuters: JLR retail and production 'severely disrupted' by cybersecurity incident, said Tuesday; systems shut down; no evidence customer data stolen.",
+     "problems": "Dateline Sept 2; metadata published_time 2025-09-03."
+    }
+   ]
+  },
+  "intl-heathrow-north-hyde-substation-fire-2025-03": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "NESO page gives 20 March, 70,000+ customers, Heathrow closure (year not stated on page; gov.uk confirms 2025 review). NPR/AP confirm Heathrow shutdown."
+   },
+   "sources": [
+    {
+     "url": "https://www.neso.energy/publications/north-hyde-review",
+     "opened": true,
+     "rendered_headline": "North Hyde Review",
+     "headline_matches_input": "minor_difference",
+     "published_on_page": "Text: 'Today (02 July)'; interim published 08 May (year not stated)",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "NESO: final report from review into North Hyde Substation outage on 20 March; 70,000+ customers lost power; Heathrow closed; submitted 30 June.",
+     "problems": "Input is title tag with ' | National Energy System Operator' suffix; rolling publication page, year not stated in quoted text."
+    },
+    {
+     "url": "https://www.gov.uk/government/publications/nesos-north-hyde-report-government-response",
+     "opened": true,
+     "rendered_headline": "NESO’s North Hyde report: government response",
+     "headline_matches_input": "exact",
+     "published_on_page": "Published: 18 November 2025",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "DESNZ: government action plan responding to NESO's review of North Hyde Substation incident; NESO report published 2 July 2025.",
+     "problems": "Title tag adds ' - GOV.UK'. Does not itself state outage date or consequence."
+    },
+    {
+     "url": "https://www.npr.org/2025/03/21/nx-s1-5336092/heathrow-closed-fire-power-london",
+     "opened": true,
+     "rendered_headline": "Heathrow Airport says it will reopen to some flights after a fire cut power",
+     "headline_matches_input": "exact",
+     "published_on_page": "Updated March 21, 2025 2:18 PM ET; Originally published March 21, 2025 12:56 AM ET",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "NPR: overnight power shutdown at Heathrow after substation fire; flights diverted; 1,000+ flights diverted/cancelled; reopening late Friday.",
+     "problems": "Title tag differs from H1."
+    },
+    {
+     "url": "https://apnews.com/article/britain-london-fire-heathrow-airport-6d63b2f6615e8ff39f2647641bfbc160",
+     "opened": true,
+     "rendered_headline": "London’s Heathrow slowly resumes flights after a fire cut power to Europe’s busiest airport",
+     "headline_matches_input": "exact",
+     "published_on_page": "Updated 6:02 PM EST, March 21, 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "AP: fire at electrical substation knocked out Heathrow power for most of Friday; ~18-hour shutdown; ~200,000 passengers stranded.",
+     "problems": "Title tag differs from H1."
+    }
+   ]
+  },
+  "intl-iberian-blackout-2025-04": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "ENTSO-E gives 28 April 2025 12:33 CEST total blackout; Guardian and BBC contemporary; BBC 20 March 2026 report article."
+   },
+   "sources": [
+    {
+     "url": "https://www.entsoe.eu/publications/blackout/28-april-2025-iberian-blackout/",
+     "opened": true,
+     "rendered_headline": "28 April 2025 Blackout",
+     "headline_matches_input": "exact",
+     "published_on_page": "Text: final report published on 20 March 2026",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "ENTSO-E: on 28 April 2025 at 12:33 CEST power systems of continental Spain and Portugal experienced a total blackout; Expert Panel final report 20 March",
+     "problems": "Rolling publication page; no dated header quoted."
+    },
+    {
+     "url": "https://www.theguardian.com/world/2025/apr/28/spain-portugal-power-outage",
+     "opened": true,
+     "rendered_headline": "Tens of millions across Spain and Portugal hit by huge power outage",
+     "headline_matches_input": "exact",
+     "published_on_page": "visible date not quoted)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Guardian: tens of millions across Spain and Portugal plunged into blackout blamed by Portuguese operator on temperature variations; trains, metros, ATMs, internet affected.",
+     "problems": "Headline confirmed by h1-only re-scrape. Visible date not quoted (metadata 2025-04-28). Date from page metadata only, not a visible date: 2025-04-28 (metadata only."
+    },
+    {
+     "url": "https://www.bbc.com/news/articles/cd6jenl581vo",
+     "opened": true,
+     "rendered_headline": "Spain and Portugal scramble to restore power as officials chase cause of outage",
+     "headline_matches_input": "exact",
+     "published_on_page": "28 April 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "BBC: sweeping power outage left millions in Spain, Portugal and parts of France without electricity Monday; by Monday night 50% restored in Spain.",
+     "problems": "Title tag/og:title differ from visible H1."
+    },
+    {
+     "url": "https://www.bbc.com/news/articles/cvg0r3z3lvqo",
+     "opened": true,
+     "rendered_headline": "'Multiple factors' caused 2025 Spain and Portugal blackout, says report",
+     "headline_matches_input": "exact",
+     "published_on_page": "20 March 2026",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "BBC: ENTSO-E report: 28 April 2025 blackout shut down Iberian electricity supply, cut internet/phones, halted transport; 'multiple factors' caused it.",
+     "problems": "Title tag differs from visible H1."
+    }
+   ]
+  },
+  "neg-cloudflare-2025-11-18-not-cyberattack": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Cloudflare post says trigger was a database permissions change; its detail that team briefly suspected an attack via status page failure is not quoted. SecurityWeek: not a hacker attack."
+   },
+   "sources": [
+    {
+     "url": "https://blog.cloudflare.com/18-november-2025-outage/",
+     "opened": true,
+     "rendered_headline": "Cloudflare outage on November 18, 2025",
+     "headline_matches_input": "exact",
+     "published_on_page": null,
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Cloudflare: network began failing 11:20 UTC 18 Nov 2025; Bot Management feature file doubled in size; traffic normal by 14:30, all systems 17:06.",
+     "problems": "Visible date line not quoted; published_time metadata 2025-11-18 (modified 2026-07)."
+    },
+    {
+     "url": "https://www.securityweek.com/cloudflare-says-highly-disruptive-outage-not-caused-by-attack/",
+     "opened": true,
+     "rendered_headline": "Cloudflare Outage Not Caused by Cyberattack",
+     "headline_matches_input": "exact",
+     "published_on_page": null,
+     "evidence_type": "contemporary",
+     "facts_confirmed": "SecurityWeek: Cloudflare said disruption causing significant customer outages on Tuesday was not a hacker attack; ChatGPT, X, Shopify affected.",
+     "problems": "Headline confirmed by h1-only re-scrape. Visible date not quoted (metadata 2025-11-18). Date from page metadata only, not a visible date: 2025-11-18 (metadata only)."
+    }
+   ]
+  },
+  "neg-spain-portugal-blackout-2025-04-28-cyber-speculation": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Politico: no intrusion found (preliminary). Reuters: no sign at generation control centres but other levels not ruled out entirely."
+   },
+   "sources": [
+    {
+     "url": "https://www.politico.eu/article/spanish-grid-operator-rules-out-cyberattack-in-its-facilities-following-iberian-blackout/",
+     "opened": true,
+     "rendered_headline": "Spanish grid operator rules out cyberattack in its facilities after power cut",
+     "headline_matches_input": "exact",
+     "published_on_page": null,
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Politico: Spain's grid operator found no signs cyberattack was root of Monday's blackout; 'no intrusion' in control systems (preliminary).",
+     "problems": "Headline confirmed by h1-only re-scrape. Visible date not quoted (metadata 2025-04-29). Date from page metadata only, not a visible date: 2025-04-29 (metadata only)."
+    },
+    {
+     "url": "https://www.reuters.com/business/energy/no-sign-cyberattack-power-generation-control-centres-during-spain-blackout-2025-05-20/",
+     "opened": true,
+     "rendered_headline": "No sign of cyberattack on power generation control centres during Spain blackout - minister",
+     "headline_matches_input": "exact",
+     "published_on_page": "MADRID, May 20 (Reuters)",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "Reuters: Spain found no indication of cyberattack on power generation control centres during 28 April blackout, Energy Minister said Tuesday; not ruled out at other",
+     "problems": "Headline confirmed by h1-only re-scrape. Date from page metadata only, not a visible date: 2025-05-20 (metadata)."
+    }
+   ]
+  },
+  "neg-faa-notam-2023-01-11-not-cyberattack": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "FAA statement is 8 days after event; Snopes dated 11 Jan 2023 covers the grounding and cyberattack question."
+   },
+   "sources": [
+    {
+     "url": "https://www.faa.gov/newsroom/faa-notam-statement",
+     "opened": true,
+     "rendered_headline": "FAA NOTAM Statement",
+     "headline_matches_input": "exact",
+     "published_on_page": "Thursday, January 19, 2023",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "FAA preliminary review: contract personnel unintentionally deleted files while correcting database sync, causing last week's NOTAM system outage.",
+     "problems": "Title tag adds ' | Federal Aviation Administration'. Statement is 8 days after the outage."
+    },
+    {
+     "url": "https://www.snopes.com/news/2023/01/11/cyberattack-faa-system-outage/",
+     "opened": true,
+     "rendered_headline": "Did a Cyberattack Cause the FAA System Outage in January 2023?",
+     "headline_matches_input": "exact",
+     "published_on_page": "Published Jan. 11, 2023",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Snopes: FAA ordered flights grounded early morning Jan 11, 2023, lifted before 9 a.m.; 7,000+ flights delayed; article examines cyberattack claim.",
+     "problems": "Title tag adds ' | Snopes.com'."
+    }
+   ]
+  },
+  "neg-facebook-2021-10-04-config-change-not-attack": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": false,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Both sources are Meta Engineering (not independent). Quoted text shows a maintenance command disconnected data centres; \"backbone routers\" and \"not malicious\" not quoted."
+   },
+   "sources": [
+    {
+     "url": "https://engineering.fb.com/2021/10/04/networking-traffic/outage/",
+     "opened": true,
+     "rendered_headline": "Update about the October 4th outage",
+     "headline_matches_input": "exact",
+     "published_on_page": "body says '(Updated on Oct.'",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Facebook/Meta engineering: outage across platforms; underlying cause also hit internal tools, complicating diagnosis and resolution.",
+     "problems": "Headline confirmed by h1-only re-scrape. Visible date not quoted (metadata 2021-10-05). Date from page metadata only, not a visible date: 2021-10-05 (metadata publishedTime only)."
+    },
+    {
+     "url": "https://engineering.fb.com/2021/10/05/networking-traffic/outage-details/",
+     "opened": true,
+     "rendered_headline": "More details about the October 4 outage",
+     "headline_matches_input": "exact",
+     "published_on_page": null,
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Facebook/Meta: command during maintenance disconnected data centres from internet; audit tool bug failed to stop it (outage 4 Oct 2021).",
+     "problems": "Headline confirmed by h1-only re-scrape. Visible date not quoted (metadata 2021-10-05). Date from page metadata only, not a visible date: 2021-10-05 (metadata only)."
+    }
+   ]
+  },
+  "neg-crowdstrike-2024-07-19-not-cyber-incident": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Australian government statement that outage is not a cybersecurity incident appears in ABC live blog only; SMH confirms the outage and CrowdStrike cause. SMH visible H1 differs from input (title tag)."
+   },
+   "sources": [
+    {
+     "url": "https://www.abc.net.au/news/2024-07-19/global-it-outage-crowdstrike-microsoft-banks-airlines-australia/104119960",
+     "opened": true,
+     "rendered_headline": "Global IT outage: Computer havoc caused by CrowdStrike outage could take days to fix — as it happened",
+     "headline_matches_input": "exact",
+     "published_on_page": "Posted 19 Jul 2024 at 1:40am, updated 19 Jul 2024 at 9:05am",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "ABC live blog: massive IT outage from CrowdStrike software hit airports, banks, supermarkets, media; Australian government says not a cybersecurity incident.",
+     "problems": "og:title differs from visible H1. Visible times appear rendered in scraper timezone (America/New_York), not local newsroom time."
+    },
+    {
+     "url": "https://www.smh.com.au/business/companies/microsoft-outage-across-australia-brings-down-major-businesses-20240719-p5jv2w.html",
+     "opened": true,
+     "rendered_headline": "‘Largest IT outage in history’ caused by US-based cybersecurity firm",
+     "headline_matches_input": "different",
+     "published_on_page": "Updated July 20, 2024 — 3:58am, first published 4:00pm",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "SMH: worldwide outage crippled airport check-ins, supermarkets, emergency information services in Australia; struck just after 3pm Friday.",
+     "problems": "Input is title tag ('Crowdstrike outage affects Microsoft systems worldwide'); visible H1 differs."
+    }
+   ]
+  },
+  "neg-telstra-2022-10-04-third-party-employee-data": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "Telstra says third-party supplier breach, 2017 employee data, no customer account info. 30,000 figure only in SMH title tag."
+   },
+   "sources": [
+    {
+     "url": "https://www.smh.com.au/technology/telstra-staff-info-stolen-in-data-breach-20221004-p5bn3u.html",
+     "opened": true,
+     "rendered_headline": "Telstra, NAB staff info stolen in third-party data breach",
+     "headline_matches_input": "exact",
+     "published_on_page": "Updated October 4, 2022 — 5:25pm, first published October 4, 2022 — 2:21pm",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "SMH: Telstra said third-party data breach included limited Telstra employee information from 2017; no customer account information.",
+     "problems": "Title tag differs from H1."
+    },
+    {
+     "url": "https://www.telstra.com.au/exchange/employee-data-breach--what-you-need-to-know",
+     "opened": true,
+     "rendered_headline": "Employee data breach: what you need to know",
+     "headline_matches_input": "exact",
+     "published_on_page": "04 October 2022",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Telstra: information from third-party supplier data breach posted on internet; Telstra became aware last week and notified team.",
+     "problems": "H1 confirmed by h1-only scrape."
+    }
+   ]
+  },
+  "neg-killnet-us-airports-2022-10-10-website-ddos": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "verified",
+    "notes": "NPR and CBS visible H1 differ from input; Dark Reading exact. All state no impact on flights/operations."
+   },
+   "sources": [
+    {
+     "url": "https://www.npr.org/2022/10/10/1127902795/airport-killnet-cyberattack-hacker-russia",
+     "opened": true,
+     "rendered_headline": "Pro-Russian hackers claim responsibility for knocking U.S. airport websites offline",
+     "headline_matches_input": "different",
+     "published_on_page": "October 10, 2022 7:58 PM ET",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "NPR: Killnet-claimed cyberattacks hit LAX, O'Hare, Hartsfield-Jackson websites Monday; no apparent impact on flight operations.",
+     "problems": "Input is title tag (minus ': NPR'); visible H1 differs."
+    },
+    {
+     "url": "https://www.darkreading.com/cyberattacks-data-breaches/us-airports-cyberattack-crosshairs-pro-russian-group-killnet",
+     "opened": true,
+     "rendered_headline": "US Airports in Cyberattack Crosshairs for Pro-Russian Group Killnet",
+     "headline_matches_input": "exact",
+     "published_on_page": "October 10, 2022",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Dark Reading: Killnet-linked DDoS attacks made some US airport sites inaccessible for hours; no apparent impact on airport operations.",
+     "problems": ""
+    },
+    {
+     "url": "https://www.cbsnews.com/news/airport-websites-hacked-pro-russia-ddos-attack/",
+     "opened": true,
+     "rendered_headline": "U.S. airport websites knocked offline in apparent pro-Russia hacking attack",
+     "headline_matches_input": "different",
+     "published_on_page": "Updated on: October 10, 2022 / 7:53 PM EDT / CBS/AP",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "CBS/AP: apparently coordinated denial-of-service attack by pro-Russia hackers made some major US airport websites unreachable Monday; flights not affected.",
+     "problems": "Input ('U.S. airport websites knocked offline by cyberattacks') matches the embedded video slug, not the page headline."
+    }
+   ]
+  },
+  "neg-cisa-kev-2025-09-29-five-additions": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Only one source in entry; opened and headline exact. Status capped at partial by two-source rule."
+   },
+   "sources": [
+    {
+     "url": "https://www.cisa.gov/news-events/alerts/2025/09/29/cisa-adds-five-known-exploited-vulnerabilities-catalog",
+     "opened": true,
+     "rendered_headline": "CISA Adds Five Known Exploited Vulnerabilities to Catalog",
+     "headline_matches_input": "exact",
+     "published_on_page": "September 29, 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "CISA added five vulnerabilities to KEV Catalog based on evidence of active exploitation (routine catalog update).",
+     "problems": "Title tag adds ' | CISA'."
+    }
+   ]
+  },
+  "neg-krebs-patch-tuesday-2025-11": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": false,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Only one source. Page date is November 16, 2025 but entry date is 2025-11-13, so date not supported."
+   },
+   "sources": [
+    {
+     "url": "https://krebsonsecurity.com/2025/11/microsoft-patch-tuesday-november-2025-edition/",
+     "opened": true,
+     "rendered_headline": "Microsoft Patch Tuesday, November 2025 Edition",
+     "headline_matches_input": "exact",
+     "published_on_page": "November 16, 2025",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "KrebsOnSecurity: Microsoft pushed fixes for 60+ vulnerabilities incl. one actively exploited zero-day; critical Office RCE CVE-2025-62199.",
+     "problems": "Input published date 2025-11-13; page shows November 16, 2025. Title tag adds ' – Krebs on Security'."
+    }
+   ]
+  },
+  "neg-aemo-qed-q3-2025": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Only one source (PDF; first 2 of 86 pages read). Headline and date match."
+   },
+   "sources": [
+    {
+     "url": "https://www.aemo.com.au/-/media/files/major-publications/qed/2025/qed-q3-2025.pdf",
+     "opened": true,
+     "rendered_headline": "Quarterly Energy Dynamics Q3 2025",
+     "headline_matches_input": "exact",
+     "published_on_page": "October 2025",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "AEMO QED report covering market dynamics, trends and outcomes for Q3 2025 (1 July to 30 September 2025).",
+     "problems": "Only first 2 of 86 PDF pages read."
+    }
+   ]
+  },
+  "neg-qantas-fy25-results-2025-08-28": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Only one source. Visible H1 worded differently from input (input equals article-title metadata)."
+   },
+   "sources": [
+    {
+     "url": "https://news.qantas.com/speeches/2025/fy25-results-speech-qantas-group-ceo-vanessa-hudson",
+     "opened": true,
+     "rendered_headline": "FY25 Results Speech: CEO Vanessa Hudson",
+     "headline_matches_input": "minor_difference",
+     "published_on_page": "Published 28 August 2025 9:00am",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "Qantas CEO FY25 results speech; says almost two months since cyber criminals accessed data of almost 6 million customers.",
+     "problems": "Input equals article-title metadata ('FY25 results speech – Qantas Group CEO Vanessa Hudson'); visible H1 worded differently."
+    }
+   ]
+  },
+  "neg-optus-senate-hearing-2023-11-17": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Only one source. ABC visible posted time is New York time."
+   },
+   "sources": [
+    {
+     "url": "https://www.abc.net.au/news/2023-11-17/optus-boss-grilled-about-outage-at-senate-inquiry/103117218",
+     "opened": true,
+     "rendered_headline": "Optus CEO Kelly Bayer Rosmarin fronted a Senate inquiry today. Here's what she had to say",
+     "headline_matches_input": "exact",
+     "published_on_page": "Posted 16 Nov 2023 at 9:46pm, updated 17 Nov 2023 at 3:30am",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "ABC: Optus CEO grilled at Senate inquiry about network outage that left 10 million customers without phone/internet.",
+     "problems": "og:title differs from visible H1. Visible times appear rendered in scraper timezone (America/New_York), not local newsroom time."
+    }
+   ]
+  },
+  "neg-medibank-agm-2022-11-16": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Only one source; visible date not quoted, metadata 2022-11-16."
+   },
+   "sources": [
+    {
+     "url": "https://www.theguardian.com/australia-news/2022/nov/16/medibank-chief-defends-companys-security-processes-amid-shareholder-anger-at-agm",
+     "opened": true,
+     "rendered_headline": "Medibank chief defends company’s security processes amid shareholder anger at AGM",
+     "headline_matches_input": "exact",
+     "published_on_page": "visible date not quoted)",
+     "evidence_type": "contemporary",
+     "facts_confirmed": "Guardian: Medibank AGM Wednesday dominated by cyber-attack questions; 480,000 customers' health claims stolen.",
+     "problems": "Visible date not quoted. Date from page metadata only, not a visible date: 2022-11-16 (page metadata."
+    }
+   ]
+  },
+  "neg-computerweekly-crowdstrike-one-year-2025-07-21": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Only one source. Headline and Published 21 Jul 2025 match."
+   },
+   "sources": [
+    {
+     "url": "https://www.computerweekly.com/opinion/One-year-on-from-the-CrowdStrike-outageWhat-have-we-learned",
+     "opened": true,
+     "rendered_headline": "One year on from the CrowdStrike outage: What have we learned?",
+     "headline_matches_input": "exact",
+     "published_on_page": "Published: 21 Jul 2025",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "Computer Weekly opinion: one year after CrowdStrike outage; ~8.5 million Windows devices affected; financial impact up to $10bn per Fitch.",
+     "problems": "Title tag adds ' | Computer Weekly'; Headline confirmed by h1-only re-scrape."
+    }
+   ]
+  },
+  "neg-csa-crowdstrike-lessons-2025-07-03": {
+   "entry_verification": {
+    "organisation_ok": true,
+    "event_type_ok": true,
+    "dates_ok": true,
+    "consequence_ok": true,
+    "verified_headline_available": true,
+    "status": "partial",
+    "notes": "Only one source. Date shown as 07/03/2025 (format ambiguous; URL implies 3 July)."
+   },
+   "sources": [
+    {
+     "url": "https://cloudsecurityalliance.org/blog/2025/07/03/what-we-can-learn-from-the-2024-crowdstrike-outage",
+     "opened": true,
+     "rendered_headline": "What We Can Learn from the 2024 CrowdStrike Outage",
+     "headline_matches_input": "exact",
+     "published_on_page": "Published 07/03/2025",
+     "evidence_type": "retrospective",
+     "facts_confirmed": "CSA blog: July 2024 CrowdStrike outage exposed dependence on centralized security solutions; lessons on testing and incident response.",
+     "problems": "Title tag adds ' | CSA'. Date format ambiguous (07/03/2025; URL implies 3 July 2025)."
+    }
+   ]
+  }
+ },
+ "summary": {
+  "verified": 29,
+  "partial": 10,
+  "unverified": 0
+ }
+}
