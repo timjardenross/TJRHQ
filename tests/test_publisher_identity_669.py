@@ -37,7 +37,9 @@ def test_aggregator_repost_of_same_outlet_is_not_corroboration():
 
 
 def test_genuinely_independent_publisher_still_corroborates():
-    events = [_ev(1, T1, "ABC News", SUM), _ev(2, T2 + " - InDaily", "Google News - Telstra", SUM),
-              _ev(3, "Transmission towers crushed, 20,000 without power in South Australia", "ITnews", SUM)]
+    events = [_ev(1, T1, "ABC News", SUM),
+              _ev(2, T2 + " - InDaily", "Google News - Telstra", "Adelaide paper reports towers crushed by a storm cell, with crews assessing damage."),
+              _ev(3, "Transmission towers crushed, 20,000 without power in South Australia", "ITnews",
+                  "Network operator says restoration will take days after the storm cell toppled two towers.")]
     es = be.build_evidence(events, now=NOW, window_hours=72)
     assert any(i.evidence_status == "corroborated" for i in es.incidents)
