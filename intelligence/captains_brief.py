@@ -1242,7 +1242,12 @@ def _format_weekly_capacity_block_v1(capacity: dict, days: int = 7) -> list[str]
 
 # ── Brief generators ──────────────────────────────────────────────────────────
 
-def _format_intelligence_posture_block(brief: dict | None, *, evidence_authoritative: bool = False) -> list[str]:
+# Marker brief_evidence.morning_view puts at the start of its first line when there are zero recent incidents (coverage insufficient).
+_EVIDENCE_INSUFFICIENT_MARKER = "EVIDENCE COVERAGE INSUFFICIENT"
+
+
+def _format_intelligence_posture_block(brief: dict | None, *, evidence_authoritative: bool = False,
+                                       evidence_insufficient: bool = False) -> list[str]:
     """Deterministic rendering of the canonical daily brief
     (intelligence_briefs) — the ONE place this Telegram message decides
     posture / what matters / what changed, built on the exact same
@@ -1260,15 +1265,20 @@ def _format_intelligence_posture_block(brief: dict | None, *, evidence_authorita
         if view["has_brief"] and view["coverage_note"]:
             return ["<b>📡 COLLECTION HEALTH</b>", f"  <i>⚠️ {_esc(view['coverage_note'])}</i>", ""]
         return []
+    heading = "📡 INTELLIGENCE POSTURE"
+    if evidence_insufficient:
+        # The evidence block says coverage is insufficient today, so it cannot be the authority: show the legacy posture, but
+        # clearly labelled as the previous, not evidence-checked method.
+        heading = "📡 LEGACY POSTURE (previous method, not evidence-checked; evidence coverage insufficient today)"
     if not view["has_brief"]:
         return [
-            "<b>📡 INTELLIGENCE POSTURE</b>",
+            f"<b>{heading}</b>",
             "  Today's canonical brief has not been generated yet.",
             "",
         ]
 
     lines = [
-        "<b>📡 INTELLIGENCE POSTURE</b>",
+        f"<b>{heading}</b>",
         f"  Posture: <b>{_esc(RISK_LABEL.get(view['overall_risk'], view['overall_risk']))}</b>",
     ]
     if view["what_matters"]:
@@ -1349,6 +1359,13 @@ def generate_morning_brief() -> str:
     # V1 shared evidence foundation (default off): confirmed vs to-verify incidents, implications, 24-72h forward watch.
     evidence_lines = _evidence_lines("morning", 72)
     lines += evidence_lines
+    # Authority depends on USABLE coverage: lines that announce insufficient coverage are not an authoritative picture.
+    evidence_insufficient = any(_EVIDENCE_INSUFFICIENT_MARKER in line for line in evidence_lines)
+    evidence_authoritative = bool(evidence_lines) and not evidence_insufficient
+
+    # Audit (#669): with the V1 selection authoritative, intelligence can still reach this message outside it via (1)
+    # build_daily_digest ('PLATFORM, TODAY', LLM-synthesised from signals + platform events) and (2) the raw
+    # _format_signals_block ('OTHER SIGNALS (24h)'). Neither is evidence-checked; (2) is labelled as such below.
 
     # Intelligence posture — rendered deterministically from the canonical
     # daily brief. This is the one place that decides posture/what-matters/
@@ -1356,7 +1373,8 @@ def generate_morning_brief() -> str:
     # selection from the same brief (Section 26/29 of
     # BRIEFS_CANONICAL_UPLIFT.md). No LLM re-synthesis of the OSINT picture
     # happens here or in build_daily_digest() below.
-    lines += _format_intelligence_posture_block(brief, evidence_authoritative=bool(evidence_lines))
+    lines += _format_intelligence_posture_block(brief, evidence_authoritative=evidence_authoritative,
+                                              evidence_insufficient=evidence_insufficient)
 
     # Daily digest — platform-only content now: individual HIGH/MEDIUM news
     # signals plus platform events (health/engineering/learning/
@@ -1380,7 +1398,8 @@ def generate_morning_brief() -> str:
             "",
         ]
     else:
-        signal_block = _format_signals_block(signals, "📡 OTHER SIGNALS (24h)") if signals else []
+        other_header = "📡 OTHER SIGNALS (24h; not evidence-checked)" if evidence_authoritative else "📡 OTHER SIGNALS (24h)"
+        signal_block = _format_signals_block(signals, other_header) if signals else []
         if signal_block:
             lines += signal_block
 

@@ -65,3 +65,48 @@ def test_the_block_itself_defaults_to_the_legacy_rendering():
     assert "What matters today" in legacy and "Changed since yesterday" in legacy
     quiet = cb._format_intelligence_posture_block({**BRIEF, "coverage": {}}, evidence_authoritative=True)
     assert quiet == []
+
+
+_INSUFFICIENT = ["<b>📡 EVIDENCE-BASED PICTURE</b>", "  ⚠️ EVIDENCE COVERAGE INSUFFICIENT — no recent assessed incidents.", ""]
+_SIGNALS = [{"risk_rating": "HIGH", "raw_title": "Grid operator warns of supply shortfall", "raw_summary": ""}]
+
+
+def _morning_patched(monkeypatch, *, evidence, signals=()):
+    monkeypatch.setenv("BRIEF_EVIDENCE_V1_MORNING", "1")
+    with patch.object(cb, "_get_latest_ori_brief", return_value=BRIEF), \
+         patch.object(cb, "_get_capacity_today", return_value=CAPACITY), \
+         patch.object(cb, "_get_recent_signals", return_value=list(signals)), \
+         patch.object(cb, "_get_infra_verification", return_value={"state": "ok"}), \
+         patch.object(cb, "_evidence_lines", return_value=evidence), \
+         patch.object(cb, "build_daily_digest", None):
+        return cb.generate_morning_brief()
+
+
+def test_insufficient_evidence_shows_legacy_posture_retitled_and_not_authoritative(monkeypatch):
+    text = _morning_patched(monkeypatch, evidence=_INSUFFICIENT)
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in text
+    assert "LEGACY POSTURE" in text and "not evidence-checked" in text
+    assert "What matters today" in text and "Friday 13th" in text
+    assert "INTELLIGENCE POSTURE" not in text and "COLLECTION HEALTH" not in text
+    assert "4 intelligence sources were unavailable" in text  # collection-health note still present
+
+
+def test_normal_evidence_lines_still_hide_legacy(monkeypatch):
+    text = _morning_patched(monkeypatch, evidence=["<b>📡 EVIDENCE-BASED PICTURE</b>", "  fine", ""])
+    assert "LEGACY POSTURE" not in text and "What matters today" not in text and "COLLECTION HEALTH" in text
+
+
+def test_posture_block_insufficient_param_default_unchanged():
+    default = "\n".join(cb._format_intelligence_posture_block(BRIEF))
+    assert "INTELLIGENCE POSTURE" in default and "LEGACY POSTURE" not in default
+    flagged = "\n".join(cb._format_intelligence_posture_block(BRIEF, evidence_insufficient=True))
+    assert "LEGACY POSTURE" in flagged and "What matters today" in flagged
+
+
+def test_other_signals_labelled_only_when_evidence_authoritative(monkeypatch):
+    auth = _morning_patched(monkeypatch, evidence=["<b>📡 EVIDENCE-BASED PICTURE</b>", "  fine", ""], signals=_SIGNALS)
+    assert "OTHER SIGNALS (24h; not evidence-checked)" in auth
+    insufficient = _morning_patched(monkeypatch, evidence=_INSUFFICIENT, signals=_SIGNALS)
+    assert "OTHER SIGNALS (24h)" in insufficient and "not evidence-checked)</b>" not in insufficient.split("OTHER SIGNALS")[1].split("\n")[0]
+    off = _morning_patched(monkeypatch, evidence=[], signals=_SIGNALS)
+    assert "OTHER SIGNALS (24h)" in off and "OTHER SIGNALS (24h;" not in off
