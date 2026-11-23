@@ -1242,7 +1242,12 @@ def _format_weekly_capacity_block_v1(capacity: dict, days: int = 7) -> list[str]
 
 # ── Brief generators ──────────────────────────────────────────────────────────
 
-def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
+# Marker brief_evidence.morning_view puts at the start of its first line when there are zero recent incidents (coverage insufficient).
+_EVIDENCE_INSUFFICIENT_MARKER = "EVIDENCE COVERAGE INSUFFICIENT"
+
+
+def _format_intelligence_posture_block(brief: dict | None, *, evidence_authoritative: bool = False,
+                                       evidence_insufficient: bool = False) -> list[str]:
     """Deterministic rendering of the canonical daily brief
     (intelligence_briefs) — the ONE place this Telegram message decides
     posture / what matters / what changed, built on the exact same
@@ -1253,15 +1258,27 @@ def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
     from intelligence.brief.render import RISK_LABEL, build_morning_intelligence_view
 
     view = build_morning_intelligence_view(brief, max_items=3)
+    if evidence_authoritative:
+        # The evidence-based picture (BRIEF_EVIDENCE_V1_MORNING) is the authoritative morning assessment. The legacy posture,
+        # "What matters today" and "Changed since yesterday" are NOT shown beside it: they are not evidence-checked and can carry
+        # stale or contradictory priorities. Only the collection-health warning is kept, as a diagnostic.
+        if view["has_brief"] and view["coverage_note"]:
+            return ["<b>📡 COLLECTION HEALTH</b>", f"  <i>⚠️ {_esc(view['coverage_note'])}</i>", ""]
+        return []
+    heading = "📡 INTELLIGENCE POSTURE"
+    if evidence_insufficient:
+        # The evidence block says coverage is insufficient today, so it cannot be the authority: show the legacy posture, but
+        # clearly labelled as the previous, not evidence-checked method.
+        heading = "📡 LEGACY POSTURE (previous method, not evidence-checked; evidence coverage insufficient today)"
     if not view["has_brief"]:
         return [
-            "<b>📡 INTELLIGENCE POSTURE</b>",
+            f"<b>{heading}</b>",
             "  Today's canonical brief has not been generated yet.",
             "",
         ]
 
     lines = [
-        "<b>📡 INTELLIGENCE POSTURE</b>",
+        f"<b>{heading}</b>",
         f"  Posture: <b>{_esc(RISK_LABEL.get(view['overall_risk'], view['overall_risk']))}</b>",
     ]
     if view["what_matters"]:
@@ -1300,6 +1317,12 @@ def _capacity_quality_enabled() -> bool:
     return os.getenv(CAPACITY_QUALITY_FLAG, "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def _evidence_unavailable_lines(reason: str) -> list[str]:
+    """Morning block (flag on) when the evidence layer yields nothing usable. Starts with the insufficient-coverage marker so the
+    brief takes its labelled 'evidence insufficient' path instead of silently reading as all quiet."""
+    return [f"⚠️ {_EVIDENCE_INSUFFICIENT_MARKER}: {reason}; nothing below should be read as all quiet.", ""]
+
+
 def _evidence_lines(kind: str, hours: int) -> list[str]:
     """V1 shared-evidence block for the morning or weekly brief. Returns [] unless its feature flag is on (BRIEF_EVIDENCE_V1 or
     BRIEF_EVIDENCE_V1_MORNING / _WEEKLY); never raises, so the legacy brief always renders unchanged when the flag is off or the
@@ -1310,10 +1333,16 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
             return []
         events = be.load_events(_sb_get, hours=hours)
         if not events:
+            if kind == "morning":
+                return _evidence_unavailable_lines(f"no reports collected in the last {hours} hours (or the evidence query failed)")
             return []
         ev = be.build_evidence(events, window_hours=hours)
         if kind == "morning":
             view = be.morning_view(ev)
+            recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
+            if not recent and not any(_EVIDENCE_INSUFFICIENT_MARKER in line for line in view):
+                # Reports exist (24-72h old) but nothing was collected in the last 24h: the picture is NOT 'all quiet', it is thin.
+                view = [f"⚠️ {_EVIDENCE_INSUFFICIENT_MARKER}: no reports collected in the last 24 hours; nothing below should be read as all quiet."] + view
         else:
             path = os.getenv(be.SNAPSHOT_ENV) or None            # the existing SnapshotStore; no path configured = no read and no write
             view = be.weekly_view(ev, be.load_previous_snapshot(path, ev.generated_at))
@@ -1321,6 +1350,25 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
         return [_esc(x) for x in view] + [""]
     except Exception as exc:  # noqa: BLE001 - additive feature-flagged block; the legacy brief must still render
         log.warning("Evidence-based %s block unavailable: %s", kind, exc)
+        if kind == "morning":
+            try:
+                from intelligence import brief_evidence as be
+                if be.enabled(kind):
+                    return _evidence_unavailable_lines("evidence layer unavailable")
+            except Exception as exc2:  # noqa: BLE001 - never raise; flag state unknown means the legacy brief renders unchanged
+                log.debug("Evidence flag check failed: %s", exc2)
+        return []
+
+
+def _theme_lines() -> list[str]:
+    """Topic & Theme lane for the morning brief (flag BRIEF_THEMES_V1[_MORNING], default off): developments and running themes in the
+    watched topics. [] when off; never raises, so the legacy brief always renders."""
+    try:
+        from intelligence import brief_themes as bt
+        lines = bt.theme_lines(_sb_get)
+        return [_esc(x) for x in lines] + [""] if lines else []
+    except Exception as exc:  # noqa: BLE001 - additive feature-flagged block
+        log.warning("Theme lane unavailable: %s", exc)
         return []
 
 
@@ -1340,7 +1388,17 @@ def generate_morning_brief() -> str:
     lines += _format_capacity_block(capacity)
 
     # V1 shared evidence foundation (default off): confirmed vs to-verify incidents, implications, 24-72h forward watch.
-    lines += _evidence_lines("morning", 72)
+    evidence_lines = _evidence_lines("morning", 72)
+    lines += evidence_lines
+    # Topic & Theme lane (default off): developments and running themes in the watched topics, beside (not inside) the incident picture.
+    lines += _theme_lines()
+    # Authority depends on USABLE coverage: lines that announce insufficient coverage are not an authoritative picture.
+    evidence_insufficient = any(_EVIDENCE_INSUFFICIENT_MARKER in line for line in evidence_lines)
+    evidence_authoritative = bool(evidence_lines) and not evidence_insufficient
+
+    # Audit (#669): with the V1 selection authoritative, intelligence can still reach this message outside it via (1)
+    # build_daily_digest ('PLATFORM, TODAY', LLM-synthesised from signals + platform events) and (2) the raw
+    # _format_signals_block ('OTHER SIGNALS (24h)'). Neither is evidence-checked; (2) is labelled as such below.
 
     # Intelligence posture — rendered deterministically from the canonical
     # daily brief. This is the one place that decides posture/what-matters/
@@ -1348,7 +1406,8 @@ def generate_morning_brief() -> str:
     # selection from the same brief (Section 26/29 of
     # BRIEFS_CANONICAL_UPLIFT.md). No LLM re-synthesis of the OSINT picture
     # happens here or in build_daily_digest() below.
-    lines += _format_intelligence_posture_block(brief)
+    lines += _format_intelligence_posture_block(brief, evidence_authoritative=evidence_authoritative,
+                                              evidence_insufficient=evidence_insufficient)
 
     # Daily digest — platform-only content now: individual HIGH/MEDIUM news
     # signals plus platform events (health/engineering/learning/
@@ -1372,7 +1431,8 @@ def generate_morning_brief() -> str:
             "",
         ]
     else:
-        signal_block = _format_signals_block(signals, "📡 OTHER SIGNALS (24h)") if signals else []
+        other_header = "📡 OTHER SIGNALS (24h; not evidence-checked)" if evidence_authoritative else "📡 OTHER SIGNALS (24h)"
+        signal_block = _format_signals_block(signals, other_header) if signals else []
         if signal_block:
             lines += signal_block
 

@@ -36,7 +36,7 @@ EVENT_TYPES = {
                r"los(?:t|e|es|ing) power", r"supply (?:is )?at risk", r"(?:power|energy|fuel) shortages?",
                r"(?:towers?|lines?|poles?|substations?) (?:\w+ )?(?:crushed|toppled?|downed|collapsed?|damaged)",
                r"(?:crushed|toppl\w+|downed|collapsed) (?:\w+ )?(?:transmission )?(?:towers?|lines?|poles?)"),
-    "hazard": (r"earthquakes?", r"tsunamis?", r"cyclones?", r"bushfires?", r"fire warnings?", r"emergency warnings?", r"flash flood\w*", r"(?:major|severe|moderate) flood(?:ing)?", r"flood (?:warnings?|emergency|evacuation\w*)",
+    "hazard": (r"earthquakes?", r"quakes?", r"tsunamis?", r"cyclones?", r"bushfires?", r"fire warnings?", r"emergency warnings?", r"flash flood\w*", r"(?:major|severe|moderate) flood(?:ing)?", r"flood (?:warnings?|emergency|evacuation\w*)",
                r"hail(?:storm)?", r"severe (?:thunder)?storms?", r"(?:severe|extreme|catastrophic) heatwaves?", r"heatwave warnings?", r"tornado(?:es)?", r"tremors?", r"storm warnings?",
                r"evacuation (?:order|warning)s?", r"damaging winds?"),
     "supply_shortfall": (r"lack of reserve", r"lor[123]", r"reserve shortfalls?", r"supply (?:gap|shortfall)s?", r"(?:power|energy|gas|fuel) shortages?",
@@ -97,7 +97,11 @@ CASCADING = (r"cascad\w+", r"knock-?on", r"flow-?on", r"across (?:multiple|sever
 MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"partial(?:ly)?", r"limited", r"intermittent", r"isolated")
 RETROSPECTIVE = (r"investigated", r"post-(?:blackout|outage|incident)", r"convicted", r"charged", r"sentenced", r"jailed", r"guilty", r"trial", r"verdict", r"inquest", r"court", r"fined",
                  r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
-                 r"apolog\w+", r"lessons?", r"anniversary", r"fallout")
+                 r"apolog\w+", r"lessons?", r"anniversary", r"fallout",
+                 r"near[- ]miss(?:es)?", r"post-?mortems?",
+                 # a root cause that HAS BEEN found is retrospective; 'engineers investigate root cause' is a live incident
+                 r"root[- ]cause\b[^.;]{0,40}\b(?:identified|found|revealed|confirmed|analysis|report)",
+                 r"(?:identified|found|reveals?|revealed|confirmed|confirms)\b[^.;]{0,40}\broot[- ]cause")        # #669: commentary and analysis about a PAST event
 HEDGE = (r"likely", r"may have", r"might have", r"possibly", r"suspected", r"reportedly", r"apparent", r"alleged\w*", r"believed to")
 POLITICS = (r"liberal", r"labor", r"coalition", r"opposition", r"minister", r"premier", r"election", r"policy", r"parliament",
             r"senator", r"prime minister", r"government plan", r"throws open")
@@ -141,7 +145,54 @@ _WARN_RX, _FORECAST_RX, _CANCEL_RX, _CONFLICT_RX, _ROUTINE_RX = _rx(WARNING), _r
 _ANON_RX = re.compile("|".join(ANON_SOURCE), re.IGNORECASE)
 _CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.IGNORECASE)
 _DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.IGNORECASE)
+# 'Inquiry continues into the Telstra outage' / 'review ongoing' / 'trial continues': a PROCESS about a past event continues; the service
+# disruption does not. It is not a continuation cue for the outage itself.
+_PROCESS_CONT_RX = re.compile(r"\b(?:inquiry|inquest|investigation|investigations|probe|review|reviews|hearing|hearings|trial|audit|talks|negotiations|"
+                              r"court case|class action|royal commission|search|clean-?up)\b(?:(?!\b(?:as|while|after|when|but|and|amid|because|although|though)\b)[^.;,]){0,30}?"
+                              r"\b(?:continues?|ongoing|still|remains?)\b", re.IGNORECASE)
+
+
+def _ongoing_cue(text: str) -> bool:
+    """An explicit continuation cue about the SERVICE (still / continues / ongoing / remains), not about an inquiry or other process."""
+    return bool(_ONGOING_RX.search(_PROCESS_CONT_RX.sub(" ", text or "")))
+
+
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
+# Negated / in-progress / partial restoration ('power not restored', 'services yet to come back online', 'being restored', 'partially back
+# online', 'restoration unlikely'): the service is NOT restored. These spans are removed before looking for an affirmative restoration.
+_NEG_RESTORE_RX = re.compile(
+    r"(?:\b(?:not|never|no longer|yet to|\w+n't)\s+(?:\w+\s+){0,3}?(?:be\s+)?(?:restored|resolved|back online))"
+    r"|(?:\bbeing\s+(?:\w+\s+){0,2}?(?:restored|resolved))"
+    r"|(?:\bpartial(?:ly)?\s+(?:\w+\s+){0,1}?(?:restored|resolved|back online))"
+    r"|(?:\brestoration\s+(?:is\s+)?(?:unlikely|delayed|uncertain|postponed))", re.IGNORECASE)
+
+
+def _negated_restore(text: str) -> bool:
+    return bool(_NEG_RESTORE_RX.search(text))
+
+
+def _affirmative_restored(text: str) -> bool:
+    """True when the text affirms restoration, ignoring negated, in-progress and partial phrasings."""
+    return bool(_RESTORED_RX.search(_NEG_RESTORE_RX.sub(" ", text)))
+
+
+# 'restored' / 'resolved' make a report retrospective only when they state a COMPLETED restoration. A forecast ('will be restored by 5pm'),
+# a wait ('remain down until resolved'), or a negated / in-progress / partial restoration describes a live outage.
+_UNTIL_RESTORE_RX = re.compile(r"\buntil\s+(?:\w+\s+){0,3}?(?:restored|resolved|fixed)\b", re.IGNORECASE)
+
+
+def _strip_live_restore(text: str) -> str:
+    text = _NEG_RESTORE_RX.sub(" ", text or "")
+    text = _FORECAST_RESTORE_RX.sub(" ", text)
+    return _UNTIL_RESTORE_RX.sub(" ", text)
+
+
+# A forecast ('will be restored by 5pm', 'restoration expected') says the service is NOT yet restored; a hedged claim ('reportedly restored',
+# 'believed to be restored') is not an affirmative status statement. Neither may override explicit ongoing evidence as 'restored'.
+_FORECAST_RESTORE_RX = _rx((r"(?:will|would|should|could|may|might|expected to|due to|set to|hoped? to|likely to|yet to|not yet|aim(?:s|ing)? to|working to)\s+(?:be\s+)?(?:fully\s+)?(?:restored|resolved|back online)",
+                            r"restoration\s+(?:expected|due|estimated|forecast|by|time)", r"(?:until|before)\s+(?:power|service|services|supply)\s+(?:is|are|can be|has been)\s+(?:restored|resolved)"))
+_HEDGED_RESTORE_RX = _rx((r"(?:reportedly|allegedly|apparently|supposedly|believed to be|said to be|claims? to be|understood to be|thought to be|possibly|perhaps)\s+(?:\w+\s+){0,2}(?:restored|resolved|back online)",
+                          r"(?:restored|resolved|back online)\b[^.;]{0,60}\b(?:reportedly|allegedly|apparently|unconfirmed)"))
 # Proportionality (Captain, 2026-11-23): customer count is NOT a universal threshold. For Tier 1 network services (energy,
 # telecom, water) an ONGOING confirmed outage of at least this many customers is high materiality even when described as regional.
 ONGOING_NETWORK_OUTAGE_CUSTOMERS = 10_000
@@ -185,6 +236,7 @@ class Candidate:
     conflict: bool = False    # armed-conflict reporting (never escalated on its own)
     hedged: bool = False      # hedged or anonymously sourced (likely / reportedly / 'sources say')
     legacy: dict = field(default_factory=dict)
+    summary: str = ""         # the report's summary text (used only for Australian-relevance checks, never for classification)
 
     @property
     def primary_type(self) -> str:
@@ -215,10 +267,42 @@ def _orgs(title: str) -> frozenset:
     return frozenset(o for o in found if o not in _PROPER_STOP and len(o) > 2)
 
 
+def _report_time(event: dict):
+    """When the report was PUBLISHED. Report chronology (restored vs ongoing) must follow publication, not ingestion: an older
+    restoration article collected after a newer ongoing report must not win. The stored ``published_at`` is used when it parses
+    and is not later than collection (plus a small clock skew); otherwise collection time, which is the only time we have."""
+    collected = we._parse_ts(event.get("collected_at"))
+    published = we._parse_ts(event.get("published_at")) if event.get("published_at") else None
+    if published and (collected is None or published <= collected + timedelta(hours=1)):
+        return published
+    return collected
+
+
+# A hazard warning is often stated only in the report's first summary sentence ("The weather bureau is warning of severe storms west of
+# Charleville") under a headline with no hazard term ("Storms to hit south-western Qld as heatwave lingers"). Everything else is still
+# read from the headline only; this narrow rule reads the summary's FIRST sentence for the hazard class alone, and only when that sentence
+# also says the hazard is being warned about or has struck, so a business story that merely mentions an earthquake is not a hazard report.
+_SUMMARY_HAZARD_EVENT_RX = re.compile(r"\b(?:warn(?:s|ed|ing|ings)?|alerts?|struck|strikes?|rattled|shaken|magnitude|damag\w+)\b", re.IGNORECASE)
+
+
+def _summary_first_sentence(event: dict) -> str:
+    summary = re.sub(r"<[^>]+>|&\w+;", " ", event.get("summary") or "").strip()
+    return re.split(r"(?<=[.!?])\s+", summary, maxsplit=1)[0] if summary else ""
+
+
+def _summary_hazard(event: dict) -> bool:
+    sentence = _summary_first_sentence(event)
+    return bool(sentence and _TYPE_RX["hazard"].search(sentence) and _SUMMARY_HAZARD_EVENT_RX.search(sentence))
+
+
 def detect_candidate(event: dict) -> Candidate:
     title = event.get("title") or ""
     text = title        # headline only: this is what every measurement was made on; summaries add unmeasured noise
     types = tuple(k for k, rx in _TYPE_RX.items() if rx.search(text))
+    summary_hazard_warning = False
+    if "hazard" not in types and _summary_hazard(event):
+        types = types + ("hazard",)
+        summary_hazard_warning = True       # the headline states no consequence: a hazard read from the summary is a warning-class notice, never a stated outage
     sectors = tuple(k for k, rx in _SECTOR_RX.items() if rx.search(text))
     scale = bool(_SCALE_RX.search(text))
     actual = bool(_ACTUAL_RX.search(text))
@@ -239,29 +323,29 @@ def detect_candidate(event: dict) -> Candidate:
     minor = bool(_MINOR_RX.search(text))
     cm = _CUSTOMERS_RX.search(text)
     customers = int(cm.group(1).replace(",", "")) if cm else None
-    ongoing = bool(_ONGOING_RX.search(text)) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
+    ongoing = _ongoing_cue(text) or (not _affirmative_restored(text) and not _RETRO_RX.search(text))
     conflict = bool(_CONFLICT_RX.search(text))
     hedged = bool(_HEDGE_RX.search(text) or _ANON_RX.search(text))
     if _ROUTINE_RX.search(text):
         minor = True        # a routine cause (weather) is not a severe disruption on its own
     forward = bool(_FORECAST_RX.search(text))
     hazardous = any(t in types for t in ("hazard", "supply_shortfall", "water_quality", "service_disruption"))
-    cancelled = bool(_CANCEL_RX.search(text))
+    cancelled = bool(_CANCEL_RX.search(_strip_live_restore(text)))
     is_cand = (bool(types or exposure or (conseq and essential)) and (bool(sectors) or scale or compromise or conseq or exposure or safety
                                            or ("vulnerability" in types and we.exploited(text)))) or hazardous
     consequence = ("essential_service" if essential else "broad_user_impact" if sectors
                    else "unknown" if (types and scale) else "none")
     tier = min((SECTOR_TIER[x] for x in sectors if x in SECTOR_TIER), default=None)
-    retro = bool(_RETRO_RX.search(text)) and not _ONGOING_RX.search(text)
+    retro = bool(_RETRO_RX.search(_strip_live_restore(text))) and not _ongoing_cue(text)
     if commentary or not is_cand:
         status = "potential" if (commentary and is_cand) else "none"
     elif cancelled:
         status = "retrospective"                       # a cancelled / resolved notice is no longer live
-    elif retro:
-        status = "retrospective"
+    elif retro or _historic_at(title, _report_time(event)):
+        status = "retrospective"                       # about a past event (named older date): not a stated live disruption, so never an escalation on its own
     elif hazardous and forward and not any(t in types for t in ("water_quality", "service_disruption")):
         status = "forecast"                            # a forecast is not a stated outage
-    elif "hazard" in types and bool(_WARN_RX.search(text)):
+    elif "hazard" in types and (bool(_WARN_RX.search(text)) or summary_hazard_warning):
         status = "warning"                             # an emergency warning is not a stated consequence
     elif conseq or exposure or safety or hazardous:
         status = "unconfirmed" if hedged else "stated"       # "likely accessed" is a report, not a statement of fact
@@ -269,11 +353,12 @@ def detect_candidate(event: dict) -> Candidate:
         status = "unconfirmed"
     src = event.get("source") or ""
     return Candidate(
-        event_id=str(event.get("id")), title=title, source=src, published=we._parse_ts(event.get("collected_at")),
+        event_id=str(event.get("id")), title=title, source=src, published=_report_time(event),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
-        family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {})
+        family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {},
+        summary=str(event.get("summary") or "")[:1500])
 
 
 # ── Stage 2: incident correlation ──────────────────────────────────────────────────────────────────────────
@@ -296,12 +381,27 @@ class Group:
     commentary_ids: list[str]
 
 
+# #669: the class two reports share decides their comparison window and whether they can be one incident. Outages and cyber
+# incidents come first (unchanged); the other prose-correlated classes (hazards, supply shortfalls, water quality, service
+# disruptions) are now correlated on their OWN class instead of being lumped under "vulnerability" and rejected.
+_CLASS_PRIORITY = ("outage", "cyber_incident", "hazard", "supply_shortfall", "water_quality", "service_disruption")
+
+
+def _shared_class(a: Candidate, b: Candidate) -> str | None:
+    shared = set(a.types) & set(b.types)
+    if not shared:
+        return None
+    for cls in _CLASS_PRIORITY:
+        if cls in shared:
+            return cls
+    return "vulnerability" if "vulnerability" in shared else min(shared)
+
+
 def _comparable(a: Candidate, b: Candidate) -> bool:
     """True when two reports fall inside the time window of their shared event class (a pair outside it is simply not comparable)."""
-    shared = set(a.types) & set(b.types)
-    if not shared or not (a.published and b.published):
+    cls = _shared_class(a, b)
+    if cls is None or not (a.published and b.published):
         return True
-    cls = "outage" if "outage" in shared else "cyber_incident" if "cyber_incident" in shared else min(shared)
     return abs(a.published - b.published) <= _WINDOW.get(cls, _WINDOW["other"])
 
 
@@ -320,11 +420,10 @@ def _link(a: Candidate, b: Candidate, idf: dict[str, float]) -> tuple[float, str
     """Confidence (0-1) that two candidates report ONE incident, with the reason; None if they do not."""
     if not (a.is_candidate and b.is_candidate):
         return None
-    shared_types = set(a.types) & set(b.types)
-    if not shared_types:
+    cls = _shared_class(a, b)
+    if cls is None:
         return None
-    cls = "outage" if "outage" in shared_types else "cyber_incident" if "cyber_incident" in shared_types else "vulnerability"
-    if a.published and b.published and abs(a.published - b.published) > _WINDOW[cls]:
+    if a.published and b.published and abs(a.published - b.published) > _WINDOW.get(cls, _WINDOW["other"]):
         return None
     if cls == "vulnerability":
         return None            # advisories are grouped by CVE/product, never by prose similarity
@@ -348,9 +447,33 @@ def _link(a: Candidate, b: Candidate, idf: dict[str, float]) -> tuple[float, str
     # distinct-incident guard: same organisation but disjoint specific services/locations -> separate incidents
     if shared_orgs and _service_conflict(a, b):
         return None
+    # #669: hazards, supply shortfalls, water quality and service disruptions are place-specific. Two reports that each name a
+    # place, and name DIFFERENT places, are different incidents however alike their headlines (a Sydney and a Melbourne boil
+    # water notice). Outage and cyber links keep their existing guards.
+    if cls in _PLACE_SPECIFIC_CLASSES and _location_conflict(a, b):
+        return None
     if score >= 0.6 or (score >= 0.5 and (shared_orgs or rare >= 2)):
         return round(min(1.0, score), 2), "; ".join(reasons) + f"; class {cls}"
     return None
+
+
+_PLACE_SPECIFIC_CLASSES = ("hazard", "supply_shortfall", "water_quality", "service_disruption")
+_PLACES = ("sydney", "melbourne", "brisbane", "perth", "adelaide", "canberra", "hobart", "darwin", "newcastle", "wollongong", "illawarra",
+           "gold coast", "sunshine coast", "geelong", "cairns", "townsville", "launceston", "alice springs", "kimberley", "pilbara",
+           "eyre peninsula", "nsw", "new south wales", "victoria", "victorian", "queensland", "tasmania", "tasmanian", "south australia",
+           "western australia", "northern territory", "act")
+_PLACE_RX = re.compile(r"\b(" + "|".join(re.escape(p) for p in sorted(_PLACES, key=len, reverse=True)) + r")\b", re.IGNORECASE)
+_PLACE_ALIAS = {"victorian": "victoria", "tasmanian": "tasmania", "new south wales": "nsw"}
+
+
+def _places(title: str) -> frozenset:
+    return frozenset(_PLACE_ALIAS.get(m.lower(), m.lower()) for m in _PLACE_RX.findall(title))
+
+
+def _location_conflict(a: Candidate, b: Candidate) -> bool:
+    """True when both reports name places and share none of them."""
+    pa, pb = _places(a.title), _places(b.title)
+    return bool(pa and pb and not (pa & pb))
 
 
 _SERVICE_RX = re.compile(r"\b(outlook|teams|azure|aws|gmail|sharepoint|onedrive|exchange|office|xbox|github|"
@@ -514,10 +637,278 @@ def evidence_status(group: Group) -> tuple[str, list[str]]:
     solid = [m for m in originals if m.kind != we.AGGREGATOR and not m.hedged]
     if not solid:
         return "unverified", basis
-    return ("corroborated" if group.independent_publishers >= 2 else "reported"), basis
+    # #669: corroboration needs two independent publishers among the SOLID reports. group.independent_publishers also
+    # counts hedged / anonymously sourced publishers, so a "reportedly ..." second report must not lift the status.
+    solid_publishers = {m.family for m in solid}
+    return ("corroborated" if len(solid_publishers) >= 2 and group.independent_publishers >= 2 else "reported"), basis
+
+
+# #669: an incident enters the AUSTRALIAN operational brief only with demonstrated Australian relevance or dependency.
+# OPERATIONAL relevance: the collected geography is Australian, or a report (title or summary) names Australia, an Australian
+# state/city or an Australian organisation; or the incident is an outage or compromise of a global platform that Australian
+# services run on (cloud, payments, telecommunications, critical software, supply-chain chokepoints). A provider's own status
+# page counts: 'Supabase Status' reporting a Supabase disruption is a dependency report. Advisories (vulnerabilities) are
+# exempt: they are judged by exposure, not geography. A publisher's nationality is NOT operational relevance (see below).
+_AU_MARKER_RX = _rx((r"australia\w*", r"aussie\w*", r"nsw", r"new south wales", r"queensland\w*", r"tasmania\w*", r"victorian",
+                     r"canberra", r"asx", r"nbn", r"apra", r"acsc", r"aemo",
+                     r"ausgrid", r"electranet", r"endeavour energy", r"ergon", r"energex", r"essential energy", r"ausnet", r"powercor",
+                     r"jemena", r"western power", r"sa power networks", r"tasnetworks", r"evoenergy",
+                     r"telstra", r"optus", r"tpg", r"qantas", r"jetstar", r"virgin australia", r"westpac",
+                     r"anz", r"national australia bank", r"commonwealth bank", r"coles", r"woolworths", r"medibank", r"services australia",
+                     r"centrelink", r"agl", r"origin energy", r"suncorp", r"bhp", r"woodside", r"transurban"))
+# Place names that also exist outside Australia: they count only when NOT followed by a non-Australian region ('Sydney, Nova Scotia',
+# 'Perth Amboy', 'Newcastle upon Tyne', 'Victoria, BC') unless an unambiguous Australian signal is also present.
+_AU_AMBIGUOUS_PLACE_RX = _rx((r"sydney", r"melbourne", r"brisbane", r"perth", r"adelaide", r"hobart", r"darwin", r"cairns", r"townsville",
+                              r"geelong", r"wollongong", r"gold coast", r"newcastle",
+                              r"(?:(?:in|across|hits?|throughout|over|state of|affects?)\s+victoria(?! falls))", r"victoria(?= (?:state|government|police)\b)"))
+_NON_AU_REGION_RX = re.compile(
+    r"\s*,?\s*(?:amboy|upon tyne|uk|u\.k\.|usa|u\.s\.|us|canada|england|scotland|wales|ireland|britain|united kingdom|united states|"
+    r"nova scotia|british columbia|bc|ontario|quebec|alberta|manitoba|new brunswick|newfoundland|"
+    r"alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|"
+    r"kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|"
+    r"new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|"
+    r"south dakota|tennessee|texas|utah|vermont|virginia|west virginia|wisconsin|wyoming|washington|seychelles|zimbabwe|zambia)(?![a-z])",
+    re.IGNORECASE)
+_AU_CO_SIGNAL_RX = re.compile(r"\.au\b|\b(?:NSW|Vic|Qld|WA|SA|Tas|NT|ACT)\b")
+_NAB_RX = re.compile(r"\bNAB\b")                       # case-sensitive: the verb 'nab' is not the bank
+_DATELINE_RX = re.compile(
+    r"\b[A-Z][A-Z .'-]{2,30}(?:,\s*[A-Za-z .]{2,30})?\s*\((?:Reuters|AP|AFP|AAP|Bloomberg|UPI|CNN|dpa|EFE|Xinhua)\)\s*[-\u2013\u2014:]?"
+    r"|\b[A-Za-z]+(?: [A-Za-z]+)?\s+(?:bureau|dateline)\b(?!\s+of\b)|\b(?:reporting|reported|report|story|filed|written)\s+by\b[^.\n]{0,60}?\bbureau\b|\b[A-Za-z]+-based\s+(?:reporter|correspondent|journalist|newsroom)\b",
+    re.IGNORECASE)
+
+def _au_marker(text: str) -> bool:
+    """True when the text names Australia, an Australian organisation or (unambiguously) an Australian place."""
+    if _AU_MARKER_RX.search(text) or _NAB_RX.search(text):
+        return True
+    cosig = bool(_AU_CO_SIGNAL_RX.search(text))
+    for hit in _AU_AMBIGUOUS_PLACE_RX.finditer(text):
+        if cosig or not _NON_AU_REGION_RX.match(text, hit.end()):
+            return True
+    return False
+
+
+_AU_DEPENDENCY_RX = _rx((
+    # cloud and hosting
+    r"microsoft", r"azure", r"office 365", r"microsoft 365", r"m365", r"exchange online", r"onedrive", r"sharepoint",
+    r"outlook(?:\.com)? (?:outage|down|email|service|not working)", r"aws", r"amazon web services", r"google cloud", r"cloudflare", r"akamai", r"fastly",
+    r"oracle cloud", r"ibm cloud", r"alibaba cloud", r"digitalocean", r"vercel", r"netlify", r"supabase", r"snowflake", r"databricks",
+    # payments
+    r"mastercard", r"swift network", r"swift messaging", r"apple pay", r"google pay", r"paypal", r"stripe", r"adyen", r"worldpay", r"fiserv",
+    # telecommunications
+    r"subsea cables?", r"submarine cables?", r"undersea cables?", r"starlink", r"inmarsat", r"intelsat", r"equinix", r"digital realty",
+    # critical software and SaaS
+    r"crowdstrike", r"cisco", r"okta", r"oracle", r"salesforce", r"atlassian", r"github", r"zoom", r"servicenow", r"citrix", r"vmware",
+    r"fortinet", r"palo alto networks", r"ivanti", r"solarwinds", r"twilio", r"sendgrid", r"slack", r"pagerduty", r"datadog",
+    r"openai", r"anthropic",
+    # supply chain
+    r"maersk", r"cma cgm", r"hapag-lloyd", r"dp world", r"suez canal", r"panama canal", r"strait of hormuz", r"red sea shipping"))
+# Outlets whose whole editorial scope is Australia. Australian-audience reporting is EDITORIAL relevance only: it keeps an item
+# visible at WATCH, but it never establishes an Australian operational impact on its own (the Captain's rule).
+_AU_AUDIENCE_SOURCE_RX = _rx((r"the mandarin", r"innovationaus", r"smartcompany", r"government news", r"cyber daily", r"information age"))
+
+
+def _publisher_suffix(m: Candidate):
+    """The trailing ' - Outlet' of an aggregator feed title, but only when it is established to be publisher attribution: the report
+    comes through an aggregator, or the clause names a recognised publisher. A direct-source clause such as ' - Microsoft investigates
+    disruption' is headline content and is kept."""
+    suffix = _PUBLISHER_SUFFIX.search(m.title or "")
+    if not suffix:
+        return None
+    outlet = re.sub(r"^\s[-–|]\s", "", suffix.group(0)).strip()
+    if we.source_kind(m.source or "") == we.AGGREGATOR or we.source_kind(outlet) != we.UNKNOWN:
+        return suffix
+    return None
+
+
+def _outlet(m: Candidate) -> str:
+    suffix = _publisher_suffix(m)                         # aggregator feeds carry the real outlet as a trailing ' - Outlet'
+    return f"{m.source or ''} {suffix.group(0) if suffix else ''}"
+
+
+def _relevance_parts(m: Candidate) -> tuple[str, str]:
+    """(title, summary) WITHOUT the publisher attribution: an outlet called 'The Australian' or 'Guardian Australia' must not
+    establish operational relevance (the aggregator's trailing ' - Outlet' and any copy of the outlet name in the summary).
+    Datelines and bureau credits ('SYDNEY (Reuters) -') are also removed: they say where the reporter is, not what is affected."""
+    title, summary = m.title or "", m.summary or ""
+    if m.kind == we.AGGREGATOR:                  # a direct-source headline's dash clause is content ('Global email outage - Microsoft investigates'), not attribution
+        suffix = _publisher_suffix(m)
+        if suffix:
+            title = title[:suffix.start()].strip()
+            outlet = re.sub(r"^\s[-\u2013|]\s", "", suffix.group(0)).strip()
+            if outlet:
+                summary = re.sub(re.escape(outlet), " ", summary, flags=re.IGNORECASE)
+    return _DATELINE_RX.sub(" ", title), _DATELINE_RX.sub(" ", summary)
+
+
+def _relevance_text(m: Candidate) -> str:
+    title, summary = _relevance_parts(m)
+    return f"{title} {summary}"
+
+
+# A summary mention of a platform only counts when the SAME sentence says that platform is being disrupted, and is not merely
+# the channel an unrelated party used to communicate ('the utility posted an update on Microsoft Teams').
+_DISRUPTION_RX = _rx((r"outages?", r"down", r"disrupt\w*", r"unavailable", r"unavailability", r"degraded", r"degradation", r"failures?",
+                      r"failed", r"offline", r"not working", r"faults?", r"unstable", r"instability"))
+_COMMS_CHANNEL_RX = re.compile(
+    r"\b(?:posted|tweeted|(?:re)?shared on|said on|(?:updates?|updated|announced|statements?|published|communicated|messaged)"
+    r"\s+(?:on|via|through|over)|x/twitter|twitter|facebook|teams channel)\b", re.IGNORECASE)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+_INCIDENT_RX = _rx((r"outages?", r"down", r"disrupt\w*", r"unavailable", r"unavailability", r"degraded", r"degradation", r"failures?",
+                    r"failed", r"offline", r"not working", r"faults?", r"unstable", r"instability", r"explosions?", r"blasts?", r"fires?",
+                    r"cyber-?attacks?", r"attacked", r"ransomware", r"breach\w*", r"hack\w*", r"compromis\w*", r"cut", r"severed",
+                    r"damaged", r"halted", r"suspended", r"crash\w*", r"(?<!un)affected", r"hit", r"hits", r"cancel\w*", r"delay\w*"))
+# A clause: headline text split at punctuation and at words that introduce a separate cause or aside.
+_CLAUSE_SPLIT = re.compile(r"[;:,]|\s[-\u2013\u2014|]\s|\b(?:after|following|due to|because of|caused by|amid|as|while|when|but)\b", re.IGNORECASE)
+# An unrelated physical event in the clause: the outage is of a plant, grid or building, not of the platform.
+_PHYSICAL_RX = _rx((r"power", r"grid", r"blackouts?", r"electricity", r"plant", r"factory", r"refinery", r"substation", r"hospital",
+                    r"fire", r"wildfire", r"storm", r"flood\w*", r"earthquake", r"cyclone", r"hurricane", r"gas", r"pipeline", r"warehouse"))
+# Real channel-use constructions only. A bare 'on' is NOT one: 'cyberattack/outage/failure on <platform>' means the platform is the
+# affected service; 'on' is a channel only after a communication verb ('chatted on Zoom', 'met on Teams', 'on a call on Zoom').
+_CHANNEL_BEFORE_RX = re.compile(
+    r"\b(?:(?:used|using|via|through|over|per)|(?:call|calls|meeting|meetings|chat|chats|chatted|talk|talks|talked|met|meet|joined|hosted|held|"
+    r"posted|shared|announced|streamed|webinar)\s+on)\s+$", re.IGNORECASE)
+_PLATFORM_DOWN_RX = re.compile(
+    r"^\s*(?P<gap>(?:[\w.\-]+\s+){0,1}?)(?:outages?|down|offline|disrupt\w*|unavailable|unavailability|degraded|failures?|failed|not working)\b",
+    re.IGNORECASE)
+_DENIAL_RX = re.compile(
+    r"\b(?:not|never|n't|hasn't|haven't)\s+(?:\w+\s+){0,2}?(?:affected|impacted|hit|disrupted)\b|\bunaffected\b|\bunimpacted\b|"
+    r"\bno\s+(?:\w+\s+){0,3}?(?:impact|australian\w*|disruption|effect)\b|\b(?:were |was |been |remain(?:s|ed)? )?spared\b|\bwithout\s+(?:\w+\s+){0,2}?(?:impact|disruption)\b",
+    re.IGNORECASE)
+
+
+def _platform_stated_down(clause: str, hit) -> bool:
+    """The platform itself is stated as down/offline/disrupted right after its name ('Microsoft Azure offline', 'Cloudflare outage')."""
+    m = _PLATFORM_DOWN_RX.match(clause[hit.end():])
+    return bool(m and not _PHYSICAL_RX.search(m.group("gap")))
+
+
+_VICTIM_AFTER_RX = re.compile(r"\s*(?:users?|customers?|staff|employees|workers|clients|subscribers)\b", re.IGNORECASE)
+
+
+def _platform_in_clause(clause: str) -> str | None:
+    """The platform named in this clause when the clause says the PLATFORM is what is disrupted: an incident word after it, or
+    before it when the platform is not merely the affected users' tool. Not a channel mention ('staff used Zoom'), and not a
+    clause about an unrelated physical event ('Oracle plant fire', 'Texas power outage')."""
+    physical = bool(_PHYSICAL_RX.search(clause))
+    for hit in _AU_DEPENDENCY_RX.finditer(clause):
+        if _CHANNEL_BEFORE_RX.search(clause[:hit.start()]):
+            continue
+        if physical:                              # a physical cause may be named, but only a platform stated as down is the affected thing
+            if _platform_stated_down(clause, hit):
+                return hit.group(0)
+            continue
+        rest = clause[hit.end():]
+        if _INCIDENT_RX.search(hit.group(0)) or _INCIDENT_RX.search(rest):
+            return hit.group(0)
+        if _INCIDENT_RX.search(clause[:hit.start()]) and not _VICTIM_AFTER_RX.match(rest):
+            return hit.group(0)
+    return None
+
+
+def _dependency_platform(m: Candidate) -> str | None:
+    """The global platform this report says is AFFECTED, or None. A headline match needs the platform to be what is disrupted
+    (see _platform_in_clause); a status page's own name stands; a summary match needs a sentence that also describes that platform
+    being disrupted and is not a communication-channel mention."""
+    title, summary = _relevance_parts(m)
+    for clause in _CLAUSE_SPLIT.split(title):
+        platform = _platform_in_clause(clause)
+        if platform:
+            return platform
+    hit = _AU_DEPENDENCY_RX.search(m.source or "")
+    if hit:
+        return hit.group(0)
+    for sentence in _SENTENCE_SPLIT.split(summary):
+        if _COMMS_CHANNEL_RX.search(sentence) or _DENIAL_RX.search(sentence):
+            continue
+        for clause in _CLAUSE_SPLIT.split(sentence):
+            platform = _platform_in_clause(clause)
+            if platform:
+                return platform
+    return None
+
+
+def _marker_in_member(m: Candidate) -> bool:
+    """An Australian marker in the headline, or in a summary sentence that also reports an incident (a passing 'Qantas passengers
+    unaffected' or a dateline is not Australian impact)."""
+    title, summary = _relevance_parts(m)
+    if _au_marker(title):
+        return True
+    return any(_au_marker(sent) and _INCIDENT_RX.search(sent) and not _DENIAL_RX.search(sent) for sent in _SENTENCE_SPLIT.split(summary))
+
+
+# geography == "AU" is a keyword guess over the headline+summary (classification/classifier.py: substring hits on 'australian',
+# 'victoria', 'sa', 'act', ...), not a verified location: the sentence 'Australian ports were not affected' itself tags a California
+# incident AU. So the tag is WEAK evidence: explicit text beats it.
+_FOREIGN_PLACE_RX = _rx((r"u\.?s\.?a?", r"united states", r"america\w*", r"uk", r"britain", r"british", r"england", r"canada", r"canadian",
+                         r"europe\w*", r"china", r"chinese", r"russia\w*", r"ukrain\w*", r"libya", r"india\w*", r"japan\w*", r"korea\w*",
+                         r"los angeles", r"long beach", r"new york", r"california", r"texas", r"florida", r"london", r"singapore", r"germany",
+                         r"france", r"israel\w*", r"iran\w*", r"brazil\w*", r"mexic\w*", r"nigeria\w*", r"south africa\w*"))
+
+
+def _denies_au_impact(text: str) -> bool:
+    """A sentence that explicitly says Australia/an Australian organisation was not affected, or 'no Australian ...'."""
+    for sent in _SENTENCE_SPLIT.split(text):
+        if _DENIAL_RX.search(sent) and (_au_marker(sent) or re.search(r"\bno\s+(?:\w+\s+){0,3}?australian", sent, re.IGNORECASE)):
+            return True
+    return False
+
+
+def _geography_tag_is_credible(m: Candidate) -> bool:
+    """geography=AU establishes relevance unless the text denies Australian impact, or names a clearly foreign place with no
+    Australian marker (then the tag is collection scope / audience, not where the event is)."""
+    title, summary = _relevance_parts(m)
+    text = f"{title}. {summary}"
+    if _denies_au_impact(text):
+        return False
+    return not (_FOREIGN_PLACE_RX.search(text) and not _au_marker(text))
+
+
+def australian_relevance(group: Group) -> str | None:
+    """Why this incident has demonstrated Australian OPERATIONAL relevance ('australian geography', 'names Australia or an
+    Australian organisation'), or a PLAUSIBLE dependency ('plausible dependency on <platform> (Australian impact not
+    established)'), or None."""
+    for m in group.members:
+        if (m.geography or "").strip().upper() == "AU" and _geography_tag_is_credible(m):
+            return "australian geography"
+    for m in group.members:
+        if _marker_in_member(m):
+            return "names Australia or an Australian organisation"
+    for m in group.members:
+        platform = _dependency_platform(m)
+        if platform:
+            return f"plausible dependency on {platform} (Australian impact not established)"
+    return None
+
+
+def australian_editorial_relevance(group: Group) -> bool:
+    """True when a report comes from an outlet whose whole scope is Australia. Editorial relevance only."""
+    return any(_AU_AUDIENCE_SOURCE_RX.search(_outlet(m)) for m in group.members)
 
 
 def decide(group: Group, *, now: datetime | None = None) -> Decision:
+    """Priority rules (see _decide_core) plus the Australian-relevance gate. An incident that would be escalated, verified or
+    watched but shows no Australian operational relevance or dependency is kept as REFERENCE, with the reason recorded. If its
+    only Australian link is an Australian-audience outlet it keeps editorial relevance: visible, but never above WATCH."""
+    d = _decide_core(group, now=now)
+    if d.priority in ("ESCALATE", "VERIFY", "WATCH") and d.event_type != "vulnerability":
+        why = australian_relevance(group)
+        if why is not None:
+            d.reasons.append(f"Australian relevance: {why}")
+            if why.startswith("plausible dependency") and d.priority == "ESCALATE":
+                d.reasons.append("dependency only, no Australian impact evidence: capped at VERIFY")
+                d.priority, d.urgency, d.provisional = "VERIFY", "soon", True
+        elif australian_editorial_relevance(group):
+            d.reasons.append("Australian-audience outlet only: editorial relevance, Australian operational impact not established (capped at WATCH)")
+            d.priority, d.urgency, d.provisional = "WATCH", "routine", False
+        else:
+            d.reasons.append("no demonstrated Australian relevance or dependency: kept as reference, not escalated into the Australian brief")
+            d.priority, d.urgency, d.provisional = "REFERENCE", "routine", False
+    return d
+
+
+def _decide_core(group: Group, *, now: datetime | None = None) -> Decision:
     originals = [m for m in group.members if not m.commentary] or group.members
     head = max(originals, key=lambda c: (_STATUS_ORDER[c.status], -(c.tier or 3), c.kind == we.PRIMARY,
                                          c.published or datetime.min.replace(tzinfo=timezone.utc)))
@@ -589,7 +980,151 @@ _VERIFY_NEXT = {
 }
 
 
-def escalation_record(d: Decision) -> dict:
+def _next_action(primary_type: str, impact_status: str, restoration: str) -> str:
+    """The verification step that fits the incident class AND its chronology. A retrospective investigation, or a disruption reported
+    restored, never receives a live-restoration task; a disruption whose current status is unknown is first checked for currency."""
+    if primary_type == "outage" and restoration == "restored":
+        return "confirm the restoration time, root cause and any customer remediation with the operator (reported restored; no live restoration action)"
+    if impact_status == "retrospective":
+        return "read the cited review, inquiry or analysis and confirm its findings and any remedial actions with the operator or regulator (no live restoration action)"
+    if primary_type == "outage":
+        if restoration == "ongoing":
+            return "confirm the customer count, affected area and restoration estimate with the operator or regulator (primary source)"
+        return ("confirm the disruption is current (operator status page or a dated primary statement); if it is not, treat the report as "
+                "historical and take no live restoration action")
+    return _VERIFY_NEXT.get(primary_type, "confirm with an official source")
+
+
+# A report that says service is restored AND says some of it is not: 'restored to some customers but thousands without power',
+# 'partially restored', 'yet to be restored', 'not all restored'. It has no 'still' / 'continues' word, but it is not a restoration.
+_PARTIAL_RX = _rx((r"restored (?:to|for) (?:some|part|parts|a number)", r"partial(?:ly)? restor\w*", r"(?:yet|not yet) (?:to be )?restored",
+                   r"not all (?:\w+ ){0,3}restored", r"(?:but|although|while|however)\b[^.;]{0,60}\b(?:without|remain\w*|yet to|outstanding|still)"))
+
+
+# ── Historical dated references ────────────────────────────────────────────────────────────────────────────
+# A headline such as "Microsoft's Friday 13th outage continues ..." re-surfaced on the 22nd names an event nine days old. 'continues'
+# in such a headline is a historical reference, not current evidence that the service is still disrupted. A report that names a
+# calendar date well before its own publication time cannot, by its wording alone, establish an ongoing status.
+HISTORIC_DATE_HOURS = 48
+_MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december")
+_WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+_DMY_RX = re.compile(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b")
+_DAY_MONTH_RX = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(" + "|".join(_MONTHS) + r")\b", re.IGNORECASE)
+_MONTH_DAY_RX = re.compile(r"\b(" + "|".join(_MONTHS) + r")\s+(\d{1,2})(?:st|nd|rd|th)?\b(?!,\d)", re.IGNORECASE)
+_WEEKDAY_ORD_RX = re.compile(r"\b(" + "|".join(_WEEKDAYS) + r")\s+(\d{1,2})(?:st|nd|rd|th)\b", re.IGNORECASE)
+
+
+def named_date(title: str, ref: datetime) -> datetime | None:
+    """The latest calendar date the headline names that is not after ``ref`` (a weekday-and-day-of-month such as 'Friday 13th', a
+    'day month', a 'month day', or dd/mm/yyyy), or None. Dates are read, never inferred."""
+    t = core_title(title or "")
+    found: list[datetime] = []
+
+    def add(y: int, mo: int, d: int):
+        try:
+            dt = datetime(y, mo, d, tzinfo=timezone.utc)
+        except ValueError:
+            return
+        if dt > ref:                                   # a future date (e.g. an estimated restoration time) is never a historical reference
+            return
+        found.append(dt)
+
+    for m in _DMY_RX.finditer(t):
+        add(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    for m in _DAY_MONTH_RX.finditer(t):
+        add(ref.year, _MONTHS.index(m.group(2).lower()) + 1, int(m.group(1)))
+    for m in _MONTH_DAY_RX.finditer(t):
+        if m.group(1).lower() == "may" and m.group(1) != "May":
+            continue                                   # lowercase / shouty 'may 10,000' is the modal verb, not a date
+        add(ref.year, _MONTHS.index(m.group(1).lower()) + 1, int(m.group(2)))
+    for m in _WEEKDAY_ORD_RX.finditer(t):
+        wd, day = _WEEKDAYS.index(m.group(1).lower()), int(m.group(2))
+        y, mo = ref.year, ref.month
+        for _ in range(14):                            # latest month (back from ref) whose day-th falls on that weekday
+            try:
+                dt = datetime(y, mo, day, tzinfo=timezone.utc)
+                if dt <= ref and dt.weekday() == wd:
+                    found.append(dt)
+                    break
+            except ValueError:
+                pass
+            mo -= 1
+            if mo == 0:
+                y, mo = y - 1, 12
+    return max(found) if found else None
+
+
+def _historic_at(title: str, published) -> bool:
+    """True when the headline names a date more than HISTORIC_DATE_HOURS before it was published."""
+    if not published:
+        return False
+    d = named_date(title, published)
+    return d is not None and published - d > timedelta(hours=HISTORIC_DATE_HOURS)
+
+
+def _historic(m: Candidate) -> bool:
+    return _historic_at(m.title, m.published)
+
+
+def _report_state(m: Candidate, now: datetime | None = None, active_default: bool = False) -> str | None:
+    """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
+    restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
+    forecast = bool(_FORECAST_RESTORE_RX.search(m.title))
+    hedged_restore = bool(_HEDGED_RESTORE_RX.search(m.title))
+    negated = _negated_restore(m.title)
+    restored = _affirmative_restored(m.title) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
+    cue = _ongoing_cue(m.title) or forecast or negated or (restored and bool(_PARTIAL_RX.search(m.title)))
+    if _historic(m):
+        # An old dated event: its continuation cue is not current evidence, but a negated or partial restoration ('yet to be
+        # restored') can never be read as a restoration either. No state at all unless it cleanly says restored.
+        return None if cue else ("restored" if restored else None)
+    if cue:
+        return "ongoing"
+    if active_default and not restored and m.ongoing and m.status == "stated":
+        # A stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration. It is
+        # live evidence only while current; once it ages out it can no longer establish an outage, but it still INVALIDATES the earlier
+        # restoration, so the status becomes unknown rather than resurrecting 'restored'.
+        if now is None or (m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS)):
+            return "ongoing"
+        return "reopened"
+    return "restored" if restored else None
+
+
+FRESH_REPORT_HOURS = 12       # a stated, non-retrospective report this recent is current evidence that a disruption is live
+
+
+def _restoration_status(originals: list[Candidate], now: datetime | None = None) -> str:
+    """#669: decide by report CHRONOLOGY. The latest dated report that states restored or ongoing wins, so an earlier 'still
+    without power' report no longer vetoes a later 'power restored' (and a later 'still ongoing' reopens an earlier
+    'restored'). Ties go to 'ongoing'. Reports without a date cannot be ordered, so with no dated statement the previous
+    any-report rule applies."""
+    dated = sorted((m for m in originals if m.published), key=lambda m: m.published)
+    for m in reversed(dated):
+        latest = m.published
+        states = {_report_state(x, now, active_default=True) for x in dated if x.published == latest} - {None}
+        if states:
+            return "ongoing" if "ongoing" in states else "unknown" if "reopened" in states else "restored"
+    states = {_report_state(m) for m in originals}
+    if "ongoing" in states:                  # an explicit 'still' / 'partly restored' statement, whatever the report order
+        return "ongoing"
+    if "restored" in states:
+        return "restored"
+    if now is None:                         # callers that do not say what time it is keep the previous rule
+        return "ongoing" if any(m.ongoing and m.status == "stated" and not _historic(m) for m in originals) else "unknown"
+    # #669: "ongoing" needs CURRENT evidence: an explicit continuation cue (still / ongoing / continues ...) in a stated
+    # report, or a stated, non-retrospective report from the last FRESH_REPORT_HOURS. Retrospective reporting about a past
+    # event, or an old report with no continuation cue, is "unknown" rather than a live disruption.
+    for m in originals:
+        if m.status != "stated" or _historic(m):   # retrospective, unconfirmed, warning or a re-surfaced old dated event: not a live disruption
+            continue
+        if _ongoing_cue(m.title):
+            return "ongoing"
+        if m.ongoing and m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS):
+            return "ongoing"
+    return "unknown"
+
+
+def escalation_record(d: Decision, *, now: datetime | None = None) -> dict:
     """The facts the Captain needs beside every ESCALATE/VERIFY item: what is confirmed vs merely reported, scale, duration and
     restoration, critical-service dependencies, geography, source confidence and the next verification action. Recomputed whenever the
     incident gains reports, so the classification is reassessed on new evidence."""
@@ -598,12 +1133,10 @@ def escalation_record(d: Decision) -> dict:
     counts = [m.customers for m in originals if m.customers]
     text = " ".join(m.title for m in originals)
     dur = _DURATION_RX.search(text)
-    if any(_RESTORED_RX.search(m.title) for m in originals) and not any(_ONGOING_RX.search(m.title) for m in originals):
-        restoration = "restored"
-    elif any(m.ongoing and m.status == "stated" for m in originals):
-        restoration = "ongoing"
-    else:
-        restoration = "unknown"
+    # A probable follow-up was attached only by sector/class proximity (low confidence), not by an incident-specific link, so its
+    # restoration wording must not close the incident (Codex P2: an unrelated operator's 'restored' report removed an ongoing outage).
+    speculative = {p[0] for p in d.group.pairs if str(p[3]).startswith("probable follow-up")}
+    restoration = _restoration_status([m for m in originals if m.event_id not in speculative] or originals, now)
     return {
         "impact": "stated in headline" if d.impact_status == "stated" else "reported" if d.impact_status in ("unconfirmed", "retrospective") else d.impact_status,
         "evidence_status": d.evidence_status, "evidence_basis": d.evidence_basis,
@@ -615,7 +1148,7 @@ def escalation_record(d: Decision) -> dict:
         "geographic_scope": sorted({m.geography for m in originals if m.geography}),
         "source_confidence": {"evidence_confidence": d.evidence_confidence, "independent_publishers": d.group.independent_publishers,
                               "source_kinds": sorted({m.kind for m in originals}), "provisional": d.provisional},
-        "next_verification_action": _VERIFY_NEXT.get(h.primary_type, "confirm with an official source"),
+        "next_verification_action": _next_action(h.primary_type, d.impact_status, restoration),
         "report_ids": [m.event_id for m in d.group.members],
         "reassess": "re-run when new reports arrive; customer count is a proportionality input, not a universal threshold",
     }

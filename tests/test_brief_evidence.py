@@ -66,7 +66,7 @@ def test_materiality_is_the_same_object_across_briefs(evset):
 
 def test_morning_separates_confirmed_from_verification_and_has_forward_watch(evset):
     text = "\n".join(be.morning_view(evset))
-    confirmed, rest = text.split("REQUIRES VERIFICATION", 1)
+    confirmed, rest = text.split("IMPACT NOT YET ESTABLISHED", 1)
     assert "OFFICIALLY CONFIRMED or CORROBORATED" in confirmed and "confirmed" not in rest.split("WARNINGS")[0].lower().replace("unconfirmed", "")
     assert "20,000 customers" in confirmed and "Coles" not in confirmed
     assert "Coles Group investigating" in rest
@@ -75,7 +75,7 @@ def test_morning_separates_confirmed_from_verification_and_has_forward_watch(evs
 
 
 def test_morning_ignores_incidents_older_than_a_day_in_the_confirmed_list(evset):
-    text = "\n".join(be.morning_view(evset)).split("REQUIRES VERIFICATION")[0]
+    text = "\n".join(be.morning_view(evset)).split("IMPACT NOT YET ESTABLISHED")[0]
     assert "Microsoft platforms" not in text
 
 
@@ -124,14 +124,14 @@ def test_load_events_fails_soft_and_maps_rows():
              "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
     out = be.load_events(lambda *a, **k: rows, hours=24)
     assert out == [{"id": "e1", "title": "T", "summary": "", "source": "ABC News", "geography": "AU",
-                    "collected_at": "2026-11-22T00:00:00Z", "url": "https://x"}]
+                    "collected_at": "2026-11-22T00:00:00Z", "published_at": None, "url": "https://x"}]
 
 
 def test_flagged_hook_adds_a_block_and_a_failure_does_not_break_the_brief(monkeypatch):
     from intelligence import captains_brief as cb
     monkeypatch.setenv("BRIEF_EVIDENCE_V1_MORNING", "1")
     monkeypatch.setattr(cb, "_sb_get", lambda *a, **k: [])
-    assert cb._evidence_lines("morning", 72) == []            # no events: nothing added
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in cb._evidence_lines("morning", 72)[0]   # no events: labelled insufficient, never silent
     rows = [{"event_id": "p1", "raw_title": EVENTS[0]["title"], "raw_summary": "", "geography": "AU",
              "collected_at": (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
              "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
@@ -139,7 +139,8 @@ def test_flagged_hook_adds_a_block_and_a_failure_does_not_break_the_brief(monkey
     out = "\n".join(cb._evidence_lines("morning", 72))
     assert "EVIDENCE-BASED PICTURE" in out and "inc-" in out
     monkeypatch.setattr(be, "build_evidence", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
-    assert cb._evidence_lines("morning", 72) == []
+    failed = cb._evidence_lines("morning", 72)                # failure: never raises, labelled insufficient
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in failed[0] and "evidence layer unavailable" in failed[0]
 
 
 def test_aggregator_only_evidence_is_never_ready_to_draft_and_is_labelled():

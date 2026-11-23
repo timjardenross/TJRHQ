@@ -57,7 +57,11 @@ def test_flags_off_means_no_database_read_and_no_snapshot_io(monkeypatch, tmp_pa
 def test_flag_on_but_evidence_layer_fails_leaves_legacy_intact(monkeypatch):
     monkeypatch.setenv(be.MASTER_FLAG, "1")
     monkeypatch.setattr(be, "load_events", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db down")))
-    assert cb._evidence_lines("morning", 72) == [] and cb._evidence_lines("weekly", 168) == []
+    # Morning: a failing evidence query must not look like 'all quiet' - it yields the coverage-insufficient marker (the legacy brief
+    # still renders, labelled). Weekly is unchanged: no evidence block.
+    morning = cb._evidence_lines("morning", 72)
+    assert morning and "EVIDENCE COVERAGE INSUFFICIENT" in morning[0]
+    assert cb._evidence_lines("weekly", 168) == []
     from lib.comms import weekly
     monkeypatch.setattr(be, "build_evidence", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
     assert weekly.evidence_lines_for([]) == []

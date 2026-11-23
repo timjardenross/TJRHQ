@@ -14,6 +14,7 @@ import { AI_MODELS, DEFAULT_MODEL_ID } from '@/lib/ai-models';
 import type { ActionResult } from '@/lib/ai-actions';
 import { Panel, Dots, COUNCIL, ProposalBlock } from './shared';
 import type { CouncilAdvisor, Msg } from './types';
+import { PERSONAL_HEALTH_BLOCKED, applyPrivacyRefusal, requestMessages } from '@/lib/personalHealthChat';
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
 
@@ -61,17 +62,18 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
     setInput('');
     const userMsg: Msg = { id: Date.now().toString(), role: 'user', content: trimmed };
     const history = [...(threads[activeAdvisor.id] ?? []), userMsg];
+    const sent = requestMessages(history);   // UI-only error/refusal notices are never sent upstream
     setThreads((prev) => ({ ...prev, [activeAdvisor.id]: history }));
     setLoading(true);
     setStreamBuffer('');
 
     const endpoint = activeAdvisor.useXoEndpoint ? '/api/xo' : '/api/ai/chat';
     const body = activeAdvisor.useXoEndpoint
-      ? JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })) })
+      ? JSON.stringify({ messages: sent.map((m) => ({ role: m.role, content: m.content })) })
       // id: threaded through so a dispatched Number One "remember" can use
       // it as an idempotency key (Mission 6B closure-pass fix) — harmless
       // for every other role, which ignores it.
-      : JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content, id: m.id })), role: activeAdvisor.id, model: selectedModel, stream: true });
+      : JSON.stringify({ messages: sent.map((m) => ({ role: m.role, content: m.content, id: m.id })), role: activeAdvisor.id, model: selectedModel, stream: true });
 
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
@@ -79,6 +81,24 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
         setOfflineAdvisors((prev) => new Set([...prev, activeAdvisor.id]));
         setLoading(false);
         return;
+      }
+      if (res.status === 424) {
+        // Local model unavailable (CHAT_LOCAL_FIRST_V1): nothing was sent anywhere. Not "offline" — the advisor stays usable.
+        const unavailable = await res.json().catch(() => null) as { error?: string } | null;
+        const notice: Msg = { id: (Date.now() + 1).toString(), role: 'assistant', content: unavailable?.error || 'The local model is unavailable, so this request was not sent anywhere.', error: true };
+        setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), notice] }));
+        setLoading(false);
+        return;
+      }
+      if (res.status === 422) {
+        // Privacy refusal: explain it, and keep the rejected message from blocking later safe questions.
+        const refusal = await res.json().catch(() => null) as { code?: string; error?: string } | null;
+        if (refusal?.code === PERSONAL_HEALTH_BLOCKED) {
+          const notice: Msg = { id: (Date.now() + 1).toString(), role: 'assistant', content: refusal.error || 'This message looks like personal health information, which is never sent to the cloud model.', error: true };
+          setThreads((prev) => ({ ...prev, [activeAdvisor.id]: applyPrivacyRefusal(prev[activeAdvisor.id] ?? [], userMsg.id, notice) }));
+          setLoading(false);
+          return;
+        }
       }
       if (!res.body) throw new Error('No response body');
       const reader = res.body.getReader();
