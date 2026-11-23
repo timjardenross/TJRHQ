@@ -288,3 +288,13 @@ def test_negated_or_in_progress_restoration_is_not_restored():
 def test_affirmative_restoration_phrasings_still_restore():
     for t in ("Ausgrid outage: power has been restored to 8,000 homes", "Telstra outage: services restored for 20,000 customers"):
         assert record_for([e("a", t, "ABC News", 3)])["restoration_status"] == "restored", t
+
+
+def test_a_speculative_followup_cannot_close_an_unrelated_ongoing_outage():
+    """Codex P2 on b18d640d: the low-confidence follow-up pass attaches a lone retrospective report by sector/class proximity
+    only; its 'restored' wording (a different operator) must not mark the active incident restored."""
+    events = [e("a", "Telstra broadband outage still affecting 20,000 customers in Adelaide", "ABC News"),
+              e("b", "Optus mobile outage restored in Perth", "The Guardian", 3)]
+    ds = ed.run(events, now=NOW)
+    d = next(x for x in ds if "a" in {m.event_id for m in x.group.members})
+    assert ed.escalation_record(d)["restoration_status"] == "ongoing"
