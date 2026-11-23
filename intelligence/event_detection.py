@@ -142,6 +142,30 @@ _ANON_RX = re.compile("|".join(ANON_SOURCE), re.IGNORECASE)
 _CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.IGNORECASE)
 _DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.IGNORECASE)
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
+# Negated / in-progress / partial restoration ('power not restored', 'services yet to come back online', 'being restored', 'partially back
+# online', 'restoration unlikely'): the service is NOT restored. These spans are removed before looking for an affirmative restoration.
+_NEG_RESTORE_RX = re.compile(
+    r"(?:\b(?:not|never|no longer|yet to|\w+n't)\s+(?:\w+\s+){0,3}?(?:be\s+)?(?:restored|resolved|back online))"
+    r"|(?:\bbeing\s+(?:\w+\s+){0,2}?(?:restored|resolved))"
+    r"|(?:\bpartial(?:ly)?\s+(?:\w+\s+){0,1}?(?:restored|resolved|back online))"
+    r"|(?:\brestoration\s+(?:is\s+)?(?:unlikely|delayed|uncertain|postponed))", re.IGNORECASE)
+
+
+def _negated_restore(text: str) -> bool:
+    return bool(_NEG_RESTORE_RX.search(text))
+
+
+def _affirmative_restored(text: str) -> bool:
+    """True when the text affirms restoration, ignoring negated, in-progress and partial phrasings."""
+    return bool(_RESTORED_RX.search(_NEG_RESTORE_RX.sub(" ", text)))
+
+
+# A forecast ('will be restored by 5pm', 'restoration expected') says the service is NOT yet restored; a hedged claim ('reportedly restored',
+# 'believed to be restored') is not an affirmative status statement. Neither may override explicit ongoing evidence as 'restored'.
+_FORECAST_RESTORE_RX = _rx((r"(?:will|would|should|could|may|might|expected to|due to|set to|hoped? to|likely to|yet to|not yet|aim(?:s|ing)? to|working to)\s+(?:be\s+)?(?:fully\s+)?(?:restored|resolved|back online)",
+                            r"restoration\s+(?:expected|due|estimated|forecast|by|time)", r"(?:until|before)\s+(?:power|service|services|supply)\s+(?:is|are|can be|has been)\s+(?:restored|resolved)"))
+_HEDGED_RESTORE_RX = _rx((r"(?:reportedly|allegedly|apparently|supposedly|believed to be|said to be|claims? to be|understood to be|thought to be|possibly|perhaps)\s+(?:\w+\s+){0,2}(?:restored|resolved|back online)",
+                          r"(?:restored|resolved|back online)\b[^.;]{0,60}\b(?:reportedly|allegedly|apparently|unconfirmed)"))
 # Proportionality (Captain, 2026-11-23): customer count is NOT a universal threshold. For Tier 1 network services (energy,
 # telecom, water) an ONGOING confirmed outage of at least this many customers is high materiality even when described as regional.
 ONGOING_NETWORK_OUTAGE_CUSTOMERS = 10_000
@@ -215,6 +239,17 @@ def _orgs(title: str) -> frozenset:
     return frozenset(o for o in found if o not in _PROPER_STOP and len(o) > 2)
 
 
+def _report_time(event: dict):
+    """When the report was PUBLISHED. Report chronology (restored vs ongoing) must follow publication, not ingestion: an older
+    restoration article collected after a newer ongoing report must not win. The stored ``published_at`` is used when it parses
+    and is not later than collection (plus a small clock skew); otherwise collection time, which is the only time we have."""
+    collected = we._parse_ts(event.get("collected_at"))
+    published = we._parse_ts(event.get("published_at")) if event.get("published_at") else None
+    if published and (collected is None or published <= collected + timedelta(hours=1)):
+        return published
+    return collected
+
+
 def detect_candidate(event: dict) -> Candidate:
     title = event.get("title") or ""
     text = title        # headline only: this is what every measurement was made on; summaries add unmeasured noise
@@ -239,7 +274,7 @@ def detect_candidate(event: dict) -> Candidate:
     minor = bool(_MINOR_RX.search(text))
     cm = _CUSTOMERS_RX.search(text)
     customers = int(cm.group(1).replace(",", "")) if cm else None
-    ongoing = bool(_ONGOING_RX.search(text)) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
+    ongoing = bool(_ONGOING_RX.search(text)) or (not _affirmative_restored(text) and not _RETRO_RX.search(text))
     conflict = bool(_CONFLICT_RX.search(text))
     hedged = bool(_HEDGE_RX.search(text) or _ANON_RX.search(text))
     if _ROUTINE_RX.search(text):
@@ -269,7 +304,7 @@ def detect_candidate(event: dict) -> Candidate:
         status = "unconfirmed"
     src = event.get("source") or ""
     return Candidate(
-        event_id=str(event.get("id")), title=title, source=src, published=we._parse_ts(event.get("collected_at")),
+        event_id=str(event.get("id")), title=title, source=src, published=_report_time(event),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
@@ -296,12 +331,27 @@ class Group:
     commentary_ids: list[str]
 
 
+# #669: the class two reports share decides their comparison window and whether they can be one incident. Outages and cyber
+# incidents come first (unchanged); the other prose-correlated classes (hazards, supply shortfalls, water quality, service
+# disruptions) are now correlated on their OWN class instead of being lumped under "vulnerability" and rejected.
+_CLASS_PRIORITY = ("outage", "cyber_incident", "hazard", "supply_shortfall", "water_quality", "service_disruption")
+
+
+def _shared_class(a: Candidate, b: Candidate) -> str | None:
+    shared = set(a.types) & set(b.types)
+    if not shared:
+        return None
+    for cls in _CLASS_PRIORITY:
+        if cls in shared:
+            return cls
+    return "vulnerability" if "vulnerability" in shared else min(shared)
+
+
 def _comparable(a: Candidate, b: Candidate) -> bool:
     """True when two reports fall inside the time window of their shared event class (a pair outside it is simply not comparable)."""
-    shared = set(a.types) & set(b.types)
-    if not shared or not (a.published and b.published):
+    cls = _shared_class(a, b)
+    if cls is None or not (a.published and b.published):
         return True
-    cls = "outage" if "outage" in shared else "cyber_incident" if "cyber_incident" in shared else min(shared)
     return abs(a.published - b.published) <= _WINDOW.get(cls, _WINDOW["other"])
 
 
@@ -320,11 +370,10 @@ def _link(a: Candidate, b: Candidate, idf: dict[str, float]) -> tuple[float, str
     """Confidence (0-1) that two candidates report ONE incident, with the reason; None if they do not."""
     if not (a.is_candidate and b.is_candidate):
         return None
-    shared_types = set(a.types) & set(b.types)
-    if not shared_types:
+    cls = _shared_class(a, b)
+    if cls is None:
         return None
-    cls = "outage" if "outage" in shared_types else "cyber_incident" if "cyber_incident" in shared_types else "vulnerability"
-    if a.published and b.published and abs(a.published - b.published) > _WINDOW[cls]:
+    if a.published and b.published and abs(a.published - b.published) > _WINDOW.get(cls, _WINDOW["other"]):
         return None
     if cls == "vulnerability":
         return None            # advisories are grouped by CVE/product, never by prose similarity
@@ -348,9 +397,33 @@ def _link(a: Candidate, b: Candidate, idf: dict[str, float]) -> tuple[float, str
     # distinct-incident guard: same organisation but disjoint specific services/locations -> separate incidents
     if shared_orgs and _service_conflict(a, b):
         return None
+    # #669: hazards, supply shortfalls, water quality and service disruptions are place-specific. Two reports that each name a
+    # place, and name DIFFERENT places, are different incidents however alike their headlines (a Sydney and a Melbourne boil
+    # water notice). Outage and cyber links keep their existing guards.
+    if cls in _PLACE_SPECIFIC_CLASSES and _location_conflict(a, b):
+        return None
     if score >= 0.6 or (score >= 0.5 and (shared_orgs or rare >= 2)):
         return round(min(1.0, score), 2), "; ".join(reasons) + f"; class {cls}"
     return None
+
+
+_PLACE_SPECIFIC_CLASSES = ("hazard", "supply_shortfall", "water_quality", "service_disruption")
+_PLACES = ("sydney", "melbourne", "brisbane", "perth", "adelaide", "canberra", "hobart", "darwin", "newcastle", "wollongong", "illawarra",
+           "gold coast", "sunshine coast", "geelong", "cairns", "townsville", "launceston", "alice springs", "kimberley", "pilbara",
+           "eyre peninsula", "nsw", "new south wales", "victoria", "victorian", "queensland", "tasmania", "tasmanian", "south australia",
+           "western australia", "northern territory", "act")
+_PLACE_RX = re.compile(r"\b(" + "|".join(re.escape(p) for p in sorted(_PLACES, key=len, reverse=True)) + r")\b", re.IGNORECASE)
+_PLACE_ALIAS = {"victorian": "victoria", "tasmanian": "tasmania", "new south wales": "nsw"}
+
+
+def _places(title: str) -> frozenset:
+    return frozenset(_PLACE_ALIAS.get(m.lower(), m.lower()) for m in _PLACE_RX.findall(title))
+
+
+def _location_conflict(a: Candidate, b: Candidate) -> bool:
+    """True when both reports name places and share none of them."""
+    pa, pb = _places(a.title), _places(b.title)
+    return bool(pa and pb and not (pa & pb))
 
 
 _SERVICE_RX = re.compile(r"\b(outlook|teams|azure|aws|gmail|sharepoint|onedrive|exchange|office|xbox|github|"
@@ -592,6 +665,47 @@ _VERIFY_NEXT = {
 }
 
 
+# A report that says service is restored AND says some of it is not: 'restored to some customers but thousands without power',
+# 'partially restored', 'yet to be restored', 'not all restored'. It has no 'still' / 'continues' word, but it is not a restoration.
+_PARTIAL_RX = _rx((r"restored (?:to|for) (?:some|part|parts|a number)", r"partial(?:ly)? restor\w*", r"(?:yet|not yet) (?:to be )?restored",
+                   r"not all (?:\w+ ){0,3}restored", r"(?:but|although|while|however)\b[^.;]{0,60}\b(?:without|remain\w*|yet to|outstanding|still)"))
+
+
+def _report_state(m: Candidate) -> str | None:
+    """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
+    restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
+    forecast = bool(_FORECAST_RESTORE_RX.search(m.title))
+    hedged_restore = bool(_HEDGED_RESTORE_RX.search(m.title))
+    negated = _negated_restore(m.title)
+    restored = _affirmative_restored(m.title) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
+    if _ONGOING_RX.search(m.title) or forecast or negated or (restored and _PARTIAL_RX.search(m.title)):
+        return "ongoing"
+    if not restored and m.ongoing and m.status == "stated":
+        return "ongoing"                    # a stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration
+    return "restored" if restored else None
+
+
+def _restoration_status(originals: list[Candidate]) -> str:
+    """#669: decide by report CHRONOLOGY. The latest dated report that states restored or ongoing wins, so an earlier 'still
+    without power' report no longer vetoes a later 'power restored' (and a later 'still ongoing' reopens an earlier
+    'restored'). Ties go to 'ongoing'. Reports without a date cannot be ordered, so with no dated statement the previous
+    any-report rule applies."""
+    dated = sorted((m for m in originals if m.published), key=lambda m: m.published)
+    for m in reversed(dated):
+        latest = m.published
+        states = {_report_state(x) for x in dated if x.published == latest} - {None}
+        if states:
+            return "ongoing" if "ongoing" in states else "restored"
+    states = {_report_state(m) for m in originals}
+    if "ongoing" in states:                  # an explicit 'still' / 'partly restored' statement, whatever the report order
+        return "ongoing"
+    if "restored" in states:
+        return "restored"
+    if any(m.ongoing and m.status == "stated" for m in originals):
+        return "ongoing"
+    return "unknown"
+
+
 def escalation_record(d: Decision) -> dict:
     """The facts the Captain needs beside every ESCALATE/VERIFY item: what is confirmed vs merely reported, scale, duration and
     restoration, critical-service dependencies, geography, source confidence and the next verification action. Recomputed whenever the
@@ -601,12 +715,10 @@ def escalation_record(d: Decision) -> dict:
     counts = [m.customers for m in originals if m.customers]
     text = " ".join(m.title for m in originals)
     dur = _DURATION_RX.search(text)
-    if any(_RESTORED_RX.search(m.title) for m in originals) and not any(_ONGOING_RX.search(m.title) for m in originals):
-        restoration = "restored"
-    elif any(m.ongoing and m.status == "stated" for m in originals):
-        restoration = "ongoing"
-    else:
-        restoration = "unknown"
+    # A probable follow-up was attached only by sector/class proximity (low confidence), not by an incident-specific link, so its
+    # restoration wording must not close the incident (Codex P2: an unrelated operator's 'restored' report removed an ongoing outage).
+    speculative = {p[0] for p in d.group.pairs if str(p[3]).startswith("probable follow-up")}
+    restoration = _restoration_status([m for m in originals if m.event_id not in speculative] or originals)
     return {
         "impact": "stated in headline" if d.impact_status == "stated" else "reported" if d.impact_status in ("unconfirmed", "retrospective") else d.impact_status,
         "evidence_status": d.evidence_status, "evidence_basis": d.evidence_basis,
