@@ -236,6 +236,7 @@ class Candidate:
     conflict: bool = False    # armed-conflict reporting (never escalated on its own)
     hedged: bool = False      # hedged or anonymously sourced (likely / reportedly / 'sources say')
     legacy: dict = field(default_factory=dict)
+    summary: str = ""         # the report's summary text (used only for Australian-relevance checks, never for classification)
 
     @property
     def primary_type(self) -> str:
@@ -335,7 +336,8 @@ def detect_candidate(event: dict) -> Candidate:
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
-        family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {})
+        family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {},
+        summary=str(event.get("summary") or "")[:1500])
 
 
 # ── Stage 2: incident correlation ──────────────────────────────────────────────────────────────────────────
@@ -620,7 +622,272 @@ def evidence_status(group: Group) -> tuple[str, list[str]]:
     return ("corroborated" if len(solid_publishers) >= 2 and group.independent_publishers >= 2 else "reported"), basis
 
 
+# #669: an incident enters the AUSTRALIAN operational brief only with demonstrated Australian relevance or dependency.
+# OPERATIONAL relevance: the collected geography is Australian, or a report (title or summary) names Australia, an Australian
+# state/city or an Australian organisation; or the incident is an outage or compromise of a global platform that Australian
+# services run on (cloud, payments, telecommunications, critical software, supply-chain chokepoints). A provider's own status
+# page counts: 'Supabase Status' reporting a Supabase disruption is a dependency report. Advisories (vulnerabilities) are
+# exempt: they are judged by exposure, not geography. A publisher's nationality is NOT operational relevance (see below).
+_AU_MARKER_RX = _rx((r"australia\w*", r"aussie\w*", r"nsw", r"new south wales", r"queensland\w*", r"tasmania\w*", r"victorian",
+                     r"canberra", r"asx", r"nbn", r"apra", r"acsc", r"aemo",
+                     r"ausgrid", r"electranet", r"endeavour energy", r"ergon", r"energex", r"essential energy", r"ausnet", r"powercor",
+                     r"jemena", r"western power", r"sa power networks", r"tasnetworks", r"evoenergy",
+                     r"telstra", r"optus", r"tpg", r"qantas", r"jetstar", r"virgin australia", r"westpac",
+                     r"anz", r"national australia bank", r"commonwealth bank", r"coles", r"woolworths", r"medibank", r"services australia",
+                     r"centrelink", r"agl", r"origin energy", r"suncorp", r"bhp", r"woodside", r"transurban"))
+# Place names that also exist outside Australia: they count only when NOT followed by a non-Australian region ('Sydney, Nova Scotia',
+# 'Perth Amboy', 'Newcastle upon Tyne', 'Victoria, BC') unless an unambiguous Australian signal is also present.
+_AU_AMBIGUOUS_PLACE_RX = _rx((r"sydney", r"melbourne", r"brisbane", r"perth", r"adelaide", r"hobart", r"darwin", r"cairns", r"townsville",
+                              r"geelong", r"wollongong", r"gold coast", r"newcastle",
+                              r"(?:(?:in|across|hits?|throughout|over|state of|affects?)\s+victoria(?! falls))", r"victoria(?= (?:state|government|police)\b)"))
+_NON_AU_REGION_RX = re.compile(
+    r"\s*,?\s*(?:amboy|upon tyne|uk|u\.k\.|usa|u\.s\.|us|canada|england|scotland|wales|ireland|britain|united kingdom|united states|"
+    r"nova scotia|british columbia|bc|ontario|quebec|alberta|manitoba|new brunswick|newfoundland|"
+    r"alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|"
+    r"kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|"
+    r"new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|"
+    r"south dakota|tennessee|texas|utah|vermont|virginia|west virginia|wisconsin|wyoming|washington|seychelles|zimbabwe|zambia)(?![a-z])",
+    re.IGNORECASE)
+_AU_CO_SIGNAL_RX = re.compile(r"\.au\b|\b(?:NSW|Vic|Qld|WA|SA|Tas|NT|ACT)\b")
+_NAB_RX = re.compile(r"\bNAB\b")                       # case-sensitive: the verb 'nab' is not the bank
+_DATELINE_RX = re.compile(
+    r"\b[A-Z][A-Z .'-]{2,30}(?:,\s*[A-Za-z .]{2,30})?\s*\((?:Reuters|AP|AFP|AAP|Bloomberg|UPI|CNN|dpa|EFE|Xinhua)\)\s*[-\u2013\u2014:]?"
+    r"|\b[A-Za-z]+(?: [A-Za-z]+)?\s+(?:bureau|dateline)\b(?!\s+of\b)|\b(?:reporting|reported|report|story|filed|written)\s+by\b[^.\n]{0,60}?\bbureau\b|\b[A-Za-z]+-based\s+(?:reporter|correspondent|journalist|newsroom)\b",
+    re.IGNORECASE)
+
+def _au_marker(text: str) -> bool:
+    """True when the text names Australia, an Australian organisation or (unambiguously) an Australian place."""
+    if _AU_MARKER_RX.search(text) or _NAB_RX.search(text):
+        return True
+    cosig = bool(_AU_CO_SIGNAL_RX.search(text))
+    for hit in _AU_AMBIGUOUS_PLACE_RX.finditer(text):
+        if cosig or not _NON_AU_REGION_RX.match(text, hit.end()):
+            return True
+    return False
+
+
+_AU_DEPENDENCY_RX = _rx((
+    # cloud and hosting
+    r"microsoft", r"azure", r"office 365", r"microsoft 365", r"m365", r"exchange online", r"onedrive", r"sharepoint",
+    r"outlook(?:\.com)? (?:outage|down|email|service|not working)", r"aws", r"amazon web services", r"google cloud", r"cloudflare", r"akamai", r"fastly",
+    r"oracle cloud", r"ibm cloud", r"alibaba cloud", r"digitalocean", r"vercel", r"netlify", r"supabase", r"snowflake", r"databricks",
+    # payments
+    r"mastercard", r"swift network", r"swift messaging", r"apple pay", r"google pay", r"paypal", r"stripe", r"adyen", r"worldpay", r"fiserv",
+    # telecommunications
+    r"subsea cables?", r"submarine cables?", r"undersea cables?", r"starlink", r"inmarsat", r"intelsat", r"equinix", r"digital realty",
+    # critical software and SaaS
+    r"crowdstrike", r"cisco", r"okta", r"oracle", r"salesforce", r"atlassian", r"github", r"zoom", r"servicenow", r"citrix", r"vmware",
+    r"fortinet", r"palo alto networks", r"ivanti", r"solarwinds", r"twilio", r"sendgrid", r"slack", r"pagerduty", r"datadog",
+    r"openai", r"anthropic",
+    # supply chain
+    r"maersk", r"cma cgm", r"hapag-lloyd", r"dp world", r"suez canal", r"panama canal", r"strait of hormuz", r"red sea shipping"))
+# Outlets whose whole editorial scope is Australia. Australian-audience reporting is EDITORIAL relevance only: it keeps an item
+# visible at WATCH, but it never establishes an Australian operational impact on its own (the Captain's rule).
+_AU_AUDIENCE_SOURCE_RX = _rx((r"the mandarin", r"innovationaus", r"smartcompany", r"government news", r"cyber daily", r"information age"))
+
+
+def _publisher_suffix(m: Candidate):
+    """The trailing ' - Outlet' of an aggregator feed title, but only when it is established to be publisher attribution: the report
+    comes through an aggregator, or the clause names a recognised publisher. A direct-source clause such as ' - Microsoft investigates
+    disruption' is headline content and is kept."""
+    suffix = _PUBLISHER_SUFFIX.search(m.title or "")
+    if not suffix:
+        return None
+    outlet = re.sub(r"^\s[-–|]\s", "", suffix.group(0)).strip()
+    if we.source_kind(m.source or "") == we.AGGREGATOR or we.source_kind(outlet) != we.UNKNOWN:
+        return suffix
+    return None
+
+
+def _outlet(m: Candidate) -> str:
+    suffix = _publisher_suffix(m)                         # aggregator feeds carry the real outlet as a trailing ' - Outlet'
+    return f"{m.source or ''} {suffix.group(0) if suffix else ''}"
+
+
+def _relevance_parts(m: Candidate) -> tuple[str, str]:
+    """(title, summary) WITHOUT the publisher attribution: an outlet called 'The Australian' or 'Guardian Australia' must not
+    establish operational relevance (the aggregator's trailing ' - Outlet' and any copy of the outlet name in the summary).
+    Datelines and bureau credits ('SYDNEY (Reuters) -') are also removed: they say where the reporter is, not what is affected."""
+    title, summary = m.title or "", m.summary or ""
+    if m.kind == we.AGGREGATOR:                  # a direct-source headline's dash clause is content ('Global email outage - Microsoft investigates'), not attribution
+        suffix = _publisher_suffix(m)
+        if suffix:
+            title = title[:suffix.start()].strip()
+            outlet = re.sub(r"^\s[-\u2013|]\s", "", suffix.group(0)).strip()
+            if outlet:
+                summary = re.sub(re.escape(outlet), " ", summary, flags=re.IGNORECASE)
+    return _DATELINE_RX.sub(" ", title), _DATELINE_RX.sub(" ", summary)
+
+
+def _relevance_text(m: Candidate) -> str:
+    title, summary = _relevance_parts(m)
+    return f"{title} {summary}"
+
+
+# A summary mention of a platform only counts when the SAME sentence says that platform is being disrupted, and is not merely
+# the channel an unrelated party used to communicate ('the utility posted an update on Microsoft Teams').
+_DISRUPTION_RX = _rx((r"outages?", r"down", r"disrupt\w*", r"unavailable", r"unavailability", r"degraded", r"degradation", r"failures?",
+                      r"failed", r"offline", r"not working", r"faults?", r"unstable", r"instability"))
+_COMMS_CHANNEL_RX = re.compile(
+    r"\b(?:posted|tweeted|(?:re)?shared on|said on|(?:updates?|updated|announced|statements?|published|communicated|messaged)"
+    r"\s+(?:on|via|through|over)|x/twitter|twitter|facebook|teams channel)\b", re.IGNORECASE)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+_INCIDENT_RX = _rx((r"outages?", r"down", r"disrupt\w*", r"unavailable", r"unavailability", r"degraded", r"degradation", r"failures?",
+                    r"failed", r"offline", r"not working", r"faults?", r"unstable", r"instability", r"explosions?", r"blasts?", r"fires?",
+                    r"cyber-?attacks?", r"attacked", r"ransomware", r"breach\w*", r"hack\w*", r"compromis\w*", r"cut", r"severed",
+                    r"damaged", r"halted", r"suspended", r"crash\w*", r"(?<!un)affected", r"hit", r"hits", r"cancel\w*", r"delay\w*"))
+# A clause: headline text split at punctuation and at words that introduce a separate cause or aside.
+_CLAUSE_SPLIT = re.compile(r"[;:,]|\s[-\u2013\u2014|]\s|\b(?:after|following|due to|because of|caused by|amid|as|while|when|but)\b", re.IGNORECASE)
+# An unrelated physical event in the clause: the outage is of a plant, grid or building, not of the platform.
+_PHYSICAL_RX = _rx((r"power", r"grid", r"blackouts?", r"electricity", r"plant", r"factory", r"refinery", r"substation", r"hospital",
+                    r"fire", r"wildfire", r"storm", r"flood\w*", r"earthquake", r"cyclone", r"hurricane", r"gas", r"pipeline", r"warehouse"))
+# Real channel-use constructions only. A bare 'on' is NOT one: 'cyberattack/outage/failure on <platform>' means the platform is the
+# affected service; 'on' is a channel only after a communication verb ('chatted on Zoom', 'met on Teams', 'on a call on Zoom').
+_CHANNEL_BEFORE_RX = re.compile(
+    r"\b(?:(?:used|using|via|through|over|per)|(?:call|calls|meeting|meetings|chat|chats|chatted|talk|talks|talked|met|meet|joined|hosted|held|"
+    r"posted|shared|announced|streamed|webinar)\s+on)\s+$", re.IGNORECASE)
+_PLATFORM_DOWN_RX = re.compile(
+    r"^\s*(?P<gap>(?:[\w.\-]+\s+){0,1}?)(?:outages?|down|offline|disrupt\w*|unavailable|unavailability|degraded|failures?|failed|not working)\b",
+    re.IGNORECASE)
+_DENIAL_RX = re.compile(
+    r"\b(?:not|never|n't|hasn't|haven't)\s+(?:\w+\s+){0,2}?(?:affected|impacted|hit|disrupted)\b|\bunaffected\b|\bunimpacted\b|"
+    r"\bno\s+(?:\w+\s+){0,3}?(?:impact|australian\w*|disruption|effect)\b|\b(?:were |was |been |remain(?:s|ed)? )?spared\b|\bwithout\s+(?:\w+\s+){0,2}?(?:impact|disruption)\b",
+    re.IGNORECASE)
+
+
+def _platform_stated_down(clause: str, hit) -> bool:
+    """The platform itself is stated as down/offline/disrupted right after its name ('Microsoft Azure offline', 'Cloudflare outage')."""
+    m = _PLATFORM_DOWN_RX.match(clause[hit.end():])
+    return bool(m and not _PHYSICAL_RX.search(m.group("gap")))
+
+
+_VICTIM_AFTER_RX = re.compile(r"\s*(?:users?|customers?|staff|employees|workers|clients|subscribers)\b", re.IGNORECASE)
+
+
+def _platform_in_clause(clause: str) -> str | None:
+    """The platform named in this clause when the clause says the PLATFORM is what is disrupted: an incident word after it, or
+    before it when the platform is not merely the affected users' tool. Not a channel mention ('staff used Zoom'), and not a
+    clause about an unrelated physical event ('Oracle plant fire', 'Texas power outage')."""
+    physical = bool(_PHYSICAL_RX.search(clause))
+    for hit in _AU_DEPENDENCY_RX.finditer(clause):
+        if _CHANNEL_BEFORE_RX.search(clause[:hit.start()]):
+            continue
+        if physical:                              # a physical cause may be named, but only a platform stated as down is the affected thing
+            if _platform_stated_down(clause, hit):
+                return hit.group(0)
+            continue
+        rest = clause[hit.end():]
+        if _INCIDENT_RX.search(hit.group(0)) or _INCIDENT_RX.search(rest):
+            return hit.group(0)
+        if _INCIDENT_RX.search(clause[:hit.start()]) and not _VICTIM_AFTER_RX.match(rest):
+            return hit.group(0)
+    return None
+
+
+def _dependency_platform(m: Candidate) -> str | None:
+    """The global platform this report says is AFFECTED, or None. A headline match needs the platform to be what is disrupted
+    (see _platform_in_clause); a status page's own name stands; a summary match needs a sentence that also describes that platform
+    being disrupted and is not a communication-channel mention."""
+    title, summary = _relevance_parts(m)
+    for clause in _CLAUSE_SPLIT.split(title):
+        platform = _platform_in_clause(clause)
+        if platform:
+            return platform
+    hit = _AU_DEPENDENCY_RX.search(m.source or "")
+    if hit:
+        return hit.group(0)
+    for sentence in _SENTENCE_SPLIT.split(summary):
+        if _COMMS_CHANNEL_RX.search(sentence) or _DENIAL_RX.search(sentence):
+            continue
+        for clause in _CLAUSE_SPLIT.split(sentence):
+            platform = _platform_in_clause(clause)
+            if platform:
+                return platform
+    return None
+
+
+def _marker_in_member(m: Candidate) -> bool:
+    """An Australian marker in the headline, or in a summary sentence that also reports an incident (a passing 'Qantas passengers
+    unaffected' or a dateline is not Australian impact)."""
+    title, summary = _relevance_parts(m)
+    if _au_marker(title):
+        return True
+    return any(_au_marker(sent) and _INCIDENT_RX.search(sent) and not _DENIAL_RX.search(sent) for sent in _SENTENCE_SPLIT.split(summary))
+
+
+# geography == "AU" is a keyword guess over the headline+summary (classification/classifier.py: substring hits on 'australian',
+# 'victoria', 'sa', 'act', ...), not a verified location: the sentence 'Australian ports were not affected' itself tags a California
+# incident AU. So the tag is WEAK evidence: explicit text beats it.
+_FOREIGN_PLACE_RX = _rx((r"u\.?s\.?a?", r"united states", r"america\w*", r"uk", r"britain", r"british", r"england", r"canada", r"canadian",
+                         r"europe\w*", r"china", r"chinese", r"russia\w*", r"ukrain\w*", r"libya", r"india\w*", r"japan\w*", r"korea\w*",
+                         r"los angeles", r"long beach", r"new york", r"california", r"texas", r"florida", r"london", r"singapore", r"germany",
+                         r"france", r"israel\w*", r"iran\w*", r"brazil\w*", r"mexic\w*", r"nigeria\w*", r"south africa\w*"))
+
+
+def _denies_au_impact(text: str) -> bool:
+    """A sentence that explicitly says Australia/an Australian organisation was not affected, or 'no Australian ...'."""
+    for sent in _SENTENCE_SPLIT.split(text):
+        if _DENIAL_RX.search(sent) and (_au_marker(sent) or re.search(r"\bno\s+(?:\w+\s+){0,3}?australian", sent, re.IGNORECASE)):
+            return True
+    return False
+
+
+def _geography_tag_is_credible(m: Candidate) -> bool:
+    """geography=AU establishes relevance unless the text denies Australian impact, or names a clearly foreign place with no
+    Australian marker (then the tag is collection scope / audience, not where the event is)."""
+    title, summary = _relevance_parts(m)
+    text = f"{title}. {summary}"
+    if _denies_au_impact(text):
+        return False
+    return not (_FOREIGN_PLACE_RX.search(text) and not _au_marker(text))
+
+
+def australian_relevance(group: Group) -> str | None:
+    """Why this incident has demonstrated Australian OPERATIONAL relevance ('australian geography', 'names Australia or an
+    Australian organisation'), or a PLAUSIBLE dependency ('plausible dependency on <platform> (Australian impact not
+    established)'), or None."""
+    for m in group.members:
+        if (m.geography or "").strip().upper() == "AU" and _geography_tag_is_credible(m):
+            return "australian geography"
+    for m in group.members:
+        if _marker_in_member(m):
+            return "names Australia or an Australian organisation"
+    for m in group.members:
+        platform = _dependency_platform(m)
+        if platform:
+            return f"plausible dependency on {platform} (Australian impact not established)"
+    return None
+
+
+def australian_editorial_relevance(group: Group) -> bool:
+    """True when a report comes from an outlet whose whole scope is Australia. Editorial relevance only."""
+    return any(_AU_AUDIENCE_SOURCE_RX.search(_outlet(m)) for m in group.members)
+
+
 def decide(group: Group, *, now: datetime | None = None) -> Decision:
+    """Priority rules (see _decide_core) plus the Australian-relevance gate. An incident that would be escalated, verified or
+    watched but shows no Australian operational relevance or dependency is kept as REFERENCE, with the reason recorded. If its
+    only Australian link is an Australian-audience outlet it keeps editorial relevance: visible, but never above WATCH."""
+    d = _decide_core(group, now=now)
+    if d.priority in ("ESCALATE", "VERIFY", "WATCH") and d.event_type != "vulnerability":
+        why = australian_relevance(group)
+        if why is not None:
+            d.reasons.append(f"Australian relevance: {why}")
+            if why.startswith("plausible dependency") and d.priority == "ESCALATE":
+                d.reasons.append("dependency only, no Australian impact evidence: capped at VERIFY")
+                d.priority, d.urgency, d.provisional = "VERIFY", "soon", True
+        elif australian_editorial_relevance(group):
+            d.reasons.append("Australian-audience outlet only: editorial relevance, Australian operational impact not established (capped at WATCH)")
+            d.priority, d.urgency, d.provisional = "WATCH", "routine", False
+        else:
+            d.reasons.append("no demonstrated Australian relevance or dependency: kept as reference, not escalated into the Australian brief")
+            d.priority, d.urgency, d.provisional = "REFERENCE", "routine", False
+    return d
+
+
+def _decide_core(group: Group, *, now: datetime | None = None) -> Decision:
     originals = [m for m in group.members if not m.commentary] or group.members
     head = max(originals, key=lambda c: (_STATUS_ORDER[c.status], -(c.tier or 3), c.kind == we.PRIMARY,
                                          c.published or datetime.min.replace(tzinfo=timezone.utc)))
