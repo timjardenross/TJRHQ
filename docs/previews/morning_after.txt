@@ -1,0 +1,20 @@
+🛰 EVIDENCE-BASED PICTURE (V1)
+274 incident(s) assessed from 868 report(s); method wk-detect/0.5.1-v1.
+
+What matters today — CONFIRMED incidents
+- None confirmed in the last 24 hours.
+
+REQUIRES VERIFICATION (unconfirmed or weakly evidenced; not treated as fact)
+- [VERIFY] APRA calls Microsoft outage a "near miss" for financial system - Insurance Business — confirmed, ongoing; confidence 0.30 [inc-5449338675; 2 report(s); Google News - APRA/ASIC Operational Resilience, Google News - Critical Infrastructure/Energy Cyberattack AU]
+    next: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- [VERIFY] US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News — reported; confidence 0.30 [inc-ebd7b7452d; 1 report(s); Google News - Critical Infrastructure/Energy Cyberattack AU]
+    next: obtain the organisation's own statement or the regulator's notice confirming what was affected
+- [VERIFY] Explosion on Russian ship at Libya port likely caused by drone attack, officials say — reported; confidence 0.60 [inc-6c7faa3ef7; 1 report(s); BBC News]
+    next: confirm casualties, damage and service impact with the responsible authority
+
+Operational implications (only what the cited reports state)
+- No operational implication is supported by confirmed reports today.
+
+Forward watch, next 24–72 hours
+- Verify: APRA calls Microsoft outage a "near miss" for financial system - Insurance Business → confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- Verify: US ports face wave of cyberattacks as Los Angeles blocks 120 million attempts - Gulf News → obtain the organisation's own statement or the regulator's notice confirming what was affected

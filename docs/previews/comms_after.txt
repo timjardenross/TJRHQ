@@ -1,0 +1,49 @@
+*Weekly Thought Leadership Brief — Mon 23 Nov 2026*
+_Communications & Presence Officer · "What should I be talking about this week?"_
+
+*Recommended this week — prioritised, evidence-backed:*
+1. *Specialists Advise, Captains Decide* — _AI-Augmented Leadership_ · suggest a *Lessons Learned*
+     ↳ evidence: Specialists Advise, Captains Decide _(source lesson:LL-003)_
+     ↳ advances: Career & Professional Impact
+2. *Authority Hierarchy Must Be Explicit* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Authority Hierarchy Must Be Explicit _(source lesson:LL-006)_
+     ↳ advances: Career & Professional Impact
+3. *Competing Authority Claims Accumulate Unless Prevented* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Competing Authority Claims Accumulate Unless Prevented _(source lesson:LL-007)_
+     ↳ advances: Career & Professional Impact
+4. *Authority Separation Is a First-Class Architectural Constraint* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Authority Separation Is a First-Class Architectural Constraint _(source lesson:LL-009)_
+     ↳ advances: Career & Professional Impact
+
+*Themes in the pipeline:* Operational Resilience (3) · AI-Augmented Leadership (1)
+*Strategic alignment:* Career & Professional Impact (4)
+
+_Generate a draft with `/comms draft <n>`. Communications & Presence Officer scaffolds; the Captain writes, edits, and publishes._
+
+📡 EVIDENCE-BASED CONTRIBUTION CANDIDATES (V1) — recommendation only; publication is approval-only
+
+- Authorities investigating four-minute Triple Zero outage in Canberra [inc-99ff181970; 1 report(s); ABC News]
+    relevance: Operational Resilience · originality: new angle (similarity 0.00)
+    evidence: confidence 0.60, sources mainstream, 1 independent publisher(s)
+    publication readiness: needs a second or primary source before drafting
+    research gap: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- White House removes cyber-security chief after series of tech outages [inc-4a23144426; 1 report(s); BBC News]
+    relevance: Operational Resilience · originality: new angle (similarity 0.00)
+    evidence: confidence 0.60, sources mainstream, 1 independent publisher(s)
+    publication readiness: needs a second or primary source before drafting
+    research gap: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- US tech outages blamed on rush to fix bugs found by AI [inc-9a4abe3142; 1 report(s); Financial Times]
+    relevance: AI-Augmented Leadership · originality: new angle (similarity 0.00)
+    evidence: confidence 0.60, sources mainstream, 1 independent publisher(s)
+    publication readiness: needs a second or primary source before drafting
+    research gap: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- NSA hit with system outage as US tech woes continue [inc-fcf75348a7; 1 report(s); ABC News]
+    relevance: Operational Resilience · originality: new angle (similarity 0.00)
+    evidence: confidence 0.60, sources mainstream, 1 independent publisher(s)
+    publication readiness: needs a second or primary source before drafting
+    research gap: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+- APRA calls Microsoft outage a "near miss" for financial system - Insurance Business [inc-bbd53663f2; 4 report(s); Google News - APRA/ASIC Operational Resilience, Google News - Telstra]
+    relevance: Operational Resilience · originality: new angle (similarity 0.00)
+    evidence: confidence 0.50, sources aggregator, 3 independent publisher(s)
+    publication readiness: needs a second or primary source before drafting
+    research gap: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)

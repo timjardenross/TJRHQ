@@ -139,3 +139,13 @@ def test_flagged_hook_adds_a_block_and_a_failure_does_not_break_the_brief(monkey
     assert "EVIDENCE-BASED PICTURE" in out and "inc-" in out
     monkeypatch.setattr(be, "build_evidence", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
     assert cb._evidence_lines("morning", 72) == []
+
+
+def test_aggregator_only_evidence_is_never_ready_to_draft_and_is_labelled():
+    evs = [ev("g1", "Microsoft outage disrupts services worldwide - Reuters", "Google News - Cloud outages", hours_ago=3),
+           ev("g2", "Microsoft outage disrupts services worldwide - Bloomberg", "Google News - Tech", hours_ago=2)]
+    es = be.build_evidence(evs, now=NOW, window_hours=72)
+    inc = es.incidents[0]
+    assert inc.priority == "VERIFY"                       # aggregator-only evidence never reaches ESCALATE
+    text = "\n".join(be.comms_view(es, pillar_fn=lambda t: "Operational Resilience", similarity_fn=lambda t, ex: 0.0, existing_titles=["x"]))
+    assert "ready to draft" not in text

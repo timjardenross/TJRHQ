@@ -30,7 +30,7 @@ EVENT_TYPES = {
                        r"personal data", r"leak(?:ed|s)?", r"wiped", r"card skimmers?", r"skimmers?", r"hijacked"),
     "outage": (r"unable to (?:access|use|log ?in)", r"outages?", r"blackouts?", r"power cuts?", r"power outages?", r"without power", r"goes? down",
                r"went down", r"is down", r"offline", r"disruptions?", r"disrupted", r"ground stops?", r"grounded",
-               r"flights? (?:cancell?ed|delayed)", r"shut ?down", r"system failures?", r"degraded",
+               r"flights? (?:cancell?ed|delayed)", r"shut ?down", r"(?:system|network|service|power) failures?", r"degraded",
                r"restor(?:e|ed|ing) services?", r"services? (?:restored|disabled|suspended)", r"portal disabled",
                r"power (?:is |still |remains? )?out", r"knock(?:s|ed|ing)? out power", r"cuts? power", r"cut power",
                r"los(?:t|e|es|ing) power", r"supply (?:is )?at risk", r"(?:power|energy|fuel) shortages?",
@@ -204,7 +204,7 @@ def detect_candidate(event: dict) -> Candidate:
     actual = bool(_ACTUAL_RX.search(text))
     potential = bool(_POTENTIAL_RX.search(text))
     # A multi-topic roundup headline ("A, B, C") reports no single incident, so it can never carry one.
-    roundup = len([seg for seg in re.split(r",(?!\d{3})", title) if len(seg.split()) >= 2]) >= 3   # not the comma in 20,000
+    roundup = len([seg for seg in re.split(r",(?!\d{3})", title) if len(seg.split()) >= 2 and seg.strip()[:1].isupper()]) >= 3   # topics, not a list "…, taking out banks, airlines"
     commentary = (bool(_COMM_RX.search(text)) or we.is_commentary(title) or roundup
                   or we.source_kind(event.get("source") or "") == we.CONTENT
                   or (bool(_POLITICS_RX.search(text)) and not _SAFETY_RX.search(text) and not _COMPROMISE_RX.search(text)))       # magazines/newsletters comment, they do not report
@@ -220,7 +220,7 @@ def detect_candidate(event: dict) -> Candidate:
     cm = _CUSTOMERS_RX.search(text)
     customers = int(cm.group(1).replace(",", "")) if cm else None
     ongoing = bool(_ONGOING_RX.search(text)) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
-    is_cand = bool(types or exposure) and (bool(sectors) or scale or compromise or conseq or exposure or safety
+    is_cand = bool(types or exposure or (conseq and essential)) and (bool(sectors) or scale or compromise or conseq or exposure or safety
                                            or ("vulnerability" in types and we.exploited(text)))
     consequence = ("essential_service" if essential else "broad_user_impact" if sectors
                    else "unknown" if (types and scale) else "none")

@@ -143,7 +143,8 @@ def _facts(i: IncidentView) -> str:
 
 
 def _line(i: IncidentView, with_action: bool = False) -> str:
-    tag = "provisional" if i.provisional else "corroborated"
+    kinds = {r["source_kind"] for r in i.reports if r["role"] != "commentary"}
+    tag = "provisional" if i.provisional else "corroborated" + (" via aggregator feeds only" if kinds <= {we.AGGREGATOR} else "")
     s = f"- [{i.priority}{' ' + tag if i.priority == 'ESCALATE' else ''}] {i.headline} — {_facts(i)}; confidence {i.evidence_confidence:.2f} {_cite(i)}"
     if with_action:
         s += f"\n    next: {i.record['next_verification_action']}"
@@ -256,7 +257,7 @@ def comms_view(ev: EvidenceSet, *, existing_titles: list[str] | None = None, pil
             continue                                             # no alignment with the Captain's pillars: not worth contributing
         sim = similarity_fn(i.headline, existing_titles) if (similarity_fn and existing_titles) else 0.0
         kinds = sorted({r["source_kind"] for r in i.reports if r["role"] != "commentary"})
-        corroborated = we.PRIMARY in kinds or i.independent_publishers >= 2
+        corroborated = we.PRIMARY in kinds or (i.independent_publishers >= 2 and any(k != we.AGGREGATOR for k in kinds))   # aggregator feeds alone never make a draft 'ready'
         if i.priority == "VERIFY" or i.impact_status != "confirmed":
             ready = "hold — facts unresolved"
         elif corroborated:

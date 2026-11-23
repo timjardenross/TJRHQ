@@ -1,0 +1,348 @@
+{
+ "model": "wk-detect/0.5.1-v1",
+ "labelled_either": {
+  "variant": "either",
+  "per_set": {
+   "dev150": {
+    "n_events": 150,
+    "n_incidents_model": 142,
+    "high": [
+     1,
+     2,
+     1
+    ],
+    "esc": [
+     1,
+     2,
+     1
+    ],
+    "grp": [
+     13,
+     33,
+     13
+    ],
+    "false_merge": 0,
+    "commentary_attached": 0,
+    "priorities": {
+     "ESCALATE": 2,
+     "VERIFY": 8,
+     "WATCH": 6,
+     "REFERENCE": 126
+    }
+   },
+   "hist127": {
+    "n_events": 127,
+    "n_incidents_model": 117,
+    "high": [
+     2,
+     3,
+     3
+    ],
+    "esc": [
+     2,
+     3,
+     3
+    ],
+    "grp": [
+     31,
+     43,
+     31
+    ],
+    "false_merge": 0,
+    "commentary_attached": 0,
+    "priorities": {
+     "ESCALATE": 4,
+     "VERIFY": 7,
+     "WATCH": 3,
+     "REFERENCE": 103
+    }
+   },
+   "h2_160": {
+    "n_events": 160,
+    "n_incidents_model": 160,
+    "high": [
+     2,
+     4,
+     3
+    ],
+    "esc": [
+     1,
+     2,
+     2
+    ],
+    "grp": [
+     0,
+     10,
+     0
+    ],
+    "false_merge": 0,
+    "commentary_attached": 0,
+    "priorities": {
+     "ESCALATE": 2,
+     "VERIFY": 10,
+     "WATCH": 8,
+     "REFERENCE": 140
+    }
+   }
+  },
+  "high_materiality_recall": {
+   "k": 5,
+   "n": 7,
+   "value": 0.714,
+   "ci95": [
+    0.359,
+    0.918
+   ]
+  },
+  "high_materiality_precision": {
+   "k": 5,
+   "n": 9,
+   "value": 0.556,
+   "ci95": [
+    0.267,
+    0.811
+   ]
+  },
+  "escalation_recall": {
+   "k": 4,
+   "n": 6,
+   "value": 0.667,
+   "ci95": [
+    0.3,
+    0.903
+   ]
+  },
+  "escalation_precision": {
+   "k": 4,
+   "n": 7,
+   "value": 0.571,
+   "ci95": [
+    0.25,
+    0.842
+   ]
+  },
+  "grouping_recall": {
+   "k": 44,
+   "n": 86,
+   "value": 0.512,
+   "ci95": [
+    0.408,
+    0.614
+   ]
+  },
+  "grouping_precision": {
+   "k": 44,
+   "n": 44,
+   "value": 1.0,
+   "ci95": [
+    0.92,
+    1.0
+   ]
+  },
+  "false_merges": 0
+ },
+ "labelled_both": {
+  "variant": "both",
+  "per_set": {
+   "dev150": {
+    "n_events": 150,
+    "n_incidents_model": 142,
+    "high": [
+     0,
+     2,
+     0
+    ],
+    "esc": [
+     0,
+     2,
+     0
+    ],
+    "grp": [
+     13,
+     33,
+     13
+    ],
+    "false_merge": 0,
+    "commentary_attached": 0,
+    "priorities": {
+     "ESCALATE": 2,
+     "VERIFY": 8,
+     "WATCH": 6,
+     "REFERENCE": 126
+    }
+   },
+   "hist127": {
+    "n_events": 127,
+    "n_incidents_model": 117,
+    "high": [
+     2,
+     3,
+     2
+    ],
+    "esc": [
+     2,
+     3,
+     2
+    ],
+    "grp": [
+     31,
+     43,
+     31
+    ],
+    "false_merge": 0,
+    "commentary_attached": 0,
+    "priorities": {
+     "ESCALATE": 4,
+     "VERIFY": 7,
+     "WATCH": 3,
+     "REFERENCE": 103
+    }
+   },
+   "h2_160": {
+    "n_events": 160,
+    "n_incidents_model": 160,
+    "high": [
+     1,
+     4,
+     1
+    ],
+    "esc": [
+     1,
+     2,
+     1
+    ],
+    "grp": [
+     0,
+     10,
+     0
+    ],
+    "false_merge": 0,
+    "commentary_attached": 0,
+    "priorities": {
+     "ESCALATE": 2,
+     "VERIFY": 10,
+     "WATCH": 8,
+     "REFERENCE": 140
+    }
+   }
+  },
+  "high_materiality_recall": {
+   "k": 3,
+   "n": 3,
+   "value": 1.0,
+   "ci95": [
+    0.438,
+    1.0
+   ]
+  },
+  "high_materiality_precision": {
+   "k": 3,
+   "n": 9,
+   "value": 0.333,
+   "ci95": [
+    0.121,
+    0.646
+   ]
+  },
+  "escalation_recall": {
+   "k": 3,
+   "n": 3,
+   "value": 1.0,
+   "ci95": [
+    0.438,
+    1.0
+   ]
+  },
+  "escalation_precision": {
+   "k": 3,
+   "n": 7,
+   "value": 0.429,
+   "ci95": [
+    0.158,
+    0.75
+   ]
+  },
+  "grouping_recall": {
+   "k": 44,
+   "n": 86,
+   "value": 0.512,
+   "ci95": [
+    0.408,
+    0.614
+   ]
+  },
+  "grouping_precision": {
+   "k": 44,
+   "n": 44,
+   "value": 1.0,
+   "ci95": [
+    0.92,
+    1.0
+   ]
+  },
+  "false_merges": 0
+ },
+ "sentinels": {
+  "verified_incidents": 23,
+  "with_contemporary_headline": 23,
+  "detected_or_retained_ESCALATE_or_VERIFY_best_headline": {
+   "k": 21,
+   "n": 23,
+   "value": 0.913,
+   "ci95": [
+    0.732,
+    0.976
+   ]
+  },
+  "detected_or_retained_first_headline": {
+   "k": 19,
+   "n": 23,
+   "value": 0.826,
+   "ci95": [
+    0.629,
+    0.93
+   ]
+  },
+  "not_REFERENCE_best_headline": {
+   "k": 23,
+   "n": 23,
+   "value": 1.0,
+   "ci95": [
+    0.857,
+    1.0
+   ]
+  },
+  "missed": [
+   [
+    "intl-log4shell-2021-12",
+    "Log4j vulnerability - what everyone needs to know",
+    [
+     "REFERENCE",
+     "REFERENCE",
+     "WATCH"
+    ]
+   ],
+   [
+    "intl-jlr-cyber-2025-08",
+    "Jaguar Land Rover manufacturing and retail ‘severely disrupted’ by cyber inciden",
+    [
+     "WATCH",
+     "REFERENCE",
+     "WATCH"
+    ]
+   ]
+  ],
+  "negatives_tested": 15,
+  "negatives_escalated": [
+   "neg-crowdstrike-2024-07-19-not-cyber-incident"
+  ],
+  "negatives_verify": [
+   "neg-cloudflare-2025-11-18-not-cyberattack",
+   "neg-spain-portugal-blackout-2025-04-28-cyber-speculation",
+   "neg-facebook-2021-10-04-config-change-not-attack",
+   "neg-telstra-2022-10-04-third-party-employee-data",
+   "neg-killnet-us-airports-2022-10-10-website-ddos",
+   "neg-csa-crowdstrike-lessons-2025-07-03"
+  ]
+ }
+}
