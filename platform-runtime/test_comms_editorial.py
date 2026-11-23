@@ -228,7 +228,7 @@ class TestOrderingContractAndOffline(unittest.TestCase):
 
     def test_signals_add_corroboration_and_timeliness(self):
         sig = [{"event_id_text": "e1", "source_name": "Regulator",
-                "suggested_angle": "essential service continuity cascading disruption",
+                "raw_title": "essential service continuity cascading disruption",
                 "scored_at": "2026-11-21T00:00:00Z"}]
         base = _scored([dict(ROW_S1, source=None, cut_off=None)])[0].escore
         withsig = _scored([dict(ROW_S1, source=None, cut_off=None)], signals=sig)[0]
@@ -326,28 +326,116 @@ class TestSignalMatchingCorrections(unittest.TestCase):
     def test_two_shared_terms_no_longer_match(self):
         o = self._opp()
         sig = {"event_id_text": "e", "source_name": "Bloomberg",
-               "suggested_angle": "essential services opinion", "scored_at": "2026-11-21T00:00:00Z"}
+               "raw_title": "essential services opinion", "scored_at": "2026-11-21T00:00:00Z"}
         self.assertFalse(opp._signal_matches(o, sig))
 
     def test_three_shared_terms_match(self):
         o = self._opp()
         sig = {"event_id_text": "e", "source_name": "Bloomberg",
-               "suggested_angle": "essential service continuity cascading disruption",
+               "raw_title": "essential service continuity cascading disruption",
                "scored_at": "2026-11-21T00:00:00Z"}
         self.assertTrue(opp._signal_matches(o, sig))
 
     def test_signal_from_a_different_stream_is_rejected(self):
         o = self._opp()                               # resilience stream
         sig = {"event_id_text": "e", "source_name": "Bloomberg", "pillar_key": "human_performance",
-               "suggested_angle": "essential service continuity cascading disruption"}
+               "raw_title": "essential service continuity cascading disruption"}
         self.assertFalse(opp._signal_matches(o, sig))
 
     def test_attached_signals_record_kind_and_family(self):
         o = self._opp()
         opp.attach_signals([o], [{"event_id_text": "e1", "source_name": "Google News - Telstra",
-                                  "suggested_angle": "essential service continuity cascading disruption",
+                                  "raw_title": "essential service continuity cascading disruption",
                                   "scored_at": "2026-11-21T00:00:00Z"}])
         self.assertEqual(o.info.external_sources[0]["kind"], "aggregator")
+
+
+class TestSignalIntegrity669(unittest.TestCase):
+    """#669: signals match on their own text; the stream is set before signals attach; feeds normalise to publishers."""
+    TEMPLATE = "essential service continuity cascading disruption"      # what a fixed pillar template could say
+
+    def test_template_angle_alone_never_matches(self):
+        o = opp.library_opportunities([ROW_S1])[0]
+        sig = {"event_id_text": "e", "source_name": "Bloomberg", "suggested_angle": self.TEMPLATE,
+               "raw_title": "Celebrity chef opens new restaurant", "raw_summary": "Menu and reviews."}
+        self.assertFalse(opp._signal_matches(o, sig))     # pre-fix: True (matched the template text)
+
+    def test_signal_without_readable_text_never_matches(self):
+        o = opp.library_opportunities([ROW_S1])[0]
+        self.assertFalse(opp._signal_matches(o, {"event_id_text": "e", "suggested_angle": self.TEMPLATE}))
+
+    def test_signal_matches_on_its_own_title_or_summary(self):
+        o = opp.library_opportunities([ROW_S1])[0]
+        self.assertTrue(opp._signal_matches(o, {"event_id_text": "e", "raw_title": "Essential service continuity at risk",
+                                                "raw_summary": "Cascading disruption across dependent providers"}))
+
+    def test_unrelated_signal_adds_no_evidence_and_does_not_refresh_the_date(self):
+        row = dict(ROW_S1, source=None, cut_off=None)
+        base = _scored([row])[0]
+        sig = [{"event_id_text": "e1", "source_name": "Regulator", "suggested_angle": self.TEMPLATE,
+                "raw_title": "Celebrity chef opens new restaurant", "scored_at": "2026-11-21T00:00:00Z"}]
+        got = _scored([row], signals=sig)[0]
+        self.assertEqual(got.escore.total, base.escore.total)
+        self.assertEqual(got.info.as_of, base.info.as_of)
+        self.assertEqual(got.info.external_sources, [])
+
+    def test_stream_is_assigned_before_signals_attach(self):
+        """A Command Memory opportunity has no stream at creation; the cross-stream rejection must still apply to it."""
+        o = opp.build_opportunity("decision", ref="d1", title="Essential service continuity and cascading disruption",
+                                  body="Dependency risk across essential services under cascading disruption.")
+        self.assertIsNone(o.info)
+        sig = {"event_id_text": "e", "source_name": "Bloomberg", "pillar_key": "human_performance",
+               "raw_title": "Essential service continuity and cascading disruption in dependency risk"}
+        opp.apply_editorial([o], existing_titles=[], signals=[sig], now=NOW)
+        self.assertIsNotNone(o.info.stream)
+        self.assertEqual(o.info.external_sources, [])     # pre-fix: attached (stream was still None at match time)
+
+    def test_feeds_normalise_to_their_owning_publisher(self):
+        f = editorial.publisher_family
+        self.assertEqual(f("APRA Media Releases"), f("APRA Publications"))
+        self.assertEqual(f("APRA Media Releases"), "apra")
+        self.assertEqual(f("APRA \u2014 Speeches and Publications"), "apra")
+        self.assertEqual(f("APRA (changedetection.io watchlist)"), "apra")
+        self.assertEqual(f("ACSC Alerts & Advisories"), f("ACSC Advisories"))
+        self.assertEqual(f("NVD / NIST CVE Database"), "nist")
+        self.assertNotEqual(f("APRA Media Releases"), f("ASIC News Centre"))
+        self.assertNotEqual(f("ABC News"), f("Bloomberg"))
+        self.assertEqual(f(""), "unknown")
+        self.assertEqual(f(None), "unknown")
+
+    def test_two_feeds_of_one_publisher_count_as_one_family(self):
+        o = opp.library_opportunities([ROW_S1])[0]
+        text = {"raw_title": "Essential service continuity and cascading disruption", "scored_at": "2026-11-21T00:00:00Z"}
+        opp.attach_signals([o], [dict(text, event_id_text="e1", source_name="APRA Media Releases"),
+                                 dict(text, event_id_text="e2", source_name="APRA Publications")])
+        self.assertEqual({x["family"] for x in o.info.external_sources}, {"apra"})
+
+    def test_two_feeds_of_one_publisher_do_not_lift_evidence_like_two_publishers(self):
+        row = dict(ROW_S1, source=None, cut_off=None)
+        text = {"raw_title": "Essential service continuity and cascading disruption", "scored_at": "2026-11-21T00:00:00Z"}
+        one = _scored([row], signals=[dict(text, event_id_text="e1", source_name="APRA Media Releases"),
+                                      dict(text, event_id_text="e2", source_name="APRA Publications")])[0]
+        two = _scored([row], signals=[dict(text, event_id_text="e1", source_name="APRA Media Releases"),
+                                      dict(text, event_id_text="e2", source_name="ASIC News Centre")])[0]
+        self.assertLess(one.escore.total, two.escore.total)
+
+    def test_signal_text_is_read_from_events_and_fails_closed(self):
+        class Tbl:
+            def __init__(s, rows, boom=False): s.rows, s.boom = rows, boom
+            def select(s, *a): return s
+            def in_(s, *a): return s
+            def execute(s):
+                if s.boom:
+                    raise RuntimeError("down")
+                return type("R", (), {"data": s.rows})()
+        class C:
+            def __init__(s, boom=False): s.raw_client, s.boom = s, boom
+            def table(s, name): return Tbl([{"event_id": "x1", "raw_title": "T1", "raw_summary": "S1"}], s.boom)
+        rows = opp._with_event_text(C(), [{"event_id": "x1", "event_id_text": "e1"}, {"event_id": "zz"}])
+        self.assertEqual((rows[0]["raw_title"], rows[0]["raw_summary"]), ("T1", "S1"))
+        self.assertNotIn("raw_title", rows[1])
+        failed = opp._with_event_text(C(boom=True), [{"event_id": "x1"}])
+        self.assertNotIn("raw_title", failed[0])           # no text -> _signal_matches() is False
 
 
 class TestCrossPRCompatibility(unittest.TestCase):
