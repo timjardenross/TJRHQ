@@ -1,4 +1,10 @@
-# Tiered escalation policy (wk-detect/0.4.0-tiered), holdout plan, sample sufficiency, historical challenge set
+# Tiered escalation policy v2 (wk-detect/0.5.0-tiered-v2, rubric 2.0), holdout plan, sample sufficiency, historical challenge set
+
+> **Superseded in part by the Captain's approval of 2026-11-23:** tiers are now Tier 1 energy, telecom, healthcare, water, financial infrastructure,
+> transport, aviation, emergency services; Tier 2 cloud platforms, major technology providers, food supply, retail distribution, government
+> services; Tier 3 consumer, recreation, tourism. Materiality follows severe disruption, major safety consequence, essential-service interruption
+> or cascading impact; brief/partial disruption is medium. An unconfirmed breach is VERIFY, never provisional ESCALATE (the earlier
+> "Tier 1 major incident declared" provisional rule was removed). Rubric text: `docs/rubrics/weekly-evidence-rubric-v2.md` (frozen 2.0).
 
 Offline only; nothing here is wired to a live path. The model is development-grade: both existing fresh sets have been inspected.
 

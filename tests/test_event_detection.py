@@ -135,7 +135,7 @@ class TestStage3And4Decision:
 
     def test_method_version_is_stamped(self):
         by, _ = one([ev("r", "Routine item", "ABC News")])
-        assert by["r"].method_version == ed.METHOD_VERSION == "wk-detect/0.4.0-tiered"
+        assert by["r"].method_version == ed.METHOD_VERSION == "wk-detect/0.5.0-tiered-v2"
 
 
 @pytest.mark.parametrize("title", ["", "   ", "Breaking:", "!!!"])
@@ -168,10 +168,9 @@ class TestTieredEscalationPolicy:
         d = self.d("Microsoft outage disrupts services worldwide", "BBC News")
         assert d.sector_tier == 2 and d.priority == "ESCALATE"
 
-    def test_tier3_data_breach_is_not_escalated_without_scale_and_tier(self):
+    def test_confirmed_breach_at_unrecognised_sector_is_not_escalated_by_a_number_alone(self):
         d = self.d("Cosmetics company data breach affects 340,000 clients", "ABC News")
-        assert d.sector_tier is None and d.impact_status == "confirmed" and d.priority in {"WATCH", "VERIFY", "ESCALATE"}
-        assert d.materiality in {"medium", "high"}
+        assert d.sector_tier is None and d.impact_status == "confirmed" and d.priority == "WATCH"   # "340,000" must not read as 000 (triple zero)
 
     def test_sector_alone_never_escalates(self):
         for title in ("Westpac reports record half-year profit", "Qantas announces new Sydney lounge", "NSW Health appoints new director"):
@@ -181,9 +180,31 @@ class TestTieredEscalationPolicy:
         d = self.d("Surge in complaints, compensation claims after Telstra outage")
         assert d.impact_status == "retrospective" and d.priority != "ESCALATE"
 
-    def test_tier1_major_incident_declared_without_stated_consequence_escalates_provisionally(self):
+    def test_unconfirmed_tier1_breach_is_verify_even_when_called_a_major_incident(self):
         d = self.d("NSW Health declares major incident after cybersecurity breach across hospitals")
-        assert d.sector_tier == 1 and d.priority == "ESCALATE" and d.provisional
+        assert d.sector_tier == 1 and d.impact_status == "unconfirmed" and d.priority == "VERIFY" and not d.provisional
+
+    def test_brief_tier1_outage_is_not_severe_on_its_own(self):
+        d = self.d("Authorities investigating four-minute Triple Zero outage in Canberra")
+        assert d.sector_tier == 1 and d.materiality == "medium" and d.priority == "WATCH"
+
+    def test_safety_consequence_is_high_materiality_in_any_tier(self):
+        d = self.d("Resort fire injures 12 guests, evacuation under way", "ABC News")
+        assert d.impact_status == "confirmed" and d.materiality == "high" and d.priority == "ESCALATE" and d.provisional
+
+    def test_cascading_impact_is_high_materiality(self):
+        d = self.d("Power outage cascades across multiple sectors in Victoria", "ABC News")
+        assert d.materiality == "high" and d.priority == "ESCALATE"
+
+    def test_kev_listing_is_not_escalated(self):
+        d = self.d("CISA Adds Six Known Exploited Vulnerabilities to Catalog", "CISA Alerts")
+        assert d.priority in {"WATCH", "REFERENCE"}
+
+    def test_tier_lists_follow_the_approved_model(self):
+        assert {k: v for k, v in ed.SECTOR_TIER.items() if v == 1} == {k: 1 for k in
+            ("emergency_services", "energy", "telecom", "health", "aviation", "transport_water", "finance")}
+        assert {k for k, v in ed.SECTOR_TIER.items() if v == 2} == {"cloud_platform", "retail_food", "government"}
+        assert ed.SECTOR_TIER["consumer_service"] == 3
 
     def test_same_unconfirmed_tier1_report_from_an_aggregator_only_needs_verification(self):
         d = self.d("Hospital cyber incident declared major", "Google News - Health cyber")

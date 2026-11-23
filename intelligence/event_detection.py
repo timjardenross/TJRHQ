@@ -1,4 +1,4 @@
-"""Staged event detection (method wk-detect/0.4.0-tiered) — offline, not wired into any live path.
+"""Staged event detection (method wk-detect/0.5.0-tiered-v2) — offline, not wired into any live path.
 
 Replaces title-term scoring with four stages. Every rule is deterministic; the lexicons are data, below.
 
@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 from intelligence import weekly_evidence as we
 
-METHOD_VERSION = "wk-detect/0.4.0-tiered"
+METHOD_VERSION = "wk-detect/0.5.0-tiered-v2"
 
 # ── Lexicons (data) ──────────────────────────────────────────────────────────────────────────────────
 EVENT_TYPES = {
@@ -60,19 +60,22 @@ SECTORS = {
                 r"visa", r"mastercard", r"asx", r"apra", r"financial system"),
     "cloud_platform": (r"microsoft", r"azure", r"aws", r"amazon web services", r"google cloud", r"cloudflare",
                        r"crowdstrike", r"outlook", r"office 365", r"microsoft 365", r"m365", r"oracle cloud",
-                       r"salesforce", r"github"),
+                       r"salesforce", r"github", r"google", r"amazon", r"apple", r"okta", r"atlassian", r"zoom", r"slack"),
     "government": (r"services australia", r"centrelink", r"mygov", r"ato", r"home affairs", r"department of"),
+    "emergency_services": (r"emergency services?", r"police", r"fire (?:brigade|service|rescue)s?", r"ambulance",
+                           r"triple zero", r"(?<![\d,.])000(?![\d,])", r"state emergency service", r"ses"),
     "transport_water": (r"water (?:supply|treatment)", r"rail(?:way)?", r"trains?", r"ports?", r"ferry", r"toll"),
-    "consumer_service": (r"booking (?:portal|service|system)s?", r"portals?", r"national parks", r"campgrounds?",
+    "consumer_service": (r"tourism", r"resorts?", r"hotels?", r"theme parks?", r"cinemas?", r"holiday parks?", r"gyms?",
+                         r"booking (?:portal|service|system)s?", r"portals?", r"national parks", r"campgrounds?",
                          r"customers? (?:data|accounts?)", r"loyalty"),
 }
-ESSENTIAL = frozenset({"retail_food", "health", "telecom", "aviation", "energy", "finance", "cloud_platform",
+ESSENTIAL = frozenset({"emergency_services", "retail_food", "health", "telecom", "aviation", "energy", "finance", "cloud_platform",
                        "government", "transport_water"})
 # Captain's tiered operational-relevance model. A sector NEVER escalates on its own: the tier only weights a
 # stated event with a stated consequence (see decide()).
 #   Tier 1 critical essential services/infrastructure; Tier 2 systemically important dependencies and supply
 #   chains; Tier 3 context-dependent services (including anything with no recognised sector).
-SECTOR_TIER = {"energy": 1, "telecom": 1, "health": 1, "aviation": 1, "transport_water": 1, "finance": 1,
+SECTOR_TIER = {"emergency_services": 1, "energy": 1, "telecom": 1, "health": 1, "aviation": 1, "transport_water": 1, "finance": 1,
                "cloud_platform": 2, "retail_food": 2, "government": 2, "consumer_service": 3}
 CONSEQUENCE = (r"outages?", r"offline", r"(?:is|are|went|goes) down", r"disabled", r"grounded", r"ground stops?",
                r"without power", r"power (?:is |still )?out", r"unable to (?:access|use|log ?in)", r"suspend\w*", r"cancell?ed",
@@ -81,6 +84,10 @@ CONSEQUENCE = (r"outages?", r"offline", r"(?:is|are|went|goes) down", r"disabled
 DATA_EXPOSURE = (r"data (?:was |were |has been )?(?:stolen|exposed|leaked|accessed)", r"(?:stolen|leaked|exposed) (?:data|details)",
                  r"breach(?:es)? (?:affects?|exposes?|hits?)", r"personal data", r"customer (?:data|details)",
                  r"client data", r"card details", r"\d{2,3},\d{3}\s+(?:clients|customers|users|people)")
+SAFETY = (r"injur\w+", r"deaths?", r"killed", r"fatal\w*", r"evacuat\w+", r"hospitali[sz]ed", r"casualt\w+", r"trapped")
+CASCADING = (r"cascad\w+", r"knock-?on", r"flow-?on", r"across (?:multiple|several) (?:sectors|services|industries)")
+MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"partial(?:ly)?", r"limited", r"intermittent",
+         r"regional", r"isolated")
 RETROSPECTIVE = (r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
                  r"apolog\w+", r"lessons?", r"anniversary", r"fallout")
 ONGOING = (r"continues?", r"still", r"ongoing", r"remains?", r"races? to", r"live:")
@@ -110,6 +117,7 @@ def _rx(terms) -> re.Pattern:
 _TYPE_RX = {k: _rx(v) for k, v in EVENT_TYPES.items()}
 _SECTOR_RX = {k: _rx(v) for k, v in SECTORS.items()}
 _CONSEQ_RX, _EXPOSE_RX, _RETRO_RX, _ONGOING_RX = _rx(CONSEQUENCE), _rx(DATA_EXPOSURE), _rx(RETROSPECTIVE), _rx(ONGOING)
+_SAFETY_RX, _CASCADE_RX, _MINOR_RX = _rx(SAFETY), _rx(CASCADING), _rx(MINOR)
 _SCALE_RX, _ACTUAL_RX, _POTENTIAL_RX, _COMM_RX = _rx(SCALE), _rx(ACTUAL), _rx(POTENTIAL), _rx(COMMENTARY)
 _COMPROMISE_RX = re.compile(r"(?<![a-z])(?:hijacked|hacked|breached|ransomware|stolen|skimmers?|compromised|wiped|malware)(?![a-z])", re.IGNORECASE)
 _PROPER = re.compile(r"\b([A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]{2,})*)\b")
@@ -141,6 +149,9 @@ class Candidate:
     tier: int | None = None   # 1/2/3 from the sectors found; None = no recognised sector
     status: str = "none"      # confirmed | unconfirmed | retrospective | potential | none (impact status)
     exposure: bool = False    # a data-exposure consequence is stated
+    safety: bool = False      # a safety consequence (injury, death, evacuation) is stated
+    cascading: bool = False   # cascading / knock-on impact is stated
+    minor: bool = False       # the disruption is described as brief/partial/limited
     legacy: dict = field(default_factory=dict)
 
     @property
@@ -189,7 +200,10 @@ def detect_candidate(event: dict) -> Candidate:
     compromise = bool(_COMPROMISE_RX.search(text))      # a stated compromise needs no sector to be worth verifying
     conseq = bool(_CONSEQ_RX.search(text))
     exposure = bool(_EXPOSE_RX.search(text))
-    is_cand = bool(types or exposure) and (bool(sectors) or scale or compromise or conseq or exposure
+    safety = bool(_SAFETY_RX.search(text))
+    cascading = bool(_CASCADE_RX.search(text))
+    minor = bool(_MINOR_RX.search(text))
+    is_cand = bool(types or exposure) and (bool(sectors) or scale or compromise or conseq or exposure or safety
                                            or ("vulnerability" in types and we.exploited(text)))
     consequence = ("essential_service" if essential else "broad_user_impact" if sectors
                    else "unknown" if (types and scale) else "none")
@@ -199,7 +213,7 @@ def detect_candidate(event: dict) -> Candidate:
         status = "potential" if (commentary and is_cand) else "none"
     elif retro:
         status = "retrospective"
-    elif conseq or exposure:
+    elif conseq or exposure or safety:
         status = "confirmed"
     else:
         status = "unconfirmed"
@@ -208,7 +222,7 @@ def detect_candidate(event: dict) -> Candidate:
         event_id=str(event.get("id")), title=title, source=src, published=we._parse_ts(event.get("collected_at")),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
-        tier=tier, status=status, exposure=exposure,
+        tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor,
         family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {})
 
 
@@ -373,11 +387,16 @@ _STATUS_ORDER = {"confirmed": 4, "unconfirmed": 3, "retrospective": 2, "potentia
 
 
 def _materiality(c: Candidate) -> str:
-    """Operational materiality from the STATED consequence, never from the sector alone."""
+    """Operational materiality from the STATED consequence (rubric v2): severe disruption, major safety consequence,
+    essential-service interruption or cascading impact. A tier never sets materiality by itself."""
     if not c.is_candidate or c.status in ("none", "potential"):
         return "low"
     tier = c.tier or 3
     if c.status == "confirmed":
+        if c.safety or c.cascading:
+            return "high"
+        if c.minor:
+            return "medium"                    # brief / partial / regional disruption is not severe on its own
         if tier == 1 or (tier == 2 and c.scale) or (c.scale and c.exposure):
             return "high"
         return "medium"
@@ -421,11 +440,7 @@ def decide(group: Group, *, now: datetime | None = None) -> Decision:
         reasons.append("high operational materiality but weak evidence: verify before acting")
         return out("VERIFY", "soon")
     if status == "unconfirmed" and head.is_candidate and (tier in (1, 2) or head.compromise):
-        # Unconfirmed incident without a demonstrated operational consequence: VERIFY, unless it is a Tier 1 incident
-        # that a credible source describes as major/widespread (severe potential consequences -> provisional escalation).
-        if tier == 1 and head.scale and solid:
-            reasons.append("severe potential consequence, credible single source: provisional escalation")
-            return out("ESCALATE", "immediate", True)
+        # An unconfirmed incident with no stated operational consequence is VERIFY, whatever the sector or tier.
         return out("VERIFY", "soon")
     if mat == "medium":
         return out("WATCH" if solid else "VERIFY", "soon")
