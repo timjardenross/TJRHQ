@@ -1,0 +1,374 @@
+{
+  "scope": "non-incidents, false alarms, misleading headlines",
+  "researched_on": "2026-11-23",
+  "entries": [
+    {
+      "id": "neg-cloudflare-2025-11-18-not-cyberattack",
+      "kind": "false_alarm",
+      "sector": "internet infrastructure / CDN",
+      "date": "2025-11-18",
+      "description": "Cloudflare network outage on 2025-11-18. Cloudflare's own post-mortem states it was not caused by a cyber attack; its team had briefly suspected an attack because its off-network status page also failed.",
+      "why_not_a_major_incident": "As an attack/breach event it is a false alarm: root cause was an internal Bot Management feature-file generation fault after a database permissions change. Caveat: the outage itself was large and real, so it is a negative only for 'cyberattack/breach' classification.",
+      "sources": [
+        {
+          "role": "official",
+          "publisher": "Cloudflare Blog",
+          "url": "https://blog.cloudflare.com/18-november-2025-outage/",
+          "published": "2025-11-18",
+          "headline_verbatim": "Cloudflare outage on November 18, 2025"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "SecurityWeek",
+          "url": "https://www.securityweek.com/cloudflare-says-highly-disruptive-outage-not-caused-by-attack/",
+          "published": "2025-11-18",
+          "headline_verbatim": "Cloudflare Outage Not Caused by Cyberattack"
+        }
+      ],
+      "verification_notes": "Headlines are the og:title values of each page (Cloudflare page has no separate h1 in scraped output). Both pages opened via Firecrawl; dates from article:published_time metadata. Cloudflare page also carries a later modified time (2026-07-17)."
+    },
+    {
+      "id": "neg-spain-portugal-blackout-2025-04-28-cyber-speculation",
+      "kind": "false_alarm",
+      "sector": "electricity grid",
+      "date": "2025-04-28",
+      "description": "Iberian blackout of 2025-04-28 triggered early speculation of a cyberattack. Spain's grid operator and later the energy minister reported no sign of one.",
+      "why_not_a_major_incident": "Cyberattack hypothesis not supported: authorities reported no intrusion in control systems and no sign of attack on generation control centres. Caveat: the blackout itself was a major real outage.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "POLITICO Europe",
+          "url": "https://www.politico.eu/article/spanish-grid-operator-rules-out-cyberattack-in-its-facilities-following-iberian-blackout/",
+          "published": "2025-04-29",
+          "headline_verbatim": "Spanish grid operator rules out cyberattack in its facilities after power cut"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "Reuters",
+          "url": "https://www.reuters.com/business/energy/no-sign-cyberattack-power-generation-control-centres-during-spain-blackout-2025-05-20/",
+          "published": "2025-05-20",
+          "headline_verbatim": "No sign of cyberattack on power generation control centres during Spain blackout - minister"
+        }
+      ],
+      "verification_notes": "Headlines are og:title values. The Politico page's own <title> adds ' – POLITICO'. Reuters description: Energy Minister Sara Aagesen said Spain found no indication of a cyberattack on power generation control centres. Event date 2025-04-28 is stated in the Reuters description."
+    },
+    {
+      "id": "neg-faa-notam-2023-01-11-not-cyberattack",
+      "kind": "false_alarm",
+      "sector": "aviation / air traffic",
+      "date": "2023-01-11",
+      "description": "FAA NOTAM system outage on 2023-01-11 prompted cyberattack questions. FAA preliminary review traced it to contract personnel unintentionally deleting files while correcting database synchronisation.",
+      "why_not_a_major_incident": "FAA stated it found no evidence of a cyber attack or malicious intent. Caveat: operational impact (flight delays) was real; the negative is for the cyberattack interpretation.",
+      "sources": [
+        {
+          "role": "official",
+          "publisher": "Federal Aviation Administration",
+          "url": "https://www.faa.gov/newsroom/faa-notam-statement",
+          "published": "2023-01-19",
+          "headline_verbatim": "FAA NOTAM Statement"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "Snopes",
+          "url": "https://www.snopes.com/news/2023/01/11/cyberattack-faa-system-outage/",
+          "published": "2023-01-11",
+          "headline_verbatim": "Did a Cyberattack Cause the FAA System Outage in January 2023?"
+        }
+      ],
+      "verification_notes": "FAA statement date 'Thursday, January 19, 2023' read from page text; FAA page title tag is 'FAA NOTAM Statement | Federal Aviation Administration'. Snopes published_time 2023-01-11 18:24:20."
+    },
+    {
+      "id": "neg-facebook-2021-10-04-config-change-not-attack",
+      "kind": "false_alarm",
+      "sector": "internet platform / social media",
+      "date": "2021-10-04",
+      "description": "Facebook, Instagram and WhatsApp global outage on 2021-10-04. Meta attributed it to configuration changes on backbone routers, not malicious activity.",
+      "why_not_a_major_incident": "Not a hack or breach: Meta said it was an error of its own making and that it had no evidence user data was compromised. Caveat: the outage was large and real.",
+      "sources": [
+        {
+          "role": "official",
+          "publisher": "Engineering at Meta",
+          "url": "https://engineering.fb.com/2021/10/04/networking-traffic/outage/",
+          "published": "2021-10-05",
+          "headline_verbatim": "Update about the October 4th outage"
+        },
+        {
+          "role": "official",
+          "publisher": "Engineering at Meta",
+          "url": "https://engineering.fb.com/2021/10/05/networking-traffic/outage-details/",
+          "published": "2021-10-05",
+          "headline_verbatim": "More details about the October 4 outage"
+        }
+      ],
+      "verification_notes": "Both pages opened. First post metadata published_time 2021-10-05T02:07:22+00:00 (i.e. evening of Oct 4 US time; URL path says 2021/10/04). Second post published 2021-10-05T17:26:45+00:00 and contains the sentence that the outage was 'caused not by malicious activity, but an error of our own making'."
+    },
+    {
+      "id": "neg-crowdstrike-2024-07-19-not-cyber-incident",
+      "kind": "false_alarm",
+      "sector": "IT / multi-sector (banks, airlines, retail, telco) - Australia",
+      "date": "2024-07-19",
+      "description": "Global Windows outage of 2024-07-19 hit Australian banks, airports, supermarkets and telcos. Australian officials said there was no evidence of a cyber-security incident.",
+      "why_not_a_major_incident": "Cyber-incident interpretation was a false alarm: attributed to a technical issue from a CrowdStrike update. Caveat: the outage was very large; negative only for 'cyberattack/breach' classification.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "ABC News (Australia)",
+          "url": "https://www.abc.net.au/news/2024-07-19/global-it-outage-crowdstrike-microsoft-banks-airlines-australia/104119960",
+          "published": "2024-07-19",
+          "headline_verbatim": "Global IT outage: Computer havoc caused by CrowdStrike outage could take days to fix — as it happened"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "The Sydney Morning Herald",
+          "url": "https://www.smh.com.au/business/companies/microsoft-outage-across-australia-brings-down-major-businesses-20240719-p5jv2w.html",
+          "published": "2024-07-19",
+          "headline_verbatim": "Crowdstrike outage affects Microsoft systems worldwide"
+        }
+      ],
+      "verification_notes": "ABC live blog quotes Home Affairs Minister Clare O'Neil: no evidence the outages were caused by a cyber-security incident, result of a 'technical issue caused by a Crowdstrike update'. SMH quote scraped: 'There is no information to suggest it is a cybersecurity incident.' Headlines are page <title> values (ABC og:title is \"'Completely unprecedented' outage causes havoc with IT systems across globe — as it happened\"; SMH og:title is \"'Largest IT outage in history' caused by US-based cybersecurity firm\", which is the later headline for the same URL)."
+    },
+    {
+      "id": "neg-telstra-2022-10-04-third-party-employee-data",
+      "kind": "misleading_headline",
+      "sector": "telecommunications - Australia",
+      "date": "2022-10-04",
+      "description": "Media reported a Telstra data breach after about 30,000 employee names and email addresses were posted online. Telstra stated no Telstra system was breached and the data was from 2017 held by a third party.",
+      "why_not_a_major_incident": "Headline framing implies a Telstra breach; Telstra said there was no breach of any Telstra systems, no customer account information was involved and the data dated from 2017.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "The Sydney Morning Herald",
+          "url": "https://www.smh.com.au/technology/telstra-staff-info-stolen-in-data-breach-20221004-p5bn3u.html",
+          "published": "2022-10-04",
+          "headline_verbatim": "Telstra, NAB staff info stolen in third-party data breach"
+        },
+        {
+          "role": "official",
+          "publisher": "Telstra Exchange",
+          "url": "https://www.telstra.com.au/exchange/employee-data-breach--what-you-need-to-know",
+          "published": "2022-10-04",
+          "headline_verbatim": "Employee data breach: what you need to know"
+        }
+      ],
+      "verification_notes": "SMH headline is the og:title; the page's <title> tag reads 'Tesltra breach: 30,000 current, former workers’ emails stolen' (sic, typo as scraped), likely the earlier headline - the more alarming framing. Telstra page states 'There has been no breach of Telstra’s systems' and that the data was from 2017. Telstra page date '04 October 2022' read from page text. Weakness: the underlying third-party breach was real, so this is misleading by attribution rather than fabricated."
+    },
+    {
+      "id": "neg-killnet-us-airports-2022-10-10-website-ddos",
+      "kind": "misleading_headline",
+      "sector": "aviation / airports (US)",
+      "date": "2022-10-10",
+      "description": "Pro-Russian group Killnet DDoS attacks took some US airport websites offline on 2022-10-10. Headlines referred to 'cyberattacks on airports'; reports state flights and airport operations were not affected.",
+      "why_not_a_major_incident": "Impact limited to temporary public website unavailability; no operational, safety or data impact reported.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "NPR",
+          "url": "https://www.npr.org/2022/10/10/1127902795/airport-killnet-cyberattack-hacker-russia",
+          "published": "2022-10-10",
+          "headline_verbatim": "Pro-Russian hackers take credit for cyberattacks on U.S. airport websites"
+        },
+        {
+          "role": "other",
+          "publisher": "Dark Reading",
+          "url": "https://www.darkreading.com/cyberattacks-data-breaches/us-airports-cyberattack-crosshairs-pro-russian-group-killnet",
+          "published": "2022-10-10",
+          "headline_verbatim": "US Airports in Cyberattack Crosshairs for Pro-Russian Group Killnet"
+        },
+        {
+          "role": "mainstream",
+          "publisher": "CBS News",
+          "url": "https://www.cbsnews.com/news/airport-websites-hacked-pro-russia-ddos-attack/",
+          "published": null,
+          "headline_verbatim": "U.S. airport websites knocked offline by cyberattacks"
+        }
+      ],
+      "verification_notes": "NPR headline is the page <title> (minus ' : NPR'); its h1/og:title reads 'Pro-Russian hackers claim responsibility for knocking U.S. airport websites offline' and og:description says officials said the outages did not interrupt operations. CBS: publication date NOT shown in scraped page (event date 2022-10-10 taken from NPR/Dark Reading); CBS h1 per scrape is the headline given, og:title is 'U.S. airport websites knocked offline in apparent pro-Russia hacking attack'; CBS body: 'officials said flights were not affected'. Dark Reading search snippet said sites inaccessible for several hours with no apparent operational impact (snippet only)."
+    },
+    {
+      "id": "neg-cisa-kev-2025-09-29-five-additions",
+      "kind": "routine_notice",
+      "sector": "cross-sector cyber advisory (US)",
+      "date": "2025-09-29",
+      "description": "CISA routine alert adding five vulnerabilities to the Known Exploited Vulnerabilities catalogue. No affected organisation or victim is named.",
+      "why_not_a_major_incident": "Catalogue maintenance notice; names no victim or exposed organisation, so it is not evidence of an incident at any specific entity.",
+      "sources": [
+        {
+          "role": "official",
+          "publisher": "CISA",
+          "url": "https://www.cisa.gov/news-events/alerts/2025/09/29/cisa-adds-five-known-exploited-vulnerabilities-catalog",
+          "published": "2025-09-29",
+          "headline_verbatim": "CISA Adds Five Known Exploited Vulnerabilities to Catalog"
+        }
+      ],
+      "verification_notes": "Scrape returned h1 'CISA Adds Five Known Exploited Vulnerabilities to Catalog' and alert date September 29, 2025; scrape reported no affected organisations named. Page <title> adds ' | CISA'. Single source (category 3 only needs one)."
+    },
+    {
+      "id": "neg-krebs-patch-tuesday-2025-11",
+      "kind": "routine_notice",
+      "sector": "vendor patch bulletin coverage (Microsoft)",
+      "date": "2025-11-13",
+      "description": "Krebs on Security write-up of the monthly Microsoft Patch Tuesday update (November 2025 edition).",
+      "why_not_a_major_incident": "Routine monthly vendor patch coverage; not an incident report.",
+      "sources": [
+        {
+          "role": "other",
+          "publisher": "Krebs on Security",
+          "url": "https://krebsonsecurity.com/2025/11/microsoft-patch-tuesday-november-2025-edition/",
+          "published": "2025-11-13",
+          "headline_verbatim": "Microsoft Patch Tuesday, November 2025 Edition"
+        }
+      ],
+      "verification_notes": "Date 2025-11-13 is the date text read from the page by the scraper; the Microsoft release itself would be the second Tuesday (2025-11-11) by convention, which was not verified from a source. Search snippet: 'fix more than 60 vulnerabilities'. Microsoft's own MSRC pages returned HTTP 403 via the scraper so no primary Microsoft source was used."
+    },
+    {
+      "id": "neg-aemo-qed-q3-2025",
+      "kind": "routine_notice",
+      "sector": "energy market - Australia",
+      "date": "2025-10",
+      "description": "AEMO routine quarterly market report 'Quarterly Energy Dynamics Q3 2025'.",
+      "why_not_a_major_incident": "Scheduled periodic market publication; not a system event or incident notice.",
+      "sources": [
+        {
+          "role": "official",
+          "publisher": "Australian Energy Market Operator (AEMO)",
+          "url": "https://www.aemo.com.au/-/media/files/major-publications/qed/2025/qed-q3-2025.pdf",
+          "published": "2025-10",
+          "headline_verbatim": "Quarterly Energy Dynamics Q3 2025"
+        }
+      ],
+      "verification_notes": "PDF (86 pages) shows title and 'October 2025' only; no day given, so date is month-precision. Individual AEMO market notices (e.g. LOR notices) were not retrieved as dated pages; the LOR fact sheet and quarterly Lack of Reserve report found in search were not scraped or used."
+    },
+    {
+      "id": "neg-qantas-fy25-results-2025-08-28",
+      "kind": "routine_notice",
+      "sector": "aviation - Australia (earnings)",
+      "date": "2025-08-28",
+      "description": "Qantas Group CEO full-year FY25 results speech (earnings news from a critical-sector firm).",
+      "why_not_a_major_incident": "Scheduled financial results communication; not an operational incident.",
+      "sources": [
+        {
+          "role": "official",
+          "publisher": "Qantas Newsroom",
+          "url": "https://news.qantas.com/speeches/2025/fy25-results-speech-qantas-group-ceo-vanessa-hudson",
+          "published": "2025-08-28",
+          "headline_verbatim": "FY25 results speech – Qantas Group CEO Vanessa Hudson"
+        }
+      ],
+      "verification_notes": "Headline is the page's article-title field; og:title is 'FY25 Results Speech: CEO Vanessa Hudson | Qantas Newsroom'. Published date from article-publisheddate 2025-08-28T09:00:00 and page text 'Published 28 August 2025 9:00am'."
+    },
+    {
+      "id": "neg-optus-senate-hearing-2023-11-17",
+      "kind": "retrospective_or_commentary",
+      "sector": "telecommunications - Australia",
+      "date": "2023-11-17",
+      "description": "ABC explainer on the Senate inquiry hearing where Optus's CEO was questioned about the outage of the previous week.",
+      "why_not_a_major_incident": "Reports on a hearing about a past incident; it does not report a new outage.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "ABC News (Australia)",
+          "url": "https://www.abc.net.au/news/2023-11-17/optus-boss-grilled-about-outage-at-senate-inquiry/103117218",
+          "published": "2023-11-17",
+          "headline_verbatim": "Optus CEO Kelly Bayer Rosmarin fronted a Senate inquiry today. Here's what she had to say"
+        }
+      ],
+      "verification_notes": "Headline is the page <title> (minus ' - ABC News'); og:title reads 'In two hours of hearings, Optus's CEO revealed more about last week's outage'. article:published_time 2023-11-17T02:46:36Z (page text shows a US-time stamp of 16 Nov 9:46pm)."
+    },
+    {
+      "id": "neg-medibank-agm-2022-11-16",
+      "kind": "retrospective_or_commentary",
+      "sector": "health insurance - Australia",
+      "date": "2022-11-16",
+      "description": "Guardian report on Medibank's AGM, where questions about the earlier cyber-attack dominated the meeting.",
+      "why_not_a_major_incident": "Report on a shareholder meeting discussing a past incident (although the article also mentions notification steps for affected customers, so it contains incident follow-up detail).",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "The Guardian",
+          "url": "https://www.theguardian.com/australia-news/2022/nov/16/medibank-chief-defends-companys-security-processes-amid-shareholder-anger-at-agm",
+          "published": "2022-11-16",
+          "headline_verbatim": "Medibank chief defends company’s security processes amid shareholder anger at AGM"
+        }
+      ],
+      "verification_notes": "Headline is og:title/h1. Standfirst: 'Questions about cyber-attack dominate meeting as company says it is contacting 480,000 customers whose health claims were stolen'. Borderline negative: the article carries incident follow-up facts, so a detector might legitimately note it as an update to a known incident."
+    },
+    {
+      "id": "neg-computerweekly-crowdstrike-one-year-2025-07-21",
+      "kind": "retrospective_or_commentary",
+      "sector": "IT / multi-sector",
+      "date": "2025-07-21",
+      "description": "Computer Weekly opinion piece one year after the July 2024 CrowdStrike outage.",
+      "why_not_a_major_incident": "Retrospective commentary on a past outage; no new event.",
+      "sources": [
+        {
+          "role": "mainstream",
+          "publisher": "Computer Weekly",
+          "url": "https://www.computerweekly.com/opinion/One-year-on-from-the-CrowdStrike-outageWhat-have-we-learned",
+          "published": "2025-07-21",
+          "headline_verbatim": "One year on from the CrowdStrike outage: What have we learned?"
+        }
+      ],
+      "verification_notes": "Headline is og:title/<title> minus ' | Computer Weekly'. Date '21 Jul 2025' read from page text; scrape reported no h1 element."
+    },
+    {
+      "id": "neg-csa-crowdstrike-lessons-2025-07-03",
+      "kind": "retrospective_or_commentary",
+      "sector": "IT / multi-sector",
+      "date": "2025-07-03",
+      "description": "Cloud Security Alliance blog on lessons from the 2024 CrowdStrike outage.",
+      "why_not_a_major_incident": "Lessons-learned analysis of a past outage; no new event.",
+      "sources": [
+        {
+          "role": "other",
+          "publisher": "Cloud Security Alliance",
+          "url": "https://cloudsecurityalliance.org/blog/2025/07/03/what-we-can-learn-from-the-2024-crowdstrike-outage",
+          "published": "2025-07-03",
+          "headline_verbatim": "What We Can Learn from the 2024 CrowdStrike Outage"
+        }
+      ],
+      "verification_notes": "Headline is the scraped h1; og:title appends ' | CSA'. Date from URL path and page date text '07/03/2025' (interpreted as 3 July 2025, consistent with the URL)."
+    }
+  ],
+  "dropped": [
+    {
+      "candidate": "Woolworths denies data breach after Everyday Rewards 'hacked' claims (Yahoo News Australia)",
+      "reason": "No publication date on the page and the scraper once returned an unrelated article for that URL; no dated corroborating source found. Newer ABC Woolworths gift-card stories (Nov 2026) are outside the 2021-2025 window."
+    },
+    {
+      "candidate": "Qantas app glitch exposing other customers' details, 2024-05-01/03",
+      "reason": "Verified (ABC 2024-05-03: technology issue, no evidence of a cyber incident) but it was a genuine personal-data exposure of unclear scale, so labelling it a non-incident would be misleading."
+    },
+    {
+      "candidate": "Yahoo News Australia 'Major risk to Australia's essential services ... Paralyse the country'",
+      "reason": "Hypothetical-warning headline but publication date not on page; dropped."
+    },
+    {
+      "candidate": "CyberCX repost of ABC 'Australia's electricity grid increasingly vulnerable to hackers via solar panels, smart devices'",
+      "reason": "Repost with no publication date on page (original ABC piece not located); dropped."
+    },
+    {
+      "candidate": "Epworth HealthCare ransomware claim / 'no evidence of data breach' (Cyber Daily)",
+      "reason": "Appears to date from 2026 (outside window); article page not opened."
+    },
+    {
+      "candidate": "Cyber Daily Facebook post on a NSW Government ransomware claim",
+      "reason": "Firecrawl refused the site; the underlying claim and date could not be verified."
+    },
+    {
+      "candidate": "Microsoft MSRC Patch Tuesday release notes (primary source)",
+      "reason": "MSRC pages returned HTTP 403 via the scraper; used a secondary write-up (Krebs) instead."
+    },
+    {
+      "candidate": "Individual AEMO market notices (LOR1/LOR2 etc.)",
+      "reason": "No individually dated notice page retrieved; substituted AEMO Quarterly Energy Dynamics report."
+    },
+    {
+      "candidate": "Cloudflare 'one year later' retrospective (pulsapi)",
+      "reason": "Published 2026, outside the 2021-2025 window."
+    },
+    {
+      "candidate": "Additional Australian misleading-headline and AEMO/board-news items",
+      "reason": "Time/budget exhausted before further verifiable candidates were found; misleading_headline category has only 2 verified entries (target was at least 4)."
+    }
+  ]
+}

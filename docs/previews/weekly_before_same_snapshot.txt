@@ -1,0 +1,6 @@
+<legacy renderer _format_weekly_osint_block; LLM paragraph omitted>
+<b>🛰 TECH OSINT — WEEKLY (1000)</b>
+  🔴 321 high  ·  🟡 450 medium  ·  🟢 26 low  ·  ⚪ 203 unscored
+  🔴 Cloudflare Status: Cloudflare Dashboard and Cloudflare API service issues in EU region (resolved)
+  🔴 Java4Shell, NGINX2Shell and more: Why we are not at "Yellow", (Wed, Nov 18th)
+  🔴 Anthropic (ANT) IPO on Nasdaq Overcame AI Fears and Warnings

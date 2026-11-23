@@ -1,0 +1,74 @@
+*Weekly Thought Leadership Brief — Mon 23 Nov 2026*
+_Communications & Presence Officer · "What should I be talking about this week?"_
+
+*Recommended this week — prioritised, evidence-backed:*
+1. *Specialists Advise, Captains Decide* — _AI-Augmented Leadership_ · suggest a *Lessons Learned*
+     ↳ evidence: Specialists Advise, Captains Decide _(source lesson:LL-003)_
+     ↳ advances: Career & Professional Impact
+2. *Authority Hierarchy Must Be Explicit* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Authority Hierarchy Must Be Explicit _(source lesson:LL-006)_
+     ↳ advances: Career & Professional Impact
+3. *Competing Authority Claims Accumulate Unless Prevented* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Competing Authority Claims Accumulate Unless Prevented _(source lesson:LL-007)_
+     ↳ advances: Career & Professional Impact
+4. *Authority Separation Is a First-Class Architectural Constraint* — _Operational Resilience_ · suggest a *Lessons Learned*
+     ↳ evidence: Authority Separation Is a First-Class Architectural Constraint _(source lesson:LL-009)_
+     ↳ advances: Career & Professional Impact
+
+*Themes in the pipeline:* Operational Resilience (3) · AI-Augmented Leadership (1)
+*Strategic alignment:* Career & Professional Impact (4)
+
+_Generate a draft with `/comms draft <n>`. Communications & Presence Officer scaffolds; the Captain writes, edits, and publishes._
+
+📡 EVIDENCE-BASED CONTRIBUTION CANDIDATES (V1) — recommendation only; publication is approval-only and nothing is published automatically
+
+1. Proposed headline: What the Telstra outage tells resilience owners about dependency risk
+    audience: operational-resilience and technology-risk leaders in regulated entities
+    central argument: When Telstra fails, the exposure sits in telecom concentration, so test dependency and exit plans before the next outage rather than after it.
+    why now: first reported 16 Nov; impact stated in headline, ongoing; telecom affected
+    evidence and provenance: corroborated — Google News - Telstra (aggregator), Google News - Telstra (aggregator), Google News - Telstra (aggregator) [inc-67ec217390; 6 report(s); ABC News, Google News - Telstra]
+    what only you can add: your practitioner view of impact tolerances, dependency mapping and what you would test before the next incident (the brief cannot supply experience)
+    originality: no duplicate found against 8 existing titles (similarity 0.00); related research: none found
+    relevance: Operational Resilience
+    publication readiness: ready to draft (argument supported; Captain approval still required to publish)
+    evidence gaps: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+2. Proposed headline: What the Microsoft outage tells resilience owners about dependency risk
+    audience: operational-resilience and technology-risk leaders in regulated entities
+    central argument: When Microsoft fails, the exposure sits in cloud platform, finance concentration, so test dependency and exit plans before the next outage rather than after it.
+    why now: first reported 16 Nov; impact stated in headline, 130,000 customers, ongoing; cloud platform, finance affected
+    evidence and provenance: corroborated — Google News - Critical Infrastructure/Energy Cyberattack AU (aggregator), Google News - Telstra (aggregator), Google News - APRA/ASIC Operational Resilience (aggregator) [inc-df4dc0ec06; 6 report(s); Google News - APRA/ASIC Operational Resilience, Google News - Critical Infrastructure/Energy Cyberattack AU, Google News - Telstra …]
+    what only you can add: your practitioner view of impact tolerances, dependency mapping and what you would test before the next incident (the brief cannot supply experience)
+    originality: no duplicate found against 8 existing titles (similarity 0.00); related research: none found
+    relevance: Operational Resilience
+    publication readiness: ready to draft (argument supported; Captain approval still required to publish)
+    evidence gaps: confirm the customer count, affected area and restoration estimate with the network operator or regulator (primary source)
+3. Proposed headline: Beyond the breach at Coles: mapping the dependencies that actually carry the risk
+    audience: operational-resilience and technology-risk leaders in regulated entities
+    central argument: Hypothesis (unsupported until verified): The Coles incident shows that resilience depends on knowing which third-party and retail food dependencies can disrupt service, not only on preventing intrusion.
+    why now: first reported 16 Nov; reported; retail food affected
+    evidence and provenance: corroborated — Google News - Critical Infrastructure/Energy Cyberattack AU (aggregator), iTnews (specialist), Google News - Origin Energy (aggregator) [inc-be46a15f69; 7 report(s); ABC News, Google News - Critical Infrastructure/Energy Cyberattack AU, Google News - Origin Energy …]
+    what only you can add: your practitioner view of impact tolerances, dependency mapping and what you would test before the next incident (the brief cannot supply experience)
+    originality: no duplicate found against 8 existing titles (similarity 0.00); related research: none found
+    relevance: Operational Resilience
+    publication readiness: hold — argument unsupported until a second or primary source confirms the facts
+    evidence gaps: obtain the organisation's own statement or the regulator's notice confirming what was affected
+4. Proposed headline: What one critical provider teaches about operating through disruption
+    audience: operational-resilience and technology-risk leaders in regulated entities
+    central argument: Hypothesis (unsupported until verified): The a single provider event is a prompt to check a shared dependency dependencies against impact tolerances.
+    why now: first reported 18 Nov; reported; dependencies not identified
+    evidence and provenance: officially confirmed — CISA Alerts (primary) [inc-1c5d65ee53; 1 report(s); CISA Alerts]
+    what only you can add: your practitioner view of impact tolerances, dependency mapping and what you would test before the next incident (the brief cannot supply experience)
+    originality: no duplicate found against 8 existing titles (similarity 0.00); related research: none found
+    relevance: Operational Resilience
+    publication readiness: hold — argument unsupported until a second or primary source confirms the facts
+    evidence gaps: check the vendor advisory and whether affected products are in our estate
+5. Proposed headline: What one critical provider teaches about operating through disruption
+    audience: operational-resilience and technology-risk leaders in regulated entities
+    central argument: Hypothesis (unsupported until verified): The a single provider event is a prompt to check a shared dependency dependencies against impact tolerances.
+    why now: first reported 18 Nov; none; dependencies not identified
+    evidence and provenance: officially confirmed — CISA Alerts (primary) [inc-b709b3a96b; 1 report(s); CISA Alerts]
+    what only you can add: your practitioner view of impact tolerances, dependency mapping and what you would test before the next incident (the brief cannot supply experience)
+    originality: no duplicate found against 8 existing titles (similarity 0.00); related research: none found
+    relevance: Operational Resilience
+    publication readiness: hold — argument unsupported until a second or primary source confirms the facts
+    evidence gaps: check the vendor advisory and whether affected products are in our estate

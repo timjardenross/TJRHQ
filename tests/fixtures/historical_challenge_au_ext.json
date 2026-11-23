@@ -1,0 +1,540 @@
+{
+  "scope": "AU extension",
+  "researched_on": "2026-11-23",
+  "incidents": [
+    {
+      "id": "au2-vic-storm-transmission-grid-2024-02",
+      "kind": "incident",
+      "sector": "energy - electricity transmission and distribution (Victoria)",
+      "organisation": "AusNet Services / AEMO (Victorian transmission and distribution networks)",
+      "event_type": "power_outage_grid_event",
+      "date": "2024-02-13",
+      "consequences": "Per Victorian Network Outage Review: over 1 million customers lost power across the event, over 531,000 off supply at the peak; six transmission towers collapsed and a 500 kV line failed; Loy Yang A generating units disconnected, requiring AEMO-directed load shedding; prolonged power outage payment supported more than 3,000 people still affected 7 days later. Per AEMO final report: generation impact 2,507 MW, customer load impact 325 MW shed. Per Energy Magazine (contemporary): about 90,000 customers lost power through AEMO load shedding and were restored; 90 per cent of customers reconnected within 48 hours (minister, as quoted); geography Victoria-wide, Gippsland hardest hit.",
+      "confirmed_at_first_report": "Energy Magazine first version (published 15 Feb 2024 on page): 530,000 customers affected, Loy Yang A shut down, Moorabool-Sydenham 500 kV line tripped, AEMO directed AusNet to shed load, approximately 90,000 customers lost power via load shedding and had been restored.",
+      "unconfirmed_at_first_report": "Early report attributed the Loy Yang A trip to 'the collapsing of two transmission towers'; the official review later states six towers collapsed. AEMO said it was investigating cause; restoration time for all customers was unknown ('days or more than a week in extreme circumstances').",
+      "sources": [
+        {
+          "url": "https://www.energymagazine.com.au/catastrophic-storms-leave-530000-without-power-in-vic/",
+          "publisher": "Energy Magazine",
+          "role": "other",
+          "published": "2024-02-15",
+          "headline_rendered": "Catastrophic storms leave 530,000 without power in VIC",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "published_metadata": "2024-02-14T23:00:29+00:00 (modified 2024-02-20)",
+          "source_notes": "Page shows 'February 15, 2024' and is a live-updated article (updates through 20 Feb 2024)."
+        },
+        {
+          "url": "https://www.energy.vic.gov.au/__data/assets/pdf_file/0035/717749/network-outage-review-report.pdf",
+          "publisher": "Victorian Government (Network Outage Review Expert Panel)",
+          "role": "official",
+          "published": "June 2024 (copyright notice; text states Final Report presented 30 August 2024)",
+          "headline_rendered": "Network Outage Review",
+          "headline_verified": true,
+          "evidence_type": "retrospective",
+          "source_notes": "First 6 of 70 pages read."
+        },
+        {
+          "url": "https://www.aemo.com.au/-/media/files/electricity/nem/market_notices_and_events/power_system_incident_reports/2024/final-report---loss-of-moorabool---sydenham-500-kv-lines-on-13-feb-2024.pdf",
+          "publisher": "AEMO",
+          "role": "official",
+          "published": "July 2025 (as shown on first page)",
+          "headline_rendered": "Final Report - Trip of Moorabool - Sydenham 500 kV No. 1 and No. 2 lines on 13 February 2024",
+          "headline_verified": true,
+          "evidence_type": "retrospective",
+          "source_notes": "First 8 of 84 pages read; figures taken from the summary table."
+        }
+      ],
+      "first_credible_report_headline": "Catastrophic storms leave 530,000 without power in VIC",
+      "verification_notes": "Three independent sources opened and read (rendered text / PDF text); two official. Customer counts differ by scope: 530,000-531,000 is the peak off-supply figure; 'over 1 million' is cumulative across the event per the official review. The tower count changed between early report (two) and official review (six). Page text extraction used a query-extraction format; headlines are as extracted from page text."
+    },
+    {
+      "id": "au2-sydney-trains-radio-system-network-halt-2023-03",
+      "kind": "incident",
+      "sector": "transport - urban rail (Sydney)",
+      "organisation": "Sydney Trains / Transport for NSW",
+      "event_type": "rail_network_outage",
+      "date": "2023-03-08",
+      "consequences": "Entire Sydney Trains network halted from about 2:45pm on Wednesday 8 March 2023 after the Digital Train Radio System (DTRS) failed; trains progressively recommenced around 4pm (Sydney Trains CEO, per Guardian) with significant delays through the evening peak; ABC: stopped 'more than one hour'; thousands of peak-hour commuters stranded; services to Newcastle, Wollongong and Blue Mountains also affected (Guardian). TfNSW COO described the DTRS as the vital link to over 300 trains (ABC).",
+      "confirmed_at_first_report": "Network-wide halt at 2:45pm, cause stated as failure of the digital radio system connecting train crew with signallers and the rail operations centre; trains halted for safety; services resuming around 4pm; investigation announced.",
+      "unconfirmed_at_first_report": "Root cause of the DTRS failure. Sydney Trains CEO said it was not believed to be a cyber-attack or related to a weekend software update ('early advice').",
+      "sources": [
+        {
+          "url": "https://www.abc.net.au/news/2023-03-08/sydney-train-network-at-standstill-after-communication-breakdown/102069490",
+          "publisher": "ABC News",
+          "role": "mainstream",
+          "published": "2023-03-07 (page shows 'Posted 7 Mar 2023 at 11:46pm, updated 8 Mar 2023 at 5:28am')",
+          "headline_rendered": "Investigation underway after Sydney trains halted due to communications issue",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "og:title differs: 'Investigation underway after communications issue causes chaos on Sydney's rail network'. The 'Posted' time shown (7 Mar 11:46pm) is earlier than the 2:45pm 8 March event as displayed (likely a timezone display difference, not confirmed); the metadata publishedTime is 2023-03-08T04:46:44Z and the incident date is taken from the article body ('Wednesday')."
+        },
+        {
+          "url": "https://www.theguardian.com/australia-news/2023/mar/08/sydney-train-network-trains-down-rail-delays-halt-communications-fault-update",
+          "publisher": "The Guardian",
+          "role": "mainstream",
+          "published": "2023-03-08",
+          "headline_rendered": "‘Avoid train travel now’: Sydney’s rail network grinds to a halt after communications fault",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "published_metadata": "2023-03-08T05:42:48Z",
+          "source_notes": "Date from page metadata (2023-03-08T05:42:48Z); page text extraction did not return a visible date string."
+        },
+        {
+          "url": "https://www.transport.nsw.gov.au/system/files/media/documents/2023/Sydney-Trains_Review-Phase-One_Initial-Report_12-May-2023.pdf",
+          "publisher": "Transport for NSW (Sydney Trains Review panel)",
+          "role": "official",
+          "published": "2023-05-12 (cover: 'Initial Report, 12 May 2023')",
+          "headline_rendered": "Sydney Trains Review - Phase One - Initial Report",
+          "headline_verified": true,
+          "evidence_type": "retrospective",
+          "source_notes": "Pages 1-6 read: states three significant incidents within a 17-day period in March 2023 caused substantial disruption; the pages read do not name the DTRS outage. A search-result excerpt of a later section described a 8 March DTRS outage declared a Crisis Incident, but I did not render that section, so it is not relied on."
+        }
+      ],
+      "first_credible_report_headline": "Investigation underway after Sydney trains halted due to communications issue",
+      "verification_notes": "Two contemporary mainstream sources read in full text; the official TfNSW document corroborates only the general March 2023 disruption cluster in the pages I read (official corroboration is partial). No TfNSW media-release page was found/opened. Duration is stated differently by sources (more than an hour vs around 4pm resumption); recorded as stated."
+    },
+    {
+      "id": "au2-eastern-health-cyber-incident-2021-03",
+      "kind": "incident",
+      "sector": "healthcare - hospital network (Victoria)",
+      "organisation": "Eastern Health (Melbourne)",
+      "event_type": "cyber_incident_suspected_ransomware",
+      "date": "2021-03-16",
+      "consequences": "Operator of four hospitals in Melbourne's east took many IT systems offline as a precaution; less urgent elective surgery postponed; category one elective surgery continued; patient safety stated as not compromised.",
+      "confirmed_at_first_report": "Incident occurred Tuesday night (per Eastern Health statement as quoted by Information Age); many IT systems offline; less urgent surgeries postponed.",
+      "unconfirmed_at_first_report": "Nature of incident unknown at first report; ransomware only suggested as likely by outside experts. No data-theft statement in either article.",
+      "sources": [
+        {
+          "url": "https://ia.acs.org.au/article/2021/victorian-hospitals-hit-by-cyber-attack.html",
+          "publisher": "Information Age (ACS)",
+          "role": "other",
+          "published": "2021-03-18 (page shows 'Mar 18 2021 12:57 PM')",
+          "headline_rendered": "Victorian hospitals hit by cyber attack",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "Quotes an Eastern Health media statement."
+        },
+        {
+          "url": "https://www.computerweekly.com/news/252498066/Eastern-Health-reports-cyber-incident-takes-systems-offline",
+          "publisher": "Computer Weekly",
+          "role": "other",
+          "published": "2021-03-18 (page shows 'Published: 18 Mar 2021 5:13')",
+          "headline_rendered": "Eastern Health reports ‘cyber incident’, takes systems offline",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "Headline is the page <title> / og:title (curly quotes as in metadata); body text extraction did not repeat the h1."
+        }
+      ],
+      "first_credible_report_headline": "Victorian hospitals hit by cyber attack",
+      "verification_notes": "Two independent trade-press sources. Official source exists but could not be verified: the Eastern Health media-statement URL linked from the Information Age article returns 404 (Page Not Found) and no other official page was located. Incident date 2021-03-16 is derived from 'Tuesday night' in an article published Thursday 18 March 2021 (a konbriefing search excerpt also said 16 March; page not opened)."
+    },
+    {
+      "id": "au2-mydeal-woolworths-data-breach-2022-10",
+      "kind": "incident",
+      "sector": "retail - online marketplace (Woolworths Group subsidiary)",
+      "organisation": "MyDeal (Woolworths Group)",
+      "event_type": "data_breach",
+      "date": "2022-10-14",
+      "consequences": "Approximately 2.2 million customers affected; 1.2 million had only email addresses exposed; other exposed data: names, phone numbers, delivery addresses, in some instances date of birth. Entry via a compromised user credential into the CRM system. Company stated the MyDeal website and app were not impacted and no other Woolworths Group platforms or Woolworths/Everyday Rewards records were compromised.",
+      "confirmed_at_first_report": "ASX announcement 14 Oct 2022: compromised user credential, CRM access, approx 2.2 million customers, data types, customers being contacted by email.",
+      "unconfirmed_at_first_report": "Extent of any onward misuse; ABC states no account passwords or payment details were compromised per Woolworths.",
+      "sources": [
+        {
+          "url": "https://www.asx.com.au/asxpdf/20221014/pdf/45gb3w76z2209w.pdf",
+          "publisher": "Woolworths Group (ASX announcement)",
+          "role": "official",
+          "published": "2022-10-14",
+          "headline_rendered": "MyDeal data breach notification",
+          "headline_verified": false,
+          "evidence_type": "contemporary",
+          "source_notes": "Headline is the PDF metadata title; page text did not return a separate headline line."
+        },
+        {
+          "url": "https://www.abc.net.au/news/2022-10-15/woolworths-mydeal-cyber-attack-hack-information-leaked/101539686",
+          "publisher": "ABC News",
+          "role": "mainstream",
+          "published": "2022-10-14 (page shows 'Posted 14 Oct 2022 at 10:26pm, updated 15 Oct 2022 at 12:29am')",
+          "headline_rendered": "Woolworths MyDeal becomes latest target of cyber attack.",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "<title> is longer ('...What information was leaked and what can you do if you're affected?'); og:title: 'Woolworths subsidiary MyDeal is the latest target of a cyber attack. Here's what you need to know'."
+        },
+        {
+          "url": "https://www.reuters.com/business/retail-consumer/woolworths-says-data-online-units-22-mln-users-breached-2022-10-14/",
+          "publisher": "Reuters",
+          "role": "mainstream",
+          "published": "2022-10-14 (dateline 'Oct 14 (Reuters)')",
+          "headline_rendered": "Woolworths says data of online unit's 2.2 mln users breached",
+          "headline_verified": false,
+          "evidence_type": "contemporary",
+          "published_metadata": "2022-10-14T10:18:55Z",
+          "source_notes": "Headline from og:title/<title> metadata only; extracted page text started at the dateline."
+        }
+      ],
+      "first_credible_report_headline": "Woolworths says data of online unit's 2.2 mln users breached",
+      "verification_notes": "Official ASX announcement, ABC and Reuters all opened and consistent on 2.2 million customers and the compromised-credential cause. Headline verification is metadata-only for Reuters and the ASX PDF (headline_verified false); ABC headline verified from page text."
+    },
+    {
+      "id": "au2-qld-ex-tc-alfred-power-outages-2025-03",
+      "kind": "incident",
+      "sector": "energy - electricity distribution (Queensland)",
+      "organisation": "Energex / Ergon Energy Network",
+      "event_type": "power_outage_weather",
+      "date": "2025-03-08",
+      "consequences": "Per Energex 12 Mar 2025 update: 58,565 customers without supply at 7am 12 March; 392,000 customers restored since start of event, 'more than 87% of all impacted customers'; by afternoon 400,000 or 90 per cent of cyclone-affected south east Queensland homes restored; more than 2,000 staff working. Per Energy Magazine 18 Mar 2025: more than 500,000 properties in south-east Queensland reconnected over 11 days, described by Ergon as the biggest post-disaster power restoration in Queensland's history; secondary faults on 16 March around Springbrook, Tallebudgera, Bonogin and Currumbin and Tally Valleys affecting recently resupplied customers.",
+      "confirmed_at_first_report": "Not captured: I did not open a first-day report; the earliest official page opened is the 12 March update (four days after landfall on 8 March per Energy Magazine).",
+      "unconfirmed_at_first_report": "Not captured for the same reason. At 12 March, full restoration time was not given on the page text I extracted.",
+      "sources": [
+        {
+          "url": "https://www.energex.com.au/news/2025/ex-tropical-cyclone-alfred-update-12-march",
+          "publisher": "Energex",
+          "role": "official",
+          "published": "2025-03-12 (page 'publishedDate 12 March 2025')",
+          "headline_rendered": "Ex-Tropical Cyclone Alfred Update - 12 March",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "Page metadata dcterms.issued 2025-03-12T18:47:30+10:00."
+        },
+        {
+          "url": "https://www.energymagazine.com.au/qld-celebrates-power-restoration-post-cyclone/",
+          "publisher": "Energy Magazine",
+          "role": "other",
+          "published": "2025-03-18",
+          "headline_rendered": "Qld celebrates power restoration post-cyclone",
+          "headline_verified": true,
+          "evidence_type": "retrospective",
+          "published_metadata": "2025-03-18T06:58:56+00:00",
+          "source_notes": "Published after restoration completed; summarises the event."
+        }
+      ],
+      "first_credible_report_headline": "Ex-Tropical Cyclone Alfred Update - 12 March",
+      "verification_notes": "Official distributor page and a trade publication opened. The two sources use different customer bases (restored vs impacted), and I did not compute a total impacted figure from them. Earliest-report fields are deliberately unfilled rather than reconstructed. Powerlink/Utility Magazine/LinkedIn items appeared in search results but were not opened."
+    },
+    {
+      "id": "au2-woolworths-dc-industrial-action-supply-2024-11",
+      "kind": "incident",
+      "sector": "retail - supermarket supply chain (Vic, NSW, ACT)",
+      "organisation": "Woolworths Group (Primary Connect distribution centres)",
+      "event_type": "supply_chain_disruption_industrial_action",
+      "date": "2024-11-21",
+      "consequences": "Industrial action from 21 November 2024 at distribution centres; Woolworths said four sites were subject to indefinite strike action impacting supply to Victoria, ACT and parts of NSW; Guardian: more than 1,500 warehouse workers on strike, up to five DCs, Australian food sales hit by about $50 million to 2 December (Woolworths statement); SBS: thousands of supermarket and bottle shop shelves empty after 16 days. Resolved 7 December 2024 when UWU members endorsed new enterprise agreements; restocking expected to take time.",
+      "confirmed_at_first_report": "Not captured: earliest page opened is dated 3 December 2024 (day 13 of the action).",
+      "unconfirmed_at_first_report": "Not captured. On 3 Dec: duration and extent of ongoing action and inventory rebuild time were stated as unknown ('dependent on the duration').",
+      "sources": [
+        {
+          "url": "https://woolworthsgroup.com.au/au/en/our-newsroom/media-releases/latest-news/2024/woolworths-files-application-to-fair-work-commission.html",
+          "publisher": "Woolworths Group",
+          "role": "official",
+          "published": "2024-12-03 (text 'Tuesday 3 December 2024')",
+          "headline_rendered": "Woolworths files application to Fair Work Commission",
+          "headline_verified": true,
+          "evidence_type": "contemporary"
+        },
+        {
+          "url": "https://woolworthsgroup.com.au/au/en/our-newsroom/media-releases/latest-news/2024/woolworths-reaches-endorsed-deal-on-enterprise-agreements-at-all.html",
+          "publisher": "Woolworths Group",
+          "role": "official",
+          "published": "2024-12-07 (text 'Saturday, 7 December 2024 - 4.30pm')",
+          "headline_rendered": "Woolworths reaches endorsed deal on enterprise agreements at all distribution centres taking industrial action across Victoria and NSW",
+          "headline_verified": true,
+          "evidence_type": "contemporary"
+        },
+        {
+          "url": "https://www.theguardian.com/business/2024/dec/03/woolworths-takes-50m-hit-as-strike-leads-to-empty-shelves-in-some-stores",
+          "publisher": "The Guardian",
+          "role": "mainstream",
+          "published": null,
+          "headline_rendered": "Woolworths takes $50m hit as strike leads to empty shelves",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "published_metadata": "2024-12-03T00:45:40Z",
+          "source_notes": "No date string returned by text extraction."
+        },
+        {
+          "url": "https://www.sbs.com.au/news/article/woolworths-distribution-centre-strikes-to-end-after-deal-struck-with-union-members/v6o7vnv3g",
+          "publisher": "SBS News",
+          "role": "mainstream",
+          "published": "2024-12-06 (page shows 'Published 6 December 2024 3:24 am, Updated 7 December 2024 1:23 am')",
+          "headline_rendered": "Woolworths distribution centre strikes to end after deal struck with union members",
+          "headline_verified": true,
+          "evidence_type": "contemporary"
+        }
+      ],
+      "first_credible_report_headline": "Woolworths takes $50m hit as strike leads to empty shelves",
+      "verification_notes": "Industrial dispute causing a supply incident, not a cyber or IT failure; included for the retail/supply sector gap. Site counts differ across sources (Woolworths: four sites in the 3 and 7 Dec releases; Guardian: up to five distribution centres) and are recorded as stated. The $50m figure is Woolworths' own statement to 2 December as quoted by the Guardian."
+    },
+    {
+      "id": "au2-qantas-app-other-customers-data-exposure-2024-05",
+      "kind": "incident",
+      "sector": "aviation - airline customer app",
+      "organisation": "Qantas",
+      "event_type": "data_exposure_technology_fault",
+      "date": "2024-05-01",
+      "consequences": "On Wednesday 1 May 2024, in two periods, some Qantas Frequent Flyer app users were shown other customers' names, upcoming flight details, points balance and status. Qantas: no financial information shown, points could not be transferred, boarding passes not usable, not aware of anyone travelling on incorrect boarding passes; app fixed by Wednesday evening. Guardian reported 'potentially thousands' of customers (unquantified by Qantas on the page text I extracted). On 3 May Qantas told members the root cause was a technology issue with no evidence of a cyber incident (ABC: understood to be a caching issue).",
+      "confirmed_at_first_report": "App showing other customers' booking details in two periods; Qantas investigating; 'no indication of a cyber security incident'; possibly related to recent system changes.",
+      "unconfirmed_at_first_report": "Number of customers affected; root cause (later stated as a technology/caching issue); whether sensitive travel information was shown to others (Qantas said it would contact customers directly).",
+      "sources": [
+        {
+          "url": "https://www.theguardian.com/business/2024/may/01/qantas-app-privacy-security-data-breach-customer-personal-details-public",
+          "publisher": "The Guardian",
+          "role": "mainstream",
+          "published": null,
+          "headline_rendered": "Qantas passengers’ personal details exposed as airline app logs users into wrong account",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "published_metadata": "2024-05-01T02:44:55Z",
+          "source_notes": "No date string returned by text extraction."
+        },
+        {
+          "url": "https://www.abc.net.au/news/2024-05-03/qantas-confirms-technology-issue-caused-app-data-breach/103802206",
+          "publisher": "ABC News",
+          "role": "mainstream",
+          "published": "2024-05-03 (page shows 'Posted 3 May 2024 at 4:43am')",
+          "headline_rendered": "Qantas confirms technology issue caused data breach that exposed personal information of customers",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "og:title is more alarming: 'Qantas reveals cause of 'major data breach' that exposed customers' personal information'."
+        }
+      ],
+      "first_credible_report_headline": "Qantas passengers’ personal details exposed as airline app logs users into wrong account",
+      "verification_notes": "Two independent mainstream sources opened. No Qantas-owned page was fetched (statements are quoted second-hand by both outlets), so an official source is not independently verified. Privacy exposure from a fault rather than an attack; included as a customer-data exposure incident."
+    }
+  ],
+  "non_incidents": [
+    {
+      "id": "neg2-mygov-2020-03-ddos-claim-retracted",
+      "kind": "false_alarm",
+      "sector": "government online services - Australia",
+      "date": "2020-03-23",
+      "description": "Government Services Minister claimed a DDoS cyber attack contributed to the myGov website failing under demand from people seeking Centrelink help; within hours he told Parliament there was no evidence of an attack, and Services Australia later confirmed no attack occurred.",
+      "why_not_a_major_incident": "The attack claim was retracted; the outage was caused by extreme demand that tripped DDoS alarms, not by an attack.",
+      "sources": [
+        {
+          "url": "https://www.abc.net.au/news/2020-03-23/mygov-website-down-centrelink-massive-queues-coronavirus/12080558",
+          "publisher": "ABC News",
+          "role": "mainstream",
+          "published": "2020-03-22 (page shows 'Posted 22 Mar 2020 at 7:55pm, updated 23 Mar 2020 at 10:02am')",
+          "headline_rendered": "MyGov website crashes as thousands seek Centrelink help amid coronavirus pandemic, Government backflips on claims cyber attack to blame",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "og:title: 'Minister backflips on MyGov cyber attack claims, as long queues form outside Centrelink offices'."
+        },
+        {
+          "url": "https://www.itnews.com.au/news/ministers-mygov-ddos-attack-claim-ruled-out-once-and-for-all-547568",
+          "publisher": "iTnews",
+          "role": "other",
+          "published": "2020-04-30 (page shows 'Apr 30 2020 5:18PM')",
+          "headline_rendered": "Minister's myGov DDoS attack claim ruled out once and for all",
+          "headline_verified": true,
+          "evidence_type": "retrospective",
+          "source_notes": "Quotes the Services Australia chief saying alarms went off because of extreme demand."
+        }
+      ],
+      "verification_notes": "OUTSIDE the 2021-2025 window used for incidents (March 2020); included as a clean retracted-claim exemplar, flag for exclusion if the set is date-bounded. Two sources opened and consistent. A Daily Telegraph article and a ZDNet article surfaced in search but could not be read (paywall / unsupported site)."
+    },
+    {
+      "id": "neg2-mygov-2024-11-outage-thousands-vs-hundreds",
+      "kind": "misleading_headline",
+      "sector": "government online services - Australia",
+      "date": "2024-11-18",
+      "description": "myGov/Centrelink/Medicare login outage on Monday 18 November 2024, with intermittent issues into Tuesday. The article's social/og title says 'Thousands impacted' while its body says hundreds of Australians reportedly denied access and just over one thousand outage reports.",
+      "why_not_a_major_incident": "Scale is overstated in the social/og title: the body reports 'hundreds' denied access and 'over one thousand reports' to DownDetector; Services Australia said most services were restored by about 8pm Monday and payments were not affected; mainly login attempts affected.",
+      "sources": [
+        {
+          "url": "https://7news.com.au/news/mygov-outage-leaves-australians-unable-to-access-centrelink-medicare-and-child-support-online-services-c-16792425",
+          "publisher": "7NEWS",
+          "role": "mainstream",
+          "published": "2024-11-18 (page shows 'Published: 18 Nov 2024')",
+          "headline_rendered": "MyGov outage leaves Australians unable to access Centrelink, Medicare and Child Support online services",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "published_metadata": "2024-11-18T09:11:39Z",
+          "source_notes": "The on-page headline is NOT itself inflated. The inflated variant is the og:title/twitter:title 'Thousands impacted by MyGov outage: ‘Access denied’' (metadata only)."
+        },
+        {
+          "url": "https://au.finance.yahoo.com/news/centrelink-update-after-outage-leaves-aussies-unable-to-access-crucial-services-ridiculous-020203353.html",
+          "publisher": "Yahoo Finance Australia",
+          "role": "mainstream",
+          "published": "2024-11-18 (page shows '18 November 2024')",
+          "headline_rendered": "Centrelink update after outage leaves Aussies unable to access crucial services: ‘Ridiculous’",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "States 'hundreds of Centrelink customers' and 'more than 1,000 people reported issues'."
+        }
+      ],
+      "verification_notes": "WEAK misleading-headline case: the mismatch is between the og/social title ('Thousands impacted') and the body ('hundreds'; 'over one thousand reports'). A real outage did occur and was still intermittent the next day, so it is a minor-incident-overstated case, not a fabricated one. Services Australia's own posts were quoted second-hand (its Facebook page not opened)."
+    },
+    {
+      "id": "neg2-aemo-esoo-2025-08-abc-blackout-warnings",
+      "kind": "misleading_headline",
+      "sector": "energy - electricity reliability forecast (Queensland / NEM)",
+      "date": "2025-08-21",
+      "description": "Annual AEMO reliability forecast report (ESOO) released 21 Aug 2025. ABC headline frames it as blackout warnings for Queenslanders; the report identifies a small forecast reliability gap (80 MW) in Queensland in 2025-26 and a larger one in South Australia in 2026-27, with tools available to avoid blackouts. AEMO's own release is headed 'Reliability outlook improves'.",
+      "why_not_a_major_incident": "A forecast reliability gap in a planning report is not an outage or a load-shedding event; AEMO's own headline says the outlook improves and the article body lists options to avoid blackouts.",
+      "sources": [
+        {
+          "url": "https://www.abc.net.au/news/2025-08-21/blackout-warnings-queensland-summer-aemo-report/105681064",
+          "publisher": "ABC News",
+          "role": "mainstream",
+          "published": "2025-08-21 (page shows 'Posted 21 Aug 2025 at 1:04am')",
+          "headline_rendered": "Blackout warnings for Queenslanders ahead of summer from Australian Energy Market Operator",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "og:title: 'AEMO warns of potential blackouts for Queenslanders ahead of summer'. Body quotes: 'A small reliability gap (80 MW) is forecast in Queensland in 2025-26'."
+        },
+        {
+          "url": "https://www.aemo.com.au/newsroom/media-release/reliability-outlook-improves-timely-investment-delivery-essential",
+          "publisher": "AEMO",
+          "role": "official",
+          "published": "2025-08-21 (page shows '21/08/2025')",
+          "headline_rendered": "Reliability outlook improves, timely investment delivery essential",
+          "headline_verified": true,
+          "evidence_type": "contemporary"
+        }
+      ],
+      "verification_notes": "Moderate case: the ABC headline is defensible as a risk warning, but implies more than the body's 80 MW forecast gap. Source page text was obtained through query extraction; the AEMO release text extracted covers only the gap paragraphs."
+    },
+    {
+      "id": "neg2-aemo-esoo-2023-08-newscomau-decade-of-blackouts",
+      "kind": "misleading_headline",
+      "sector": "energy - electricity reliability forecast (NEM)",
+      "date": "2023-08-31",
+      "description": "news.com.au coverage of the August 2023 AEMO ESOO update: headline claims Australia faces a 'decade of summer blackouts'; the body says Victoria and South Australia in particular are at risk this summer on forecast, and that AEMO says the majority of predicted risks can be addressed if the renewable/storage/transmission pipeline is delivered.",
+      "why_not_a_major_incident": "Forecast risk in a planning report, not an outage; headline generalises to 'Australia' and 'decade of blackouts' while the body is conditional and state-specific.",
+      "sources": [
+        {
+          "url": "https://www.news.com.au/technology/environment/climate-change/australia-facing-decade-of-summer-blackouts-higher-energy-prices-without-urgent-action/news-story/b6217d80f30613ee1783d8f010f4bd09",
+          "publisher": "news.com.au",
+          "role": "mainstream",
+          "published": "2023-08-31 (page shows 'August 31, 2023 - 2:37PM')",
+          "headline_rendered": "Australia facing decade of summer blackouts, higher energy prices without ‘urgent’ action",
+          "headline_verified": true,
+          "evidence_type": "contemporary",
+          "source_notes": "Three headline variants: h1 as above; <title> 'AEMO report: Victoria, NSW, Queensland, SA facing blackouts, higher energy prices'; og:title 'Two Aussie states facing summer hell'."
+        }
+      ],
+      "verification_notes": "No second source opened: true scale is established from the article body itself (allowed for misleading-headline entries) and no AEMO page for the 2023 update was fetched. Moderate-strength case; the headline variants disagree on which states are affected (four in <title>, two in og:title, 'Australia' in h1)."
+    },
+    {
+      "id": "neg2-aemo-esoo-2025-08-release-routine",
+      "kind": "routine_notice",
+      "sector": "energy - electricity reliability forecast (NEM)",
+      "date": "2025-08-21",
+      "description": "AEMO routine annual media release on its ESOO forecast: small reliability gap forecast in Queensland 2025-26 (80 MW) and South Australia 2026-27 (390 MW) when Torrens Island B is advised to retire; AEMO will request the AER to consider a retailer reliability obligation for SA 2026-27.",
+      "why_not_a_major_incident": "Scheduled planning-forecast publication; describes forecast gaps and regulatory process, not an event affecting any customers.",
+      "sources": [
+        {
+          "url": "https://www.aemo.com.au/newsroom/media-release/reliability-outlook-improves-timely-investment-delivery-essential",
+          "publisher": "AEMO",
+          "role": "official",
+          "published": "2025-08-21 (page shows '21/08/2025')",
+          "headline_rendered": "Reliability outlook improves, timely investment delivery essential",
+          "headline_verified": true,
+          "evidence_type": "contemporary"
+        }
+      ],
+      "verification_notes": "Single official source (routine category). Same page also used as the official counterpart in neg2-aemo-esoo-2025-08-abc-blackout-warnings."
+    },
+    {
+      "id": "neg2-asd-annual-cyber-threat-report-2024-25",
+      "kind": "retrospective_or_commentary",
+      "sector": "national cyber security (Australia)",
+      "date": "2025-10",
+      "description": "ASD's annual cyber threat report page for FY2024-25: 1,200+ incidents responded to, 1,700+ notifications of potentially malicious activity, 84,700+ cybercrime reports (per page text and fact sheet excerpts). No named victim organisation.",
+      "why_not_a_major_incident": "Annual aggregate statistics; it names no organisation and no discrete event.",
+      "sources": [
+        {
+          "url": "https://www.cyber.gov.au/publication/annual-cyber-threat-report-2024-2025",
+          "publisher": "ASD / Australian Cyber Security Centre (cyber.gov.au)",
+          "role": "official",
+          "published": null,
+          "headline_rendered": "Annual Cyber Threat Report 2024-2025",
+          "headline_verified": false,
+          "evidence_type": "retrospective",
+          "source_notes": "Headline is the <title> tag ('Annual Cyber Threat Report 2024-2025 | cyber.gov.au'); extraction returned the foreword, not an h1; no publication date text returned. Fact-sheet PDF URLs in search results carry '2025-10' paths (month inferred only from file path)."
+        }
+      ],
+      "verification_notes": "Single official source. 'date' 2025-10 is inferred from the download path of the report PDF, not shown as a date on the page; treat as approximate."
+    },
+    {
+      "id": "neg2-sydney-trains-review-initial-report-2023-05",
+      "kind": "retrospective_or_commentary",
+      "sector": "transport - urban rail (Sydney)",
+      "date": "2023-05-12",
+      "description": "Independent Sydney Trains Review (Phase One) initial report to the NSW Transport Minister, prompted by three significant incidents within 17 days in March 2023; findings on timetable fragility, maintenance backlog, rail operations centre capability and customer communications.",
+      "why_not_a_major_incident": "A retrospective review of earlier incidents (including the 8 March 2023 network halt); it reports no new outage or event.",
+      "sources": [
+        {
+          "url": "https://www.transport.nsw.gov.au/system/files/media/documents/2023/Sydney-Trains_Review-Phase-One_Initial-Report_12-May-2023.pdf",
+          "publisher": "Transport for NSW (Sydney Trains Review panel)",
+          "role": "official",
+          "published": "2023-05-12 (cover: 'Initial Report, 12 May 2023')",
+          "headline_rendered": "Sydney Trains Review - Phase One - Initial Report",
+          "headline_verified": true,
+          "evidence_type": "retrospective",
+          "source_notes": "First 6 of 35 pages read."
+        }
+      ],
+      "verification_notes": "Single official source. It is a follow-up to au2-sydney-trains-radio-system-network-halt-2023-03, so a detector should not treat it as a separate event."
+    }
+  ],
+  "dropped": [
+    {
+      "candidate": "Telstra nationwide mobile outage (8 July 2026) and related ACMA/Senate items",
+      "reason": "Dated 2026, outside the 2021-2025 scope; not researched further. No Telstra outage within 2021-2025 was verified."
+    },
+    {
+      "candidate": "TechHQ 'cyberattack and a network outage' framing of the Nov 2023 Optus outage (candidate misleading headline)",
+      "reason": "The search-result title implied a cyberattack; the rendered page headline is 'Can Optus network bounce back from its major outage?' and the body correctly attributes the outage to a software-upgrade error, so no misleading headline could be verified."
+    },
+    {
+      "candidate": "Eastern Health official media statement (easternhealth.org.au item 1277)",
+      "reason": "URL returned 404 Page Not Found; no official page for the March 2021 incident could be verified (entry kept on two trade-press sources, flagged)."
+    },
+    {
+      "candidate": "Daily Telegraph 'cyber attack claim wrong' myGov article (2020)",
+      "reason": "Paywalled: scrape returned a subscribe page; the og title seen ('MyGov website collapses again as Centrelink swamped') does not match the search-result headline, so it was not used."
+    },
+    {
+      "candidate": "ZDNet myGov articles (2020 and 2021)",
+      "reason": "Site not supported by the scraper; could not be read."
+    },
+    {
+      "candidate": "Major payments outages (EFTPOS/Mastercard/Woolworths EFTPOS) - cashessentials.org, Facebook posts, Reddit threads",
+      "reason": "Only search excerpts and social posts surfaced; no mainstream or official page opened, so nothing could be verified or dated."
+    },
+    {
+      "candidate": "Qantas/Amadeus passenger-data story (Facebook posts by 10 News and Australian Aviation)",
+      "reason": "Only Facebook excerpts found; a follow-up search returned no results; no page could be rendered."
+    },
+    {
+      "candidate": "Coles and Woolworths store IT outages (Computer Weekly 252439404; Reddit 'Coles down')",
+      "reason": "Appear to date from October 2020 (outside window) and only search excerpts were seen; not opened."
+    },
+    {
+      "candidate": "Supermarket shortages from Covid isolation (Jan 2022 ABC; Sep 2021 Guardian) and Queensland Woolworths IT blunder / global IT outage shelf stories",
+      "reason": "Search excerpts only; not opened, so not verified. Woolworths Dec 2024 industrial action was verified instead."
+    },
+    {
+      "candidate": "Water or health-system incidents other than Eastern Health (e.g. Brisbane Mt Crosby water plant, Feb 2022 floods)",
+      "reason": "Not researched within the time available; no verified source."
+    },
+    {
+      "candidate": "Sydney Trains other disruptions (Panania overhead wire Mar 2023; Homebush/Casula 2025 power cable; July 2023 sick-day delays; Jan 2025 industrial action)",
+      "reason": "Only search excerpts/related-story links seen; not opened. Only the 8 March 2023 DTRS halt was verified."
+    },
+    {
+      "candidate": "Hacker/ransomware claims later denied (Sodali via The Australian; Epworth; Qld firm alleged hack)",
+      "reason": "Seen only as search excerpts/Facebook posts or undated roundup pages; no dated rendered article opened."
+    },
+    {
+      "candidate": "OpenAI agent / Medicare portal incident (Sept 2026) and Microsoft outage (Nov 2026)",
+      "reason": "Dated 2026, outside the scope window."
+    },
+    {
+      "candidate": "Lexology 'Cyber security: a month in retrospect (Australia) - November 2025' as a retrospective commentary entry",
+      "reason": "Seen only as a search excerpt; not opened."
+    }
+  ]
+}

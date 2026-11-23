@@ -33,8 +33,49 @@ def compose_presence_line(opportunities: list) -> str | None:
 
 
 def compose_weekly_brief(opportunities: list, *, date_str: str | None = None,
-                         limit: int = 5) -> str:
-    """WP6: the weekly influence brief. Pure."""
+                         limit: int = 5, evidence_lines: list[str] | None = None) -> str:
+    """WP6: the weekly influence brief. Pure. ``evidence_lines`` (from ``evidence_lines_for``, flag-gated) is appended unchanged."""
+    body = _compose_weekly_brief_core(opportunities, date_str=date_str, limit=limit)
+    if evidence_lines:
+        body += "\n\n" + "\n".join(evidence_lines)
+    return body
+
+
+def evidence_lines_for(opportunities: list, *, sb_get=None) -> list[str]:
+    """V1 shared-evidence contribution candidates for the Communications & Presence brief. [] unless BRIEF_EVIDENCE_V1 or
+    BRIEF_EVIDENCE_V1_COMMS is set; never raises (the legacy brief must render unchanged)."""
+    import re as _re
+    try:
+        from lib.comms import opportunities as opp
+
+        from intelligence import brief_evidence as be
+        if not be.enabled("comms"):
+            return []
+        if sb_get is None:
+            from intelligence.captains_brief import _sb_get as sb_get
+        events = be.load_events(sb_get, hours=168)
+        if not events:
+            return []
+        ev = be.build_evidence(events, window_hours=168)
+
+        def pillar_fn(text):
+            _stream, pkey, hits = editorial.classify_stream(text)
+            return pillars.PILLARS_BY_KEY[pkey].name if pkey and hits else None
+        titles = [t for t in opp._existing_titles() if t]                    # already drafted/published content (portfolio)
+        refs = [(getattr(o, "title", ""), f"{o.source_kind}:{o.source_ref}") for o in opportunities
+                if getattr(o, "source_kind", "") in ("library", "research", "signal")]   # existing research-library / Notion references
+
+        def research_fn(headline):
+            return [f"{t} ({r})" for t, r in refs if editorial.shared_theme(headline, t)][:2]
+        view = be.comms_view(ev, existing_titles=titles + [getattr(o, "title", "") for o in opportunities],
+                             pillar_fn=pillar_fn, similarity_fn=editorial.max_similarity, research_fn=research_fn)
+        return [_re.sub(r"([_*`\[])", r"\\\1", x) for x in view]
+    except Exception:  # noqa: BLE001 - additive feature-flagged block
+        return []
+
+
+def _compose_weekly_brief_core(opportunities: list, *, date_str: str | None = None, limit: int = 5) -> str:
+    """The unchanged WP6 weekly influence brief."""
     d = date_str or datetime.now(timezone.utc).date().strftime("%a %d %b %Y")
     if editorial.enabled() and any(getattr(o, "escore", None) for o in opportunities):
         return compose_editorial_brief(opportunities, date_str=d)

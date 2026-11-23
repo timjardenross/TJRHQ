@@ -1,0 +1,12 @@
+sentinel_id,date,contemporary_headline,publisher,v1_priority_now,human_decision,human_notes
+au-aemo-nem-market-suspension-2022-06,2022-06-15,Energy market suspended after chaos made it ‘impossible to operate’,The Sydney Morning Herald,VERIFY,,
+au-optus-triple-zero-failure-2025-09,2025-09-18,Optus network failure impacted triple-0 calls in several states where patients died after 'totally unacceptable' lapse,ABC News,ESCALATE,,
+intl-crowdstrike-falcon-windows-2024,2024-07-19,"Faulty CrowdStrike update causes major global IT outage, taking out banks, airlines and businesses globally",TechCrunch,VERIFY,,
+intl-crowdstrike-falcon-windows-2024,2024-07-19,"A faulty software update causes havoc worldwide for airlines, hospitals and governments",Associated Press,REFERENCE,,
+intl-crowdstrike-falcon-windows-2024,2024-07-19,What we know about the computer update glitch disrupting systems around the world,NPR,REFERENCE,,
+intl-log4shell-2021-12,2021-12-10,Log4j vulnerability - what everyone needs to know,UK National Cyber Security Centre,REFERENCE,,
+intl-log4shell-2021-12,2021-12-10,A Log4J Vulnerability Has Set the Internet 'On Fire',WIRED,REFERENCE,,
+intl-log4shell-2021-12,2021-12-10,Recently uncovered software flaw ‘most critical vulnerability of the last decade’,The Guardian (Associated Press),WATCH,,
+intl-jlr-cyber-2025-08,2025-08-31,Jaguar Land Rover manufacturing and retail ‘severely disrupted’ by cyber incident,The Guardian,WATCH,,
+intl-jlr-cyber-2025-08,2025-08-31,Jaguar Land Rover production severely hit by cyber-attack,BBC News,REFERENCE,,
+intl-jlr-cyber-2025-08,2025-08-31,"Britain's JLR hit by cyber incident that disrupts production, sales",Reuters,WATCH,,
