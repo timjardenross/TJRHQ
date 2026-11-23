@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
     const classified = lastUserMessage ? classifyIntent(lastUserMessage.content) : null;
     if (classified) {
-      const dispatchResult = await dispatchIntent(classified, supabase, lastUserMessage?.id ?? null).catch(() => ({ handled: false } as const));
+      const dispatchResult = await dispatchIntent(classified, supabase, lastUserMessage?.id ?? null, chatLocalFirstEnabled() ? { modelBacked: false } : {}).catch(() => ({ handled: false } as const));
       if (dispatchResult.handled && dispatchResult.reply) {
         return stream
           ? sseFromText(dispatchResult.reply)

@@ -82,6 +82,13 @@ describe('gate: the three eligible intents', () => {
     expect(deriveIntent('2026-11-24T08:03:00Z INFO app: s.e.i.z.u.r.e')).toBeNull();
     expect(deriveIntent('x'.repeat(9000))).toBeNull();
   });
+  it('Codex P1: variable fields (log component, source file path, function name) are vocabulary-validated', () => {
+    expect(deriveIntent('File "/home/AliceSmith/My private diary about my divorce.txt", line 10, in handler')).toBeNull();
+    expect(deriveIntent('2026-11-24T09:00:00Z ERROR AliceSmith: connection timeout after 30s')).toBeNull();
+    expect(deriveIntent('Traceback (most recent call last):\n  File "app.py", line 10, in divorce_lawyer\nKeyError: \'user_id\'')).toBeNull();
+    expect(deriveIntent('2026-11-24T09:00:00Z ERROR api: connection timeout after 30s')?.intent).toBe('summarise_log');
+    expect(deriveIntent('Traceback (most recent call last):\n  File "app.py", line 10, in handler\nKeyError: \'user_id\'')?.intent).toBe('explain_error');
+  });
   it('malformed inputs never throw and are ineligible', () => {
     for (const v of [null, undefined, 42, {}, [], '', '   ']) expect(deriveIntent(v as never)).toBeNull();
     expect(intentSlotEligible('delete_everything', 'mutex')).toBe(false);
@@ -187,6 +194,43 @@ describe('must-local synthetic payload scenarios: zero cloud calls', () => {
   });
 });
 
+describe('Codex P2: history budget and failure wording', () => {
+  const base = { role: 'chief_engineer', stream: false, cloudModel: 'glm-5.2', roleId: 'chief_engineer', buildLocalSystem: async () => '', streamResponse: (r: Response) => r };
+  it('a long thread is trimmed (oldest first), not rejected; the latest message is always kept', () => {
+    const long = Array.from({ length: 150 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `m${i}` }));
+    long.push({ role: 'user', content: 'latest' });
+    const out = validateMessages(long)!;
+    expect(out).toHaveLength(100);
+    expect(out[out.length - 1].content).toBe('latest');
+    expect(validateMessages([{ role: 'user', content: 'x'.repeat(200_001) }])).toBeNull();
+    const big = [{ role: 'user', content: 'a'.repeat(150_000) }, { role: 'user', content: 'b'.repeat(100_000) }, { role: 'user', content: 'c' }];
+    expect(validateMessages(big)!.map((m) => m.content[0])).toEqual(['b', 'c']);
+  });
+  it('the 51st exchange of a long conversation is answered locally', async () => {
+    const calls = mockFetch(() => ndjson('fine'));
+    const thread = Array.from({ length: 100 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `turn ${i}` }));
+    thread.push({ role: 'user', content: 'next question' });
+    const res = await handleLocalFirstChat({ ...base, messages: thread }, LOCAL_ENV);
+    expect(res.status).toBe(200);
+    expect(calls.every((c) => !isCloud(c))).toBe(true);
+  });
+  it('after a failed cloud attempt the 424 does NOT claim nothing was sent', async () => {
+    mockFetch((url) => new Response('no', { status: 500 }));
+    const res = await handleLocalFirstChat({ ...base, messages: [{ role: 'user', content: 'what is a mutex?' }] }, LOCAL_ENV);
+    expect(res.status).toBe(424);
+    const j = await res.json();
+    expect(j.cloud_attempted).toBe(true);
+    expect(j.error).not.toMatch(/not sent anywhere/);
+  });
+  it('a request that stayed local keeps the no-transmission wording', async () => {
+    mockFetch(() => { throw new TypeError('down'); });
+    const res = await handleLocalFirstChat({ ...base, messages: [{ role: 'user', content: 'hello' }] }, LOCAL_ENV);
+    const j = await res.json();
+    expect(j.cloud_attempted).toBe(false);
+    expect(j.error).toMatch(/not sent anywhere/);
+  });
+});
+
 describe('legacy opt-in does not bypass the boundary', () => {
   it('HEALTH_LLM_EXTERNAL_ALLOWED=1 with sensitive chat → still zero cloud calls', async () => {
     const calls = mockFetch(() => ndjson('x'));
@@ -209,7 +253,7 @@ describe('fail-closed behaviour', () => {
 
   it('malformed payloads → 400 and no outbound request', async () => {
     const calls = mockFetch(() => ndjson('x'));
-    for (const messages of [undefined, null, 'hi', {}, [], [{ role: 'user' }], [{ role: 'root', content: 'x' }], [{ role: 'user', content: 5 }], [null], Array(101).fill({ role: 'user', content: 'x' })]) {
+    for (const messages of [undefined, null, 'hi', {}, [], [{ role: 'user' }], [{ role: 'root', content: 'x' }], [{ role: 'user', content: 5 }], [null]]) {
       const res = await run({ messages }, LOCAL_ENV);
       expect(res.status).toBe(400);
     }
