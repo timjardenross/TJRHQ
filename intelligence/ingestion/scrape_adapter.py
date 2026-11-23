@@ -16,7 +16,7 @@ import logging
 import re
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin
 
 from intelligence.config import (
@@ -50,6 +50,15 @@ _FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
     "AEMO Market Notices",
     "Fastly Status",
 })
+
+# Dates the adapter reads from a page. Slash dates are day-first (Australian sources); see _extract_date.
+_NAMED_MONTH_DATE_RE = re.compile(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})\b", re.IGNORECASE)
+_ISO_DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+_SLASH_DATE_RE = re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?")
+# Timezone a source publishes its dates in when the page states none (default UTC). AEMO uses NEM time: AEST, fixed UTC+10, no daylight saving.
+_SOURCE_UTC_OFFSET = {
+    "AEMO Market Notices": timezone(timedelta(hours=10)),
+}
 
 # CSS selectors tried in priority order for finding article/notice lists
 _ARTICLE_SELECTORS = [
@@ -304,24 +313,63 @@ class ScrapeAdapter(BaseSourceAdapter):
                 break
         return items
 
+    @staticmethod
+    def _parse_with_dateutil(text: str) -> datetime | None:
+        try:
+            from dateutil import parser as dateparser
+            dt = dateparser.parse(text)
+            return dt.replace(tzinfo=timezone.utc) if dt else None
+        except Exception as exc:  # noqa: BLE001 - best-effort date probe; a non-matching pattern just tries the next one
+            log.debug("[scrape_adapter] date parse failed for %r: %s", text, exc)
+            return None
+
+    def _parse_slash_date(self, m: re.Match) -> datetime | None:
+        """dd/mm/yyyy[ hh:mm[:ss][ AM|PM]] -> aware UTC, read in the source's own timezone. None when it is not a real date."""
+        day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        hour = int(m.group(4)) if m.group(4) else 0
+        minute = int(m.group(5)) if m.group(5) else 0
+        second = int(m.group(6)) if m.group(6) else 0
+        meridiem = (m.group(7) or "").lower()
+        if meridiem:
+            if not 1 <= hour <= 12:
+                return None
+            hour = hour % 12 + (12 if meridiem == "pm" else 0)
+        try:
+            local = datetime(year, month, day, hour, minute, second, tzinfo=_SOURCE_UTC_OFFSET.get(self.source.source_name, timezone.utc))
+        except ValueError:
+            return None
+        return local.astimezone(timezone.utc)
+
     def _extract_date(self, el) -> datetime | None:
-        """Try to find a date string near/inside the element."""
-        text = el.get_text()
-        # Common date patterns
-        patterns = [
-            r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})\b",
-            r"\b(\d{4}-\d{2}-\d{2})\b",
-            r"\b(\d{1,2}/\d{1,2}/\d{4})\b",
-        ]
-        for pat in patterns:
-            m = re.search(pat, text, re.IGNORECASE)
-            if m:
-                try:
-                    from dateutil import parser as dateparser
-                    dt = dateparser.parse(m.group(1))
-                    return dt.replace(tzinfo=timezone.utc) if dt else None
-                except Exception as exc:  # noqa: BLE001 - best-effort regex-pattern date probe; a non-matching pattern just tries the next one
-                    log.debug("[scrape_adapter] Pattern %r date parse failed: %s", pat, exc)
+        """Find the item's own date near the top of the element, as an aware UTC datetime.
+
+        Slash dates are DAY-first (these are Australian sources: '12/09/2026' is 12 September). dateutil's default is month-first, which
+        turned 12 Sep into 9 Dec and put AEMO notices months in the future. They keep their time-of-day and are read in the source's own
+        timezone (AEMO publishes in NEM time, a fixed UTC+10). The EARLIEST date in the element wins (the header line, not a date mentioned
+        later in the title or body), and a date more than a day ahead of now is an event date, not a publication date, so it is dropped."""
+        text = el.get_text(" ", strip=True) if hasattr(el, "get_text") else str(el)
+        found: list[tuple[int, datetime]] = []
+        m = _NAMED_MONTH_DATE_RE.search(text)
+        if m:
+            dt = self._parse_with_dateutil(m.group(1))
+            if dt:
+                found.append((m.start(), dt))
+        m = _ISO_DATE_RE.search(text)
+        if m:
+            dt = self._parse_with_dateutil(m.group(1))        # never dayfirst: dateutil would read 2026-11-12 as 2026-12-11
+            if dt:
+                found.append((m.start(), dt))
+        for m in _SLASH_DATE_RE.finditer(text):
+            dt = self._parse_slash_date(m)
+            if dt:
+                found.append((m.start(), dt))
+                break                                           # the first valid slash date is the header; later ones are event dates
+        if found:
+            dt = min(found, key=lambda f: f[0])[1]
+            if dt > datetime.now(timezone.utc) + timedelta(days=1):
+                log.debug("[scrape_adapter] ignoring a date more than a day in the future (an event date, not a publication date): %s", dt)
+            else:
+                return dt
 
         # Try <time> element
         time_el = el.find("time")
