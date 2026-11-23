@@ -20,6 +20,11 @@ def e(i, title, source, age_hours=3, geo="GLOBAL"):
             "collected_at": (NOW - timedelta(hours=age_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")}
 
 
+def capped(priority):
+    """A dependency-only incident (no Australian impact evidence) is never above VERIFY."""
+    return "VERIFY" if priority == "ESCALATE" else priority
+
+
 def one(events):
     ds = ed.run(events, now=NOW)
     assert len(ds) == 1, [sorted(m.event_id for m in d.group.members) for d in ds]
@@ -61,7 +66,7 @@ def test_an_incident_naming_australia_or_an_australian_organisation_is_kept():
 def test_a_global_platform_outage_is_an_australian_dependency():
     evs = [e("a", "Microsoft Azure outage disrupts services worldwide for thousands of customers", "BBC News")]
     d = one(evs)
-    assert d.priority == core(evs).priority and d.priority in ACTIONABLE
+    assert d.priority == capped(core(evs).priority) and d.priority in ACTIONABLE
     assert any("plausible dependency on" in r for r in d.reasons)
 
 
@@ -69,7 +74,7 @@ def test_a_payments_platform_outage_is_an_australian_dependency():
     """Found in the real-export audit: an Apple Pay outage hitting retailers was demoted by the first version of the gate."""
     evs = [e("a", "Apple Pay outage a difficult situation for retailers in Black Friday sales mode - SmartCompany", "SmartCompany")]
     d = one(evs)
-    assert d.priority == core(evs).priority and d.priority in ACTIONABLE
+    assert d.priority == capped(core(evs).priority) and d.priority in ACTIONABLE
     assert any("plausible dependency on" in r for r in d.reasons)
 
 
@@ -171,7 +176,7 @@ def test_credible_dependencies_are_kept_in_each_category():
         ev = e("a", title, "BBC News")
         assert core([ev]).priority in ACTIONABLE, cat                       # the underlying rules surface it (the gate is the test)
         d = one([ev])
-        assert d.priority == core([ev]).priority, cat                       # and the gate does not demote it
+        assert d.priority == capped(core([ev]).priority), cat               # and the gate does not demote it (it only caps ESCALATE at VERIFY)
         assert any("plausible dependency on" in r for r in d.reasons), cat
 
 
@@ -191,7 +196,7 @@ def test_the_summary_can_demonstrate_relevance_or_dependency():
     assert core([ev]).priority in ACTIONABLE
     assert one([ev]).priority in ACTIONABLE
     ev2 = e("a", LIBYA, "BBC News")
-    ev2["summary"] = "Australian-flagged vessels were also in the port at the time."
+    ev2["summary"] = "Australian-flagged vessels were also damaged in the blast."
     assert one([ev2]).priority in ACTIONABLE
 
 
@@ -258,7 +263,7 @@ def test_a_direct_source_dash_clause_is_headline_content_not_a_publisher_suffix(
     ev = e("a", "Global email outage - Microsoft investigates disruption", "BBC News")
     assert core([ev]).priority in ACTIONABLE
     d = one([ev])
-    assert d.priority == core([ev]).priority and any("plausible dependency on" in r for r in d.reasons)
+    assert d.priority == capped(core([ev]).priority) and any("plausible dependency on" in r for r in d.reasons)
 
 
 # ── Release review (HIGH): a dependency must be tied to the AFFECTED service ────────────────────────────────────────
@@ -287,3 +292,81 @@ def test_a_plausible_dependency_is_worded_as_unproven_and_a_proven_link_is_not()
                for r in d.reasons), d.reasons
     d2 = one([e("a", "Outage hits Optus customers", "BBC News")])
     assert "Australian relevance: names Australia or an Australian organisation" in d2.reasons
+
+
+# ── Independent review round 2 ────────────────────────────────────────────────────────────────────────────────────
+def _final(title, summary="", src="BBC News", geo="GLOBAL"):
+    ev = e("a", title, src, geo=geo)
+    ev["summary"] = summary
+    return core([ev]).priority, one([ev])
+
+
+def test_a_platform_in_the_headline_must_itself_be_what_is_disrupted():
+    """1: a platform used as a channel, or named beside an unrelated physical event, is not a dependency."""
+    for title in ("Texas power outage hits Microsoft Teams users after grid failure", "Hospital outage in Houston, Texas; staff used Zoom",
+                  "Cisco warns of outage in Houston plant", "Oracle plant fire causes outage in Texas"):
+        before, d = _final(title)
+        assert before in ACTIONABLE, title
+        assert d.priority == "REFERENCE", (title, d.reasons)
+        assert not any("plausible dependency" in r for r in d.reasons), title
+
+
+def test_a_dependency_only_match_is_never_escalated():
+    before, d = _final("Blackout hits Texas, Slack down")
+    assert before == "ESCALATE" and d.priority == "VERIFY", d.reasons
+    assert any("capped at VERIFY" in r for r in d.reasons)
+    # negative control: a proven Australian link is not capped
+    assert _final("Blackout hits Sydney, NSW")[1].priority == "ESCALATE"
+
+
+def test_a_genuine_platform_outage_still_passes_as_a_plausible_dependency():
+    for title in ("Microsoft 365 outage hits Outlook users", "Cloudflare outage takes thousands of websites offline", "Microsoft Azure outage after data centre fire"):
+        d = _final(title)[1]
+        assert d.priority in ("VERIFY", "WATCH"), (title, d.reasons)
+        assert any("plausible dependency on" in r for r in d.reasons), title
+
+
+def test_ambiguous_place_names_followed_by_a_foreign_region_are_not_australian():
+    """2"""
+    for title in ("Major outage at Sydney, Nova Scotia hospital", "Power outage across Adelaide, Michigan",
+                  "Ransomware attack hits Perth, Scotland council", "Power outage in Darwin, Montana", "Power outage in Melbourne, Florida",
+                  "Power outage in Victoria, British Columbia", "Blackout in Newcastle upon Tyne", "Power outage hits Victoria Falls Zimbabwe"):
+        before, d = _final(title)
+        assert before in ACTIONABLE and d.priority == "REFERENCE", (title, d.reasons)
+    g = ed.correlate([ed.detect_candidate(e("a", "Outage at Perth Amboy New Jersey substation", "BBC News"))])
+    assert not g or ed.australian_relevance(g[0]) is None
+    # negative controls: the Australian readings, and an Australian co-signal, still count
+    for title in ("Power outage in Melbourne, Victoria", "Blackout in Sydney, NSW", "Power outage in Perth, Western Australia",
+                  "Power outage in Adelaide, SA", "Outage across Sydney, Nova Scotia and NSW"):
+        assert _final(title)[1].priority in ACTIONABLE, title
+
+
+def test_a_dateline_or_bureau_credit_and_a_passing_summary_mention_are_not_australian_impact():
+    """3"""
+    title = "Major outage at refinery plant leaves thousands without fuel"
+    for summary in ("SYDNEY (Reuters) - Fuel supply was disrupted at the plant on Monday.",
+                    "The plant outage was reported by the Sydney bureau of the agency."):
+        assert _final(title, summary)[1].priority == "REFERENCE", summary
+    assert _final("Airline systems outage hits passengers in Europe", "Qantas passengers unaffected, the airline said.")[1].priority == "REFERENCE"
+    # negative control: a summary sentence that reports an Australian incident still counts
+    assert _final("Airline systems outage hits passengers in Europe", "Qantas flights were cancelled after the outage.")[1].priority in ACTIONABLE
+
+
+def test_real_australian_impacts_are_not_demoted():
+    """4"""
+    for title in ("Power outage hits Victoria", "Blackout hits Gold Coast and Newcastle", "Aussie telco outage", "Cyberattack on NAB disrupts services",
+                  "Endeavour Energy outage leaves thousands without power", "Cyberattack on Transurban disrupts tolling",
+                  "Outage hits Cairns and Townsville", "Outage hits Geelong and Wollongong", "Ergon Energy outage in the north",
+                  "Energex outage leaves homes without power"):
+        d = _final(title)[1]
+        assert d.priority in ACTIONABLE, (title, d.reasons)
+        assert any(r.startswith("Australian relevance: names") for r in d.reasons), title
+    # negative controls: the verb 'nab' is not the bank
+    assert _final("Police nab suspect after Ohio blackout cuts power to thousands")[1].priority == "REFERENCE"
+
+
+def test_geography_must_be_exactly_au():
+    def rel(geo):
+        return ed.australian_relevance(ed.correlate([ed.detect_candidate(e("a", "Outage hits customers across the region", "BBC News", geo=geo))])[0])
+    assert rel("AU") == "australian geography" and rel("au") == "australian geography"
+    assert rel("AUT") is None and rel("AUSTRIA") is None
