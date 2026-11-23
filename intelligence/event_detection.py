@@ -36,7 +36,7 @@ EVENT_TYPES = {
                r"los(?:t|e|es|ing) power", r"supply (?:is )?at risk", r"(?:power|energy|fuel) shortages?",
                r"(?:towers?|lines?|poles?|substations?) (?:\w+ )?(?:crushed|toppled?|downed|collapsed?|damaged)",
                r"(?:crushed|toppl\w+|downed|collapsed) (?:\w+ )?(?:transmission )?(?:towers?|lines?|poles?)"),
-    "hazard": (r"earthquakes?", r"tsunamis?", r"cyclones?", r"bushfires?", r"fire warnings?", r"emergency warnings?", r"flash flood\w*", r"(?:major|severe|moderate) flood(?:ing)?", r"flood (?:warnings?|emergency|evacuation\w*)",
+    "hazard": (r"earthquakes?", r"quakes?", r"tsunamis?", r"cyclones?", r"bushfires?", r"fire warnings?", r"emergency warnings?", r"flash flood\w*", r"(?:major|severe|moderate) flood(?:ing)?", r"flood (?:warnings?|emergency|evacuation\w*)",
                r"hail(?:storm)?", r"severe (?:thunder)?storms?", r"(?:severe|extreme|catastrophic) heatwaves?", r"heatwave warnings?", r"tornado(?:es)?", r"tremors?", r"storm warnings?",
                r"evacuation (?:order|warning)s?", r"damaging winds?"),
     "supply_shortfall": (r"lack of reserve", r"lor[123]", r"reserve shortfalls?", r"supply (?:gap|shortfall)s?", r"(?:power|energy|gas|fuel) shortages?",
@@ -278,10 +278,31 @@ def _report_time(event: dict):
     return collected
 
 
+# A hazard warning is often stated only in the report's first summary sentence ("The weather bureau is warning of severe storms west of
+# Charleville") under a headline with no hazard term ("Storms to hit south-western Qld as heatwave lingers"). Everything else is still
+# read from the headline only; this narrow rule reads the summary's FIRST sentence for the hazard class alone, and only when that sentence
+# also says the hazard is being warned about or has struck, so a business story that merely mentions an earthquake is not a hazard report.
+_SUMMARY_HAZARD_EVENT_RX = re.compile(r"\b(?:warn(?:s|ed|ing|ings)?|alerts?|struck|strikes?|rattled|shaken|magnitude|damag\w+)\b", re.IGNORECASE)
+
+
+def _summary_first_sentence(event: dict) -> str:
+    summary = re.sub(r"<[^>]+>|&\w+;", " ", event.get("summary") or "").strip()
+    return re.split(r"(?<=[.!?])\s+", summary, maxsplit=1)[0] if summary else ""
+
+
+def _summary_hazard(event: dict) -> bool:
+    sentence = _summary_first_sentence(event)
+    return bool(sentence and _TYPE_RX["hazard"].search(sentence) and _SUMMARY_HAZARD_EVENT_RX.search(sentence))
+
+
 def detect_candidate(event: dict) -> Candidate:
     title = event.get("title") or ""
     text = title        # headline only: this is what every measurement was made on; summaries add unmeasured noise
     types = tuple(k for k, rx in _TYPE_RX.items() if rx.search(text))
+    summary_hazard_warning = False
+    if "hazard" not in types and _summary_hazard(event):
+        types = types + ("hazard",)
+        summary_hazard_warning = True       # the headline states no consequence: a hazard read from the summary is a warning-class notice, never a stated outage
     sectors = tuple(k for k, rx in _SECTOR_RX.items() if rx.search(text))
     scale = bool(_SCALE_RX.search(text))
     actual = bool(_ACTUAL_RX.search(text))
@@ -324,7 +345,7 @@ def detect_candidate(event: dict) -> Candidate:
         status = "retrospective"                       # about a past event (named older date): not a stated live disruption, so never an escalation on its own
     elif hazardous and forward and not any(t in types for t in ("water_quality", "service_disruption")):
         status = "forecast"                            # a forecast is not a stated outage
-    elif "hazard" in types and bool(_WARN_RX.search(text)):
+    elif "hazard" in types and (bool(_WARN_RX.search(text)) or summary_hazard_warning):
         status = "warning"                             # an emergency warning is not a stated consequence
     elif conseq or exposure or safety or hazardous:
         status = "unconfirmed" if hedged else "stated"       # "likely accessed" is a report, not a statement of fact

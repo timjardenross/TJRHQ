@@ -133,7 +133,8 @@ def test_morning_view_carries_the_section_last_and_stays_short():
     events = [_ev(i, f"Researchers detail phishing technique {c} aimed at enterprise cloud accounts", "iTnews") for i, c in enumerate("ABCDEFG", 1)]
     view = be.morning_view(be.build_evidence(events, now=NOW, window_hours=72))
     idx = [n for n, ln in enumerate(view) if ln.startswith("WORTH KNOWING")]
-    assert len(idx) == 1 and idx[0] > max(n for n, ln in enumerate(view) if ln.startswith("Forward watch"))
+    others = [n for n, ln in enumerate(view) if ln.startswith(("Forward watch", "Nothing to report in:"))]       # empty sections collapse into one line
+    assert len(idx) == 1 and idx[0] > max(others)
     assert len(view[idx[0]:]) <= 1 + 5 + 1
 
 
