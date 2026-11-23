@@ -88,3 +88,23 @@ def test_the_morning_view_labels_a_retrospective_item_as_such_and_never_as_ongoi
     assert "Ongoing:" not in text                                           # not in the forward watch as a live disruption
     assert ", ongoing" not in text and "restoration ongoing" not in text   # nor in the facts line
     assert "retrospective report" in text                                   # and it says what it is
+
+
+# ── Codex review of #676 ───────────────────────────────────────────────────────────────────────────────────────────
+LIVE_ROOT_CAUSE = "Telstra mobile outage leaves 50000 customers unable to make calls as engineers investigate root cause"
+
+
+def test_a_live_headline_that_mentions_root_cause_work_stays_live():
+    """Codex P2: 'engineers investigate root cause' during a live outage must not become a retrospective report."""
+    d = decision([e("a", LIVE_ROOT_CAUSE, "ABC News", 2)])
+    assert d.impact_status == "stated"                                      # pre-fix: retrospective
+    assert d.priority == "ESCALATE"                                         # pre-fix: WATCH
+    assert ed.escalation_record(d, now=NOW)["restoration_status"] == "ongoing"
+    assert "retrospective report" not in be._tag(be.build_evidence([e("a", LIVE_ROOT_CAUSE, "ABC News", 2)], now=NOW, window_hours=72).incidents[0])
+
+
+def test_a_root_cause_that_has_been_found_is_retrospective():
+    for t in ("Root cause of the Telstra outage identified", "Telstra confirms root cause of last week's outage",
+              "Root cause analysis released for the Optus network failure", "Report reveals root cause of the Qantas systems failure"):
+        c = ed.detect_candidate(e("a", t, "ABC News", 5))
+        assert c is None or c.status != "stated", t
