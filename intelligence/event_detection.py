@@ -145,7 +145,25 @@ _WARN_RX, _FORECAST_RX, _CANCEL_RX, _CONFLICT_RX, _ROUTINE_RX = _rx(WARNING), _r
 _ANON_RX = re.compile("|".join(ANON_SOURCE), re.IGNORECASE)
 _CUSTOMERS_RX = re.compile(r"(\d{1,3}(?:,\d{3})+|\d{3,})\s+(?:\w+\s+){0,2}(?:customers|homes|households|properties|residents|people|users|clients)", re.IGNORECASE)
 _DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](minutes?|hours?|days?)", re.IGNORECASE)
+# 'Inquiry continues into the Telstra outage' / 'review ongoing' / 'trial continues': a PROCESS about a past event continues; the service
+# disruption does not. It is not a continuation cue for the outage itself.
+_PROCESS_CONT_RX = re.compile(r"\b(?:inquiry|inquest|investigation|investigations|probe|review|reviews|hearing|hearings|trial|audit|talks|negotiations|"
+                              r"court case|class action|royal commission|search|clean-?up)\b[^.;,]{0,30}?\b(?:continues?|ongoing|still|remains?)\b|"
+                              r"\b(?:continues?|continuing)\s+(?:into|over|after|on)\b", re.IGNORECASE)
+
+
+def _ongoing_cue(text: str) -> bool:
+    """An explicit continuation cue about the SERVICE (still / continues / ongoing / remains), not about an inquiry or other process."""
+    return bool(_ONGOING_RX.search(_PROCESS_CONT_RX.sub(" ", text or "")))
+
+
 _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", r"services? resumed"))
+# A forecast ('will be restored by 5pm', 'restoration expected') says the service is NOT yet restored; a hedged claim ('reportedly restored',
+# 'believed to be restored') is not an affirmative status statement. Neither may override explicit ongoing evidence as 'restored'.
+_FORECAST_RESTORE_RX = _rx((r"(?:will|would|should|could|may|might|expected to|due to|set to|hoped? to|likely to|yet to|not yet|aim(?:s|ing)? to|working to|until)\s+(?:be\s+)?(?:fully\s+)?(?:restored|resolved|back online)",
+                            r"restoration\s+(?:expected|due|estimated|forecast|by|time)", r"(?:until|before)\b[^.;]{0,40}\b(?:restored|resolved)"))
+_HEDGED_RESTORE_RX = _rx((r"(?:reportedly|allegedly|apparently|supposedly|believed to be|said to be|claims? to be|understood to be|thought to be|possibly|perhaps)\s+(?:\w+\s+){0,2}(?:restored|resolved|back online)",
+                          r"(?:restored|resolved|back online)\b[^.;]{0,60}\b(?:reportedly|allegedly|apparently|unconfirmed|according to)"))
 # Proportionality (Captain, 2026-11-23): customer count is NOT a universal threshold. For Tier 1 network services (energy,
 # telecom, water) an ONGOING confirmed outage of at least this many customers is high materiality even when described as regional.
 ONGOING_NETWORK_OUTAGE_CUSTOMERS = 10_000
@@ -254,7 +272,7 @@ def detect_candidate(event: dict) -> Candidate:
     minor = bool(_MINOR_RX.search(text))
     cm = _CUSTOMERS_RX.search(text)
     customers = int(cm.group(1).replace(",", "")) if cm else None
-    ongoing = bool(_ONGOING_RX.search(text)) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
+    ongoing = _ongoing_cue(text) or (not _RESTORED_RX.search(text) and not _RETRO_RX.search(text))
     conflict = bool(_CONFLICT_RX.search(text))
     hedged = bool(_HEDGE_RX.search(text) or _ANON_RX.search(text))
     if _ROUTINE_RX.search(text):
@@ -267,13 +285,13 @@ def detect_candidate(event: dict) -> Candidate:
     consequence = ("essential_service" if essential else "broad_user_impact" if sectors
                    else "unknown" if (types and scale) else "none")
     tier = min((SECTOR_TIER[x] for x in sectors if x in SECTOR_TIER), default=None)
-    retro = bool(_RETRO_RX.search(text)) and not _ONGOING_RX.search(text)
+    retro = bool(_RETRO_RX.search(text)) and not _ongoing_cue(text)
     if commentary or not is_cand:
         status = "potential" if (commentary and is_cand) else "none"
     elif cancelled:
         status = "retrospective"                       # a cancelled / resolved notice is no longer live
-    elif retro:
-        status = "retrospective"
+    elif retro or _historic_at(title, _report_time(event)):
+        status = "retrospective"                       # about a past event (named older date): not a stated live disruption, so never an escalation on its own
     elif hazardous and forward and not any(t in types for t in ("water_quality", "service_disruption")):
         status = "forecast"                            # a forecast is not a stated outage
     elif "hazard" in types and bool(_WARN_RX.search(text)):
@@ -714,19 +732,25 @@ def named_date(title: str, ref: datetime) -> datetime | None:
     return max(found) if found else None
 
 
-def _historic(m: Candidate) -> bool:
-    """True when the report names a date more than HISTORIC_DATE_HOURS before it was published."""
-    if not m.published:
+def _historic_at(title: str, published) -> bool:
+    """True when the headline names a date more than HISTORIC_DATE_HOURS before it was published."""
+    if not published:
         return False
-    d = named_date(m.title, m.published)
-    return d is not None and m.published - d > timedelta(hours=HISTORIC_DATE_HOURS)
+    d = named_date(title, published)
+    return d is not None and published - d > timedelta(hours=HISTORIC_DATE_HOURS)
+
+
+def _historic(m: Candidate) -> bool:
+    return _historic_at(m.title, m.published)
 
 
 def _report_state(m: Candidate, now: datetime | None = None, active_default: bool = False) -> str | None:
     """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
     restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
-    restored = bool(_RESTORED_RX.search(m.title))
-    cue = bool(_ONGOING_RX.search(m.title)) or (restored and bool(_PARTIAL_RX.search(m.title)))
+    forecast = bool(_FORECAST_RESTORE_RX.search(m.title))
+    hedged_restore = bool(_HEDGED_RESTORE_RX.search(m.title))
+    restored = bool(_RESTORED_RX.search(m.title)) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
+    cue = _ongoing_cue(m.title) or forecast or (restored and bool(_PARTIAL_RX.search(m.title)))
     if _historic(m):
         # An old dated event: its continuation cue is not current evidence, but a negated or partial restoration ('yet to be
         # restored') can never be read as a restoration either. No state at all unless it cleanly says restored.
@@ -770,7 +794,7 @@ def _restoration_status(originals: list[Candidate], now: datetime | None = None)
     for m in originals:
         if m.status != "stated" or _historic(m):   # retrospective, unconfirmed, warning or a re-surfaced old dated event: not a live disruption
             continue
-        if _ONGOING_RX.search(m.title):
+        if _ongoing_cue(m.title):
             return "ongoing"
         if m.ongoing and m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS):
             return "ongoing"

@@ -97,7 +97,8 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             e = meta.get(m.event_id, {})
             role = "commentary" if m.commentary else "syndicated" if m.event_id in d.group.syndicated_ids else "original"
             reports.append({"report_id": m.event_id, "publisher": m.family, "source_name": m.source, "source_kind": m.kind,
-                            "title": m.title, "url": e.get("url"), "collected_at": m.published.isoformat() if m.published else None,
+                            "title": m.title, "url": e.get("url"), "collected_at": e.get("collected_at"),
+                            "published_at": m.published.isoformat() if m.published else None,
                             "role": role})
         times = [m.published for m in members if m.published]
         incidents.append(IncidentView(
