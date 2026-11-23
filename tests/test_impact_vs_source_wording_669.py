@@ -150,3 +150,35 @@ def test_the_situation_line_counts_real_disruptions_and_does_not_invent_any():
 def test_a_quiet_day_with_no_exposure_has_no_exposure_sentence():
     _, text = view([])
     assert "Operational situation: no confirmed" in text and "emerging exposures are listed" not in text
+
+
+# ── Forward Watch needs a credible current reason ───────────────────────────────────────────────────────────
+
+AGG = "Google News - Critical Infrastructure/Energy Cyberattack AU"
+MS13 = "Microsoft's Friday 13th outage continues with fraud and employee risk warnings - Insurance Business"
+
+
+def forward(text):
+    return text[text.index("Forward watch"):text.index("WORTH KNOWING")] if "WORTH KNOWING" in text else text[text.index("Forward watch"):]
+
+
+def test_a_stale_aggregator_only_report_stays_visible_but_is_not_carried_into_forward_watch():
+    _, text = view([ev("a", MS13, AGG, age=5.4)])
+    assert MS13 in text[text.index(SOURCE_H):text.index("WARNINGS AND FORECASTS")]      # still shown, labelled source-not-verified
+    assert "Microsoft's Friday 13th" not in forward(text)                                # but not a 24-72h watch item
+
+
+def test_an_aggregator_only_item_stated_as_ongoing_is_not_a_forward_watch_ongoing():
+    _, text = view([ev("a", "Telstra outage continues across Australia, thousands still without service - Some Outlet", AGG, age=2)])
+    assert "- Ongoing:" not in forward(text)
+
+
+def test_a_credible_report_still_reaches_forward_watch():
+    _, text = view([ev("a", "Telstra mobile outage continues across Australia, thousands still without service", "ABC News", age=2)])
+    assert "- Ongoing: Telstra mobile outage continues" in forward(text)
+
+
+def test_aggregator_plus_mainstream_is_credible():
+    _, text = view([ev("a", "Telstra mobile outage continues across Australia, thousands still without service - ABC News", AGG, age=2),
+                    ev("b", "Telstra mobile outage continues across Australia, thousands still without service", "ABC News", age=1)])
+    assert "- Ongoing:" in forward(text)

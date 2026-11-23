@@ -202,6 +202,13 @@ def forward_dated_items(ev: EvidenceSet, *, hours: int = 72) -> list[tuple[Incid
 
 # ── Morning Command Brief view ────────────────────────────────────────────────────────────────────────
 
+def _fw_credible(i: IncidentView) -> bool:
+    """A 24-72h Forward Watch entry needs a credible current reason. A report supported ONLY by an aggregator feed (evidence status
+    'unverified') is not one: it stays visible in its own 'source not yet verified' section but is not carried into the watch list."""
+    kinds = {r["source_kind"] for r in i.reports if r["role"] != "commentary"}
+    return not (i.evidence_status == "unverified" and kinds <= {we.AGGREGATOR})
+
+
 def morning_view(ev: EvidenceSet) -> list[str]:
     recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
     active = [i for i in recent if i.impact_status not in ("warning", "forecast")]
@@ -243,10 +250,10 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines += imp or ["- No operational implication is supported by corroborated reports today."]
     lines += ["", "Forward watch, next 24–72 hours"]
     fw = [f"- Ongoing: {i.headline} (restoration {i.record['restoration_status']}) {_cite(i)}"
-          for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH")][:4]
+          for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
-    fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev)[:3] if i not in notices]
-    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in (impact_open + exposure + source_open)[:2]]
+    fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev) if i not in notices and _fw_credible(i)][:3]
+    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in [x for x in impact_open + exposure + source_open if _fw_credible(x)][:2]]
     lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
     return lines
 
