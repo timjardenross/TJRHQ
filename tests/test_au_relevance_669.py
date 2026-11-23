@@ -79,6 +79,8 @@ def test_an_australian_audience_outlet_is_relevance_but_a_general_outlet_is_not(
     assert core(mand).priority in ACTIONABLE                              # the gate is what would hide it
     assert one(mand).priority == core(mand).priority
     assert any("Australian-audience outlet" in r for r in one(mand).reasons)
+    via_feed = [e("a", "Staff didn\u2019t work because of an outage on Friday\u2026 did somebody say SLA? - The Mandarin", "Google News - Government")]
+    assert one(via_feed).priority == core(via_feed).priority and one(via_feed).priority in ACTIONABLE   # outlet named in the title suffix
     for src in ("BBC News", "iTWire"):
         assert one([e("a", LIBYA, src)]).priority == "REFERENCE", src
 
@@ -102,6 +104,15 @@ def test_vulnerability_advisories_are_exempt_from_the_geography_gate():
     c = ed.detect_candidate(evs[0])
     if c and c.is_candidate:
         assert one(evs).priority == core(evs).priority
+
+
+def test_ordinary_english_words_are_not_platform_dependencies():
+    """'visa', 'swift' and 'square' are common words; they must not make an unrelated international story Australian."""
+    for title in ("US visa processing outage disrupts consulates", "Taylor Swift concert venue power outage in Chicago",
+                  "Power outage hits Times Square in New York"):
+        c = ed.detect_candidate(e("a", title, "BBC News"))
+        if c and c.is_candidate:
+            assert one([e("a", title, "BBC News")]).priority == "REFERENCE", title
 
 
 def test_reference_items_gain_no_extra_reason_noise():
