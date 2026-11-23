@@ -387,30 +387,35 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines.append("")
     lines.append("What matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents")
     lines += [_line(i, True) for i in firm[:6]] or ["- None officially confirmed or corroborated in the last 24 hours."]
-    lines += ["", "REPORTED by one source (provisional until a second or primary source)"]
-    lines += [_line(i, True) for i in single[:6]] or ["- None."]
-    lines += ["", "IMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)"]
-    lines += [_line(i, True) for i in impact_open[:6]] or ["- None."]
-    lines += ["", "RETROSPECTIVE REPORTS (about past events; not live disruptions)"]
-    lines += [_line(i, True) for i in retro_open[:6]] or ["- None."]
-    lines += ["", "SOURCE NOT YET VERIFIED (hedged, aggregator-only, low-quality source, editorial relevance only or weakly evidenced; not treated as fact)"]
-    lines += [_line(i, True) for i in source_open[:6]] or ["- None."]
-    lines += ["", "WARNINGS AND FORECASTS (not confirmed incidents)"]
-    lines += [_line(i) for i in notices[:6]] or ["- No active warning or forecast notice."]
-    lines += ["", "EMERGING EXPOSURE (credible advisories and risks; no confirmed current disruption; nothing here states an operational consequence)"]
-    lines += [_line(i, True) for i in exposure[:6]] or ["- None."]
-    lines += ["", "Operational implications (only what the cited reports state)"]
     imp = [f"- {'tier ' + str(i.sector_tier) if i.sector_tier else 'unclassified sector'}: "
            f"{', '.join(i.record['critical_service_dependencies']) or 'no recognised service'} — {_facts(i)} {_cite(i)}"
            for i in firm[:4] + single[:2]]
-    lines += imp or ["- No operational implication is supported by corroborated reports today."]
-    lines += ["", "Forward watch, next 24–72 hours"]
     fw = [f"- Ongoing: {i.headline} (restoration {i.record['restoration_status']}) {_cite(i)}"
           for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
     fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev) if i not in notices and _fw_credible(i)][:3]
     fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']} {_cite(i)}" for i in [x for x in impact_open + exposure + source_open if _fw_credible(x)][:2]]
-    lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
+    # Sections with nothing to show are collapsed into ONE line instead of a heading and a 'None' each; sections with content keep their heading.
+    sections = [
+        ("REPORTED by one source (provisional until a second or primary source)", "reported by one source", [_line(i, True) for i in single[:6]]),
+        ("IMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)", "impact not yet established", [_line(i, True) for i in impact_open[:6]]),
+        ("RETROSPECTIVE REPORTS (about past events; not live disruptions)", "retrospective reports", [_line(i, True) for i in retro_open[:6]]),
+        ("SOURCE NOT YET VERIFIED (hedged, aggregator-only, low-quality source, editorial relevance only or weakly evidenced; not treated as fact)",
+         "source not yet verified", [_line(i, True) for i in source_open[:6]]),
+        ("WARNINGS AND FORECASTS (not confirmed incidents)", "warnings and forecasts", [_line(i) for i in notices[:6]]),
+        ("EMERGING EXPOSURE (credible advisories and risks; no confirmed current disruption; nothing here states an operational consequence)",
+         "emerging exposure", [_line(i, True) for i in exposure[:6]]),
+        ("Operational implications (only what the cited reports state)", "operational implications", imp),
+        ("Forward watch, next 24–72 hours", "forward watch", fw),
+    ]
+    empty = []
+    for heading, short, body in sections:
+        if body:
+            lines += ["", heading] + body
+        else:
+            empty.append(short)
+    if empty:
+        lines += ["", "Nothing to report in: " + "; ".join(empty) + "."]
     lines += worth_knowing_lines(ev)
     return lines
 
