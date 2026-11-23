@@ -148,7 +148,8 @@ _DURATION_RX = re.compile(r"(\d+|a|an|one|two|three|four|five|six|several)[- ](m
 # 'Inquiry continues into the Telstra outage' / 'review ongoing' / 'trial continues': a PROCESS about a past event continues; the service
 # disruption does not. It is not a continuation cue for the outage itself.
 _PROCESS_CONT_RX = re.compile(r"\b(?:inquiry|inquest|investigation|investigations|probe|review|reviews|hearing|hearings|trial|audit|talks|negotiations|"
-                              r"court case|class action|royal commission|search|clean-?up)\b[^.;,]{0,30}?\b(?:continues?|ongoing|still|remains?)\b", re.IGNORECASE)
+                              r"court case|class action|royal commission|search|clean-?up)\b(?:(?!\b(?:as|while|after|when|but|and|amid|because|although|though)\b)[^.;,]){0,30}?"
+                              r"\b(?:continues?|ongoing|still|remains?)\b", re.IGNORECASE)
 
 
 def _ongoing_cue(text: str) -> bool:
