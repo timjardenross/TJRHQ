@@ -100,7 +100,7 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             reports.append({"report_id": m.event_id, "publisher": m.family, "source_name": m.source, "source_kind": m.kind,
                             "title": m.title, "url": e.get("url"), "collected_at": e.get("collected_at"),
                             "published_at": m.published.isoformat() if m.published else None,
-                            "role": role})
+                            "role": role, "geography": e.get("geography") or "", "summary": e.get("summary") or ""})
         times = [m.published for m in members if m.published]
         incidents.append(IncidentView(
             incident_id=_incident_id([m.event_id for m in members]), headline=d.headline.title, priority=d.priority,
@@ -230,9 +230,87 @@ def _tag(i: IncidentView) -> str:
     note = ""
     if i.evidence_status in ("corroborated", "reported") and kinds <= {we.AGGREGATOR}:
         note = " via aggregator feeds only"
-    base = STATUS_LABEL[i.evidence_status] + note
-    retro = " · retrospective report" if i.impact_status == "retrospective" else ""        # #669: say so, never imply a live disruption
-    return f"{i.priority} · {base}{retro}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
+    # #669: two different uncertainties, worded differently. SOURCE credibility (is the report itself reliable?) is the evidence
+    # status; operational IMPACT (has the effect on service been established?) is what the report states.
+    base = ("SOURCE UNVERIFIED" if i.evidence_status == "unverified" else STATUS_LABEL[i.evidence_status]) + note
+    retro = " · retrospective report" if i.impact_status == "retrospective" else ""        # say so, never imply a live disruption
+    cls = _relevance_class(i)
+    retro += _EDITORIAL_TAG if cls == "editorial" else (_DEPENDENCY_TAG if cls == "plausible" else "")
+    impact = " · IMPACT NOT YET ESTABLISHED" if _impact_open(i) else ""
+    return f"{i.priority} · {base}{retro}{impact}" + (" · provisional" if i.priority == "ESCALATE" and i.provisional else "")
+
+
+EDITORIAL_REASON = "Australian-audience outlet only"
+_EDITORIAL_TAG = " · editorial relevance only (Australian operational impact not established)"
+_DEPENDENCY_TAG = " · plausible dependency; Australian impact not established"
+_RELEVANCE_PREFIX = "Australian relevance:"
+_NO_RELEVANCE_REASON = "no demonstrated Australian relevance"
+
+# Global platforms an Australian organisation plausibly depends on (used ONLY when the upstream relevance gate is absent).
+_DEPENDENCY_RX = re.compile(
+    r"\baws\b|amazon web services|\bazure\b|microsoft 365|office 365|microsoft 365|google cloud|\bgcp\b|cloudflare|akamai|fastly|"
+    r"crowdstrike|okta|\bslack\b|\bzoom\b|github|atlassian|salesforce|openai|anthropic|\bstripe\b", re.IGNORECASE)
+_AU_NAMED_RX = re.compile(
+    r"australia\w*|aussie\w*|\bnsw\b|new south wales|queensland\w*|tasmania\w*|victorian\b|sydney|melbourne|brisbane|perth|adelaide|"
+    r"canberra|hobart|darwin|\basx\b|\bnbn\b|\bapra\b|\bacsc\b|\baemo\b|ausgrid|endeavour energy|ergon|energex|essential energy|ausnet|"
+    r"powercor|jemena|western power|telstra|optus|\btpg\b|qantas|jetstar|westpac|\banz\b|\bNAB\b|commonwealth bank|coles|woolworths|"
+    r"medibank|services australia|centrelink|\bagl\b|origin energy|suncorp|\bbhp\b|woodside|transurban", re.IGNORECASE)
+
+
+def _upstream_verdict(i: IncidentView) -> str | None:
+    """The relevance gate's own decision (event_detection.decide, #677), read from the recorded reasons; None when that gate is absent.
+    'editorial' | 'plausible' | 'relevant' | 'reference'."""
+    verdict = None
+    for r in i.reasons:
+        if EDITORIAL_REASON in r:
+            return "editorial"
+        if r.startswith(_RELEVANCE_PREFIX):
+            verdict = "plausible" if "plausible dependency" in r else "relevant"
+        elif _NO_RELEVANCE_REASON in r:
+            verdict = "reference"
+    return verdict
+
+
+def _fallback_class(i: IncidentView) -> str:
+    """Outlet-independent local derivation used only without the upstream verdict: a foreign incident is 'editorial' (or 'plausible'
+    when it names a global platform) whichever outlet reports it; AU geography or an Australian marker makes it 'relevant'."""
+    if i.priority == "REFERENCE":          # never-actionable general news is not published at all
+        return "reference"
+    originals = [r for r in i.reports if r["role"] == "original"] or i.reports
+    if not originals:
+        return "relevant"
+    if any((r.get("geography") or "").strip().upper() == "AU" for r in originals):
+        return "relevant"
+    texts = [f"{r.get('title') or ''} {r.get('summary') or ''}" for r in originals]
+    if any(_AU_NAMED_RX.search(t) for t in texts):
+        return "relevant"
+    if any(_DEPENDENCY_RX.search(r.get("title") or "") for r in originals):
+        return "plausible"
+    return "editorial"
+
+
+def _relevance_class(i: IncidentView) -> str:
+    return _upstream_verdict(i) or _fallback_class(i)
+
+
+def _derived_editorial_only(i: IncidentView) -> bool:
+    return _fallback_class(i) == "editorial"
+
+
+def _editorial_only(i: IncidentView) -> bool:
+    """Relevance rests on editorial grounds alone, not on an established Australian operational impact. Uses the upstream relevance
+    decision when present, else an outlet-independent local derivation."""
+    return _relevance_class(i) == "editorial"
+
+
+def _quality_source(i: IncidentView) -> bool:
+    """At least one ORIGINAL report from a primary, mainstream or specialist source (not unknown, content or aggregator-only)."""
+    return any(r["role"] == "original" and r["source_kind"] in (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST) for r in i.reports)
+
+
+def _impact_open(i: IncidentView) -> bool:
+    """A credible source whose report does not establish an operational impact (investigation, unconfirmed or potential effect)."""
+    return i.evidence_status != "unverified" and i.impact_status in ("unconfirmed", "potential", "none")
 
 
 def _line(i: IncidentView, with_action: bool = False) -> str:
@@ -263,23 +341,64 @@ def forward_dated_items(ev: EvidenceSet, *, hours: int = 72) -> list[tuple[Incid
 
 # ── Morning Command Brief view ────────────────────────────────────────────────────────────────────────
 
+def _fw_credible(i: IncidentView) -> bool:
+    """A 24-72h Forward Watch entry needs a credible current reason. A report supported ONLY by an aggregator feed (evidence status
+    'unverified') is not one: it stays visible in its own 'source not yet verified' section but is not carried into the watch list."""
+    kinds = {r["source_kind"] for r in i.reports if r["role"] != "commentary"}
+    return not (i.evidence_status == "unverified" and kinds <= {we.AGGREGATOR})
+
+
 def morning_view(ev: EvidenceSet) -> list[str]:
     recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
-    active = [i for i in recent if i.impact_status not in ("warning", "forecast")]
+    editorial = [i for i in recent if i.impact_status not in ("warning", "forecast") and _editorial_only(i)]
+    active = [i for i in recent if i.impact_status not in ("warning", "forecast") and i not in editorial]
     firm = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated"
             and i.evidence_status in ("officially_confirmed", "corroborated")]
     single = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated" and i.evidence_status == "reported"]
     verify = [i for i in active if i.priority == "VERIFY" or (i.priority in ("ESCALATE", "WATCH") and i not in firm and i not in single)]
     notices = [i for i in recent if i.impact_status in ("warning", "forecast") and i.priority in _ACTIONABLE]
-    lines = ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
+    # Section choice uses SOURCE QUALITY as well as evidence status: only an incident with an original report from a primary, mainstream
+    # or specialist source is an 'impact not yet established' / exposure / retrospective question; the rest is a source question.
+    credible = [i for i in verify if i.evidence_status != "unverified" and _quality_source(i)]
+    # A retrospective report from a weak source that currency rules left at REFERENCE (e.g. a stale aggregator item) stays visible here.
+    stale_ref = [i for i in active if i.priority == "REFERENCE" and i.impact_status == "retrospective" and not (i.evidence_status != "unverified" and _quality_source(i))]
+    source_open = [i for i in verify if i not in credible] + stale_ref + editorial
+    retro_open = [i for i in credible if i.impact_status == "retrospective"]
+    impact_open = [i for i in credible if i.impact_status != "retrospective" and i.event_type != "vulnerability"]
+    exposure = [i for i in credible if i.impact_status != "retrospective" and i.event_type == "vulnerability"]
+    # Only CURRENT evidence counts as a current disruption: an incident whose restoration status is unknown (current status not
+    # established, e.g. a historic outage still being written about) is listed but not counted.
+    firm_n = [i for i in firm if i.record["restoration_status"] != "unknown"]
+    single_n = [i for i in single if i.record["restoration_status"] != "unknown"]
+    stale_n = len(firm) + len(single) - len(firm_n) - len(single_n)
+    stale = (f" ({stale_n} more reported with current status unknown — not counted as current disruptions)" if stale_n else "")
+    lines = []
+    if not recent:
+        lines.append("⚠️ EVIDENCE COVERAGE INSUFFICIENT: no reports collected in the last 24 hours; nothing below should be read as all quiet.")
+    lines += ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
+    if not recent:
+        lines.append("Operational situation: evidence coverage is insufficient (no recent reports), so no judgement about current disruption can be made.")
+    elif firm_n or single_n:
+        lines.append(f"Operational situation: {len(firm_n)} confirmed or corroborated and {len(single_n)} single-source reported disruption(s) in the last 24 hours.{stale}")
+    else:
+        lines.append(f"Operational situation: no confirmed, corroborated or single-source reported current disruption in the last 24 hours{stale}.")
+    if notices or exposure:
+        lines.append("Credible warnings and emerging exposures are listed separately below; they are not current disruptions and no operational consequence is inferred from them.")
+    lines.append("")
     lines.append("What matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents")
     lines += [_line(i, True) for i in firm[:6]] or ["- None officially confirmed or corroborated in the last 24 hours."]
     lines += ["", "REPORTED by one source (provisional until a second or primary source)"]
     lines += [_line(i, True) for i in single[:6]] or ["- None."]
-    lines += ["", "REQUIRES VERIFICATION (unverified, hedged or weakly evidenced; not treated as fact)"]
-    lines += [_line(i, True) for i in verify[:6]] or ["- Nothing awaiting verification."]
+    lines += ["", "IMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)"]
+    lines += [_line(i, True) for i in impact_open[:6]] or ["- None."]
+    lines += ["", "RETROSPECTIVE REPORTS (about past events; not live disruptions)"]
+    lines += [_line(i, True) for i in retro_open[:6]] or ["- None."]
+    lines += ["", "SOURCE NOT YET VERIFIED (hedged, aggregator-only, low-quality source, editorial relevance only or weakly evidenced; not treated as fact)"]
+    lines += [_line(i, True) for i in source_open[:6]] or ["- None."]
     lines += ["", "WARNINGS AND FORECASTS (not confirmed incidents)"]
     lines += [_line(i) for i in notices[:6]] or ["- No active warning or forecast notice."]
+    lines += ["", "EMERGING EXPOSURE (credible advisories and risks; no confirmed current disruption; nothing here states an operational consequence)"]
+    lines += [_line(i, True) for i in exposure[:6]] or ["- None."]
     lines += ["", "Operational implications (only what the cited reports state)"]
     imp = [f"- {'tier ' + str(i.sector_tier) if i.sector_tier else 'unclassified sector'}: "
            f"{', '.join(i.record['critical_service_dependencies']) or 'no recognised service'} — {_facts(i)} {_cite(i)}"
@@ -287,10 +406,10 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines += imp or ["- No operational implication is supported by corroborated reports today."]
     lines += ["", "Forward watch, next 24–72 hours"]
     fw = [f"- Ongoing: {i.headline} (restoration {i.record['restoration_status']}) {_cite(i)}"
-          for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH")][:4]
+          for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
-    fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev)[:3] if i not in notices]
-    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']}" for i in verify[:2]]
+    fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev) if i not in notices and _fw_credible(i)][:3]
+    fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']} {_cite(i)}" for i in [x for x in impact_open + exposure + source_open if _fw_credible(x)][:2]]
     lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
     return lines
 
