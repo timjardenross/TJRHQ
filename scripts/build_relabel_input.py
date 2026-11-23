@@ -16,7 +16,7 @@ for name, tag in (("weekly_evidence_eval_set.json", "dev150"), ("weekly_evidence
             raise SystemExit(f"duplicate id {x['id']}")
         seen.add(x["id"])
         rows.append({"id": x["id"], "title": x["title"], "source": x["source"], "ts": x["ts"], "geo": x["geo"], "_set": tag})
-rows.sort(key=lambda r: hashlib.md5(r["id"].encode()).hexdigest())
+rows.sort(key=lambda r: hashlib.md5(r["id"].encode(), usedforsecurity=False).hexdigest())
 out = {"_meta": {"rubric": "docs/rubrics/weekly-evidence-rubric-v2.md (2.0)", "n": len(rows),
                  "note": "source-set tag removed from reviewer copy; ordering is md5(id)"},
        "rows": [[r["id"], r["title"], r["source"], r["ts"], r["geo"]] for r in rows]}
