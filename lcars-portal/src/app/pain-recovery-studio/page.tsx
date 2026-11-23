@@ -57,7 +57,7 @@ export default function PainRecoveryStudioPage(){
     try {
       const r=await fetch('/api/pain-recovery-studio/guide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session,user_request:request}),signal:AbortSignal.timeout(10000)});
       const d=await r.json();
-      if(d?.response){setGuideText(d.response.message||'');setGuideChoices(d.response.choices||[]);setPractice(d.response.practice||null);setResources(d.response.resources||[]);setPracticeStep(0);setSession(s=>({...s,current_action:d.response.next_action||d.response.message,current_stage:d.response.action_type==='safety_card'?'safety_hold':'active',safety_status:d.response.safety_instruction==='show_card'?'safety_hold':s.safety_status}));setMessage(d.source==='gemini'?'Guidance ready':'Safe fallback ready');}else setMessage('Guidance unavailable.');
+      if(d?.response){setGuideText(d.response.message||'');setGuideChoices(d.response.choices||[]);setPractice(d.response.practice||null);setResources(d.response.resources||[]);setPracticeStep(0);setSession(s=>({...s,current_action:d.response.next_action||d.response.message,current_stage:d.response.action_type==='safety_card'?'safety_hold':'active',safety_status:d.response.safety_instruction==='show_card'?'safety_hold':s.safety_status}));setMessage(d.source==='gemini'||d.source==='local'?'Guidance ready':'Safe fallback ready');}else setMessage('Guidance unavailable.');
     } catch { setMessage('Guidance is unavailable right now. Your saved day is still safe.'); }
     setSaving(false);
   }

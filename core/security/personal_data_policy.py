@@ -17,8 +17,10 @@ Two layers, because neither alone is enough:
 
 from __future__ import annotations
 
+import json
 import os
 import re
+from pathlib import Path
 
 FLAG = "HEALTH_LLM_EXTERNAL_ALLOWED"
 _TRUE = ("1", "true", "yes", "on")
@@ -33,29 +35,13 @@ class PersonalDataBlockedError(RuntimeError):
     """Raised when personal health content was about to leave this machine without opt-in."""
 
 
-# Structured key=value / label forms emitted by this platform's prompt builders, plus first-person
-# statements. Each entry is (name, compiled regex).
+# The patterns live in personal_health_patterns.json so the Python, command-centre (Node) and
+# LCARS portal (TypeScript) guards enforce exactly the same detector. Structured key=value /
+# label forms emitted by this platform's prompt builders, plus first-person statements.
+_PATTERNS_FILE = Path(__file__).with_name("personal_health_patterns.json")
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
-    (name, re.compile(rx, re.IGNORECASE)) for name, rx in (
-        ("sleep_metric", r"\bsleep(?:_hours)?\s*[=:]\s*\d"),
-        ("cpap_status", r"\bcpap\s*(?:[✓✗]|\(cpap|compliant)|cpap_compliant"),
-        ("pain_metric", r"\bpain(?:_score|_state| score| level)\s*[=:]?\s*\d|\bpain_state\b"),
-        ("nervous_system", r"\bnervous[_ ]system(?:_state)?\s*[=:]|\bns\s*=\s*\w"),
-        ("body_signals", r"\bbody(?:_signals)?\s*=\s*\w|\bbody signals\b"),
-        ("energy_state", r"\benergy\s*=\s*(?:low|moderate|high)"),
-        ("capacity_state", r"\bcapacity[_ ](?:state|score|rating|check-?in)\b|\bcaptain_capacity_rating\b"),
-        ("recovery_state", r"\brecovery (?:confidence|state|status)\b"),
-        ("regulation_state", r"\b(?:regulation|stimulation)_state\b"),
-        ("risk_flags", r"\brisk_flags\b|\bwellness context\b"),
-        ("first_person_health", r"\b(?:my|i)\s+(?:slept|woke|pain|sleep|energy|mood|migraine|flare)\b"),
-        ("captain_health", r"\bcaptain(?:'s)?\s+(?:pain|sleep|energy|mood|capacity|recovery)\b"),
-        ("health_profile", r"\bhealth profile\b|\bexecutive function support\b"),
-        ("captain_condition", r"\bcaptain\b[^.\n]{0,40}\b(?:chronic|spinal|stabilisation|stabilization)\b|\bstage 1 stabili[sz]ation\b"),
-        ("weekly_health_brief", r"\bweekly health (?:brief|data)\b|\bmedical officer\b[^\n]{0,40}\b(?:brief|interpret)"),
-        ("sleep_average", r"\bsleep\b\W{0,6}avg\s*\d"),
-        ("state_distribution", r"\b(?:dysregulated|regulated|calm|activated)\s*:\s*\d+\s*/\s*\d+"),
-        ("recovery_posture", r"\brecovery posture\b"),
-    )
+    (e["name"], re.compile(e["regex"], re.IGNORECASE))
+    for e in json.loads(_PATTERNS_FILE.read_text(encoding="utf-8"))["structured"]
 )
 
 

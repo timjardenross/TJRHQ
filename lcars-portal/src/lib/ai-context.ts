@@ -12,6 +12,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { filterGeneralAccess } from '@/lib/knowledgeSensitivity';
 import { todayLocal } from '@/lib/timezone';
+import { externalHealthAiAllowed, scrubPersonalHealthLines } from '@/lib/personalHealthGuard';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -136,10 +137,17 @@ export interface AIContextBlock {
 
 let _cache: AIContextBlock | null = null;
 let _cacheAt = 0;
+let _cacheIncludesHealth = false;
 const CACHE_TTL_MS = 60_000;
 
+/**
+ * This context is sent to a cloud model (Ollama Cloud) by /api/xo and /api/ai/chat, so the Captain's recovery status
+ * and capacity check-ins (pain, sleep, energy, regulation) are excluded unless HEALTH_LLM_EXTERNAL_ALLOWED=1. Any
+ * other line that carries a structured personal-health form (e.g. in working memory or decisions) is scrubbed too.
+ */
 export async function buildShipContext(): Promise<AIContextBlock> {
-  if (_cache && Date.now() - _cacheAt < CACHE_TTL_MS) return _cache;
+  const includeHealth = externalHealthAiAllowed();
+  if (_cache && _cacheIncludesHealth === includeHealth && Date.now() - _cacheAt < CACHE_TTL_MS) return _cache;
   const db: any = getSupabase();
   const sources: string[] = [];
   const sections: string[] = [];
@@ -159,9 +167,9 @@ export async function buildShipContext(): Promise<AIContextBlock> {
       fetchActiveMissions(db).catch(() => []),
       fetchRecentDecisions(db).catch(() => []),
       fetchArchitectureRecords(db).catch(() => []),
-      fetchTodayHealth(db).catch(() => null),
-      fetchRecentHealthLog(db).catch(() => []),
-      fetchTodayCheckins(db).catch(() => []),
+      includeHealth ? fetchTodayHealth(db).catch(() => null) : Promise.resolve(null),
+      includeHealth ? fetchRecentHealthLog(db).catch(() => []) : Promise.resolve([]),
+      includeHealth ? fetchTodayCheckins(db).catch(() => []) : Promise.resolve([]),
       fetchKnowledgeSummary(db).catch(() => []),
       fetchWorkingMemory(db).catch(() => []),
       fetchEngineeringQueue(db).catch(() => []),
@@ -261,7 +269,7 @@ Constraint: ${last.workload_constraint ?? 'Unknown'} · NS: ${last.nervous_syste
     };
   }
 
-  const text = `
+  const assembled = `
 === STARSHIP ENDEAVOUR — LIVE SHIP CONTEXT (${new Date().toLocaleDateString('en-AU')}) ===
 The following is live data from the USS TJR command systems. Use it to answer questions about the current ship state without asking the Captain to provide it manually.
 
@@ -269,9 +277,11 @@ ${sections.join('\n\n')}
 
 === END SHIP CONTEXT ===
 `.trim();
+  const text = includeHealth ? assembled : scrubPersonalHealthLines(assembled);
 
   const result = { text, sources, fetchedAt };
   _cache = result;
   _cacheAt = Date.now();
+  _cacheIncludesHealth = includeHealth;
   return result;
 }
