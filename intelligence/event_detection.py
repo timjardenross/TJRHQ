@@ -357,7 +357,7 @@ def detect_candidate(event: dict) -> Candidate:
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
-        family=we.publisher_family(src, title), kind=we.source_kind(src), legacy=event.get("legacy") or {},
+        family=we.publisher_family(src, title, str(event.get("summary") or "")), kind=we.source_kind(src), legacy=event.get("legacy") or {},
         summary=str(event.get("summary") or "")[:1500])
 
 
@@ -566,7 +566,7 @@ def correlate(cands: list[Candidate]) -> list[Group]:
             if len(members) > 1 and _SYNDICATION_SUFFIX.search(m.title):
                 synd.append(m.event_id)         # a wire suffix marks a copy only when the group holds other reports of it
         original = [m for m in members if not m.commentary and m.event_id not in synd]
-        fams = {m.family for m in original if m.kind != we.AGGREGATOR or m.family != "aggregator"}
+        fams = {m.family for m in original if m.kind != we.AGGREGATOR}      # an aggregator re-post is never an independent publisher
         groups.append(Group(gid, members, plist, conf, len(fams), sorted(set(synd)),
                             [m.event_id for m in members if m.commentary]))
     return groups

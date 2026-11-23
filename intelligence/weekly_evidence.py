@@ -125,21 +125,46 @@ _KIND_TERMS = (
     (MAINSTREAM, ("bloomberg", "abc news", "bbc", "financial times", "guardian", "reuters",
                   "associated press", "the age", "financial review", "new york times")),
     (SPECIALIST, ("arn", "sans ", "financial newswire", "industrial cyber", "the register", "itnews")),
-    (CONTENT, ("psychology today", "inc.", "fast company", "mckinsey", "harvard business")),
+    # wellness / thought-leadership registry feeds are commentary, not event reporting (MIT Technology Review is
+    # technology journalism and is deliberately NOT listed).
+    (CONTENT, ("psychology today", "inc.", "fast company", "mckinsey", "harvard business", "mit sloan", "gartner",
+               "world economic forum", "stanford social innovation", "deloitte insights", "pwc strategy", "greater good",
+               "mindful.org", "gallup", "positive psychology", "harvard health", "black dog institute", "the conversation",
+               "international coach federation", "center for creative leadership", "cambridge wellbeing", "people management")),
 )
 _KIND_GRADE = {PRIMARY: 0.90, MAINSTREAM: 0.60, SPECIALIST: 0.50, AGGREGATOR: 0.30,
                CONTENT: 0.20, REGISTRY: 0.0, UNKNOWN: 0.30}
 
 
 def source_kind(source_name: str) -> str:
-    n = f" {(source_name or '').lower()} "
+    n = (source_name or "").lower()
     for kind, terms in _KIND_TERMS:
-        if any(t in n for t in terms):
+        if any(_wb(re.escape(t.strip()), n) for t in terms):     # whole words/phrases: "arn" is not inside "Warnings"
             return kind
     return UNKNOWN
 
 
-def publisher_family(source_name: str, title: str = "") -> str:
+# A wire copy is recognised by its dateline ("(Reuters) -", "AAP -", "AFP -", "(AP) —") at the start of the title or summary,
+# or by the source name itself. Every outlet carrying the same wire is ONE family: the wire.
+_WIRE_DATELINE = re.compile(
+    r"^\W*(?:[A-Z][A-Za-z .,']{0,40}\s)?(?:\(\s*(reuters|ap|afp|aap)\s*\)|(reuters|afp|aap))\s*[-–—]", re.IGNORECASE)
+_WIRE_NAMES = {"reuters": "reuters", "ap": "associated press", "associated press": "associated press", "afp": "afp", "aap": "aap"}
+
+
+def wire_of(source_name: str = "", title: str = "", summary: str = "") -> str | None:
+    """Canonical wire family if the report is a wire copy, else None."""
+    for text in (title, summary):
+        m = _WIRE_DATELINE.match(text or "")
+        if m:
+            return _WIRE_NAMES[(m.group(1) or m.group(2)).lower()]
+    n = re.sub(r"[^a-z0-9]+", " ", (source_name or "").lower()).strip()
+    for k, v in _WIRE_NAMES.items():
+        if _wb(re.escape(k), n):
+            return v
+    return None
+
+
+def publisher_family(source_name: str, title: str = "", summary: str = "") -> str:
     """Normalised publisher. Aggregator items are attributed to the underlying
     publisher when the title carries a ' - Publisher' suffix."""
     n = (source_name or "unknown").strip().lower()
@@ -148,6 +173,9 @@ def publisher_family(source_name: str, title: str = "") -> str:
         if m:
             return _canonical_publisher(m.group(1).strip().lower())
         return "aggregator"
+    wire = wire_of(source_name, title, summary)
+    if wire:
+        return wire
     return _canonical_publisher(re.sub(r"[^a-z0-9]+", " ", n).strip().split(" — ")[0])
 
 
