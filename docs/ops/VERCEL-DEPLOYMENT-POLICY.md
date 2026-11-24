@@ -38,3 +38,6 @@ After the settings are applied and capacity returns (needs live capacity): (a) a
 - **Project-level controls the Hobby plan does not offer:** deployment policy (403 `pro_plan_required`). No upgrade is authorised.
 - **`enableAffectedProjectsDeployments` is UNVERIFIED** (the API call succeeded but the value cannot be read back). Do not rely on it for capacity protection until a Python-only merge to `main` is observed to create no deployment record at all (not a canceled one).
 - **Quota window:** whether it is rolling or fixed is unverified; the hourly read-only count records the observed behaviour.
+
+## Branch-guard coverage (update)
+The guard in `lcars-portal/vercel.json` now names `claude/**`, `fix/**`, `feat/**`, `feature/**`, `chore/**`, `docs/**`, `hotfix/**`, `bugfix/**`, `codex/**`, `agent/**`, `bot/**`, `test/**`, `tmp/**`, `review/**`, `wip/**`, `worktree-*`, `archive/**`, `dependabot/**` and `self-improvement`. The push hook additionally refuses a `git push` from a branch whose name is outside those prefixes (other than `main`), so the gap that let `fix/oaic-sources-2kq-repair` create a deployment record is closed for any agent session that has this hook. Remaining limit: a branch pushed by a person or tool outside these sessions with an unguarded name still creates a (ignored) deployment record; keep to the `claude/<topic>` naming.
