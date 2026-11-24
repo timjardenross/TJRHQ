@@ -51,6 +51,23 @@ _FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
     "Fastly Status",
 })
 
+# 2026-11-24: sources whose release list is rendered client-side. A plain fetch returns the page chrome without the list
+# (ASIC's newsroom: 14 KB of navigation, zero releases), which is why ASIC News Centre and ASIC Enforcement Activity returned
+# "no items" on every check from early September. For these names ONLY, when the plain fetch yields no items the adapter
+# renders the page through Firecrawl (one credit per source per run; both are also kept to the once-daily sweep in
+# scheduler._FIRECRAWL_FETCH_SOURCE_NAMES, so the cost is 2 credits/day).
+_FIRECRAWL_RENDER_SOURCE_NAMES = frozenset({
+    "ASIC News Centre",
+    "ASIC Enforcement Activity",
+    "Optus National Outage Register",
+})
+
+# Statutory outage registers (carriers publish every Major / Significant Local Outage after it is rectified). Each entry is a
+# block of label:value fields, parsed by _parse_outage_register. Retrospective by design: a confirmation and restoration record,
+# not a first-alert source.
+_OUTAGE_REGISTER_SOURCE_NAMES = frozenset({"Optus National Outage Register"})
+_AEDT = timezone(timedelta(hours=11))
+
 # Dates the adapter reads from a page. Slash dates are day-first (Australian sources); see _extract_date.
 _NAMED_MONTH_DATE_RE = re.compile(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})\b", re.IGNORECASE)
 _ISO_DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
@@ -93,7 +110,17 @@ class ScrapeAdapter(BaseSourceAdapter):
             raise RuntimeError("beautifulsoup4 not installed — run: pip install beautifulsoup4")
 
         html = self._fetch_html(self.source.url)
+        # keep the free plain fetch when it already carries the list; render only when it does not
+        _plain = BeautifulSoup(html, "html.parser")
+        _has_list = (bool(_plain.select('[data-testid^="outage-result-"]')) if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES
+                     else bool(self._extract_items(_plain)))
+        if self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES and not _has_list:
+            log.info("[%s] plain fetch has no release list (client-rendered) — rendering via Firecrawl", self.source.source_name)
+            html = firecrawl_client.fetch_html(self.source.url)
         soup = BeautifulSoup(html, "html.parser")
+
+        if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES:
+            return self._parse_outage_register(soup)[:MAX_ITEMS_PER_SOURCE]
 
         page_text = soup.get_text(" ", strip=True).lower()
 
@@ -190,6 +217,41 @@ class ScrapeAdapter(BaseSourceAdapter):
                 charset = content_type.split("charset=")[-1].split(";")[0].strip()
             return resp.read().decode(charset, errors="replace")
 
+    def _parse_outage_register(self, soup) -> list[IntelligenceItem]:
+        """One item per register entry. The entry reference is the identity (canonical_url '<page>#<ref>'), so a re-read never duplicates.
+
+        published_at is the register's own 'Date and time entry first published' (day precision); the outage's start and end times are
+        kept in the summary as event times and never used as the publication date."""
+        items: list[IntelligenceItem] = []
+        for block in soup.select('[data-testid^="outage-result-"]'):
+            fields: dict[str, str] = {}
+            for node in block.find_all(["h3", "p"]):
+                label = node.find("span", class_=lambda c: c and "result-label" in c)
+                value = node.find("span", class_=lambda c: c and "result-value" in c)
+                if label and value:
+                    fields[label.get_text(strip=True).rstrip(":").strip().lower()] = value.get_text(" ", strip=True)
+            ref = fields.get("reference")
+            title = fields.get("outage title")
+            if not ref or not title:
+                continue
+            services = fields.get("number of each type of services affected", "")
+            cause = fields.get("cause (high level)", "unknown")
+            start = f"{fields.get('start date of outage', '?')} {fields.get('start time of outage', '')}".strip()
+            end = f"{fields.get('end date of outage', '?')} {fields.get('end time of outage', '')}".strip()
+            summary = (
+                f"Restored. {fields.get('outage type', 'Outage')}. Start {start}; end {end}; duration {fields.get('duration of outage', '?').strip()} h. "
+                f"Services affected: {fields.get('types of services affected', 'unknown')} ({services or 'count not stated'}). "
+                f"Locations: {fields.get('affected suburbs/towns', 'n/a')} ({fields.get('affected states/territories', 'n/a')}). "
+                f"Cause (as stated by the carrier): {cause}. Register reference {ref}."
+            )
+            published = None
+            m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", fields.get("date and time entry first published", ""))
+            if m:
+                published = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), tzinfo=_AEDT).astimezone(timezone.utc)
+            item = self._make_item(f"Optus outage register: {title}", summary, f"{self.source.url}#{ref}", published)
+            items.append(item)
+        return items
+
     def _extract_items(self, soup) -> list[IntelligenceItem]:
         items = []
         base = self.source.url
@@ -200,20 +262,30 @@ class ScrapeAdapter(BaseSourceAdapter):
                 continue
 
             for el in elements:
-                title_el = el.find(["h1", "h2", "h3", "h4", "strong"]) or el.find("a")
+                if el.name == "a" and self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES:
+                    # "h2 a"/"h3 a" select the link itself: its own text is the title, and the date/summary live in the
+                    # enclosing list item. (el.find("a") on an <a> finds nothing, so every such item used to be skipped.)
+                    # Scoped to the repaired sources: other scrape sources that reach this selector today are served by the
+                    # narrative/fallback paths, and changing their output is a separate, evidenced decision.
+                    title_el = el
+                    link_el = el if el.get("href") else None
+                    container = el.find_parent(["li", "article", "div"]) or el
+                else:
+                    title_el = el.find(["h1", "h2", "h3", "h4", "strong"]) or el.find("a")
+                    link_el = el.find("a", href=True)
+                    container = el
                 if not title_el:
                     continue
                 title = title_el.get_text(strip=True)
                 if len(title) < 10 or len(title) > 300:
                     continue
 
-                link_el = el.find("a", href=True)
                 url = urljoin(base, link_el["href"]) if link_el else None
 
                 # Try to find a date near the element
-                published = self._extract_date(el)
+                published = self._extract_date(container)
 
-                summary_el = el.find("p")
+                summary_el = container.find("p")
                 summary = summary_el.get_text(strip=True)[:500] if summary_el else None
 
                 items.append(self._make_item(title, summary, url, published))
