@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import socket
 import sys
@@ -157,3 +158,88 @@ def test_cli_end_to_end_on_frozen_v1(tmp_path, capsys):
     assert rep["reference_set"]["set_version"] == "v1" and rep["material_incidents"]["detected"] == 1
     assert rep["source_coverage"]["provided"] is False and (tmp_path / "o.md").read_text().startswith("# Intelligence weekly baseline")
     assert V1.read_bytes() and hashlib.sha256(V1.read_bytes()).hexdigest() == FROZEN["reference_set_v1.json"]
+
+
+# ── category mode (reference set v3): periods, coverage, assessment by category ────────────────────────────────────────────────
+
+V3 = REF_DIR / "reference_set_v3.json"
+COVERAGE = REF_DIR / "coverage_v3-2026-11-24.json"
+V1_BASELINE = REF_DIR / "baseline_v1-2026-11-24.json"
+
+
+def _cat_inc(iid, first, category, *, appeared=True, collected=None, converted=None, status=None, limits=None):
+    status = status or {"material_operational_disruption": "confirmed_material", "material_emerging_risk_or_warning": "confirmed_material",
+                        "material_retrospective_finding": "confirmed_material", "non_material": "confirmed_non_material", "unresolved": "unresolved_insufficiently_verified"}[category]
+    conv = {"measured": True, "converted": converted} if converted is not None else {"measured": False, "converted": None}
+    return {"id": iid, "title": iid, "status": status, "intelligence_category": category, "reviewed_by_human": True, "set_membership": "v3_new",
+            "first_public_report_time": {"value": first}, "start_time_utc": {"value": first}, "end_time_utc": {"value": None},
+            "australian_materiality": {"level": "high"}, "coverage_limits": limits or [],
+            "tjr_detection": {"appeared": appeared, "n_events": 1 if appeared else 0, "first_collected_at": collected or first, "first_source": "ABC News",
+                              "first_source_kind": "mainstream", "events_with_brief_id": 0, "daily_briefs_mentioning": 0, "n_non_aggregator_sources": 1, "conversion": conv}}
+
+
+MINI_COV = {"weekly_collection": [{"period": f"P{k + 1:02d}", "reports_collected": 3000, "active_sources": 50} for k in range(4)], "zero_collection_days": [{"date": "2026-11-11"}]}
+CHANGES = ({"date": "2026-10-31", "kind": "rate", "note": "ceiling raised before the window"},)
+
+
+def test_periods_are_fixed_length_and_the_window_must_be_whole_periods():
+    ps_ = wb.make_periods("2026-07-28", "2026-11-24")
+    assert len(ps_) == 17 and ps_[0]["id"] == "P01" and (ps_[0]["end"] - ps_[0]["start"]).days == 7 and ps_[-1]["end"] == wb.ps._day("2026-11-24")
+    assert all(a["end"] == b["start"] for a, b in itertools.pairwise(ps_))
+    with pytest.raises(SystemExit):
+        wb.make_periods("2026-07-28", "2026-11-20")
+
+
+def test_coverage_states_use_the_known_confounders_and_the_committed_coverage_file():
+    cov = json.loads(COVERAGE.read_text())
+    st = {p["id"]: p for p in wb.period_states(wb.make_periods("2026-07-28", "2026-11-24"), cov)}
+    assert [k for k, v in st.items() if v["state"] == "complete"] == ["P07", "P08", "P11", "P12", "P13", "P14", "P15", "P16", "P17"]
+    assert st["P06"]["limit_kind"] == "transition_feed_ceiling" and st["P10"]["limit_kind"] == "outage_or_gap" and st["P09"]["limit_kind"] == "outage_or_gap"
+    assert all(st[f"P0{k}"]["limit_kind"] == "pre_feed_ceiling" for k in range(1, 6))
+    assert any("2026-10-02" in r for r in st["P10"]["reasons"])
+
+
+def test_incomplete_coverage_is_reported_separately_and_never_blended_into_the_comparable_rates():
+    ref = {"name": "t", "set_version": "t3", "incidents": [
+        _cat_inc("A", "2026-11-02T00:00:00Z", "material_operational_disruption"),                       # P01 complete (after the step)
+        _cat_inc("B", "2026-11-11T00:00:00Z", "material_operational_disruption", appeared=False),      # P02 limited (zero-collection day)
+        _cat_inc("C", "2026-11-03T00:00:00Z", "material_emerging_risk_or_warning"),                    # conversion not measured
+        _cat_inc("D", "2026-11-04T00:00:00Z", "material_emerging_risk_or_warning", converted=True),
+        _cat_inc("E", "2026-10-30T00:00:00Z", "material_operational_disruption"),                      # pre-window
+        _cat_inc("N", "2026-11-03T00:00:00Z", "non_material"), _cat_inc("U", "2026-11-03T00:00:00Z", "unresolved")]}
+    periods = wb.period_states(wb.make_periods("2026-11-01", "2026-11-29"), MINI_COV, CHANGES)
+    assert [p["state"] for p in periods] == ["complete", "limited", "complete", "complete"]
+    rep = wb.build_category_report(ref, MINI_COV, "2026-11-01", "2026-11-29", AS_OF, changes=CHANGES)
+    res = rep["results"]
+    comp, lim = res["comparable_complete_coverage_periods"]["metrics"], res["limited_coverage_periods_reported_separately"]
+    assert comp["material_operational_disruption"]["total"] == 1 and comp["material_operational_disruption"]["detected"] == 1
+    assert lim["metrics"]["material_operational_disruption"]["missed_ids"] == ["B"] and res["limited_coverage_periods_reported_separately"]["NOT_FOR_RATE_COMPARISON"] is True
+    assert [x["id"] for x in res["pre_window_onset_not_in_rates"]] == ["E"]
+    w = comp["material_emerging_risk_or_warning"]
+    assert w["converted_ids"] == ["D"] and w["conversion_not_provided_ids"] == ["C"] and w["conversion_rate_of_measured"] == 1.0
+    ex = rep["excluded_from_scores_but_listed"]
+    assert [x["id"] for x in ex["non_material"]] == ["N"] and [x["id"] for x in ex["unresolved"]] == ["U"]
+    md = wb.render_category_markdown(rep)
+    assert "NOT PROVIDED" in md and "NOT for rate comparison" in md and "__________" in md
+    assert rep["manual_verification_burden"]["status"] == "NOT PROVIDED" and rep["manual_verification_burden"]["minutes"] is None
+
+
+def test_v3_baseline_run_is_reproducible_and_matches_the_committed_outputs(tmp_path):
+    out_json, out_md = tmp_path / "b.json", tmp_path / "b.md"
+    rc = wb.main(["--reference", str(V3), "--coverage", str(COVERAGE), "--window-start", "2026-07-28", "--window-end", "2026-11-24",
+                  "--as-of", "2026-11-24T10:00:00Z", "--previous-baseline", str(V1_BASELINE), "--out-json", str(out_json), "--out-md", str(out_md)])
+    assert rc == 0
+    committed_json = REF_DIR / "baseline_v3-2026-11-24.json"
+    committed_md = _REPO / "docs" / "intelligence-baseline-v3-2026-11-24.md"
+    assert json.loads(out_json.read_text()) == json.loads(committed_json.read_text())
+    assert out_md.read_text() == committed_md.read_text()
+    rep = json.loads(out_json.read_text())
+    assert rep["period_counts"]["complete"] == 9 and rep["period_counts"]["limited"] == 8
+    assert rep["results"]["comparable_complete_coverage_periods"]["periods"] == ["P07", "P08", "P11", "P12", "P13", "P14", "P15", "P16", "P17"]
+
+
+def test_v1_numbers_remain_reproducible_from_the_frozen_baseline():
+    v1 = json.loads(V1_BASELINE.read_text())["baseline_scorecards"]["all"]["material_incidents"]
+    assert (v1["total"], v1["detected"], v1["missed_ids"]) == (15, 13, ["RS-004", "RS-032"])
+    cards = wb.ps.compute_by_subset(json.loads(V1.read_text()), wb.ps.FileSource(None, None, None))
+    assert (cards["all"]["material_incidents"]["total"], cards["all"]["material_incidents"]["detected"]) == (15, 13)
