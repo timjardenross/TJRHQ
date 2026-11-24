@@ -53,6 +53,7 @@ _EXCLUDED_ROUTES: dict[str, str] = {
     "privacy": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
     "terms": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
     "settings": "index/nav page listing SETTINGS_SECTIONS (settings/page.tsx) — same category as the workbenches hub page itself, not a workbench of its own",
+    "hq": "parallel HQ workbench behind the server-side HQ_WORKBENCH_ENABLED flag (default off, 404 when off); deliberately not in LIVE_WORKBENCHES so the existing hub, switcher and docs are unchanged (see hq/layout.tsx and hq/page.tsx header comments)",
     "model-crew": "reachable via a secondary in-app link (Settings -> AI & Automation -> Advanced -> 'View current model routing', per the page's own 2026-09-06 header comment), not orphaned but not hub-listed — same category as health-osint-curation/knowledge-workbench/mission-workbench above",
 }
 

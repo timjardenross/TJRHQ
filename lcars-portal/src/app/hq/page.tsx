@@ -1,5 +1,9 @@
 'use client';
 
+// HQ Home. Part of the parallel HQ workbench: gated by HQ_WORKBENCH_ENABLED in hq/layout.tsx
+// (default off) and deliberately NOT listed in LIVE_WORKBENCHES, so the existing hub, switcher and
+// generated docs are unchanged. Capability status: docs/HQ-CAPABILITY-CHECKLIST.md.
+
 import Link from 'next/link';
 import { useHq } from '@/lib/hq/HqProvider';
 import { useHqNeedsYou } from '@/lib/hq/home';
