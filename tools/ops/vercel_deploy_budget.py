@@ -67,22 +67,31 @@ def issue_ticket(deployments: list[dict], kind: str, *, emergency: bool = False,
     if not ok:
         return False, why
     now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
-    ticket_path(kind).write_text(json.dumps({"kind": kind, "issued_ms": now_ms, "emergency": emergency, "reason": why}), encoding="utf-8")
+    path = ticket_path(kind)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
+    tmp.write_text(json.dumps({"kind": kind, "issued_ms": now_ms, "emergency": emergency, "reason": why}), encoding="utf-8")
+    os.replace(tmp, path)                      # atomic publish: a reader sees the whole ticket or none
     return True, why
 
 
 def consume_ticket(kind: str, *, now_ms: int | None = None) -> tuple[bool, str]:
-    """Single use: a valid ticket is deleted as it is consumed."""
+    """Single use and concurrency-safe: the ticket is claimed by an atomic rename to a name only this caller knows, so when several
+    agents try at the same moment exactly one rename succeeds and the rest see 'no ticket'."""
     path = ticket_path(kind)
+    claimed = path.with_name(f"{path.name}.claimed.{os.getpid()}.{time.time_ns()}")
     try:
-        t = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        os.rename(path, claimed)
+    except OSError:
         return False, f"no {kind} deployment ticket: run tools/ops/vercel_deploy_budget.py <deployments.json> --target {kind} --issue-ticket"
+    try:
+        t = json.loads(claimed.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        t = {}
+    finally:
+        claimed.unlink(missing_ok=True)
     now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
     if t.get("kind") != kind or now_ms - int(t.get("issued_ms", 0)) > TICKET_TTL_SECONDS * 1000:
-        path.unlink(missing_ok=True)
         return False, f"the {kind} deployment ticket has expired; re-run the budget check"
-    path.unlink(missing_ok=True)
     return True, str(t.get("reason", "ticket accepted"))
 
 
