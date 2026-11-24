@@ -1,0 +1,1480 @@
+{
+ "_meta": {
+  "window_events_complete": false,
+  "sources_complete": false,
+  "note": "window_events exported with --subset (retrospective rows + incident keywords, no summaries; 25 suppressed NVD rows elided); sources limited to ASIC/Optus/RBA/ATO/OAIC/NVD/iTnews plus inactive rows"
+ },
+ "as_of": [
+  {
+   "as_of": "2026-11-24 06:59:14.920191+00"
+  }
+ ],
+ "sweep_days": [
+  {
+   "sweep_start": "2026-11-23 19:00:00+00",
+   "checks": 400,
+   "sources": 111,
+   "ok": 386,
+   "not_ok": 14
+  },
+  {
+   "sweep_start": "2026-11-22 19:00:00+00",
+   "checks": 318,
+   "sources": 111,
+   "ok": 304,
+   "not_ok": 14
+  },
+  {
+   "sweep_start": "2026-11-21 19:00:00+00",
+   "checks": 318,
+   "sources": 111,
+   "ok": 302,
+   "not_ok": 16
+  },
+  {
+   "sweep_start": "2026-11-20 19:00:00+00",
+   "checks": 316,
+   "sources": 111,
+   "ok": 302,
+   "not_ok": 14
+  },
+  {
+   "sweep_start": "2026-11-19 19:00:00+00",
+   "checks": 318,
+   "sources": 111,
+   "ok": 304,
+   "not_ok": 14
+  }
+ ],
+ "sweep_items": [
+  {
+   "sweep_start": "2026-11-23 19:00:00+00",
+   "items": 192,
+   "sources": 25
+  },
+  {
+   "sweep_start": "2026-11-22 19:00:00+00",
+   "items": 105,
+   "sources": 12
+  },
+  {
+   "sweep_start": "2026-11-21 19:00:00+00",
+   "items": 137,
+   "sources": 18
+  },
+  {
+   "sweep_start": "2026-11-20 19:00:00+00",
+   "items": 197,
+   "sources": 25
+  },
+  {
+   "sweep_start": "2026-11-19 19:00:00+00",
+   "items": 192,
+   "sources": 27
+  }
+ ],
+ "sweep_failures": [
+  {
+   "source_name": "ASD Publications",
+   "status": "failed",
+   "items_retrieved": 0,
+   "content_valid": null,
+   "error": "Scrape fetch failed after retry: The read operation timed out"
+  },
+  {
+   "source_name": "ASD Publications",
+   "status": "failed",
+   "items_retrieved": 0,
+   "content_valid": null,
+   "error": "Scrape fetch failed after retry: The read operation timed out"
+  },
+  {
+   "source_name": "ASIC Enforcement Activity",
+   "status": "degraded",
+   "items_retrieved": 0,
+   "content_valid": false,
+   "error": "Source returned no items"
+  },
+  {
+   "source_name": "ASIC Enforcement Activity",
+   "status": "degraded",
+   "items_retrieved": 0,
+   "content_valid": false,
+   "error": "Source returned no items"
+  },
+  {
+   "source_name": "ASIC News Centre",
+   "status": "degraded",
+   "items_retrieved": 0,
+   "content_valid": false,
+   "error": "Source returned no items"
+  },
+  {
+   "source_name": "ASIC News Centre",
+   "status": "degraded",
+   "items_retrieved": 0,
+   "content_valid": false,
+   "error": "Source returned no items"
+  },
+  {
+   "source_name": "Daily Operational Resilience Briefs (GitHub)",
+   "status": "failed",
+   "items_retrieved": 0,
+   "content_valid": null,
+   "error": "No briefs discovered (repo unreachable or empty)"
+  },
+  {
+   "source_name": "Daily Operational Resilience Briefs (GitHub)",
+   "status": "failed",
+   "items_retrieved": 0,
+   "content_valid": null,
+   "error": "No briefs discovered (repo unreachable or empty)"
+  },
+  {
+   "source_name": "Melbourne Airport",
+   "status": "degraded",
+   "items_retrieved": 0,
+   "content_valid": false,
+   "error": "Source returned no items"
+  },
+  {
+   "source_name": "Melbourne Airport",
+   "status": "degraded",
+   "items_retrieved": 0,
+   "content_valid": false,
+   "error": "Source returned no items"
+  },
+  {
+   "source_name": "OAIC Breach Notifications",
+   "status": "failed",
+   "items_retrieved": 0,
+   "content_valid": null,
+   "error": "HTTP 403 from https://www.oaic.gov.au/privacy/notifiable-data-breaches"
+  },
+  {
+   "source_name": "OAIC Breach Notifications",
+   "status": "failed",
+   "items_retrieved": 0,
+   "content_valid": null,
+   "error": "HTTP 403 from https://www.oaic.gov.au/privacy/notifiable-data-breaches"
+  },
+  {
+   "source_name": "OAIC Privacy Determinations & News",
+   "status": "failed",
+   "items_retrieved": 0,
+   "content_valid": null,
+   "error": "HTTP Error 403: Forbidden"
+  },
+  {
+   "source_name": "OAIC Privacy Determinations & News",
+   "status": "failed",
+   "items_retrieved": 0,
+   "content_valid": null,
+   "error": "HTTP Error 403: Forbidden"
+  }
+ ],
+ "heartbeats": [
+  {
+   "checked_at": "2026-11-23 19:01:35.245339+00",
+   "status": "ok",
+   "detail": "sources=111 items=1278",
+   "error_message": ""
+  },
+  {
+   "checked_at": "2026-11-22 19:01:32.240625+00",
+   "status": "ok",
+   "detail": "sources=111 items=1274",
+   "error_message": ""
+  },
+  {
+   "checked_at": "2026-11-21 19:01:32.213007+00",
+   "status": "ok",
+   "detail": "sources=111 items=1265",
+   "error_message": ""
+  },
+  {
+   "checked_at": "2026-11-20 19:01:35.572614+00",
+   "status": "ok",
+   "detail": "sources=111 items=1273",
+   "error_message": ""
+  },
+  {
+   "checked_at": "2026-11-19 19:01:32.19338+00",
+   "status": "ok",
+   "detail": "sources=111 items=1264",
+   "error_message": ""
+  }
+ ],
+ "sources": [
+  {
+   "source_name": "ASIC (changedetection.io watchlist)",
+   "source_type": "changedetection",
+   "category": "regulatory",
+   "active": true,
+   "updated_at": "2026-09-12 10:03:58.219534+00",
+   "checks7": 14,
+   "bad7": 0,
+   "checks72": 6,
+   "ok72": 6,
+   "last_check": "2026-11-23 19:03:07.486071+00",
+   "last_ok": "2026-11-23 19:03:07.486071+00",
+   "last_status": "ok",
+   "last_items": 0,
+   "last_valid": true,
+   "last_error": "",
+   "n24": 0,
+   "n7": 0,
+   "n30": 0,
+   "last_event": null,
+   "newest_pub": null
+  },
+  {
+   "source_name": "ASIC Enforcement Activity",
+   "source_type": "scrape",
+   "category": "regulatory",
+   "active": true,
+   "updated_at": "2026-06-12 11:32:24.1706+00",
+   "checks7": 14,
+   "bad7": 14,
+   "checks72": 6,
+   "ok72": 0,
+   "last_check": "2026-11-23 19:03:02.094888+00",
+   "last_ok": null,
+   "last_status": "degraded",
+   "last_items": 0,
+   "last_valid": false,
+   "last_error": "Source returned no items",
+   "n24": 0,
+   "n7": 0,
+   "n30": 0,
+   "last_event": null,
+   "newest_pub": null
+  },
+  {
+   "source_name": "ASIC News Centre",
+   "source_type": "scrape",
+   "category": "regulatory",
+   "active": true,
+   "updated_at": "2026-06-12 09:10:23.027442+00",
+   "checks7": 14,
+   "bad7": 14,
+   "checks72": 6,
+   "ok72": 0,
+   "last_check": "2026-11-23 19:03:03.146393+00",
+   "last_ok": null,
+   "last_status": "degraded",
+   "last_items": 0,
+   "last_valid": false,
+   "last_error": "Source returned no items",
+   "n24": 0,
+   "n7": 0,
+   "n30": 0,
+   "last_event": null,
+   "newest_pub": null
+  },
+  {
+   "source_name": "ATO Online Services for Agents Status",
+   "source_type": "api",
+   "category": "critical_infrastructure",
+   "active": true,
+   "updated_at": "2026-11-24 06:27:17.152807+00",
+   "checks7": 1,
+   "bad7": 0,
+   "checks72": 1,
+   "ok72": 1,
+   "last_check": "2026-11-24 06:33:50.704949+00",
+   "last_ok": "2026-11-24 06:33:50.704949+00",
+   "last_status": "ok",
+   "last_items": 50,
+   "last_valid": true,
+   "last_error": "",
+   "n24": 48,
+   "n7": 48,
+   "n30": 48,
+   "last_event": "2026-11-24 06:33:51.660165+00",
+   "newest_pub": "2026-10-21 06:16:27.085+00"
+  },
+  {
+   "source_name": "Downdetector AU — Optus",
+   "source_type": "downdetector",
+   "category": "critical_infrastructure",
+   "active": true,
+   "updated_at": "2026-08-10 01:23:48.590937+00",
+   "checks7": 55,
+   "bad7": 0,
+   "checks72": 30,
+   "ok72": 30,
+   "last_check": "2026-11-24 06:33:48.626728+00",
+   "last_ok": "2026-11-24 06:33:48.626728+00",
+   "last_status": "ok",
+   "last_items": 0,
+   "last_valid": true,
+   "last_error": "",
+   "n24": 0,
+   "n7": 0,
+   "n30": 0,
+   "last_event": null,
+   "newest_pub": null
+  },
+  {
+   "source_name": "Google News - APRA/ASIC Operational Resilience",
+   "source_type": "rss",
+   "category": "regulatory",
+   "active": true,
+   "updated_at": "2026-09-06 01:02:04.592294+00",
+   "checks7": 14,
+   "bad7": 0,
+   "checks72": 6,
+   "ok72": 6,
+   "last_check": "2026-11-23 19:03:04.633437+00",
+   "last_ok": "2026-11-23 19:03:04.633437+00",
+   "last_status": "ok",
+   "last_items": 10,
+   "last_valid": true,
+   "last_error": "",
+   "n24": 3,
+   "n7": 10,
+   "n30": 19,
+   "last_event": "2026-11-23 19:00:06.762605+00",
+   "newest_pub": "2026-11-23 09:39:22+00"
+  },
+  {
+   "source_name": "iTnews",
+   "source_type": "rss",
+   "category": "cybersecurity",
+   "active": true,
+   "updated_at": "2026-09-06 01:02:04.592294+00",
+   "checks7": 16,
+   "bad7": 0,
+   "checks72": 8,
+   "ok72": 8,
+   "last_check": "2026-11-24 06:33:48.64398+00",
+   "last_ok": "2026-11-24 06:33:48.64398+00",
+   "last_status": "ok",
+   "last_items": 20,
+   "last_valid": true,
+   "last_error": "",
+   "n24": 7,
+   "n7": 25,
+   "n30": 105,
+   "last_event": "2026-11-24 06:33:50.151555+00",
+   "newest_pub": "2026-11-24 07:18:00+00"
+  },
+  {
+   "source_name": "NVD / NIST CVE Database",
+   "source_type": "api",
+   "category": "cybersecurity",
+   "active": true,
+   "updated_at": "2026-06-28 12:03:38.956362+00",
+   "checks7": 14,
+   "bad7": 0,
+   "checks72": 6,
+   "ok72": 6,
+   "last_check": "2026-11-23 19:03:05.436456+00",
+   "last_ok": "2026-11-23 19:03:05.436456+00",
+   "last_status": "ok",
+   "last_items": 20,
+   "last_valid": true,
+   "last_error": "",
+   "n24": 20,
+   "n7": 140,
+   "n30": 560,
+   "last_event": "2026-11-23 19:00:15.550858+00",
+   "newest_pub": "2026-11-15 22:17:18.19+00"
+  },
+  {
+   "source_name": "OAIC Breach Notifications",
+   "source_type": "scrape",
+   "category": "regulatory",
+   "active": true,
+   "updated_at": "2026-06-12 11:32:24.1706+00",
+   "checks7": 14,
+   "bad7": 14,
+   "checks72": 6,
+   "ok72": 0,
+   "last_check": "2026-11-23 19:03:05.282319+00",
+   "last_ok": null,
+   "last_status": "failed",
+   "last_items": 0,
+   "last_valid": null,
+   "last_error": "HTTP 403 from https://www.oaic.gov.au/privacy/notifiable-data-breaches",
+   "n24": 0,
+   "n7": 0,
+   "n30": 0,
+   "last_event": null,
+   "newest_pub": null
+  },
+  {
+   "source_name": "OAIC Privacy Determinations & News",
+   "source_type": "rss",
+   "category": "regulatory",
+   "active": true,
+   "updated_at": "2026-06-28 12:03:38.956362+00",
+   "checks7": 14,
+   "bad7": 14,
+   "checks72": 6,
+   "ok72": 0,
+   "last_check": "2026-11-23 19:03:46.02683+00",
+   "last_ok": null,
+   "last_status": "failed",
+   "last_items": 0,
+   "last_valid": null,
+   "last_error": "HTTP Error 403: Forbidden",
+   "n24": 0,
+   "n7": 0,
+   "n30": 0,
+   "last_event": null,
+   "newest_pub": null
+  },
+  {
+   "source_name": "Optus National Outage Register",
+   "source_type": "scrape",
+   "category": "critical_infrastructure",
+   "active": true,
+   "updated_at": "2026-11-24 06:27:17.152807+00",
+   "checks7": 0,
+   "bad7": 0,
+   "checks72": 0,
+   "ok72": 0,
+   "last_check": null,
+   "last_ok": null,
+   "last_status": null,
+   "last_items": null,
+   "last_valid": null,
+   "last_error": null,
+   "n24": 0,
+   "n7": 0,
+   "n30": 0,
+   "last_event": null,
+   "newest_pub": null
+  },
+  {
+   "source_name": "RBA Media Releases",
+   "source_type": "rss",
+   "category": "regulatory",
+   "active": true,
+   "updated_at": "2026-11-24 06:27:17.152807+00",
+   "checks7": 0,
+   "bad7": 0,
+   "checks72": 0,
+   "ok72": 0,
+   "last_check": null,
+   "last_ok": null,
+   "last_status": null,
+   "last_items": null,
+   "last_valid": null,
+   "last_error": null,
+   "n24": 0,
+   "n7": 0,
+   "n30": 0,
+   "last_event": null,
+   "newest_pub": null
+  }
+ ],
+ "feed_health_post_deploy": [
+  {
+   "source_name": "OpenAI Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 100
+  },
+  {
+   "source_name": "Supabase Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 65
+  },
+  {
+   "source_name": "Google News - Origin Energy",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 42
+  },
+  {
+   "source_name": "AWS Service Health",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 38
+  },
+  {
+   "source_name": "AWS Service Health Dashboard",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 38
+  },
+  {
+   "source_name": "Notion Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 32
+  },
+  {
+   "source_name": "Google News - Telstra",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 31
+  },
+  {
+   "source_name": "Google Cloud Security Bulletins",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 30
+  },
+  {
+   "source_name": "Vercel Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 25
+  },
+  {
+   "source_name": "Anthropic (Claude) Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 25
+  },
+  {
+   "source_name": "DigitalOcean Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 25
+  },
+  {
+   "source_name": "Oracle Cloud (OCI) Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 25
+  },
+  {
+   "source_name": "Slack Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 25
+  },
+  {
+   "source_name": "TPG Telecom Service Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 25
+  },
+  {
+   "source_name": "Twilio Status",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 25
+  },
+  {
+   "source_name": "ABC News",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 25
+  },
+  {
+   "source_name": "BBC News",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 22
+  },
+  {
+   "source_name": "NCSC UK Threat Reports",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 20
+  },
+  {
+   "source_name": "iTnews",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 20
+  },
+  {
+   "source_name": "ARN - Australian IT Channel",
+   "source_type": "rss",
+   "checks": 1,
+   "max_items": 20
+  }
+ ],
+ "itnews_checks": [
+  {
+   "checked_at": "2026-11-23 19:00:41.488396+00",
+   "status": "ok",
+   "items_retrieved": 20
+  },
+  {
+   "checked_at": "2026-11-23 19:03:38.229524+00",
+   "status": "ok",
+   "items_retrieved": 20
+  },
+  {
+   "checked_at": "2026-11-24 05:16:50.846461+00",
+   "status": "ok",
+   "items_retrieved": 20
+  },
+  {
+   "checked_at": "2026-11-24 06:33:48.64398+00",
+   "status": "ok",
+   "items_retrieved": 20
+  }
+ ],
+ "nvd_runs": [
+  {
+   "run_minute": "2026-11-23 19:00:00+00",
+   "items": 20,
+   "distinct_hash": 20,
+   "distinct_url": 20,
+   "oldest_published": "2026-11-15 19:17:15.073+00",
+   "newest_published": "2026-11-15 22:17:18.19+00"
+  },
+  {
+   "run_minute": "2026-11-22 19:00:00+00",
+   "items": 20,
+   "distinct_hash": 20,
+   "distinct_url": 20,
+   "oldest_published": "2026-11-14 20:17:39.203+00",
+   "newest_published": "2026-11-15 07:16:53.6+00"
+  },
+  {
+   "run_minute": "2026-11-21 19:00:00+00",
+   "items": 20,
+   "distinct_hash": 20,
+   "distinct_url": 20,
+   "oldest_published": "2026-11-13 19:17:36.427+00",
+   "newest_published": "2026-11-13 19:19:34.503+00"
+  },
+  {
+   "run_minute": "2026-11-20 19:01:00+00",
+   "items": 17,
+   "distinct_hash": 17,
+   "distinct_url": 17,
+   "oldest_published": "2026-11-12 19:16:44.843+00",
+   "newest_published": "2026-11-12 20:18:09.523+00"
+  },
+  {
+   "run_minute": "2026-11-20 19:00:00+00",
+   "items": 3,
+   "distinct_hash": 3,
+   "distinct_url": 3,
+   "oldest_published": "2026-11-12 19:16:45.317+00",
+   "newest_published": "2026-11-12 20:18:13.827+00"
+  },
+  {
+   "run_minute": "2026-11-19 19:00:00+00",
+   "items": 20,
+   "distinct_hash": 20,
+   "distinct_url": 20,
+   "oldest_published": "2026-11-11 19:17:29.07+00",
+   "newest_published": "2026-11-11 19:17:37.007+00"
+  },
+  {
+   "run_minute": "2026-11-18 19:00:00+00",
+   "items": 20,
+   "distinct_hash": 20,
+   "distinct_url": 20,
+   "oldest_published": "2026-11-10 19:17:39.033+00",
+   "newest_published": "2026-11-10 19:17:46.2+00"
+  },
+  {
+   "run_minute": "2026-11-17 19:00:00+00",
+   "items": 20,
+   "distinct_hash": 20,
+   "distinct_url": 20,
+   "oldest_published": "2026-11-09 19:16:39.867+00",
+   "newest_published": "2026-11-09 19:16:47.273+00"
+  },
+  {
+   "run_minute": "2026-11-16 19:00:00+00",
+   "items": 20,
+   "distinct_hash": 20,
+   "distinct_url": 20,
+   "oldest_published": "2026-11-08 19:17:38.38+00",
+   "newest_published": "2026-11-08 19:17:42.573+00"
+  }
+ ],
+ "nvd_totals": [
+  {
+   "total": 160,
+   "distinct_hash": 160,
+   "distinct_url": 160,
+   "post_deploy_items": 0
+  }
+ ],
+ "provenance_days": [
+  {
+   "collected_day": "2026-11-24 00:00:00+00",
+   "total": 251,
+   "publisher_domain": 0,
+   "publisher_family": 0,
+   "published_at_basis": 251,
+   "published_at_precision": 251,
+   "published_at_confidence": 251
+  },
+  {
+   "collected_day": "2026-11-23 00:00:00+00",
+   "total": 426,
+   "publisher_domain": 0,
+   "publisher_family": 0,
+   "published_at_basis": 426,
+   "published_at_precision": 426,
+   "published_at_confidence": 426
+  },
+  {
+   "collected_day": "2026-11-22 00:00:00+00",
+   "total": 321,
+   "publisher_domain": 0,
+   "publisher_family": 0,
+   "published_at_basis": 321,
+   "published_at_precision": 321,
+   "published_at_confidence": 321
+  },
+  {
+   "collected_day": "2026-11-21 00:00:00+00",
+   "total": 253,
+   "publisher_domain": 0,
+   "publisher_family": 0,
+   "published_at_basis": 253,
+   "published_at_precision": 253,
+   "published_at_confidence": 253
+  },
+  {
+   "collected_day": "2026-11-20 00:00:00+00",
+   "total": 467,
+   "publisher_domain": 0,
+   "publisher_family": 0,
+   "published_at_basis": 467,
+   "published_at_precision": 467,
+   "published_at_confidence": 467
+  },
+  {
+   "collected_day": "2026-11-19 00:00:00+00",
+   "total": 474,
+   "publisher_domain": 0,
+   "publisher_family": 0,
+   "published_at_basis": 474,
+   "published_at_precision": 474,
+   "published_at_confidence": 474
+  },
+  {
+   "collected_day": "2026-11-18 00:00:00+00",
+   "total": 515,
+   "publisher_domain": 0,
+   "publisher_family": 0,
+   "published_at_basis": 515,
+   "published_at_precision": 515,
+   "published_at_confidence": 515
+  },
+  {
+   "collected_day": "2026-11-17 00:00:00+00",
+   "total": 359,
+   "publisher_domain": 0,
+   "publisher_family": 0,
+   "published_at_basis": 359,
+   "published_at_precision": 359,
+   "published_at_confidence": 359
+  }
+ ],
+ "briefs": [
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-24",
+   "generated_at": "2026-11-23 20:01:09.385499+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 4586
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-23",
+   "generated_at": "2026-11-22 20:01:04.061795+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 2304
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-22",
+   "generated_at": "2026-11-21 20:01:05.560792+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 2978
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-21",
+   "generated_at": "2026-11-20 20:01:05.765069+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 2848
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-20",
+   "generated_at": "2026-11-19 20:01:04.724272+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 2634
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-19",
+   "generated_at": "2026-11-18 20:01:05.508842+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 3271
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-18",
+   "generated_at": "2026-11-17 20:01:03.212019+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 3147
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-17",
+   "generated_at": "2026-11-16 20:01:03.803763+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 2431
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-16",
+   "generated_at": "2026-11-15 20:01:07.241121+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 1944
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-15",
+   "generated_at": "2026-11-14 20:01:05.60726+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 3090
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-14",
+   "generated_at": "2026-11-13 20:01:05.698117+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 2447
+  },
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-13",
+   "generated_at": "2026-11-12 20:01:14.379444+00",
+   "signals_count": 12,
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "text_len": 2871
+  }
+ ],
+ "latest_morning_brief": [
+  {
+   "brief_type": "morning",
+   "brief_date": "2026-11-24",
+   "generated_at": "2026-11-23 20:01:09.385499+00",
+   "evidence_window_hours": 24,
+   "collection_caveat": null,
+   "brief_text": "<b>☀️ MORNING BRIEF — Tuesday 24 November 2026</b>\n<i>Stardate 2026.328 · 07:00 AEDT</i>\n\n<b>⚡ CAPACITY TODAY</b>\n  No check-in yet today — log one via capacitybot (/capacity)\n\n🛰 EVIDENCE-BASED PICTURE (V1)\n203 incident(s) assessed from 829 report(s); method wk-detect/0.6.0-v1c.\n\nOperational situation: no confirmed, corroborated or single-source reported current disruption in the last 24 hours.\n\nWhat matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents\n- None officially confirmed or corroborated in the last 24 hours.\n\nREPORTED by one source (provisional until a second or primary source)\n- None.\n\nIMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)\n- None.\n\nRETROSPECTIVE REPORTS (about past events; not live disruptions)\n- None.\n\nSOURCE NOT YET VERIFIED (hedged, aggregator-only, low-quality source, editorial relevance only or weakly evidenced; not treated as fact)\n- None.\n\nWARNINGS AND FORECASTS (not confirmed incidents)\n- No active warning or forecast notice.\n\nEMERGING EXPOSURE (credible advisories and risks; no confirmed current disruption; nothing here states an operational consequence)\n- None.\n\nOperational implications (only what the cited reports state)\n- No operational implication is supported by corroborated reports today.\n\nForward watch, next 24–72 hours\n- No ongoing incident, warning or dated notice to watch.\n\nWORTH KNOWING (last 72h; credible technology developments with no confirmed outage or immediate service impact; informative, not escalated)\n- [cyber · officially confirmed by Cisco Security Advisories · International development; no Australian operational impact established] Vulnerabilities in nginx Affecting Cisco Products: November 2026 — On November 18, 2026, nginx announced the availability of a fix for multiple critical vulnerabilities in nginx that could lead to remote code execution. [inc-51d781b19e; 1 report(s); evidence: Cisco Security Advisories #5a0664de]\n- [cyber · single-source report · International development; no Australian operational impact established] Consultants reap public sector boom thanks to AI and cyber security [inc-6e480b4bc8; 1 report(s); evidence: Financial Times #e1579030 &lt;https://www.ft.com/content/54b6f97e-7818-4902-9755-63d9a4867a2d?syn-25a6b1a6=1&gt;]\n- [cloud · single-source report · International development; no Australian operational impact established] Amazon’s AI resistance: workers ready for battle over data centres [inc-9ded7f684d; 1 report(s); evidence: Financial Times #7642eeee &lt;https://www.ft.com/content/d194e93b-8d3c-42eb-85dd-46d58c4f2a80?syn-25a6b1a6=1&gt;]\n- [AI · single-source report · International development; no Australian operational impact established] Tech suppliers raise AI server prices up to 45% months after deals are signed [inc-d4804415be; 1 report(s); evidence: Financial Times #4a4a5ba2 &lt;https://www.ft.com/content/dd2a6594-6146-4ff1-ac8e-54749c1fc99f?syn-25a6b1a6=1&gt;]\n\n<b>📡 COLLECTION HEALTH</b>\n  <i>⚠️ 4 intelligence sources were unavailable during this morning collection cycle.</i>\n\n<b>📡 OTHER SIGNALS (24h; not evidence-checked)</b> <i>(3 HIGH, 3 MEDIUM)</i>\n  🔴 Guardian Australia: Proposed defence laws are described as ‘draconian’ and a ‘war against democracy’. Why are people worried?\n     <i>Concerns peaceful protesters and ordinary Australians taking photos near defence sites could face jail or hefty fines under proposed legislation Get our daily political…</i>\n  🔴 Australian politics live: small business carveout in digital duty of care; countdown to pass key legislation begins\n     <i>Get our breaking news email , free app or daily news podcast Good morning, Krishani Dhanji here with you for the final sitting week of the year! (Don’t sound too…</i>\n  🔴 ABC News: Storms to hit south-western Qld as heatwave lingers in far north\n     <i>The weather bureau is warning of severe storms west of Charleville, while the south-east could see storms returning later in the week.</i>\n  🟡 Bloomberg: European Banks Set to Fire Up M&amp;A Talks, Morgan Stanley Says\n     <i>The success of current deals across Europe’s banking sector and potentially softer regulation is likely to fuel boardroom talks about cross-border acquisitions next…</i>\n  🟡 Bloomberg: Live: Asia-Pacific Stocks, Currencies React After Nasdaq, S&amp;P 500 Selloff\n  🟡 ABC News: Live: Greens 'optimistic' about deal on digital duty of care\n     <i>The Greens are optimistic a deal can be struck with the government over its digital duty of care legislation by the end of the week.</i>\n\n🤖 <i>XO · Starship Endeavour</i>"
+  }
+ ],
+ "window_events": [
+  {
+   "event_id": "e8f0ba45-8636-4995-a896-25c9df361131",
+   "raw_title": "The Download: AI’s judgment problem and carbon removal’s crop threat",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 19:01:02.481102+00",
+   "published_at": "2026-11-23 13:10:00+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "MIT Technology Review"
+  },
+  {
+   "event_id": "dcf9d4f5-2119-40b0-9ea9-91d986714979",
+   "raw_title": "Instagram Now Allows Creators to Link Straight to Amazon. Here’s What to Check Before Going All-In on Cyber Week",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 19:01:00.278795+00",
+   "published_at": "2026-11-23 15:58:56+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Inc. Magazine — Leadership"
+  },
+  {
+   "event_id": "c2d078ff-eb96-4ac7-aada-5c6e5ed0f13a",
+   "raw_title": "Why AI Failures Capture Our Attention",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 19:00:57.295853+00",
+   "published_at": "2026-11-23 17:14:52+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Psychology Today — Work"
+  },
+  {
+   "event_id": "1c69b8b5-f148-4c16-85eb-17f907e309ff",
+   "raw_title": "The COP failure the world needed",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 19:00:54.516384+00",
+   "published_at": "2026-11-23 17:51:27+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Times"
+  },
+  {
+   "event_id": "f14fc6bb-5f9f-4362-bcff-265957c1baa1",
+   "raw_title": "AI-found Ghostscript flaw turned file uploads into remote code execution",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 19:00:41.827965+00",
+   "published_at": "2026-11-22 10:32:00+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "iTnews"
+  },
+  {
+   "event_id": "e075a772-914e-4f4b-b10b-c134c2bb1221",
+   "raw_title": "The Lottery Corporation is transforming its contact centre",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 19:00:41.827943+00",
+   "published_at": "2026-11-22 10:39:00+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "iTnews"
+  },
+  {
+   "event_id": "f3f6d722-5965-4554-9e42-7c261238b02d",
+   "raw_title": "NAB alerts staff to redundancies with IT access revocation emails",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 19:00:41.827904+00",
+   "published_at": "2026-11-22 17:24:00+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "iTnews"
+  },
+  {
+   "event_id": "5a121b76-542b-4bf9-9fec-a1e7885082a5",
+   "raw_title": "‘It’s not fine’: Massive tech failures fuel alarm about critical U.S. infrastructure, AI - Los Angeles Times",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 19:00:11.935166+00",
+   "published_at": "2026-11-18 14:35:02+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Google News - Critical Infrastructure/Energy Cyberattack AU"
+  },
+  {
+   "event_id": "ad26690a-994d-4cc9-9bba-84ba59af6177",
+   "raw_title": "What failure of COP31 reveals about a divided world",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 17:42:58.619583+00",
+   "published_at": "2026-11-23 17:24:25+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "BBC News"
+  },
+  {
+   "event_id": "9bdc18c6-db13-4fac-bb88-fca29e4ae00a",
+   "raw_title": "Ukraine Claims Attack on Russian Ship off Libyan Coast",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 14:11:21.129874+00",
+   "published_at": "2026-11-23 13:15:20+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Bloomberg"
+  },
+  {
+   "event_id": "6ae7facb-e9a7-424d-9fab-075e670b072d",
+   "raw_title": "International students didn’t cause Australia’s university crisis. Funding failures did | Kate Fullagar and Michelle Arrow",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-23 14:11:20.336757+00",
+   "published_at": "2026-11-23 14:00:49+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "a9418151-f8cb-4f34-8258-0f236fb09cfa",
+   "raw_title": "Mexican soldiers attacked in wake of drug lord's arrest",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 14:11:19.620215+00",
+   "published_at": "2026-11-23 13:26:36+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "BBC News"
+  },
+  {
+   "event_id": "61295a95-6e0c-426c-b905-ead97203965e",
+   "raw_title": "Refinery in Southern Russia Halts Operations After Attack",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 12:41:22.292265+00",
+   "published_at": "2026-11-23 11:30:44+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Bloomberg"
+  },
+  {
+   "event_id": "f6d33a1e-697e-40f3-8895-f78e1744a8a7",
+   "raw_title": "David Walls on our 2026 Telstra AFL Draft - fremantlefc.com.au",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-23 12:41:21.795205+00",
+   "published_at": "2026-11-20 12:12:06+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Google News - Telstra"
+  },
+  {
+   "event_id": "9e15f66b-dd7a-4188-b55e-8b69a7233dfe",
+   "raw_title": "Israeli attacks have turned Gaza into 'toxic wasteland', Oxfam says",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 12:41:20.055666+00",
+   "published_at": "2026-11-23 11:57:33+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "BBC News"
+  },
+  {
+   "event_id": "9ef5934d-db03-4734-a416-c9fd3cce8769",
+   "raw_title": "Ukraine Farm Failures Loom as War Drains Financial Buffers, Top Trader Says",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 11:11:21.208572+00",
+   "published_at": "2026-11-23 10:48:52+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Bloomberg"
+  },
+  {
+   "event_id": "98f314bd-148c-4ba3-a74e-74dbc5a1a784",
+   "raw_title": "Capita shares drop 70% on cash call after civil service pension failures",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 11:11:20.274315+00",
+   "published_at": "2026-11-23 09:21:43+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Times"
+  },
+  {
+   "event_id": "6662b43e-89dd-4a55-94c0-c7ba1ac07321",
+   "raw_title": "Origin Energy Limited (ORG.AX) Seasonal Returns Chart - Yahoo Finance - Yahoo! Finance Canada",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 09:30:58.996518+00",
+   "published_at": "2026-11-20 05:10:06+00",
+   "suppressed": false,
+   "signal_status": "DUPLICATE",
+   "source_name": "Google News - Origin Energy"
+  },
+  {
+   "event_id": "55fcb28d-dee3-4086-b1c0-55440170e288",
+   "raw_title": "Toll driver wore smart glasses at gas terminal - then fought his firing - Human Resources Director",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 09:30:58.996411+00",
+   "published_at": "2026-11-17 20:38:28+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Google News - Origin Energy"
+  },
+  {
+   "event_id": "173f3b86-48dd-46f7-8dc5-2abb292bf166",
+   "raw_title": "Origin Energy Limited (ORG.XA) Seasonal returns chart - Yahoo Finance UK",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 09:30:58.996313+00",
+   "published_at": "2026-11-20 04:59:56+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Google News - Origin Energy"
+  },
+  {
+   "event_id": "37319319-136d-4797-95ff-9700b7e56d11",
+   "raw_title": "Why AI adoption alone won’t solve Australia’s productivity problem - CommBank",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-23 09:30:58.996293+00",
+   "published_at": "2026-11-18 05:27:11+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Google News - Origin Energy"
+  },
+  {
+   "event_id": "abb95b7c-450d-44be-a2a4-08b613e31687",
+   "raw_title": "Origin Energy (ASX:ORG) Shares in Focus: Why Is the ASX 50 Stock Drawing Attention? - Kalkine Media",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 09:21:41.618335+00",
+   "published_at": "2026-11-20 06:31:00+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Google News - Origin Energy"
+  },
+  {
+   "event_id": "01ffbf80-c4e4-40c7-a559-f70126f3742a",
+   "raw_title": "Up to 1.1m people eligible to join class action against Jetstar over alleged failure to refund Covid flights",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 08:35:26.172178+00",
+   "published_at": "2026-11-23 08:24:12+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "6dfed1de-6acf-40b9-b4f7-0eb6cbfa3f69",
+   "raw_title": "Libya’s Oil Output Drops as Pipeline Shutdown Hits Biggest Field",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 05:39:28.09547+00",
+   "published_at": "2026-11-23 05:13:36+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Bloomberg"
+  },
+  {
+   "event_id": "968b4285-afd4-4d33-84f1-a710095a4c8c",
+   "raw_title": "Cop31’s big fossil fuel failure – podcast",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 05:39:27.025849+00",
+   "published_at": "2026-11-23 04:00:45+00",
+   "suppressed": true,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "77d891b9-ba4d-4e90-90a0-6a18ade1431a",
+   "raw_title": "‘Difficult geopolitical times’: Albanese defends Bowen after Cop31 deal failure",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 05:39:27.025641+00",
+   "published_at": "2026-11-23 04:21:00+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "e1579030-94f2-4104-9ef4-c0aaedcf04ea",
+   "raw_title": "Consultants reap public sector boom thanks to AI and cyber security",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-23 05:39:26.383901+00",
+   "published_at": "2026-11-23 05:00:13+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Times"
+  },
+  {
+   "event_id": "1fe58a6f-c811-4e1d-9068-676c720637ef",
+   "raw_title": "MSCI Discussed Avoiding Indonesia Downgrade With Prabowo, Dalio",
+   "raw_summary": "",
+   "geography": "APAC",
+   "collected_at": "2026-11-23 04:09:27.120091+00",
+   "published_at": "2026-11-23 02:27:39+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Bloomberg"
+  },
+  {
+   "event_id": "a388575a-b629-4a2c-a0a5-24c77ca9f09c",
+   "raw_title": "UN climate talk breakdown a disaster for Australia and the Pacific",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-23 04:09:25.021831+00",
+   "published_at": "2026-11-23 03:36:31+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  },
+  {
+   "event_id": "ccd5f603-41cf-4a4d-820f-a40ea5425d10",
+   "raw_title": "Meet Mitchell Harris | 2026 Telstra AFL Draft - melbournefc.com.au",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 23:12:49.735573+00",
+   "published_at": "2026-11-20 07:46:36+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Google News - Telstra"
+  },
+  {
+   "event_id": "649b797e-a61b-4de0-8fbb-b48bd09eb193",
+   "raw_title": "Proposed defence laws are described as ‘draconian’ and a ‘war against democracy’. Why are people worried?",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 23:12:49.559839+00",
+   "published_at": "2026-11-22 14:00:28+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "c9822580-610f-4493-b18a-60ccf178b422",
+   "raw_title": "Cop31 left Chris Bowen stuck between petrostates and climate reality. But the f-word failure is not his alone",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 23:12:49.559479+00",
+   "published_at": "2026-11-22 21:46:40+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "abba6cb7-8aec-4aad-b698-dddf3d81b855",
+   "raw_title": "Molly Meldrum, Countdown host and promoter of Australian music, dies aged 83",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 23:12:49.559435+00",
+   "published_at": "2026-11-22 22:24:56+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "5964dc54-530d-4242-9df1-bc86e4745309",
+   "raw_title": "Bond Market’s Go-To Trade for Fed Hikes Roiled by Stocks Retreat",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 21:42:50.374125+00",
+   "published_at": "2026-11-22 20:00:00+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Bloomberg"
+  },
+  {
+   "event_id": "29cc1923-d39b-4984-9f4a-7c14b52519df",
+   "raw_title": "Israeli opposition leader Gadi Eisenkot calls West Bank arson attacks 'Jewish terrorism'",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 21:42:48.051387+00",
+   "published_at": "2026-11-22 20:37:28+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  },
+  {
+   "event_id": "7d0a3800-ded4-4c12-a467-07913d20306d",
+   "raw_title": "The rise of ‘cop influencers’; climate summit’s no deal; and MPs set new swearing record",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 20:12:48.849994+00",
+   "published_at": "2026-11-22 19:36:53+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "8cdd8295-3b47-46f1-8e1b-21d206ab5b4a",
+   "raw_title": "Australian politics live: small business carveout in digital duty of care; countdown to pass key legislation begins",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 20:12:48.849839+00",
+   "published_at": "2026-11-22 20:04:53+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "c78ea3f6-7914-47a3-a370-717915260420",
+   "raw_title": "GSN’s Kirkley says tech retreat could spill into crypto",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 20:12:48.632927+00",
+   "published_at": "2026-11-22 19:20:45+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Newswire"
+  },
+  {
+   "event_id": "9b3e7d97-6d70-4f33-9a3b-f91de163397f",
+   "raw_title": "Record Anthropic IPO set to trigger global cash crunch",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 20:12:48.632896+00",
+   "published_at": "2026-11-22 19:21:17+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Newswire"
+  },
+  {
+   "event_id": "cd4caaf6-18f2-4027-ab89-a7b82c06c1fc",
+   "raw_title": "Barclays ‘nervously overweight’ equities on AI strength",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 20:12:48.63287+00",
+   "published_at": "2026-11-22 19:21:53+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Newswire"
+  },
+  {
+   "event_id": "f488d0fb-6cc7-4de6-96d3-0332e9340c2c",
+   "raw_title": "CALI backs insurer advice delivery, worries about AI",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 20:12:48.632839+00",
+   "published_at": "2026-11-22 19:22:32+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Newswire"
+  },
+  {
+   "event_id": "19451293-b762-4bfc-ad1d-a2ed4435fb9f",
+   "raw_title": "FAAA’s 11th hour call small business exemption",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 20:12:48.632807+00",
+   "published_at": "2026-11-22 19:23:08+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Newswire"
+  },
+  {
+   "event_id": "d47a4a84-6849-4020-918b-fc3e22184b2b",
+   "raw_title": "Will the boundaries around super advice be sufficient?",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 20:12:48.632754+00",
+   "published_at": "2026-11-22 19:23:41+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Financial Newswire"
+  },
+  {
+   "event_id": "d82f24a1-97f9-4c10-8efc-d4d93e2cfcb9",
+   "raw_title": "Concern about data centres go from 'zero to 100' ahead of state election",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 20:12:48.38731+00",
+   "published_at": "2026-11-22 19:19:13+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  },
+  {
+   "event_id": "fe2b58e8-6b1a-483e-84e7-57462d4cec5f",
+   "raw_title": "Experts say nostalgia for traditional industries resonates with voters",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 20:12:48.387292+00",
+   "published_at": "2026-11-22 19:30:56+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  },
+  {
+   "event_id": "802ba6c0-84cc-44b3-a01d-ca09c9855cb4",
+   "raw_title": "NSW renters' bonds could generate $200m a year to help tenants, union says",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 20:12:48.38727+00",
+   "published_at": "2026-11-22 19:35:38+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  },
+  {
+   "event_id": "6b17792d-b009-4be7-8a01-f94cd6a529b6",
+   "raw_title": "Families of children with epilepsy worried after loss of neurologist",
+   "raw_summary": "",
+   "geography": "AU",
+   "collected_at": "2026-11-22 20:12:48.387253+00",
+   "published_at": "2026-11-22 19:35:58+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  },
+  {
+   "event_id": "762831d4-e334-4d1f-a9aa-8cc91edbc6e9",
+   "raw_title": "Live: Wall Street crashes to correction territory and ASX set to fall",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 20:12:48.38723+00",
+   "published_at": "2026-11-22 19:43:19+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  },
+  {
+   "event_id": "f88529fa-3062-43c9-b4dd-c87fd61e7dfd",
+   "raw_title": "Live: Greens 'optimistic' about deal on digital duty of care",
+   "raw_summary": "",
+   "geography": "GLOBAL",
+   "collected_at": "2026-11-22 20:12:48.38719+00",
+   "published_at": "2026-11-22 19:46:06+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  }
+ ],
+ "external_fetch_usage": [
+  {
+   "provider": "brightdata",
+   "billing_cycle_start": "2026-11-01",
+   "billing_cycle_end": "2026-12-01",
+   "call_count": 79,
+   "updated_at": "2026-11-01 20:01:11.466864+00"
+  },
+  {
+   "provider": "firecrawl",
+   "billing_cycle_start": "2026-11-09",
+   "billing_cycle_end": "2026-12-09",
+   "call_count": 534,
+   "updated_at": "2026-11-24 06:33:49.412696+00"
+  }
+ ],
+ "high_line_events": [
+  {
+   "event_id": "8cdd8295-3b47-46f1-8e1b-21d206ab5b4a",
+   "raw_title": "Australian politics live: small business carveout in digital duty of care; countdown to pass key legislation begins",
+   "collected_at": "2026-11-22 20:12:48.849839+00",
+   "published_at": "2026-11-22 20:04:53+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "649b797e-a61b-4de0-8fbb-b48bd09eb193",
+   "raw_title": "Proposed defence laws are described as ‘draconian’ and a ‘war against democracy’. Why are people worried?",
+   "collected_at": "2026-11-22 23:12:49.559839+00",
+   "published_at": "2026-11-22 14:00:28+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "Guardian Australia"
+  },
+  {
+   "event_id": "0396a89f-cdeb-47a7-931a-2ee2a53a5c6c",
+   "raw_title": "Storms to hit south-western Qld as heatwave lingers in far north",
+   "collected_at": "2026-11-22 21:42:48.051427+00",
+   "published_at": "2026-11-22 20:32:29+00",
+   "suppressed": false,
+   "signal_status": "SCORED",
+   "source_name": "ABC News"
+  }
+ ]
+}
