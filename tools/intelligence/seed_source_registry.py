@@ -2057,6 +2057,55 @@ SOURCES = [
         "content_expectation": "intermittent",
         "useful_life_days": 7,
     },
+    # -- AU source activation package (au-sources-2kq) --------------------------
+    # Feed URLs below were NOT reachable from the authoring sandbox (agent proxy
+    # 403 on every host), so they are "documented/unverified". See
+    # docs/AU-SOURCE-ACTIVATION-PACKAGE.md. All parse via the existing RSSAdapter.
+    {
+        "source_name":        "RBA Media Releases",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.rba.gov.au/media-releases/",
+        "rss_url":            "https://www.rba.gov.au/rss/rss-cb-media-releases.xml",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.95,
+        "active":             True,
+        "notes":              "RBA official media releases (cash rate decisions, payments system and FMI/clearing-and-settlement announcements). Documented RSS convention on rba.gov.au/rss/; unverified from sandbox. Tier: activate. Rollback: set active=false.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "ATO Online Services for Agents Status",
+        "category":           "critical_infrastructure",
+        "priority_rank":      2,
+        "url":                "https://osfa.status.ato.gov.au/",
+        "rss_url":            None,
+        "api_endpoint":       "https://osfa.status.ato.gov.au/api/v2/incidents.json",
+        "source_type":        "api",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.95,
+        "active":             True,
+        "notes":              "ATO official Atlassian Statuspage for Online services for agents (tax agents/BAS agents). Observed live 2026-11-24: /api/v2/incidents.json returns 200 application/json with 50 incidents (latest 2026-10-21 'Online services degradation'), updated 2026-11-24. Standard Statuspage shape handled by the existing /incidents.json dispatch; plain fetch, 0 Firecrawl credits. The sibling pages osb.status.ato.gov.au (business) and pls.status.ato.gov.au are NOT yet readable from the verification environment (host not on the allowlist), so they are not added. Volume: a few incidents per month.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "Google Workspace Status",
+        "category":           "cloud_technology",
+        "priority_rank":      3,
+        "url":                "https://www.google.com/appsstatus/dashboard/",
+        "rss_url":            "https://www.google.com/appsstatus/dashboard/en/feed.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.85,
+        "active":             False,
+        "notes":              "Google Workspace incident Atom feed; distinct from the existing Google Cloud Status row. Documented dashboard feed; unverified from sandbox, staged inactive (pilot). Rollback: leave active=false.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
 ]
 
 # ─── Seed logic ───────────────────────────────────────────────────────────────

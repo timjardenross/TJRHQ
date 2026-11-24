@@ -121,7 +121,7 @@ _KIND_TERMS = (
     (REGISTRY, ("clinicaltrials",)),
     (AGGREGATOR, ("google news",)),
     (PRIMARY, ("cisa", "cisco security", "google cloud security", "aemo", "acsc", "cyber.gov.au",
-               "nist", "apra", "asic", "rba ", "fda", "cdc", "who ")),
+               "nist", "apra", "asic", "rba ", "fda", "cdc", "who ", "ato online services")),
     (MAINSTREAM, ("bloomberg", "abc news", "bbc", "financial times", "guardian", "reuters",
                   "associated press", "the age", "financial review", "new york times")),
     (SPECIALIST, ("arn", "sans ", "financial newswire", "industrial cyber", "the register", "itnews")),
