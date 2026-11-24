@@ -88,7 +88,8 @@ def test_python_pattern_matches_the_postgres_measurement_on_titles():
 
 
 def test_recall_on_frozen_reference_material_incidents():
-    """Confirmed material reference records keep at least one HIGH event; the one lost HIGH event is a vulnerability advisory (RS-031)."""
+    """Confirmed material reference records keep at least one HIGH event; no HIGH event of a material record is lost.
+    Before the D4 pattern fix (no vulnerability/fire terms) 19 of 20 stayed HIGH and RS-031 4a65276c (ACSC critical Citrix advisory) was lost."""
     rows = _fixture()
     ref = {r["id"]: r["status"] for r in json.loads(REF.read_text())["incidents"]}
     events = [e for e in json.loads(EXPORT.read_text())["events"] if e["event_id"] in rows]
@@ -96,8 +97,8 @@ def test_recall_on_frozen_reference_material_incidents():
     high = [e for e in material if rows[e["event_id"]]["o"] >= clf.HIGH_RELEVANCE]
     kept = [e for e in high if rows[e["event_id"]]["sig_full"]]
     lost = [(e["incident_id"], e["event_id"]) for e in high if not rows[e["event_id"]]["sig_full"]]
-    assert (len(high), len(kept)) == (20, 19)
-    assert lost == [("RS-031", "4a65276c")]
+    assert (len(high), len(kept)) == (20, 20)
+    assert lost == []
     for rec in {e["incident_id"] for e in high}:
         assert any(rows[e["event_id"]]["sig_full"] for e in high if e["incident_id"] == rec), f"{rec} lost all HIGH events"
     nonmat_high = [e for e in events if ref[e["incident_id"]] != "confirmed_material" and rows[e["event_id"]]["o"] >= clf.HIGH_RELEVANCE]
@@ -107,3 +108,21 @@ def test_recall_on_frozen_reference_material_incidents():
 @pytest.mark.parametrize("text", ["Planned maintenance window announced", "Annual report released", "APRA statistics for September"])
 def test_non_disruption_text_has_no_signal(text):
     assert not clf.has_disruption_signal(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Breaking: Emergency fire warning issued for Victoria's north-west",
+    "Wildfire threatens homes north of Perth",
+    "Vulnerabilities in nginx Affecting Cisco Products: November 2026",
+    "Critical flaw in OpenSSH lets attackers run code",
+    "Researchers disclose remote code execution in a popular gateway",
+    "Unauthenticated RCE in file transfer product",
+])
+def test_hazard_and_vulnerability_terms_are_disruption_signals(text):
+    assert clf.has_disruption_signal(text)
+
+
+@pytest.mark.parametrize("text", ["Banks set to fire up M&A talks", "Executive fired after review", "Vulnerable customers guidance for lenders", "Source code released"])
+def test_fire_and_vulnerable_idioms_are_not_signals(text):
+    assert not clf.has_disruption_signal(text)
+
