@@ -55,7 +55,7 @@ Last updated: 2026-11-24.
 | Search Notion directly | Partial | Built and tested (read-only server route, personal-data filtered, shown in Library). Goes Operational once a read-only `NOTION_TOKEN` is set in the Vercel project and verified. Until then the Library says "Notion search is not connected yet." |
 | Health evidence, captures and missions in Library search | Outstanding | Not connected. |
 | **Ask and contextual actions** | | |
-| Ask (retrieval first, then the existing AI Console; Advice mode uses the existing Advisory service; proposed actions queue for approval) | Partial | The deployment has `OLLAMA_CLOUD_BASE_URL`/`OLLAMA_CLOUD_MODEL` but no `OLLAMA_CLOUD_ENABLED`, so `/api/ai/chat` answers "not enabled". Switching it on routes prompts to the cloud model, a privacy-boundary setting that is yours to approve. Verify live after. Without it HQ says Ask is unavailable. |
+| Ask (retrieval first, then the existing AI Console; Advice mode uses the existing Advisory service; proposed actions queue for approval) | Partial | `OLLAMA_CLOUD_ENABLED=true` is set in the Vercel project (approved 2026-11-24) and applies from the next deployment. The existing privacy gate is unchanged: HQ sends no system prompt, health role or personal content. Verify live after release. Without it HQ says Ask is unavailable. |
 | Capture an idea from any screen, with that screen attached | Partial | Verify live. |
 | New mission from any screen (a candidate for your review) | Partial | Verify the mission route live. |
 | **Protection of the existing environment** | | |
