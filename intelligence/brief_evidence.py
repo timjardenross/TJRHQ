@@ -135,12 +135,18 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
 _RETROSPECTIVE_SOURCE_MARKERS = ("outage register",)
 
 
+def is_retrospective_source(source) -> bool:
+    """True for a source that publishes only after an outage is rectified (statutory outage register). Shared guard so every
+    consumer (brief evidence, incident snapshot) treats these the same way."""
+    return any(m in (source or "").lower() for m in _RETROSPECTIVE_SOURCE_MARKERS)
+
+
 def _retrospective_import(source: str, published_at, now: datetime, hours: int) -> bool:
     """True when a report is a historical import, not a recent development: it comes from a retrospective register, or its own
     publication date is older than the evidence window (a newly activated or repaired source back-fills old publications, e.g.
     ASIC releases from weeks ago, which keep their original dates but must not be shown as new). Reports with no usable publication
     date are kept: absence of a date is not evidence of age."""
-    if any(m in source.lower() for m in _RETROSPECTIVE_SOURCE_MARKERS):
+    if is_retrospective_source(source):
         return True
     if not published_at:
         return False

@@ -44,6 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from analytics_common import HYPOTHESIS, OBSERVED, parse_ts
 from product_common import clean_text, load_rows, md_cell, require_enabled, short
+from provider_failure import url_incident_id
 
 MONTHS = {
     m: i
@@ -203,6 +204,14 @@ def cue_type(window):
 
 
 def _stem(row):
+    """Notice identity: the source's incident id (from the notice URL) when it has one, else the title stem.
+
+    Titles are reused across distinct notices (e.g. one 'SMS and MMS Maintenance' headline for several dates),
+    so the title is only a fallback; an update then replaces its own notice, not a sibling's.
+    """
+    ident = url_incident_id(row.get("canonical_url"))
+    if ident:
+        return (row.get("source_name"), "id:" + ident[0] + ":" + ident[1])
     t = clean_text(row.get("raw_title"))
     prev = None
     while prev != t:
@@ -211,7 +220,7 @@ def _stem(row):
 
 
 def latest_per_notice(rows):
-    """Latest published row per (source, normalised title stem)."""
+    """Latest published row per (source, incident id from URL, else normalised title stem)."""
     best = {}
     for r in rows:
         p = parse_ts(r.get("published_at"))

@@ -183,6 +183,17 @@ def find_links(tagged, as_of, window_days=EPISODE_GAP_DAYS, lookback_days=90):
     return links
 
 
+def _shared_supplier(tag):
+    """The upstream provider a tag is evidence of concentration on.
+
+    AFFECTED: `tag.provider` is the victim and `tag.agent` is the provider causing the effect, so the shared
+    upstream is the agent. SUPPLYING: `tag.provider` already holds the supplier slot.
+    """
+    if tag.cls == AFFECTED:
+        return tag.agent
+    return tag.provider
+
+
 def concentration_evidence(tagged, as_of, lookback_days=90):
     """Item-level AFFECTED/SUPPLYING evidence and whether the #706 concentration threshold is met."""
     start = as_of - timedelta(days=lookback_days)
@@ -193,8 +204,11 @@ def concentration_evidence(tagged, as_of, lookback_days=90):
             continue
         for t in it["tags"]:
             if t.cls in (AFFECTED, SUPPLYING):
+                supplier = _shared_supplier(t)
+                if not supplier:
+                    continue
                 counts[t.cls] += 1
-                by_provider[t.provider].append((it, t))
+                by_provider[supplier].append((it, t))
     eligible = {}
     for prov, pairs in by_provider.items():
         orgs = {p[0]["row"].get("organisation") for p in pairs} - {None, ""}

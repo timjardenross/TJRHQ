@@ -45,6 +45,26 @@ describe('intelligence products', () => {
     expect(out[0].href).toBe('/intelligence-workbench?tab=products#forward_watch');
   });
 
+  test('dated forward-watch exceptions expire after their due_date, not on it', () => {
+    const mkEx = (key: string, due?: string) => ({ dedupe_key: key, title: 't', detail: 'd', severity: 'attention', due_date: due });
+    const products = [
+      mk('forward_watch', '2026-11-24', [
+        mkEx('fw:passed', '2026-11-26'),
+        mkEx('fw:today', '2026-11-27'),
+        mkEx('fw:future', '2026-11-30'),
+        mkEx('fw:undated'),
+      ]),
+      mk('systemic_risk', '2026-11-24', [mkEx('sys:old-due', '2026-11-01')]),
+    ];
+    const keys = collectExceptions(products, new Date('2026-11-27T10:00:00Z')).map((e) => e.dedupe_key);
+    expect(keys).toEqual(['fw:today', 'fw:future', 'fw:undated', 'sys:old-due']);
+    expect(collectExceptions(products, new Date('2026-11-28T00:00:00Z')).map((e) => e.dedupe_key)).toEqual([
+      'fw:future',
+      'fw:undated',
+      'sys:old-due',
+    ]);
+  });
+
   test('missing table is reported as unavailable, not an error', async () => {
     const sb = {
       from: () => ({

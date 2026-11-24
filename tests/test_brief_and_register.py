@@ -141,6 +141,18 @@ class TestBriefBlock(unittest.TestCase):
             )
             self.assertEqual(bpb.brief_lines(TODAY, reader=list), [])
 
+    def test_forward_watch_finding_expires_after_due_date(self):
+        ex = {
+            "title": "2026-11-25: Consultation closes",
+            "detail": "APRA; OFFICIAL_DATE_STATED; due within 7 days.",
+            "due_date": "2026-11-25",
+        }
+        row = rec("forward_watch", [f"{ex['title']} ({ex['detail']})"])
+        row["exceptions"] = [ex]
+        with self.on():
+            self.assertEqual(bpb.brief_lines(date(2026, 11, 25), reader=lambda: [row])[0], "INTELLIGENCE PRODUCTS")
+            self.assertEqual(bpb.brief_lines(date(2026, 11, 26), reader=lambda: [row]), [])
+
     def test_findings_render_few_lines_with_one_coverage_line(self):
         rows = [
             rec("forward_watch", ["2026-11-27: APRA consultation closes"]),

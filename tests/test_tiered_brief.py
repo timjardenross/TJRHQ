@@ -137,3 +137,79 @@ def test_record_hook_in_send_path_does_nothing_when_off(monkeypatch):
     monkeypatch.setattr(cb, "_sb_get", lambda *a, **k: calls.append(a) or [])
     cb._record_brief_events("morning")
     assert calls == []                                 # no query at all with the flag off
+
+
+# ── event recording is keyed to the exact persisted brief (never the "latest row") ────────────────────────
+def test_record_skips_when_the_brief_was_not_persisted(monkeypatch):
+    monkeypatch.setenv(bel.FLAG, "1")
+    flushed, queried = [], []
+    monkeypatch.setattr(cb, "_sb_get", lambda *a, **k: queried.append(a) or [{"id": "yesterday"}])
+    monkeypatch.setattr(bel, "flush", lambda *a, **k: flushed.append((a, k)))
+    cb._record_brief_events("morning", None)
+    assert flushed == [] and queried == []
+
+
+def test_record_uses_the_inserted_brief_id(monkeypatch):
+    monkeypatch.setenv(bel.FLAG, "1")
+    flushed = []
+    monkeypatch.setattr(cb, "_sb_get", lambda *a, **k: [{"id": "yesterday"}])
+    monkeypatch.setattr(bel, "flush", lambda *a, **k: flushed.append(k))
+    cb._record_brief_events("morning", "today-123")
+    assert flushed == [{"brief_ref": "today-123", "kind": "morning"}]
+
+
+def test_failed_insert_returns_no_id_and_nothing_is_recorded(monkeypatch):
+    monkeypatch.setenv(bel.FLAG, "1")
+    monkeypatch.setattr(cb, "_SUPABASE_URL", "https://example.test")
+    monkeypatch.setattr(cb, "_SUPABASE_KEY", "k")
+
+    def boom(*a, **k):
+        raise OSError("insert failed")
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    assert cb._persist_brief("morning", "t") is None
+    recorded = []
+    monkeypatch.setattr(bel, "flush", lambda *a, **k: recorded.append(k))
+    cb._record_brief_events("morning", cb._persist_brief("morning", "t"))
+    assert recorded == []
+
+
+class _Resp:
+    def __init__(self, body=b""):
+        self._body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        return self._body
+
+
+def test_successful_insert_returns_the_row_id(monkeypatch):
+    monkeypatch.setenv(bel.FLAG, "1")
+    monkeypatch.setattr(cb, "_SUPABASE_URL", "https://example.test")
+    monkeypatch.setattr(cb, "_SUPABASE_KEY", "k")
+    seen = {}
+
+    def fake(req, timeout=8):
+        seen["prefer"] = req.get_header("Prefer")
+        return _Resp(b'[{"id": 42}]')
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    assert cb._persist_brief("morning", "t") == "42"
+    assert seen["prefer"] == "return=representation"
+
+
+def test_flag_off_insert_is_the_legacy_minimal_request(monkeypatch):
+    monkeypatch.delenv(bel.FLAG, raising=False)
+    monkeypatch.setattr(cb, "_SUPABASE_URL", "https://example.test")
+    monkeypatch.setattr(cb, "_SUPABASE_KEY", "k")
+    seen = {}
+
+    def fake(req, timeout=8):
+        seen["prefer"] = req.get_header("Prefer")
+        return _Resp()
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    assert cb._persist_brief("morning", "t") is None
+    assert seen["prefer"] == "return=minimal"
