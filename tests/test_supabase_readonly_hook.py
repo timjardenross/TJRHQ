@@ -31,12 +31,17 @@ READ_ONLY = [
     "select date_trunc('hour', last_seen_at), count(*) from alerts group by 1 -- trailing comment",
     "select regexp_match(raw_text, 'Issued at (\\d{1,2}:\\d{2})') from alerts",
     "explain select * from alerts",
+    "select encode(sha256(convert_to(lower(title),'UTF8')),'hex') from alerts",
+    "select n.nspname, c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where pg_get_viewdef(c.oid) ilike '%published_at%'",
+    "select percent_rank() over (order by x), corr(a,b) from t",
     "select (substring(event_key from '-(\\d{4})$'))::timestamptz from alerts",
 ]
 
 NOT_READ_ONLY = [
     "", "   ", "select 1; delete from alerts", "delete from alerts", "update alerts set x=1", "insert into t values (1)",
     "drop table alerts", "create table t as select 1", "select * into t from alerts", "begin; select 1; commit",
+    "select pg_get_functiondef('x'::regproc); drop table t",  # a read-only helper never makes a following write safe
+    "select pg_read_file('/etc/passwd')",
     "select prune_high_churn_log_tables()",  # a SELECT can call a function that deletes rows
     "select public.prune_x()", "select nextval('s')", "select set_config('a','b',false)", "select pg_terminate_backend(1)",
     "select * from alerts for update", "explain analyze select 1", "with d as (delete from alerts returning *) select * from d",

@@ -42,7 +42,10 @@ _SAFE_CALLS = {
     "integer", "bigint", "text", "varchar", "timestamptz", "timestamp", "boolean", "uuid", "jsonb", "json", "double", "precision",
     "char", "bit", "time", "tsvector", "to_tsvector", "to_tsquery", "plainto_tsquery", "ts_rank", "pg_size_pretty",
     "pg_total_relation_size", "pg_relation_size", "pg_database_size", "obj_description", "col_description", "current_setting",
-    "has_table_privilege", "has_schema_privilege", "to_regclass", "row", "array", "rows", "between", "and", "or", "not", "when",
+    "has_table_privilege", "has_schema_privilege", "to_regclass",
+    # 2026-11-24: pure hash/encoding helpers and catalog definition readers used by read-only audits (none write)
+    "sha256", "encode", "decode", "convert_to", "convert_from", "pg_get_viewdef", "pg_get_functiondef", "pg_get_triggerdef",
+    "pg_get_indexdef", "pg_get_constraintdef", "percent_rank", "cume_dist", "corr", "jsonb_build_array", "to_jsonb", "jsonb_pretty", "row", "array", "rows", "between", "and", "or", "not", "when",
     "then", "else", "end", "case", "as", "on", "using", "from", "where", "by", "group", "order", "having", "limit", "offset",
     "union", "intersect", "except", "distinct", "select", "with", "recursive", "join", "inner", "outer", "full",
     "cross", "natural", "table", "show", "explain", "like", "ilike", "similar", "to", "is", "null", "true", "false", "asc", "desc",
