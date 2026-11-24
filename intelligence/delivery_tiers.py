@@ -107,7 +107,7 @@ _HAZARD_EVENT_CUE_RX = re.compile(r"\b(?:warning|evacuat\w*|emergency|hits|hit b
 _EXPOSURE_SEVERITY_RX = re.compile(r"\b(?:critical|remote code execution|rce|actively exploited|zero-?day|known exploited|exploited in the wild)\b", re.IGNORECASE)
 
 
-_TIME_BOUND_WARNING_TYPES = frozenset({"severe_weather"})
+_TIME_BOUND_WARNING_TYPES = frozenset({"hazard"})
 
 
 def _notice_current(inc: ic.Incident, now: datetime | None) -> bool:
