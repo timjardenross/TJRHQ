@@ -245,6 +245,7 @@ class Candidate:
     summary: str = ""         # the report's summary text (used only for Australian-relevance checks, never for classification)
     time_verified: bool = False   # ``published`` is a parseable publication time (not the collection-time fallback): see _time_verified
     time_claimed: bool = False    # ``published`` parses but its provenance says it is only CLAIMED (aggregator pubDate, date-only): see _time_trusted
+    day_precision: bool = False   # the publication time is a DATE (confidence verified/claimed, precision day): can support KNOWN STALE, never hour-level freshness
     provenance: dict = field(default_factory=dict)   # published_at_basis / precision / confidence / publisher_domain ... present on the row, else {}
 
     @property
@@ -276,12 +277,19 @@ def _orgs(title: str) -> frozenset:
     return frozenset(o for o in found if o not in _PROPER_STOP and len(o) > 2)
 
 
+def _pub_not_credible(event: dict) -> bool:
+    """Provenance says ``published_at`` is not a usable publication time (basis unknown / collected_fallback: e.g. a date taken from the
+    title that may be an EVENT date). It is then ignored and the report is timed by collection, as if it had no published time. Rows with
+    no provenance are never affected."""
+    return event.get("published_at_basis") in ("unknown", "collected_fallback")
+
+
 def _report_time(event: dict):
     """When the report was PUBLISHED. Report chronology (restored vs ongoing) must follow publication, not ingestion: an older
     restoration article collected after a newer ongoing report must not win. The stored ``published_at`` is used when it parses
     and is not later than collection (plus a small clock skew); otherwise collection time, which is the only time we have."""
     collected = we._parse_ts(event.get("collected_at"))
-    published = we._parse_ts(event.get("published_at")) if event.get("published_at") else None
+    published = we._parse_ts(event.get("published_at")) if event.get("published_at") and not _pub_not_credible(event) else None
     if published and (collected is None or published <= collected + timedelta(hours=1)):
         return published
     return collected
@@ -291,7 +299,7 @@ def _time_verified(event: dict) -> bool:
     """True only when the report carries a parseable published time that is not later than its collection time (+1h skew), i.e. when
     _report_time() returned a real publication time. A row with no published time (Google News and some other feeds) is timed by its
     collection time, which says when WE saw it, not when it was written: a nine-day-old republished story would look new."""
-    if not event.get("published_at"):
+    if not event.get("published_at") or _pub_not_credible(event):
         return False
     published = we._parse_ts(event.get("published_at"))
     collected = we._parse_ts(event.get("collected_at"))
@@ -329,7 +337,9 @@ def report_freshness(m: Candidate, now: datetime | None) -> str:
     """One report's freshness. Its best-known time (``published``: the stated time, else collection, which can only be LATER than the
     true publication) older than URGENT_MAX_AGE_HOURS is KNOWN STALE whatever its provenance. Within the window: VERIFIED (trusted
     publication time), CLAIMED (a parseable time whose provenance is claimed only) or UNKNOWN (no publication time, timed by collection)."""
-    if now is not None and m.published and now - m.published > timedelta(hours=URGENT_MAX_AGE_HOURS):
+    # A DAY-precision date spans 24h, so it is stale only once the whole day is older than the window.
+    limit = URGENT_MAX_AGE_HOURS + (24 if m.day_precision else 0)
+    if now is not None and m.published and now - m.published > timedelta(hours=limit):
         return FRESH_STALE
     return FRESH_VERIFIED if m.time_verified else FRESH_CLAIMED if m.time_claimed else FRESH_UNKNOWN
 
@@ -422,6 +432,8 @@ def detect_candidate(event: dict) -> Candidate:
     return Candidate(
         event_id=str(event.get("id")), title=title, source=src, published=_report_time(event),
         time_verified=_time_verified(event) and _time_trusted(event), time_claimed=_time_verified(event) and not _time_trusted(event),
+        day_precision=event.get("published_at_precision") == "day" and event.get("published_at_confidence") in ("verified", "claimed")
+        and _time_verified(event),
         provenance=_event_provenance(event),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,

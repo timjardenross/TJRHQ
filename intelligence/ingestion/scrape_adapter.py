@@ -220,7 +220,8 @@ class ScrapeAdapter(BaseSourceAdapter):
 
                 items.append(self._make_item(title, summary, url, published, provenance=prov.scrape_provenance(
                     published=published, page_url=url or base, date_only=not _HAS_TIME_RE.search(el.get_text(" ", strip=True)),
-                    basis_tz=self.source.source_name if self.source.source_name in _SOURCE_UTC_OFFSET else None)))
+                    basis_tz=self.source.source_name if self.source.source_name in _SOURCE_UTC_OFFSET else None,
+                    explicit_header=self.source.source_name in _SOURCE_UTC_OFFSET, title=title)))
                 if len(items) >= MAX_ITEMS_PER_SOURCE:
                     break
 

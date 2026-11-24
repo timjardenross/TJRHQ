@@ -106,21 +106,40 @@ def rss_provenance(*, published, feed_url: str | None, entry, scheduled_start=No
                             event_window_start=scheduled_start, event_window_end=scheduled_end)
 
 
-def api_provenance(*, published, endpoint: str | None, date_only: bool = False) -> dict:
+def api_provenance(*, published, endpoint: str | None, date_only: bool = False, explicit_publication_date: bool = False) -> dict:
+    """Confidence and precision are separate. A date-only value that the source explicitly labels as its publication date (CISA KEV
+    ``dateAdded``) is VERIFIED at DAY precision; any other date-only value stays CLAIMED. Date-only never establishes an hour-level time."""
     if not published:
         return build_provenance(publisher_domain=domain_of(endpoint))
-    return build_provenance(basis="date_only" if date_only else "feed", precision="day" if date_only else "second",
-                            confidence="claimed" if date_only else "feed", publisher_domain=domain_of(endpoint))
+    if date_only:
+        return build_provenance(basis="date_only", precision="day", confidence="verified" if explicit_publication_date else "claimed",
+                                publisher_domain=domain_of(endpoint))
+    return build_provenance(basis="feed", precision="second", confidence="feed", publisher_domain=domain_of(endpoint))
 
 
-def scrape_provenance(*, published, page_url: str | None, date_only: bool, basis_tz: str | None = None) -> dict:
-    """A scraped header date. With a time of day read in the source's own timezone (AEMO NEM time, fixed UTC+10) the instant is
-    converted to UTC ('feed_corrected_utc'); with only a date it is 'date_only' at day precision (midnight is not a publication time)."""
+_DATE_IN_TEXT = re.compile(r"\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4}\b|\b\d{4}-\d{2}-\d{2}\b|(?<![\d/])\d{1,2}/\d{1,2}/\d{4}", re.IGNORECASE)
+
+
+def date_in_title(title: str | None) -> bool:
+    """The title itself states a date: ambiguous, it may be the EVENT's date ('Planned outage on 28 November 2026')."""
+    return bool(_DATE_IN_TEXT.search(title or ""))
+
+
+def scrape_provenance(*, published, page_url: str | None, date_only: bool, basis_tz: str | None = None,
+                      explicit_header: bool = False, title: str | None = None) -> dict:
+    """A scraped date. Only an EXPLICIT publication header from a primary source (``explicit_header``: AEMO's notice header, read in its own
+    timezone) is trusted. A date found in other text is ambiguous: it is CLAIMED, and when the title itself states a date it is treated as
+    a possible EVENT date, never a publication date (basis/confidence unknown, kept as event_window_start). With a time of day the instant is
+    converted to UTC ('feed_corrected_utc'); with only a date it is 'date_only' at DAY precision: explicit header -> verified, else claimed."""
     dom = domain_of(page_url)
     if not published:
         return build_provenance(publisher_domain=dom)
+    if not explicit_header and date_in_title(title):
+        return build_provenance(basis="unknown", precision="day", confidence="unknown", publisher_domain=dom, event_window_start=published)
     if date_only:
-        return build_provenance(basis="date_only", precision="day", confidence="claimed", publisher_domain=dom)
+        return build_provenance(basis="date_only", precision="day", confidence="verified" if explicit_header else "claimed", publisher_domain=dom)
+    if not explicit_header:
+        return build_provenance(basis="feed", precision="minute", confidence="claimed", publisher_domain=dom)
     return build_provenance(basis="feed_corrected_utc" if basis_tz else "feed", precision="minute", confidence="feed", publisher_domain=dom)
 
 

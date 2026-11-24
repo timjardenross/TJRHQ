@@ -64,15 +64,19 @@ def test_google_news_without_a_date_is_unknown_not_claimed():
 
 def test_basis_feed_for_api_and_date_only_for_kev():
     assert pv.api_provenance(published=NOW, endpoint="https://status.example.com/api")["published_at_basis"] == "feed"
-    kev = pv.api_provenance(published=NOW, endpoint="https://cisa.gov/kev.json", date_only=True)
-    assert (kev["published_at_basis"], kev["published_at_precision"], kev["published_at_confidence"]) == ("date_only", "day", "claimed")
+    kev = pv.api_provenance(published=NOW, endpoint="https://cisa.gov/kev.json", date_only=True, explicit_publication_date=True)
+    assert (kev["published_at_basis"], kev["published_at_precision"], kev["published_at_confidence"]) == ("date_only", "day", "verified")
+    other = pv.api_provenance(published=NOW, endpoint="https://x.test/api", date_only=True)          # not explicitly a publication date
+    assert other["published_at_confidence"] == "claimed" and other["published_at_precision"] == "day"
 
 
 def test_scrape_header_time_in_source_tz_is_feed_corrected_utc_and_bare_date_is_date_only():
-    t = pv.scrape_provenance(published=NOW, page_url="https://www.aemo.com.au/x", date_only=False, basis_tz="AEMO Market Notices")
+    t = pv.scrape_provenance(published=NOW, page_url="https://www.aemo.com.au/x", date_only=False, basis_tz="AEMO Market Notices",
+                             explicit_header=True)
     assert (t["published_at_basis"], t["published_at_precision"]) == ("feed_corrected_utc", "minute")
-    d = pv.scrape_provenance(published=NOW, page_url="https://www.aemo.com.au/x", date_only=True, basis_tz="AEMO Market Notices")
-    assert (d["published_at_basis"], d["published_at_precision"]) == ("date_only", "day")
+    d = pv.scrape_provenance(published=NOW, page_url="https://www.aemo.com.au/x", date_only=True, basis_tz="AEMO Market Notices",
+                             explicit_header=True)
+    assert (d["published_at_basis"], d["published_at_precision"], d["published_at_confidence"]) == ("date_only", "day", "verified")
     assert pv.scrape_provenance(published=None, page_url=None, date_only=True)["published_at_basis"] == "unknown"
 
 
@@ -90,6 +94,7 @@ def test_scrape_adapter_marks_aemo_item_provenance():
     by_title = {i.raw_title: i.provenance for i in items}
     assert by_title["RECLASSIFY CONTINGENCY notice 1"]["published_at_basis"] == "feed_corrected_utc"
     assert by_title["RECLASSIFY CONTINGENCY notice 2"]["published_at_basis"] == "date_only"
+    assert by_title["RECLASSIFY CONTINGENCY notice 2"]["published_at_confidence"] == "verified"      # explicit primary-source header date
 
 
 def test_twilio_scheduled_window_text_becomes_an_event_window_not_a_publication_time():
@@ -164,7 +169,8 @@ def test_freshness_verified_no_provenance_and_feed_basis():
 
 @pytest.mark.parametrize("prov", [CLAIMED,
                                   {"published_at_basis": "date_only", "published_at_precision": "day", "published_at_confidence": "claimed"},
-                                  {"published_at_basis": "unknown", "published_at_confidence": "unknown"}])
+                                  {"published_at_basis": "date_only", "published_at_precision": "day", "published_at_confidence": "verified"},
+                                  {"published_at_basis": "feed", "published_at_confidence": "unknown"}])
 def test_freshness_claimed_for_unverified_provenance(prov):
     assert ed.report_freshness(_cand(pub=2, prov=prov), NOW) == "CLAIMED"
 
@@ -291,3 +297,66 @@ def test_replay_realistic_mixed_items():
     assert by_id["p1"].freshness == "VERIFIED"
     text = "\n".join(be.morning_view(es))
     assert "confirmed current" not in text.lower()
+
+
+# ── date-only rule: confidence and precision are separate dimensions ───────────────────────────────────────────
+DAY_VERIFIED = {"published_at_basis": "date_only", "published_at_precision": "day", "published_at_confidence": "verified"}
+DAY_CLAIMED = {"published_at_basis": "date_only", "published_at_precision": "day", "published_at_confidence": "claimed"}
+EVENT_DATE = {"published_at_basis": "unknown", "published_at_precision": "day", "published_at_confidence": "unknown"}
+
+
+def test_event_date_in_title_is_never_a_publication_date():
+    when = datetime(2026, 11, 28, tzinfo=timezone.utc)
+    p = pv.scrape_provenance(published=when, page_url="https://x.test/n", date_only=True, title="Planned outage on 28 November 2026")
+    assert p["published_at_basis"] == "unknown" and p["published_at_confidence"] == "unknown"
+    assert p["event_window_start"] == when                       # kept as the EVENT date
+    # the same date in an explicit primary header is a publication date
+    h = pv.scrape_provenance(published=when, page_url="https://x.test/n", date_only=True, title="Planned outage on 28 November 2026", explicit_header=True)
+    assert h["published_at_confidence"] == "verified"
+
+
+def test_ambiguous_scraped_date_stays_claimed_and_never_verified():
+    p = pv.scrape_provenance(published=NOW, page_url="https://x.test/n", date_only=True, title="Network update")
+    assert (p["published_at_confidence"], p["published_at_precision"]) == ("claimed", "day")
+    t = pv.scrape_provenance(published=NOW, page_url="https://x.test/n", date_only=False, title="Network update")
+    assert t["published_at_confidence"] == "claimed"
+
+
+def test_reader_ignores_an_event_date_as_publication_and_times_by_collection():
+    c = ed.detect_candidate(ev("a", pub=100, coll=2, prov=EVENT_DATE))      # 'published' is really an old/future event date
+    assert c.published == ed.detect_candidate(ev("a", pub=None, coll=2)).published
+    assert not c.time_verified and not c.time_claimed
+    assert ed.report_freshness(c, NOW) == "UNKNOWN"                          # not KNOWN STALE on the strength of an event date
+
+
+def test_day_precision_verified_date_is_never_hour_level_fresh_nor_live_evidence():
+    c = _cand(pub=2, prov=DAY_VERIFIED)
+    assert not c.time_verified and c.day_precision
+    assert ed.report_freshness(c, NOW) == "CLAIMED"
+    title = "Optus outage continues across Sydney, thousands of customers still without service"
+    rec = ed.escalation_record(ed.run([ev("a", title, pub=2, prov=DAY_VERIFIED)], now=NOW)[0], now=NOW)
+    assert rec["restoration_status"] == "unknown"                           # date-only is not continuation evidence
+
+
+def test_day_precision_supports_known_stale_only_once_the_whole_day_is_old():
+    assert ed.report_freshness(_cand(pub=30, prov=DAY_VERIFIED), NOW) == "CLAIMED"       # midnight 30h ago: that day may still be today
+    assert ed.report_freshness(_cand(pub=50, prov=DAY_VERIFIED), NOW) == "KNOWN STALE"
+    assert ed.report_freshness(_cand(pub=50, prov=DAY_CLAIMED), NOW) == "KNOWN STALE"
+    _, inc = _one([ev("a", pub=50, coll=1, prov=DAY_VERIFIED)])
+    assert not inc.urgent_verify
+
+
+def test_day_precision_recent_still_surfaces_urgent_to_verify():
+    for prov in (DAY_VERIFIED, DAY_CLAIMED):
+        es, inc = _one([ev("a", pub=2, prov=prov)])
+        assert inc.freshness == "CLAIMED" and inc.urgent_verify
+        assert HEADING in be.morning_view(es)
+
+
+def test_event_date_row_still_surfaces_urgent_when_collected_recently():
+    _, inc = _one([ev("a", pub=100, coll=1, prov=EVENT_DATE)])
+    assert inc.freshness == "UNKNOWN" and inc.urgent_verify
+
+
+def test_legacy_rows_identical_without_provenance_for_day_rules():
+    assert ed.report_freshness(_cand(pub=30), NOW) == "KNOWN STALE"          # no provenance: 24h rule exactly as before

@@ -24,6 +24,8 @@ ALTER TABLE intelligence_events
         ('verified','claimed','feed','unknown')) NOT VALID;
 
 COMMENT ON COLUMN intelligence_events.publisher_domain IS 'Display/diagnosis only. Never proof of independence (family/aggregator based).';
+COMMENT ON COLUMN intelligence_events.published_at_precision IS 'Exactness of published_at; separate from confidence. day + verified = explicit primary-source publication date.';
+COMMENT ON COLUMN intelligence_events.published_at_confidence IS 'Trust that published_at is the PUBLICATION time. An event date must never be stored here (use event_window_*).';
 COMMENT ON COLUMN intelligence_events.event_window_start IS 'When the EVENT is scheduled to start (e.g. maintenance window); not a publication time.';
 
 COMMIT;
