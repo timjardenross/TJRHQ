@@ -1,0 +1,115 @@
+'use client';
+
+import Link from 'next/link';
+import { useHq } from '@/lib/hq/HqProvider';
+import { useHqNeedsYou } from '@/lib/hq/home';
+import { getJson, loadWork } from '@/lib/hq/data';
+import { useAsync } from '@/lib/hq/useAsync';
+import { ErrorLine, Loading, RiskPill } from './_components/ui';
+import { normaliseRisk } from '@/lib/hq/vocab';
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+interface BriefHead { brief_id: string; generated_at: string; executive_snapshot: string | null; bottom_line?: string | null; overall_risk: string | null }
+
+export default function HqHome() {
+  const { decisions, decisionsLoading, decisionErrors, hqStatus, materialProblem } = useHq();
+  const { items: needsYou, loading: needsLoading, errors: needsErrors } = useHqNeedsYou(hqStatus);
+  const brief = useAsync(async () => {
+    const r = await getJson<{ briefs: BriefHead[] }>('/api/briefs');
+    if (!r.ok) throw new Error(r.error);
+    return r.data.briefs[0] ?? null;
+  });
+  const work = useAsync(loadWork);
+
+  const attentionCount = needsYou.length;
+  const waiting = decisions.length;
+  const loadingAll = needsLoading || decisionsLoading;
+  const summary = loadingAll
+    ? 'Checking what needs you…'
+    : attentionCount || waiting
+      ? `${attentionCount} ${attentionCount === 1 ? 'thing needs' : 'things need'} attention and ${waiting} ${waiting === 1 ? 'decision is' : 'decisions are'} waiting.`
+      : 'Nothing needs you right now.';
+
+  const review = work.data?.items.filter((w) => w.state === 'review').length ?? 0;
+  const progress = work.data?.items.filter((w) => w.state === 'progress').length ?? 0;
+  const blockedCount = work.data?.items.filter((w) => w.state === 'attention').length ?? 0;
+
+  const snapshot = brief.data?.bottom_line ?? brief.data?.executive_snapshot ?? null;
+
+  return (
+    <>
+      <div className="hq-head">
+        <h1>{greeting()}</h1>
+        <p className="hq-lead" role="status">{summary}</p>
+      </div>
+
+      <section className="hq-sec" aria-labelledby="h-attn">
+        <div className="hq-sech"><h2 id="h-attn">Needs your attention</h2></div>
+        {needsLoading && <Loading what="attention items" />}
+        {!needsLoading && needsYou.length === 0 && !materialProblem && (
+          <div className="hq-quiet">Nothing is waiting on you. Intelligence and work are on track.</div>
+        )}
+        {needsYou.map((i) => (
+          <Link key={i.id} href={i.hqHref} className="hq-row">
+            <span className="t">{i.title}</span>
+            <span className="s">{i.detail}{i.external ? ' Opens the existing workbench.' : ''}</span>
+            <span className="r"><span className="hq-pill info">{i.actionLabel}</span></span>
+          </Link>
+        ))}
+        {needsErrors.length > 0 && <ErrorLine what={needsErrors.join(', ')} />}
+      </section>
+
+      <section className="hq-sec" aria-labelledby="h-dec">
+        <div className="hq-sech"><h2 id="h-dec">Decisions waiting</h2><Link href="/hq/decisions">Review all</Link></div>
+        {decisionsLoading && <Loading what="decisions" />}
+        {!decisionsLoading && waiting === 0 && <div className="hq-quiet">No decisions waiting.</div>}
+        {decisions.slice(0, 2).map((d) => (
+          <Link key={d.id} href={`/hq/decisions?id=${encodeURIComponent(d.id)}`} className="hq-row">
+            <span className="t">{d.title}</span><span className="s">{d.recommendation}</span>
+            <span className="r"><span className="hq-pill info">{d.sourceLabel}</span></span>
+          </Link>
+        ))}
+        {waiting > 2 && <div className="hq-quiet">and {waiting - 2} more</div>}
+        {decisionErrors.length > 0 && <ErrorLine what={decisionErrors.join(', ')} />}
+      </section>
+
+      <section className="hq-sec" aria-labelledby="h-know">
+        <div className="hq-sech"><h2 id="h-know">What I know</h2><Link href="/hq/intelligence">Open Intelligence</Link></div>
+        {brief.loading && <Loading what="the latest brief" />}
+        {brief.error && <ErrorLine what="the latest brief" />}
+        {!brief.loading && !brief.error && !brief.data && <div className="hq-quiet">No brief has been generated yet.</div>}
+        {brief.data && (
+          <div className="hq-plain">
+            <div className="hq-meta" style={{ marginBottom: 4 }}>
+              <span>Latest brief {brief.data.brief_id}</span>
+              <RiskPill risk={normaliseRisk(brief.data.overall_risk)} />
+            </div>
+            {snapshot ?? 'No summary was recorded for this brief.'}
+            {' '}<Link className="hq-link inline" href={`/hq/intelligence/brief/${encodeURIComponent(brief.data.brief_id)}`}>Read the brief</Link>
+          </div>
+        )}
+      </section>
+
+      <section className="hq-sec" aria-labelledby="h-work">
+        <div className="hq-sech"><h2 id="h-work">Happening on your behalf</h2><Link href="/hq/work">Open Work</Link></div>
+        {work.loading && <Loading what="work" />}
+        {work.data && (
+          <div className="hq-plain">
+            {review} {review === 1 ? 'item is' : 'items are'} ready for you to review. {progress} {progress === 1 ? 'is' : 'are'} in progress.{blockedCount > 0 ? ` ${blockedCount} ${blockedCount === 1 ? 'is' : 'are'} blocked.` : ''}
+          </div>
+        )}
+        {work.error && <ErrorLine what="work" />}
+        {work.data && work.data.unavailable.length > 0 && <ErrorLine what={work.data.unavailable.join(', ')} />}
+      </section>
+
+      <div className="hq-quiet">
+        {materialProblem ? 'A system problem needs attention. ' : 'Everything else is quiet. Routine jobs are not listed here. '}
+        <Link href="/hq/system" className="hq-link inline">See system</Link>
+      </div>
+    </>
+  );
+}

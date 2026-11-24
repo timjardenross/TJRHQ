@@ -177,8 +177,16 @@ async function writeLedger(entry: {
   }
 }
 
-export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean; error?: string; ledgerId?: string | null }> {
-  let result: { ok: boolean; error?: string };
+export async function approveDecideItem(
+  item: DecideItem,
+  /** Opt-in (HQ workbench): only approve if the row is still in the status it
+   * had when loaded (`item.priorStatus`), so a decision made from another
+   * interface is never overwritten or executed twice. Default off, so every
+   * existing caller behaves exactly as before. AI-proposed actions are
+   * already guarded server-side (409 unless awaiting_review). */
+  opts?: { guardStatus?: boolean },
+): Promise<{ ok: boolean; error?: string; ledgerId?: string | null; alreadyDecided?: boolean }> {
+  let result: { ok: boolean; error?: string; alreadyDecided?: boolean };
   if (item.actionType === 'create_mission' || item.actionType === 'log_decision' || item.actionType === 'publish_content') {
     // MSN-0352: the real mutation only happens here, on explicit Captain
     // approval of this exact item - never before, never automatically.
@@ -187,14 +195,24 @@ export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean
         method: 'POST',
       });
       const data = await resp.json();
-      result = resp.ok ? { ok: true } : { ok: false, error: data.error ?? 'Failed' };
+      result = resp.ok
+        ? { ok: true }
+        : { ok: false, error: data.error ?? 'Failed', alreadyDecided: resp.status === 409 };
     } catch (e) {
       result = { ok: false, error: String(e) };
     }
   } else {
     const fakeQueueItem = { id: item.rawId, source: 'build' } as QueueItem;
-    result = await setQueueItemStatus(fakeQueueItem, 'approved');
+    // The guard argument is only passed when asked for, so existing callers
+    // make exactly the same call as before.
+    result = opts?.guardStatus
+      ? await setQueueItemStatus(fakeQueueItem, 'approved', item.priorStatus)
+      : await setQueueItemStatus(fakeQueueItem, 'approved');
   }
+
+  // Nothing was decided here (already decided elsewhere): do not write a
+  // second ledger entry for an approval that did not happen.
+  if (opts?.guardStatus && !result.ok && result.alreadyDecided) return { ...result, ledgerId: null };
 
   const ledgerId = await writeLedger({
     question: item.question,
