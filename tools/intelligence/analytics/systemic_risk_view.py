@@ -49,7 +49,36 @@ CRITICAL_EVENT_TYPES = {
     "transport_disruption",
     "cyber",
 }
-WINDOW_DAYS = 14
+# A sector counts for a link only when the item's OWN text names that sector (classifier labels alone are not evidence).
+SECTOR_TEXT = {
+    "financial_services": re.compile(
+        r"\b(?:bank(?:s|ing)?|payments?|insurer|superannuation|brokerage|lender|credit card|ATM)\b",
+        re.IGNORECASE,
+    ),
+    "energy": re.compile(
+        r"\b(?:energy|electricity|power grid|gas network|utility|utilities|AEMO)\b",
+        re.IGNORECASE,
+    ),
+    "transport": re.compile(
+        r"\b(?:airline|airport|flights?|rail|trains?|port|logistics|freight)\b",
+        re.IGNORECASE,
+    ),
+    "telecommunications": re.compile(
+        r"\b(?:telco|telecom\w*|mobile network|broadband|NBN)\b", re.IGNORECASE
+    ),
+    "health": re.compile(
+        r"\b(?:hospitals?|health(?:care)?|Medicare|clinics?)\b", re.IGNORECASE
+    ),
+    "government": re.compile(
+        r"\b(?:government|agency|department|ministry|council)\b", re.IGNORECASE
+    ),
+}
+STRONG_INCIDENT = re.compile(
+    r"\b(?:outage|offline|down|disrupt\w*|degrad\w+|breach\w*|hack\w*|attack\w*|ransomware|compromis\w+|fail\w*|crash\w*|knocked)\b",
+    re.IGNORECASE,
+)
+EPISODE_GAP_DAYS = 7
+WINDOW_DAYS = EPISODE_GAP_DAYS
 MIN_SECTORS = 2
 MIN_ORGS = 3
 CONC_MIN_ORGS = 3
@@ -82,7 +111,36 @@ def _distinct_reports(items):
     return list(seen.values())
 
 
-def find_links(tagged, as_of, window_days=WINDOW_DAYS, lookback_days=90):
+def evidenced_sectors(item):
+    """Sectors named in the item's own text, only for a DIRECTLY_INVOLVED tag whose clause has a strong incident cue."""
+    t = item["tag"]
+    if t.rule not in (
+        "subject_with_incident",
+        "agent_of_active",
+        "agent_of_passive",
+    ) or not STRONG_INCIDENT.search(t.evidence_span):
+        return set()
+    text = clean_text(
+        f"{item['row'].get('raw_title')} {item['row'].get('raw_summary')}"
+    )
+    return {k for k, rx in SECTOR_TEXT.items() if rx.search(text)}
+
+
+def _episodes(items, gap_days):
+    """Single-linkage episodes: reports of one provider less than gap_days apart are treated as ONE event."""
+    eps = []
+    for it in sorted(items, key=lambda i: i["pub"]):
+        if eps and it["pub"] - eps[-1][-1]["pub"] < timedelta(days=gap_days):
+            eps[-1].append(it)
+        else:
+            eps.append([it])
+    return eps
+
+
+def find_links(tagged, as_of, window_days=EPISODE_GAP_DAYS, lookback_days=90):
+    """Precision-first links. A link needs the SAME provider DIRECTLY_INVOLVED (strong incident clause) in two separate
+    episodes (reports at least `window_days` apart count as different events), where the item text itself names a
+    different sector in each episode. Classifier sector labels are never used. Or: 3+ named organisations."""
     start = as_of - timedelta(days=lookback_days)
     per_provider = defaultdict(list)
     for it in tagged:
@@ -93,59 +151,33 @@ def find_links(tagged, as_of, window_days=WINDOW_DAYS, lookback_days=90):
                 t.cls == DIRECTLY_INVOLVED
                 and it["row"].get("event_type") not in NON_INCIDENT_TYPES
             ):
-                per_provider[t.provider].append({**it, "tag": t})
+                cand = {**it, "tag": t}
+                cand["ev_sectors"] = evidenced_sectors(cand)
+                if cand["ev_sectors"]:
+                    per_provider[t.provider].append(cand)
     links = []
     for prov, items in sorted(per_provider.items()):
-        items = _distinct_reports(items)
-        items.sort(key=lambda i: i["pub"])
-        qualifying = []
-        for a in items:
-            win = [
-                b
-                for b in items
-                if a["pub"] <= b["pub"] < a["pub"] + timedelta(days=window_days)
-            ]
-            sectors = {b["row"].get("sector") for b in win} - NON_SECTORS
-            orgs = {b["row"].get("organisation") for b in win} - {None, ""}
-            if len(sectors) >= MIN_SECTORS or len(orgs) >= MIN_ORGS:
-                qualifying.append(
-                    (
-                        a["pub"],
-                        a["pub"] + timedelta(days=window_days),
-                        win,
-                        sectors,
-                        orgs,
-                    )
-                )
-        # merge overlapping qualifying windows
-        merged = []
-        for s, e, win, sectors, orgs in qualifying:
-            if merged and s < merged[-1]["end"]:
-                m = merged[-1]
-                m["end"] = max(m["end"], e)
-                for b in win:
-                    m["items"][b["row"]["event_id"]] = b
-            else:
-                merged.append(
-                    {
-                        "start": s,
-                        "end": e,
-                        "items": {b["row"]["event_id"]: b for b in win},
-                    }
-                )
-        for m in merged:
-            its = sorted(m["items"].values(), key=lambda i: i["pub"])
-            sectors = {i["row"].get("sector") for i in its} - NON_SECTORS
-            orgs = {i["row"].get("organisation") for i in its} - {None, ""}
+        eps = _episodes(_distinct_reports(items), window_days)
+        ep_sectors = [set().union(*(i["ev_sectors"] for i in ep)) for ep in eps]
+        used = set()
+        for x in range(len(eps)):
+            for y in range(x + 1, len(eps)):
+                if any(a != b for a in ep_sectors[x] for b in ep_sectors[y]):
+                    used.update((x, y))
+        if used:
+            its = sorted(
+                (i for n in sorted(used) for i in eps[n]), key=lambda i: i["pub"]
+            )
             links.append(
                 {
                     "provider": prov,
                     "items": its,
-                    "sectors": sorted(sectors),
-                    "orgs": sorted(orgs),
+                    "sectors": sorted(set().union(*(ep_sectors[n] for n in used))),
+                    "orgs": [],
                     "span": (its[0]["pub"], its[-1]["pub"]),
-                    "sector_rule": len(sectors) >= MIN_SECTORS,
-                    "org_rule": len(orgs) >= MIN_ORGS,
+                    "sector_rule": True,
+                    "org_rule": False,
+                    "episodes": len(used),
                 }
             )
     return links
@@ -242,7 +274,7 @@ def render(tagged, as_of, source_note, window_days=WINDOW_DAYS):
     else:
         out += [
             (
-                f"**INSUFFICIENT EVIDENCE. No concentration score is produced.** Required: at least {CONC_MIN_ORGS} distinct "
+                f"**INSUFFICIENT EVIDENCE. No concentration score is produced.** Not assessed: insufficient evidence; this is NOT evidence of low concentration risk. Required: at least {CONC_MIN_ORGS} distinct "
                 f"organisations, each with item-level AFFECTED or SUPPLYING evidence naming the same provider, across at least "
                 f"{CONC_MIN_EVENTS} independent events, plus a public source for each organisation-specific link. "
                 f"Found: {counts.get(AFFECTED, 0)} AFFECTED and {counts.get(SUPPLYING, 0)} SUPPLYING tags in the window, "
@@ -258,14 +290,14 @@ def render(tagged, as_of, source_note, window_days=WINDOW_DAYS):
         ]
     out += [
         "",
-        f"## Provider-involvement links across 2+ sectors or 3+ organisations (window {window_days} days)",
+        f"## Provider-involvement links across 2+ sectors (episodes at least {window_days} days apart)",
         "",
         (
-            f"Rule: the same provider is DIRECTLY_INVOLVED in distinct reports (collapsed by headline, event type not 'other') whose sector labels "
-            f"include at least {MIN_SECTORS} different sectors (cross_sector/general are not sectors), or that name at least "
-            f"{MIN_ORGS} different organisations, all within {window_days} days. [{PLAUSIBLE}] Sector labels are assigned by "
-            "the platform classifier to each report. A span across sector labels shows where the provider is being reported, "
-            "not that those sectors depend on it, and several reports can describe one event."
+            "Rule (precision first): the same provider is DIRECTLY_INVOLVED, with a strong incident clause, in two separate "
+            f"episodes (reports less than {window_days} days apart are one event), and the item text itself names a different "
+            "sector in each episode (bank/payments, energy, transport, telecoms, health, government). Classifier sector labels "
+            "are never used as evidence. Events whose type is 'other' are ignored. A link shows reported involvement, not "
+            "that any sector depends on the provider."
         ),
         "",
     ]
@@ -286,10 +318,10 @@ def render(tagged, as_of, source_note, window_days=WINDOW_DAYS):
             "",
             f"- [{OBSERVED}] Evidence span: {a.isoformat()} to {b.isoformat()} ({len(link['items'])} distinct reports).",
             (
-                f"- [{OBSERVED}] Sector labels: {', '.join(link['sectors']) or 'none'}; organisations named: "
+                f"- [{OBSERVED}] Sectors named in the item text: {', '.join(link['sectors']) or 'none'}; organisations named: "
                 f"{', '.join(link['orgs']) or 'none'}."
             ),
-            f"- [{PLAUSIBLE}] Reported involvement in more than one sector label within the window; not a dependency claim.",
+            f"- [{PLAUSIBLE}] Same provider reported in {link.get('episodes', 2)} separate episodes naming different sectors; not a dependency claim.",
             "",
             "| Event id | Published | Sector label | Geography | Source | Title | Evidence span (clause the tag rests on) |",
             "|---|---|---|---|---|---|---|",
@@ -310,7 +342,7 @@ def render(tagged, as_of, source_note, window_days=WINDOW_DAYS):
             "- The tagger is deterministic and conservative; PR #706 measured about 77% strict class precision and did not "
             "measure recall. Many involvements are filed as MENTIONED or UNCERTAIN and so never reach this view."
         ),
-        "- Collapse by headline does not merge different headlines about one outage, so sector spans can be inflated.",
+        "- Episodes are separated by time only (7 days), so one long-running event can still be split in two, and a real second event within 7 days is merged. Recall is low by design.",
         "- The export is a sample, with a heavy Telstra news share and no organisation values.",
         f"- [{HYPOTHESIS}] Whether any sector would be affected by a provider failure is not inferred.",
         "",

@@ -27,9 +27,11 @@ Example: `python tools/intelligence/analytics/forward_watch.py --enable --input 
   12% on a different pull); GitHub fails (b) and (c). Cloudflare's trend is "not assessed" because two bulk-ingest batches fall inside the windows.
   Trends: OpenAI lower (24 vs 40 per 30d), Zoom, Salesforce, Anthropic, Akamai about the same. No feed is "higher", so no exception this week.
 - Systemic: 523 items in window; AFFECTED 0, SUPPLYING 0; `organisation` populated on 0 items; 100 AU critical-infrastructure items with no
-  AFFECTED/SUPPLYING tag. Concentration: insufficient evidence, no score. Three sector-spanning provider links are listed with event ids, labels and
-  clause evidence (two OpenAI, one Telstra); they rest on classifier sector labels and include tagger false positives (for example Bloomberg items
-  about the Anthropic IPO tagged DIRECTLY_INVOLVED), so read each span.
+  AFFECTED/SUPPLYING tag. Concentration: not assessed, insufficient evidence; this is NOT evidence of low concentration risk. Sector-spanning links:
+  none. An earlier version printed three links (two OpenAI, one Telstra); audit showed they were classifier-label artefacts of single events (the
+  OpenAI Medicare breach; one Telstra outage with an "ASX Announcement"). Links now need the same provider directly involved in two separate
+  episodes (reports 7+ days apart) with the item text itself naming a different sector in each; classifier labels are never evidence. The audited
+  false positives are regression tests. Recall is low by design (precision first).
 - Forward watch: 14 authoritative dated items in 42 days (all provider-owned maintenance: Twilio carrier work, Supabase pooler windows), 1 undated AEMO
   planned-maintenance notice, 0 regulator deadlines, 0 vendor end-of-life dates, 0 news-relayed items. The export simply does not carry such items with explicit years.
 
@@ -51,12 +53,48 @@ Reviewer: one (Claude), not independent; labels were written before reading tagg
 1. Generate: `intelligence/intel_products_job.py`, registered in `intelligence/scheduler.py` only when `INTEL_PRODUCTS_ENABLED=1` (Monday 07:20 scheduler time zone), reusing the existing BlockingScheduler. Reads via GET, one upsert per product.
 2. Persist: table `intelligence_products`, draft migration `docs/migration-drafts/0261_intelligence_products.DRAFT.sql`. NOT applied; kept outside `core/infrastructure/supabase/migrations`. Until applied the API answers `available: false`.
 3. View: `/intelligence` page (extends the existing page) renders `IntelligenceProducts` from `GET /api/intelligence-workbench/products`, each product with the four labelled sections and the full report.
-4. Exceptions: stable dedupe keys `recurring-provider:<feed>:higher:<iso-week>`, `systemic:concentration:<provider>:<iso-week>`, `forward-watch:<event_id>:<date>` (official/non-maintenance items due within 7 days only, so carrier maintenance does not flood). They appear in the Decisions inbox intelligence list (read-only, linking to `/intelligence`, like OI recommendations; no approve/reject route exists) and in the `productExceptions` field of `/api/home/needs-attention`.
+4. Exceptions (informational, no approval workflow): stable dedupe keys `recurring-provider:<feed>:higher:<iso-week>`, `systemic:concentration:<provider>:<iso-week>`, `forward-watch:<event_id>:<date>` (official/non-maintenance items due within 7 days only, so carrier maintenance does not flood). They appear on Intelligence, in the Needs You list on Hub and Captain's Chair (kind `triage`, via `buildNeedsYouItems`, link to `/intelligence#<product>`) and in the `productExceptions` field of `/api/home/needs-attention`. Nothing is added to the Decisions inbox: these findings are informational and need no judgement.
 5. Weekly delivery: `INTEL_PRODUCTS_WEEKLY_TELEGRAM=1` sends a short summary and `PORTAL_BASE_URL/intelligence` through `core.platform.notification_service` (same Telegram path as the proactive cadences).
 
 ## 5. Limits
 
-- No exception was raised on current data, so the Decisions/Home path is proven only by unit tests, not by a live item.
-- The Home page UI has no consumer of `productExceptions` yet; only the API carries it. Decisions items cannot be acknowledged or dismissed.
+- No exception was raised on current data, so the Needs You path is proven only by unit tests, not by a live item. Exceptions cannot be dismissed; they drop out when the next weekly run no longer raises them.
 - Job read path (REST paging, registry join by id) is tested with a stub, not against the live database; the table does not exist until the draft is applied.
 - Sample export is partial; counts are reported incidents, not true incidents; sector labels are classifier output; forward watch reads only explicit dates with a year.
+
+## 6. Provider comparisons are not a resilience ranking
+
+Every recurring-provider output carries the line "Incident counts reflect what each source publishes and are not a resilience ranking."
+Providers are listed alphabetically, never by count. Each provider shows its context: reporting practice (status-page publisher), the 90-day window,
+bulk-ingest share, how many incidents state severity (and how many major/critical), how many state a duration (median), and how many are
+Australian-relevant by text match. Counts are not normalised across providers; they are annotated.
+
+## 7. Optus National Outage Register (retrospective record)
+
+`register_records.py` reads register rows (PR #709's summary format; `rows_from_register_html` rebuilds them from the rendered page, tested on
+`tests/fixtures/optus_outage_register_rendered_20261124.html`). Confirmed evidence shows each entry as `[retrospective record]` with reference,
+start, duration, services affected and the carrier's stated cause, under provider Optus. Entries are bucketed by the outage's own start date (a bulk
+historical import cannot shift recent trends), are not counted in status-feed trends, never raise an exception, and are excluded from the systemic
+view and forward watch. Sample: `docs/intel-products-sample-2026-11-24/optus-register-retrospective-2026-11-24.md` (from the fixture; the register
+table was not read from production).
+
+## 8. Morning brief
+
+`intelligence/brief_products_block.py`, flag `INTEL_PRODUCTS_IN_BRIEF` (read at call time, default OFF), called from `generate_morning_brief` by a
+single fail-soft hook after the coverage lines. It reads the latest `intelligence_products` rows (fallback: newest `portal-product-records-*.json`
+in `INTEL_PRODUCTS_DIR`), ignores products older than 8 days, and prints at most three findings plus one coverage line, only from each product's
+`brief_findings` (higher recurring trend that passed thresholds; forward-watch item due within 7 days; systemic link or concentration candidate with
+named evidence). Nothing qualifying, or any failure, prints nothing.
+
+## 9. Activation
+
+1. Review and apply `docs/migration-drafts/0261_intelligence_products.DRAFT.sql` (NOT applied; confirm 0261 is free first).
+2. Preview, no database write: `python tools/intelligence/analytics/generate_intel_products.py --enable --dry-run --out-dir /tmp/intel-products-preview`
+   (reads the database with SELECTs only, or pass `--status`/`--context` export files to stay offline).
+3. First generation, idempotent upsert keyed by (product_key, generated_for): `python tools/intelligence/analytics/generate_intel_products.py --enable`.
+4. Flags: `INTEL_PRODUCTS_ENABLED=1` (weekly job, Monday 07:20), `INTEL_PRODUCTS_IN_BRIEF=1` (morning brief block), `INTEL_PRODUCTS_WEEKLY_TELEGRAM=1` plus
+   `PORTAL_BASE_URL` (weekly summary with link).
+5. Cost: one pass over about 90 days of `intelligence_events` per run (a few thousand rows, paged GETs), CPU in seconds, storage about 3 rows per week
+   of roughly 100 KB each. No LLM, no Firecrawl.
+6. Rollback: unset the three flags (nothing runs, brief block prints nothing, portal shows "not generated"); then `drop table public.intelligence_products;`
+   (drafted at the end of the migration file). Remove the one-line hook in `captains_brief.py` and `intel_products_job` registration only if desired.

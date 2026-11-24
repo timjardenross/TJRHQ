@@ -151,21 +151,26 @@ def ctx(
 
 
 class TestSystemicView(unittest.TestCase):
-    def test_sector_span_link_with_evidence(self):
+    def test_sector_link_needs_two_separate_episodes_each_naming_a_sector(self):
         rows = [
-            ctx("e1", "Cloudflare outage knocks sites offline", "technology", day=3),
+            ctx(
+                "e1",
+                "Cloudflare outage disrupts online banking for customers",
+                "financial_services",
+                day=3,
+            ),
             ctx(
                 "e2",
-                "Cloudflare outage disrupts online banking",
-                "financial_services",
-                day=5,
+                "Cloudflare outage knocks airline check-in offline",
+                "transport",
+                day=14,
             ),
             ctx("e3", "Okta confirms breach of support system", "technology", day=6),
         ]
         tagged = srv.tag_rows(rows)
         links = srv.find_links(tagged, AS_OF)
         self.assertEqual([link["provider"] for link in links], ["cloudflare"])
-        self.assertEqual(links[0]["sectors"], ["financial_services", "technology"])
+        self.assertEqual(links[0]["sectors"], ["financial_services", "transport"])
         self.assertEqual(
             {i["row"]["event_id"] for i in links[0]["items"]}, {"e1", "e2"}
         )
@@ -173,36 +178,98 @@ class TestSystemicView(unittest.TestCase):
         self.assertIn("`e1`", text)
         self.assertIn("Evidence span", text)
 
-    def test_cross_sector_label_and_other_type_do_not_count(self):
+    def test_classifier_labels_alone_never_make_a_link(self):
         rows = [
-            ctx("e1", "Cloudflare outage knocks sites offline", "technology", day=3),
-            ctx("e2", "Cloudflare outage hits users", "cross_sector", day=4),
             ctx(
-                "e3",
-                "Cloudflare outage hits shoppers",
+                "e1",
+                "Cloudflare outage knocks sites offline",
+                "financial_services",
+                day=3,
+            ),
+            ctx("e2", "Cloudflare outage hits users", "transport", day=14),
+        ]
+        self.assertEqual(srv.find_links(srv.tag_rows(rows), AS_OF), [])
+
+    def test_regression_openai_medicare_event_is_one_event(self):
+        # Audited false positive: one OpenAI agent incident reported as government, health and transport.
+        rows = [
+            ctx(
+                "m1",
+                "OpenAI agent hacked an Australian health service website",
+                "cyber_security",
+                etype="cyber",
+                day=3,
+            ),
+            ctx(
+                "m2",
+                "OpenAI agent infiltrated Australian government website, PM says",
+                "cyber_security",
+                etype="cyber",
+                day=4,
+            ),
+            ctx(
+                "m3",
+                "OpenAI breach of Australian government linked to wider AI hacking campaign",
+                "transport",
+                etype="cyber",
+                day=6,
+            ),
+        ]
+        self.assertEqual(srv.find_links(srv.tag_rows(rows), AS_OF), [])
+
+    def test_regression_telstra_asx_announcement_is_not_finance(self):
+        # Audited false positive: 'ASX Announcement' about one Telstra outage read as a financial-services sector span.
+        rows = [
+            ctx(
+                "t1",
+                "TLS:ASX Announcement - Telstra releases external expert findings on July outage",
+                "technology",
+                day=2,
+            ),
+            ctx(
+                "t2",
+                "Telstra outage exposed years of weaknesses in network timing, audit finds",
+                "financial_services",
+                day=2,
+            ),
+        ]
+        self.assertEqual(srv.find_links(srv.tag_rows(rows), AS_OF), [])
+
+    def test_regression_anthropic_ipo_is_not_involvement(self):
+        rows = [
+            ctx(
+                "a1",
+                "Anthropic IPO Explained: S-1 Filing, Nasdaq Listing and Key Risks",
+                "financial_services",
+                etype="other",
+                day=2,
+            ),
+            ctx("a2", "Anthropic outage disrupts banking apps", "technology", day=20),
+        ]
+        self.assertEqual(srv.find_links(srv.tag_rows(rows), AS_OF), [])
+
+    def test_other_event_type_ignored(self):
+        rows = [
+            ctx(
+                "e1",
+                "Cloudflare outage disrupts online banking",
+                "financial_services",
+                day=3,
+            ),
+            ctx(
+                "e2",
+                "Cloudflare outage knocks airline offline",
                 "transport",
                 etype="other",
-                day=4,
+                day=14,
             ),
         ]
         self.assertEqual(srv.find_links(srv.tag_rows(rows), AS_OF), [])
 
     def test_same_headline_counts_once(self):
         rows = [
-            ctx("e1", "Cloudflare outage knocks sites offline", "technology", day=3),
-            ctx("e2", "Cloudflare outage knocks sites offline", "energy", day=4),
-        ]
-        self.assertEqual(srv.find_links(srv.tag_rows(rows), AS_OF), [])
-
-    def test_outside_window_no_link(self):
-        rows = [
-            ctx("e1", "Cloudflare outage knocks sites offline", "technology", day=1),
-            ctx(
-                "e2",
-                "Cloudflare outage disrupts online banking",
-                "financial_services",
-                day=20,
-            ),
+            ctx("e1", "Cloudflare outage disrupts online banking", "technology", day=3),
+            ctx("e2", "Cloudflare outage disrupts online banking", "energy", day=14),
         ]
         self.assertEqual(srv.find_links(srv.tag_rows(rows), AS_OF), [])
 
@@ -215,6 +282,7 @@ class TestSystemicView(unittest.TestCase):
             "INSUFFICIENT EVIDENCE. No concentration score is produced.", text
         )
         self.assertIn("AFFECTED tags: 0; SUPPLYING tags: 0", text)
+        self.assertIn("NOT evidence of low concentration risk", text)
 
     def test_concentration_candidates_need_three_orgs_two_events(self):
         rows = [

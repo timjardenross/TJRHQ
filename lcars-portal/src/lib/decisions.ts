@@ -103,30 +103,6 @@ async function fetchIntelligenceDecisions(): Promise<IntelligenceDecisionItem[]>
   }
 }
 
-/**
- * Material exceptions from the intelligence products (recurring-provider trend, concentration candidate, forward-watch
- * item due within 7 days). Read-only like OI recommendations: no governed approve/reject route exists, so each links to
- * the Intelligence page. `id` is the stable dedupe key, so a rerun never duplicates an item.
- */
-export async function fetchProductExceptionDecisions(): Promise<IntelligenceDecisionItem[]> {
-  try {
-    const resp = await fetch('/api/intelligence-workbench/products');
-    if (!resp.ok) return [];
-    const doc = await resp.json();
-    return (doc.exceptions ?? []).map(
-      (e: { dedupe_key: string; title: string; product_title: string; href: string }) => ({
-        id: e.dedupe_key,
-        description: e.title,
-        sourceDomain: e.product_title,
-        confidence: null,
-        briefHref: e.href,
-      }),
-    );
-  } catch {
-    return [];
-  }
-}
-
 export interface DecisionsInboxData {
   actionable: DecisionItem[]; // sorted, highest priorityRank first
   intelligence: IntelligenceDecisionItem[]; // real, currently expected empty (see header)
@@ -134,12 +110,10 @@ export interface DecisionsInboxData {
 }
 
 export async function fetchDecisionsInbox(): Promise<DecisionsInboxData> {
-  const [engineering, oiRaw, productRaw] = await Promise.all([
+  const [engineering, intelligenceRaw] = await Promise.all([
     fetchEngineeringDecisions(),
     fetchIntelligenceDecisions(),
-    fetchProductExceptionDecisions(),
   ]);
-  const intelligenceRaw = [...oiRaw, ...productRaw];
   const actionable = [...engineering].sort((a, b) => b.priorityRank - a.priorityRank);
   // Sort by the emitting recommendation's own confidence, highest first.
   // Nulls (a domain that hasn't populated confidence) sort last rather than

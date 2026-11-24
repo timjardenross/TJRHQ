@@ -66,3 +66,22 @@ describe('intelligence products', () => {
     await expect(fetchLatestProducts(sb)).rejects.toThrow('boom');
   });
 });
+
+describe('Needs You consumer', () => {
+  test('product exceptions become low-priority triage items with the stable key; none when absent', async () => {
+    const { buildNeedsYouItems } = await import('../commandState');
+    const base: any = {
+      emergency: null, briefingError: false, interruptNow: 0, contentAwaitingPublish: 0, oldestContentAwaitingPublish: null,
+      wellnessRiskFlags: 0, notebookReadyCount: 0, capturePending: 0, oldestCapturePending: null, evolutionPendingCount: 0,
+      evolutionHighestValueTitle: null, engineeringApprovalsCount: 0, oldestEngineeringApproval: null, hqPosture: 'NORMAL',
+      hqAttentionItems: [], criticalAlerts: [],
+    };
+    expect(buildNeedsYouItems(base).some((i) => i.id.startsWith('intel-product-'))).toBe(false);
+    const items = buildNeedsYouItems({
+      ...base,
+      intelProductExceptions: [{ dedupe_key: 'forward-watch:x:2026-11-27', title: 't', detail: 'd', href: '/intelligence#forward_watch' }],
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: 'intel-product-forward-watch:x:2026-11-27', kind: 'triage', href: '/intelligence#forward_watch' });
+  });
+});

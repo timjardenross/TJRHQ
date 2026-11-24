@@ -47,6 +47,7 @@ from product_common import (
 )
 from provider_failure import build_incidents, detect_backfill_batches, is_status_source
 
+DISCLAIMER = "Incident counts reflect what each source publishes and are not a resilience ranking."
 WINDOW_DAYS = 90
 RECENT_DAYS = 30
 MIN_INCIDENTS = 20
@@ -159,6 +160,18 @@ def analyse(rows, as_of):
             reasons.append(
                 f"(c) bulk-ingest share {100 * share:.0f}% of rows, needs < {100 * MAX_BULK_SHARE:.0f}%"
             )
+        sev = [i["severity"] for i in unp if i["severity"]]
+        durs = [i["duration_minutes"] for i in unp if i["duration_minutes"] is not None]
+        annotation = {
+            "practice": "status-page publisher (the provider's own feed)",
+            "severity_stated": len(sev),
+            "severity_major_or_critical": sum(
+                1 for x in sev if x in ("major", "critical")
+            ),
+            "durations_stated": len(durs),
+            "median_duration_min": median(durs),
+            "au_strong": sum(1 for i in unp if i["au"] == "strong"),
+        }
         sched = sum(1 for i in incs if i["schedule"] == "scheduled")
         feeds[src] = {
             "feed": src,
@@ -171,6 +184,7 @@ def analyse(rows, as_of):
             "bulk_rows": len(bulk_rows),
             "bulk_share": share,
             "reasons": reasons,
+            "annotation": annotation,
             "sufficient": not reasons,
             "batches": {k[1]: v for k, v in batches.items() if k[0] == src},
         }
@@ -196,8 +210,8 @@ def _evidence_lines(unp):
 def render(feeds, as_of, start, source_note):
     ok = [f for f in feeds.values() if f["sufficient"]]
     bad = [f for f in feeds.values() if not f["sufficient"]]
-    ok.sort(key=lambda f: -len(f["unplanned"]))
-    bad.sort(key=lambda f: -len(f["unplanned"]))
+    ok.sort(key=lambda f: f["feed"].lower())  # alphabetical: never ordered by raw count
+    bad.sort(key=lambda f: f["feed"].lower())
     out = [
         f"# Recurring provider disruption report, generated {as_of.date().isoformat()}",
         "",
@@ -207,6 +221,8 @@ def render(feeds, as_of, start, source_note):
         ),
         "",
         LABEL_LEGEND,
+        "",
+        f"**{DISCLAIMER}**",
         "",
         (
             "Unit: DISTINCT UNPLANNED INCIDENT as grouped from status-feed entries (scheduled maintenance excluded). "
@@ -228,16 +244,16 @@ def render(feeds, as_of, start, source_note):
         "",
         "## Summary (feeds meeting thresholds)",
         "",
-        "| Feed | Unplanned incidents | ISO weeks with one | Median gap (days) | Bulk-row share | Trend (30d vs prior 60d) |",
-        "|---|---|---|---|---|---|",
+        "| Feed (alphabetical) | Unplanned incidents | ISO weeks with one | Median gap (days) | Bulk-row share | Reporting practice | AU-relevant | Trend (30d vs prior 60d) |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for f in ok:
         out.append(
             f"| {f['feed']} | {len(f['unplanned'])} | {len(f['weeks'])} | {f['median_gap_days']:.1f} | "
-            f"{100 * f['bulk_share']:.0f}% | {f['trend'][0]} |"
+            f"{100 * f['bulk_share']:.0f}% | status-page publisher | {f['annotation']['au_strong']} | {f['trend'][0]} |"
         )
     if not ok:
-        out.append("| none | | | | | |")
+        out.append("| none | | | | | | | |")
     out += ["", "## Per provider", ""]
     for f in ok:
         out += [
@@ -270,6 +286,18 @@ def render(feeds, as_of, start, source_note):
             out.append(
                 f"- Recurring components: none parse cleanly with >= {MIN_COMPONENT_INCIDENTS} incidents."
             )
+        an = f["annotation"]
+        out.append(
+            f"- Context (read before comparing): reporting practice = {an['practice']}; window = 90 days; bulk-ingest share "
+            f"{100 * f['bulk_share']:.0f}%; severity stated on {an['severity_stated']} incidents "
+            f"({an['severity_major_or_critical']} major/critical); duration stated on {an['durations_stated']}"
+            + (
+                f" (median {an['median_duration_min']:.0f} min)"
+                if an["median_duration_min"] is not None
+                else ""
+            )
+            + f"; Australian-relevant (strong text match) {an['au_strong']}. {DISCLAIMER}"
+        )
         out.append(
             f"- [{PLAUSIBLE}] Recurrence exists as reported entries; that it reflects reliability is not shown."
         )

@@ -1,6 +1,6 @@
 # Forward watch, generated 2026-11-24 (horizon 42 days to 2027-01-05)
 
-Source: sample export read 2026-11-24 via read-only SELECT (not the full corpus; see docs/INTEL-PRODUCTS-2026-11-24.md limitations). 1598 rows read. Offline, read-only, default OFF, not wired into any service.
+Source: export files given on the command line. 1598 rows read. Offline, read-only, default OFF, not wired into any service.
 
 This lists dated events that sources state explicitly. It is not a forecast: nothing here predicts an outage, a regulatory decision or a vendor action. Dates come from the source text; no date is inferred. A scheduled item can still be moved or cancelled, and each carries an uncertainty label.
 

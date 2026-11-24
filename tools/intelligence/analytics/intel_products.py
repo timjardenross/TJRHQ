@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import forward_watch as fw
 import provider_disruption_report as pdr
+import register_records as rr
 import systemic_risk_view as srv
 from product_common import iso_week, short
 from provider_involvement import AFFECTED, SUPPLYING
@@ -45,11 +46,12 @@ def _section(*items):
     return [i for i in items if i]
 
 
-def recurring_provider_product(rows, as_of, source_note):
+def recurring_provider_product(rows, as_of, source_note, register_rows=()):
     feeds, start = pdr.analyse(rows, as_of)
+    reg = rr.analyse(register_rows, as_of)
     ok = sorted(
         (f for f in feeds.values() if f["sufficient"]),
-        key=lambda f: -len(f["unplanned"]),
+        key=lambda f: f["feed"].lower(),  # alphabetical, never by raw count
     )
     bad = [f for f in feeds.values() if not f["sufficient"]]
     wk = iso_week(as_of)
@@ -59,9 +61,11 @@ def recurring_provider_product(rows, as_of, source_note):
         + ", ".join(f"{i['entries'][0]['event_id']}" for i in f["unplanned"][-3:])
         for f in ok
     ]
+    confirmed += rr.evidence_lines(reg)
     inference = [f"{f['feed']}: trend {f['trend'][0]} ({f['trend'][1]})." for f in ok]
     inference.append(
-        "Recurrence is a property of reported entries; posting practice differs by provider, so feeds are not ranked."
+        pdr.DISCLAIMER
+        + " Posting practice differs by provider; feeds are listed alphabetically, never ranked."
     )
     exposure = [
         (
@@ -93,6 +97,11 @@ def recurring_provider_product(rows, as_of, source_note):
                 }
             )
     body = pdr.render(feeds, as_of, start, source_note)
+    sections_extra = {
+        "brief_findings": [f"{e['title']} ({e['detail']})" for e in exceptions],
+        "coverage_note": f"{len(bad)} of {len(feeds)} status feeds have insufficient evidence and are not scored; "
+        + pdr.DISCLAIMER,
+    }
     return {
         "product_key": "recurring_provider",
         "title": TITLES["recurring_provider"],
@@ -103,6 +112,7 @@ def recurring_provider_product(rows, as_of, source_note):
             "analytical_inference": inference,
             "potential_exposure": exposure,
             "unknowns": unknowns,
+            **sections_extra,
         },
         "exceptions": exceptions,
         "body_md": body,
@@ -137,7 +147,7 @@ def systemic_risk_product(rows, as_of, source_note):
         ]
         if eligible
         else [
-            "Shared-provider concentration cannot be assessed: no concentration score is produced."
+            "Concentration not assessed: insufficient evidence. This is NOT evidence of low concentration risk."
         ]
     )
     n_org = sum(1 for it in tagged if it["row"].get("organisation"))
@@ -148,6 +158,14 @@ def systemic_risk_product(rows, as_of, source_note):
         ),
         f"Items with an organisation value: {n_org} of {len(tagged)}.",
         "Recall of the tagger for AFFECTED/SUPPLYING is unmeasured at useful power (see docs).",
+    ]
+    brief_findings = [
+        f"{link['provider']}: named as directly involved in {link['episodes']} separate episodes naming "
+        f"{' and '.join(link['sectors'])} (evidence {', '.join(i['row']['event_id'][:8] for i in link['items'][:3])})"
+        for link in links
+    ] + [
+        f"{prov}: candidate shared-provider concentration, needs primary-source check"
+        for prov in sorted(eligible)
     ]
     exceptions = [
         {
@@ -173,6 +191,9 @@ def systemic_risk_product(rows, as_of, source_note):
             "analytical_inference": inference,
             "potential_exposure": exposure,
             "unknowns": unknowns,
+            "brief_findings": brief_findings,
+            "coverage_note": "Concentration not assessed: insufficient evidence (this is NOT evidence of low concentration risk); "
+            "organisation field empty and AFFECTED/SUPPLYING tags absent in the sample.",
         },
         "exceptions": exceptions,
         "body_md": srv.render(tagged, as_of, source_note),
@@ -234,6 +255,9 @@ def forward_watch_product(rows, as_of, source_note, horizon_days=42):
             "analytical_inference": inference,
             "potential_exposure": exposure,
             "unknowns": unknowns,
+            "brief_findings": [f"{e['title']} ({e['detail']})" for e in exceptions],
+            "coverage_note": f"{len(undated)} planned official events undated; regulator deadlines and vendor end-of-life dates "
+            "appear only if a feed states them with a year.",
         },
         "exceptions": exceptions,
         "body_md": fw.render(
@@ -245,9 +269,15 @@ def forward_watch_product(rows, as_of, source_note, horizon_days=42):
 def build_products(
     status_rows, context_rows, as_of, source_note="events export (read-only SELECT)"
 ):
+    # Outage-register rows are a retrospective record: only the recurring-provider evidence uses them (never systemic/forward).
+    register = [
+        r for r in list(status_rows) + list(context_rows) if rr.is_register_row(r)
+    ]
+    status_rows = [r for r in status_rows if not rr.is_register_row(r)]
+    context_rows = [r for r in context_rows if not rr.is_register_row(r)]
     all_rows = list(status_rows) + list(context_rows)
     return [
-        recurring_provider_product(status_rows, as_of, source_note),
+        recurring_provider_product(status_rows, as_of, source_note, register),
         systemic_risk_product(context_rows, as_of, source_note),
         forward_watch_product(all_rows, as_of, source_note),
     ]

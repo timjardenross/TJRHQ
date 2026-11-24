@@ -74,6 +74,7 @@ import {
   useAttentionCounts,
   useEvolutionSignal,
   useEngineeringApprovals,
+  useIntelProductExceptions,
   useNotebookReadyCount,
   useNumberOneAttentionItems,
 } from '@/lib/captainsChairData';
@@ -133,6 +134,7 @@ export default function LifeOSHub() {
   const { count: engineeringApprovalsCount, oldestTitle: oldestEngineeringApproval } = useEngineeringApprovals();
   const { alerts: liveAlerts } = useAlerts();
   const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
+  const intelProductExceptions = useIntelProductExceptions();
 
   // Mission 6B Hub closure gap (Captain review, 2026-09-19): Hub had no
   // "where I left off" signal at all — only Ready Room's own PickUpBanner/
@@ -201,6 +203,7 @@ export default function LifeOSHub() {
     hqAttentionItems: hqStatus?.attentionItems ?? [],
     criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),
     numberOneAttentionItems,
+    intelProductExceptions,
   });
 
   const commandPosture = deriveCommandPosture({

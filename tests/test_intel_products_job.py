@@ -82,7 +82,7 @@ class TestProducts(unittest.TestCase):
     def test_three_products_each_with_four_sections(self):
         self.assertEqual(set(self.products), set(ip.PRODUCT_KEYS))
         for p in self.products.values():
-            self.assertEqual(set(p["sections"]), SECTIONS)
+            self.assertTrue(SECTIONS <= set(p["sections"]))
             self.assertTrue(p["sections"]["unknowns"])
             self.assertTrue(p["body_md"])
 

@@ -641,7 +641,9 @@ def _start_scheduler() -> None:
     # ── Intelligence products (recurring provider / systemic / forward watch): default OFF,
     # registers only when INTEL_PRODUCTS_ENABLED=1. Reuses this scheduler; no new instance.
     try:
-        from intelligence.intel_products_job import register_jobs as _register_intel_products
+        from intelligence.intel_products_job import (
+            register_jobs as _register_intel_products,
+        )
         _register_intel_products(scheduler, tz)
     except Exception as exc:  # noqa: BLE001 - best-effort sub-registrar call, non-blocking
         log.warning("Intel products job failed to register (non-blocking): %s", exc)
