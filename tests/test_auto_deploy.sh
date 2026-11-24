@@ -154,6 +154,7 @@ run_script() {
   AUTO_DEPLOY_BRANCH="$(git -C "$clone" branch --show-current)" \
   AUTO_DEPLOY_SERVICES_CONF="${SERVICES_CONF_OVERRIDE:-$clone/deploy/auto-deploy-services.conf}" \
   AUTO_DEPLOY_SYSTEMCTL="systemctl" \
+  AUTO_DEPLOY_NOW_HHMM="${TEST_NOW_HHMM:-09:30}" \
   CALL_LOG="$call_log" \
   PATH="$3:$PATH" \
   bash "$SCRIPT"
@@ -534,6 +535,70 @@ if [ "$recorded" = "$built_sha" ] && [ "$recorded" != "$(git -C "$tmp/clone" rev
 else
   fail "mid-build advance (recorded=$recorded built=$built_sha head=$(git -C "$tmp/clone" rev-parse HEAD) log: $(cat "$log"))"
 fi
+rm -rf "$tmp"
+
+
+# --- release windows (2026-11-25) --------------------------------------
+push_backend() {
+  git clone --quiet -b main "$1/origin.git" "$1/pusher" >/dev/null 2>&1
+  ( cd "$1/pusher" && git config user.email t@example.com && git config user.name Test \
+    && echo "x$RANDOM" > "$2" && git add -A && git commit --quiet -m "$2" && git push --quiet origin HEAD 2>&1 ) >/dev/null 2>&1
+}
+
+echo "test: stale service outside a release window -> DEFER, no restart"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+out="$(TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if echo "$out" | grep -q "DEFER context-service.service" && ! grep -q "systemctl restart" "$log"; then
+  pass "restart deferred outside the release windows"
+else fail "defer outside window (log=$(cat "$log") out=$out)"; fi
+rm -rf "$tmp"
+
+echo "test: deferred restart happens in the next release window (staleness persists)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+out="$(TEST_NOW_HHMM=14:35 run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if grep -q "systemctl restart context-service.service" "$log"; then
+  pass "restarts at 14:35 after being deferred at 11:00"
+else fail "restart in window (log=$(cat "$log") out=$out)"; fi
+rm -rf "$tmp"
+
+echo "test: window edges (09:29 and 09:40 defer, 09:39 restarts)"
+for hhmm in 09:29 09:40; do
+  tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+  TEST_NOW_HHMM=$hhmm run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+  if grep -q "systemctl restart" "$log"; then fail "restarted at $hhmm (outside window)"; else pass "deferred at $hhmm"; fi
+  rm -rf "$tmp"
+done
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+TEST_NOW_HHMM=09:39 run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+if grep -q "systemctl restart context-service.service" "$log"; then pass "restarts at 09:39"; else fail "no restart at 09:39"; fi
+rm -rf "$tmp"
+
+echo "test: fresh urgent flag overrides the deferral; an hour-old flag does not"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+flag="$tmp/urgent"; touch "$flag"
+AUTO_DEPLOY_URGENT_FLAG="$flag" TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+if grep -q "systemctl restart context-service.service" "$log"; then pass "fresh urgent flag restarts outside a window"; else fail "urgent flag ignored"; fi
+rm -rf "$tmp"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+flag="$tmp/urgent"; touch -d "2 hours ago" "$flag"
+AUTO_DEPLOY_URGENT_FLAG="$flag" TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+if grep -q "systemctl restart" "$log"; then fail "expired urgent flag still overrode the deferral"; else pass "expired urgent flag is ignored"; fi
+rm -rf "$tmp"
+
+echo "test: the brief-window HOLD still applies on top of an urgent flag"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+flag="$tmp/urgent"; touch "$flag"
+out="$(AUTO_DEPLOY_URGENT_FLAG="$flag" TEST_NOW_HHMM=07:00 run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if echo "$out" | grep -q "HOLD context-service.service" && ! grep -q "systemctl restart" "$log"; then pass "brief window still holds with urgent flag"; else fail "brief hold lost (out=$out)"; fi
+rm -rf "$tmp"
+
+echo "test: portal change outside a window -> no npm build, no restart"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" lcars-portal/page.tsx
+out="$(TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if echo "$out" | grep -q "DEFER lcars-portal.service" && ! grep -q "npm " "$log" && ! grep -q "restart lcars-portal" "$log"; then
+  pass "portal rebuild deferred outside the window"
+else fail "portal defer (log=$(cat "$log") out=$out)"; fi
 rm -rf "$tmp"
 
 echo

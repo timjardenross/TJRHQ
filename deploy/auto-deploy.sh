@@ -330,6 +330,43 @@ unit_is_masked() {
   [ "$(systemctl show -p LoadState --value "$1" 2>/dev/null || true)" = "masked" ]
 }
 
+# 2026-11-25 (ops): routine release windows. 24 Nov saw 26 intelligence-scheduler restarts in one day because every
+# merge or same-VM commit that landed in its own 5-minute cycle restarted the stale services separately; batching
+# only helped when merges happened to land inside a single cycle. Restarts and the portal rebuild are therefore
+# deferred (staleness persists, so nothing is lost) until a routine release window, which caps routine restarts at
+# two a day regardless of merge timing:
+#   09:30-09:39 and 14:30-14:39 Australia/Melbourne (the 5-minute timer runs at least once inside each).
+# Urgent remediation or recovery: touch the flag file below; it counts for 60 minutes, then expires on its own so a
+# forgotten flag cannot disable the deferral. The brief-window HOLD further down still applies on top of the flag.
+# Set AUTO_DEPLOY_RELEASE_WINDOWS=0 to switch the deferral off entirely (tests do not need it; operators should not).
+RELEASE_WINDOWS="${AUTO_DEPLOY_RELEASE_WINDOWS:-1}"
+
+melbourne_mins() {
+  local hm
+  hm="${AUTO_DEPLOY_NOW_HHMM:-$(TZ=Australia/Melbourne date +%H:%M)}"   # AUTO_DEPLOY_NOW_HHMM: test override only
+  echo $((10#${hm%%:*} * 60 + 10#${hm##*:}))
+}
+
+in_release_window() {
+  local mins; mins="$(melbourne_mins)"
+  # 09:30-09:39 = 570-579, 14:30-14:39 = 870-879
+  { [ "$mins" -ge 570 ] && [ "$mins" -le 579 ]; } ||
+  { [ "$mins" -ge 870 ] && [ "$mins" -le 879 ]; }
+}
+
+urgent_flag_active() {
+  local f="${AUTO_DEPLOY_URGENT_FLAG:-$STATE_DIR/urgent-restart}"
+  [ -n "$(find "$f" -maxdepth 0 -mmin -60 2>/dev/null)" ]
+}
+
+# True when a routine (non-urgent) restart/rebuild must wait for the next release window.
+restart_deferred() {
+  [ "$RELEASE_WINDOWS" = "1" ] || return 1
+  urgent_flag_active && return 1
+  in_release_window && return 1
+  return 0
+}
+
 if unit_is_masked lcars-portal.service; then
   echo "$LOG_PREFIX SKIP lcars-portal.service: unit is masked (deliberately held off) - no rebuild, no restart"
 elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
@@ -356,7 +393,9 @@ elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
       LP_STALE_REASON="lcars-portal/ differs from the last deployed state"
     fi
   fi
-  if [ -n "$LP_STALE_REASON" ]; then
+  if [ -n "$LP_STALE_REASON" ] && restart_deferred; then
+    echo "$LOG_PREFIX DEFER lcars-portal.service: stale ($LP_STALE_REASON) but routine releases run only at 09:30 and 14:30 Melbourne (urgent: touch the urgent-restart flag)"
+  elif [ -n "$LP_STALE_REASON" ]; then
     echo "$LOG_PREFIX lcars-portal.service is stale ($LP_STALE_REASON) - rebuilding"
     LP_DEPLOY_SHA="$(git rev-parse HEAD)"   # fixed before the build; this is what gets recorded on success
     ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
@@ -392,9 +431,8 @@ fi
 BRIEF_PROTECTED_SERVICES="intelligence-scheduler.service context-service.service"
 
 in_brief_window() {
-  local hm mins
-  hm="$(TZ=Australia/Melbourne date +%H:%M)"
-  mins=$((10#${hm%%:*} * 60 + 10#${hm##*:}))
+  local mins
+  mins="$(melbourne_mins)"
   # 06:55-07:10 = 415-430, 12:25-12:40 = 745-760, 17:55-18:10 = 1075-1090
   { [ "$mins" -ge 415 ] && [ "$mins" -le 430 ]; } ||
   { [ "$mins" -ge 745 ] && [ "$mins" -le 760 ]; } ||
@@ -411,6 +449,10 @@ if [ -f "$SERVICES_CONF" ]; then
     fi
     if svc_start_ts="$(unit_active_since_epoch "$svc")"; then
       if component_changed "$(baseline_for "svc-$svc" "$svc_start_ts")"; then
+        if restart_deferred; then
+          echo "$LOG_PREFIX DEFER $svc: stale but routine releases run only at 09:30 and 14:30 Melbourne (urgent: touch the urgent-restart flag)"
+          continue
+        fi
         case " $BRIEF_PROTECTED_SERVICES " in
           *" $svc "*)
             if in_brief_window; then
