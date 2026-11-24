@@ -31,7 +31,9 @@ def test_new_rows_present_and_unique():
     # (pre-existing shared status-page urls are legitimate multi-feed rows).
     assert max(Counter(s["source_name"] for s in seed.SOURCES).values()) == 1
     assert Counter(s["url"] for s in seed.SOURCES if s["source_name"] in NEW).most_common(1)[0][1] == 1
-    assert not [s for s in seed.SOURCES if s["source_name"] not in NEW and s["url"] in {r["url"] for r in _rows()}]
+    # Planned-maintenance rows (forward-sources-maint-2kq) are deliberate siblings on the same status-page host with a different feed.
+    assert not [s for s in seed.SOURCES if s["source_name"] not in NEW and not s["source_name"].endswith("Scheduled Maintenance")
+                and s["url"] in {r["url"] for r in _rows()}]
     feeds = [r["rss_url"] or r["api_endpoint"] for r in _rows()]
     assert len(feeds) == len(set(feeds)) == 3
     assert len([s for s in seed.SOURCES if (s["rss_url"] or s["api_endpoint"]) in feeds]) == 3

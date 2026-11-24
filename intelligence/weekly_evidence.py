@@ -121,7 +121,9 @@ _KIND_TERMS = (
     (REGISTRY, ("clinicaltrials",)),
     (AGGREGATOR, ("google news",)),
     (PRIMARY, ("cisa", "cisco security", "google cloud security", "aemo", "acsc", "cyber.gov.au",
-               "nist", "apra", "asic", "rba ", "fda", "cdc", "who ", "ato online services")),
+               "nist", "apra", "asic", "rba ", "fda", "cdc", "who ", "ato online services",
+               # planned-maintenance publishers (forward-sources-maint-2kq), the agencies' own pages
+               "ato system maintenance", "ato abr", "ato practitioner lodgment", "dvs status")),
     (MAINSTREAM, ("bloomberg", "abc news", "bbc", "financial times", "guardian", "reuters",
                   "associated press", "the age", "financial review", "new york times")),
     (SPECIALIST, ("arn", "sans ", "financial newswire", "industrial cyber", "the register", "itnews")),

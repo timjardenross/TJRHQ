@@ -1107,6 +1107,10 @@ _FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
     # 2026-11-24: oaic.gov.au 403s the production host's plain fetch; Firecrawl fallback (scrape_adapter), 1 credit/source/day
     "OAIC Breach Notifications",
     "OAIC Privacy Determinations & News",
+    # 2026-11-24 (forward-sources-maint-2kq): planned-maintenance pages (inactive rows); once a day = ~30 credits/month each
+    "ATO System Maintenance",
+    "ATO ABR Scheduled Site Maintenance",
+    "DVS Status Scheduled Outages",
 })
 
 
