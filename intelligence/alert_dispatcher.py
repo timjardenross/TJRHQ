@@ -119,15 +119,21 @@ class InMemoryAlertStore:
         return sum(1 for t, m in self.sends if t > since and m == mode)
 
 
-def build_payload(kind: str, inc: ic.Incident, td: dt.TierDecision, now: datetime, pinned_id: str | None = None) -> dict:
+def build_payload(kind: str, inc: ic.Incident, td: dt.TierDecision, now: datetime, pinned_id: str | None = None,
+                  pinned_headline: str | None = None) -> dict:
     """The message an operator would receive. Facts only: what the cited reports state, nothing inferred."""
     key = pinned_id or tb.incident_id(inc)
     link = tb.incident_link(key)
     d = inc.decision
     status = tb.RESTORATION_LABEL.get(inc.restoration_status, inc.restoration_status)
     head = "RESTORED" if kind == "restoration" else "ALERT"
-    lines = [f"{head}: {d.headline.title}",
-             f"Status: {status}. Reports: {inc.n_reports} ({td.evidence.get('independent_publishers', '?')} independent publishers). Evidence: {d.evidence_status}.",
+    # The incident headline is re-chosen on every pass and can become a hedged or forecast report ("crews race to restore ..."). A message
+    # that says RESTORED must not carry that as its title: pin the headline the original alert used.
+    title = pinned_headline or d.headline.title
+    n_fact = td.evidence.get("n_factual")
+    counts = f"{inc.n_reports} grouped, {n_fact} factual" if isinstance(n_fact, int) and n_fact < inc.n_reports else f"{inc.n_reports}"
+    lines = [f"{head}: {title}",
+             f"Status: {status}. Reports: {counts} ({td.evidence.get('independent_publishers', '?')} independent publishers). Evidence: {d.evidence_status}.",
              f"Why this interrupts: {td.reasons[0]}"]
     if kind == "restoration":
         rest = [r for r in inc.reports if r.relation == ic.RESTORATION_UPDATE]
@@ -139,7 +145,7 @@ def build_payload(kind: str, inc: ic.Incident, td: dt.TierDecision, now: datetim
             lines.append(f"First report: {new[0].candidate.title} [{str(new[0].event_id)[:8]}]")
     lines.append(f"Incident: {key}")
     lines.append(f"View: {link}")
-    return {"kind": kind, "incident_id": key, "incident_key": key, "link": link, "headline": d.headline.title, "tier": td.tier, "restoration_status": inc.restoration_status,
+    return {"kind": kind, "incident_id": key, "incident_key": key, "link": link, "headline": title, "tier": td.tier, "restoration_status": inc.restoration_status,
             "n_reports": inc.n_reports, "event_ids": sorted(r.event_id for r in inc.reports), "generated_at": now.isoformat(), "text": "\n".join(lines)}
 
 
@@ -180,7 +186,7 @@ def process(incidents: list[ic.Incident], *, now: datetime | None = None, store:
             if st is not None:
                 store.put(st)
             continue
-        payload = build_payload(kind, inc, td, now, st.incident_key if st else None)
+        payload = build_payload(kind, inc, td, now, st.incident_key if st else None, st.headline if (st and kind == "restoration" and st.headline) else None)
         payload.update(dry_run=not real, sent=False, deferred=False, destination=("configured" if real else None))
         if store.sends_since(now - window, mode) >= max_per_window:
             payload["deferred"] = True
