@@ -22,9 +22,10 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from intelligence import event_detection as ed
+from intelligence import freshness as fr
 from intelligence import incident_clustering as ic
 from intelligence import weekly_evidence as we
 
@@ -38,7 +39,7 @@ CONTEXT = "CONTEXT"
 REFERENCE_RETAIN = "REFERENCE_RETAIN"
 TIERS = (IMMEDIATE_ALERT, SCHEDULED_BRIEF, MONITOR, CONTEXT, REFERENCE_RETAIN)
 
-ALERT_FRESH_HOURS = 12            # the newest factual report must be this recent for an alert to still be news
+ALERT_FRESH_HOURS = fr.ALERT_FRESH_HOURS   # one shared definition (intelligence/freshness.py), the same one the dispatcher and the brief use
 SOLID_EVIDENCE = frozenset({"officially_confirmed", "corroborated", "reported"})
 _PLANNED_RX = re.compile(r"\b(?:planned|scheduled|upgrade|maintenance|will be offline|during (?:the )?\w+ upgrade)\b", re.IGNORECASE)
 
@@ -54,12 +55,48 @@ class TierDecision:
     evidence: dict = field(default_factory=dict)
 
 
+def _newest_factual(inc: ic.Incident, relations=(ic.NEW, ic.SUBSEQUENT)) -> datetime | None:
+    times = [r.candidate.published for r in inc.reports if r.relation in relations and r.candidate.published and r.candidate.time_verified]
+    return max(times) if times else None
+
+
 def _fresh(inc: ic.Incident, now: datetime | None) -> bool:
-    factual = [r.candidate for r in inc.reports if r.relation in (ic.NEW, ic.SUBSEQUENT)]
-    times = [m.published for m in factual if m.published and m.time_verified]
-    if not times:
+    """Alert freshness: the SAME rule the dispatcher enforces (freshness.alert_fresh)."""
+    return fr.alert_fresh(_newest_factual(inc), now)
+
+
+def _brief_current(inc: ic.Incident, now: datetime | None) -> bool:
+    """Is the incident a CURRENT brief item? Its newest factual report is inside the brief window, or it is still ongoing / partially
+    restored and the newest factual report is inside the longer live window. Otherwise it is context, never a current incident."""
+    if now is None:
+        return True
+    newest = _newest_factual(inc, (ic.NEW, ic.SUBSEQUENT, ic.RESTORATION_UPDATE))
+    if newest is None:
         return False
-    return now is None or (now - max(times)) <= timedelta(hours=ALERT_FRESH_HOURS)
+    if fr.brief_fresh(newest, now):
+        return True
+    return inc.restoration_status in ed.CURRENT_DISRUPTION and fr.within(newest, now, fr.live_window())
+
+
+# A story ABOUT a hazard that reports no event (staffing, funding, response-time, review, policy): 'Tsunami response window shorter after
+# staff pulled from remote island' is a policy story, not a tsunami incident. A live-event cue keeps the item.
+_HAZARD_POLICY_RX = re.compile(r"\b(?:response (?:window|times?|plan|capacity)|staff(?:ing)?|funding|budget|preparedness|readiness|inquiry|review of|policy|"
+                               r"pulled from|cuts? to)\b", re.IGNORECASE)
+_HAZARD_EVENT_CUE_RX = re.compile(r"\b(?:warning|evacuat\w*|emergency|hits|hit by|struck|strikes|destroy\w*|rescue\w*|killed|dead|injur\w*|burning|erupts?|shaken|shakes)\b", re.IGNORECASE)
+_EXPOSURE_SEVERITY_RX = re.compile(r"\b(?:critical|remote code execution|rce|actively exploited|zero-?day|known exploited|exploited in the wild)\b", re.IGNORECASE)
+
+
+def _notice_current(inc: ic.Incident, now: datetime | None) -> bool:
+    """Warnings and advisories have no 'newest factual disruption report' to age: they stay visible for the live window (72 h)."""
+    if now is None:
+        return True
+    newest = _newest_factual(inc, (ic.NEW, ic.SUBSEQUENT, ic.RESTORATION_UPDATE))
+    return fr.within(newest, now, fr.live_window())
+
+
+def _non_incident_hazard(originals) -> bool:
+    heads = [m for m in originals if m.status == "stated"]
+    return bool(heads) and all("hazard" in m.types and _HAZARD_POLICY_RX.search(ed.core_title(m.title)) and not _HAZARD_EVENT_CUE_RX.search(ed.core_title(m.title)) for m in heads)
 
 
 def tier_for_incident(inc: ic.Incident, *, now: datetime | None = None) -> TierDecision:
@@ -83,22 +120,43 @@ def tier_for_incident(inc: ic.Incident, *, now: datetime | None = None) -> TierD
         if au or ed.australian_editorial_relevance(inc.group):
             return out(CONTEXT, "no factual report of a disruption in the window: only commentary, aftermath or historical references")
         return out(REFERENCE_RETAIN, "no factual disruption report and no Australian relevance")
+    current = _brief_current(inc, now)
+    if _non_incident_hazard(originals):
+        return out(REFERENCE_RETAIN, "policy or staffing story about a hazard: no hazard event is reported")
+    if d.event_type == "vulnerability":
+        # EMERGING EXPOSURE: a credible advisory has no stated operational consequence by nature, so 'impact none' must not drop it.
+        if d.evidence_status not in SOLID_EVIDENCE:
+            return out(REFERENCE_RETAIN, "advisory without a credible source")
+        if not _notice_current(inc, now):
+            return out(REFERENCE_RETAIN, f"advisory older than {fr.LIVE_BRIEF_HOURS} h")
+        if d.priority in ("ESCALATE", "VERIFY", "WATCH"):
+            return out(SCHEDULED_BRIEF, "emerging exposure: credible advisory (exploited or critical), exposure-driven, never an interrupt on this path")
+        if any(_EXPOSURE_SEVERITY_RX.search(m.summary or "") for m in originals):
+            return out(MONITOR, "emerging exposure: credible advisory describing a critical flaw; check whether affected products are in the estate")
+        return out(REFERENCE_RETAIN, "advisory with no exploitation or critical severity stated")
+    if d.impact_status in ("warning", "forecast"):
+        # A credible warning is kept even though no disruption exists yet; it is only dropped when there is no Australian link or it is stale.
+        if au is None and not ed.australian_editorial_relevance(inc.group):
+            return out(REFERENCE_RETAIN, "no demonstrated Australian relevance or dependency")
+        if not _notice_current(inc, now):
+            return out(REFERENCE_RETAIN, f"{d.impact_status} older than {fr.LIVE_BRIEF_HOURS} h")
+        return out(MONITOR, f"{d.impact_status}: credible notice kept for the forward watch, not a stated incident")
     if d.impact_status in ("none", "potential"):
         return out(REFERENCE_RETAIN, f"impact status {d.impact_status}: no stated consequence")
     if au is None and not ed.australian_editorial_relevance(inc.group):
         return out(REFERENCE_RETAIN, "no demonstrated Australian relevance or dependency")
     if d.materiality == "low":
         if d.impact_status == "unconfirmed" and (d.sector_tier in (1, 2) or d.headline.compromise):
+            if d.evidence_status in ("officially_confirmed", "corroborated") and au_demonstrated and current:
+                return out(SCHEDULED_BRIEF, "consequence unconfirmed at an essential-service or compromised entity, corroborated: verification target for the brief")
             return out(MONITOR, "consequence unconfirmed at an essential-service or compromised entity: verification target, not yet material")
         return out(REFERENCE_RETAIN, f"materiality {d.materiality}, impact status {d.impact_status}: no stated consequence")
-    if d.impact_status in ("warning", "forecast"):
-        return out(MONITOR, f"{d.impact_status}, not a stated incident")
+    if not current:
+        return out(CONTEXT, f"older than the brief window ({fr.BRIEF_FRESH_HOURS} h) and not still ongoing: context, not a current incident")
     if d.evidence_status == "unverified" or hedged:
         return out(MONITOR, "evidence unverified (aggregator-only or hedged): wait for a corroborating or primary report")
     if planned:
         return out(MONITOR, "planned or maintenance-related outage: advance notice, not an incident")
-    if d.event_type == "vulnerability":
-        return out(SCHEDULED_BRIEF if d.priority in ("ESCALATE", "VERIFY") else MONITOR, "advisory: exposure-driven, never an interrupt on this path")
     if (d.materiality == "high" and d.impact_status == "stated" and live and au_demonstrated and not d.headline.minor
             and (d.evidence_status in ("officially_confirmed", "corroborated") or solid_kind) and _fresh(inc, now)):
         if d.provisional:
@@ -107,7 +165,9 @@ def tier_for_incident(inc: ic.Incident, *, now: datetime | None = None) -> TierD
     if d.materiality in ("high", "medium") and d.evidence_status in SOLID_EVIDENCE and not au_demonstrated:
         return out(MONITOR, "dependency only: Australian impact not established (no brief item until an Australian impact report arrives)")
     if d.materiality in ("high", "medium") and d.evidence_status in SOLID_EVIDENCE:
+        if not current:
+            return out(CONTEXT, f"older than the brief window ({fr.BRIEF_FRESH_HOURS} h) and not still ongoing: context, not a current incident")
         if not live and inc.restoration_status == "restored":
             return out(SCHEDULED_BRIEF, "restored: closure and impact summary for the next brief")
-        return out(SCHEDULED_BRIEF, f"material ({d.materiality}) with {d.evidence_status} evidence but not an interrupt (not live, not fresh, or relevance not demonstrated)")
+        return out(SCHEDULED_BRIEF, f"material ({d.materiality}) with {d.evidence_status} evidence but not an interrupt (not live or not fresh enough for an interrupt)")
     return out(MONITOR, "candidate that does not yet meet the evidence bar for a brief")

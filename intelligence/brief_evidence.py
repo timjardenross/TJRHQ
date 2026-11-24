@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 from intelligence import event_detection as ed
+from intelligence import freshness as fr
 from intelligence import weekly_evidence as we
 
 MASTER_FLAG = "BRIEF_EVIDENCE_V1"
@@ -88,7 +89,7 @@ def _incident_id(report_ids: list[str]) -> str:
     return "inc-" + hashlib.sha1("|".join(sorted(report_ids)).encode(), usedforsecurity=False).hexdigest()[:10]  # nosec B324 - identity hash, not security
 
 
-URGENT_MAX_AGE_HOURS = 24      # 'urgent' is about what is happening now: an incident whose newest report is older than this is never flagged (nor promoted in the weekly view)
+URGENT_MAX_AGE_HOURS = fr.BRIEF_FRESH_HOURS      # 'urgent' is about what is happening now: an incident whose newest report is older than this is never flagged (nor promoted in the weekly view)
 
 
 def build_evidence(events: list[dict], *, now: datetime | None = None, window_hours: int = 24) -> EvidenceSet:
@@ -402,7 +403,7 @@ def _urgent_verify_lines(urgent: list[IncidentView]) -> list[str]:
 
 
 def morning_view(ev: EvidenceSet) -> list[str]:
-    recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
+    recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - fr.brief_window()]
     editorial = [i for i in recent if i.impact_status not in ("warning", "forecast") and _editorial_only(i)]
     active = [i for i in recent if i.impact_status not in ("warning", "forecast") and i not in editorial]
     firm = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated"

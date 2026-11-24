@@ -679,7 +679,7 @@ def evidence_status(group: Group) -> tuple[str, list[str]]:
 # page counts: 'Supabase Status' reporting a Supabase disruption is a dependency report. Advisories (vulnerabilities) are
 # exempt: they are judged by exposure, not geography. A publisher's nationality is NOT operational relevance (see below).
 _AU_MARKER_RX = _rx((r"australia\w*", r"aussie\w*", r"nsw", r"new south wales", r"queensland\w*", r"tasmania\w*", r"victorian",
-                     r"canberra", r"asx", r"nbn", r"apra", r"acsc", r"aemo",
+                     r"canberra", r"asx", r"nbn", r"apra", r"acsc", r"aemo", r"northern territory", r"nt government",
                      r"ausgrid", r"electranet", r"endeavour energy", r"ergon", r"energex", r"essential energy", r"ausnet", r"powercor",
                      r"jemena", r"western power", r"sa power networks", r"tasnetworks", r"evoenergy",
                      r"telstra", r"optus", r"tpg", r"qantas", r"jetstar", r"virgin australia", r"westpac",

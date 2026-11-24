@@ -36,6 +36,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
 from intelligence import delivery_tiers as dt
+from intelligence import freshness as fr
 from intelligence import incident_clustering as ic
 from intelligence import tiered_brief as tb
 
@@ -45,8 +46,8 @@ FLAG = "INCIDENT_ALERTS_V1"
 SEND_FLAG = "INCIDENT_ALERTS_SEND"
 DESTINATION_ENV = "INCIDENT_ALERT_DESTINATION"
 _TRUE = ("1", "true", "yes", "on")
-FRESH_ENV = "INCIDENT_ALERT_FRESH_HOURS"
-DEFAULT_FRESH_HOURS = 6.0
+FRESH_ENV = fr.ALERT_FRESH_ENV                  # one shared freshness definition (intelligence/freshness.py): tiers, dispatcher and brief agree
+DEFAULT_FRESH_HOURS = fr.ALERT_FRESH_HOURS
 # Statutory/regulator outage registers and similar retrospective listings are records of past outages, never live reports.
 _REGISTER_SOURCE_RX = re.compile(r"\b(?:outage register|national outage register|register)\b|\bstatutory\b", re.IGNORECASE)
 DEFAULT_MAX_PER_WINDOW = 3
@@ -63,10 +64,7 @@ def real_send_allowed() -> bool:
 
 
 def fresh_window() -> timedelta:
-    try:
-        return timedelta(hours=float(os.getenv(FRESH_ENV, "") or DEFAULT_FRESH_HOURS))
-    except ValueError:
-        return timedelta(hours=DEFAULT_FRESH_HOURS)
+    return fr.alert_window()
 
 
 def is_register_source(source: str | None) -> bool:
@@ -79,7 +77,7 @@ def alertable_reports(inc: ic.Incident, now: datetime) -> list[ic.ClassifiedRepo
     back-filled or retrospective report (an ASIC release dated two weeks ago, an outage-register entry) can never be the reason to alert."""
     window = fresh_window()
     return [r for r in inc.reports if r.relation in (ic.NEW, ic.SUBSEQUENT) and r.candidate.time_verified and r.candidate.published
-            and timedelta(0) <= now - r.candidate.published <= window and not is_register_source(r.candidate.source)]
+            and fr.within(r.candidate.published, now, window) and not is_register_source(r.candidate.source)]
 
 
 @dataclass
