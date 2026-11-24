@@ -15,7 +15,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
-from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
+from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_FEED_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
@@ -71,7 +71,7 @@ class RSSAdapter(BaseSourceAdapter):
             raise RuntimeError(f"Feed parse error: {exc}")
 
         items = []
-        for entry in feed.entries[:MAX_ITEMS_PER_SOURCE]:
+        for entry in feed.entries[:MAX_FEED_ITEMS_PER_SOURCE]:
             title = entry.get("title", "").strip()
             if not title:
                 continue

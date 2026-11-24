@@ -297,6 +297,10 @@ def _start_scheduler() -> None:
         CronTrigger(hour=6, minute=0, timezone=tz),
         id="daily_source_collection",
         replace_existing=True,
+        # APScheduler's default grace is 1s: a restart (auto-deploy) or a busy executor at 06:00 silently
+        # dropped the whole day's sweep until the next 06:00. The job is idempotent (dedup), so run it late.
+        misfire_grace_time=_DAILY_COLLECTION_MISFIRE_GRACE_SECONDS,
+        coalesce=True,
     )
 
     # ── HEALTH_OSINT_IMPLEMENTATION.md Phase 4: weekly auto-fetch ───────────────
@@ -1038,6 +1042,25 @@ _FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
 })
 
 
+# Seconds a missed 06:00 sweep may still start late (restart/deploy at the fire time). 3h: a restart at the fire
+# time must be covered; after 09:00 the intraday sweeps have long covered the same feeds.
+_DAILY_COLLECTION_MISFIRE_GRACE_SECONDS = 3 * 3600
+
+# 2026-11-24: plain-RSS publishers outside category "media" that belong in the 90-minute media sweep. iTnews is
+# category "cybersecurity", so only the 06:00 sweep fetched it (24h gap, items up to 33h late, e.g. the Vocus
+# cable break). Zero cost: plain RSS, no Firecrawl. Matched by exact name (the registry row is not changed).
+_INTRADAY_MEDIA_EXTRA_SOURCE_NAMES = frozenset({"iTnews"})
+
+
+def _select_intraday_media_sources(sources: list) -> list:
+    """Sources for the 90-minute media sweep: category 'media' plus the named extra RSS publishers."""
+    return [
+        s for s in sources
+        if s.category == "media"
+        or (s.source_name in _INTRADAY_MEDIA_EXTRA_SOURCE_NAMES and s.source_type == "rss")
+    ]
+
+
 def _excluding_firecrawl_fetch_sources(sources: list) -> list:
     return [
         s for s in sources
@@ -1361,7 +1384,7 @@ def _intraday_media_collection_job() -> None:
         from intelligence.ranking.ranker import rank
 
         all_sources = store.load_source_registry()
-        sources = [s for s in all_sources if s.category == "media"]
+        sources = _select_intraday_media_sources(all_sources)
         if not sources:
             log.warning("Intraday media collection: no active sources in category 'media'")
             return
