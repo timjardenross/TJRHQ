@@ -21,6 +21,7 @@
 
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 import type { NeedsYouItem } from './captainsChairSynthesis';
+import { incidentHref } from './intelligenceLinks';
 
 // ── "What kind of day is this?" — command posture ───────────────────────────
 
@@ -259,7 +260,7 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
     items.push({
       id: `incident-${inc.incidentKey}`, kind: 'time_critical',
       title: inc.title, detail: inc.detail,
-      href: `/intelligence#${inc.incidentKey}`, actionLabel: 'Verify',
+      href: incidentHref(inc.incidentKey), actionLabel: 'Verify',
     });
   }
 

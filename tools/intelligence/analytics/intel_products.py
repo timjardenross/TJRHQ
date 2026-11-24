@@ -21,12 +21,14 @@ from datetime import timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 import forward_watch as fw
 import provider_disruption_report as pdr
 import register_records as rr
 import systemic_risk_view as srv
 from product_common import iso_week, short
+from intelligence.tiered_brief import PRODUCTS_TAB, intelligence_tab_link  # single Python-side link builder
 from provider_involvement import AFFECTED, SUPPLYING
 
 PRODUCT_KEYS = ("recurring_provider", "systemic_risk", "forward_watch")
@@ -291,5 +293,5 @@ def weekly_message(products, portal_base, as_of):
     lines.append(
         f"{n} item(s) flagged for attention." if n else "Nothing flagged for attention."
     )
-    lines.append(f"Open: {portal_base.rstrip('/')}/intelligence")
+    lines.append(f"Open: {intelligence_tab_link(PRODUCTS_TAB, base=portal_base)}")
     return "\n".join(lines)
