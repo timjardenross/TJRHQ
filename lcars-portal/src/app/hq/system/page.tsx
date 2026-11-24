@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useHq } from '@/lib/hq/HqProvider';
 import { getJson } from '@/lib/hq/data';
 import { useAsync } from '@/lib/hq/useAsync';
+import { LIVE_WORKBENCHES, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
 import { ErrorLine, Loading } from '../_components/ui';
 
 interface Overview {
@@ -66,6 +67,22 @@ export default function HqSystem() {
         </>
       )}
       {!o && !ov.loading && materialProblem && <div className="hq-notice" role="alert">A problem needs attention. <Link href="/agent-status-workbench">Open HQ Status</Link>.</div>}
+      <section className="hq-sec" aria-labelledby="s-ex">
+        <div className="hq-sech"><h2 id="s-ex">Existing workbenches</h2></div>
+        <div className="hq-quiet">Everything HQ does not rebuild stays available here, unchanged: Weekly Review, Timeline, Content, Advisory, Capture inbox, alert silences, knowledge memory and the rest.</div>
+        {(Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[]).map((g) => {
+          const items = LIVE_WORKBENCHES.filter((w) => w.group === g);
+          if (!items.length) return null;
+          return (
+            <div className="hq-plain" key={g}>
+              <strong>{WORKBENCH_GROUP_META[g].label}</strong>
+              <div className="hq-chips" style={{ marginTop: 6 }}>
+                {items.map((w) => <Link key={w.href} className="hq-chip" href={w.href}>{w.title}</Link>)}
+              </div>
+            </div>
+          );
+        })}
+      </section>
       <section className="hq-sec" aria-labelledby="s-set">
         <div className="hq-sech"><h2 id="s-set">Settings</h2></div>
         {SETTINGS.map(([label, href]) => <Link key={href} className="hq-row" href={href}><span className="t">{label}</span><span className="s">Opens the existing settings page.</span></Link>)}

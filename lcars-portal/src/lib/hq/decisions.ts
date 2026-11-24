@@ -4,14 +4,7 @@
 // function or route the existing workbench uses (decide.ts, the
 // approve-action route, ...), adding only an opt-in compare-and-set guard so
 // a decision already made in another interface cannot be applied twice.
-import {
-  approveDecideItem,
-  fetchDecideQueue,
-  holdDecideItem,
-  undoDecideItem,
-  type DecideItem,
-} from '@/lib/decide';
-import { setQueueItemStatus, type QueueItem } from '@/lib/engineering-queue';
+import { approveDecideItem, fetchDecideQueue, holdDecideItem, type DecideItem } from '@/lib/decide';
 import { actOnBrief, actOnDoc, actOnImprovement, loadBriefDecisions, loadDocDecisions, loadImprovementDecisions, type BriefRef, type DocRef, type ImprovementRef } from './decisionSources';
 import type { HqDecision, HqPackage } from './model';
 
@@ -144,21 +137,57 @@ async function once<T extends HqActionResult>(id: string, run: () => Promise<T>)
 
 const isEngineering = (d: HqDecision) => d.source === 'engineering' || d.source === 'ai-action';
 
+interface ServerReply { ok: boolean; status: number; error?: string }
+
+/** Plain build requests are decided by the server route, which applies the
+ *  change as one conditional UPDATE. A 409 means someone (HQ in another tab,
+ *  or an existing workbench that wrote first) already decided it. */
+async function decideBuildRequest(
+  item: DecideItem,
+  body: { action: 'approve' | 'decline' | 'undo'; expectedStatus?: string; restoreStatus?: string },
+): Promise<ServerReply> {
+  try {
+    const resp = await fetch(`/api/hq/decisions/build-request/${encodeURIComponent(item.rawId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, question: item.question }),
+    });
+    let json: { error?: string } = {};
+    try { json = await resp.json(); } catch { /* non-JSON */ }
+    return { ok: resp.ok, status: resp.status, error: json.error };
+  } catch (e) {
+    return { ok: false, status: 0, error: e instanceof Error ? e.message : 'Network error' };
+  }
+}
+
+const alreadyDecided = (r: ServerReply) => r.status === 409 && r.error === 'already_decided';
+const serverMessage = (r: ServerReply) =>
+  alreadyDecided(r) ? 'Already decided elsewhere. Nothing was changed.'
+  : r.status === 409 ? 'This item must be approved through its own action route.'
+  : r.error ?? 'That did not work. Nothing was changed.';
+
 export function approveHqDecision(d: HqDecision): Promise<HqActionResult> {
   return once(d.id, async () => {
-    if (isEngineering(d)) {
+    if (d.source === 'engineering') {
       const item = d.ref as DecideItem;
-      const res = await approveDecideItem(item, { guardStatus: true });
-      if (!res.ok) return { ok: false, error: res.error, alreadyDecided: res.alreadyDecided };
+      const r = await decideBuildRequest(item, { action: 'approve', expectedStatus: item.priorStatus });
+      if (!r.ok) return { ok: false, error: serverMessage(r), alreadyDecided: alreadyDecided(r) };
       return {
         ok: true,
         undo: d.undoable
           ? async () => {
-              const r = await undoDecideItem(item);
-              return { ok: r.ok, error: r.error };
+              const u = await decideBuildRequest(item, { action: 'undo', restoreStatus: item.priorStatus });
+              return { ok: u.ok, error: u.ok ? undefined : serverMessage(u) };
             }
           : undefined,
       };
+    }
+    if (d.source === 'ai-action') {
+      // Executed by the existing approve-action route, which refuses (409)
+      // anything no longer awaiting review.
+      const res = await approveDecideItem(d.ref as DecideItem, { guardStatus: true });
+      if (!res.ok) return { ok: false, error: res.error, alreadyDecided: res.alreadyDecided };
+      return { ok: true };
     }
     if (d.source === 'brief') return actOnBrief(d.ref as BriefRef);
     if (d.source === 'knowledge') return actOnDoc(d.ref as DocRef, 'approved_summary');
@@ -184,9 +213,8 @@ export function declineHqDecision(d: HqDecision): Promise<HqActionResult> {
   return once(d.id, async () => {
     if (isEngineering(d)) {
       const item = d.ref as DecideItem;
-      const fake = { id: item.rawId, source: 'build' } as QueueItem;
-      const res = await setQueueItemStatus(fake, 'rejected', item.priorStatus);
-      return { ok: res.ok, error: res.error, alreadyDecided: res.alreadyDecided };
+      const r = await decideBuildRequest(item, { action: 'decline', expectedStatus: item.priorStatus });
+      return { ok: r.ok, error: r.ok ? undefined : serverMessage(r), alreadyDecided: alreadyDecided(r) };
     }
     if (d.source === 'knowledge') return actOnDoc(d.ref as DocRef, 'rejected');
     if (d.source === 'improvement') return actOnImprovement(d.ref as ImprovementRef, 'reject');

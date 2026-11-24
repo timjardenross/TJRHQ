@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useHq } from '@/lib/hq/HqProvider';
 import { useHqNeedsYou } from '@/lib/hq/home';
 import { getJson, loadWork } from '@/lib/hq/data';
+import { loadResearchRequests } from '@/lib/hq/research';
 import { useAsync } from '@/lib/hq/useAsync';
 import { ErrorLine, Loading, RiskPill } from './_components/ui';
 import { normaliseRisk } from '@/lib/hq/vocab';
@@ -24,6 +25,7 @@ export default function HqHome() {
     return r.data.briefs[0] ?? null;
   });
   const work = useAsync(loadWork);
+  const research = useAsync(loadResearchRequests);
 
   const attentionCount = needsYou.length;
   const waiting = decisions.length;
@@ -99,7 +101,7 @@ export default function HqHome() {
         {work.loading && <Loading what="work" />}
         {work.data && (
           <div className="hq-plain">
-            {review} {review === 1 ? 'item is' : 'items are'} ready for you to review. {progress} {progress === 1 ? 'is' : 'are'} in progress.{blockedCount > 0 ? ` ${blockedCount} ${blockedCount === 1 ? 'is' : 'are'} blocked.` : ''}
+            {review} {review === 1 ? 'item is' : 'items are'} ready for you to review. {progress} {progress === 1 ? 'is' : 'are'} in progress.{blockedCount > 0 ? ` ${blockedCount} ${blockedCount === 1 ? 'is' : 'are'} blocked.` : ''}{(research.data?.length ?? 0) > 0 ? ` ${research.data!.length} research ${research.data!.length === 1 ? 'request is' : 'requests are'} captured and not running.` : ''}
           </div>
         )}
         {work.error && <ErrorLine what="work" />}

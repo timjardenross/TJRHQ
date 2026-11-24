@@ -9,6 +9,7 @@ any existing workbench, route, API, table or approval mechanism. Default landing
   `1`, `true`, `yes`, `on`. Anything else, or unset, is off.
 - Off: every `/hq/*` route returns the standard 404. Nothing else reads the flag.
 - The `/hq` layout is `force-dynamic`: the flag is read per request, so changing it needs no rebuild.
+- The existing workbench header shows an `HQ` link only when the flag is on (it asks `GET /api/hq/status`; any failure means no link).
 - Authentication is inherited from `src/middleware.ts` (every non-public path needs a signed-in session).
 - Rollback is unsetting the variable.
 
@@ -28,34 +29,42 @@ HQ owns no table and stores no record. The code is in `src/app/hq/` and `src/lib
 
 ## One decision, one effect
 
-Where HQ and an existing workbench act on the same item, HQ re-checks the item's state first:
+Where HQ and an existing workbench act on the same item:
 
-- Build requests: `approveDecideItem(item, { guardStatus: true })` and `setQueueItemStatus(..., expectedStatus)` apply the
-  change only if the row is still in the status HQ loaded (compare-and-set). Both parameters are optional and
-  off by default, so every existing caller makes exactly the same call as before. AI-proposed actions are
-  already guarded server-side (409 unless `awaiting_review`).
-- Brief gate: HQ re-reads the brief and never publishes unless it is still `QA_PASSED` (a repeat publish upstream is a
-  silent no-op that would re-send the notification).
-- Knowledge review: the route returns 409 once decided. Improvements: HQ re-checks `proposed` immediately before deciding.
+- **Build requests (server-side).** `POST /api/hq/decisions/build-request/[id]` applies approve, decline or undo as ONE
+  conditional `UPDATE ... WHERE status = <status the caller saw>`, which the database applies atomically: of two
+  concurrent requests exactly one changes the row and the other gets 409. Approve is restricted to plain build requests
+  (`action_type IS NULL`); an AI-proposed action must go through `approve-action`, which executes it. The route is
+  flag-gated (404 off), requires a session, and writes the audit trail and the existing `decide_ledger`.
+- **AI proposals:** approved through the existing `approve-action` route (409 unless `awaiting_review`).
+- **Brief gate:** HQ re-reads the brief and never publishes unless it is still `QA_PASSED`.
+- **Knowledge review:** the route returns 409 once decided. **Improvements:** HQ re-checks `proposed` just before deciding.
 - A second click on the same item inside HQ is ignored while the first is in flight.
 
-Known gap, not changed here: the existing Decisions page and the Improvements route can still re-decide an
-item without a state check. HQ does not make them stricter.
+## Existing safety gaps that materially affect HQ (recorded, not changed here)
 
-## Not yet operational (shown as such in the UI)
+1. The existing `/decisions` page still updates `build_request_inbox` straight from the browser with no status check,
+   so it can overwrite a decision HQ just made. Closing this needs a database-level rule (a trigger or policy that
+   refuses a status change out of a decided state). That is a migration and needs approval.
+2. `approve-action` reads the row, executes, then marks it approved. Two simultaneous approvals could both execute
+   (two missions). Fix: claim the row atomically before executing.
+3. Publishing a brief that is already published is a silent no-op upstream that re-sends the publish notification.
+   Owned by the Intelligence workflow.
+4. The improvements `decide` route has no state guard: it re-decides freely.
+5. `promote-mission` has no guard against promoting the same capture twice. HQ promotes a capture it has just created,
+   once, and disables the control after the first click, but another caller could still duplicate.
 
-| Capability | State |
-|---|---|
-| Ask a question (New) | Not connected. No safe existing service. Control is shown disabled. |
-| Start research (New) | Filed as a research request in Capture for review. No automatic research runner exists. |
-| Incident clustering, provider disruption, systemic view, forward watch, source coverage | Depend on open PRs #711, #712, #713. Isolated in `src/lib/hq/intelDependencies.ts`; flip `connected` when merged. |
-| Intelligence to a new decision ("Ask me to decide") | Not built. No governed way to add an item to the decision inbox exists. |
-| Mission deliverables / outputs | Missions do not record outputs. Engineering hand-offs show PR and artifact links. |
-| Status changes on missions, repairs on sources | Stay in Missions / HQ Status so there is one place that records them. |
-| Optional entry in the existing workbench switcher | Not added. It would need the flag plumbed into the shared client list. |
-| Personal health, Pain Recovery Studio, personal tasks | Deliberately absent (TJR Life boundary). Home drops Number One's personal-task items. |
+## Research
+
+HQ can only **capture a research request** (an item in Capture marked "Research request:"). Nothing executes it: no
+research runner exists. HQ lists captured requests in Work under "not running" and never shows a running state.
+
+## Capability status
+
+See `docs/HQ-CAPABILITY-CHECKLIST.md`, the single record of what is Operational, Partial or Outstanding.
 
 ## Tests
 
-`npx vitest run src/lib/hq src/app/hq src/lib/__tests__/decide.test.ts` covers the flag, vocabulary, adapters, the
-double-approval guards, the contextual actions and the dialog focus trap. The full suite also passes.
+`npx vitest run src/lib/hq src/app/hq src/app/api/hq src/components src/lib/__tests__/decide.test.ts` covers the flag, vocabulary,
+adapters, the server decision route, the double-approval guards, the contextual actions, research labelling, the switcher
+entry and the dialog focus trap. The full suite also passes.

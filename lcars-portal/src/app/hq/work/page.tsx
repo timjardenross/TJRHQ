@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { loadWork } from '@/lib/hq/data';
 import { useAsync } from '@/lib/hq/useAsync';
+import { RESEARCH_NOT_RUNNING, loadResearchRequests } from '@/lib/hq/research';
 import type { HqWorkItem, HqWorkState } from '@/lib/hq/model';
 import { ErrorLine, Loading } from '../_components/ui';
 
@@ -15,6 +16,7 @@ const GROUPS: { state: HqWorkState; label: string }[] = [
 
 export default function HqWork() {
   const work = useAsync(loadWork);
+  const research = useAsync(loadResearchRequests);
   const items = work.data?.items ?? [];
   const row = (w: HqWorkItem) => (
     <Link key={w.id} href={`/hq/work/${encodeURIComponent(w.id)}`} className="hq-row">
@@ -46,6 +48,19 @@ export default function HqWork() {
           </section>
         );
       })}
+      {research.data && research.data.length > 0 && (
+        <section className="hq-sec" aria-labelledby="w-research">
+          <div className="hq-sech"><h2 id="w-research">Research requests, not running ({research.data.length})</h2></div>
+          <div className="hq-notice" role="note">{RESEARCH_NOT_RUNNING}</div>
+          {research.data.map((r) => (
+            <Link key={r.id} href={r.legacyHref} className="hq-row">
+              <span className="t">{r.title}</span>
+              <span className="s">Captured {new Date(r.requestedAt).toLocaleDateString()}. Waiting for review in Capture.</span>
+              <span className="r"><span className="hq-pill info">Requested, not running</span></span>
+            </Link>
+          ))}
+        </section>
+      )}
       <div className="hq-quiet">Individual agent steps and build notifications are not listed here. Status changes are made in Missions for now.</div>
     </>
   );

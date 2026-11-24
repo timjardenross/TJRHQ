@@ -67,7 +67,7 @@ function Inner() {
       )}
       {res.data && items.length === 0 && (
         <div className="hq-quiet">Nothing matches. Try fewer words, or{' '}
-          <button type="button" className="hq-link inline" onClick={() => openNew({ type: 'research', text: q, context: null })}>file a research request</button>.
+          <button type="button" className="hq-link inline" onClick={() => openNew({ type: 'research', text: q, context: null })}>capture a research request</button> (it is not run automatically).
         </div>
       )}
       {items.map(row)}

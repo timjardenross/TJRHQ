@@ -3,14 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const approveDecideItem = vi.fn();
 const holdDecideItem = vi.fn();
 const undoDecideItem = vi.fn();
-const setQueueItemStatus = vi.fn();
 vi.mock('@/lib/decide', () => ({
   approveDecideItem: (...a: unknown[]) => approveDecideItem(...a),
   holdDecideItem: (...a: unknown[]) => holdDecideItem(...a),
   undoDecideItem: (...a: unknown[]) => undoDecideItem(...a),
   fetchDecideQueue: vi.fn(),
 }));
-vi.mock('@/lib/engineering-queue', () => ({ setQueueItemStatus: (...a: unknown[]) => setQueueItemStatus(...a) }));
 
 import { approveHqDecision, buildPackage, declineHqDecision, deferHqDecision, mapDecideItem } from '../decisions';
 import { actOnBrief, actOnDoc, actOnImprovement, briefDecision } from '../decisionSources';
@@ -58,38 +56,68 @@ describe('routine package', () => {
 });
 
 describe('approvals cannot run twice', () => {
-  it('HQ always opts into the status guard', async () => {
-    approveDecideItem.mockResolvedValue({ ok: true });
-    await approveHqDecision(mapDecideItem(eng()));
-    expect(approveDecideItem).toHaveBeenCalledWith(expect.objectContaining({ rawId: '1' }), { guardStatus: true });
+  const reply = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+  const lastCall = (fetchMock: ReturnType<typeof vi.fn>) => {
+    const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    return { url: url as string, body: JSON.parse((init as RequestInit).body as string) };
+  };
+
+  it('a build request is approved by the SERVER route with the status it was loaded with', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply(200, { ok: true }));
+    vi.stubGlobal('fetch', fetchMock);
+    const r = await approveHqDecision(mapDecideItem(eng()));
+    expect(r.ok).toBe(true);
+    const c = lastCall(fetchMock);
+    expect(c.url).toBe('/api/hq/decisions/build-request/1');
+    expect(c.body).toMatchObject({ action: 'approve', expectedStatus: 'awaiting_review' });
+    expect(approveDecideItem).not.toHaveBeenCalled(); // no client-side write path
   });
   it('a decision already made elsewhere is reported, not repeated', async () => {
-    approveDecideItem.mockResolvedValue({ ok: false, alreadyDecided: true, error: 'Already decided elsewhere' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(409, { error: 'already_decided', currentStatus: 'approved' })));
     const r = await approveHqDecision(mapDecideItem(eng()));
+    expect(r).toMatchObject({ ok: false, alreadyDecided: true });
+    expect(r.error).toMatch(/already decided/i);
+  });
+  it('undo goes through the server route and restores the loaded status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply(200, { ok: true }));
+    vi.stubGlobal('fetch', fetchMock);
+    const r = await approveHqDecision(mapDecideItem(eng()));
+    expect(r.undo).toBeTypeOf('function');
+    await r.undo!();
+    expect(lastCall(fetchMock).body).toMatchObject({ action: 'undo', restoreStatus: 'awaiting_review' });
+  });
+  it('an AI-proposed action is executed by the existing approve-action route, with the guard', async () => {
+    approveDecideItem.mockResolvedValue({ ok: false, alreadyDecided: true, error: 'Not eligible' });
+    const r = await approveHqDecision(mapDecideItem(eng({ actionType: 'create_mission', undoAvailable: false })));
+    expect(approveDecideItem).toHaveBeenCalledWith(expect.objectContaining({ rawId: '1' }), { guardStatus: true });
     expect(r).toMatchObject({ ok: false, alreadyDecided: true });
   });
   it('a double click while the first is in flight is ignored', async () => {
     let release: (v: unknown) => void = () => {};
-    approveDecideItem.mockReturnValue(new Promise((res) => { release = res; }));
+    const fetchMock = vi.fn().mockReturnValue(new Promise((res) => { release = res; }));
+    vi.stubGlobal('fetch', fetchMock);
     const d = mapDecideItem(eng());
     const first = approveHqDecision(d);
     const second = await approveHqDecision(d);
     expect(second).toMatchObject({ ok: false, error: 'Already in progress.' });
-    release({ ok: true });
+    release(reply(200, { ok: true }));
     await first;
-    expect(approveDecideItem).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
-  it('decline is guarded by the status the item was loaded with', async () => {
-    setQueueItemStatus.mockResolvedValue({ ok: false, alreadyDecided: true, error: 'x' });
+  it('decline is applied by the server route against the loaded status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply(409, { error: 'already_decided' }));
+    vi.stubGlobal('fetch', fetchMock);
     const r = await declineHqDecision(mapDecideItem(eng()));
-    expect(setQueueItemStatus).toHaveBeenCalledWith(expect.objectContaining({ id: '1', source: 'build' }), 'rejected', 'awaiting_review');
+    expect(lastCall(fetchMock).body).toMatchObject({ action: 'decline', expectedStatus: 'awaiting_review' });
     expect(r.alreadyDecided).toBe(true);
   });
   it('defer writes nothing to a source system other than the existing ledger for build requests', async () => {
     holdDecideItem.mockResolvedValue({ ok: true });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
     await deferHqDecision(mapDecideItem(eng()));
     expect(holdDecideItem).toHaveBeenCalledTimes(1);
-    expect(setQueueItemStatus).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     const brief = briefDecision({ brief_id: 'B1', generated_at: new Date().toISOString(), approval_status: 'QA_PASSED', executive_snapshot: 's', overall_risk: 'AMBER' }) as HqDecision;
     holdDecideItem.mockClear();
     expect((await deferHqDecision(brief)).ok).toBe(true);

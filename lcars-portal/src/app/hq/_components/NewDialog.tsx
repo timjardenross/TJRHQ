@@ -11,7 +11,7 @@ type Kind = 'capture' | 'research' | 'ask' | 'mission';
 
 const COPY: Record<Kind, { choice: string; label: string; button: string; placeholder: string }> = {
   capture: { choice: 'Capture an idea', label: 'Idea or note', button: 'Capture', placeholder: 'e.g. Check whether other vendors use the same provider' },
-  research: { choice: 'Start research', label: 'What should HQ find out?', button: 'File research request', placeholder: 'e.g. Which of our vendors depend on this provider?' },
+  research: { choice: 'Request research', label: 'What should HQ find out?', button: 'Capture research request', placeholder: 'e.g. Which of our vendors depend on this provider?' },
   ask: { choice: 'Ask a question', label: 'Your question', button: 'Ask', placeholder: 'Ask about anything HQ knows' },
   mission: { choice: 'New mission', label: 'What needs to be done?', button: 'Create mission', placeholder: 'e.g. Review vendor contracts for settlement clauses' },
 };
@@ -72,7 +72,7 @@ export function NewDialog() {
       } else if (kind === 'research') {
         const r = await hqResearch(body, ctx);
         if (!r.ok) throw new Error(r.error ?? 'Could not file the request.');
-        toast(`Research request filed in Capture${RESEARCH_RUNNER_CONNECTED ? '' : '. It will not run automatically yet.'}`);
+        toast(`Research request captured. ${RESEARCH_RUNNER_CONNECTED ? 'It is queued to run.' : 'Nothing is running: it waits for review in Capture.'}`);
       } else if (kind === 'mission') {
         const r = await hqMission(body, ctx);
         if (!r.ok) {
@@ -108,9 +108,9 @@ export function NewDialog() {
             </span>
           </div>
         )}
-        {askBlocked && <div className="hq-notice" role="note">Ask is not connected yet. Use Capture or Start research for now.</div>}
+        {askBlocked && <div className="hq-notice" role="note">Ask is not connected yet. Use Capture or Request research for now.</div>}
         {kind === 'research' && !RESEARCH_RUNNER_CONNECTED && (
-          <div className="hq-notice" role="note">Research requests are filed in Capture for review. No automatic research runner is connected yet.</div>
+          <div className="hq-notice" role="note">This captures a request in Capture for review. It does not start any research: no research runner is connected yet.</div>
         )}
         <label htmlFor="hq-new-text" className="hq-muted" style={{ fontSize: '.84rem' }}>{c.label}</label>
         <textarea id="hq-new-text" ref={areaRef} className="hq-input" value={text} placeholder={c.placeholder} onChange={(e) => setText(e.target.value)} disabled={askBlocked} />
