@@ -16,12 +16,12 @@ import pytest
 
 pytest.importorskip("flask")
 
-from tests.si_dashboard_helpers import si_test_client  # noqa: E402
+from tests.si_dashboard_helpers import si_test_client
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "self_improvement"))
 
-from opportunity_store import OpportunityStore  # noqa: E402
+from opportunity_store import OpportunityStore
 
 
 class DecideGuardTests(unittest.TestCase):

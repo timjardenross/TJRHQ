@@ -46,16 +46,16 @@ def pg():
     subprocess.run(prefix + [os.path.join(b, "pg_ctl"), "-D", data, "-o", f"-p {port} -k {sock} -c listen_addresses=''", "-w", "-l", os.path.join(root, "log"), "start"], check=True, capture_output=True)
 
     def run(sql: str, check: bool = True):
-        r = subprocess.run([psql, "-h", sock, "-p", port, "-U", "owner_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-At", "-c", sql], capture_output=True, text=True)
+        r = subprocess.run([psql, "-h", sock, "-p", port, "-U", "owner_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-At", "-c", sql], capture_output=True, text=True, check=False)
         if check and r.returncode != 0:
             raise AssertionError(r.stderr)
         return r
 
     run("create table public.build_request_inbox (id uuid primary key default gen_random_uuid(), request_id text not null unique, title text not null, status text not null default 'pending_triage', action_type text, action_result jsonb, record_path text)")
-    r = subprocess.run([psql, "-h", sock, "-p", port, "-U", "owner_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-f", str(MIGRATION)], capture_output=True, text=True)
+    r = subprocess.run([psql, "-h", sock, "-p", port, "-U", "owner_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-f", str(MIGRATION)], capture_output=True, text=True, check=False)
     assert r.returncode == 0, r.stderr
     yield run
-    subprocess.run(prefix + [os.path.join(b, "pg_ctl"), "-D", data, "-m", "immediate", "stop"], capture_output=True)
+    subprocess.run(prefix + [os.path.join(b, "pg_ctl"), "-D", data, "-m", "immediate", "stop"], capture_output=True, check=False)
     shutil.rmtree(root, ignore_errors=True)
 
 
