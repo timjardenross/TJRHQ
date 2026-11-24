@@ -1,0 +1,209 @@
+{
+ "schema_version": "1.0",
+ "name": "intelligence-reference-set-v3-coverage",
+ "queried_on": "2026-11-24",
+ "project": "cjvrpjwewsrumnbdydgg",
+ "access": "SELECT only",
+ "window": {
+  "start": "2026-07-28",
+  "end_exclusive": "2026-11-24"
+ },
+ "period_definition": "Observation period = 7 consecutive UTC days starting at the window start (Tue 28 Jul 2026): 17 periods P01..P17, the last ending 2026-11-23. An incident belongs to the period containing its first_public_report_time (UTC); a record whose first report precedes the window start is 'pre_window'. Equal length, fixed boundaries, never re-cut per metric.",
+ "weekly_collection": [
+  {
+   "period": "P01",
+   "start": "2026-07-28",
+   "reports_collected": 1263,
+   "active_sources": 32
+  },
+  {
+   "period": "P02",
+   "start": "2026-08-04",
+   "reports_collected": 1672,
+   "active_sources": 48
+  },
+  {
+   "period": "P03",
+   "start": "2026-08-11",
+   "reports_collected": 1488,
+   "active_sources": 46
+  },
+  {
+   "period": "P04",
+   "start": "2026-08-18",
+   "reports_collected": 1573,
+   "active_sources": 45
+  },
+  {
+   "period": "P05",
+   "start": "2026-08-25",
+   "reports_collected": 1795,
+   "active_sources": 53
+  },
+  {
+   "period": "P06",
+   "start": "2026-09-01",
+   "reports_collected": 1960,
+   "active_sources": 56
+  },
+  {
+   "period": "P07",
+   "start": "2026-09-08",
+   "reports_collected": 3262,
+   "active_sources": 56
+  },
+  {
+   "period": "P08",
+   "start": "2026-09-15",
+   "reports_collected": 3148,
+   "active_sources": 50
+  },
+  {
+   "period": "P09",
+   "start": "2026-09-22",
+   "reports_collected": 2890,
+   "active_sources": 52
+  },
+  {
+   "period": "P10",
+   "start": "2026-09-29",
+   "reports_collected": 1809,
+   "active_sources": 52
+  },
+  {
+   "period": "P11",
+   "start": "2026-10-06",
+   "reports_collected": 3044,
+   "active_sources": 60
+  },
+  {
+   "period": "P12",
+   "start": "2026-10-13",
+   "reports_collected": 3084,
+   "active_sources": 51
+  },
+  {
+   "period": "P13",
+   "start": "2026-10-20",
+   "reports_collected": 2810,
+   "active_sources": 55
+  },
+  {
+   "period": "P14",
+   "start": "2026-10-27",
+   "reports_collected": 3007,
+   "active_sources": 59
+  },
+  {
+   "period": "P15",
+   "start": "2026-11-03",
+   "reports_collected": 2882,
+   "active_sources": 51
+  },
+  {
+   "period": "P16",
+   "start": "2026-11-10",
+   "reports_collected": 3123,
+   "active_sources": 68
+  },
+  {
+   "period": "P17",
+   "start": "2026-11-17",
+   "reports_collected": 2939,
+   "active_sources": 58
+  }
+ ],
+ "weekly_collection_basis": "count of intelligence_events by collected_at (UTC date) and distinct source_id with >=1 report in the period; the 24 Nov partial day (751 reports) is outside the window.",
+ "zero_collection_days": [
+  {
+   "date": "2026-10-02",
+   "reports_collected": 0
+  },
+  {
+   "date": "2026-10-03",
+   "reports_collected": 0
+  },
+  {
+   "date": "2026-10-04",
+   "reports_collected": 0
+  }
+ ],
+ "zero_collection_days_basis": "days in the window with fewer than 60 reports collected across all sources (generate_series left join; every other day in the window had >=139).",
+ "coverage_changes_source": "intelligence/longitudinal_trends.py COVERAGE_CHANGES and KNOWN_BROKEN (imported by the baseline code; nothing duplicated here).",
+ "source_health_retention": {
+  "first_check_in_table": "2026-10-25",
+  "note": "intelligence_source_health holds no checks before 2026-10-25 (62 to 701 per source since), so per-source health cannot be reconstructed for earlier periods; earlier coverage is inferred from event first/last collection dates and registry created_at."
+ },
+ "regulator_and_operator_sources_collecting_only_from_2026-11-24": [
+  {
+   "source": "ASIC Enforcement Activity",
+   "registry_created": "2026-06-12",
+   "events_before_24nov": 0,
+   "events_on_24nov": 20,
+   "first_successful_health_check": "2026-11-24"
+  },
+  {
+   "source": "ASIC News Centre",
+   "registry_created": "2026-06-12",
+   "events_before_24nov": 4,
+   "last_event_before_24nov": "2026-09-07",
+   "events_on_24nov": 10,
+   "first_successful_health_check": "2026-11-24"
+  },
+  {
+   "source": "OAIC Breach Notifications",
+   "registry_created": "2026-06-12",
+   "events_before_24nov": 25,
+   "last_event_before_24nov": "2026-08-10",
+   "events_on_24nov": 3
+  },
+  {
+   "source": "OAIC Privacy Determinations & News",
+   "registry_created": "2026-06-28",
+   "events_before_24nov": 341,
+   "last_event_before_24nov": "2026-08-29",
+   "events_on_24nov": 7
+  },
+  {
+   "source": "ATO Online Services / Practitioner Lodgment Service (6 feeds)",
+   "registry_created": "2026-11-24",
+   "events_before_24nov": 0,
+   "events_on_24nov": 189
+  },
+  {
+   "source": "Optus National Outage Register",
+   "registry_created": "2026-11-24",
+   "events_before_24nov": 0,
+   "events_on_24nov": 5
+  },
+  {
+   "source": "RBA Media Releases",
+   "registry_created": "2026-11-24",
+   "events_before_24nov": 0,
+   "events_on_24nov": 1
+  }
+ ],
+ "regulator_source_gap_effect": "Across the whole window no collected report from ASIC, OAIC (after 10 Aug / 29 Aug), ATO, the Optus outage register or RBA exists; incident types whose first authoritative report comes from those sources were not observable by TJR in any period. This is a persistent source gap, NOT a per-week effect, so it cannot be removed by excluding weeks; it is listed per affected record (coverage_limits) and in the report.",
+ "other_source_start_dates": [
+  {
+   "source": "AEMO Market Notices",
+   "first_event": "2026-08-10",
+   "note": "repaired from 10 Aug (COVERAGE_CHANGES 2026-08-09)"
+  },
+  {
+   "source": "status-page sources (Twilio, OpenAI, Supabase, Vercel, ...)",
+   "first_event": "2026-08-09",
+   "note": "registered 9 Aug"
+  },
+  {
+   "source": "ARN - Australian IT Channel, iTnews, Google News x4",
+   "first_event": "2026-09-06",
+   "note": "added with the 6 Sep feed-ceiling step"
+  },
+  {
+   "source": "ACSC Alerts & Advisories",
+   "first_event": "2026-08-19",
+   "note": "no events before 19 Aug although registered 2026-06-12"
+  }
+ ]
+}

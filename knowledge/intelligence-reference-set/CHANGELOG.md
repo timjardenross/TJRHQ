@@ -57,3 +57,17 @@ scorecard outputs in `baseline_v1-2026-11-24.json`. Unverified: every incident f
 The events export is a **sample** (<=5 earliest + <=3 brief + <=3 restoration rows per incident, titles lightly normalised),
 so use `tjr_detection` counts, not `len(events)`. Brief *text* was not supplied to the scorecard, so brief surfacing
 there uses `brief_id` and disposition only (earlier v0 SQL showed Coles and Microsoft/OpenAI-Medicare also named in daily briefs).
+
+## v3 (2026-11-24) - `reference_set_v3.json` (owner-reviewed)
+
+Applies the owner's decisions Q1-Q9 to the review of the v2 candidates. v0, v1 and the candidates file are not modified.
+
+- Window extended to 2026-07-28. Observation periods are fixed 7-day UTC blocks; 8 of 17 are coverage-limited and reported separately.
+- 84 records (v1's 53 plus RS-054..RS-084). Every record has `intelligence_category`; `status` keeps the v1 vocabulary (mapping in the file header).
+- Origin Energy is one incident (RS-042) with dated lifecycle entries; C2-U03 is folded in. RS-005 is retrospective; its findings are RS-082.
+  RS-004 is non-material; its forward-looking signal is RS-083. Sydney Airport is one parent (RS-075) with the cause marked disputed.
+- Q4 thresholds (20,000 premises or 24 h with a critical service) are automatic inclusion, not exclusion; per-item outcomes are in `q4_assessment`.
+- Q9: the Fiji fuel contamination record (RS-077) resolved to confirmed_material (medium) after reading the ABC article and a specialist site.
+- Corrections CORR-01..12 (and SUPP-01/02) carry an audit trail in the data. `reviewed_by_human` is true for the 48 records the owner decided; the 36 other
+  carried v1 records stay false.
+- Counts: see `counts` in the file (34 confirmed material: 27 operational disruptions, 6 emerging risks or warnings, 1 retrospective finding).
