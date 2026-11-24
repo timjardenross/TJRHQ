@@ -162,6 +162,35 @@ def rest_get(table: str, query: str) -> list[dict]:
 
 
 # ── step 1: preflight ──────────────────────────────────────────────────────────────────────────────────────────
+SERVICE_UNIT = "intelligence-scheduler"
+# Only feature-flag style names are adopted from the unit; anything else (secrets, paths) is never copied.
+_ADOPTABLE_FLAG_PREFIXES = ("INTEL_", "INTELLIGENCE_", "DELIVERY_TIERS_", "AU_RELEVANCE_", "INCIDENT_", "BRIEF_", "DEPENDENCY_ACQUISITION_")
+
+
+def adopt_service_flags(show=None, environ=None) -> dict:
+    """Make a manual run behave like the service: copy the scheduler unit's feature flags into this process (only names not already set).
+
+    Found live 2026-11-24: a manual run through the Infisical wrapper does not see flags set in a systemd drop-in, so its rows were
+    collected with INTEL_PROVENANCE_COLUMNS unset (NULL provenance). Best effort; returns {name: value} adopted.
+    """
+    environ = os.environ if environ is None else environ
+    if show is None:
+        import subprocess  # nosec B404 - fixed argv, no shell
+        def show():
+            return subprocess.run(["systemctl", "show", SERVICE_UNIT, "-p", "Environment", "--value"], capture_output=True, text=True, timeout=10, check=False).stdout
+    try:
+        raw = show() or ""
+    except Exception:  # noqa: BLE001 - never block the run on this
+        return {}
+    adopted = {}
+    for tok in raw.split():
+        name, sep, value = tok.partition("=")
+        if sep and name.startswith(_ADOPTABLE_FLAG_PREFIXES) and name != FLAG_ALWAYS_OFF and name not in environ:
+            environ[name] = value
+            adopted[name] = value
+    return adopted
+
+
 def env_report() -> dict:
     return {"required_present": {k: bool(os.environ.get(k)) for k in REQUIRED_ENV},
             "optional": {k: ("set" if os.environ.get(k) else "unset") for k in OPTIONAL_ENV},
@@ -543,10 +572,13 @@ def main(argv: list[str] | None = None, *, getter=None) -> int:
         raise RunTimeout()
     signal.signal(signal.SIGALRM, _on_alarm)
     signal.alarm(args.max_runtime_seconds)
+    adopted_flags = adopt_service_flags()
+    report["adopted_service_flags"] = sorted(adopted_flags)
     guard = DeliveryGuard()
     try:
         with run_lock(), guard:
             print(f"LIVE CYCLE {report['mode']} started {started:%Y-%m-%d %H:%M:%SZ}; delivery guard on (removed env names: {guard.env_removed or 'none'})", flush=True)
+            print(f"service flags adopted from {SERVICE_UNIT}: {sorted(adopted_flags) or 'none'}", flush=True)
             if args.drill_missed_brief:
                 if args.drill_fixture_rows:
                     rows = json.loads(Path(args.drill_fixture_rows).read_text())

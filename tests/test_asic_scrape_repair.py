@@ -88,3 +88,30 @@ def test_optus_register_renders_via_firecrawl_when_plain_fetch_has_no_list(monke
     a = _adapter("Optus National Outage Register")
     a._fetch_html = lambda url: "<html><body><h1>Optus National Outage Register</h1></body></html>"
     assert len(a.collect()) == 5
+
+
+def test_render_source_falls_back_to_firecrawl_when_plain_fetch_fails(monkeypatch):
+    # live 2026-11-24: the Optus register's plain fetch timed out on the production host and the source failed without rendering
+    calls = []
+    monkeypatch.setattr(sa.firecrawl_client, "fetch_html", lambda url, timeout=None: calls.append(url) or _OPTUS)
+    a = _adapter("Optus National Outage Register")
+
+    def _boom(url):
+        raise RuntimeError("Scrape fetch failed after retry: The read operation timed out")
+
+    a._fetch_html = _boom
+    assert len(a.collect()) == 5
+    assert len(calls) == 1  # exactly one render credit, not two
+
+
+def test_other_sources_still_fail_when_plain_fetch_fails(monkeypatch):
+    monkeypatch.setattr(sa.firecrawl_client, "fetch_html", lambda *a, **k: (_ for _ in ()).throw(AssertionError("spent a credit")))
+    a = _adapter("Weatherzone Warnings")
+
+    def _boom(url):
+        raise RuntimeError("timeout")
+
+    a._fetch_html = _boom
+    import pytest
+    with pytest.raises(RuntimeError):
+        a.collect()

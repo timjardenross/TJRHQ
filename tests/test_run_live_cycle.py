@@ -343,3 +343,24 @@ def test_run_collection_calls_the_three_scheduler_jobs_once_each(monkeypatch):
     with rlc.DeliveryGuard() as g:
         s2 = rlc.run_collection(args, g, {"firecrawl": {"call_count": 1690, "ceiling": 1700, "headroom": 10}})
     assert seen[0] == ["iTnews", "AWS Status"] and s2[0].data["firecrawl_sources_skipped_for_budget"] == ["ASIC News Centre"]
+
+
+def test_adopt_service_flags_copies_only_flag_names_and_never_overrides():
+    from tools.ops import run_live_cycle as rlc
+
+    env = {"INTEL_PRODUCTS_ENABLED": "0"}
+    raw = "INTEL_PROVENANCE_COLUMNS=1 INTEL_PRODUCTS_ENABLED=1 DELIVERY_TIERS_V1=1 SUPABASE_SERVICE_ROLE_KEY=secret PATH=/bin INTEL_PRODUCTS_WEEKLY_TELEGRAM=1"
+    got = rlc.adopt_service_flags(show=lambda: raw, environ=env)
+    assert got == {"INTEL_PROVENANCE_COLUMNS": "1", "DELIVERY_TIERS_V1": "1"}
+    assert env["INTEL_PRODUCTS_ENABLED"] == "0"          # existing value is never overridden
+    assert "SUPABASE_SERVICE_ROLE_KEY" not in env and "PATH" not in env
+    assert "INTEL_PRODUCTS_WEEKLY_TELEGRAM" not in env   # the always-off flag is never adopted
+
+
+def test_adopt_service_flags_is_best_effort():
+    from tools.ops import run_live_cycle as rlc
+
+    def boom():
+        raise OSError("no systemctl")
+
+    assert rlc.adopt_service_flags(show=boom, environ={}) == {}
