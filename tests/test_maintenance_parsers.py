@@ -320,7 +320,10 @@ def test_registry_rows_inactive_unique_and_cost_listed():
             "DVS Status Scheduled Outages",
         )
     ]
-    assert len(rows) == 6 and not any(r["active"] for r in rows)
+    assert len(rows) == 6
+    # 2026-11-24 activation: the three plain-fetch ATO Statuspage feeds are active (0 Firecrawl credits); the three scrape pages stay off.
+    assert {r["source_name"] for r in rows if r["active"]} == {r["source_name"] for r in rows if r["source_type"] == "api"}
+    assert not any(r["active"] for r in rows if r["source_type"] != "api")
     for r in rows:
         if r["source_type"] == "api":
             assert r["api_endpoint"].endswith("/api/v2/scheduled-maintenances.json")
