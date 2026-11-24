@@ -109,17 +109,32 @@ def is_read_only(sql: str) -> bool:
     return True
 
 
+def _decision(kind: str, reason: str) -> str:
+    return json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": kind, "permissionDecisionReason": reason}})
+
+
 def main() -> int:
+    """allow  - provably read-only (no prompt).
+    ask    - anything else on execute_sql (a write, DDL, privilege change, transaction, unknown function, unparseable input). This is an
+             explicit "ask", not silence: with the connector set to Always Allow, silence would let the statement run unprompted, and
+             this hook is then the only control between a typed statement and a write as `postgres`. Whether a hook "ask" overrides an
+             Always Allow setting is verified after activation with a harmless probe (see docs/SUPABASE-READONLY-ACTIVATION.md)."""
     try:
         payload = json.load(sys.stdin)
-        query = (payload.get("tool_input") or {}).get("query")
-        if payload.get("tool_name") == "mcp__Supabase__execute_sql" and isinstance(query, str) and is_read_only(query):
-            print(json.dumps({"hookSpecificOutput": {
-                "hookEventName": "PreToolUse", "permissionDecision": "allow",
-                "permissionDecisionReason": "read-only SQL (auto-approved by .claude/hooks/supabase_readonly_sql.py)",
-            }}))
-    except Exception:  # noqa: BLE001 - any failure means "no decision": the normal permission prompt applies
+    except Exception:  # noqa: BLE001 - unreadable hook input: do not leave a standing approval in place
+        print(_decision("ask", "SQL could not be classified (unreadable hook input)"))
         return 0
+    try:
+        if payload.get("tool_name") != "mcp__Supabase__execute_sql":
+            return 0
+        query = (payload.get("tool_input") or {}).get("query")
+        if isinstance(query, str) and is_read_only(query):
+            print(_decision("allow", "read-only SQL (auto-approved by .claude/hooks/supabase_readonly_sql.py)"))
+        else:
+            print(_decision("ask", "SQL on the privileged connector (connects as postgres) is not provably read-only: explicit approval required. "
+                                   "Use mcp__supabase_ro__execute_sql for reads."))
+    except Exception:  # noqa: BLE001 - any failure means "ask"
+        print(_decision("ask", "SQL could not be classified"))
     return 0
 
 

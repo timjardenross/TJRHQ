@@ -70,21 +70,53 @@ def test_hook_prints_an_allow_decision_for_a_read():
 
 @pytest.mark.parametrize("payload", [
     {"tool_name": "mcp__Supabase__execute_sql", "tool_input": {"project_id": "p", "query": "update alerts set severity='x'"}},
-    {"tool_name": "mcp__Supabase__apply_migration", "tool_input": {"project_id": "p", "query": "select 1"}},  # other tools are never touched
+    {"tool_name": "mcp__Supabase__execute_sql", "tool_input": {"project_id": "p", "query": "delete from alerts"}},
+    {"tool_name": "mcp__Supabase__execute_sql", "tool_input": {"project_id": "p", "query": "begin; select 1; rollback;"}},
+    {"tool_name": "mcp__Supabase__execute_sql", "tool_input": {"project_id": "p", "query": "select prune_audit_events()"}},
+    {"tool_name": "mcp__Supabase__execute_sql", "tool_input": {"project_id": "p", "query": "with k(a) as (values (1)) select * from k"}},
     {"tool_name": "mcp__Supabase__execute_sql", "tool_input": {}},
     {"tool_name": "mcp__Supabase__execute_sql", "tool_input": {"query": 42}},
     "not json at all",
     "",
 ])
-def test_hook_says_nothing_otherwise(payload):
+def test_hook_asks_explicitly_for_anything_not_provably_read_only(payload):
+    """Silence would let these run when the connector is set to Always Allow, so the hook must say "ask" and must never say "allow"."""
     code, out = _run(payload)
+    assert code == 0 and json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "ask"
+
+
+def test_hook_stays_silent_for_tools_other_than_execute_sql():
+    code, out = _run({"tool_name": "mcp__Supabase__list_tables", "tool_input": {"project_id": "p"}})
     assert code == 0 and out == ""
+
+
+MUTATING = ["apply_migration", "create_branch", "create_edge_function_secret", "create_notebook", "create_project", "delete_branch", "delete_feedback",
+            "delete_notebook", "deploy_edge_function", "merge_branch", "pause_project", "rebase_branch", "reset_branch", "restore_project",
+            "run_notebook", "submit_feedback"]
+
+
+def test_privileged_guard_covers_every_mutating_tool_and_only_asks():
+    import re
+
+    settings = json.loads((HOOK.parent.parent / "settings.json").read_text(encoding="utf-8"))
+    entry = next(e for e in settings["hooks"]["PreToolUse"] if "supabase_privileged_guard.py" in e["hooks"][0]["command"])
+    for tool in MUTATING:
+        assert re.fullmatch(entry["matcher"], f"mcp__Supabase__{tool}"), tool
+    for tool in ("execute_sql", "list_tables", "list_extensions", "list_migrations", "search_docs", "get_project", "list_projects"):
+        assert not re.fullmatch(entry["matcher"], f"mcp__Supabase__{tool}"), tool
+    guard = HOOK.parent / "supabase_privileged_guard.py"
+    for tool in MUTATING:
+        out = subprocess.run([sys.executable, str(guard)], input=json.dumps({"tool_name": f"mcp__Supabase__{tool}", "tool_input": {}}), capture_output=True, text=True, check=True).stdout
+        assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "ask"
+    out = subprocess.run([sys.executable, str(guard)], input="garbage", capture_output=True, text=True, check=True).stdout
+    assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "ask"
 
 
 def test_settings_wire_the_hooks_and_allow_only_the_read_only_server():
     settings = json.loads((HOOK.parent.parent / "settings.json").read_text(encoding="utf-8"))
     entries = settings["hooks"]["PreToolUse"]
-    assert [e["matcher"] for e in entries] == ["mcp__Supabase__execute_sql", "mcp__supabase_ro__execute_sql"]
+    assert [e["matcher"] for e in entries][:2] == ["mcp__Supabase__execute_sql", "mcp__supabase_ro__execute_sql"]
+    assert len(entries) == 3
     assert "supabase_readonly_sql.py" in entries[0]["hooks"][0]["command"]
     assert "supabase_ro_scope.py" in entries[1]["hooks"][0]["command"]
     # No blanket Supabase allow rule. The ONLY standing allow is for the read-only server, whose database role cannot write

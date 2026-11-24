@@ -26,6 +26,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "mcp__Supabase__(apply_migration|create_branch|create_edge_function_secret|create_notebook|create_project|delete_branch|delete_feedback|delete_notebook|deploy_edge_function|merge_branch|pause_project|rebase_branch|reset_branch|restore_project|run_notebook|submit_feedback)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/supabase_privileged_guard.py\"",
+            "timeout": 10
+          }
+        ]
       }
     ]
   }

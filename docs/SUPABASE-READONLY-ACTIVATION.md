@@ -29,3 +29,15 @@ start a NEW session on this repository (settings and hooks come from the reposit
    (list columns); an INSERT or DELETE fails at the database.
 
 The privileged `mcp__Supabase__*` connector keeps its approval prompts and must not be used for reads.
+
+## If the privileged connector is set to "Always Allow"
+That setting approves every call to the tool by name, whatever the SQL says, and the connector connects as `postgres`. The repo hooks are the only
+remaining control: `supabase_readonly_sql.py` answers "allow" for provably read-only SQL and an explicit "ask" for everything else, and
+`supabase_privileged_guard.py` answers "ask" for every mutating tool (migrations, edge-function deploys and secrets, branches, project
+pause/restore/create, notebooks, feedback). Whether a hook "ask" overrides Always Allow depends on the client, so verify it once in a new session
+with this harmless probe on the privileged connector; it must prompt (decline it, or approve it: it writes nothing):
+
+    begin; select 1 as probe; rollback;
+
+If it does NOT prompt, set the connector's tools back to "Needs approval" (or block the mutating ones) in claude.ai connector settings and use
+`supabase_ro` for reads.
