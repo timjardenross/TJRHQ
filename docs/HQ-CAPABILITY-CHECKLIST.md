@@ -52,7 +52,7 @@ Last updated: 2026-11-24.
 | Summary of agent activity with routine steps hidden | Outstanding | Not built. |
 | **Library** | | |
 | One search across knowledge, memory, intelligence archive, briefs and content, showing where each item is stored | Partial | Verify with live data. |
-| Search Notion directly | Outstanding | The portal has no Notion connection. The portal deployment holds no Notion credential (checked the Vercel project's variable names), so this needs a Notion integration token, which only you can create. Items already in the knowledge library appear, labelled by source. |
+| Search Notion directly | Partial | Built and tested (read-only server route, personal-data filtered, shown in Library). Goes Operational once a read-only `NOTION_TOKEN` is set in the Vercel project and verified. Until then the Library says "Notion search is not connected yet." |
 | Health evidence, captures and missions in Library search | Outstanding | Not connected. |
 | **Ask and contextual actions** | | |
 | Ask (retrieval first, then the existing AI Console; Advice mode uses the existing Advisory service; proposed actions queue for approval) | Partial | The deployment has `OLLAMA_CLOUD_BASE_URL`/`OLLAMA_CLOUD_MODEL` but no `OLLAMA_CLOUD_ENABLED`, so `/api/ai/chat` answers "not enabled". Switching it on routes prompts to the cloud model, a privacy-boundary setting that is yours to approve. Verify live after. Without it HQ says Ask is unavailable. |

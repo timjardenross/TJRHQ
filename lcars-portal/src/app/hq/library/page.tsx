@@ -9,6 +9,27 @@ import { useAsync } from '@/lib/hq/useAsync';
 import type { HqLibraryItem } from '@/lib/hq/model';
 import { ErrorLine, Loading } from '../_components/ui';
 
+interface NotionHit { title: string; url: string; last_edited_time: string | null; object: string }
+type NotionState = { kind: 'off' } | { kind: 'not_connected' } | { kind: 'error' } | { kind: 'ok'; hits: NotionHit[] };
+
+// Direct Notion search (read-only, server-side). Shown only when the status route
+// says a token is set; otherwise one calm line.
+async function loadNotion(q: string): Promise<NotionState> {
+  try {
+    const st = await fetch('/api/hq/status', { headers: { Accept: 'application/json' } });
+    const sj = st.ok ? ((await st.json()) as { notionConfigured?: unknown }) : null;
+    if (sj?.notionConfigured !== true) return { kind: 'not_connected' };
+    if (!q) return { kind: 'off' };
+    const r = await fetch(`/api/hq/notion-search?q=${encodeURIComponent(q)}`, { headers: { Accept: 'application/json' } });
+    if (!r.ok) return { kind: 'error' };
+    const j = (await r.json()) as { configured?: boolean; results?: NotionHit[] };
+    if (j.configured === false) return { kind: 'not_connected' };
+    return { kind: 'ok', hits: j.results ?? [] };
+  } catch {
+    return { kind: 'error' };
+  }
+}
+
 const TYPES = ['All', 'Knowledge', 'Document', 'Intelligence', 'Brief', 'Content'] as const;
 
 function Inner() {
@@ -19,6 +40,7 @@ function Inner() {
   const [type, setType] = useState<(typeof TYPES)[number]>('All');
   const { openNew } = useHq();
   const res = useAsync(() => searchLibrary(q), [q]);
+  const notion = useAsync(() => loadNotion(q), [q]);
   useEffect(() => setText(q), [q]);
 
   const items = (res.data?.items ?? []).filter((i) => type === 'All' || i.type === type);
@@ -71,6 +93,21 @@ function Inner() {
         </div>
       )}
       {items.map(row)}
+      {notion.data?.kind === 'not_connected' && <div className="hq-quiet">Notion search is not connected yet.</div>}
+      {notion.data?.kind === 'error' && <ErrorLine what="Notion search" />}
+      {notion.data?.kind === 'ok' && (
+        <section aria-label="Notion">
+          <h2 className="hq-muted" style={{ fontSize: '.9rem' }}>Notion</h2>
+          {notion.data.hits.length === 0 && <div className="hq-quiet">Nothing in Notion matches.</div>}
+          {notion.data.hits.map((h) => (
+            <a key={h.url} className="hq-row" href={h.url} target="_blank" rel="noopener noreferrer">
+              <span className="t">{h.title}</span>
+              <span className="s">{h.last_edited_time ? `Edited ${new Date(h.last_edited_time).toLocaleDateString()}` : ''}</span>
+              <span className="r"><span className="hq-tag">{h.object}</span><span className="hq-pill info">Notion</span></span>
+            </a>
+          ))}
+        </section>
+      )}
       <div className="hq-quiet">HQ links to the original and keeps no second copy. Notion and other stores are not changed.</div>
     </>
   );
