@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__supabase_ro__execute_sql",
+      "mcp__supabase_ro__list_tables"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -7,6 +13,16 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/supabase_readonly_sql.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__supabase_ro__execute_sql",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/supabase_ro_scope.py\"",
             "timeout": 10
           }
         ]
