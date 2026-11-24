@@ -64,10 +64,11 @@ def ticket_path(kind: str) -> Path:
 
 def issue_ticket(deployments: list[dict], kind: str, *, emergency: bool = False, now_ms: int | None = None) -> tuple[bool, str]:
     ok, why = decide(deployments, kind, emergency=emergency, now_ms=now_ms)
+    path = ticket_path(kind)
     if not ok:
+        path.unlink(missing_ok=True)           # the latest budget decision wins: a denial revokes any ticket issued earlier
         return False, why
     now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
-    path = ticket_path(kind)
     tmp = path.with_name(f"{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
     tmp.write_text(json.dumps({"kind": kind, "issued_ms": now_ms, "emergency": emergency, "reason": why}), encoding="utf-8")
     os.replace(tmp, path)                      # atomic publish: a reader sees the whole ticket or none

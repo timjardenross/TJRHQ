@@ -106,3 +106,11 @@ def test_push_guard_requires_the_branch_guard_in_vercel_json(tmp_path):
     assert gate.push_guard_missing(str(tmp_path / "nowhere")) is None              # no portal config: nothing to protect
     assert gate._GIT_PUSH.search("git push -u origin HEAD") and gate._GIT_PUSH.search("cd x && git -C y push")
     assert not gate._GIT_PUSH.search("git log --oneline") and not gate._GIT_PUSH.search("echo pushing")
+
+
+def test_a_denied_check_revokes_an_earlier_ticket(tmp_path, monkeypatch):
+    monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
+    assert vb.issue_ticket([], "preview", now_ms=NOW)[0] is True
+    full = [_d(i * 0.1) for i in range(10)]
+    assert vb.issue_ticket(full, "preview", now_ms=NOW + 1000)[0] is False
+    assert vb.consume_ticket("preview", now_ms=NOW + 2000)[0] is False
