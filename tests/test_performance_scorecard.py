@@ -1,7 +1,6 @@
 """Performance scorecard: offline, fake data source, no network."""
 from __future__ import annotations
 
-import csv
 import json
 import socket
 import sys
@@ -13,7 +12,7 @@ _REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO))
 sys.path.insert(0, str(_REPO / "tools" / "intelligence"))
 
-import performance_scorecard as ps  # noqa: E402
+import performance_scorecard as ps
 
 REF_PATH = _REPO / "knowledge" / "intelligence-reference-set" / "reference_set.json"
 

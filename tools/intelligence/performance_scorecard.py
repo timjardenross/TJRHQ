@@ -53,11 +53,11 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from intelligence import weekly_evidence as we  # noqa: E402  (stdlib-only module)
+from intelligence import weekly_evidence as we
 
 MATERIAL_LEVELS = {"high", "med"}
-RESTORE_RE = re.compile(r"(restor|resolved|back online|back up|recovered|services? (return|resum)|fixed)", re.I)
-CHRONO_RE = re.compile(r"(what we know|what happened|explained|root cause|timeline|post-incident|findings|review|why )", re.I)
+RESTORE_RE = re.compile(r"(restor|resolved|back online|back up|recovered|services? (return|resum)|fixed)", re.IGNORECASE)
+CHRONO_RE = re.compile(r"(what we know|what happened|explained|root cause|timeline|post-incident|findings|review|why )", re.IGNORECASE)
 FALSE_RECOVERY_TOLERANCE = timedelta(hours=1)
 CONFIRMING_KINDS = {we.PRIMARY, we.MAINSTREAM, we.SPECIALIST}
 
@@ -121,7 +121,7 @@ def _day(v):
 
 def to_python_regex(pg: str) -> re.Pattern:
     """Reference regexes were run in Postgres (~*): \\m \\M are word boundaries."""
-    return re.compile(pg.replace(r"\m", r"\b").replace(r"\M", r"\b"), re.I | re.S)
+    return re.compile(pg.replace(r"\m", r"\b").replace(r"\M", r"\b"), re.IGNORECASE | re.DOTALL)
 
 
 def hours(a, b):
@@ -136,7 +136,7 @@ def _p90(xs):
     if not xs:
         return None
     s = sorted(xs)
-    return round(s[min(len(s) - 1, int(round(0.9 * (len(s) - 1))))], 2)
+    return round(s[min(len(s) - 1, round(0.9 * (len(s) - 1)))], 2)
 
 
 def is_material(inc):
@@ -251,7 +251,7 @@ def contributions(per_incident_events):
     """Roles per source. per_incident_events: {incident_id: [events sorted by collected]}."""
     roles = defaultdict(lambda: {"first_report": 0, "confirmation": 0, "restoration_evidence": 0, "chronology": 0,
                                  "events": 0, "sole_role_incidents": 0})
-    for iid, evs in per_incident_events.items():
+    for evs in per_incident_events.values():
         if not evs:
             continue
         first_family = family_of(evs[0])
@@ -276,7 +276,7 @@ def contributions(per_incident_events):
             if CHRONO_RE.search(e.get("raw_title") or ""):
                 r["chronology"] += 1
                 seen_role_sources["chronology"].add(src)
-        for role, srcs in seen_role_sources.items():
+        for srcs in seen_role_sources.values():
             if len(srcs) == 1:
                 roles[next(iter(srcs))]["sole_role_incidents"] += 1
     out = []
