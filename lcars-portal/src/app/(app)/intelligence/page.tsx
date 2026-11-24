@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import IntelligenceProducts from '@/components/IntelligenceProducts';
 
 // Retired 2026-09-19 (Mission 7 legacy-page sweep, §35). This was the
 // pre-"Three-Workbench Simplification" Intelligence Centre (MSN-0201
@@ -26,6 +27,9 @@ export default function IntelligencePage() {
       <h1 className="font-sans text-lg font-bold uppercase tracking-wider text-wb-ink">
         Intelligence
       </h1>
+      <div className="mt-6">
+        <IntelligenceProducts />
+      </div>
       <p className="mt-3 text-wb-body leading-relaxed text-wb-ink2">This page moved.</p>
       <ul className="mt-4 space-y-2 text-wb-body text-wb-ink2">
         <li>

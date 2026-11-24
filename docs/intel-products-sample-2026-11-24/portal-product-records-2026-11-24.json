@@ -1,0 +1,109 @@
+[
+ {
+  "product_key": "recurring_provider",
+  "title": "Recurring provider disruption",
+  "summary": "7 feeds meet the evidence thresholds, 11 listed as insufficient evidence; 0 with a higher trend.",
+  "sections": {
+   "confirmed_evidence": [
+    "Cloudflare Status: 276 unplanned reported incidents in 14 ISO weeks, median gap 0.2 days, bulk-row share 6%. Latest evidence: b45f22a3-d552-40b7-939b-18ce489093d8, e21cbafb-ec11-40ef-92e3-cec6e3528f94, 2ae320a7-4149-427a-837d-227fec0f62a1",
+    "OpenAI Status: 104 unplanned reported incidents in 14 ISO weeks, median gap 0.4 days, bulk-row share 0%. Latest evidence: abbc1c6f-0a69-4415-86a0-c1915da11f4a, 82b25cb8-df10-4137-b4ff-4e3fe76a487d, e2e00406-6c13-464d-82ca-5a051a27bb74",
+    "Zoom Status: 74 unplanned reported incidents in 14 ISO weeks, median gap 0.7 days, bulk-row share 0%. Latest evidence: d36cfc09-8377-47d8-99c3-a3e04276c9da, ea74f158-1068-44b4-b03c-094f499b2324, beaaf198-8681-4341-ab23-63af17b1ad8f",
+    "Salesforce Trust Status: 65 unplanned reported incidents in 13 ISO weeks, median gap 0.7 days, bulk-row share 0%. Latest evidence: 3e3f699f-fae1-44fe-bba2-347b60583f31, 72f97706-b9a1-496e-8b30-64587d7b4839, c9e44793-93c3-4172-b7e5-c6790e274bad",
+    "Anthropic (Claude) Status: 47 unplanned reported incidents in 13 ISO weeks, median gap 0.7 days, bulk-row share 0%. Latest evidence: 31d1d5c7-98da-448f-a331-9f29bd30d14a, f832f271-78b0-4bec-84bc-03b1d9e1ec2b, d4cf94c8-7a00-4f14-897f-b00ed081553c",
+    "Notion Status: 32 unplanned reported incidents in 11 ISO weeks, median gap 1.4 days, bulk-row share 0%. Latest evidence: 28df66fb-de67-44ca-9170-262bffdbb8af, 659003e1-94e1-46c6-b2ad-1e5536dc907b, b7f775c8-ac29-42cf-b144-8c8900554549",
+    "Akamai Status: 31 unplanned reported incidents in 11 ISO weeks, median gap 1.5 days, bulk-row share 0%. Latest evidence: 333c5a59-d321-47ed-8741-d2aa96bae681, 5bdcab6e-8318-4595-9124-68fc4389a1fe, 15c02bf2-e718-41c4-ae72-ad9142cb6b2d"
+   ],
+   "analytical_inference": [
+    "Cloudflare Status: trend not assessed (99 in last 30d vs 177 in prior 60d (88.5 per 30d); bulk-ingest batch inside the windows (collection artefact risk)).",
+    "OpenAI Status: trend lower (24 in last 30d vs 80 in prior 60d (40.0 per 30d); ratio 0.60 (higher/lower only at >= 1.5x / <= 0.67x)).",
+    "Zoom Status: trend about the same (22 in last 30d vs 52 in prior 60d (26.0 per 30d); ratio 0.85 (higher/lower only at >= 1.5x / <= 0.67x)).",
+    "Salesforce Trust Status: trend about the same (25 in last 30d vs 40 in prior 60d (20.0 per 30d); ratio 1.25 (higher/lower only at >= 1.5x / <= 0.67x)).",
+    "Anthropic (Claude) Status: trend about the same (20 in last 30d vs 27 in prior 60d (13.5 per 30d); ratio 1.48 (higher/lower only at >= 1.5x / <= 0.67x)).",
+    "Notion Status: trend not assessed (4 in last 30d vs 28 in prior 60d (14.0 per 30d); needs >= 5 incidents in each window).",
+    "Akamai Status: trend about the same (13 in last 30d vs 18 in prior 60d (9.0 per 30d); ratio 1.44 (higher/lower only at >= 1.5x / <= 0.67x)).",
+    "Recurrence is a property of reported entries; posting practice differs by provider, so feeds are not ranked."
+   ],
+   "potential_exposure": [
+    "Exposure for this organisation exists only where it uses a listed provider. No dependency map is attached to this product, so no exposure is asserted.",
+    "Providers meeting thresholds: Cloudflare, OpenAI, Zoom, Salesforce, Anthropic, Notion, Akamai."
+   ],
+   "unknowns": [
+    "AWS Service Health: insufficient evidence ((a) 1 unplanned incidents, needs >= 20; (b) unplanned incidents in 1 ISO weeks, needs >= 10).",
+    "Canva Status: insufficient evidence ((a) 2 unplanned incidents, needs >= 20; (b) unplanned incidents in 2 ISO weeks, needs >= 10).",
+    "DigitalOcean Status: insufficient evidence ((a) 9 unplanned incidents, needs >= 20; (b) unplanned incidents in 7 ISO weeks, needs >= 10).",
+    "DocuSign Status: insufficient evidence ((a) 4 unplanned incidents, needs >= 20; (b) unplanned incidents in 2 ISO weeks, needs >= 10).",
+    "GitHub Status: insufficient evidence ((b) unplanned incidents in 9 ISO weeks, needs >= 10; (c) bulk-ingest share 34% of rows, needs < 20%).",
+    "Google Cloud Status: insufficient evidence ((a) 3 unplanned incidents, needs >= 20; (b) unplanned incidents in 3 ISO weeks, needs >= 10).",
+    "Miro Status: insufficient evidence ((a) 2 unplanned incidents, needs >= 20; (b) unplanned incidents in 2 ISO weeks, needs >= 10).",
+    "Slack Status: insufficient evidence ((a) 7 unplanned incidents, needs >= 20; (b) unplanned incidents in 6 ISO weeks, needs >= 10).",
+    "Supabase Status: insufficient evidence ((c) bulk-ingest share 21% of rows, needs < 20%).",
+    "Twilio Status: insufficient evidence ((a) 6 unplanned incidents, needs >= 20; (b) unplanned incidents in 4 ISO weeks, needs >= 10).",
+    "Vercel Status: insufficient evidence ((a) 18 unplanned incidents, needs >= 20).",
+    "Collector silence cannot be told from 'no incidents' (no liveness signal)."
+   ]
+  },
+  "exceptions": []
+ },
+ {
+  "product_key": "systemic_risk",
+  "title": "Cross-sector and systemic provider view",
+  "summary": "3 sector-spanning provider links; concentration insufficient evidence, no score",
+  "sections": {
+   "confirmed_evidence": [
+    "openai: DIRECTLY_INVOLVED in 18 distinct reports 2026-09-22 to 2026-10-06 with sector labels cyber_security, financial_services, transport. Evidence: 1982d026-6eb8-4cf4-b09b-7d3a102794d5, 66d9673b-cb99-46d8-8753-12a331cdd4f6, 75d57e4b-dcce-4f98-8dd1-2c62e28fbdcb, 3de04cce-3565-4688-8d13-8aa795bd1fa6",
+    "openai: DIRECTLY_INVOLVED in 3 distinct reports 2026-11-02 to 2026-11-13 with sector labels financial_services, technology. Evidence: a8075703-ed7e-4a29-b844-9451491bc803, 35d41ea7-7b91-45fe-8c32-c2ee06af4a2d, 23d05bc4-70ac-404b-9430-a6d15f60df2b",
+    "telstra: DIRECTLY_INVOLVED in 10 distinct reports 2026-10-22 to 2026-11-13 with sector labels emergency_management, financial_services, technology. Evidence: 6c60727f-7f16-48be-9105-3f2e0c9621ba, d7cd797e-c12a-4fed-81d8-faeef8d6fa9f, 4df0bd3c-aa9a-4dac-952e-af4879395d1f, 09ac7ab3-5679-4a93-aa36-8bd95340801b",
+    "Tags in window: AFFECTED 0, SUPPLYING 0."
+   ],
+   "analytical_inference": [
+    "Sector labels are assigned by the platform classifier to each report; a span across labels shows where a provider is being reported, not that those sectors depend on it.",
+    "Telstra and Optus repetition is single-provider news repetition, not shared-provider concentration."
+   ],
+   "potential_exposure": [
+    "Shared-provider concentration cannot be assessed: no concentration score is produced."
+   ],
+   "unknowns": [
+    "AU critical-infrastructure items: 100; AFFECTED/SUPPLYING tags among them: 0.",
+    "Items with an organisation value: 0 of 524.",
+    "Recall of the tagger for AFFECTED/SUPPLYING is unmeasured at useful power (see docs)."
+   ]
+  },
+  "exceptions": []
+ },
+ {
+  "product_key": "forward_watch",
+  "title": "Forward watch",
+  "summary": "14 authoritative dated items in the next 42 days, 0 due within 7 days that need attention.",
+  "sections": {
+   "confirmed_evidence": [
+    "2026-11-25 09:00 PST Twilio Status: Malaysia SMS Carrier Partner Maintenance [SCHEDULED_BY_OWNER] (1614a430-a067-4ded-b1b0-9a6b33118ebb)",
+    "2026-11-25 11:00 PST Twilio Status: France SMS Carrier Partner Maintenance [SCHEDULED_BY_OWNER] (a398287f-e991-48e4-9ce7-24867d957202)",
+    "2026-11-25 18:45 PST Twilio Status: Puerto Rico SMS Carrier Maintenance - Liberty [SCHEDULED_BY_OWNER] (acb974ce-b218-47ee-af6f-1f0d421e0fae)",
+    "2026-11-30 13:00 GMT Supabase Status: Maintenance: Scheduled maintenance: Shared Pooler (Supavisor), eu-cen... [SCHEDULED_BY_OWNER] (a1d58dd0-56fe-4126-9011-d33356992233)",
+    "2026-11-30 15:00 PST Twilio Status: Slovenia SMS Carrier Partner Maintenance [SCHEDULED_BY_OWNER] (4b306149-3087-4e86-9b66-5d2f23e8ca54)",
+    "2026-11-30 09:00 PST Twilio Status: Singapore SMS Carrier Maintenance - SingTel [SCHEDULED_BY_OWNER] (8ef85ab7-6c59-4416-87a2-addaccb48b7f)",
+    "2026-11-30 15:00 PST Twilio Status: Multiple Destination SMS Carrier Partner Maintenance [SCHEDULED_BY_OWNER] (a8e19fcf-7a83-4845-a1a8-c511ae8feae9)",
+    "2026-11-30 15:00 PST Twilio Status: Ecuador SMS Carrier Maintenance - Conecel [SCHEDULED_BY_OWNER] (d40d4061-db63-476d-a90c-6b559336061d)",
+    "2026-12-01 09:00 PST Twilio Status: Malaysia SMS Carrier Maintenance - Celcom [SCHEDULED_BY_OWNER] (d8ac3462-705f-433a-bb04-cbd53df8d7aa)",
+    "2026-12-03 01:00 PST Twilio Status: United States MMS Carrier Partner Maintenance [SCHEDULED_BY_OWNER] (28a52baa-0113-4f93-b89d-a67647510a4b)",
+    "2026-12-06 Twilio Status: United Kingdom Account Security Carrier Partner Maintenance - Three [SCHEDULED_BY_OWNER] (37b0a217-2507-40f9-b455-a6bf0a36a36a)",
+    "2026-12-08 13:00 GMT Supabase Status: Maintenance: Scheduled maintenance: Shared Pooler (Supavisor), eu-nor... [SCHEDULED_BY_OWNER] (74d19ed5-645a-48e0-b311-4d8206cbb203)",
+    "2026-12-09 15:00 GMT Supabase Status: Maintenance: Scheduled maintenance: Shared Pooler (Supavisor), eu-wes... [SCHEDULED_BY_OWNER] (5083c408-3e0e-446e-ba28-5d49194f806f)",
+    "2026-12-09 13:00 GMT Supabase Status: Maintenance: Scheduled maintenance: Shared Pooler (Supavisor), eu-wes... [SCHEDULED_BY_OWNER] (8d72b62d-5766-4c07-8bb4-9fe4ffb32f83)"
+   ],
+   "analytical_inference": [
+    "Items are dates the sources state; nothing is predicted. Owner-published windows can move or be cancelled.",
+    "0 further items come from news relays and are not treated as confirmed."
+   ],
+   "potential_exposure": [
+    "A listed window can affect customers of: Supabase, Twilio. Impact on this organisation is not assessed."
+   ],
+   "unknowns": [
+    "1 official planned events have no stated date.",
+    "0 dated items fall beyond the 42-day horizon.",
+    "Only explicit dates with a year are read; regulator deadlines and vendor end-of-life dates appear only if a feed carries them. None were found in this export."
+   ]
+  },
+  "exceptions": []
+ }
+]

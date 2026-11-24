@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { collectExceptions, fetchLatestProducts } from '@/lib/intelligenceProducts';
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -56,12 +57,21 @@ export async function GET(req: NextRequest) {
       .limit(3);
     if (sourcesError) throw sourcesError;
 
+    // ── Intelligence-product exceptions (stable dedupe_key; empty until the products table exists) ──
+    let productExceptions: ReturnType<typeof collectExceptions> = [];
+    try {
+      productExceptions = collectExceptions((await fetchLatestProducts(sb)).products);
+    } catch {
+      productExceptions = []; // optional section: never break Home
+    }
+
     const items = {
       hotSignals: hotSignals ?? [],
       interrupts: interrupts ?? [],
       staleSources: staleSources ?? [],
+      productExceptions,
       hasAnything: (hotSignals?.length ?? 0) +
-                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) > 0,
+                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) + productExceptions.length > 0,
     };
 
     return NextResponse.json(items);
