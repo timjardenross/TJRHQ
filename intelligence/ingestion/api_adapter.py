@@ -103,6 +103,9 @@ class APIAdapter(BaseSourceAdapter):
             return self._parse_nvd(data)
         if "msrc" in name or "microsoft security response" in name:
             return self._parse_msrc(data)
+        if isinstance(endpoint, str) and endpoint.rstrip("/").endswith("/scheduled-maintenances.json"):
+            # Statuspage planned maintenance (ATO osfa/osb/pls): dated windows only, see maintenance_parsers.
+            return self._parse_statuspage_maintenances(data)
         if "miro" in name or (isinstance(endpoint, str) and endpoint.rstrip("/").endswith("/incidents.json")):
             # Matches by endpoint shape (any Statuspage.io `/api/v2/incidents.json`
             # source), not just Miro by name — so any source migrated from the
@@ -392,6 +395,14 @@ class APIAdapter(BaseSourceAdapter):
             )
             published = self._parse_iso(inc.get("created_at"))
             items.append(self._make_item(title, summary, url, published))
+        return items
+
+    def _parse_statuspage_maintenances(self, data) -> list[IntelligenceItem]:
+        """Statuspage `/api/v2/scheduled-maintenances.json`: one item per not-yet-completed window, with the window written into the summary."""
+        from intelligence.ingestion import maintenance_parsers
+        items = []
+        for r in maintenance_parsers.statuspage_maintenance_records(data, self.source.source_name, self.source.url)[:MAX_FEED_ITEMS_PER_SOURCE]:
+            items.append(self._make_item(f"{self.source.source_name}: {r['raw_title']}", r["raw_summary"], r["canonical_url"], self._parse_iso(r["published_at"])))
         return items
 
     def _parse_gcp_incidents(self, data) -> list[IntelligenceItem]:

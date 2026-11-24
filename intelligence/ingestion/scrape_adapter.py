@@ -27,7 +27,7 @@ from intelligence.config import (
     NO_INCIDENT_SENTINEL_PHRASES,
     STATUS_NARRATIVE_KEYWORDS,
 )
-from intelligence.ingestion import firecrawl_client
+from intelligence.ingestion import firecrawl_client, maintenance_parsers
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
@@ -49,6 +49,11 @@ _UA = "USS-TJR-Intelligence-Agent/1.0 (+https://github.com/usstjros)"
 _FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
     "AEMO Market Notices",
     "Fastly Status",
+    # 2026-11-24 (forward-sources-maint-2kq): planned-maintenance pages, inactive in the registry. ATO's page answers a plain
+    # fetch with an Akamai 403. Math: 1 credit per run, once a day (scheduler._FIRECRAWL_FETCH_SOURCE_NAMES) = ~30 credits/month each.
+    "ATO System Maintenance",
+    "ATO ABR Scheduled Site Maintenance",
+    "DVS Status Scheduled Outages",
 })
 
 # 2026-11-24: sources whose release list is rendered client-side. A plain fetch returns the page chrome without the list
@@ -94,6 +99,17 @@ _ARTICLE_SELECTORS = [
 ]
 
 
+def _parse_iso_utc(value) -> datetime | None:
+    """ISO date or datetime string (as emitted by maintenance_parsers) to an aware UTC datetime; date-only means 00:00 UTC."""
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+
+
 class ScrapeAdapter(BaseSourceAdapter):
 
     def __init__(self, source: SourceRecord):
@@ -118,6 +134,11 @@ class ScrapeAdapter(BaseSourceAdapter):
             log.info("[%s] plain fetch has no release list (client-rendered) — rendering via Firecrawl", self.source.source_name)
             html = firecrawl_client.fetch_html(self.source.url)
         soup = BeautifulSoup(html, "html.parser")
+
+        # Planned-maintenance tables: dated records only (explicit stated windows), parsed by maintenance_parsers.
+        if self.source.source_name in maintenance_parsers.PAGE_PARSERS:
+            recs = maintenance_parsers.PAGE_PARSERS[self.source.source_name](html, source_name=self.source.source_name, url=self.source.url)
+            return [self._make_item(r["raw_title"], r["raw_summary"], r["canonical_url"], _parse_iso_utc(r["published_at"])) for r in recs][:MAX_ITEMS_PER_SOURCE]
 
         if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES:
             return self._parse_outage_register(soup)[:MAX_ITEMS_PER_SOURCE]

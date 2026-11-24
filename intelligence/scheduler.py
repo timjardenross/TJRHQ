@@ -1104,6 +1104,10 @@ _FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
     "ASIC News Centre",
     "ASIC Enforcement Activity",
     "Optus National Outage Register",   # statutory register, client-rendered; 1 credit/day
+    # 2026-11-24 (forward-sources-maint-2kq): planned-maintenance pages (inactive rows); once a day = ~30 credits/month each
+    "ATO System Maintenance",
+    "ATO ABR Scheduled Site Maintenance",
+    "DVS Status Scheduled Outages",
 })
 
 
