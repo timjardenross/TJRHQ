@@ -638,6 +638,16 @@ def _start_scheduler() -> None:
     except Exception as exc:  # noqa: BLE001 - best-effort sub-registrar call, already logged as non-blocking
         log.warning("Proactive cadences failed to register (non-blocking): %s", exc)
 
+    # ── Intelligence products (recurring provider / systemic / forward watch): default OFF,
+    # registers only when INTEL_PRODUCTS_ENABLED=1. Reuses this scheduler; no new instance.
+    try:
+        from intelligence.intel_products_job import (
+            register_jobs as _register_intel_products,
+        )
+        _register_intel_products(scheduler, tz)
+    except Exception as exc:  # noqa: BLE001 - best-effort sub-registrar call, non-blocking
+        log.warning("Intel products job failed to register (non-blocking): %s", exc)
+
     log.info(
         "Scheduler started. ORI brief: event-driven, polls every 5min for collection-ready "
         "(target ~%s AEST, bounded cutoff — see morning_cycle.py) | GitHub sync: %s (%s) | "
@@ -1090,6 +1100,10 @@ _INTRADAY_STATUS_CATEGORIES = {"cloud_technology", "critical_infrastructure"}
 _FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
     "AEMO Market Notices",
     "Fastly Status",
+    # 2026-11-24: ASIC's list is client-rendered and is read through Firecrawl (scrape_adapter._FIRECRAWL_RENDER_SOURCE_NAMES)
+    "ASIC News Centre",
+    "ASIC Enforcement Activity",
+    "Optus National Outage Register",   # statutory register, client-rendered; 1 credit/day
 })
 
 
