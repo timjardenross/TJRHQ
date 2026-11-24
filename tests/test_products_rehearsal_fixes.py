@@ -31,10 +31,73 @@ class TestNullPublishedRows(unittest.TestCase):
             return [{"source_id": 1, "source_name": "x"}] if table == "intelligence_source_registry" else []
 
         job.fetch_rows(AS_OF - timedelta(days=90), getter)
-        q = urllib.parse.unquote(seen[-1][1])
-        self.assertIn("published_at.is.null", q)
-        self.assertIn("collected_at.gte.", q)
-        self.assertIn("event_id.asc", q)  # stable paging when many rows share a null published_at
+        qs = [urllib.parse.unquote(q) for t, q in seen if t == "intelligence_events"]
+        self.assertEqual(len(qs), 2)  # two simple filters, never one combined OR (live 2026-11-24: the OR timed out into a 500)
+        self.assertFalse(any("or=(" in q for q in qs))
+        self.assertTrue(any("published_at=gte." in q for q in qs))
+        self.assertTrue(any("published_at=is.null" in q and "collected_at=gte." in q for q in qs))
+        self.assertTrue(all("order=event_id.asc" in q and "offset" not in q for q in qs))  # keyset paging on the indexed primary key
+
+    def test_fetch_pages_by_keyset_and_keeps_the_old_order(self):
+        job_page = job.PAGE
+        job.PAGE = 2
+        try:
+            data = {
+                "published_at=gte": [
+                    {"event_id": "a", "source_id": 1, "published_at": "2026-11-02T00:00:00+00:00"},
+                    {"event_id": "b", "source_id": 1, "published_at": "2026-11-01T00:00:00+00:00"},
+                    {"event_id": "c", "source_id": 1, "published_at": "2026-11-03T00:00:00+00:00"},
+                ],
+                "published_at=is.null": [{"event_id": "u", "source_id": 1, "published_at": None}],
+            }
+
+            def getter(table, query):
+                q = urllib.parse.unquote(query)
+                if table == "intelligence_source_registry":
+                    return [{"source_id": 1, "source_name": "Feed"}]
+                rows = data["published_at=is.null" if "published_at=is.null" in q else "published_at=gte"]
+                after = q.split("event_id=gt.")[1].split("&")[0] if "event_id=gt." in q else None
+                rows = [r for r in rows if after is None or r["event_id"] > after]
+                return [dict(r) for r in rows[: job.PAGE]]
+
+            out = job.fetch_rows(AS_OF - timedelta(days=90), getter)
+        finally:
+            job.PAGE = job_page
+        self.assertEqual([r["event_id"] for r in out], ["u", "b", "a", "c"])  # undated first, then by publication time
+        self.assertEqual({r["source_name"] for r in out}, {"Feed"})
+
+    def test_transient_server_error_is_retried_but_a_client_error_is_not(self):
+        import io
+        import urllib.error
+
+        calls = []
+
+        class _Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def fake_urlopen(req, timeout=None):
+            calls.append(1)
+            if len(calls) < 3:
+                raise urllib.error.HTTPError(req.full_url, 500, "boom", {}, None)
+            return _Resp(b"[]")
+
+        with mock.patch.object(job, "_cfg", return_value=("https://x", {})), mock.patch("urllib.request.urlopen", fake_urlopen):
+            self.assertEqual(job._get("intelligence_events", "select=event_id", sleep=lambda s: None), [])
+        self.assertEqual(len(calls), 3)
+
+        def bad_request(req, timeout=None):
+            raise urllib.error.HTTPError(req.full_url, 400, "bad", {}, None)
+
+        with (
+            mock.patch.object(job, "_cfg", return_value=("https://x", {})),
+            mock.patch("urllib.request.urlopen", bad_request),
+            self.assertRaises(urllib.error.HTTPError),
+        ):
+            job._get("intelligence_events", "select=event_id", sleep=lambda s: None)
 
     def test_undated_completion_notice_retires_the_planned_item(self):
         planned = frow("p1", "AEMO Market Notices", "Initial - CHG1 - Planned maintenance affecting the AEMO Market Network.", "", day=2)
