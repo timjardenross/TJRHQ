@@ -18,23 +18,23 @@
 5. **Internal budget (not targets):** at most 10 previews and 10 routine production deployments per rolling 24 h, leaving capacity for emergency release and recovery. `tools/ops/vercel_deploy_budget.py <list-deployments.json> --target preview|production [--emergency]` returns exit 3 when the budget is reached; non-essential deployments stop at that point. Emergency releases may use the platform allowance until it is exhausted.
 6. **Rollback is unchanged:** Vercel instant rollback to a previous production deployment (a promotion, no new build) stays available.
 
-## Required project settings (needs authorisation; not applied)
-Native project settings, applied by `update_project` on `prj_4wr0sCWTYuPWbs4K0ijW49NBoMgi`:
-```json
-{
-  "deploymentPolicy": {
-    "deploymentSources": [
-      {"enabled": false, "environments": [{"type": "system", "target": "preview"}], "sources": ["git"]}
-    ]
-  },
-  "enableAffectedProjectsDeployments": true
-}
-```
-- The first entry turns off Git-triggered preview deployments for the whole project. Because it is a project setting, an old branch that lacks the repository `vercel.json` change cannot bypass it (a `vercel.json` setting is read per commit and can be). CLI, REST and deploy-hook previews remain enabled.
-- `enableAffectedProjectsDeployments` skips deployments when nothing under the project root or its dependencies changed. Caveat: `ignoreCommand` also watches `../config/osint_intelligence_missions.json`, which is outside the root and not a package dependency; a change only to that file would no longer trigger a portal deployment. Say if that file must keep triggering one.
-- Defence in depth in this change: `lcars-portal/vercel.json` now also disables Git deployments for `claude/**`, `worktree-*` and `archive/**`.
-- Rollback of the settings: set `deploymentSources[0].enabled` to `true` and `enableAffectedProjectsDeployments` to `false`.
+## Project settings: what was applied, and what the Hobby plan does not allow
+Authorised 2026-11-24 and applied with `update_project` on `prj_4wr0sCWTYuPWbs4K0ijW49NBoMgi` (no upgrade, no spend):
+1. `deploymentPolicy.deploymentSources` (disable Git-triggered previews at project level): **refused by Vercel: 403 `pro_plan_required` ("Deployment policies are not available for Hobby")**. Not applied; the plan is not upgraded. Substitute controls, all free: (a) `lcars-portal/vercel.json` `git.deploymentEnabled` disables Git deployments for `claude/**`, `worktree-*`, `archive/**`, `dependabot/**`, `self-improvement` (read from each pushed commit, so a branch is protected once it contains this file; merge `main` into an older branch and the push itself is already protected); (b) the agent deployment gate below; (c) explicit previews only.
+2. `enableAffectedProjectsDeployments: true`: the call returned success. Vercel's project read (`get_project`) does not expose this field and `updatedAt` did not advance, so the new value **could not be confirmed by reading it back**. Previous value: not exposed by the read API (the UI default is off). It is verified behaviourally: after capacity returns, a Python-only merge to `main` must create no deployment in the deployment list (not a canceled one).
+   Rollback: `update_project` with `{"enableAffectedProjectsDeployments": false}`.
+- **`config/osint_intelligence_missions.json`** is a portal build-time dependency: `lcars-portal/next.config.mjs` traces it into the bundle of `/api/settings/intelligence/taxonomy` and `/api/health-osint/intelligence-summary` (read with `fs.readFileSync`). It sits outside the portal root, so "skip unaffected" cannot see it. Trigger preserved: the `portal-trigger-guard` workflow requires any PR that changes that file to bump `lcars-portal/MISSIONS_CONFIG_VERSION` (inside the root), which triggers the one portal deployment that picks the file up.
+
+## Deployment gate (connects the budget check to the real paths)
+`.claude/hooks/vercel_deploy_gate.py` (PreToolUse, registered in `.claude/settings.json`) refuses the Vercel `create_deployment` tool and `vercel` CLI deploys run through Bash unless a fresh single-use ticket for the kind (preview or production) exists. A ticket is issued only by `python tools/ops/vercel_deploy_budget.py <deployments.json> --target preview|production --issue-ticket [--emergency]`, from a current deployment list, when the internal budget allows. The hook never auto-approves (the normal permission prompt still applies); rollbacks, promotions and all read tools are untouched. Issuance writes the ticket atomically (temp file + `os.replace`); consumption claims it with an atomic rename, so when several agents try at once exactly one succeeds (tested with 8 concurrent consumers x 20 rounds). Tickets live in the machine temp directory (`VERCEL_DEPLOY_TICKET_DIR` overrides) and expire after 30 minutes. Limit: it governs deployments created by agents in this repository; it cannot see deployments created in the Vercel dashboard or by the Git integration, which is why the Git-side controls above exist.
 
 ## Verification
 Done now (no deployments created): project settings and `vercel.json` inspected; deployment history analysed; budget tests (`tests/test_vercel_deploy_budget.py`) pass; CI and build validation are GitHub Actions and are unaffected.
 After the settings are applied and capacity returns (needs live capacity): (a) a commit on a `claude/*` branch and a draft PR create no deployment; (b) a Python-only merge to `main` creates none; (c) an explicitly requested preview deploys; (d) a portal release merge deploys to production once; (e) rollback to the previous production deployment works. Record each with the deployment list.
+
+## Remaining limitations (documented, accepted)
+- **Dashboard and Git-integration deployments are outside the ticket gate.** The gate and budget cover deployments created by agents in this repository (Vercel `create_deployment`, `vercel` CLI via Bash). A deployment created in the Vercel dashboard, by a branch the `vercel.json` guard does not name, or by the Git integration is not blocked by it; the guard names `claude/**`, `worktree-*`, `archive/**`, `dependabot/**` and `self-improvement`. Other branch names, and any branch that does not yet contain this `vercel.json`, can still trigger a preview on push.
+- **Tickets are shared per machine** (temp directory), so any agent on the same machine could consume a ticket issued for another; they are single-use, kind-specific and expire in 30 minutes. They are not shared across machines.
+- **Project-level controls the Hobby plan does not offer:** deployment policy (403 `pro_plan_required`). No upgrade is authorised.
+- **`enableAffectedProjectsDeployments` is UNVERIFIED** (the API call succeeded but the value cannot be read back). Do not rely on it for capacity protection until a Python-only merge to `main` is observed to create no deployment record at all (not a canceled one).
+- **Quota window:** whether it is rolling or fixed is unverified; the hourly read-only count records the observed behaviour.

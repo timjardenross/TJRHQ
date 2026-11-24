@@ -37,3 +37,80 @@ def test_emergency_release_is_possible_until_the_platform_allowance_is_gone():
 def test_canceled_deployments_count_like_any_other():
     deps = [dict(_d(i * 0.1), state="CANCELED") for i in range(10)]
     assert vb.decide(deps, "preview", now_ms=NOW)[0] is False
+
+
+def test_ticket_is_issued_only_within_budget_and_is_single_use(tmp_path, monkeypatch):
+    monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
+    ok, _ = vb.issue_ticket([_d(1)], "preview", now_ms=NOW)
+    assert ok and vb.consume_ticket("preview", now_ms=NOW + 1000)[0] is True
+    assert vb.consume_ticket("preview", now_ms=NOW + 2000)[0] is False          # single use
+    full = [_d(i * 0.1) for i in range(10)]
+    assert vb.issue_ticket(full, "preview", now_ms=NOW)[0] is False
+    assert vb.consume_ticket("preview", now_ms=NOW)[0] is False                  # nothing was issued
+
+
+def test_ticket_expires(tmp_path, monkeypatch):
+    monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
+    vb.issue_ticket([], "production", now_ms=NOW)
+    assert vb.consume_ticket("production", now_ms=NOW + 31 * 60 * 1000)[0] is False
+
+
+def test_gate_hook_classifies_deployment_paths_and_ignores_everything_else():
+    sys.path.insert(0, str(_REPO / ".claude" / "hooks"))
+    import vercel_deploy_gate as gate
+    assert gate.kind_of("mcp__Vercel__create_deployment", {"requestBody": {"target": "production"}}) == "production"
+    assert gate.kind_of("mcp__Vercel__create_deployment", {"requestBody": {"name": "x"}}) == "preview"
+    assert gate.kind_of("Bash", {"command": "vercel deploy --prod"}) == "production"
+    assert gate.kind_of("Bash", {"command": "cd lcars-portal && vercel deploy"}) == "preview"
+    assert gate.kind_of("Bash", {"command": "git push origin main"}) is None
+    assert gate.kind_of("Bash", {"command": "ls vercel.json"}) is None
+    assert gate.kind_of("mcp__Vercel__request_rollback", {}) is None              # rollbacks never need a ticket
+    assert gate.kind_of("mcp__Vercel__list_deployments", {}) is None
+
+
+def _consume_after(barrier, wins):
+    barrier.wait()
+    wins.append(vb.consume_ticket("preview", now_ms=NOW + 1000)[0])
+
+
+def test_concurrent_consumers_exactly_one_wins(tmp_path, monkeypatch):
+    import threading
+    monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
+    for _ in range(20):                                   # repeat: races are probabilistic
+        vb.issue_ticket([], "preview", now_ms=NOW)
+        wins, barrier = [], threading.Barrier(8)
+        threads = [threading.Thread(target=_consume_after, args=(barrier, wins)) for _ in range(8)]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        assert wins.count(True) == 1
+        assert not list(tmp_path.glob("*claimed*"))        # no leftover claimed files
+
+
+def test_reissue_overwrites_atomically_and_leaves_no_temp_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
+    vb.issue_ticket([], "preview", now_ms=NOW)
+    vb.issue_ticket([], "preview", now_ms=NOW + 5)
+    assert not list(tmp_path.glob("*.tmp"))
+    assert vb.consume_ticket("preview", now_ms=NOW + 6)[0] is True
+
+
+def test_push_guard_requires_the_branch_guard_in_vercel_json(tmp_path):
+    sys.path.insert(0, str(_REPO / ".claude" / "hooks"))
+    import vercel_deploy_gate as gate
+    (tmp_path / "lcars-portal").mkdir()
+    cfg = tmp_path / "lcars-portal" / "vercel.json"
+    cfg.write_text('{"git": {"deploymentEnabled": {"dependabot/**": false}}}', encoding="utf-8")
+    assert gate.push_guard_missing(str(tmp_path)) is not None                      # old branch: push would trigger a counted preview
+    cfg.write_text('{"git": {"deploymentEnabled": {"claude/**": false}}}', encoding="utf-8")
+    assert gate.push_guard_missing(str(tmp_path)) is None
+    assert gate.push_guard_missing(str(tmp_path / "nowhere")) is None              # no portal config: nothing to protect
+    assert gate._GIT_PUSH.search("git push -u origin HEAD") and gate._GIT_PUSH.search("cd x && git -C y push")
+    assert not gate._GIT_PUSH.search("git log --oneline") and not gate._GIT_PUSH.search("echo pushing")
+
+
+def test_a_denied_check_revokes_an_earlier_ticket(tmp_path, monkeypatch):
+    monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
+    assert vb.issue_ticket([], "preview", now_ms=NOW)[0] is True
+    full = [_d(i * 0.1) for i in range(10)]
+    assert vb.issue_ticket(full, "preview", now_ms=NOW + 1000)[0] is False
+    assert vb.consume_ticket("preview", now_ms=NOW + 2000)[0] is False
