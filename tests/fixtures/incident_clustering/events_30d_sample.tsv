@@ -1,0 +1,83 @@
+# Read-only SELECT on intelligence_events, 2026-11-24 (project cjvrpjwewsrumnbdydgg). Titles/dates/source only.
+# Prefilter (SQL): collected_at in last 30d AND title ~* (outage|down|offline|disrupt|restored|back online|resolved|ransomware|breach|cyber attack|hacked)
+#   AND title ~* (microsoft|365|outlook|teams|azure|aws|google|cloudflare|telstra|optus|vodafone|tpg|nbn|triple zero|australia|nsw|victoria|queensland|bank|nab|westpac|anz|commonwealth|qantas|coles|woolworths|medicare|centrelink|ausgrid|energex|power).
+# Provider status-page rows (Cloudflare/Atlassian/Canva/Google Cloud/Zoom Status) are excluded from this file; see docs findings.
+# columns: id8 | published_utc (2026-MM-DDTHH:MM) | collected_utc | in_brief(brief_id set) + suppressed | disposition(first 3) | source | title
+8ec31748|10-19T00:38|10-27T07:56|00|BRI|Google News - Telstra|Australian firms face growing outage losses their insurance may not cover - Insurance Business
+3194e4dc|10-20T16:24|10-27T07:56|00|BRI|Google News - Telstra|Power outage hits Google Cloud services disrupting UK banks - Yahoo Finance Australia
+b28ee180|10-22T07:00|11-04T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|ABC wipes staff devices exposed to new, sophisticated cyber attack - ABC News & Headlines – Australian Broadcasting Corporation
+a075c25f|10-27T01:51|10-27T07:56|00|REF|Google News - Telstra|Kingswood residents warned of Telstra mobile disruptions - New England Times
+950bdad0|10-27T04:13|10-27T19:00|00|REF|Google News - Critical Infrastructure/Energy Cyberattack AU|Australia Warns AI-Powered Cyberattacks Could Disrupt Essential Services - Crypto News Australia
+d5b229af|10-27T13:52|10-27T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Australia warns of ‘unprecedented’ AI-powered cyberattacks. Here’s what’s driving them - Yahoo News Singapore
+d7cd797e|10-31T14:28|11-01T05:24|00|BRI|Google News - Telstra|Telstra's problems in Australia continue with Amazon Web Services outage - Mashable
+3bc638ac|11-03T00:09|11-03T19:00|00|REF|Google News - Critical Infrastructure/Energy Cyberattack AU|UK warns of AI-powered cyberattack risk to critical infrastructure - Traders Union
+da7e46cb|11-03T11:51|11-06T19:00|00|REF|Google News - Critical Infrastructure/Energy Cyberattack AU|UK warns of AI-powered cyberattacks on critical infrastructure - NewsBytes
+4df0bd3c|11-04T03:02|11-04T03:22|00|BRI|Google News - Telstra|What Does Telstra Group Limited (ASX:TLS), an S&P/ASX 50 Member, Make of Its Further $1 Billion Share Repurchase After the July Outage? - Kalkine
+6f8cbc2a|11-04T09:51|11-04T12:07|00|BRI|Google News - Telstra|Has Telstra been hacked? Technical issue bombards customers with mystery calls - The West Australian
+3b0351af|11-04T13:44|11-10T19:07|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Cyberattack targets French blood banks - Gulf News
+e95aa255|11-04T22:41|11-04T23:59|00|WAT|ABC News|Cyber attack hits French blood banks but no blood products compromised
+9ae645d9|11-05T10:32|11-05T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|French bank cyberattack exposes growing supply chain risk in the financial sector - Gulf News
+7bace5d4|11-06T19:00|11-07T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Health intel-sharing group warns industry in wake of cyberattack on French blood bank - WQLN
+005e774d|11-07T08:00|11-10T12:18|00|BRI|Google News - Telstra|Telstra users face 60-hour outage during Yornup upgrade - Manjimup Bridgetown Times
+1b4b734a|11-07T08:24|11-12T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Malaysia bank disruptions coincide with surge in cyberattacks, says expert - NST Online
+38752805|11-07T12:37|11-07T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Cyberattack on French blood banks exposes insurance and healthcare refrigeration risks - Beinsure
+35988965|11-11T16:27|11-11T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Are Our Medical Supplies Safe From Cyberattacks? What France’s Blood Bank Hack Means For The U.S. - Yahoo
+130ca8a1|11-12T10:20|11-15T05:13|00|BRI|Google News - Telstra|Telstra links Stockton mobile outage to attempted copper cable theft - newy.com.au
+a6d72e00|11-12T10:28|11-13T19:00|00|WAT|iTnews|Microsoft users caught up in global M365 outage
+cd458e26|11-12T19:29|11-19T23:11|00|BRI|Google News - Telstra|Microsoft access being restored after global Outlook disruption - ABC News & Headlines – Australian Broadcasting Corporation
+1ac9ea52|11-12T19:29|11-12T20:16|00|WAT|ABC News|Breaking: Microsoft platforms suffering widespread outages, including Outlook
+fb013077|11-12T20:31|11-12T21:46|00|WAT|ABC News|Live: Microsoft 'aggressively pursuing' solution to major outage
+eb4b05dd|11-12T20:46|11-14T01:52|00|WAT|Google News - Telstra|Microsoft’s attempts to resolve major outage ‘not working as expected’ - SMH.com.au
+b66b1c0c|11-12T21:14|11-12T21:46|00|WAT|Guardian Australia|Global Microsoft outage affecting Outlook and Teams users, with company ‘restarting’ servers
+c0a32def|11-12T22:25|11-12T23:16|00|WAT|ABC News|Australia's cyber security chief looking into Microsoft outage
+af5e7c16|11-12T22:44|11-13T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Global Microsoft Outage Disrupts Outlook, Teams and Cloud Services as Company Works to Restore Servers - Australian Cyber Security Magazine
+5faa0a3f|11-12T23:13|11-18T13:59|00|BRI|Google News - Telstra|Microsoft restores services after global Outlook and Teams outage hits more than 130,000 users - Yahoo Finance Australia
+d6d555f3|11-13T02:05|11-20T19:00|10|REF|Google News - APRA/ASIC Operational Resilience|Warnings over hidden risk of Friday 13th Microsoft outage - Insurance Business
+f48aad89|11-13T04:00|11-19T23:11|00|BRI|Google News - Telstra|The Microsoft outage is part of a growing trend. This is how to prepare for further disruption - SBS
+a160eef1|11-13T03:33|11-13T19:00|00|WAT|iTnews|Microsoft 365 recovers with Outlook back online
+13ce937b|11-13T04:40|11-13T05:16|00|WAT|Guardian Australia|‘Looks like we’ll have to talk to people’: Australia sent back to time before email with major Microsoft outage
+7247f99a|11-13T04:46|11-13T05:16|00|WAT|Guardian Australia|A global Microsoft 365 outage has hit thousands – what happened and when will it be fixed?
+d05821f7|11-13T05:13|11-13T06:46|00|WAT|ABC News|Outlook outage expected to cost Australian businesses billions of dollars
+af2fdab8|11-13T06:03|11-13T06:46|00|WAT|Financial Times|Microsoft races to restore services after global outage
+69fa3d86|11-13T06:41|11-13T08:16|00|WAT|ABC News|How the Microsoft outage is affecting Australia
+19676760|11-13T07:18|11-13T11:16|01|SUP|BBC News|Watch: How Microsoft services went down around the world
+55d3fe5f|11-13T08:00|11-22T19:04|10|-|Google News - Critical Infrastructure/Energy Cyberattack AU|Microsoft's Friday 13th outage continues with fraud and employee risk warnings - Insurance Business
+5e5a75b9|11-13T08:00|11-24T05:16|00|BRI|Google News - Telstra|Microsoft outage recovery ‘not progressing as expected’ - New England Times
+b2498d2d|11-13T10:53|11-13T11:16|00|WAT|BBC News|What we know about the global Microsoft outage
+583fc2bf|11-13T10:59|11-13T12:46|00|ESC|Bloomberg|Microsoft Races to Fix Outage, Stocks Slip of Inflation Test
+81db0cb8|11-13T11:43|11-13T14:16|01|SUP|BBC News|Watch: How a server outage took down Microsoft Teams and Outlook
+6b882938|11-13T11:48|11-13T12:46|00|WAT|Bloomberg|Microsoft Outage Hits Businesses, Nvidia Scandal Deepens
+7c491338|11-13T13:19|11-13T14:16|00|WAT|Bloomberg|US Futures Gain With Microsoft Outage, Producer Prices in Focus
+39913d5a|11-13T13:43|11-13T14:16|00|WAT|Bloomberg|Stocks Rise Ahead of PPI; Microsoft Outage; Nvidia Fallout
+ecac4d41|11-13T16:20|11-13T19:01|00|WAT|Inc. Magazine — Leadership|Microsoft 365 Went Down for a Day. The Internet Gave It a Brutally Accurate New Name
+4bdac5e3|11-13T17:25|11-13T19:01|00|BRI|Inc. Magazine — Leadership|Microsoft Outage Exposes a Dangerous Flaw in Company Backup Plans. Next Time, Make These 3 Moves in the First Hour
+23d05bc4|11-13T17:56|11-13T19:01|00|BRI|Inc. Magazine — Leadership|The Microsoft Outage Also Hit ChatGPT and Claude. But There’s an Easy Workaround
+f8e25e2b|11-13T18:55|11-13T19:16|00|WAT|Financial Times|Microsoft outage exposes global reliance on core tech providers
+1beab7d3|11-13T18:56|11-16T04:53|00|BRI|Google News - Telstra|Telstra Outage -Barnaby Joyce Raises Question Of China Involvement - Sydney Times
+19c57c39|11-13T19:00|11-14T19:01|00|WAT|Fast Company — Work Life|Microsoft’s massive outage puts its AI-driven layoffs under scrutiny
+bbb1fb24|11-13T19:34|11-13T19:54|00|WAT|ABC News|Microsoft 'deeply sorry' for global outage, reports 'broad recovery' of services
+439b75ff|11-13T21:14|11-13T21:24|00|WAT|BBC News|Microsoft 'deeply sorry' for global outage after almost 24 hours of disruption
+f802acac|11-13T23:49|11-14T19:00|00|BRI|iTnews|Phishers quick to exploit extended M365 outage
+7cbdd5f4|11-14T00:05|11-14T19:01|00|BRI|Inc. Magazine — Leadership|The Microsoft Outage Celebrations Are the Most Honest Workplace Surveys You’ll Get This Year
+3baa0dc4|11-14T00:52|11-14T01:52|00|WAT|Guardian Australia|Microsoft ‘deeply sorry’ for global disruption that could have billion-dollar impact on Australia
+5a8d7dd3|11-14T01:54|11-14T02:12|00|REF|Guardian Australia|US-bound flights out of Australia grounded as telecommunications outage affects American travel
+36dbc980|11-14T12:00|11-14T19:01|00|BRI|Inc. Magazine — Leadership|Microsoft’s Outlook Outage Could Qualify Your Business for a 50 Percent Credit. It Won’t Arrive Automatically
+24efdb96|11-14T13:00|11-14T19:01|00|BRI|Inc. Magazine — Leadership|Laughing at Microsoft’s Outage? Your Business Might Want to Think Again
+38df3cde|11-14T15:29|11-14T19:01|00|WAT|Inc. Magazine — Leadership|Microsoft Upgraded Its Network. Then Came the Global Outage
+e692952a|11-15T23:02|11-16T00:23|00|BRI|ARN - Australian IT Channel|Microsoft to publish full review after global M365 outage linked to network upgrade issue
+d1f78bc2|11-16T02:00|11-16T19:00|00|WAT|iTnews|Microsoft says three-month-old bug behind global M365 outage
+249d258d|11-16T05:00|11-16T06:23|00|WAT|ABC News|Coles investigates cyber attack but provides little detail
+997b22a6|11-16T05:01|11-16T07:53|00|BRI|Google News - Origin Energy|Coles investigates cyber attack but provides little detail - ABC News & Headlines – Australian Broadcasting Corporation
+2e345266|11-16T07:36|11-16T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Coles Investigates Cyberattack as Australia’s Food Supply Security Comes Under Scrutiny - Hokanews
+5e73ee8a|11-16T08:00|11-17T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Cyberattack via Optimizely Web exposes banking, media and insurance websites to malware - Beinsure
+4e356803|11-16T15:00|11-16T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Coles supermarket cyber attack: Australia’s retailer investigates security breach - Beinsure
+4f7baec2|11-16T15:43|11-16T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Google says Russian speakers pulled off first-ever fully automated AI cyberattack - POLITICO.eu
+faf19f79|11-17T18:27|11-18T19:00|00|BRI|Google News - Critical Infrastructure/Energy Cyberattack AU|Can U.S. power grid be hacked? Could a cyber attack cause a blackout? - Delawareonline.com
+42e7c791|11-18T13:03|11-18T13:59|00|BRI|ABC News|Surge in complaints, compensation claims after Telstra outage
+457b3598|11-18T13:13|11-18T13:59|00|BRI|Google News - Telstra|Surge in complaints, compensation claims after Telstra outage - ABC News & Headlines – Australian Broadcasting Corporation
+9a704a54|11-18T14:11|11-18T16:09|00|BRI|Google News - Telstra|Australia telco complaints surge after Telstra outage - Traders Union
+4753e9e8|11-19T05:40|11-19T07:07|00|BRI|Google News - Telstra|Telstra outage drives mobile complaint spike - WhistleOut Australia
+1d9cd2a4|11-20T14:56|11-20T19:00|00|BRI|Google News - APRA/ASIC Operational Resilience|APRA calls Microsoft outage a "near miss" for financial system - Insurance Business
+a7f802cf|11-20T18:00|11-20T19:00|00|WAT|ABC News|Australians told to prepare for more disruption after spate of tech outages
+ef242803|11-21T03:39|11-21T05:02|00|WAT|ABC News|Authorities investigating four-minute Triple Zero outage in Canberra
+de762a8b|11-21T10:18|11-21T11:44|00|BRI|Google News - Telstra|Telstra Outage Drives 72% Jump In Complaints As 4G And 5G Problems Persist - Tech Business News
