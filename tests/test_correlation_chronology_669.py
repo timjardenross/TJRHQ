@@ -221,7 +221,8 @@ def test_load_events_carries_published_at():
     from intelligence import brief_evidence as be
     rows = [{"event_id": "x", "raw_title": "T", "raw_summary": "", "geography": "AU", "collected_at": "2026-11-22T06:10:00Z",
              "published_at": "2026-11-22T03:00:00Z", "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
-    out = be.load_events(lambda *a, **k: rows, hours=24)
+    # evaluated at the time of the data: the backlog guard (#710) keeps reports published inside the evidence window
+    out = be.load_events(lambda *a, **k: rows, hours=24, now=datetime(2026, 11, 22, 7, 0, tzinfo=timezone.utc))
     assert out[0]["published_at"] == "2026-11-22T03:00:00Z"
 
 
