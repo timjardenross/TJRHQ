@@ -24,7 +24,13 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
+from intelligence.config import (
+    HTTP_TIMEOUT_SECONDS,
+    MAX_FEED_ITEMS_PER_SOURCE,
+    NVD_MAX_ITEMS_PER_RUN,
+    NVD_MAX_PAGES,
+    NVD_WINDOW_HOURS,
+)
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem
 
@@ -44,13 +50,31 @@ class APIAdapter(BaseSourceAdapter):
         # Window the query to recent publications instead.
         if "nvd" in name or "nist cve" in name:
             end = datetime.now(timezone.utc).replace(microsecond=0)
-            start = end - timedelta(days=8)
+            start = end - timedelta(hours=NVD_WINDOW_HOURS)
             fmt = lambda dt: dt.strftime("%Y-%m-%dT%H:%M:%S.000")
             endpoint = f"{endpoint}?pubStartDate={fmt(start)}&pubEndDate={fmt(end)}"
 
         data = self._fetch_json(endpoint)
         if data is None:
             raise RuntimeError(f"No data returned from {endpoint}")
+
+        # NVD pages results (oldest first). Without following the pages, a window with more CVEs than one
+        # page silently drops the newest. Follow up to NVD_MAX_PAGES pages so a catch-up after an outage
+        # inside the window is complete.
+        if ("nvd" in name or "nist cve" in name) and isinstance(data, dict):
+            total = int(data.get("totalResults") or 0)
+            got = list(data.get("vulnerabilities") or [])
+            pages = 1
+            while len(got) < total and pages < NVD_MAX_PAGES:
+                page = self._fetch_json(f"{endpoint}&startIndex={len(got)}")
+                more = (page or {}).get("vulnerabilities") if isinstance(page, dict) else None
+                if not more:
+                    break
+                got.extend(more)
+                pages += 1
+            data["vulnerabilities"] = got
+            if len(got) < total:
+                log.warning("NVD: collected %d of %d CVEs in window (page cap %d)", len(got), total, NVD_MAX_PAGES)
 
         # RSS/Atom detected inline — already parsed, return directly
         if isinstance(data, dict) and "__feed_items__" in data:
@@ -131,7 +155,7 @@ class APIAdapter(BaseSourceAdapter):
             exc = feed.get("bozo_exception")
             raise RuntimeError(f"Feed parse error: {exc}")
 
-        from intelligence.config import MAX_ITEMS_PER_SOURCE as _MAX
+        from intelligence.config import MAX_FEED_ITEMS_PER_SOURCE as _MAX
         items = []
         for entry in feed.entries[:_MAX]:
             title = (entry.get("title") or "").strip()
@@ -180,7 +204,7 @@ class APIAdapter(BaseSourceAdapter):
     def _parse_salesforce(self, data) -> list[IntelligenceItem]:
         incidents = data if isinstance(data, list) else data.get("incidents", [])
         items = []
-        for inc in incidents[:MAX_ITEMS_PER_SOURCE]:
+        for inc in incidents[:MAX_FEED_ITEMS_PER_SOURCE]:
             # Stable incident ID used to build canonical URL and anchor the dedup hash date
             incident_id = (
                 inc.get("id") or inc.get("incident_id") or
@@ -235,7 +259,7 @@ class APIAdapter(BaseSourceAdapter):
         items = []
         # Create one item per degraded/partial/major component
         bad_statuses = {"degraded_performance", "partial_outage", "major_outage"}
-        for comp in components[:MAX_ITEMS_PER_SOURCE]:
+        for comp in components[:MAX_FEED_ITEMS_PER_SOURCE]:
             if comp.get("status", "operational") in bad_statuses:
                 title = f"ServiceNow {comp['name']}: {comp['status'].replace('_', ' ').title()}"
                 items.append(self._make_item(title, None, self.source.url, None))
@@ -247,7 +271,7 @@ class APIAdapter(BaseSourceAdapter):
         # AEMO API returns list of market notices
         notices = data if isinstance(data, list) else data.get("Notices", data.get("items", []))
         items = []
-        for notice in notices[:MAX_ITEMS_PER_SOURCE]:
+        for notice in notices[:MAX_FEED_ITEMS_PER_SOURCE]:
             title = notice.get("NOTICE_TYPE") or notice.get("title", "AEMO Market Notice")
             summary = notice.get("NOTICE_CONTENT") or notice.get("body") or notice.get("description")
             url = notice.get("EXTERNAL_REFERENCE") or self.source.url
@@ -258,7 +282,7 @@ class APIAdapter(BaseSourceAdapter):
     def _parse_geoscience(self, data) -> list[IntelligenceItem]:
         features = data.get("features", [])
         items = []
-        for feat in features[:MAX_ITEMS_PER_SOURCE]:
+        for feat in features[:MAX_FEED_ITEMS_PER_SOURCE]:
             props = feat.get("properties", {})
             mag = props.get("mag", "")
             place = props.get("place", "unknown location")
@@ -272,7 +296,7 @@ class APIAdapter(BaseSourceAdapter):
     def _parse_cisa_kev(self, data) -> list[IntelligenceItem]:
         vulns = data.get("vulnerabilities", [])
         items = []
-        for v in vulns[:MAX_ITEMS_PER_SOURCE]:
+        for v in vulns[:MAX_FEED_ITEMS_PER_SOURCE]:
             cve_id = v.get("cveID", "")
             title = f"{cve_id}: {v.get('vulnerabilityName', '')}".strip(": ")
             summary = v.get("shortDescription")
@@ -284,7 +308,9 @@ class APIAdapter(BaseSourceAdapter):
     def _parse_nvd(self, data) -> list[IntelligenceItem]:
         vulns = data.get("vulnerabilities", [])
         items = []
-        for v in vulns[:MAX_ITEMS_PER_SOURCE]:
+        # newest first: the API returns oldest-first, so slicing the head kept the same oldest rows every run
+        vulns = sorted(vulns, key=lambda v: (v.get("cve", {}).get("published") or ""), reverse=True)
+        for v in vulns[:NVD_MAX_ITEMS_PER_RUN]:
             cve = v.get("cve", {})
             cve_id = cve.get("id", "")
             desc = next(
@@ -302,7 +328,7 @@ class APIAdapter(BaseSourceAdapter):
         # by CurrentReleaseDate so MAX_ITEMS_PER_SOURCE keeps the most recently touched bulletins.
         updates = sorted(updates, key=lambda u: u.get("CurrentReleaseDate") or "", reverse=True)
         items = []
-        for u in updates[:MAX_ITEMS_PER_SOURCE]:
+        for u in updates[:MAX_FEED_ITEMS_PER_SOURCE]:
             title = u.get("DocumentTitle") or u.get("Alias") or "MSRC Security Update"
             url = u.get("CvrfUrl") or self.source.url
             published = self._parse_iso(u.get("CurrentReleaseDate") or u.get("InitialReleaseDate"))
@@ -334,7 +360,7 @@ class APIAdapter(BaseSourceAdapter):
         """
         incidents = data.get("incidents", [])
         items = []
-        for inc in incidents[:MAX_ITEMS_PER_SOURCE]:
+        for inc in incidents[:MAX_FEED_ITEMS_PER_SOURCE]:
             impact = (inc.get("impact") or "unknown").strip().lower()
             title = f"{self.source.source_name}: {inc.get('name', 'Incident')} ({inc.get('status', '')})"
             updates = inc.get("incident_updates") or []
@@ -401,7 +427,7 @@ class APIAdapter(BaseSourceAdapter):
         """
         incidents = data if isinstance(data, list) else data.get("incidents", [])
         items = []
-        for inc in incidents[:MAX_ITEMS_PER_SOURCE]:
+        for inc in incidents[:MAX_FEED_ITEMS_PER_SOURCE]:
             severity = (inc.get("severity") or "").strip().lower()
             status_impact = (inc.get("status_impact") or "").strip().upper()
 
@@ -452,7 +478,7 @@ class APIAdapter(BaseSourceAdapter):
         """
         results = data.get("results", []) if isinstance(data, dict) else []
         items = []
-        for inc in results[:MAX_ITEMS_PER_SOURCE]:
+        for inc in results[:MAX_FEED_ITEMS_PER_SOURCE]:
             incident_type = inc.get("incidentType") or "Incident"
             location = inc.get("incidentLocation") or inc.get("name") or "unknown location"
             title = f"{incident_type.title()} — {location}"
@@ -501,7 +527,7 @@ class APIAdapter(BaseSourceAdapter):
                     break
 
         items = []
-        for obj in candidates[:MAX_ITEMS_PER_SOURCE]:
+        for obj in candidates[:MAX_FEED_ITEMS_PER_SOURCE]:
             if not isinstance(obj, dict):
                 continue
             title = (obj.get("title") or obj.get("name") or
