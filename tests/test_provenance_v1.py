@@ -360,3 +360,31 @@ def test_event_date_row_still_surfaces_urgent_when_collected_recently():
 
 def test_legacy_rows_identical_without_provenance_for_day_rules():
     assert ed.report_freshness(_cand(pub=30), NOW) == "KNOWN STALE"          # no provenance: 24h rule exactly as before
+
+
+def test_kev_dateadded_is_a_catalogue_addition_never_labelled_publication():
+    kev = pv.api_provenance(published=NOW, endpoint="https://cisa.gov/kev.json", date_only=True, explicit_publication_date=True,
+                            label="catalogue_addition")
+    assert kev["published_at_label"] == "catalogue_addition" and kev["published_at_label"] != "publication"
+    assert (kev["published_at_confidence"], kev["published_at_precision"]) == ("verified", "day")
+
+
+def test_api_adapter_kev_parser_labels_dateadded_as_catalogue_addition():
+    from intelligence.ingestion.api_adapter import APIAdapter
+    from intelligence.models import SourceRecord
+    a = APIAdapter(SourceRecord(source_id="s1", source_name="CISA KEV", category="vulnerability", priority_rank=1,
+                                url="https://www.cisa.gov/kev.json", source_type="api", jurisdiction="GLOBAL", confidence_weight=0.9, active=True))
+    items = a._parse_cisa_kev({"vulnerabilities": [{"cveID": "CVE-2021-44228", "vulnerabilityName": "Log4j RCE", "dateAdded": "2026-11-20"}]})
+    assert items[0].provenance["published_at_label"] == "catalogue_addition"
+    assert items[0].provenance["published_at_label"] != "publication"
+
+
+def test_label_is_persisted_only_behind_the_flag_and_scrape_labels():
+    p = pv.build_provenance(basis="date_only", precision="day", confidence="verified", label="catalogue_addition")
+    assert pv.provenance_row_fields(p, columns_exist_override=False) == {}
+    assert pv.provenance_row_fields(p, columns_exist_override=True)["published_at_label"] == "catalogue_addition"
+    assert pv.build_provenance(label="nonsense")["published_at_label"] is None
+    ev_ = pv.scrape_provenance(published=NOW, page_url="https://x.test", date_only=True, title="Outage on 28 November 2026")
+    assert ev_["published_at_label"] == "event"
+    hdr = pv.scrape_provenance(published=NOW, page_url="https://x.test", date_only=True, explicit_header=True)
+    assert hdr["published_at_label"] == "publication"

@@ -8,14 +8,24 @@ Status: code merged-ready behind a default-OFF flag (`INTEL_PROVENANCE_COLUMNS`)
 - **Precision** (`published_at_precision`): how exact the time is: `second`, `minute`, `day`, `unknown`.
 - **Confidence** (`published_at_confidence`): how far the time can be trusted as the PUBLICATION time: `verified`, `claimed`, `feed`, `unknown`.
 
-An explicit, authoritative publication DATE from a primary source (AEMO notice header, CISA KEV `dateAdded`) is `verified` at `day` precision.
-Precision never upgrades confidence, and confidence never upgrades precision.
+An explicit, authoritative publication DATE from a primary source (AEMO notice header) is `verified` at `day` precision. CISA KEV `dateAdded`
+is `verified` at `day` precision as a CATALOGUE-ADDITION date (see the label below). Precision never upgrades confidence, and confidence never
+upgrades precision. In particular, a verified DATE (`verified` + `day`) is not a verified TIMESTAMP (`verified`/`feed` + `second`/`minute`): only
+the latter can count as hour-level freshness or live evidence.
+
+## Date label (`published_at_label`)
+
+What kind of date `published_at` holds: `publication`, `catalogue_addition` or `event`.
+CISA KEV `dateAdded` is `catalogue_addition`: it dates the KEV catalogue entry (which is what the report is), NOT the vulnerability's disclosure.
+The CVE was disclosed earlier; nothing here implies the disclosure date or the time since disclosure. `event` dates (a date named in a title)
+are never publication times.
 
 | Evidence | basis | precision | confidence |
 |---|---|---|---|
 | Source feed/API timestamp | feed | second | feed |
 | AEMO header with time (NEM time converted to UTC) | feed_corrected_utc | minute | feed |
-| AEMO header, date only; CISA KEV dateAdded | date_only | day | verified |
+| AEMO header, date only | date_only | day | verified (label publication) |
+| CISA KEV dateAdded | date_only | day | verified (label catalogue_addition) |
 | Google News pubDate | aggregator_claimed | second | claimed |
 | Other scraped date in element text | date_only / feed | day / minute | claimed |
 | Date in the TITLE of a non-primary item (may be an event date) | unknown | day | unknown (date kept as `event_window_start`) |
@@ -42,6 +52,7 @@ display only and is never proof of independence (independence stays family/aggre
 ## What is NOT claimed
 
 - Date-only evidence does not establish elapsed time at hour level or that an incident is ongoing.
+- KEV `dateAdded` is not the CVE disclosure date and says nothing about how long the vulnerability has been known.
 - Verified publication time does not mean the incident is current or resolved; restoration status has its own rule.
 - Google News publisher domain/name is informative only; it does not make aggregator copies independent.
 - Heuristics: "date-only" in scraped HTML is detected as the absence of an HH:MM in the element text; the title-date check recognises named-month, ISO and d/m/yyyy dates.

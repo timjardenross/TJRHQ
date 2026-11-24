@@ -323,7 +323,7 @@ def _time_trusted(event: dict) -> bool:
 
 def _event_provenance(event: dict) -> dict:
     return {k: event[k] for k in ("publisher_domain", "publisher_family", "published_at_basis", "published_at_precision",
-                                  "published_at_confidence", "event_window_start", "event_window_end") if event.get(k) is not None}
+                                  "published_at_confidence", "published_at_label", "event_window_start", "event_window_end") if event.get(k) is not None}
 
 
 # Four freshness states of a report / incident (Captain's rule). Unverified times never ESTABLISH currency, yet a potentially severe

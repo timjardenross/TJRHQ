@@ -312,7 +312,8 @@ class APIAdapter(BaseSourceAdapter):
             url = f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else self.source.url
             published = self._parse_iso(v.get("dateAdded"))
             items.append(self._make_item(title, summary, url, published, provenance=prov.api_provenance(
-                published=published, endpoint=self.source.api_endpoint or self.source.url, date_only=True, explicit_publication_date=True)))   # dateAdded is the explicit publication DATE (verified, day precision)
+                published=published, endpoint=self.source.api_endpoint or self.source.url, date_only=True, explicit_publication_date=True,
+                label="catalogue_addition")))   # dateAdded dates the KEV catalogue ENTRY (verified, day precision), not the CVE's disclosure
         return items
 
     def _parse_nvd(self, data) -> list[IntelligenceItem]:

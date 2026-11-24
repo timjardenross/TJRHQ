@@ -17,8 +17,11 @@ from urllib.parse import urlparse
 BASES = ("feed", "feed_corrected_utc", "aggregator_claimed", "date_only", "collected_fallback", "unknown")
 PRECISIONS = ("second", "minute", "day", "unknown")
 CONFIDENCES = ("verified", "claimed", "feed", "unknown")
+# What KIND of date published_at holds. 'catalogue_addition' (CISA KEV dateAdded) dates the catalogue ENTRY, not the vulnerability's
+# disclosure: it says nothing about how long ago the CVE was disclosed. 'event' is never a publication time.
+LABELS = ("publication", "catalogue_addition", "event")
 
-COLUMNS = ("publisher_domain", "publisher_family", "published_at_basis", "published_at_precision", "published_at_confidence",
+COLUMNS = ("publisher_domain", "publisher_family", "published_at_basis", "published_at_precision", "published_at_confidence", "published_at_label",
            "event_window_start", "event_window_end")
 
 # Default OFF: nothing is written to (or read from) the new columns until the migration has been applied and this is switched on.
@@ -39,7 +42,8 @@ def _iso(v) -> str | None:
 
 
 def build_provenance(*, basis: str = "unknown", precision: str = "unknown", confidence: str = "unknown", publisher_domain: str | None = None,
-                     publisher_family: str | None = None, event_window_start=None, event_window_end=None) -> dict:
+                     publisher_family: str | None = None, event_window_start=None, event_window_end=None,
+                     label: str | None = None) -> dict:
     """A provenance dict with every key present. Unknown enum values degrade to 'unknown' rather than raising."""
     return {
         "publisher_domain": publisher_domain.lower() if publisher_domain else None,
@@ -47,6 +51,7 @@ def build_provenance(*, basis: str = "unknown", precision: str = "unknown", conf
         "published_at_basis": basis if basis in BASES else "unknown",
         "published_at_precision": precision if precision in PRECISIONS else "unknown",
         "published_at_confidence": confidence if confidence in CONFIDENCES else "unknown",
+        "published_at_label": label if label in LABELS else None,
         "event_window_start": event_window_start, "event_window_end": event_window_end,
     }
 
@@ -106,14 +111,16 @@ def rss_provenance(*, published, feed_url: str | None, entry, scheduled_start=No
                             event_window_start=scheduled_start, event_window_end=scheduled_end)
 
 
-def api_provenance(*, published, endpoint: str | None, date_only: bool = False, explicit_publication_date: bool = False) -> dict:
-    """Confidence and precision are separate. A date-only value that the source explicitly labels as its publication date (CISA KEV
-    ``dateAdded``) is VERIFIED at DAY precision; any other date-only value stays CLAIMED. Date-only never establishes an hour-level time."""
+def api_provenance(*, published, endpoint: str | None, date_only: bool = False, explicit_publication_date: bool = False,
+                   label: str | None = None) -> dict:
+    """Confidence and precision are separate. A date-only value that the source explicitly states and that dates the REPORT (CISA KEV
+    ``dateAdded``, label 'catalogue_addition': the date the entry was added to the catalogue, NOT the CVE's disclosure date) is VERIFIED at
+    DAY precision; any other date-only value stays CLAIMED. Date-only never establishes an hour-level time."""
     if not published:
         return build_provenance(publisher_domain=domain_of(endpoint))
     if date_only:
         return build_provenance(basis="date_only", precision="day", confidence="verified" if explicit_publication_date else "claimed",
-                                publisher_domain=domain_of(endpoint))
+                                publisher_domain=domain_of(endpoint), label=label)
     return build_provenance(basis="feed", precision="second", confidence="feed", publisher_domain=domain_of(endpoint))
 
 
@@ -135,9 +142,10 @@ def scrape_provenance(*, published, page_url: str | None, date_only: bool, basis
     if not published:
         return build_provenance(publisher_domain=dom)
     if not explicit_header and date_in_title(title):
-        return build_provenance(basis="unknown", precision="day", confidence="unknown", publisher_domain=dom, event_window_start=published)
+        return build_provenance(basis="unknown", precision="day", confidence="unknown", publisher_domain=dom, event_window_start=published, label="event")
     if date_only:
-        return build_provenance(basis="date_only", precision="day", confidence="verified" if explicit_header else "claimed", publisher_domain=dom)
+        return build_provenance(basis="date_only", precision="day", confidence="verified" if explicit_header else "claimed", publisher_domain=dom,
+                                label="publication" if explicit_header else None)
     if not explicit_header:
         return build_provenance(basis="feed", precision="minute", confidence="claimed", publisher_domain=dom)
     return build_provenance(basis="feed_corrected_utc" if basis_tz else "feed", precision="minute", confidence="feed", publisher_domain=dom)
