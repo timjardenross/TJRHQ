@@ -1354,7 +1354,7 @@ def _morning_view_lines(be, ev, events: list[dict], hours: int) -> list[str]:
     from intelligence import brief_event_links as bel
     from intelligence import tiered_brief as tb
     if tb.enabled():
-        view, shown = tb.render(events, now=ev.generated_at, window_hours=hours)
+        view, shown = tb.render(events, now=ev.generated_at, window_hours=hours, evidence=ev, be=be)
         bel.note("morning", shown)
         return view
     view = be.morning_view(ev)

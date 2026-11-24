@@ -326,6 +326,8 @@ DISRUPTION_SIGNAL_PATTERN = (
     r"locked out|degraded|failures?|failed|crash\w*|evacuat\w*|floods?|flooding|flooded|bushfires?|cyclones?|heatwaves?|storms?|"
     r"ransomware|data breach|breach\w*|hack\w*|infiltrat\w*|intrusions?|cyber ?attacks?|cyber incidents?|compromised|stolen|leaked|exploited|actively exploited|zero-day|"
     r"affected customers|customers affected|impacted customers|customers impacted|emergency warnings?|"
+    r"wildfires?|fire warnings?|fire emergency|emergency fire|fire danger|shelter in place|shelter indoors|"
+    r"vulnerabilit(?:y|ies)|critical (?:flaws?|bugs?)|remote code execution|rce|"
     r"(?:attack|attacked)s? (?:on|against))\b"
 )
 _DISRUPTION_SIGNAL_RX = re.compile(DISRUPTION_SIGNAL_PATTERN, re.IGNORECASE)

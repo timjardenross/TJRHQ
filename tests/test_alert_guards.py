@@ -49,10 +49,10 @@ def test_asic_release_dated_two_weeks_ago_never_alerts():
     assert ad.alertable_reports(ic.cluster_incidents(ev, now=NOW, force=True)[0], NOW) == []
 
 
-def test_old_published_report_never_alerts_even_if_the_tier_alone_would():
-    ev = [_ev("c0000003", OPTUS, "ABC News", NOW - timedelta(hours=10))]      # inside the 12 h tier window, outside the 6 h dispatcher window
+def test_old_published_report_never_alerts_and_the_tier_agrees():
+    ev = [_ev("c0000003", OPTUS, "ABC News", NOW - timedelta(hours=10))]      # outside the ONE shared 6 h window (intelligence/freshness.py)
     inc = ic.cluster_incidents(ev, now=NOW, force=True)[0]
-    assert ad.dt.tier_for_incident(inc, now=NOW).tier == ad.dt.IMMEDIATE_ALERT
+    assert ad.dt.tier_for_incident(inc, now=NOW).tier != ad.dt.IMMEDIATE_ALERT      # tiers and dispatcher now agree (was 12 h vs 6 h)
     assert _alerts(ev) == []
 
 

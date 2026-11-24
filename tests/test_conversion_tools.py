@@ -33,15 +33,17 @@ def measured():
 
 def test_measurement_covers_the_same_records_for_every_system(measured):
     assert measured["material_records"] == 13 and measured["negative_records"] == 5
-    assert set(measured["systems"]) == {"legacy", "morning_v1", "tiered"}
+    assert set(measured["systems"]) == {"legacy", "morning_v1", "tiered", "tiered_additive"}
 
 
 def test_pinned_measurement_numbers(measured):
     s = measured["systems"]
-    assert (s["legacy"]["material_detected"], s["morning_v1"]["material_detected"], s["tiered"]["material_detected"]) == ("7/13", "8/13", "5/13")
+    # morning_v1 is 9/13 here (8/13 before the shared NT-government marker fix); tiers alone were 5/13 before the tiering quality pass.
+    assert (s["legacy"]["material_detected"], s["morning_v1"]["material_detected"], s["tiered"]["material_detected"], s["tiered_additive"]["material_detected"]) == ("7/13", "9/13", "8/13", "9/13")
     assert (s["legacy"]["material_alerted"], s["morning_v1"]["material_alerted"], s["tiered"]["material_alerted"]) == ("1/13", "3/13", "3/13")
     assert all(x["false_urgency_records"] == [] for x in s.values())
     assert s["tiered"]["negatives_reaching_brief_level"] == [] and len(s["morning_v1"]["negatives_reaching_brief_level"]) == 2
+    assert s["tiered_additive"]["negatives_reaching_brief_level"] == ["RS-022"]
     assert s["legacy"]["false_restoration_records"] is None and s["tiered"]["false_restoration_records"] == ["RS-008"]
 
 

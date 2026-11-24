@@ -11,11 +11,13 @@ Pure: no I/O, never sends anything. ``render`` also returns the event ids it sho
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import os
 from datetime import datetime, timedelta, timezone
 
 from intelligence import delivery_tiers as dt
+from intelligence import freshness as fr
 from intelligence import incident_clustering as ic
 
 RELATION_LABEL = {ic.NEW: "NEW", ic.SUBSEQUENT: "SUBSEQUENT", ic.RESTORATION_UPDATE: "RESTORATION", ic.RELATED: "RELATED",
@@ -99,8 +101,30 @@ def _brief_entry(inc: ic.Incident, td: dt.TierDecision) -> list[str]:
     return [f"- {inc.decision.headline.title} ({state}; {inc.n_reports} reports; {incident_id(inc)}) - {td.reasons[0]} [{incident_link(incident_id(inc))}]"]
 
 
-def render(events: list[dict], *, now: datetime | None = None, window_hours: int = 72) -> tuple[list[str], list[str]]:
-    """Return (lines, shown_event_ids). ``events``: dicts with id, title, source, collected_at, published_at (as ``brief_evidence`` reads)."""
+def v1_additive_view(ev, incidents: list[ic.Incident]):
+    """The Morning V1 evidence set the tiered view is ADDITIVE over. Every V1 incident is kept (so WORTH KNOWING, operational
+    implications, forward watch and the per-section statements survive), with two changes: V1 incidents made only of HISTORICAL_REFERENCE
+    reports (an old event retold: a share buyback 'after the July outage') are not current incidents and are dropped; and each kept
+    incident carries the CANONICAL incident id (``incident_id``), so a brief citation, an alert payload and a portal link name one id."""
+    rel = {r.event_id: r.relation for inc in incidents for r in inc.reports}
+    canon = {r.event_id: incident_id(inc) for inc in incidents for r in inc.reports}
+    kept = []
+    for v in ev.incidents:
+        ids = v.report_ids
+        if ids and all(rel.get(i) == ic.HISTORICAL_REFERENCE for i in ids):
+            continue
+        cid = next((canon[i] for i in ids if i in canon), v.incident_id)
+        kept.append(dataclasses.replace(v, incident_id=cid))
+    return dataclasses.replace(ev, incidents=kept)
+
+
+V1_DETAIL_HEADING = "EVIDENCE DETAIL (Morning V1 sections, unchanged in content: confirmed and unconfirmed incidents, operational implications, forward watch, worth knowing)"
+
+
+def render(events: list[dict], *, now: datetime | None = None, window_hours: int = 72, evidence=None, be=None) -> tuple[list[str], list[str]]:
+    """Return (lines, shown_event_ids). ``events``: dicts with id, title, source, collected_at, published_at (as ``brief_evidence`` reads).
+    With ``evidence`` (a ``brief_evidence.EvidenceSet``) and ``be`` (the module) the Morning V1 sections follow the tiers, so the tiered
+    view only ADDS the incident-level summary on top of what the morning brief already carries."""
     now = now or datetime.now(timezone.utc)
     incidents = ic.cluster_incidents(events, now=now, force=True)
     rows = [(inc, dt.tier_for_incident(inc, now=now)) for inc in incidents]
@@ -118,24 +142,37 @@ def render(events: list[dict], *, now: datetime | None = None, window_hours: int
              f"Based on reports from the last {window_hours} hours; incidents are consolidated, so one disruption is one entry.", ""]
     shown: list[str] = []
 
-    def section(title, tier, limit, full):
-        items = by_tier[tier][:limit]
+    exposures = [(i, d) for i, d in by_tier[dt.SCHEDULED_BRIEF] if d.evidence.get("exposure")]
+    by_tier[dt.SCHEDULED_BRIEF] = [(i, d) for i, d in by_tier[dt.SCHEDULED_BRIEF] if not d.evidence.get("exposure")]
+
+    def section(title, tier, limit, full, items=None):
+        pool = by_tier[tier] if items is None else items
+        items = pool[:limit]
         if not items:
             return False
         lines.append(title)
         for inc, td in items:
             lines.extend(_entry(inc, td) if full else _brief_entry(inc, td))
             shown.extend(r.event_id for r in inc.reports)
-        if len(by_tier[tier]) > limit:
-            lines.append(f"- ... and {len(by_tier[tier]) - limit} more in this tier")
+        if len(pool) > limit:
+            lines.append(f"- ... and {len(pool) - limit} more in this tier")
         lines.append("")
         return True
 
-    any_shown = section("ACTIVE ALERT-LEVEL INCIDENTS (live, stated impact, Australian relevance, solid evidence)", dt.IMMEDIATE_ALERT, SECTION_FULL_LIMIT, True)
-    any_shown |= section("MATERIAL INCIDENTS FOR TODAY'S BRIEF", dt.SCHEDULED_BRIEF, SECTION_FULL_LIMIT, True)
-    any_shown |= section("MONITORING (evidence not yet sufficient; will be re-tiered when it arrives)", dt.MONITOR, SECTION_MONITOR_LIMIT, False)
+    alert_h = fr.alert_window().total_seconds() / 3600
+    any_shown = section(f"ACTIVE ALERT-LEVEL INCIDENTS (live, stated impact, Australian relevance, solid evidence, newest factual report within {alert_h:g} h)", dt.IMMEDIATE_ALERT, SECTION_FULL_LIMIT, True)
+    any_shown |= section(f"MATERIAL INCIDENTS FOR TODAY'S BRIEF (newest factual report within {fr.BRIEF_FRESH_HOURS} h, or still ongoing)", dt.SCHEDULED_BRIEF, SECTION_FULL_LIMIT, True)
+    any_shown |= section("EMERGING EXPOSURES (credible advisories: exploited or critical; no confirmed disruption, nothing here states an operational consequence)", dt.SCHEDULED_BRIEF, SECTION_MONITOR_LIMIT, False, exposures)
+    any_shown |= section("MONITORING (credible warnings, emerging exposures and candidates whose evidence is not yet sufficient; re-tiered when it arrives)", dt.MONITOR, SECTION_MONITOR_LIMIT, False)
     if not any_shown:
         lines += ["No alert-level, scheduled or monitored incident in the window. This is not an all-clear: see the counts below.", ""]
     ctx, ref = len(by_tier[dt.CONTEXT]), len(by_tier[dt.REFERENCE_RETAIN])
-    lines.append(f"Context only (supports an incident, no item of its own): {ctx}. Reference retained (no demonstrated Australian relevance or no stated consequence): {ref}.")
+    lines.append(f"Context only (supports an incident, no item of its own): {ctx}. Reference retained (kept for search and audit; not surfaced here): {ref}.")
+    if evidence is not None and be is not None:
+        v1 = be.morning_view(v1_additive_view(evidence, incidents))
+        while v1 and (v1[0].startswith("🛰") or v1[0].startswith("Based on reports") or not v1[0].strip()):
+            v1 = v1[1:]                                   # the tiered header above already states the basis
+        lines += ["", V1_DETAIL_HEADING, *v1]
+        text = "\n".join(v1)
+        shown += [rid for v in v1_additive_view(evidence, incidents).incidents if v.incident_id in text for rid in v.report_ids]
     return lines, sorted(set(shown))

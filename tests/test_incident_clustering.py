@@ -144,7 +144,8 @@ def test_telstra_tiers_no_false_urgency(v2, v1):
     base = _incident_with(v1, "a075c25f").decision
     assert (base.priority, base.urgency) == ("VERIFY", "immediate")
     for eid in ("a075c25f", "005e774d", "130ca8a1", "6f8cbc2a"):
-        assert dt.tier_for_incident(_incident_with(v2, eid), now=NOW).tier == dt.MONITOR, eid
+        # MONITOR while fresh; once older than the shared brief window it is CONTEXT. Never urgent, never a scheduled item.
+        assert dt.tier_for_incident(_incident_with(v2, eid), now=NOW).tier in (dt.MONITOR, dt.CONTEXT), eid
 
 
 def test_coles_cyber_attack_is_one_incident(v2):

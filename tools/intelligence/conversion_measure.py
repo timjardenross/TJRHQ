@@ -6,6 +6,8 @@ Systems
              BRIEF. Legacy has no incident object and no restoration claim, so duplicate representation and false restoration are n/a.
   morning_v1 ``event_detection.run`` (the staged detector behind ``brief_evidence.morning_view``), baseline grouping, replayed in
              collection order. Immediate = priority ESCALATE; briefed = priority ESCALATE/VERIFY/WATCH.
+  tiered_additive  the tiered brief as rendered: ``tiered`` plus the Morning V1 sections it is additive over (minus V1 incidents made only of
+             HISTORICAL_REFERENCE reports). Immediate = IMMEDIATE_ALERT; briefed = any of the above.
   tiered     clustered incidents (``incident_clustering``) with ``delivery_tiers``. Immediate = IMMEDIATE_ALERT; briefed = IMMEDIATE_ALERT or
              SCHEDULED_BRIEF.
 
@@ -84,6 +86,17 @@ def _tier_levels(seen, now):
             yield ids, "briefed"
 
 
+def _additive_levels(seen, now):
+    """The tiered brief as rendered with DELIVERY_TIERS_V1: the tier sections PLUS the Morning V1 sections it is additive over
+    (``tiered_brief.v1_additive_view``: every V1 incident except those made only of HISTORICAL_REFERENCE reports)."""
+    yield from _tier_levels(seen, now)
+    rel = {r.event_id: r.relation for inc in ic.cluster_incidents(seen, now=now, force=True) for r in inc.reports}
+    for d in ed.run(seen, now=now):
+        ids = [m.event_id for m in d.group.members]
+        if d.priority in ("ESCALATE", "VERIFY", "WATCH") and not all(rel.get(i) == ic.HISTORICAL_REFERENCE for i in ids):
+            yield ids, "briefed"
+
+
 def _legacy_first(events, ev_rec):
     first: dict[str, dict] = {}
     for e in sorted(events, key=lambda e: _ts(e["collected_at"])):
@@ -135,12 +148,14 @@ def measure(events: list[dict], reference: dict) -> dict:
         if r:
             first_collect[r] = min(first_collect.get(r, _ts(e["collected_at"])), _ts(e["collected_at"]))
     systems = {"legacy": _legacy_first(events, ev_rec), "morning_v1": _first_levels(events, ev_rec, _v1_levels),
-               "tiered": _first_levels(events, ev_rec, _tier_levels)}
+               "tiered": _first_levels(events, ev_rec, _tier_levels),
+               "tiered_additive": _first_levels(events, ev_rec, _additive_levels)}
     base = ic.cluster_incidents(events, now=end, force=False)
     cons = ic.cluster_incidents(events, now=end, force=True)
     extra = {"legacy": {"false_restoration": None, "split_records": None},
              "morning_v1": {"false_restoration": _false_restoration(events, ev_rec, st), "split_records": _split(base, ev_rec)},
              "tiered": {"false_restoration": _false_restoration(events, ev_rec, st, cons), "split_records": _split(cons, ev_rec)}}
+    extra["tiered_additive"] = extra["tiered"]
     out = {"n_events": len(events), "material_records": len(material), "negative_records": len(negative), "systems": {}}
     for name, first in systems.items():
         det = sorted(r for r in material if "briefed" in first.get(r, {}))
