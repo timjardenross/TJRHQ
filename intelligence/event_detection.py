@@ -325,7 +325,7 @@ FRESHNESS_STATES = (FRESH_VERIFIED, FRESH_CLAIMED, FRESH_UNKNOWN, FRESH_STALE)
 URGENT_MAX_AGE_HOURS = 24      # 'urgent' is about what is happening now: an incident whose newest report is older than this is KNOWN STALE
 
 
-def report_freshness(m: "Candidate", now: datetime | None) -> str:
+def report_freshness(m: Candidate, now: datetime | None) -> str:
     """One report's freshness. Its best-known time (``published``: the stated time, else collection, which can only be LATER than the
     true publication) older than URGENT_MAX_AGE_HOURS is KNOWN STALE whatever its provenance. Within the window: VERIFIED (trusted
     publication time), CLAIMED (a parseable time whose provenance is claimed only) or UNKNOWN (no publication time, timed by collection)."""
@@ -334,7 +334,7 @@ def report_freshness(m: "Candidate", now: datetime | None) -> str:
     return FRESH_VERIFIED if m.time_verified else FRESH_CLAIMED if m.time_claimed else FRESH_UNKNOWN
 
 
-def incident_freshness(members: list["Candidate"], now: datetime | None) -> str:
+def incident_freshness(members: list[Candidate], now: datetime | None) -> str:
     """The best freshness among an incident's reports; KNOWN STALE only when every report is stale (its newest report is older than the
     window). Never 'confirmed current': only VERIFIED rests on a trusted publication time, and even that is a freshness label, not
     a statement of service state (restoration status has its own live-evidence rule)."""

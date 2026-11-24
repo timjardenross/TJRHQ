@@ -125,7 +125,7 @@ def scrape_provenance(*, published, page_url: str | None, date_only: bool, basis
 
 
 # ── scheduled-window text (Twilio / Statuspage maintenance) ────────────────────────────────────────────────────
-_WIN_ISO = re.compile(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})\s*(?:UTC|Z)?\s*(?:-|–|to|until|and)\s*(?:(\d{4}-\d{2}-\d{2})[ T])?(\d{2}):(\d{2})\s*(?:UTC|Z)", re.I)
+_WIN_ISO = re.compile(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})\s*(?:UTC|Z)?\s*(?:-|–|to|until|and)\s*(?:(\d{4}-\d{2}-\d{2})[ T])?(\d{2}):(\d{2})\s*(?:UTC|Z)", re.IGNORECASE)
 
 
 def parse_event_window(text: str | None) -> tuple[datetime | None, datetime | None]:

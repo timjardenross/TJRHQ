@@ -17,13 +17,13 @@ from core.platform.priority_engine import PriorityInputs, PriorityScore, score_e
 if TYPE_CHECKING:
     from core.llm.provider_chain import LLMCallResult
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
-from intelligence.provenance import provenance_row_fields
 from intelligence.models import (
     RankedEvent,
     ResilienceBrief,
     SourceHealth,
     SourceRecord,
 )
+from intelligence.provenance import provenance_row_fields
 
 # Mirrors AttentionThresholds.delayed_importance_floor (default 40). Events
 # below this land in NEVER_INTERRUPT or SHOULD_SIMPLY_BE_REMEMBERED and carry

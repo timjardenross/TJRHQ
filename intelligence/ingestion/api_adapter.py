@@ -24,6 +24,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+from intelligence import provenance as prov
 from intelligence.config import (
     HTTP_TIMEOUT_SECONDS,
     MAX_FEED_ITEMS_PER_SOURCE,
@@ -31,7 +32,6 @@ from intelligence.config import (
     NVD_MAX_PAGES,
     NVD_WINDOW_HOURS,
 )
-from intelligence import provenance as prov
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem
 
