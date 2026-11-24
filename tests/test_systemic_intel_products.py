@@ -450,6 +450,29 @@ class TestForwardWatch(unittest.TestCase):
         items, _, _ = self.run_watch(rows)
         self.assertEqual(items, [])
 
+    def test_reused_headline_distinct_incident_ids_are_distinct_notices(self):
+        title = "United States and Canada Twilio SMS and MMS Maintenance"
+        rows = []
+        for n, (d, pub) in enumerate([(2, 10), (9, 11), (16, 12), (22, 13)]):
+            r = frow(
+                f"tw{n}",
+                "Twilio Status",
+                title,
+                f"THIS IS A SCHEDULED EVENT planned maintenance on {d:02d} December 2026",
+                day=pub,
+            )
+            r["canonical_url"] = f"https://status.twilio.com/incidents/tw{n}abcde{n}"
+            rows.append(r)
+        later = frow("tw9", "Twilio Status", title, "planned maintenance on 22 December 2026", day=20)
+        later["canonical_url"] = "https://status.twilio.com/incidents/tw3abcde3"
+        later["raw_summary"] = "THIS IS A SCHEDULED EVENT planned maintenance on 23 December 2026"
+        rows.append(later)
+        items, _, _ = self.run_watch(rows)
+        self.assertEqual(
+            sorted(i["date"].isoformat() for i in items),
+            ["2026-12-02", "2026-12-09", "2026-12-16", "2026-12-23"],
+        )
+
     def test_rescheduled_keeps_latest_date(self):
         base = "Storage network maintenance"
         rows = [
