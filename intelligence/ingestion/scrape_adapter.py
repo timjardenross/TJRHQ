@@ -154,7 +154,17 @@ class ScrapeAdapter(BaseSourceAdapter):
         except ImportError:
             raise RuntimeError("beautifulsoup4 not installed — run: pip install beautifulsoup4")
 
-        html = self._fetch_html(self.source.url)
+        _rendered = False
+        try:
+            html = self._fetch_html(self.source.url)
+        except Exception as exc:
+            if self.source.source_name not in _FIRECRAWL_RENDER_SOURCE_NAMES:
+                raise
+            # 2026-11-24 live run: optus.com.au hangs plain GETs from the production host (read timeout), so the source never reached
+            # the Firecrawl render it needs. A render-path source's plain fetch failing is the same situation as it holding no list.
+            log.info("[%s] plain fetch failed (%s) - rendering via Firecrawl", self.source.source_name, exc)
+            html = firecrawl_client.fetch_html(self.source.url)
+            _rendered = True
         # keep the free plain fetch when it already carries the list; render only when it does not
         _plain = BeautifulSoup(html, "html.parser")
         _listing_parser = _FORWARD_LISTING_PARSERS.get(self.source.source_name)
@@ -164,7 +174,7 @@ class ScrapeAdapter(BaseSourceAdapter):
             _has_list = bool(_listing_parser(_plain)) or bool(self._extract_items(_plain))
         else:
             _has_list = bool(self._extract_items(_plain))
-        if self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES and not _has_list:
+        if self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES and not _has_list and not _rendered:
             log.info("[%s] plain fetch has no release list (client-rendered) — rendering via Firecrawl", self.source.source_name)
             html = firecrawl_client.fetch_html(self.source.url)
         soup = BeautifulSoup(html, "html.parser")
