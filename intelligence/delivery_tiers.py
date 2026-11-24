@@ -107,11 +107,18 @@ _HAZARD_EVENT_CUE_RX = re.compile(r"\b(?:warning|evacuat\w*|emergency|hits|hit b
 _EXPOSURE_SEVERITY_RX = re.compile(r"\b(?:critical|remote code execution|rce|actively exploited|zero-?day|known exploited|exploited in the wild)\b", re.IGNORECASE)
 
 
+_TIME_BOUND_WARNING_TYPES = frozenset({"hazard"})
+
+
 def _notice_current(inc: ic.Incident, now: datetime | None) -> bool:
     """Warnings and advisories have no 'newest factual disruption report' to age: they stay visible for the live window (72 h)."""
     if now is None:
         return True
     newest = _newest_factual(inc, (ic.NEW, ic.SUBSEQUENT, ic.RESTORATION_UPDATE))
+    # A hazard warning (storm, fire, flood) is time-bound by nature: it lapses with the brief window rather than lingering for the
+    # 72 h an advisory gets, so a two-day-old emergency fire warning is never shown as a current monitoring item.
+    if inc.decision.event_type in _TIME_BOUND_WARNING_TYPES:
+        return fr.within(newest, now, fr.brief_window())
     return fr.within(newest, now, fr.live_window())
 
 

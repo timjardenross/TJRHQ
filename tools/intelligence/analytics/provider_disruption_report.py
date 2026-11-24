@@ -123,6 +123,19 @@ def recurring_components(incs):
     return [(c, n) for c, n in counts.most_common() if n >= MIN_COMPONENT_INCIDENTS]
 
 
+def undated_feeds(rows):
+    """{feed: row count} for status-feed rows that carry no published_at.
+
+    Such rows cannot be placed in the 90-day window, so they are never counted as incidents. A feed made only of them would otherwise
+    vanish from the product with no word said; the counts are listed so the omission is visible.
+    """
+    out = Counter()
+    for r in rows:
+        if is_status_source(r.get("source_name")) and not parse_ts(r.get("published_at")):
+            out[r["source_name"]] += 1
+    return dict(sorted(out.items()))
+
+
 def analyse(rows, as_of):
     start = as_of - timedelta(days=WINDOW_DAYS)
     in_win = [
@@ -207,7 +220,7 @@ def _evidence_lines(unp):
     return out
 
 
-def render(feeds, as_of, start, source_note):
+def render(feeds, as_of, start, source_note, undated=None):
     ok = [f for f in feeds.values() if f["sufficient"]]
     bad = [f for f in feeds.values() if not f["sufficient"]]
     ok.sort(key=lambda f: f["feed"].lower())  # alphabetical: never ordered by raw count
@@ -323,6 +336,16 @@ def render(feeds, as_of, start, source_note):
         )
     else:
         out.append("None.")
+    if undated:
+        out += [
+            "",
+            "## Rows with no publication date (not analysed)",
+            "",
+            ("These status-feed rows carry no `published_at`, so they cannot be placed in the window and are not counted as incidents. "
+             "A feed listed here has NO scored or insufficient-evidence line above: its history is unknown, not clear."),
+            "",
+        ]
+        out += [f"- {md_cell(feed)}: {n} undated rows." for feed, n in undated.items()]
     out += [
         "",
         "## Limits",

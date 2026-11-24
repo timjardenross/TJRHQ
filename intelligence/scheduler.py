@@ -741,6 +741,7 @@ def _morning_brief_job() -> None:
     log.info("Captain's morning brief job triggered")
     try:
         ok = send_brief("morning")
+        _record_brief_delivery("morning", ok)
         if ok:
             _morning_brief_sent_at = datetime.now(timezone.utc).isoformat()
             log.info("Morning brief delivered")
@@ -759,8 +760,18 @@ def _morning_brief_job() -> None:
             _record_heartbeat("morning_brief", "failed", error_message="morning brief delivery failed")
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Morning brief job failed: %s", exc)
+        _record_brief_delivery("morning", False)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
         _record_heartbeat("morning_brief", "failed", error_message=str(exc))
+
+
+def _record_brief_delivery(brief_type: str, ok: bool) -> None:
+    """Tell the deadman whether this brief reached Telegram (the row is stored before the send). Never raises."""
+    try:
+        from intelligence import brief_reliability as br
+        br.record_delivery(brief_type, br.brief_date_aest(), ok)
+    except Exception as exc:  # noqa: BLE001 - observability only; must never affect the brief job
+        log.warning("[brief-deadman] could not record delivery outcome: %s", exc)
 
 
 def _brief_deadman_job() -> None:
@@ -774,12 +785,18 @@ def _brief_deadman_job() -> None:
         log.error("Brief deadman job failed: %s", exc)
 
 
+def _catch_up_send(cb) -> bool:
+    ok = cb.send_brief("morning", catch_up=True)
+    _record_brief_delivery("morning", ok)
+    return ok
+
+
 def _morning_catch_up_job() -> None:
     from intelligence import brief_reliability as br
     from intelligence import captains_brief as cb
 
     try:
-        result = br.catch_up_morning(cb._sb_request, lambda: cb.send_brief("morning", catch_up=True))
+        result = br.catch_up_morning(cb._sb_request, lambda: _catch_up_send(cb))
         log.info("Morning brief catch-up: %s", result)
         if result == "sent":
             _record_heartbeat("captains_daily_briefs", "ok", detail="morning brief delivered (startup catch-up)")

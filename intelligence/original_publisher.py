@@ -176,10 +176,21 @@ def _first(meta: dict, key: str):
     return v[0] if isinstance(v, list) and v else v
 
 
+_HAS_TIME_RX = re.compile(r"\d{1,2}:\d{2}")
+_HAS_ZONE_RX = re.compile(r"(?:Z|UTC|GMT|[+-]\d{2}(?::?\d{2})?)\s*$", re.IGNORECASE)
+
+
+def _is_full_timestamp(raw) -> bool:
+    """A publisher's own published-time is only evidence of WHEN if it names a time of day AND a timezone. A bare date ('2026-11-21')
+    parses to midnight UTC and a zone-less time is read as UTC: either would turn a guess into a 'verified' instant."""
+    text = str(raw).strip()
+    return bool(_HAS_TIME_RX.search(text) and _HAS_ZONE_RX.search(text))
+
+
 def classify_fetch(item: dict, fetched: dict | None, *, now: datetime | None = None) -> Verification:
     """fetched: {"url": final URL, "metadata": {...page metadata...}} or None.
     verified_date needs a resolved NON-Google publisher URL and the page's own published-time metadata that parses,
-    carries a timezone and is not in the future. A modified-time alone is not a publication date."""
+    names a time of day and a timezone (a bare date is not enough) and is not in the future. A modified-time alone is not a publication date."""
     now = now or datetime.now(timezone.utc)
     if not fetched or not fetched.get("url"):
         res = resolve_publisher(item.get("source", ""), item.get("title", ""))
@@ -189,11 +200,13 @@ def classify_fetch(item: dict, fetched: dict | None, *, now: datetime | None = N
     if not host or any(host == h or host.endswith("." + h) for h in _GOOGLE_HOSTS):
         return Verification(UNRESOLVED, reason="still on the aggregator after fetch")
     meta = fetched.get("metadata") or {}
-    raw = next((v for k in _PUB_KEYS if (v := _first(meta, k))), None)
+    raws = [v for k in _PUB_KEYS if (v := _first(meta, k))]
+    raw = next((v for v in raws if _is_full_timestamp(v) and we._parse_ts(v) is not None), None)
     ts = we._parse_ts(raw) if raw else None
     if ts is None:
         return Verification(PUBLISHER_KNOWN_DATE_UNVERIFIED, fetched["url"], host,
-                            reason="publisher page resolved but carries no published-time metadata")
+                            reason=("publisher page carries no parseable timestamp with a time of day and a timezone (date-only or zone-less)" if raws
+                                    else "publisher page resolved but carries no published-time metadata"))
     if ts > now + timedelta(hours=1):
         return Verification(PUBLISHER_KNOWN_DATE_UNVERIFIED, fetched["url"], host, reason="published-time is in the future")
     claim = we._parse_ts(item.get("published_at"))

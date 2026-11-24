@@ -99,7 +99,10 @@ def brief_lines(today=None, reader=None):
         except Exception as exc:  # noqa: BLE001 - table missing/unreachable: fall back to generated files
             log.info("intelligence_products unavailable (%s); trying files", exc)
             rows = _from_files()
-        products = {r["product_key"]: r for r in _latest(rows or [])}
+        products = {
+            r["product_key"]: r
+            for r in _latest([r for r in rows or [] if isinstance(r, dict) and r.get("product_key")])
+        }
         findings, notes = [], []
         for key in ORDER:
             p = products.get(key)
@@ -123,7 +126,8 @@ def brief_lines(today=None, reader=None):
         lines = ["INTELLIGENCE PRODUCTS"] + [
             f"- {f}" for f in findings[: MAX_LINES - 1]
         ]
-        lines.append(f"Coverage: {notes[0]}")
+        # One caveat per contributing product: a finding from product B must not borrow product A's coverage statement.
+        lines.append("Coverage: " + " ".join(dict.fromkeys(notes)))
         return lines[: MAX_LINES + 2] + [""]
     except Exception as exc:  # noqa: BLE001 - additive flag-gated block must never break the brief
         log.warning("Intel products brief block unavailable: %s", exc)

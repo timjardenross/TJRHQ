@@ -67,9 +67,12 @@ def fetch_rows(since, getter=_get):
         "sector,geography,event_type,organisation"
     )
     since_q = urllib.parse.quote(since.isoformat())
+    # Several feeds (AEMO notices, Fastly status, APRA/AusPayNet scrapes) carry no published_at. They are fetched by collected_at so a
+    # completion notice or a whole feed is not silently invisible; the analytics treat an undated row explicitly, never as dated.
+    window = f"or=(published_at.gte.{since_q},and(published_at.is.null,collected_at.gte.{since_q}))"
     rows, offset = [], 0
     while True:
-        q = f"select={cols}&published_at=gte.{since_q}&order=published_at.asc&limit={PAGE}&offset={offset}"
+        q = f"select={cols}&{window}&order=published_at.asc.nullsfirst,event_id.asc&limit={PAGE}&offset={offset}"
         page = getter("intelligence_events", q)
         for r in page:
             r["source_name"] = names.get(r.pop("source_id", None), "")

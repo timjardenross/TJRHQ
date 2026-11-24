@@ -339,6 +339,8 @@ class APIAdapter(BaseSourceAdapter):
             )
             url = f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else self.source.url
             published = self._parse_iso(cve.get("published"))
+            if published is not None and published.tzinfo is None:
+                published = published.replace(tzinfo=timezone.utc)      # NVD timestamps carry no offset and are UTC
             items.append(self._make_item(cve_id or "NVD CVE", desc, url, published))
         return items
 

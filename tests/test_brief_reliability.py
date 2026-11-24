@@ -202,3 +202,51 @@ def test_catch_up_brief_is_marked_late_and_default_is_unchanged():
          patch.object(cb, "_coverage_lines", return_value=[]):
         late = cb.generate_morning_brief(br.NO_GAP, None, catch_up=True)
     assert "LATE BRIEF" in late
+
+
+# -- (2b) row exists but delivery failed (rehearsal 2026-11-24) -------------------------------------------------------------------
+def test_deadman_alerts_when_row_exists_but_telegram_delivery_failed():
+    """send_brief persists the captains_daily_briefs row BEFORE it sends, so a row proves generation only. With Telegram down the deadman
+    used to say 'ok' and the Captain silently received nothing."""
+    sent, seen, deliv = [], set(), {}
+    br.record_delivery("morning", "2026-11-25", False, deliv)
+    row = _sb([{"brief_date": "2026-11-25"}])
+    assert br.check_missed_brief(row, lambda t: sent.append(t) or True, "2026-11-25", alerted=seen, delivery=deliv) == "alerted_undelivered"
+    assert br.check_missed_brief(row, lambda t: sent.append(t) or True, "2026-11-25", alerted=seen, delivery=deliv) == "already_alerted"
+    assert len(sent) == 1 and "NOT DELIVERED" in sent[0] and "2026-11-25" in sent[0]
+
+
+def test_deadman_quiet_when_delivery_succeeded_or_unknown_or_later_recovered():
+    sent = []
+    n = lambda t: sent.append(t) or True
+    row = _sb([{"brief_date": "2026-11-25"}])
+    assert br.check_missed_brief(row, n, "2026-11-25", alerted=set(), delivery={}) == "ok"                                  # unknown (e.g. restart): legacy
+    assert br.check_missed_brief(row, n, "2026-11-25", alerted=set(), delivery={("morning", "2026-11-25"): True}) == "ok"
+    d = {}
+    br.record_delivery("morning", "2026-11-25", False, d)
+    br.record_delivery("morning", "2026-11-25", True, d)                                                                    # resent later
+    assert br.check_missed_brief(row, n, "2026-11-25", alerted=set(), delivery=d) == "ok"
+    assert sent == []
+
+
+def test_undelivered_alert_is_retried_if_the_alert_transport_failed():
+    seen, d = set(), {("morning", "2026-11-25"): False}
+    row = _sb([{"brief_date": "2026-11-25"}])
+    assert br.check_missed_brief(row, lambda t: False, "2026-11-25", alerted=seen, delivery=d) == "unverified"
+    assert br.check_missed_brief(row, lambda t: True, "2026-11-25", alerted=seen, delivery=d) == "alerted_undelivered"
+
+
+def test_missing_row_still_reports_the_missing_brief_not_the_undelivered_one():
+    sent = []
+    d = {("morning", "2026-11-25"): False}
+    assert br.check_missed_brief(_sb([]), lambda t: sent.append(t) or True, "2026-11-25", alerted=set(), delivery=d) == "alerted"
+    assert "MISSED BRIEF" in sent[0]
+
+
+def test_scheduler_morning_job_records_delivery_outcome():
+    import inspect
+
+    from intelligence import scheduler
+    src = inspect.getsource(scheduler._morning_brief_job)
+    assert src.count("_record_brief_delivery") == 2                    # the normal outcome AND the exception path
+    assert "_record_brief_delivery" in inspect.getsource(scheduler._catch_up_send)
