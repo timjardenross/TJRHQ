@@ -1,7 +1,6 @@
 # Timestamp provenance and freshness states (v1)
 
-Status: code merged-ready behind a default-OFF flag (`INTEL_PROVENANCE_COLUMNS`). The migration and backfill SQL under
-`tools/intelligence/` are drafts and are NOT APPLIED. Absent provenance behaves exactly as before.
+Status: code merged-ready behind a default-OFF flag (`INTEL_PROVENANCE_COLUMNS`). The activation package (migration, rollback, backfill, dry-run, runbook) is prepared under `tools/intelligence/` and is NOT APPLIED; it needs owner approval (see `docs/PROVENANCE-ACTIVATION-RUNBOOK.md`). Absent provenance behaves exactly as before.
 
 ## Two separate dimensions
 
