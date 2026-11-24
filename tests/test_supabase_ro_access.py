@@ -179,6 +179,9 @@ def test_scope_guard_fails_closed_on_credential_schemas_when_config_is_unreadabl
     monkeypatch.setattr(scope, "CONFIG", Path("/nonexistent/supabase_ro_scope.json"))
     assert scope.classify("select * from vault.secrets")[0] == "deny"
     assert scope.classify("select query from pg_stat_statements")[0] == "deny"
+    # with no scope list, even an ordinary-looking query gets no standing approval
+    assert scope.classify("select * from health_daily_logs")[0] == "ask"
+    assert scope.classify("select count(*) from intelligence_events")[0] == "ask"
 
 
 def test_scope_guard_sends_listed_sensitive_tables_to_the_prompt():

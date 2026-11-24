@@ -99,6 +99,8 @@ def classify(sql: str, config: dict | None = None) -> tuple[str, str] | None:
     for name in config.get("deny_catalog_names", []):
         if has(name):
             return "deny", f"'{name}' is not available to read-only research"
+    if config.get("_unreadable"):
+        return "ask", "scope configuration could not be read, so no standing approval applies (fail closed)"
     permitted = set(config.get("permitted_relations", []))
     for relation in config.get("all_public_relations", []):
         if relation not in permitted and has(relation):
