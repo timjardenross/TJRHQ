@@ -162,7 +162,8 @@ def test_authoritative_pass_is_partial_not_operational():
     auth = res["Authoritative Australian and international sources"]
     assert check(run(healthy(), now=NOW_OK), auth.name, "auth:OAIC").verdict == vo.NYO     # inactive: not judged
     assert auth.verdict == vo.NYO
-    assert vo.propose(auth)[0].startswith("Partial")
+    # not yet observable: the proposal never changes the checklist status, whatever the live checklist currently says
+    assert vo.propose(auth)[0] == f"{auth.current} (no change)"
     # covers_all is False: even a clean PASS only ever proposes Partial
     forced = vo.CapResult(auth.name, vo.PASS, [vo.Check("c", "t", vo.PASS, "d", [{"k": 1}])], False, "Telstra etc.")
     assert vo.propose(forced)[0] == "Partial"
