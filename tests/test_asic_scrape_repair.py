@@ -62,7 +62,8 @@ def test_other_sources_never_render_via_firecrawl(monkeypatch):
 
 def test_asic_is_kept_to_the_daily_sweep():
     assert sa._FIRECRAWL_RENDER_SOURCE_NAMES <= scheduler._FIRECRAWL_FETCH_SOURCE_NAMES
-    assert sa._FIRECRAWL_RENDER_SOURCE_NAMES == {"ASIC News Centre", "ASIC Enforcement Activity", "Optus National Outage Register"}
+    assert sa._FIRECRAWL_RENDER_SOURCE_NAMES == {"ASIC News Centre", "ASIC Enforcement Activity", "Optus National Outage Register",
+                                                         "ASIC Consultations"}
 
 
 _OPTUS = (_REPO / "tests/fixtures/optus_outage_register_rendered_20261124.html").read_text(encoding="utf-8")

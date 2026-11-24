@@ -2121,6 +2121,38 @@ SOURCES = [
         "content_expectation": "intermittent",
         "useful_life_days": 7,
     },
+    # 2026-11-24 forward-looking source coverage (branch claude/forward-sources-regdates-2kq). Both rows staged INACTIVE: activation
+    # is a separate decision. Dedupe-checked: no existing row names ASIC consultations or endoflife.date.
+    {
+        "source_name":        "ASIC Consultations",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.asic.gov.au/regulatory-resources/regulatory-resources-search?filter=document&type=consultation+paper&superseded=false&sort=lastUpdated",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "scrape",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.92,
+        "active":             False,
+        "notes":              "ASIC open consultations (CP/CS papers) with 'Date closing' per row. Observed 2026-11-24 via Firecrawl render: 11 open (closing 24 Nov 2026 to 22 Jan 2027), 456 closed on the same page. The page is client-rendered (plain fetch has no list), so ScrapeAdapter renders it through Firecrawl once a day (~1 credit; scheduler._FIRECRAWL_FETCH_SOURCE_NAMES). Parser forward_dates.asic_consultations is tested on a fixture built from the observed rendered text, not on live HTML: verify the first live run before relying on it. Rollback: leave active=false.",
+        "content_expectation": "continuous",
+        "useful_life_days": 30,
+    },
+    {
+        "source_name":        "endoflife.date Vendor Lifecycle",
+        "category":           "cloud_technology",
+        "priority_rank":      3,
+        "url":                "https://endoflife.date/",
+        "rss_url":            None,
+        "api_endpoint":       "https://endoflife.date/api/v1/products",
+        "source_type":        "api",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.80,
+        "active":             False,
+        "notes":              "Community-maintained vendor end-of-life / end-of-support dates (MIT-licensed data, free API v1, no key). One GET per product slug (OR_INTEL_ENDOFLIFE_PRODUCTS, default 14 slugs incl. windows-server, windows, office, cisco-ios-xe, fortios, oracle-jdk, rhel, esxi); emits only milestones within 730 days ahead, a stable title per milestone so re-runs add no rows. Third-party aggregation of vendor policy, not the vendor itself: each row links the vendor releasePolicy URL. Observed 2026-11-24: windows-server payload 20 releases; /products lists 489 products. Needs the dated-events VENDOR tier to include 'endoflife' (see docs). Rollback: leave active=false.",
+        "content_expectation": "continuous",
+        "useful_life_days": 90,
+    },
 ]
 
 # ─── Seed logic ───────────────────────────────────────────────────────────────

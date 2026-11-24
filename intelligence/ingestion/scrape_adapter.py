@@ -13,6 +13,7 @@ This adapter explicitly marks its confidence lower than RSS/API sources.
 """
 
 import logging
+import os
 import re
 import urllib.error
 import urllib.request
@@ -27,7 +28,7 @@ from intelligence.config import (
     NO_INCIDENT_SENTINEL_PHRASES,
     STATUS_NARRATIVE_KEYWORDS,
 )
-from intelligence.ingestion import firecrawl_client
+from intelligence.ingestion import firecrawl_client, forward_dates
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
@@ -60,7 +61,20 @@ _FIRECRAWL_RENDER_SOURCE_NAMES = frozenset({
     "ASIC News Centre",
     "ASIC Enforcement Activity",
     "Optus National Outage Register",
+    "ASIC Consultations",       # forward-dated closing dates (inactive until activated; see seed_source_registry)
 })
+
+# Listings whose rows carry a stated closing/published date that the generic extractor drops (2026-11-24). Each maps to a parser in
+# forward_dates; the summary then carries "open until <date>" so the dated-events extractor can read the deadline.
+_FORWARD_LISTING_PARSERS = {
+    "APRA Consultations": forward_dates.apra_listing,
+    "APRA Media Releases": forward_dates.apra_listing,
+    "APRA Publications": forward_dates.apra_listing,
+    "Australian Treasury Consultations": forward_dates.treasury_listing,
+    "ASIC Consultations": forward_dates.asic_consultations,
+}
+# Open APRA consultations whose detail page is fetched per run to add submission-close / commencement sentences. Plain fetches only.
+_APRA_DETAIL_MAX = int(os.getenv("OR_INTEL_APRA_DETAIL_MAX", "3"))
 
 # Statutory outage registers (carriers publish every Major / Significant Local Outage after it is rectified). Each entry is a
 # block of label:value fields, parsed by _parse_outage_register. Retrospective by design: a confirmation and restoration record,
@@ -112,8 +126,13 @@ class ScrapeAdapter(BaseSourceAdapter):
         html = self._fetch_html(self.source.url)
         # keep the free plain fetch when it already carries the list; render only when it does not
         _plain = BeautifulSoup(html, "html.parser")
-        _has_list = (bool(_plain.select('[data-testid^="outage-result-"]')) if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES
-                     else bool(self._extract_items(_plain)))
+        _listing_parser = _FORWARD_LISTING_PARSERS.get(self.source.source_name)
+        if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES:
+            _has_list = bool(_plain.select('[data-testid^="outage-result-"]'))
+        elif _listing_parser is not None:
+            _has_list = bool(_listing_parser(_plain)) or bool(self._extract_items(_plain))
+        else:
+            _has_list = bool(self._extract_items(_plain))
         if self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES and not _has_list:
             log.info("[%s] plain fetch has no release list (client-rendered) — rendering via Firecrawl", self.source.source_name)
             html = firecrawl_client.fetch_html(self.source.url)
@@ -121,6 +140,12 @@ class ScrapeAdapter(BaseSourceAdapter):
 
         if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES:
             return self._parse_outage_register(soup)[:MAX_ITEMS_PER_SOURCE]
+
+        if _listing_parser is not None:
+            rows = _listing_parser(soup)
+            if rows:
+                return self._items_from_listing(rows)[:MAX_ITEMS_PER_SOURCE]
+            # parser found nothing (page redesigned): fall through to the generic extraction rather than return no items
 
         page_text = soup.get_text(" ", strip=True).lower()
 
@@ -155,6 +180,26 @@ class ScrapeAdapter(BaseSourceAdapter):
         if items:
             self._used_fallback = True
         return items[:MAX_ITEMS_PER_SOURCE]
+
+    def _items_from_listing(self, rows: list[dict]) -> list[IntelligenceItem]:
+        """Items from forward_dates listing rows; for APRA Consultations, open rows also get a bounded detail-page fetch."""
+        from bs4 import BeautifulSoup
+
+        detail_budget = _APRA_DETAIL_MAX if self.source.source_name == "APRA Consultations" else 0
+        items = []
+        for r in rows:
+            summary = r["summary"]
+            if detail_budget > 0 and r.get("open") and r.get("url"):
+                detail_budget -= 1
+                try:
+                    extra = forward_dates.apra_detail_sentences(BeautifulSoup(self._fetch_html(r["url"]), "html.parser"))
+                except Exception as exc:  # noqa: BLE001 - the listing already carries the closing date; a failed detail fetch only loses extras
+                    log.warning("[%s] detail fetch failed for %s: %s", self.source.source_name, r["url"], exc)
+                    extra = []
+                if extra:
+                    summary = " ".join([summary or "", *extra]).strip()
+            items.append(self._make_item(r["title"], summary, r["url"], r["published_at"]))
+        return items
 
     def _validate_content(self, items: list[IntelligenceItem]) -> tuple[bool, str | None]:
         if self._used_narrative:
