@@ -28,8 +28,12 @@ import provider_disruption_report as pdr
 import register_records as rr
 import systemic_risk_view as srv
 from product_common import iso_week, short
-from intelligence.tiered_brief import PRODUCTS_TAB, intelligence_tab_link  # single Python-side link builder
 from provider_involvement import AFFECTED, SUPPLYING
+
+from intelligence.tiered_brief import (  # single Python-side link builder
+    PRODUCTS_TAB,
+    intelligence_tab_link,
+)
 
 PRODUCT_KEYS = ("recurring_provider", "systemic_risk", "forward_watch")
 TITLES = {
