@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getJson, loadIntel } from '@/lib/hq/data';
 import { useAsync } from '@/lib/hq/useAsync';
-import { pendingIntelDependencies } from '@/lib/hq/intelDependencies';
+import { loadIntelExtras } from '@/lib/hq/intelExtras';
 import { normaliseRisk } from '@/lib/hq/vocab';
 import type { HqIntelItem } from '@/lib/hq/model';
 import { LENSES, filterIntel, type Lens } from '@/lib/hq/intelFilter';
@@ -26,7 +26,7 @@ function Inner() {
   const items = intel.data ? filterIntel(intel.data.items, lens) : [];
   const needs = items.filter((i) => i.needsYou);
   const others = items.filter((i) => !i.needsYou);
-  const pending = pendingIntelDependencies();
+  const extras = useAsync(loadIntelExtras);
 
   const row = (i: HqIntelItem) => (
     <Link key={i.id} href={`/hq/intelligence/${encodeURIComponent(i.id)}`} className="hq-row">
@@ -65,10 +65,40 @@ function Inner() {
       {needs.length > 0 && <section className="hq-sec" aria-labelledby="i-need"><div className="hq-sech"><h2 id="i-need">Needs you</h2></div>{needs.map(row)}</section>}
       {others.length > 0 && <section className="hq-sec" aria-labelledby="i-else"><div className="hq-sech"><h2 id="i-else">{needs.length ? 'Everything else' : 'Items'}</h2></div>{others.map(row)}</section>}
 
-      {pending.length > 0 && (
-        <Notice>
-          Not yet connected here: {pending.map((d) => `${d.label} (${d.pr})`).join('; ')}. They arrive with those changes and are not rebuilt in HQ.
-        </Notice>
+      {extras.data && (
+        <>
+          {extras.data.products.state === 'ok' && extras.data.products.products.length > 0 && (
+            <section className="hq-sec" aria-labelledby="i-prod">
+              <div className="hq-sech"><h2 id="i-prod">Intelligence products</h2><Link href="/intelligence-workbench?tab=products">Open in Intelligence workbench</Link></div>
+              {extras.data.products.products.map((p) => (
+                <Link key={p.product_key} href={`/intelligence-workbench?tab=products#${encodeURIComponent(p.product_key)}`} className="hq-row">
+                  <span className="t">{p.title}</span><span className="s">{p.summary}</span>
+                  <span className="r"><span className="hq-pill info">{new Date(p.as_of).toLocaleDateString()}</span></span>
+                </Link>
+              ))}
+            </section>
+          )}
+          {extras.data.coverage.state === 'ok' && extras.data.coverage.counts && (
+            <section className="hq-sec" aria-labelledby="i-cov">
+              <div className="hq-sech"><h2 id="i-cov">Source coverage</h2><Link href="/intelligence-workbench?tab=sources">Open in Intelligence workbench</Link></div>
+              <div className="hq-plain">
+                {Object.entries(extras.data.coverage.counts).map(([k, v]) => `${v} ${k.toLowerCase()}`).join(' · ')}
+              </div>
+              {extras.data.coverage.limitationsLine && <div className="hq-quiet">{extras.data.coverage.limitationsLine}</div>}
+              {extras.data.coverage.notHealthy.slice(0, 5).map((s) => (
+                <div className="hq-plain" key={s.source_name}>{s.source_name} <span className={`hq-pill ${s.state === 'BROKEN' ? 'red' : 'amber'}`}>{s.state.toLowerCase()}</span> <span className="hq-muted">· {s.reason}</span></div>
+              ))}
+            </section>
+          )}
+          {(extras.data.incidents.state !== 'ok' || extras.data.products.state !== 'ok') && (
+            <Notice>
+              {extras.data.incidents.state === 'off' && 'Incident clustering is switched off in this environment. '}
+              {extras.data.incidents.state === 'unavailable' && 'Incidents are not available yet (the snapshot is not published). '}
+              {extras.data.products.state !== 'ok' && 'Intelligence products are not available yet (their migration is not applied). '}
+              These come from the Intelligence programme and appear here once it activates them.
+            </Notice>
+          )}
+        </>
       )}
     </>
   );

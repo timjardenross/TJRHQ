@@ -28,9 +28,9 @@ Last updated: 2026-11-24.
 | Item detail, and Start mission (creates a mission candidate for your review) | Partial | Verify the mission route live. Missions have no field for a source link, so the link travels in the text. |
 | Morning brief page with governed publish | Partial | Verify live. |
 | From an intelligence item to a decision request (evidence, reason, options and any recommendation kept; one request per item) | Partial | Built on the existing proposal mechanism and tested. Verify live. |
-| Incident clustering and delivery tiers | Outstanding | Waiting for the Intelligence delivery to merge, then connect. |
-| Provider disruption, systemic view, forward watch | Outstanding | Waiting for the Intelligence delivery to merge, then connect. |
-| Source coverage | Outstanding | Waiting for the Intelligence delivery to merge, then connect. |
+| Incident clustering and delivery tiers | Partial | Connected to the Intelligence delivery's incident endpoint; incidents join the list and can become decision requests. Shows "off" until that flag is activated, which is the release lead's decision. Verify live once activated. |
+| Provider disruption, systemic view, forward watch | Partial | Connected to the products endpoint; products and their exceptions appear. Shows "not available" until the products migration (a draft, not applied) is applied by the Intelligence programme. Verify live. |
+| Source coverage | Partial | Connected to the source-coverage endpoint (counts, limitations, non-healthy sources). Verify with live data. |
 | Investigation path from an item | Outstanding | The existing investigation engine is not linked from HQ. |
 | **Decisions** | | |
 | One inbox for build requests and AI proposals | Partial | Verify with live data. |
@@ -41,7 +41,7 @@ Last updated: 2026-11-24.
 | No double execution of an AI proposal | Partial | Atomic claim built and tested. Verify live. |
 | No repeated or conflicting improvement decisions | Partial | Guard built and tested in the improvements service. It takes effect when that service is restarted, which needs your go. |
 | No repeat brief publication notification | Outstanding | Needs a change in the Intelligence workflow (a repeat publish must not resend the notification). To be agreed with the Intelligence agent. |
-| Decisions arising from intelligence products | Outstanding | Waiting for the Intelligence delivery to merge, then connect. |
+| Decisions arising from intelligence products and incidents | Partial | Product exceptions and incidents are items in Intelligence, and "Ask me to decide" turns one into a governed request. Verify live once the products and incident data exist. |
 | **Work** | | |
 | Missions and engineering hand-offs grouped as ready, blocked, in progress, done | Partial | Verify with live data. |
 | Research as a type of work, with the mission's real status ("Requested, not running" until something executes it) | Partial | Verify live. |

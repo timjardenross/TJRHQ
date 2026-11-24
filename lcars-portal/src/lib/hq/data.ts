@@ -4,6 +4,7 @@
 import { normaliseEvidence, normaliseRisk } from './vocab';
 import type { HqIntelItem, HqLibraryItem, HqWorkItem, HqWorkState } from './model';
 import { isResearchTitle, researchStatus } from './research';
+import { loadIntelExtras } from './intelExtras';
 
 type Fetched<T> = { ok: true; data: T } | { ok: false; status: number; error: string };
 
@@ -84,11 +85,12 @@ export function mapHealthItem(h: HealthItem): HqIntelItem {
 }
 
 export async function loadIntel(): Promise<Loaded<HqIntelItem>> {
-  const [today, watching, alerts, health] = await Promise.all([
+  const [today, watching, alerts, health, extras] = await Promise.all([
     getJson<{ needs_you: TodayDev[]; worth_knowing: TodayDev[] }>('/api/intelligence-workbench/today'),
     getJson<{ items: WatchItem[] }>('/api/intelligence-workbench/watching'),
     getJson<{ alerts: EmergencyAlert[] }>('/api/emergency-alerts?activeOnly=true'),
     getJson<{ worth_knowing: HealthItem[]; safety: { items: HealthItem[] } }>('/api/health-osint/today'),
+    loadIntelExtras(),
   ]);
   const items: HqIntelItem[] = [];
   const unavailable: string[] = [];
@@ -106,6 +108,8 @@ export async function loadIntel(): Promise<Loaded<HqIntelItem>> {
       items.push(mapHealthItem(h));
     }
   } else unavailable.push('Health evidence');
+  // The Intelligence delivery's incidents and product exceptions join the same list (off or not-yet-available is not an error).
+  items.push(...extras.incidents.items, ...extras.products.items);
   return { items, unavailable };
 }
 
