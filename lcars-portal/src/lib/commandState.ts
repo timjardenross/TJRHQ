@@ -169,6 +169,9 @@ export interface NeedsYouBuildInputs {
    *  predates this field; never blocks the rest of Needs You (same
    *  degrade-gracefully discipline as every other field here). */
   numberOneAttentionItems?: NumberOneAttentionItem[] | null;
+  /** Alert-level incidents / material exceptions (INCIDENT_VIEW_V1, default OFF -> [] / omitted). One entry per incident_key, the same key
+   *  Telegram and the Decisions inbox use (id 'incident-<key>' mirrors Decisions' 'inc:<key>'). Read-only: links to the Intelligence page. */
+  incidentAttention?: Array<{ incidentKey: string; title: string; detail: string }> | null;
 }
 
 export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] {
@@ -244,6 +247,17 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
       title: inputs.oldestEngineeringApproval ?? 'Engineering handoffs awaiting approval',
       detail: `${inputs.engineeringApprovalsCount} handoff${inputs.engineeringApprovalsCount === 1 ? '' : 's'} awaiting your approve/reject decision.`,
       href: '/decisions', actionLabel: 'Review',
+    });
+  }
+
+  const seenIncidents = new Set<string>();
+  for (const inc of (inputs.incidentAttention ?? []).slice(0, 3)) {
+    if (seenIncidents.has(inc.incidentKey)) continue;
+    seenIncidents.add(inc.incidentKey);
+    items.push({
+      id: `incident-${inc.incidentKey}`, kind: 'time_critical',
+      title: inc.title, detail: inc.detail,
+      href: `/intelligence#${inc.incidentKey}`, actionLabel: 'Verify',
     });
   }
 

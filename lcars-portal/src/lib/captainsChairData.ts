@@ -578,6 +578,21 @@ export function useEngineeringApprovals(): { count: number; oldestTitle: string 
   return { count, oldestTitle, error };
 }
 
+/** Alert-level incidents / material exceptions for Needs You (INCIDENT_VIEW_V1, default OFF -> items stay []). Same one-incident-one-entry
+ * key as the Decisions inbox, through the same fetch. Never errors the page: a failed fetch is simply no incident item. */
+export function useIncidentAttention(): { items: Array<{ incidentKey: string; title: string; detail: string }> } {
+  const [items, setItems] = useState<Array<{ incidentKey: string; title: string; detail: string }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    import('@/lib/decisions')
+      .then(({ fetchIncidentDecisions }) => fetchIncidentDecisions())
+      .then((rows) => { if (!cancelled) setItems(rows.map((r) => ({ incidentKey: r.incidentKey, title: r.title, detail: r.detail }))); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  return { items };
+}
+
 /** Minimal slice of the old NotebookCard's fetch — just the ready-for-
  * routing count. Full detail is one click away, in Captain's Chair's
  * Notebook sub-page. */

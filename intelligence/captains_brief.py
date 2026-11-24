@@ -1323,6 +1323,23 @@ def _evidence_unavailable_lines(reason: str) -> list[str]:
     return [f"⚠️ {_EVIDENCE_INSUFFICIENT_MARKER}: {reason}; nothing below should be read as all quiet.", ""]
 
 
+def _morning_view_lines(be, ev, events: list[dict], hours: int) -> list[str]:
+    """Morning evidence view. DELIVERY_TIERS_V1 (default off) swaps in the clustered, tiered incident view; with it off this is exactly
+    ``be.morning_view(ev)`` (tests/test_tiered_brief.py proves identical text). With CAPTAINS_BRIEF_RECORD_EVENTS on, the event ids the
+    rendered view contains are noted for ``brief_event_links.flush`` (no-op when off)."""
+    from intelligence import brief_event_links as bel
+    from intelligence import tiered_brief as tb
+    if tb.enabled():
+        view, shown = tb.render(events, now=ev.generated_at, window_hours=hours)
+        bel.note("morning", shown)
+        return view
+    view = be.morning_view(ev)
+    if bel.enabled():
+        text = "\n".join(view)
+        bel.note("morning", [rid for i in ev.incidents if i.incident_id in text for rid in i.report_ids])
+    return view
+
+
 def _evidence_lines(kind: str, hours: int) -> list[str]:
     """V1 shared-evidence block for the morning or weekly brief. Returns [] unless its feature flag is on (BRIEF_EVIDENCE_V1 or
     BRIEF_EVIDENCE_V1_MORNING / _WEEKLY); never raises, so the legacy brief always renders unchanged when the flag is off or the
@@ -1338,7 +1355,7 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
             return []
         ev = be.build_evidence(events, window_hours=hours)
         if kind == "morning":
-            view = be.morning_view(ev)
+            view = _morning_view_lines(be, ev, events, hours)
             recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
             if not recent and not any(_EVIDENCE_INSUFFICIENT_MARKER in line for line in view):
                 # Reports exist (24-72h old) but nothing was collected in the last 24h: the picture is NOT 'all quiet', it is thin.
@@ -1774,6 +1791,19 @@ def _email_morning_brief(text: str) -> None:
         log.warning("Morning brief email to %s failed (non-blocking)", _MORNING_BRIEF_EMAIL_TO)
 
 
+def _record_brief_events(brief_type: str) -> None:
+    """CAPTAINS_BRIEF_RECORD_EVENTS (default off): record which events this brief contained, keyed by the persisted brief id.
+    Never raises; does nothing at all when the flag is off (the legacy persist path is untouched)."""
+    try:
+        from intelligence import brief_event_links as bel
+        if not bel.enabled():
+            return
+        rows = _sb_get("captains_daily_briefs", f"brief_type=eq.{brief_type}&order=generated_at.desc&limit=1&select=id")
+        bel.flush(brief_type, brief_ref=(rows[0].get("id") if rows else None), kind=brief_type)
+    except Exception as exc:  # noqa: BLE001 - best-effort audit trail
+        log.warning("Brief event recording skipped: %s", exc)
+
+
 def send_brief(brief_type: str, **kwargs) -> bool:
     """Generate and deliver a brief. Returns True if Telegram delivery succeeded."""
     signals: list[dict] = []
@@ -1816,6 +1846,7 @@ def send_brief(brief_type: str, **kwargs) -> bool:
         brief_type, text, signals_count=len(signals), health=_get_capacity_today(),
         evidence_window_hours=evidence_window_hours, collection_caveat=collection_caveat,
     )
+    _record_brief_events(brief_type)
     if brief_type == "morning":
         # USS-TJR-MSN-0412 Stream 4: once-a-day database size guard (warns at
         # >= 450 MB, at most once per 24h; best-effort, never raises).

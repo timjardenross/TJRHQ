@@ -1,0 +1,24 @@
+🛰 EVIDENCE-BASED PICTURE
+Based on reports from the last 72 hours (newest within 24 hours).
+
+Operational situation: 1 confirmed or corroborated and 0 single-source reported disruption(s) in the last 24 hours. (1 more reported with current status unknown — not counted as current disruptions)
+
+What matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents
+- [ESCALATE · corroborated] Microsoft 'deeply sorry' for global outage, reports 'broad recovery' of services — impact stated in headline, ongoing; high confidence [inc-36f200b108; 22 report(s); evidence: Guardian Australia #13ce937b, BBC News #19676760, ABC News #1ac9ea52 +19 more]
+    next: confirm the customer count, affected area and restoration estimate with the operator or regulator (primary source)
+
+REPORTED by one source (provisional until a second or primary source)
+- [ESCALATE · reported · provisional] Outlook outage expected to cost Australian businesses billions of dollars — impact stated in headline; moderate confidence [inc-651d7834fc; 1 report(s); evidence: ABC News #d05821f7]
+    next: confirm the disruption is current (operator status page or a dated primary statement); if it is not, treat the report as historical and take no live restoration action
+
+Operational implications (only what the cited reports state)
+- tier 2: cloud_platform — impact stated in headline, ongoing [inc-36f200b108; 22 report(s); evidence: Guardian Australia #13ce937b, BBC News #19676760, ABC News #1ac9ea52 +19 more]
+- tier 2: cloud_platform — impact stated in headline [inc-651d7834fc; 1 report(s); evidence: ABC News #d05821f7]
+
+Forward watch, next 24–72 hours
+- Ongoing: Microsoft 'deeply sorry' for global outage, reports 'broad recovery' of services (restoration ongoing) [inc-36f200b108; 22 report(s); evidence: Guardian Australia #13ce937b, BBC News #19676760, ABC News #1ac9ea52 +19 more]
+
+Nothing to report in: impact not yet established; retrospective reports; source not yet verified; warnings and forecasts; emerging exposure.
+
+WORTH KNOWING (last 72h; credible technology developments with no confirmed outage or immediate service impact; informative, not escalated)
+- [software · single-source report · International development; no Australian operational impact established] Microsoft 365 recovers with Outlook back online [inc-f4a635c1ee; 1 report(s); evidence: iTnews #a160eef1]
