@@ -257,3 +257,18 @@ STATUS_NARRATIVE_KEYWORDS = [
     "outage", "incident", "disruption", "restored", "affecting",
     "degraded", "service issue", "unplanned", "resolved", "down",
 ]
+
+# ── Temporary source pause (2026-11-24) ──────────────────────────────────────
+# Exact source_name values collect_all() skips without touching the registry row or any stored data.
+# Default pauses GitHub Status (see docs/GITHUB-STATUS-TEMPORARY-PAUSE.md). Override with
+# INTELLIGENCE_PAUSED_SOURCES="A,B"; set it to "none" (or empty) to reinstate everything.
+DEFAULT_PAUSED_SOURCE_NAMES = frozenset({"GitHub Status"})
+
+
+def paused_source_names() -> frozenset[str]:
+    raw = os.environ.get("INTELLIGENCE_PAUSED_SOURCES")
+    if raw is None:
+        return DEFAULT_PAUSED_SOURCE_NAMES
+    names = {n.strip() for n in raw.split(",") if n.strip()}
+    names.discard("none")
+    return frozenset(names)
