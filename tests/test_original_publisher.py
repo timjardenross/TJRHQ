@@ -120,3 +120,25 @@ def test_not_wired():
     users = [p for p in (root / "intelligence").rglob("*.py") if "original_publisher" in p.read_text(errors="ignore")
              and p.name != "original_publisher.py"]
     assert users == []
+
+
+def _page(**meta):
+    return {"url": "https://www.example.com.au/news/a", "metadata": meta}
+
+
+def test_date_only_or_zoneless_published_time_is_never_verified():
+    """Rehearsal 2026-11-24: 'datePublished: 2026-11-21' (day precision) and a zone-less time were labelled verified_date, giving a
+    midnight/guessed instant. Verified needs a time of day AND a timezone."""
+    for meta in ({"datePublished": "2026-11-21"}, {"article:published_time": "2026-11-21"},
+                 {"article:published_time": "2026-11-21T10:17:48"}, {"publishedTime": "21 November 2026"}):
+        v = op.classify_fetch(_item(), _page(**meta), now=NOW)
+        assert v.outcome == op.PUBLISHER_KNOWN_DATE_UNVERIFIED and v.published_at is None and v.delta_hours is None, meta
+        assert "timezone" in v.reason and "date-only" in v.reason
+
+
+def test_full_timestamps_with_a_zone_still_verify_and_a_later_full_key_beats_an_earlier_date_only_key():
+    for raw in ("2026-11-21T10:17:48Z", "2026-11-21T10:17:48+00:00", "2026-11-21T21:17:48+11:00", "2026-11-21T10:17:48+0000"):
+        v = op.classify_fetch(_item(), _page(**{"article:published_time": raw}), now=NOW)
+        assert v.outcome == op.VERIFIED_DATE and v.published_at is not None, raw
+    v = op.classify_fetch(_item(), _page(**{"article:published_time": "2026-11-21", "publishedTime": "2026-11-21T10:17:48+00:00"}), now=NOW)
+    assert v.outcome == op.VERIFIED_DATE and v.published_at == datetime(2026, 11, 21, 10, 17, 48, tzinfo=timezone.utc)
