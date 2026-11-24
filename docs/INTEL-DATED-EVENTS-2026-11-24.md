@@ -10,10 +10,8 @@ names are mostly not in the collected text (section 3). Marking it Operational w
 |---|---|
 | Extractor | `tools/intelligence/analytics/dated_events.py` (flag `--enable` or `INTEL_DATED_EVENTS_ENABLED=1`) |
 | Fifth forward-watch input "Dated events" | `forward_watch.py --dated-events` (or `INTEL_DATED_EVENTS_ENABLED=1`); adds one section, existing sections and the default output are unchanged (tested) |
-| Tests | `tests/test_dated_events.py` (41 cases), `tests/test_forward_watch.py` (13) |
+| Tests | `tests/test_dated_events.py` (41 cases), existing forward-watch tests in `tests/test_systemic_intel_products.py` |
 
-`forward_watch.py` and `product_common.py` are not on `main` yet; they are copied unchanged from `origin/claude/systemic-intel-2kq-products` in the first commit
-so the new input has something to attach to. Expect a trivial merge with that branch.
 
 Record: `{event, date, end_date, time, date_basis, source, evidence_span, kind, uncertainty_label, event_id, published_at, reference_date}`.
 `kind` is regulatory, vendor_lifecycle, planned_maintenance or advisory_deadline. Rules, all deterministic:
