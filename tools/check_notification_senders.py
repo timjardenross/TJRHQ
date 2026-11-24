@@ -46,6 +46,9 @@ _METHOD_MARKER = "sendMessage"
 _ALLOWLIST = {
     "core/platform/notification_service.py":
         "the canonical implementation itself",
+    "tests/test_run_live_cycle.py":
+        "PERMANENT exception - a test, not a sender: it asserts that tools/ops/run_live_cycle.py's delivery guard REFUSES "
+        "Telegram/Slack hosts and strips their credentials. It must name the Telegram API host to prove the block.",
     "core/platform/deadmans_switch.py":
         "PERMANENT exception, by design — this is the watcher's watcher "
         "(alerts if verification_engine itself goes silent). It must share "

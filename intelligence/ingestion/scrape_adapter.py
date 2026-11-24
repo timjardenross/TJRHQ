@@ -13,12 +13,14 @@ This adapter explicitly marks its confidence lower than RSS/API sources.
 """
 
 import logging
+import os
 import re
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
-from urllib.parse import urljoin
+from datetime import datetime, timedelta, timezone
+from urllib.parse import parse_qs, urljoin, urlparse
 
+from intelligence import provenance as prov
 from intelligence.config import (
     AUTH_GATED_SENTINEL_PHRASES,
     HTTP_TIMEOUT_SECONDS,
@@ -27,7 +29,7 @@ from intelligence.config import (
     NO_INCIDENT_SENTINEL_PHRASES,
     STATUS_NARRATIVE_KEYWORDS,
 )
-from intelligence.ingestion import firecrawl_client
+from intelligence.ingestion import firecrawl_client, forward_dates, maintenance_parsers
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
@@ -49,7 +51,65 @@ _UA = "USS-TJR-Intelligence-Agent/1.0 (+https://github.com/usstjros)"
 _FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
     "AEMO Market Notices",
     "Fastly Status",
+    # 2026-11-24: oaic.gov.au answers the production host's plain fetch with HTTP 403 on every check (both OAIC sources,
+    # every run since at least 2026-11-21). Firecrawl reaches it (200, server-rendered list). Fires only on a 403, so it
+    # stops costing credits if OAIC unblocks the host. Daily sweep only (scheduler._FIRECRAWL_FETCH_SOURCE_NAMES): 2 credits/day.
+    "OAIC Breach Notifications",
+    "OAIC Privacy Determinations & News",
+    # 2026-11-24 (forward-sources-maint-2kq): planned-maintenance pages, inactive in the registry. ATO's page answers a plain
+    # fetch with an Akamai 403. Math: 1 credit per run, once a day (scheduler._FIRECRAWL_FETCH_SOURCE_NAMES) = ~30 credits/month each.
+    "ATO System Maintenance",
+    "ATO ABR Scheduled Site Maintenance",
+    "DVS Status Scheduled Outages",
 })
+
+# OAIC media centre (https://www.oaic.gov.au/news/media-centre): a server-rendered list of `div.card` results, each with an
+# `a.card-title` (a site-search redirect wrapping the real URL), `p.card-text`, topic tags and `p.date`. Value = topic tag a
+# source keeps (lower-case), or None for all cards.
+_OAIC_CARD_SOURCE_NAMES = {
+    "OAIC Breach Notifications": "data breach",
+    "OAIC Privacy Determinations & News": None,
+}
+
+# 2026-11-24: sources whose release list is rendered client-side. A plain fetch returns the page chrome without the list
+# (ASIC's newsroom: 14 KB of navigation, zero releases), which is why ASIC News Centre and ASIC Enforcement Activity returned
+# "no items" on every check from early September. For these names ONLY, when the plain fetch yields no items the adapter
+# renders the page through Firecrawl (one credit per source per run; both are also kept to the once-daily sweep in
+# scheduler._FIRECRAWL_FETCH_SOURCE_NAMES, so the cost is 2 credits/day).
+_FIRECRAWL_RENDER_SOURCE_NAMES = frozenset({
+    "ASIC News Centre",
+    "ASIC Enforcement Activity",
+    "Optus National Outage Register",
+    "ASIC Consultations",       # forward-dated closing dates (inactive until activated; see seed_source_registry)
+})
+
+# Listings whose rows carry a stated closing/published date that the generic extractor drops (2026-11-24). Each maps to a parser in
+# forward_dates; the summary then carries "open until <date>" so the dated-events extractor can read the deadline.
+_FORWARD_LISTING_PARSERS = {
+    "APRA Consultations": forward_dates.apra_listing,
+    "APRA Media Releases": forward_dates.apra_listing,
+    "APRA Publications": forward_dates.apra_listing,
+    "Australian Treasury Consultations": forward_dates.treasury_listing,
+    "ASIC Consultations": forward_dates.asic_consultations,
+}
+# Open APRA consultations whose detail page is fetched per run to add submission-close / commencement sentences. Plain fetches only.
+_APRA_DETAIL_MAX = int(os.getenv("OR_INTEL_APRA_DETAIL_MAX", "3"))
+
+# Statutory outage registers (carriers publish every Major / Significant Local Outage after it is rectified). Each entry is a
+# block of label:value fields, parsed by _parse_outage_register. Retrospective by design: a confirmation and restoration record,
+# not a first-alert source.
+_OUTAGE_REGISTER_SOURCE_NAMES = frozenset({"Optus National Outage Register"})
+_AEDT = timezone(timedelta(hours=11))
+
+# Dates the adapter reads from a page. Slash dates are day-first (Australian sources); see _extract_date.
+_NAMED_MONTH_DATE_RE = re.compile(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})\b", re.IGNORECASE)
+_ISO_DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+_SLASH_DATE_RE = re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?")
+_HAS_TIME_RE = re.compile(r"\b\d{1,2}:\d{2}\b")      # a time of day near the date: without one the header date is 'date_only' (day precision)
+# Timezone a source publishes its dates in when the page states none (default UTC). AEMO uses NEM time: AEST, fixed UTC+10, no daylight saving.
+_SOURCE_UTC_OFFSET = {
+    "AEMO Market Notices": timezone(timedelta(hours=10)),
+}
 
 # CSS selectors tried in priority order for finding article/notice lists
 _ARTICLE_SELECTORS = [
@@ -68,6 +128,17 @@ _ARTICLE_SELECTORS = [
 ]
 
 
+def _parse_iso_utc(value) -> datetime | None:
+    """ISO date or datetime string (as emitted by maintenance_parsers) to an aware UTC datetime; date-only means 00:00 UTC."""
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+
+
 class ScrapeAdapter(BaseSourceAdapter):
 
     def __init__(self, source: SourceRecord):
@@ -83,8 +154,49 @@ class ScrapeAdapter(BaseSourceAdapter):
         except ImportError:
             raise RuntimeError("beautifulsoup4 not installed — run: pip install beautifulsoup4")
 
-        html = self._fetch_html(self.source.url)
+        _rendered = False
+        try:
+            html = self._fetch_html(self.source.url)
+        except Exception as exc:
+            if self.source.source_name not in _FIRECRAWL_RENDER_SOURCE_NAMES:
+                raise
+            # 2026-11-24 live run: optus.com.au hangs plain GETs from the production host (read timeout), so the source never reached
+            # the Firecrawl render it needs. A render-path source's plain fetch failing is the same situation as it holding no list.
+            log.info("[%s] plain fetch failed (%s) - rendering via Firecrawl", self.source.source_name, exc)
+            html = firecrawl_client.fetch_html(self.source.url)
+            _rendered = True
+        # keep the free plain fetch when it already carries the list; render only when it does not
+        _plain = BeautifulSoup(html, "html.parser")
+        _listing_parser = _FORWARD_LISTING_PARSERS.get(self.source.source_name)
+        if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES:
+            _has_list = bool(_plain.select('[data-testid^="outage-result-"]'))
+        elif _listing_parser is not None:
+            _has_list = bool(_listing_parser(_plain)) or bool(self._extract_items(_plain))
+        else:
+            _has_list = bool(self._extract_items(_plain))
+        if self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES and not _has_list and not _rendered:
+            log.info("[%s] plain fetch has no release list (client-rendered) — rendering via Firecrawl", self.source.source_name)
+            html = firecrawl_client.fetch_html(self.source.url)
         soup = BeautifulSoup(html, "html.parser")
+
+        # Planned-maintenance tables: dated records only (explicit stated windows), parsed by maintenance_parsers.
+        if self.source.source_name in maintenance_parsers.PAGE_PARSERS:
+            recs = maintenance_parsers.PAGE_PARSERS[self.source.source_name](html, source_name=self.source.source_name, url=self.source.url)
+            return [self._make_item(r["raw_title"], r["raw_summary"], r["canonical_url"], _parse_iso_utc(r["published_at"])) for r in recs][:MAX_ITEMS_PER_SOURCE]
+
+        if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES:
+            return self._parse_outage_register(soup)[:MAX_ITEMS_PER_SOURCE]
+
+        if self.source.source_name in _OAIC_CARD_SOURCE_NAMES:
+            cards = self._parse_oaic_cards(soup)
+            if cards:
+                return cards[:MAX_ITEMS_PER_SOURCE]
+
+        if _listing_parser is not None:
+            rows = _listing_parser(soup)
+            if rows:
+                return self._items_from_listing(rows)[:MAX_ITEMS_PER_SOURCE]
+            # parser found nothing (page redesigned): fall through to the generic extraction rather than return no items
 
         page_text = soup.get_text(" ", strip=True).lower()
 
@@ -119,6 +231,26 @@ class ScrapeAdapter(BaseSourceAdapter):
         if items:
             self._used_fallback = True
         return items[:MAX_ITEMS_PER_SOURCE]
+
+    def _items_from_listing(self, rows: list[dict]) -> list[IntelligenceItem]:
+        """Items from forward_dates listing rows; for APRA Consultations, open rows also get a bounded detail-page fetch."""
+        from bs4 import BeautifulSoup
+
+        detail_budget = _APRA_DETAIL_MAX if self.source.source_name == "APRA Consultations" else 0
+        items = []
+        for r in rows:
+            summary = r["summary"]
+            if detail_budget > 0 and r.get("open") and r.get("url"):
+                detail_budget -= 1
+                try:
+                    extra = forward_dates.apra_detail_sentences(BeautifulSoup(self._fetch_html(r["url"]), "html.parser"))
+                except Exception as exc:  # noqa: BLE001 - the listing already carries the closing date; a failed detail fetch only loses extras
+                    log.warning("[%s] detail fetch failed for %s: %s", self.source.source_name, r["url"], exc)
+                    extra = []
+                if extra:
+                    summary = " ".join([summary or "", *extra]).strip()
+            items.append(self._make_item(r["title"], summary, r["url"], r["published_at"]))
+        return items
 
     def _validate_content(self, items: list[IntelligenceItem]) -> tuple[bool, str | None]:
         if self._used_narrative:
@@ -181,9 +313,75 @@ class ScrapeAdapter(BaseSourceAdapter):
                 charset = content_type.split("charset=")[-1].split(";")[0].strip()
             return resp.read().decode(charset, errors="replace")
 
+    def _parse_outage_register(self, soup) -> list[IntelligenceItem]:
+        """One item per register entry. The entry reference is the identity (canonical_url '<page>#<ref>'), so a re-read never duplicates.
+
+        published_at is the register's own 'Date and time entry first published' (day precision); the outage's start and end times are
+        kept in the summary as event times and never used as the publication date."""
+        items: list[IntelligenceItem] = []
+        for block in soup.select('[data-testid^="outage-result-"]'):
+            fields: dict[str, str] = {}
+            for node in block.find_all(["h3", "p"]):
+                label = node.find("span", class_=lambda c: c and "result-label" in c)
+                value = node.find("span", class_=lambda c: c and "result-value" in c)
+                if label and value:
+                    fields[label.get_text(strip=True).rstrip(":").strip().lower()] = value.get_text(" ", strip=True)
+            ref = fields.get("reference")
+            title = fields.get("outage title")
+            if not ref or not title:
+                continue
+            services = fields.get("number of each type of services affected", "")
+            cause = fields.get("cause (high level)", "unknown")
+            start = f"{fields.get('start date of outage', '?')} {fields.get('start time of outage', '')}".strip()
+            end = f"{fields.get('end date of outage', '?')} {fields.get('end time of outage', '')}".strip()
+            summary = (
+                f"Restored. {fields.get('outage type', 'Outage')}. Start {start}; end {end}; duration {fields.get('duration of outage', '?').strip()} h. "
+                f"Services affected: {fields.get('types of services affected', 'unknown')} ({services or 'count not stated'}). "
+                f"Locations: {fields.get('affected suburbs/towns', 'n/a')} ({fields.get('affected states/territories', 'n/a')}). "
+                f"Cause (as stated by the carrier): {cause}. Register reference {ref}."
+            )
+            published = None
+            m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", fields.get("date and time entry first published", ""))
+            if m:
+                published = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), tzinfo=_AEDT).astimezone(timezone.utc)
+            full_title = f"Optus outage register: {title}"
+            item = self._make_item(full_title, summary, f"{self.source.url}#{ref}", published, provenance=prov.scrape_provenance(
+                published=published, page_url=self.source.url, date_only=True, title=full_title))
+            items.append(item)
+        return items
+
+    def _parse_oaic_cards(self, soup) -> list[IntelligenceItem]:
+        """One item per OAIC media-centre card, with the card's own date. The card link is a site-search redirect
+        (`/s/redirect?...&url=<real url>&auth=...`); the real page URL is the identity, so the per-request `auth`/`rank` never leak in."""
+        wanted_tag = _OAIC_CARD_SOURCE_NAMES.get(self.source.source_name)
+        items: list[IntelligenceItem] = []
+        for card in soup.select("div.card"):
+            link = card.select_one("a.card-title")
+            if not link:
+                continue
+            title = link.get_text(" ", strip=True)
+            if len(title) < 10:
+                continue
+            tags = [t.get_text(strip=True) for t in card.select(".tags .tag")]
+            if wanted_tag and wanted_tag not in {t.lower() for t in tags}:
+                continue
+            href = link.get("href") or ""
+            real = parse_qs(urlparse(href).query).get("url", [None])[0]
+            url = urljoin(self.source.url, real or href) if (real or href) else None
+            date_el = card.select_one("p.date")
+            published = self._extract_date(date_el) if date_el else None
+            text_el = card.select_one("p.card-text")
+            summary = text_el.get_text(" ", strip=True)[:500] if text_el else None
+            if tags:
+                summary = f"[{', '.join(tags)}] {summary or ''}".strip()
+            items.append(self._make_item(title, summary, url, published, provenance=prov.scrape_provenance(
+                published=published, page_url=url or self.source.url, date_only=True, title=title)))
+        return items
+
     def _extract_items(self, soup) -> list[IntelligenceItem]:
         items = []
         base = self.source.url
+        seen_urls: set[str] = set()      # repaired (render) sources list a release in several page sections: keep it once
 
         for selector in _ARTICLE_SELECTORS:
             elements = soup.select(selector)
@@ -191,23 +389,42 @@ class ScrapeAdapter(BaseSourceAdapter):
                 continue
 
             for el in elements:
-                title_el = el.find(["h1", "h2", "h3", "h4", "strong"]) or el.find("a")
+                if el.name == "a" and self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES:
+                    # "h2 a"/"h3 a" select the link itself: its own text is the title, and the date/summary live in the
+                    # enclosing list item. (el.find("a") on an <a> finds nothing, so every such item used to be skipped.)
+                    # Scoped to the repaired sources: other scrape sources that reach this selector today are served by the
+                    # narrative/fallback paths, and changing their output is a separate, evidenced decision.
+                    title_el = el
+                    link_el = el if el.get("href") else None
+                    container = el.find_parent(["li", "article", "div"]) or el
+                else:
+                    title_el = el.find(["h1", "h2", "h3", "h4", "strong"]) or el.find("a")
+                    link_el = el.find("a", href=True)
+                    container = el
                 if not title_el:
                     continue
                 title = title_el.get_text(strip=True)
                 if len(title) < 10 or len(title) > 300:
                     continue
 
-                link_el = el.find("a", href=True)
                 url = urljoin(base, link_el["href"]) if link_el else None
+                if url and self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES:
+                    # ASIC's newsroom shows the same release under 'latest', 'media releases' and 'news items' (4 of 20 items
+                    # were repeats on 2026-11-24, which also used up slots of the per-source cap).
+                    if url in seen_urls:
+                        continue
+                    seen_urls.add(url)
 
                 # Try to find a date near the element
-                published = self._extract_date(el)
+                published = self._extract_date(container)
 
-                summary_el = el.find("p")
+                summary_el = container.find("p")
                 summary = summary_el.get_text(strip=True)[:500] if summary_el else None
 
-                items.append(self._make_item(title, summary, url, published))
+                items.append(self._make_item(title, summary, url, published, provenance=prov.scrape_provenance(
+                    published=published, page_url=url or base, date_only=not _HAS_TIME_RE.search(el.get_text(" ", strip=True)),
+                    basis_tz=self.source.source_name if self.source.source_name in _SOURCE_UTC_OFFSET else None,
+                    explicit_header=self.source.source_name in _SOURCE_UTC_OFFSET, title=title)))
                 if len(items) >= MAX_ITEMS_PER_SOURCE:
                     break
 
@@ -304,24 +521,63 @@ class ScrapeAdapter(BaseSourceAdapter):
                 break
         return items
 
+    @staticmethod
+    def _parse_with_dateutil(text: str) -> datetime | None:
+        try:
+            from dateutil import parser as dateparser
+            dt = dateparser.parse(text)
+            return dt.replace(tzinfo=timezone.utc) if dt else None
+        except Exception as exc:  # noqa: BLE001 - best-effort date probe; a non-matching pattern just tries the next one
+            log.debug("[scrape_adapter] date parse failed for %r: %s", text, exc)
+            return None
+
+    def _parse_slash_date(self, m: re.Match) -> datetime | None:
+        """dd/mm/yyyy[ hh:mm[:ss][ AM|PM]] -> aware UTC, read in the source's own timezone. None when it is not a real date."""
+        day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        hour = int(m.group(4)) if m.group(4) else 0
+        minute = int(m.group(5)) if m.group(5) else 0
+        second = int(m.group(6)) if m.group(6) else 0
+        meridiem = (m.group(7) or "").lower()
+        if meridiem:
+            if not 1 <= hour <= 12:
+                return None
+            hour = hour % 12 + (12 if meridiem == "pm" else 0)
+        try:
+            local = datetime(year, month, day, hour, minute, second, tzinfo=_SOURCE_UTC_OFFSET.get(self.source.source_name, timezone.utc))
+        except ValueError:
+            return None
+        return local.astimezone(timezone.utc)
+
     def _extract_date(self, el) -> datetime | None:
-        """Try to find a date string near/inside the element."""
-        text = el.get_text()
-        # Common date patterns
-        patterns = [
-            r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})\b",
-            r"\b(\d{4}-\d{2}-\d{2})\b",
-            r"\b(\d{1,2}/\d{1,2}/\d{4})\b",
-        ]
-        for pat in patterns:
-            m = re.search(pat, text, re.IGNORECASE)
-            if m:
-                try:
-                    from dateutil import parser as dateparser
-                    dt = dateparser.parse(m.group(1))
-                    return dt.replace(tzinfo=timezone.utc) if dt else None
-                except Exception as exc:  # noqa: BLE001 - best-effort regex-pattern date probe; a non-matching pattern just tries the next one
-                    log.debug("[scrape_adapter] Pattern %r date parse failed: %s", pat, exc)
+        """Find the item's own date near the top of the element, as an aware UTC datetime.
+
+        Slash dates are DAY-first (these are Australian sources: '12/09/2026' is 12 September). dateutil's default is month-first, which
+        turned 12 Sep into 9 Dec and put AEMO notices months in the future. They keep their time-of-day and are read in the source's own
+        timezone (AEMO publishes in NEM time, a fixed UTC+10). The EARLIEST date in the element wins (the header line, not a date mentioned
+        later in the title or body), and a date more than a day ahead of now is an event date, not a publication date, so it is dropped."""
+        text = el.get_text(" ", strip=True) if hasattr(el, "get_text") else str(el)
+        found: list[tuple[int, datetime]] = []
+        m = _NAMED_MONTH_DATE_RE.search(text)
+        if m:
+            dt = self._parse_with_dateutil(m.group(1))
+            if dt:
+                found.append((m.start(), dt))
+        m = _ISO_DATE_RE.search(text)
+        if m:
+            dt = self._parse_with_dateutil(m.group(1))        # never dayfirst: dateutil would read 2026-11-12 as 2026-12-11
+            if dt:
+                found.append((m.start(), dt))
+        for m in _SLASH_DATE_RE.finditer(text):
+            dt = self._parse_slash_date(m)
+            if dt:
+                found.append((m.start(), dt))
+                break                                           # the first valid slash date is the header; later ones are event dates
+        if found:
+            dt = min(found, key=lambda f: f[0])[1]
+            if dt > datetime.now(timezone.utc) + timedelta(days=1):
+                log.debug("[scrape_adapter] ignoring a date more than a day in the future (an event date, not a publication date): %s", dt)
+            else:
+                return dt
 
         # Try <time> element
         time_el = el.find("time")

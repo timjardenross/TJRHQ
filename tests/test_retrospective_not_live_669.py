@@ -16,8 +16,8 @@ NOW = datetime(2026, 11, 23, 0, 30, tzinfo=timezone.utc)
 
 
 def e(i, title, source, age_hours, geo="AU"):
-    return {"id": i, "title": title, "source": source, "geography": geo, "summary": "",
-            "collected_at": (NOW - timedelta(hours=age_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    t = (NOW - timedelta(hours=age_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")     # #692: published time = verified report time
+    return {"id": i, "title": title, "source": source, "geography": geo, "summary": "", "collected_at": t, "published_at": t}
 
 
 def decision(events, member="a"):
@@ -278,3 +278,42 @@ def test_a_process_word_does_not_swallow_a_following_clause_about_the_outage():
     # the process itself continuing is still not a service-continuation cue
     assert not ed._ongoing_cue("Inquiry continues into the Telstra outage")
     assert not ed._ongoing_cue("Royal commission hearings ongoing")
+
+
+# ── T3: a continuation cue only counts when the report itself is recent (<= 48h) ─────────────────────────────────────────────
+CONT = "Telstra mobile outage continues across Australia"
+
+
+def test_old_continuation_cue_is_not_ongoing_or_escalated():
+    evs = [e("a", CONT, "Google News - Critical Infrastructure/Energy Cyberattack AU", 11 * 24)]
+    assert restoration(evs) != "ongoing"
+    assert decision(evs).priority != "ESCALATE"
+
+
+def test_continuation_cue_age_boundary_48h():
+    assert restoration([e("a", CONT, "ABC News", 47)]) == "ongoing"
+    assert restoration([e("a", CONT, "ABC News", 49)]) != "ongoing"
+
+
+def test_fresh_report_still_ongoing():
+    assert restoration([e("a", OLD_STATED, "ABC News", 2)]) == "ongoing"
+    assert restoration([e("a", CONT, "ABC News", 2)]) == "ongoing"
+
+
+def test_no_clock_unchanged_for_old_cue():
+    d = decision([e("a", CONT, "ABC News", 11 * 24)])
+    assert ed.escalation_record(d, now=None)["restoration_status"] == "ongoing"
+
+
+def test_chronology_later_restored_beats_earlier_still():
+    evs = [e("a", "Telstra outage still affecting thousands across Australia", "ABC News", 10),
+           e("b", "Telstra outage restored across Australia", "ABC News", 3)]
+    assert restoration(evs) == "restored"
+
+
+def test_old_continues_report_not_in_what_matters_today():
+    evs = [e("a", CONT, "Google News - Critical Infrastructure/Energy Cyberattack AU", 11 * 24)]
+    es = be.build_evidence(evs, now=NOW, window_hours=24 * 14)
+    assert es.incidents and all(i.record["restoration_status"] != "ongoing" for i in es.incidents)
+    assert not any(i.priority == "ESCALATE" for i in es.incidents)
+    assert "Telstra mobile outage continues" not in "\n".join(be.morning_view(es))

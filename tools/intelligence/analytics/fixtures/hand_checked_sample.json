@@ -1,0 +1,2436 @@
+{
+ "description": "Hand-checked provider-tagging sample (140 events, single reviewer, not independent). truth.providers = map providers genuinely appearing; truth.involved = provider is the subject of an incident, vulnerability or operational notice.",
+ "rows": [
+  {
+   "event_id": "0e40880e-2cae-45cf-b4f7-4afc19532e4a",
+   "source_name": "BBC News",
+   "published_at": "2026-09-27 12:36:57+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/cwjdvml9e897o?at_medium=RSS&at_campaign=rss",
+   "raw_title": "Ten climbers missing after avalanche hits Himalayan base camp",
+   "raw_summary": "The Nepali team was preparing to take overseas climbers up the Himlung Himal peak.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "0720f568-6a29-41a0-a4f6-11ace6dc9adb",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-09-07 09:44:51+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/music/2026/sep/07/radiohead-announce-2027-tour-with-shows-in-australia-and-japan",
+   "raw_title": "Radiohead announce 2027 tour with shows in Australia and Japan",
+   "raw_summary": "UK band will play 16 shows across Perth, Melbourne and Sydney, as well as five shows in Saitama Radiohead will return to Australia to play 16 shows across three cities next year, marking the band\u2019s first tour of the country in 15 years. On Monday afternoon, the British rock band unveiled the itinera",
+   "stratum": "A"
+  },
+  {
+   "event_id": "6ee31496-6d90-486a-b784-7d1432dcd3f3",
+   "source_name": "Twilio Status",
+   "published_at": "2026-09-02 16:19:52.726741+00",
+   "collected_at": "2026-09-02 16:19:52.726741+00",
+   "canonical_url": "https://status.twilio.com/incidents/cdlgx1ddwy3y",
+   "raw_title": "France Voice Carrier Partner Maintenance",
+   "raw_summary": "THIS IS A SCHEDULED EVENT Sep 8 , 13:00 - 17:00 PDT Sep 2 , 08:54 PDT Scheduled - Our Voice carrier partner in France is conducting a planned maintenance from 08 September 2026 at 13:00 PDT until 08 September 2026 at 17:00 PDT. During the maintenance window, there could be intermittent call disconnects or call failures from and to Twilio France phone numbers.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "2884a172-c858-4a8e-8852-15c59501f287",
+   "source_name": "BBC News",
+   "published_at": "2026-10-14 02:09:30+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/c9m26xp4zp8jo?at_medium=RSS&at_campaign=rss",
+   "raw_title": "Lena Dunham's Girls to return for limited HBO run",
+   "raw_summary": "Ten years after the series finale, the \"Girls\" are getting back together to explore the \"milestone of turning forty\", HBO says.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "9ed5d95d-ab93-4e15-9533-897143f8f26c",
+   "source_name": "OAIC Breach Notifications",
+   "published_at": null,
+   "collected_at": null,
+   "canonical_url": "https://www.oaic.gov.au/privacy/notifiable-data-breaches/preventing-preparing-for-and-responding-to-data-breaches",
+   "raw_title": "Preventing, preparing for and responding to data breaches",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "742808b6-6926-4e0b-8945-a113d261790b",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-09-07 03:42:50.779928+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260711.R144449",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260711.R144449",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "b0c73e65-cb05-4a1d-8e46-0c6ab1b42e7e",
+   "source_name": "BBC News",
+   "published_at": "2026-08-25 02:08:57+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/clyl81jlzr2o?at_medium=RSS&at_campaign=rss",
+   "raw_title": "French tourist dies in Death Valley after car gets stuck in mud",
+   "raw_summary": "The 68-year-old man was found dead in California's salt flats amid 116\u00b0F (46.6C) heat.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "37c28115-2f4c-4628-9cfb-40481c76a099",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-11-18 15:39:11+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/australia-news/2026/nov/18/anthony-albanese-defies-critics-for-apec-summit-photo-with-vladimir-putin",
+   "raw_title": "Anthony Albanese defies critics for Apec summit photo with Vladimir Putin",
+   "raw_summary": "Despite pleas from pro-Ukraine Australians, the prime minister accepts wishes of Chinese hosts with group picture Get our daily political email , free app or daily news podcast Anthony Albanese has appeared in a leaders\u2019 photo with Vladimir Putin at the Apec summit in China, despite Australia\u2019s Ukra",
+   "stratum": "A"
+  },
+  {
+   "event_id": "d3e3cd26-891a-4489-a7fd-8576f112f35f",
+   "source_name": "ARN - Australian IT Channel",
+   "published_at": "2026-10-22 00:14:30+00",
+   "collected_at": null,
+   "canonical_url": "https://www.arnnet.com.au/article/4238810/equinix-creates-epic-path-to-ai-challenge.html",
+   "raw_title": "Equinix creates EPIC path to AI challenge",
+   "raw_summary": "Data centre operator Equinix is looking to help enterprises move their AI projects to production with the launch of its Equinix Enhanced Performance Innovation Centres (EPIC). In these centres, now live Sydney, Frankfurt, London, Osaka and Paris, enterprises will be able to test, build and deploy hi",
+   "stratum": "A"
+  },
+  {
+   "event_id": "30d9c94b-a48b-4e55-8fc1-404db058c3b9",
+   "source_name": "Financial Newswire",
+   "published_at": "2026-09-14 12:12:42+00",
+   "collected_at": null,
+   "canonical_url": "https://financialnewswire.com.au/investment/further-property-downturn-risky-for-private-credit-schroders/",
+   "raw_title": "Further property downturn risky for private credit: Schroders",
+   "raw_summary": "Schroders' Justin Halliwell said private credit has weathered the property downturn so far, but a deeper correction would test the sector. The post Further property downturn risky for private credit: Schroders appeared first on Financial Newswire .",
+   "stratum": "A"
+  },
+  {
+   "event_id": "95516e26-b637-43e5-bc8a-ee5c1488eacb",
+   "source_name": "GitHub Status",
+   "published_at": "2026-11-05 16:50:11.086+00",
+   "collected_at": "2026-11-05 19:00:10.760211+00",
+   "canonical_url": "https://www.githubstatus.com/incidents/t89g2q1800fr",
+   "raw_title": "GitHub Status: Incident with Actions (resolved)",
+   "raw_summary": "[Impact: minor] Affected: Actions. This incident has been resolved. Thank you for your patience and understanding as we addressed this issue. A detailed root cause analysis will be shared as soon as it is available.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "bdf00ce9-234b-4008-a26e-ba737232ae74",
+   "source_name": "ARN - Australian IT Channel",
+   "published_at": "2026-09-30 23:38:49+00",
+   "collected_at": null,
+   "canonical_url": "https://www.arnnet.com.au/article/4228644/from-the-boardroom-to-the-bookshelf-wendy-komadina-redefines-her-success.html",
+   "raw_title": "From the boardroom to the bookshelf, Wendy Komadina redefines her success",
+   "raw_summary": "Amid leadership changes and broader industry upheaval, former Darktrace vice president sales Australia and New Zealand Wendy Komadina decided to rethink how she wanted to contribute to the technology industry. In August this year she left her full-time role with the vendor to launch her book The Spa",
+   "stratum": "A"
+  },
+  {
+   "event_id": "66c00dde-50f7-4c06-9d2e-ef09c550ee2c",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-09-24 08:38:04+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/artanddesign/2026/sep/24/national-gallery-of-victoria-employee-allegedly-stole-8m-phone-scam-ntwnfb",
+   "raw_title": "National Gallery of Victoria employee allegedly stole $8m to buy phones he later sold",
+   "raw_summary": "Victoria\u2019s anti-corruption body charges the ex-staffer with seven counts of theft and one count of misconduct in public office Follow our Australia news live blog for latest updates Get our breaking news email , free app or daily news podcast A former senior National Gallery of Victoria employee is ",
+   "stratum": "A"
+  },
+  {
+   "event_id": "868d4708-f340-4a9f-8d37-58ed93cbd20d",
+   "source_name": "BIS FSI Publications",
+   "published_at": "2026-08-05 00:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bis.org/publications/bulletin-131-energy-shocks-and-inflation-challenges-monetary-policy",
+   "raw_title": "Energy shocks and inflation: challenges for monetary policy",
+   "raw_summary": "The recent energy shock ranks among the most significant since the 1990s. Structural factors and initial conditions influence how energy shocks propagate into inflation \u2013 directly and through second-round effects. The appropriate monetary policy reaction depends on the persistence of the inflationar",
+   "stratum": "A"
+  },
+  {
+   "event_id": "2430f845-ea07-4d0a-8488-8b207da740d3",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-10-27 01:56:51.71095+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260831.R144956",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260831.R144956",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "0d3af7b4-7cb3-4ecc-829f-4ace3af1ebac",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-11-02 09:33:30.493918+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260904.R145018",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260904.R145018",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "bb98f2cd-70cd-435d-a245-313f2d9983fe",
+   "source_name": "CISA Known Exploited Vulnerabilities",
+   "published_at": "2026-09-25 00:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-65660",
+   "raw_title": "CVE-2026-65660: Microsoft SharePoint Code Injection Vulnerability",
+   "raw_summary": "Microsoft SharePoint contains a code injection vulnerability which could allow an authorized attacker to execute code over a network.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "67ded937-7855-4441-b8de-22e6d23bbdf4",
+   "source_name": "BBC News",
+   "published_at": "2026-09-06 02:24:16+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/c6248nvqy8po?at_medium=RSS&at_campaign=rss",
+   "raw_title": "US envoys set for Ukraine talks after meeting Putin in Moscow",
+   "raw_summary": "Steve Witkoff and Jared Kushner leave Moscow talks with hopes for \"equally productive meetings\" in Ukraine.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "971809a2-0f63-45cb-9782-8b04bb5ab29a",
+   "source_name": "Zoom Status",
+   "published_at": "2026-09-15 18:22:00.936+00",
+   "collected_at": "2026-09-15 19:10:19.660352+00",
+   "canonical_url": "https://status.zoom.us/incidents/g4m0gcb6hq9f",
+   "raw_title": "Zoom Status: Service Degradation Affecting Zoom Whiteboard (resolved)",
+   "raw_summary": "[Impact: none] Affected: Zoom Whiteboard. This incident has been resolved.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "4e8470d8-9756-4d69-8e62-bb5aa87f8183",
+   "source_name": "Google News - Origin Energy",
+   "published_at": "2026-10-14 04:41:15+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMigwJBVV95cUxQODJETGZXVUtnbnpVRHNhZUo3d3FQMm00TkJYX1hEbUhiS0JzNGdVMlprUm9fR0phX2VDb29iTEF1eXh0ajQ3S0xiMXRLSzltaElYTXJlX1dpajBuNXNiS0xmWi1wbEdVbnd5SUNRTFRuek9nNGk0cm5fNUFvZlppWHZXeWZ4UXBrMWZuS3hCTklyQmJSbEpMSjZsQWdRYnhUSVQ4ZkE2X3pidVBLOVJJOF9vTzJuamcyMVdhbDllOS1zUE9iaFBrS2t5NGRaZ2hIc3BtTl9pV0wzeGFJQXdpVTdHTHM4cnhNN1RTaG9uc2FDT2Vqek4wTnR1aVFiTTN2Zm9r0gGIAkFVX3lxTE5fMnBqQlpWV0ZJNy1TRnlfSFV6bkR1NWNqQVpZakpNYkxXenZiOUh4a3djcmJqcF9ibl81VzdfMWdTb2ZrendnTlVsMk45YWdBR3d2RzJuaEpCWFo0NktSamYxX1BBMXNkYUNCSVpzMDlqbmZKdzVWNElhZWhpVm9QZjMtOG1RQTRXakc2LVVMUGIxV005WGxZenpfWHZ4RUFEMEhMelpteTVfajkxUU5scmdpWWJXb0JTU0IwZjZqVzBRd0Zra0JlbzBjZXhKM29HeFN6NTZmd0V0OWdiN1NSbUdocHdvLVBiREVtVXpKdHFVbWtmbU43cEVhczhZZGdMU25yWlM5QQ?oc=5",
+   "raw_title": "Energy giant\u2019s warning after cyber attack - News.com.au",
+   "raw_summary": "Energy giant\u2019s warning after cyber attack &nbsp;&nbsp; News.com.au",
+   "stratum": "A"
+  },
+  {
+   "event_id": "741e0119-946c-4b6a-96d7-7762adfeed7d",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-08-19 05:24:24.072843+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260621.R144303",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260621.R144303",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "ad05cff5-9bd5-4295-86b8-8f2e7439b251",
+   "source_name": "CISA Alerts",
+   "published_at": "2026-09-25 12:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.cisa.gov/news-events/alerts/2026/09/25/cisa-adds-two-known-exploited-vulnerabilities-catalog",
+   "raw_title": "CISA Adds Two Known Exploited Vulnerabilities to Catalog",
+   "raw_summary": "CISA has added two new vulnerabilities to its Known Exploited Vulnerabilities (KEV) Catalog , based on evidence of active exploitation. CVE-2026-65660 Microsoft SharePoint Code Injection Vulnerability CVE-2026-67279 Mikrotik RouterOS Improper Enforcement of Behavioral Workflow Vulnerability These ty",
+   "stratum": "A"
+  },
+  {
+   "event_id": "44f3df73-6705-4490-b74d-ae5328f8eb45",
+   "source_name": "Financial Times",
+   "published_at": "2026-10-10 04:00:37+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/8d948115-5843-4419-967e-f79e65718f55?syn-25a6b1a6=1",
+   "raw_title": "The danger of pessimism fatigue",
+   "raw_summary": "Too many have cried wolf about too many things and the public is now perilously nonchalant",
+   "stratum": "A"
+  },
+  {
+   "event_id": "055f2edb-5456-40d6-b606-1ded9a5ce897",
+   "source_name": "Google News - APRA/ASIC Operational Resilience",
+   "published_at": "2026-10-01 05:03:53+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxOSVI4RVpRdmllbWphbTNMOU1lcWVudk9yTC11T2cwUDBETnJVNHhVQVBWTnBBN3BWM19ycFR1M2NvWUN6SFFKREJ4YUw2SDlTNmQ4WXhpSlBVMU1Db0g2c0ozSG9qdVFzVjZTcFdyZDFGd1JTLVlLRy1TUDUtRnd5alRGcVE1dm45OUttM1FQbXIzNVlEb1VDMFFucjVFbENz?oc=5",
+   "raw_title": "3. Resilience of the Australian Financial System | Financial Stability Review \u2013 October 2026 - rba.gov.au",
+   "raw_summary": "3. Resilience of the Australian Financial System | Financial Stability Review \u2013 October 2026 &nbsp;&nbsp; rba.gov.au",
+   "stratum": "A"
+  },
+  {
+   "event_id": "4fb7c4e6-4954-4028-9557-d47189459fb4",
+   "source_name": "Twilio Status",
+   "published_at": "2026-09-30 23:44:27.634531+00",
+   "collected_at": "2026-09-30 23:44:27.634531+00",
+   "canonical_url": "https://status.twilio.com/incidents/nkykx7mctr7j",
+   "raw_title": "United States SMS Carrier Partner Maintenance",
+   "raw_summary": "THIS IS A SCHEDULED EVENT Nov 18 , 21:00 PST &nbsp;-&nbsp; Nov 19 , 03:00 PST Sep 30 , 16:04 PDT Scheduled - Our SMS carrier partner in the United States is conducting a planned maintenance from 18 November 2026 at 21:00 PST until 19 November 2026 at 03:00 PST. During the maintenance window, there could be intermittent delays delivering SMS to and from United States handsets via subset of United States long codes.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "03b5e57f-b6b6-4731-accd-27483a4c1c34",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-10-21 00:06:27+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/australia-news/video/2026/oct/21/afp-charging-almost-one-person-a-week-for-targeting-politicians-says-commissioner-video-ntwnfb",
+   "raw_title": "AFP charging almost one person a week for targeting politicians, says commissioner - video",
+   "raw_summary": "The Australian federal police commissioner, Krissy Barrett, says police are \u2018charging almost one individual every week for targeting commonwealth parliamentarians or high office holders\u2019. Speaking at a joint press conference with Victoria police on the investigation into Monday afternoon\u2019s attack on",
+   "stratum": "A"
+  },
+  {
+   "event_id": "39bff852-ccbc-467d-9a48-aba5c0302ffc",
+   "source_name": "CISA Alerts",
+   "published_at": "2026-09-03 12:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-246-06",
+   "raw_title": "Inductive Automation Ignition",
+   "raw_summary": "View CSAF Summary Successful exploitation of this vulnerability could allow any authenticated user to create projects. The following versions of Inductive Automation Ignition are affected: Ignition &lt;=8.1.53 (CVE-2026-77393) CVSS Vendor Equipment Vulnerabilities v3 8.8 Inductive Automation Inducti",
+   "stratum": "A"
+  },
+  {
+   "event_id": "34d7ab9d-b531-4d24-b04c-67a6d2da85f2",
+   "source_name": "BBC News",
+   "published_at": "2026-10-10 22:13:08+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/c680zlny0gk4o?at_medium=RSS&at_campaign=rss",
+   "raw_title": "Young men live in fear of being snatched off the streets and sold to Myanmar's army",
+   "raw_summary": "A desperate junta is in a war of attrition against ethnic militias and and civilian resistance.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "1c97732f-fef7-4dda-b734-04f55265c708",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-10-17 08:07:27.829306+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260819.R144832",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260819.R144832",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "47d76312-cf3e-4091-81f4-a8954562ea59",
+   "source_name": "BBC News",
+   "published_at": "2026-10-05 12:08:21+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/c6e9lj5r3ej7o?at_medium=RSS&at_campaign=rss",
+   "raw_title": "Georgia officials hunt for suspect in shooting that killed two and injured 35",
+   "raw_summary": "A homecoming celebration turned into a scene of deadly violence, as dozens of shots were fired into a crowd.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "5346cc95-c4a8-4d62-89e4-b710e74e0a77",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-09-09 14:37:11.215378+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260713.R144474",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260713.R144474",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "b88c260a-86ed-425d-be49-17a4d56fbb68",
+   "source_name": "Google News - Origin Energy",
+   "published_at": "2026-10-29 00:59:39+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE15MjR5a3cwWXJqYktQSXpMbzU1N04xT3RZMzZVbWRibFpHSUt2VWJZNFp4dWRFVGpKR3FtZUZzMm1HZW5laTl6MjI2SUoza1ZVNFlr?oc=5",
+   "raw_title": "Origin Energy Limited (OGFGY) Stock Price, News, Quote & History - Yahoo! Finance Canada",
+   "raw_summary": "Origin Energy Limited (OGFGY) Stock Price, News, Quote & History &nbsp;&nbsp; Yahoo! Finance Canada",
+   "stratum": "A"
+  },
+  {
+   "event_id": "625cf446-c033-45bf-8f54-05ba847bb966",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-10-31 05:00:53.262349+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260903.R144978",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260903.R144978",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "fbbbdc59-46a5-4edf-b2fd-3595e4da22ba",
+   "source_name": "Microsoft Security Response Center",
+   "published_at": "2026-08-17 20:59:34+00",
+   "collected_at": null,
+   "canonical_url": "https://api.msrc.microsoft.com/cvrf/v3.0/cvrf/2013-Mar",
+   "raw_title": "Mariner Release Notes",
+   "raw_summary": "",
+   "stratum": "A"
+  },
+  {
+   "event_id": "e8f57155-dc5d-42d0-8424-228e5b61a1c8",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-10-20 23:11:00+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNcTVmY1BJUFZja21ndk5DSmpsYUpOMlEtbnREaWMxY2xmalNVM0RjbmNxWHNyU01qMHUwWGE5X3o4NTlyR0puYjVucDVzN2FqS3h3YktJWmN1d0l5WkVZcGNHVy1MMlRHeFRIc0pIR1draEk5MW5zUllRc2VIcHRmMlpUZVA3M28?oc=5",
+   "raw_title": "Telstra Health launches care insights for aged care - IT Brief Australia",
+   "raw_summary": "Telstra Health launches care insights for aged care &nbsp;&nbsp; IT Brief Australia",
+   "stratum": "A"
+  },
+  {
+   "event_id": "b83f0789-fefd-485d-bea0-0c7080584100",
+   "source_name": "Financial Times",
+   "published_at": "2026-07-30 18:38:27+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/5546b044-0582-4ed9-8e61-bd1732f3063e?syn-25a6b1a6=1",
+   "raw_title": "Madrid deploys army as thousands of Moroccans swim to Spanish enclave",
+   "raw_summary": "Mass arrivals in Ceuta heap further pressure on embattled Prime Minister Pedro S\u00e1nchez",
+   "stratum": "A"
+  },
+  {
+   "event_id": "6b347a4f-25ea-46a3-b749-ce62a954d9e0",
+   "source_name": "Fortinet PSIRT Advisories",
+   "published_at": "2026-07-14 06:00:00+00",
+   "collected_at": "2026-07-14 20:00:04.74857+00",
+   "canonical_url": "https://fortiguard.fortinet.com/psirt/FG-IR-26-151",
+   "raw_title": "Path traversal in CLI command allows deletion of root file system",
+   "raw_summary": "CVSSv3 Score: 5.0 An Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal') vulnerability [CWE-22] in FortiOS, FortiPAM, FortiProxy and FortiSwitch Manager may allow a privileged authenticated attacker with physical access to the device to delete the file system via crafted CLI commands. Revised on 2026-07-14 00:00:00",
+   "stratum": "A"
+  },
+  {
+   "event_id": "3393092a-8fda-483e-997a-571bc6d17f51",
+   "source_name": "Financial Newswire",
+   "published_at": "2026-11-10 22:17:02+00",
+   "collected_at": null,
+   "canonical_url": "https://financialnewswire.com.au/investment/macquarie-takes-another-regulatory-hit/",
+   "raw_title": "Macquarie takes another regulatory hit",
+   "raw_summary": "Macquarie Bank has taken another regulatory hit, this time facing a $14 million penalty over failing in a 'welcome rate' interest rate offer. The post Macquarie takes another regulatory hit appeared first on Financial Newswire .",
+   "stratum": "A"
+  },
+  {
+   "event_id": "1f773ebc-ab67-42ab-b71e-1912bf5914b3",
+   "source_name": "Cloudflare Status",
+   "published_at": "2026-08-04 00:58:39.501+00",
+   "collected_at": "2026-08-10 02:57:48.5574+00",
+   "canonical_url": "https://stspg.io/c15p28n30q1b",
+   "raw_title": "Cloudflare Status: Network Performance Issues in Bangalore, India (resolved)",
+   "raw_summary": "[Impact: none] Affected: Asia - Bangalore, India - (BLR), Cloudflare Sites and Services - Network. This incident has been resolved.",
+   "stratum": "A"
+  },
+  {
+   "event_id": "1b8c8e93-6ebb-4854-9d05-564cfe331a27",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-09-18 15:00:22+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/technology/2026/sep/19/swedish-teenager-jailed-cybercrime-attempted-murder-rape-germany-australia-ntwnfb",
+   "raw_title": "Swedish teenager jailed for attempted murder, rape and assault committed online, with victims in Germany and Australia",
+   "raw_summary": "Eighteen-year-old known as Chai was active in networks notorious for their sadistic exploitation of young people A Swedish teenager known as Chai has been sentenced to more than 10 years in jail for attempted murder, rape and aggravated assault \u2013 crimes committed via the internet, including against ",
+   "stratum": "A"
+  },
+  {
+   "event_id": "7ff265a5-7919-4481-aa37-45f2b20b59c9",
+   "source_name": "Microsoft Security Response Center",
+   "published_at": "2026-09-03 01:14:00+00",
+   "collected_at": null,
+   "canonical_url": "https://api.msrc.microsoft.com/cvrf/v3.0/cvrf/2023-May",
+   "raw_title": "May 2023 Security Updates",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "4612778c-0da9-4799-bbb1-7d66164fa22c",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-08-20 11:24:23.472196+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260622.R144319",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260622.R144319",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "7a3c0cf1-8698-4cd0-85df-409938d68761",
+   "source_name": "CISA Alerts",
+   "published_at": "2026-10-15 12:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.cisa.gov/news-events/alerts/2026/10/15/cisa-adds-one-known-exploited-vulnerability-catalog",
+   "raw_title": "CISA Adds One Known Exploited Vulnerability to Catalog",
+   "raw_summary": "CISA has added one new vulnerability to its&nbsp; Known Exploited Vulnerabilities (KEV) Catalog , based on evidence of active exploitation. CVE-2026-21589 Atlassian Multiple Products Files or Directories Accessible to External Parties Vulnerability&nbsp; This type of vulnerability is a frequent atta",
+   "stratum": "B"
+  },
+  {
+   "event_id": "b01bd53f-7c25-4c13-8326-ad659fe18e61",
+   "source_name": "AEMO Market Notices",
+   "published_at": "2026-10-13 00:00:00+00",
+   "collected_at": "2026-10-13 19:00:21.481034+00",
+   "canonical_url": "https://nemweb.com.au/Reports/Current/Market_Notice/NEMITWEB1_MKTNOTICE_20261013.R145615",
+   "raw_title": "[EventId:202610131430_NRM_NSW1_VIC1_started] NEGRES CONSTRAINT NRM_NSW1_VIC1 started operating from 13 October 2026 14:30",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "5249104d-f9b8-4a78-bbd4-9b088e5195e9",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-07-27 20:00:05.534967+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260601.R144179",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260601.R144179",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "284a5ab3-d6f6-4be4-94e6-2c387311aec3",
+   "source_name": "Google Cloud Status",
+   "published_at": "2026-08-20 16:44:37+00",
+   "collected_at": "2026-08-20 17:24:23.559781+00",
+   "canonical_url": "https://status.cloud.google.com/incidents/utF3FMFdQfwBzJcGG6vf",
+   "raw_title": "Google Cloud Status: Multiple Products \u2014 We are investigating an issue where customers may experience timeouts, service degradations, errors, and elevated latencies across multiple \u2026 (ongoing)",
+   "raw_summary": "[Impact: critical] Affected: Apigee Edge Public Cloud, Apigee X, Artifact Registry, BigQuery Data Transfer Service, Cloud Build, Cloud Data Fusion, Cloud Filestore, Cloud Key Management Service, Cloud Run, Contact Center AI Platform, Google App Engine, Google BigQuery, Google Cloud Bigtable, Google Cloud Composer, Google Cloud Dataflow, Google Cloud Dataproc, Google Cloud Pub/Sub, Google Cloud SQL, Google Cloud Storage, Google Compute Engine, Google Kubernetes Engine, Identity and Access Management, Managed Service for Apache Kafka, Persistent Disk. We are investigating an issue where customer",
+   "stratum": "B"
+  },
+  {
+   "event_id": "89229ebf-0364-49a7-b43d-ece02bd5da68",
+   "source_name": "Twilio Status",
+   "published_at": "2026-10-21 01:57:06.689243+00",
+   "collected_at": "2026-10-21 01:57:06.689243+00",
+   "canonical_url": "https://status.twilio.com/incidents/k78j2p2r64l4",
+   "raw_title": "United States Account Security Service Partner Maintenance",
+   "raw_summary": "THIS IS A SCHEDULED EVENT Oct 26 , 19:00 PDT &nbsp;-&nbsp; Oct 27 , 04:00 PDT Oct 20 , 16:04 PDT Scheduled - Our service partner is conducting a planned maintenance from 26 October 2026 at 19:00 PDT until 27 October 2026 at 04:00 PDT. During the maintenance window, there could be intermittent API request failures for the following carriers and country: AT&amp;T Mobility United States, Sprint United States, T-Mobile United States, Verizon Wireless United States. Impacted Products: Lookup Identity Match, Legacy Identity MatchAndAttributes",
+   "stratum": "B"
+  },
+  {
+   "event_id": "b5d56508-124e-4c57-a5ae-8f8bccaf1a15",
+   "source_name": "AEMO Market Notices",
+   "published_at": "2026-11-09 00:00:00+00",
+   "collected_at": "2026-11-08 19:04:24.137038+00",
+   "canonical_url": "https://nemweb.com.au/Reports/Current/Market_Notice/NEMITWEB1_MKTNOTICE_20261109.R146181",
+   "raw_title": "[EventId:202611090300_NRM_SA1_NSW1_started] NEGRES CONSTRAINT NRM_SA1_NSW1 started operating from 09 November 2026 03:00",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "1b849287-b726-4abd-8008-3eb1a48a37d7",
+   "source_name": "Financial Times",
+   "published_at": "2026-10-26 13:51:33+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/f6ecfecd-d797-4d2c-b427-d333297949cb?syn-25a6b1a6=1",
+   "raw_title": "Anthropic begins countdown to IPO with prospectus filing",
+   "raw_summary": "240,000-word prospectus lays out explosive growth alongside steep losses and daunting risk factors",
+   "stratum": "B"
+  },
+  {
+   "event_id": "4c7d638b-5dcc-417a-8bb6-5f06d086b0a0",
+   "source_name": "GitHub Status",
+   "published_at": "2026-10-23 07:29:03.081+00",
+   "collected_at": "2026-11-01 20:49:35.637091+00",
+   "canonical_url": "https://www.githubstatus.com/incidents/ntrfd2jqldn6",
+   "raw_title": "GitHub Status: Delayed Actions status check results (resolved)",
+   "raw_summary": "[Impact: minor] Affected: Actions. On October 23, 2026, between 07:06 UTC and 07:27 UTC, GitHub Actions workflow run results were delayed. Job status, check run updates, and logs in the GitHub UI and API updated with an average delay of about 2 minutes, and some updates were delayed by up to about 7 minutes. <br /><br />During this window, a storage dependency that Actions uses to process workflow logs and artifacts throttled our requests. This slowed result processing, causing updates to queue up. The queue was fully processed by 07:27 UTC, shortly after the throttling stopped. <br /><br />To",
+   "stratum": "B"
+  },
+  {
+   "event_id": "787135fe-0fe9-4bfa-ae0b-3e4b8aca4907",
+   "source_name": "AEMO Market Notices",
+   "published_at": "2026-11-17 00:00:00+00",
+   "collected_at": "2026-11-17 19:02:00.664185+00",
+   "canonical_url": "https://nemweb.com.au/Reports/Current/Market_Notice/NEMITWEB1_MKTNOTICE_20261117.R146470",
+   "raw_title": "Cancellation of the reclassification of a Non-Credible Contingency Event: Collinsville North - Newlands No.7121 and Collinsville North - Stoney Creek No.7306 132kV lines in QLD due to lightning.",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "0cd75c59-6623-4c05-b014-e56cad18e267",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-11-03 12:00:08.978979+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260905.R145052",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260905.R145052",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "5fa4c3b6-fe12-4384-86b3-79323aa9d7a2",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-08-02 20:00:11.41215+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260609.R144217",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260609.R144217",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "1ef7a509-ff98-4f21-84b4-bef85e8d6612",
+   "source_name": "Microsoft Security Response Center",
+   "published_at": "2026-10-28 01:48:04+00",
+   "collected_at": null,
+   "canonical_url": "https://api.msrc.microsoft.com/cvrf/v3.0/cvrf/2018-Mar",
+   "raw_title": "March 2018 Security Updates",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "8af41e11-e7ac-4234-a1b1-8fcebeb2e6b8",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-11-03 12:00:08.978649+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260905.R145043",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260905.R145043",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "95d838f8-b8ef-436c-b99f-8c2de6673268",
+   "source_name": "AEMO Market Notices",
+   "published_at": "2026-09-12 00:00:00+00",
+   "collected_at": "2026-09-12 20:57:07.384817+00",
+   "canonical_url": "https://nemweb.com.au/Reports/Current/Market_Notice/NEMITWEB1_MKTNOTICE_20260912.R145151",
+   "raw_title": "[EventId:202609121505_NRM_VIC1_SA1_started] NEGRES CONSTRAINT NRM_VIC1_SA1 started operating from 12 September 2026 15:05",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "6aa6bd91-beab-410f-a7ba-e8763dd0cd59",
+   "source_name": "GitHub Status",
+   "published_at": "2026-10-12 12:21:47.972+00",
+   "collected_at": "2026-11-01 20:49:35.637554+00",
+   "canonical_url": "https://www.githubstatus.com/incidents/93njd414rpbx",
+   "raw_title": "GitHub Status: Incident with Actions, Pull Requests and Issues (resolved)",
+   "raw_summary": "[Impact: minor] Affected: Actions, Issues, Pull Requests. On October 12th 2026 11:51 UTC GitHub experienced elevated 500 responses across several application pages. This caused failures on Issues and Pull Requests as well as Projects and Actions. Customers also experienced delayed notifications in their web inbox and via email. <br /><br />The immediate impact to Issues, Pull Requests, Projects, and Actions was mitigated by 12:41 UTC on October 12th. Notifications deliveries to the web inbox and via email were recovering at 15:27 UTC and fully mitigated by 20:16 UTC. <br /><br />The incident w",
+   "stratum": "B"
+  },
+  {
+   "event_id": "156bf7c3-9e60-4584-bcdf-498d538777de",
+   "source_name": "Cloudflare Status",
+   "published_at": "2026-08-20 05:41:51+00",
+   "collected_at": "2026-08-20 08:24:25.320594+00",
+   "canonical_url": "https://www.cloudflarestatus.com/incidents/5g1nlg4hc2lh",
+   "raw_title": "Cloudflare Status: Network performance issue in Singapore (resolved)",
+   "raw_summary": "[Impact: minor] Affected: Asia - Singapore, Singapore - (SIN). This incident has been resolved.",
+   "stratum": "B"
+  },
+  {
+   "event_id": "670d7029-940d-48ad-8458-5124dece854a",
+   "source_name": "Microsoft Security Response Center",
+   "published_at": "2026-10-07 01:48:07+00",
+   "collected_at": null,
+   "canonical_url": "https://api.msrc.microsoft.com/cvrf/v3.0/cvrf/2025-Jan",
+   "raw_title": "January 2025 Security Updates",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "fdbdc5f3-e638-45c9-8926-c1463ce99b7f",
+   "source_name": "Financial Times",
+   "published_at": "2026-11-13 04:10:06+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/8d5a8642-d0a1-458d-aaa4-c1e7d344fe47?syn-25a6b1a6=1",
+   "raw_title": "Nscale warns it needs more cash ahead of $35bn IPO",
+   "raw_summary": "Nvidia-backed \u2018neocloud\u2019 tells investors it must obtain additional financing to fulfil Anthropic contracts",
+   "stratum": "B"
+  },
+  {
+   "event_id": "2466ed0f-4bae-4f6c-9abd-1d8f8ef26bb0",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-10-01 19:53:46.638211+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260803.R144739",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260803.R144739",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "34c0427f-4d5f-4928-9c11-c1dcbc445782",
+   "source_name": "Salesforce Trust Status",
+   "published_at": "2026-08-18 10:47:12.124+00",
+   "collected_at": "2026-08-18 11:24:31.148141+00",
+   "canonical_url": "https://status.salesforce.com/incidents/20004357",
+   "raw_title": "Salesforce Degradation \u2014 coreService",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "fd82cc9c-02d8-4845-9599-cab2169c6ac4",
+   "source_name": "Anthropic (Claude) Status",
+   "published_at": "2026-08-15 00:27:36+00",
+   "collected_at": "2026-08-15 02:24:23.820942+00",
+   "canonical_url": "https://status.claude.com/incidents/hdynq1pc0fn8",
+   "raw_title": "Elevated errors for Claude Fable 5",
+   "raw_summary": "Aug 15 , 00:27 UTC Resolved - The issue affecting Claude services has been resolved. Impact occurred from 20:00 Aug 14, 2026 to 00:11 Aug 15 , 2026 UTC. Aug 15 , 00:21 UTC Update - We have identified the cause of the issue affecting Claude services and are working on a fix. We will provide an update as soon as possible. Aug 15 , 00:20 UTC Update - We have identified the cause of the issue affecting claude.ai and are working on a fix. We will provide an update as soon as possible. Aug 14 , 23:57 UTC Identified - We have identified the cause of elevated errors on requests to Claude Fable 5 and a",
+   "stratum": "B"
+  },
+  {
+   "event_id": "2dafd651-8508-442c-a6b3-385b004fc441",
+   "source_name": "OpenAI Status",
+   "published_at": "2026-08-11 21:39:59+00",
+   "collected_at": "2026-08-11 22:26:43.472358+00",
+   "canonical_url": "https://status.openai.com//incidents/01KZSC0T66YTVM57N5T79SV8ZV",
+   "raw_title": "Increase in errors on API, Codex and Work Mode",
+   "raw_summary": "Status: Identified We have identified that users are experiencing elevated errors for the impacted services. We are working on implementing a mitigation.",
+   "stratum": "B"
+  },
+  {
+   "event_id": "4d760bcb-150a-43d0-8db1-474069dc47fd",
+   "source_name": "ARN - Australian IT Channel",
+   "published_at": "2026-09-11 05:34:30+00",
+   "collected_at": null,
+   "canonical_url": "https://www.arnnet.com.au/article/4220927/okta-appoints-sunil-kedaraji-to-head-up-apj-channel.html",
+   "raw_title": "Okta appoints Sunil Kedaraji to head up APJ channel",
+   "raw_summary": "Okta has hired Sunil Kedaraji as vice president of channel and strategic alliances for the Asia Pacific and Japan (APJ) region. Based in Singapore, Kedaraji\u2019s focus will be Okta\u2019s APJ partner business and will work closely with sales, alliances, channel, and go-to-market teams to bolster partnership",
+   "stratum": "B"
+  },
+  {
+   "event_id": "6b55a7cf-50aa-4757-bde0-6f78cdfb974e",
+   "source_name": "AEMO Market Notices",
+   "published_at": "2026-09-25 00:00:00+00",
+   "collected_at": "2026-09-25 20:24:36.776064+00",
+   "canonical_url": "https://nemweb.com.au/Reports/Current/Market_Notice/NEMITWEB1_MKTNOTICE_20260925.R145336",
+   "raw_title": "Direction - SA region 25/09/2026",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "1a136113-d1a4-4efa-bcf7-859b45df2b8f",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-10-24 11:01:55.228092+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260829.R144941",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260829.R144941",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "ba36d815-e582-4928-afbd-14156c8aa53f",
+   "source_name": "Financial Times",
+   "published_at": "2026-09-04 04:00:19+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/9536c7b9-c600-48ec-8fe2-453b0ca187e9?syn-25a6b1a6=1",
+   "raw_title": "Anthropic\u2019s $2tn IPO puts powerful external trustees in spotlight",
+   "raw_summary": "Public-market scrutiny will intensify pressure on the Claude maker\u2019s unusual attempt to balance profit and purpose",
+   "stratum": "B"
+  },
+  {
+   "event_id": "8d8a19ec-5e56-4914-bc1a-2128b0207c90",
+   "source_name": "Cloudflare Status",
+   "published_at": "2026-11-03 07:24:51.706+00",
+   "collected_at": "2026-11-03 08:24:47.057066+00",
+   "canonical_url": "https://www.cloudflarestatus.com/incidents/6c4ak19xodyt",
+   "raw_title": "Cloudflare Status: Elevated number of 5xx errors in HKG (resolved)",
+   "raw_summary": "[Impact: minor] Affected: Asia - Hong Kong - (HKG), Network Services - Cloud Network Interconnect (CNI), Network Services - Network. Between 06:20-6:32 UTC customers reaching Hong Kong may have experienced an elevated number of 5xx errors or CNI timeouts due to congestion.",
+   "stratum": "B"
+  },
+  {
+   "event_id": "b0252404-2500-43a8-866c-5a0c8dec01ff",
+   "source_name": "AEMO Market Notices",
+   "published_at": "2026-11-21 00:00:00+00",
+   "collected_at": "2026-11-20 19:00:14.779313+00",
+   "canonical_url": "https://nemweb.com.au/Reports/Current/Market_Notice/NEMITWEB1_MKTNOTICE_20261121.R146531",
+   "raw_title": "[EventId:202611210300_NRM_VIC1_NSW1_stopped] NEGRES CONSTRAINT NRM_VIC1_NSW1 ceased operating from 21 November 2026 03:00",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "be68b0a5-c399-42a6-aba7-0d576a2babc5",
+   "source_name": "AEMO Market Notices",
+   "published_at": null,
+   "collected_at": "2026-09-22 20:07:49.350612+00",
+   "canonical_url": "https://nemweb.com.au/Reports/Current/Market_Notice/NEMITWEB1_MKTNOTICE_20260922.R145312",
+   "raw_title": "Completed - CHG0113552 - MSATS 59.0 FTA-2 Industry Test Drop 2",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "5d5e147c-8980-4c52-b4fe-8e8e5332fdc9",
+   "source_name": "Slack Status",
+   "published_at": "2026-06-03 00:58:35+00",
+   "collected_at": "2026-09-22 16:42:37.075549+00",
+   "canonical_url": "https://slack-status.com/2026-06/79438d4a833ca70d",
+   "raw_title": "Incident: Trouble connecting or loading Slack",
+   "raw_summary": "This issue is now resolved for all users.Current status and recent actions taken: we've resolved the issue where some Slack users may have experienced message send failures and thread loading issues. We identified and addressed the root cause, and services have been fully restored.We apologize for any disruptions to your day.",
+   "stratum": "B"
+  },
+  {
+   "event_id": "9aaebd50-dc79-4255-ba4b-7a4d8528cd3b",
+   "source_name": "Akamai Status",
+   "published_at": "2026-06-05 16:16:27.279+00",
+   "collected_at": "2026-08-10 02:57:49.085317+00",
+   "canonical_url": "https://stspg.io/b1sqg6b2c771",
+   "raw_title": "Akamai Status: Edge Delivery - HTTP Content Delivery in Europe (resolved)",
+   "raw_summary": "[Impact: minor] Affected: Content Delivery - Edge Delivery. We can confirm that the issue was mitigated at 17:30 UTC on June 12, 2026, 2026, and the service has resumed normal operation. Customers and partners can view additional details about the incident by logging in to: https://community.akamai.com/customers/s/feed/0D5a7000015iVQMCA2, or reaching out to Akamai Support. We apologize for the impact and thank you for your patience and continued support. We are committed to making continuous improvements to make our systems better and prevent a recurrence of this issue.",
+   "stratum": "B"
+  },
+  {
+   "event_id": "1af2a1ab-0b57-45fe-b13b-1c0d73dabe6a",
+   "source_name": "AEMO Market Notices",
+   "published_at": "2026-11-16 00:00:00+00",
+   "collected_at": "2026-11-16 19:00:12.877907+00",
+   "canonical_url": "https://nemweb.com.au/Reports/Current/Market_Notice/NEMITWEB1_MKTNOTICE_20261116.R146427",
+   "raw_title": "Cancellation of the reclassification of a Non-Credible Contingency Event: Collinsville North - Newlands No.7121 and Collinsville North - Stoney Creek No.7306 132kV lines in QLD due to lightning.",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "5f7e403d-5f3f-415b-b79a-6664c3c8fa45",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-08-21 05:24:23.636127+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260627.R144339",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260627.R144339",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "b03b237c-3d9d-4383-999d-4faebcea4c54",
+   "source_name": "Cloudflare Status",
+   "published_at": "2026-10-06 13:34:23.615+00",
+   "collected_at": "2026-10-06 15:16:55.862585+00",
+   "canonical_url": "https://www.cloudflarestatus.com/incidents/ryvhi2suec0d",
+   "raw_title": "Cloudflare Status: Network routing issue (monitoring)",
+   "raw_summary": "[Impact: minor] Affected: Cloudflare Sites and Services - Network. We are continuing to monitor for any further issues.",
+   "stratum": "B"
+  },
+  {
+   "event_id": "4a431453-9e1c-4116-8af6-3aecc6984ff1",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-10-25 04:33:18.235973+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260829.R144944",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260829.R144944",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "81ab27c6-f189-43cd-b896-d030600e2092",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-11-03 08:24:46.214994+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260904.R145033",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260904.R145033",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "9dd42908-fa75-4ad8-ba06-6e01e1d958ba",
+   "source_name": "AEMO NEMweb Market Notices",
+   "published_at": null,
+   "collected_at": "2026-10-24 08:01:54.799206+00",
+   "canonical_url": "https://www.nemweb.com.au/Reports/CURRENT/Market_Notice/NEMITWEB1_MKTNOTICE_20260828.R144937",
+   "raw_title": "NEMITWEB1_MKTNOTICE_20260828.R144937",
+   "raw_summary": "",
+   "stratum": "B"
+  },
+  {
+   "event_id": "152cf1f7-da35-405f-965b-ae82e5b34c1e",
+   "source_name": "iTnews",
+   "published_at": "2026-09-28 11:01:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.itnews.com.au/news/australia-post-signs-three-year-deal-with-telstra-629275?utm_source=feed&utm_medium=rss&utm_campaign=iTnews+",
+   "raw_title": "Australia Post signs three-year deal with Telstra",
+   "raw_summary": "Transition already hitting scale.",
+   "stratum": "B"
+  },
+  {
+   "event_id": "478bd310-1ac2-49f5-a55d-59bcc13b5bf3",
+   "source_name": "Google News - Critical Infrastructure/Energy Cyberattack AU",
+   "published_at": "2026-10-08 20:59:02+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMid0FVX3lxTE9LQ2hFOXZXNnBKbVlCR281N1hVQ0VnTTZ0dU5PaGxVRGlseWVuQUkyT3UxNUtleXp2Tm5BZ1o3UDN4d3ZhQUQ5OGNsU3FmcmRncnJZWURtck9SMHozeVZxTVpVQlRCekphMnktckUzR3phT3ZKUWlZ?oc=5",
+   "raw_title": "Japan Adopts Proactive Cyber Defense Strategy - Recorded Future",
+   "raw_summary": "Japan Adopts Proactive Cyber Defense Strategy &nbsp;&nbsp; Recorded Future",
+   "stratum": "C"
+  },
+  {
+   "event_id": "7ea1a3e5-fc93-4d1b-a976-94842159f99e",
+   "source_name": "Google News - Critical Infrastructure/Energy Cyberattack AU",
+   "published_at": "2026-09-22 07:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOLW9oTVJ3ekt2RDRvQ1pXbkUyLS1fbmdYLVpMeGF3enJCNmNoRGdubmUzM2oxR0JQRmdleXR0WUdQN3JKQ0FnVWRNM3FENXh5LUo0TjROTTNPYk5jT2xHQXRZLUhWT2JUY0ZJVGxtcWcyNVBKZ2hIdHhTeGl3NnBEbEVoaW1IZw?oc=5",
+   "raw_title": "Top 10 Countries Hit Hardest by Cybercrime (2026 Updated Report) - CloudSEK",
+   "raw_summary": "Top 10 Countries Hit Hardest by Cybercrime (2026 Updated Report) &nbsp;&nbsp; CloudSEK",
+   "stratum": "C"
+  },
+  {
+   "event_id": "1b40b563-9575-4f6b-8fb9-c3a242b6c231",
+   "source_name": "Financial Newswire",
+   "published_at": "2026-10-06 19:27:18+00",
+   "collected_at": null,
+   "canonical_url": "https://financialnewswire.com.au/investment/macquarie-backs-zerras-2gw-data-centre-pipeline/",
+   "raw_title": "Macquarie backs Zerra\u2019s 2GW data centre pipeline",
+   "raw_summary": "Macquarie Capital\u2019s Ivan Varughese said Zerra\u2019s strong pipeline and experienced team position it to meet rising data centre demand. The post Macquarie backs Zerra&#8217;s 2GW data centre pipeline appeared first on Financial Newswire .",
+   "stratum": "C"
+  },
+  {
+   "event_id": "a4e263af-e500-47c0-990d-9b76a6b5cffa",
+   "source_name": "Google News - Critical Infrastructure/Energy Cyberattack AU",
+   "published_at": "2026-11-13 03:17:52+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxNNVZKbnZnam5NYjVNbVJlMjJJZmsxbHFLbFVGYy1mVGpPd0JMTnJfdzZheW9Zc0ZDbmtaT3g4V0lSVHVoblJpM3d4T2ZPM3NRel8zYjVOa0JjNkxwd1pZU3UzTV9QREE3cmRYLUNudlZ5N1lHWmRWVnJDRmUyZXUyVDJEcDR6Q25KR3o2ekd1a1ZTSE1vWFRXNm9vdTdjV0tra3loQXh6clNnYUZSelJMLTM5WVFfS2c?oc=5",
+   "raw_title": "Trump\u2019s AI task force met Thursday, discussed AI-powered cyberattacks By Reuters - Investing.com",
+   "raw_summary": "Trump\u2019s AI task force met Thursday, discussed AI-powered cyberattacks By Reuters &nbsp;&nbsp; Investing.com",
+   "stratum": "C"
+  },
+  {
+   "event_id": "b9017028-c1eb-46c8-8312-58a3ce766162",
+   "source_name": "ACSC Advisories",
+   "published_at": "2026-10-08 12:10:58+00",
+   "collected_at": null,
+   "canonical_url": "https://www.cyber.gov.au/advisory/chinese-government-linked-cyber-threat-actors-combine-automated-and-hands-on-hacking-tools-to-steal-sensitive-data",
+   "raw_title": "<a href=\"https://www.cyber.gov.au/advisory/chinese-government-linked-cyber-threat-actors-combine-automated-and-hands-on-hacking-tools-to-steal-sensitive-data\" hreflang=\"en\">Chinese government-linked cyber threat actors combine automated and hands-on hacking tools to steal sensitive data</a>",
+   "raw_summary": "Learn how Chinese state-linked cyber actors steal sensitive data and discover practical steps to detect, prevent and respond to attacks.",
+   "stratum": "C"
+  },
+  {
+   "event_id": "001c37ad-8b69-40ff-ab19-b872ec5398a8",
+   "source_name": "iTnews",
+   "published_at": "2026-11-03 10:28:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.itnews.com.au/news/binance-hackers-used-fake-job-interview-in-us63-billion-attack-630092?utm_source=feed&utm_medium=rss&utm_campaign=iTnews+",
+   "raw_title": "Binance hackers used fake job interview in US$6.3 billion attack",
+   "raw_summary": "To compromise the &#8288;computers of two software engineers.",
+   "stratum": "C"
+  },
+  {
+   "event_id": "2621a115-2b4c-495f-b50d-a316858addc0",
+   "source_name": "Financial Times",
+   "published_at": "2026-09-22 08:58:33+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/81390c71-f365-4903-b2ad-ee5b1a763e9c?syn-25a6b1a6=1",
+   "raw_title": "Banks and fintechs gear up for fight over funding of high street hubs",
+   "raw_summary": "Traditional banks want online-only operators to fund hubs required to mitigate branch closures",
+   "stratum": "C"
+  },
+  {
+   "event_id": "d517e563-2d67-4f4a-8126-2dbe045708cc",
+   "source_name": "Financial Times",
+   "published_at": "2026-10-08 00:15:04+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/e1dd8bff-b06d-4a40-bbb7-c0a6a36f1c8e?syn-25a6b1a6=1",
+   "raw_title": "China races to build AI data centres across energy-rich hinterland",
+   "raw_summary": "In the first report of a three-part series, how Inner Mongolia became the engine room for the nation\u2019s vast AI ambition",
+   "stratum": "C"
+  },
+  {
+   "event_id": "afaf2143-fe5a-41c6-b1b7-bcec4dfd3d14",
+   "source_name": "iTnews",
+   "published_at": "2026-10-14 15:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.itnews.com.au/itnews-tv/fuse-technology-provides-cyber-security-guarantee-629492?utm_source=feed&utm_medium=rss&utm_campaign=iTnews+",
+   "raw_title": "Fuse Technology provides cyber security guarantee",
+   "raw_summary": "Winner at techpartner.news Impact Awards. Hear from Chuong Mai-Viet, managing director at Fuse Technology.",
+   "stratum": "C"
+  },
+  {
+   "event_id": "92e87601-56fa-4463-b704-7220b7210c22",
+   "source_name": "ARN - Australian IT Channel",
+   "published_at": "2026-09-15 07:25:45+00",
+   "collected_at": null,
+   "canonical_url": "https://www.arnnet.com.au/article/4221987/cambium-networks-enters-administration.html",
+   "raw_title": "Cambium Networks enters administration",
+   "raw_summary": "Wireless networking vendor Cambium Networks has placed its main operating subsidiary into administration in the UK and slashed more than half of its global workforce. On 14 September, the directors of Cambium Networks, filed a notice of appointment of administrators, RSM UK, with the High Court of J",
+   "stratum": "C"
+  },
+  {
+   "event_id": "0e26d575-677e-45d5-b451-247218397056",
+   "source_name": "Financial Newswire",
+   "published_at": "2026-11-16 19:25:10+00",
+   "collected_at": null,
+   "canonical_url": "https://financialnewswire.com.au/fintech/cfs-delivers-upgrades-to-edge-platform/",
+   "raw_title": "CFS delivers upgrades to Edge platform",
+   "raw_summary": "CFS has introduced an AI solution, third-party technology integration and non-custody asset administration capabilities on its Edge platform. The post CFS delivers upgrades to Edge platform appeared first on Financial Newswire .",
+   "stratum": "C"
+  },
+  {
+   "event_id": "d180ba1d-b903-435f-9a0f-b93838c2a200",
+   "source_name": "Financial Times",
+   "published_at": "2026-09-01 04:00:20+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/5240a6ac-b2e8-4897-a0a4-cbc7fc283bc9?syn-25a6b1a6=1",
+   "raw_title": "Big banks want a cut of lawyers\u2019 AI savings",
+   "raw_summary": "Goldman Sachs, Morgan Stanley and Citi tell law firms their bills should fall because technology has made routine work faster",
+   "stratum": "C"
+  },
+  {
+   "event_id": "a8078669-c034-4b20-9772-043435296476",
+   "source_name": "Financial Times",
+   "published_at": "2026-10-08 14:14:31+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/212f15c8-a897-4db0-bacf-d1556a11b9ed?syn-25a6b1a6=1",
+   "raw_title": "Goldman to pay top executives $500mn in special bonuses",
+   "raw_summary": "Wall Street bank preparing to hand out equity awards from five-year scheme to senior leaders",
+   "stratum": "C"
+  },
+  {
+   "event_id": "7cc28dfc-5fb8-43f8-8f87-5e34ce6dde9d",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-09-09 01:39:04+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/world/video/2026/sep/09/australia-to-impose-targeted-measures-to-stop-israeli-settler-violence-but-no-import-ban-video",
+   "raw_title": "Australia to impose 'targeted measures' to stop Israeli settler violence but no import ban \u2013 video",
+   "raw_summary": "The foreign affairs minister, Penny Wong, has announced that Australia will work with international partners to 'deter illegal settlements and settler violence' but won\u2019t follow the UK in implementing a trade ban with goods produced in Israeli settlements in the West Bank. Wong said the government h",
+   "stratum": "C"
+  },
+  {
+   "event_id": "dd5c0e5e-5749-4cf8-8bcf-446e259f2f04",
+   "source_name": "Financial Times",
+   "published_at": "2026-10-08 04:00:26+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/e3e45a40-41da-4062-8c47-f51ab710bf02?syn-25a6b1a6=1",
+   "raw_title": "Andrew could face witness summons in \u00a340mn London fraud trial",
+   "raw_summary": "Lawyers for ex-Goldman Sachs banker accused of misappropriating Turkish tycoon\u2019s assets want brother of King Charles to testify",
+   "stratum": "C"
+  },
+  {
+   "event_id": "1b3f23bc-ce4c-4f2c-b9da-67bf05776f5b",
+   "source_name": "Financial Times",
+   "published_at": "2026-11-10 05:00:11+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/0eab6768-1bdb-4a6c-bf6a-2fb8d35eef03?syn-25a6b1a6=1",
+   "raw_title": "The last of the Bot\u00edns",
+   "raw_summary": "The Santander chief says she will be the last in her family to run the bank",
+   "stratum": "C"
+  },
+  {
+   "event_id": "aa5da506-2b5e-4f00-bdcd-cea57f525a35",
+   "source_name": "BBC News",
+   "published_at": "2026-09-18 07:14:57+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/cqn74jeek06no?at_medium=RSS&at_campaign=rss",
+   "raw_title": "Japan raises interest rate to new 31-year high to curb rising prices",
+   "raw_summary": "Central banks around the world have hiked rates as high energy prices are pushing up inflation.",
+   "stratum": "C"
+  },
+  {
+   "event_id": "78c5edad-ad2b-4a32-9788-87593dd30c15",
+   "source_name": "BBC News",
+   "published_at": "2026-09-29 12:39:18+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/cvlylj41egxgo?at_medium=RSS&at_campaign=rss",
+   "raw_title": "Israeli settlers attack West Bank village and block Palestinian family's return home",
+   "raw_summary": "Two homes belonging to the al-Tubasi family were set on fire and Israeli security forces were also targeted by settlers.",
+   "stratum": "C"
+  },
+  {
+   "event_id": "a3c51339-6768-4e45-b240-d54e97fc8440",
+   "source_name": "iTnews",
+   "published_at": "2026-10-22 09:49:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.itnews.com.au/news/russia-linked-hackers-use-decentralised-network-in-ukraine-cyberattack-629846?utm_source=feed&utm_medium=rss&utm_campaign=iTnews+",
+   "raw_title": "Russia-linked hackers use decentralised network in Ukraine cyberattack",
+   "raw_summary": "First documented use of the technology by a state-linked group.",
+   "stratum": "C"
+  },
+  {
+   "event_id": "f48b712a-b799-40f6-b2cb-19e44c946ca7",
+   "source_name": "ARN - Australian IT Channel",
+   "published_at": "2026-09-03 04:48:23+00",
+   "collected_at": null,
+   "canonical_url": "https://www.arnnet.com.au/article/4217697/anaplan-awards-top-australian-partners-for-2026.html",
+   "raw_title": "Anaplan awards top Australian partners for 2026",
+   "raw_summary": "Enterprise planning software firm Anaplan has acknowledged its top-performing Australian partners at its annual awards. The vendor\u2019s awards program recognises the efforts of its channel partners that demonstrate \u201coutstanding commitment to driving business transformation and delivering exceptional va",
+   "stratum": "C"
+  },
+  {
+   "event_id": "22370123-8c8b-4654-be94-655717353135",
+   "source_name": "iTnews",
+   "published_at": "2026-11-17 11:11:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.itnews.com.au/news/microsoft-unveils-ai-models-for-coding-and-cyber-security-630419?utm_source=feed&utm_medium=rss&utm_campaign=iTnews+",
+   "raw_title": "Microsoft unveils AI models for coding and cyber security",
+   "raw_summary": "To challenge rivals such as&#160;Anthropic and OpenAI.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "d62194e1-484c-469b-989a-19c56178baa3",
+   "source_name": "MIT Technology Review",
+   "published_at": "2026-09-15 12:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.technologyreview.com/2026/09/15/1144129/ai-models-need-more-data-about-biology-and-openai-is-paying-to-create-it/",
+   "raw_title": "AI models need more data about biology, and OpenAI is paying to create it",
+   "raw_summary": "Last year Ruxandra Teslo, a policy analyst who focuses on clinical trials, posted an idea for supercharging medical AI systems: Use data from failed biotech companies. By bidding at their bankruptcy proceedings, she proposed, it might be possible to obtain detailed regulatory filings, manufacturing ",
+   "stratum": "D"
+  },
+  {
+   "event_id": "edce632c-f108-4334-a739-feae2f54e34d",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-09-16 05:20:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/technology/2026/sep/16/anthropic-lands-31bn-datacentre-deal-in-western-queensland",
+   "raw_title": "Anthropic to build $31bn datacentre in western Queensland, David Crisafulli says",
+   "raw_summary": "Premier describes deal as \u2018major win\u2019 that will deliver more jobs for the state and put more energy into its grid Anthropic, the AI giant behind the large language model Claude, has done a deal to lease the site of its first Australian datacentre in western Queensland. The state premier, David Crisa",
+   "stratum": "D"
+  },
+  {
+   "event_id": "8237e96c-543a-4905-ac74-d96218d60909",
+   "source_name": "iTnews",
+   "published_at": "2026-10-11 04:29:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.itnews.com.au/news/netscaler-builds-that-fixed-zero-days-carry-critical-flaw-too-629542?utm_source=feed&utm_medium=rss&utm_campaign=iTnews+",
+   "raw_title": "NetScaler builds that fixed zero-days carry critical flaw, too",
+   "raw_summary": "Separate SAML flaw rated as 9.5 out of 10.0.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "8f2df3d5-eb3b-4f0c-857e-e7cfbff5bad6",
+   "source_name": "Anthropic (Claude) Status",
+   "published_at": "2026-08-31 19:21:32+00",
+   "collected_at": "2026-08-31 20:00:13.643612+00",
+   "canonical_url": "https://status.claude.com/incidents/r82kdk0m7vqh",
+   "raw_title": "Degraded performance on claude.ai and Claude Code",
+   "raw_summary": "Aug 31 , 19:21 UTC Investigating - We are investigating reports of degraded performance affecting Claude in Slack, Claude Code on the web, and Code Review. We will provide an update as soon as possible.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "c8c2bac2-cfc5-4790-abd7-3bf05bdc28a9",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-10-13 07:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMixwFBVV95cUxQZ1JtNm1aaHUwRXZmWlFicHZ4ZjBkZWRRVXR5SWVnRzQwR3oyajlSMDF0OFgxWThONTliSjh4a2Z5UXRCcFZzVXUzR3BUZEFHbGtrUm1pVkVWQlNQdXBoRzlEcFlsNGpiekptQUZVb1pycGhzRktMSXNaY2dLM3ItWkJJMV9uUk5tMmViNDJxM1NvbUI5dC1VV3BGM1pZWFQzX1ZEcXliUnZmNkhhOGN3UjdTRnprdjB5V0ZWeDdtZXRfVGU1MEI0?oc=5",
+   "raw_title": "Telstra expands Aura Network to strengthen Australia\u2019s east-west digital corridor - Intelligent CIO",
+   "raw_summary": "Telstra expands Aura Network to strengthen Australia\u2019s east-west digital corridor &nbsp;&nbsp; Intelligent CIO",
+   "stratum": "D"
+  },
+  {
+   "event_id": "fb91329f-7c68-4009-b75e-a03d1c72fcd4",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-09-30 14:08:39+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMib0FVX3lxTE10TnhCT24wdkdlalV3Mlpvb0dvUVBGVlhOZFFVVmZaOGdIVmNGWjBJOExhZ0hUVUE4NnM5aWtwekhJR0w2QTNUUkxXYzFiUHBxOVRSdElOTlF1RFBLSFBJa0JMMUpnb2pJdzJSMkt5bw?oc=5",
+   "raw_title": "Temporary Disaster Roaming: Another way we\u2019re helping you stay connected when a natural disaster strikes - Telstra.com",
+   "raw_summary": "Temporary Disaster Roaming: Another way we\u2019re helping you stay connected when a natural disaster strikes &nbsp;&nbsp; Telstra.com",
+   "stratum": "D"
+  },
+  {
+   "event_id": "a615fba9-cb97-4f1f-9665-48f6089f9bed",
+   "source_name": "CISA Alerts",
+   "published_at": "2026-10-13 12:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.cisa.gov/news-events/alerts/2026/10/13/cisa-adds-two-known-exploited-vulnerabilities-catalog",
+   "raw_title": "CISA Adds Two Known Exploited Vulnerabilities to Catalog",
+   "raw_summary": "CISA has added two new vulnerabilities to its Known Exploited Vulnerabilities (KEV) Catalog , based on evidence of active exploitation. CVE-2026-96951 Microsoft Windows Command Injection Vulnerability CVE-2026-104935 Ivanti Connect Secure Authentication Bypass by Spoofing Vulnerability These types o",
+   "stratum": "D"
+  },
+  {
+   "event_id": "21babff2-1684-400e-81e8-9a9d674f71e0",
+   "source_name": "BBC News",
+   "published_at": "2026-10-15 03:33:08+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/cqzjx448vxkgo?at_medium=RSS&at_campaign=rss",
+   "raw_title": "Anthropic flags revenue surge to investors ahead of stock market debut",
+   "raw_summary": "It comes as some investors have become concerned about the amount of money being spent on AI infrastructure.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "a5dc212d-5f8b-4416-b712-6761b13ace4a",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-10-28 00:53:56+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxNUHFhRGJiWmQtUExvejAyV0VfQWdUNndNaGF4cG84R2U4SFVfV1ZpQ2Jya0wyZm44Zm9sOUd1U0xVMHZudVpnbEJybDhtaUd6VmlsVndkSzJPbnV5Q1JhY09sLURiZVBXMVFjUDhYdVpCTEg4ZmZ4Y2pVczFveTZkOTRsOA?oc=5",
+   "raw_title": "Telstra's NBN plans are pretty cheap right now (for Telstra) - WhistleOut",
+   "raw_summary": "Telstra's NBN plans are pretty cheap right now (for Telstra) &nbsp;&nbsp; WhistleOut",
+   "stratum": "D"
+  },
+  {
+   "event_id": "38319ced-f9e6-4755-b0b4-1276a68b3279",
+   "source_name": "MIT Technology Review",
+   "published_at": "2026-09-16 12:10:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.technologyreview.com/2026/09/16/1144205/the-download-ai-trillion-dollar-build-openai-biological-data/",
+   "raw_title": "The Download: AI\u2019s trillion-dollar gamble and OpenAI\u2019s biology data bid",
+   "raw_summary": "This is today&#8217;s edition of The Download, our weekday newsletter that provides a daily dose of what&#8217;s going on in the world of technology. What\u2019s at stake in AI\u2019s trillion-dollar gamble When Jessica Wachter, a finance professor at the University of Pennsylvania, wanted to assess AI\u2019s impa",
+   "stratum": "D"
+  },
+  {
+   "event_id": "74d4c980-c5b9-4dab-9848-0459b629bee8",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-11-12 08:35:14+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNQVdLZlNTRGY5Nk1wQU0tdHZ6ZkV5R1hMWEc4NVhrSEJWM2haLS1GaHVHdy1WZEx2T3pBTERqVW1IaVRhbUdWU0FvVWVCUUNxMy1ZcVB6U1VXeTBNbWZmVmJvQ3hRTXVfUVY0bzRXRXJ1cVJpMU5CemNTYl9BX3JYX0h4R0YtV292SVlnZ19MQ3VMOVFO?oc=5",
+   "raw_title": "Optus' network takes home most awards in new Opensignal report - WhistleOut",
+   "raw_summary": "Optus' network takes home most awards in new Opensignal report &nbsp;&nbsp; WhistleOut",
+   "stratum": "D"
+  },
+  {
+   "event_id": "324fd9fa-7796-47be-b4b7-c7dc768ad03a",
+   "source_name": "BBC News",
+   "published_at": "2026-09-15 03:47:27+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/cw980n0nd0qjo?at_medium=RSS&at_campaign=rss",
+   "raw_title": "Trump says AI safety fears a 'hoax' as he rejects calls for greater safeguards",
+   "raw_summary": "The US president's comments come after Anthropic co-founder Jack Clark told the BBC an AI \"kill switch\" may need to be mandatory.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "0f164f42-16a2-4017-977c-0b53443603a7",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-11-04 11:29:00+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxNVm84a0RiOFMtcGs2MjE2NU9Hb0hOYU4wbVRvcmY4dG9EZEs4cF9kRlBteUJWOGJlTmhSZFFpbGljcnBhbnFuVVJzXzBiXzZZQXlSa0dRUk9ReWpfb21fYVB2Wk43aTc4bXkzTWNnTklXNjRMX1padHZCeENRVEEyZ3ozeXRKZ0xGUHQxcjM3bmlNRU5ZUExOMGtwRU5lTk5NNDNrWkpQUElGODE1Y245cnNLT3pIVFlFaHdoNFcyOEFYWXlvcFRqZGVncUpYUWlz0gHWAUFVX3lxTE8zRXdOUEMwMFJReDZPN29vT2hmbXFLclZseDE1OFVIWW5Ib2xKOUdOUWJDTmdSbDJodFhPS3RhYXZvcEJyRFY4VVF1Vm9kalVPcUsxSXlwaTA2NzlZYnRjRjFJLUxFMDRFZFdRb0JtTFNCaFZtWms1bG5nWjQxZ19aOUVtYVJiU0IwOGtVc1B0Nm81dEZBNWc3ZU1MMlNqMnpuVVpudlNKdHd3ZWhqSFZwdjVLZlZfRi1OeGFyT2p6cE1VR0NfRHJZZEdETE9yQU52ZW1Vdnc?oc=5",
+   "raw_title": "Telstra customers inundated by delayed missed call notifications as telco blames MessageBank issue - 7NEWS",
+   "raw_summary": "Telstra customers inundated by delayed missed call notifications as telco blames MessageBank issue &nbsp;&nbsp; 7NEWS",
+   "stratum": "D"
+  },
+  {
+   "event_id": "a447c7a5-55c6-47d0-9c2c-597e414b816a",
+   "source_name": "ARN - Australian IT Channel",
+   "published_at": "2026-10-27 01:31:38+00",
+   "collected_at": null,
+   "canonical_url": "https://www.arnnet.com.au/article/4240654/brennan-earns-openai-select-partner-designation.html",
+   "raw_title": "Brennan earns OpenAI Select Partner designation",
+   "raw_summary": "Brennan has been designated as an OpenAI Select Partner in the AI giant\u2019s OpenAI Partner Network. As a global program, the OpenAI Partner Network is designed for partners to build, sell, and deliver AI solutions with the vendor. It aims to find partners with deep industry expertise, delivery capabil",
+   "stratum": "D"
+  },
+  {
+   "event_id": "ba2a7398-a85f-4b87-9377-45afe13dc511",
+   "source_name": "iTnews",
+   "published_at": "2026-11-10 10:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.itnews.com.au/feature/azure-doesnt-fix-what-you-move-into-it-630241?utm_source=feed&utm_medium=rss&utm_campaign=iTnews+",
+   "raw_title": "Azure doesn&#8217;t fix what you move into it.",
+   "raw_summary": "The four stages between a legacy estate and a working Azure platform, and why most of the work happens before anything moves.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "06cd4fa6-b644-4e51-a4e8-8358cae4db24",
+   "source_name": "BBC News",
+   "published_at": "2026-09-16 06:57:32+00",
+   "collected_at": null,
+   "canonical_url": "https://www.bbc.co.uk/news/articles/cqx2zpj4y525o?at_medium=RSS&at_campaign=rss",
+   "raw_title": "OpenAI boss says world 'right to be afraid' but should trust AI firms",
+   "raw_summary": "Sam Altman and other tech CEOs say there are incentives to limit advancements in AI, as fears grow over the threats it poses to humanity.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "1004e32d-eccd-4259-98fa-a5f16d15e187",
+   "source_name": "Financial Times",
+   "published_at": "2026-10-20 11:00:34+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/c88b07df-d30e-401a-aca9-4b054d6dfd7b?syn-25a6b1a6=1",
+   "raw_title": "UK banks hit by Google Cloud outage",
+   "raw_summary": "Halifax and Revolut among a string of businesses affected by disruption",
+   "stratum": "D"
+  },
+  {
+   "event_id": "2630f94c-0f2b-40ae-86a6-f60e30fff1b5",
+   "source_name": "Supabase Status",
+   "published_at": "2026-10-07 05:00:00+00",
+   "collected_at": "2026-09-30 23:44:24.790276+00",
+   "canonical_url": "https://status.supabase.com/incidents/q1zbxjzqgtjg",
+   "raw_title": "Statuspage Migration",
+   "raw_summary": "THIS IS A SCHEDULED EVENT Oct 7 , 15:00 - 17:00 UTC Sep 30 , 22:08 UTC Scheduled - Starting October 7th, we are migrating our status page to a new platform to give you better visibility into Supabase's service status. What's changing: The status page URL will stay the same: https://status.supabase.com If you are subscribed via email, you will automatically be resubscribed, no action needed. If you are subscribed via any other method (SMS, Slack, webhook, RSS, etc.), you will need to resubscribe on the new page, since these subscriptions will not carry over automatically. Note that our new plat",
+   "stratum": "D"
+  },
+  {
+   "event_id": "6a5c2d03-dec7-42cd-b426-957ae0c84dfc",
+   "source_name": "ARN - Australian IT Channel",
+   "published_at": "2026-11-12 22:25:57+00",
+   "collected_at": null,
+   "canonical_url": "https://www.arnnet.com.au/article/4248137/microsoft-aggressively-pursuing-fix-as-outlook-goes-down-globally.html",
+   "raw_title": "Microsoft \u201caggressively pursuing\u201d fix as Outlook goes down globally",
+   "raw_summary": "Microsoft has said it is \u201caggressively pursuing\u201d all pathways to reduce the impact of a global outage which has affected multiple Microsoft 365 services, including Outlook email services. On its Service Health Status webpage, the company confirmed reports of service degradation affecting its Microso",
+   "stratum": "D"
+  },
+  {
+   "event_id": "13fed25a-8c6a-492a-92cc-092c5f9a94c3",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-10-02 00:58:25+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQODA5bXI4QVg4SjBRRWI5bm15OWZBNHNqVVVCN1VlekN3alQxeHZHVXlWWms2SUpqd1MwdkozNTQzWlhaTTh2UWFEaTNWYWxpNVp5WUpvanNVZmVybS15MnJGdWtCSV9seXVDTTFNdU9Uc1I1ZDBYcWJ5SUk1WlpTMnRfdjdOMzY2RF9YZjNR?oc=5",
+   "raw_title": "AUNZ Work of the Week: Telstra and Bear Meets Eagle On Fire \u2014 LBB - lbbonline.com",
+   "raw_summary": "AUNZ Work of the Week: Telstra and Bear Meets Eagle On Fire \u2014 LBB &nbsp;&nbsp; lbbonline.com",
+   "stratum": "D"
+  },
+  {
+   "event_id": "b4287352-5d1d-44b5-8c45-ad5e8be7cd59",
+   "source_name": "CISA Alerts",
+   "published_at": "2026-09-27 12:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.cisa.gov/news-events/alerts/2026/09/27/cisa-adds-two-known-exploited-vulnerabilities-catalog",
+   "raw_title": "CISA Adds Two Known Exploited Vulnerabilities to Catalog",
+   "raw_summary": "CISA has added two new vulnerabilities to its&nbsp; Known Exploited Vulnerabilities (KEV) Catalog , based on evidence of active exploitation. CVE-2026-88771 Citrix NetScaler Improper Input Validation Vulnerability CVE-2026-88772 Citrix NetScaler Improper Restriction of Operations within the Bounds o",
+   "stratum": "D"
+  },
+  {
+   "event_id": "eaa22a44-43d4-4f4d-9c5c-cad3f422c359",
+   "source_name": "iTnews",
+   "published_at": "2026-09-30 16:08:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.itnews.com.au/news/cisco-says-no-workaround-for-exploited-sd-wan-manager-flaw-629349?utm_source=feed&utm_medium=rss&utm_campaign=iTnews+",
+   "raw_title": "Cisco says no workaround for exploited SD-WAN Manager flaw",
+   "raw_summary": "Attackers abuse easy authentication bypass in software.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "4d12bd82-5c3f-4ab7-8bfd-f45b382e9606",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-10-12 21:22:09+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxQazcyYk1KeFhpZERBenpFc2tUWU1zZXRmR3VObHdBemlVQUhOS1JHeS10MzY2eS1fLUtTS0ZOcjNkejdrV3B3RkFPVU1QWDlrOFZJM3NjVk9zdkEwSGFYLTI3YjF6U3RyU29DejhMLWN5bm0wT2ZwOXFkWUVoeU83SC1OYndpRElLdWVmSTNUODFzR1BuVHJjU2JpYXh5R2dJSkcxODNpYi03aEJZZnZqWDllcl9JVlRHaGRwMEprdTg5UlowbWMyX2EwaElIS0NaUFZkbnNIelo0T085WlE?oc=5",
+   "raw_title": "Telstra bosses set for shareholder grilling at AGM - Adelaide Now",
+   "raw_summary": "Telstra bosses set for shareholder grilling at AGM &nbsp;&nbsp; Adelaide Now",
+   "stratum": "D"
+  },
+  {
+   "event_id": "663285d1-4b41-4607-a591-1a3b9a54a18d",
+   "source_name": "Financial Times",
+   "published_at": "2026-11-22 11:00:05+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/d501198c-14a4-4b96-8880-c3997545902e",
+   "raw_title": "Did Anthropic and its bankers get a key call wrong after IPO?",
+   "raw_summary": "Share price weakness raises questions about hasty exercise of \u2018greenshoe\u2019 option to issue more stock",
+   "stratum": "D"
+  },
+  {
+   "event_id": "221d2503-6431-496e-ae94-d1c44604c93e",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-11-05 09:50:00+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxPSTFheWpyWjV6ZG1PaFVLdkhZUGtXdUl2MS11Vkh3T3lqbEZEQ05qamtIY2JDV3pJQU5nUDBGTklWMmZxbHJLcUhlbkVkdjh0MjVnRjNaOGpQeFlOQS1mSnp0OEY1cDRPQnJEOFVPd0tPb1FFdGdIRFRJbDZFZTlNanNXYW5Bb2E3WGJVeHRYOXFaZGtLQWpWNmN6Ri16TktOem5GTXJ1MlFGY3JrZ3g5c2p1M2E0aVBhOW9jXw?oc=5",
+   "raw_title": "Telstra Group (ASX:TLS): Can FY26 Earnings Growth Offset Network Investment Pressures? - Kalkine",
+   "raw_summary": "Telstra Group (ASX:TLS): Can FY26 Earnings Growth Offset Network Investment Pressures? &nbsp;&nbsp; Kalkine",
+   "stratum": "D"
+  },
+  {
+   "event_id": "f145dcd2-e4c6-40f4-8953-81229da9fc76",
+   "source_name": "Financial Times",
+   "published_at": "2026-11-20 03:51:30+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/c7ad2e0c-efd1-40c2-a5a8-819ced8acf5b?syn-25a6b1a6=1",
+   "raw_title": "Tech stocks fall as Anthropic IPO fails to stem broader AI sell-off",
+   "raw_summary": "Asian markets follow Wall Street lower despite Claude AI maker\u2019s record listing",
+   "stratum": "D"
+  },
+  {
+   "event_id": "1b70937c-3631-413f-b9e9-8ea9074db943",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-09-25 15:12:38+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/technology/2026/sep/26/openai-hack-australian-government-anxiety-global-dilemma-artificial-intelligence",
+   "raw_title": "OpenAI hack on Australian government reveals anxiety at heart of global artificial intelligence dilemma",
+   "raw_summary": "As the UN warns traditional safeguards are \u2018unravelling\u2019, Donald Trump says he will encourage, not restrain, the AI race When the Australian prime minister, Anthony Albanese, sat down for an interview in the heart of Silicon Valley at the weekend he had known for two days that his was the first gove",
+   "stratum": "D"
+  },
+  {
+   "event_id": "6ce7edc3-d98a-480c-af04-6046089a673b",
+   "source_name": "Guardian Australia",
+   "published_at": "2026-09-25 14:58:32+00",
+   "collected_at": null,
+   "canonical_url": "https://www.theguardian.com/technology/2026/sep/25/australia-medicare-openai-hack-safeguarding-un-leaders",
+   "raw_title": "It\u2019s going to take more than an email to a public inbox to protect Australians from potential AI doom",
+   "raw_summary": "OpenAI\u2019s hack of Medicare suggests safeguarding civilisation is the task facing leaders in this extraordinary new era Get our breaking news email , free app or daily news podcast More than 130 world leaders descended on the United Nations headquarters in New York this week, joining the pageantry and",
+   "stratum": "D"
+  },
+  {
+   "event_id": "a5d6531b-e8b0-4c32-b543-ae827fb98657",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-11-04 04:20:14+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxQNkxvbDJBQnZIbnp4WXNmdzBNdElqTXpLQkQ4VEFWaWpVdmFpQlR2M3NzUHZWakk0UGJlZGtzUmg3SUcyZjBteUhIYlBaMHk2V05EQ1B2RGxrNVRKVkJtZGNEQmNCTTJ2WmNobGZjTjg4Yl8taVVpQXdhTlBWcWlyUW8tSGpWUzZpa3R2dFRVdnJreFVpU2R2NzZZak02WTgtaWxlLQ?oc=5",
+   "raw_title": "Telstra removes network security ads for depicting \u201cunjustifiable violence\u201d - Mediaweek",
+   "raw_summary": "Telstra removes network security ads for depicting \u201cunjustifiable violence\u201d &nbsp;&nbsp; Mediaweek",
+   "stratum": "D"
+  },
+  {
+   "event_id": "92880046-6cdd-4996-8174-e12d0e26aec1",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-09-13 08:17:54+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxOVmcwVEx6cm5GaC03M0JhaENvUHdhSHVYRkFHMmlRYXBfeW9TRW1ZQnN5eGRoUF9JMlUwem42WmpoSGdTay1xb0FRTkhTeEdiQzFVckxfeEhZQ0t4NTJrOU1tWkNNZlJRaDdwcXpjYjNQVXVBZjlNX2ZVcm1YaUNpQzJzZzRKaUlN?oc=5",
+   "raw_title": "NRL Telstra Premiership 2026 Finals Week Two - NRL.com",
+   "raw_summary": "NRL Telstra Premiership 2026 Finals Week Two &nbsp;&nbsp; NRL.com",
+   "stratum": "D"
+  },
+  {
+   "event_id": "5a46209a-d7c0-434d-9e65-82d119b1bcd5",
+   "source_name": "MIT Technology Review",
+   "published_at": "2026-09-09 12:10:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.technologyreview.com/2026/09/09/1143767/the-download-openai-math-future-battery-record/",
+   "raw_title": "The Download: OpenAI\u2019s turning point for math and a battery record",
+   "raw_summary": "This is today&#8217;s edition of The Download, our weekday newsletter that provides a daily dose of what&#8217;s going on in the world of technology. What OpenAI\u2019s latest controversy tells us about the future of math OpenAI says its agents have solved one of the most important open problems in mathe",
+   "stratum": "D"
+  },
+  {
+   "event_id": "47ef2735-7fad-44ee-bcf5-d29a761c3c4b",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-10-13 05:50:26+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMi-wFBVV95cUxNbVFMb2dtTFFENGM5Y01GcFpBb1ZmMEdOa1BGRlZ3LXlOcWNBWFMzUDBaelJaV05zYWpfOENIc3dsMW5xNTRfRGVmSnBPdFR0QWk0eXBObUpTVUNwUkpINk0tdVJsaEtib3pwR2pCRU9BM1hPajhZQzhXTldpN2RwYXZiQnBiSmFQaVRZOHdjQWpFYUxydXNja3FSVlNMTGNmbzFfYnkzbFE0aDBBRjlSY01Iek1qMkJ0aU9LNzFwVk13bVhHR3JXcms0ZS1aLU4yR293dFpnZjZteEhWQ2hIT0lpSkJWZ1VJbkItRG10eDBNZFpoRFBBN184cw?oc=5",
+   "raw_title": "Telstra boss faces AGM fury over national outage - The Australian",
+   "raw_summary": "Telstra boss faces AGM fury over national outage &nbsp;&nbsp; The Australian",
+   "stratum": "D"
+  },
+  {
+   "event_id": "d9c70661-11e4-46af-bea1-7774691ea1d6",
+   "source_name": "Supabase Status",
+   "published_at": "2026-11-12 12:38:18+00",
+   "collected_at": "2026-11-12 23:16:02.842404+00",
+   "canonical_url": "https://status.supabase.com//incidents/01M78QJT3GQX4V7VV88MBTQ5X3",
+   "raw_title": "Database Connection Errors",
+   "raw_summary": "Status: Identified We have identified the issue and are implementing a fix. We are seeing improvements across affected regions. We will continue to provide further updates as they become available. Affected components ap-southeast-1 (Degraded performance) ap-south-1 (Degraded performance) us-west-1 (Degraded performance) ap-northeast-2 (Degraded performance) eu-north-1 (Degraded performance) ca-central-1 (Degraded performance) us-west-2 (Degraded performance) eu-central-1 (Degraded performance) ap-southeast-2 (Degraded performance) eu-west-1 (Degraded performance) us-east-2 (Degraded performan",
+   "stratum": "D"
+  },
+  {
+   "event_id": "165d3bb7-3094-41d5-8fbf-49fc7d275c25",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-09-12 03:38:04+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMikwJBVV95cUxQVmVJS2s2OHJqZ2liUVYtLWxjdkdrc2VZZHJMNDIzY2ZqZ193VmVWdUpMbWRLMWhLTkQtZ0RsaVRUckpndEdCR1gtbXl3aVg0TjdxUzRaeG5yeE1zOGV2ZWpYSkFaelVzdEh6bFFsYjlFa3lsMFBQSWxIMTdzbTdSU0UweEtZUm1kekNXUUJOdXNVUVk4R0FCU194ZDNieWhadVZUQkFDM0UyX2ZTd0VBaXYzVUgzNFl5NHNGR1JVN0VJY1BGYmFEb2o0NmFoaGx5OXQ4d0ZFaXZqWl9CV2VBcDlxYUhxM0VoOVBjd1JDdXF4bW5WdlFEbm93Z0hKdkR4dkx1MzRxSm1yZGtyRllmRlF3RQ?oc=5",
+   "raw_title": "SA Optus outage triggers urgent police welfare checks - The Weekly Times",
+   "raw_summary": "SA Optus outage triggers urgent police welfare checks &nbsp;&nbsp; The Weekly Times",
+   "stratum": "D"
+  },
+  {
+   "event_id": "28017417-3cef-4684-bf3f-8efdd1836d48",
+   "source_name": "Financial Times",
+   "published_at": "2026-11-20 11:57:35+00",
+   "collected_at": null,
+   "canonical_url": "https://www.ft.com/content/67938df3-a9ce-4eb8-9299-af0ab80db87b",
+   "raw_title": "Anthropic market cap in line with Alphaville\u2019s guess",
+   "raw_summary": "A (very) light autopsy on our pre-IPO market cap guestimation",
+   "stratum": "D"
+  },
+  {
+   "event_id": "9e1978f1-fd6c-431b-bc26-965593889b49",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-09-02 20:04:31+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxOZ1pxanA1TFVrbVJTTXJ0dzd0WFBOdlBiNkl2a2hIZXJkWEVibi1WeEpRTExtOURiVHpkejY3OEZXYlBsYkRRMDB2aDdEZHhRS2x0aHg0LTF5Y1hxbEl6TWItWjhsVkl2ajExZVFMaktKZnBzYTk2eVN3LXdwcElEM1pQZ1l3MHh0QWhEZE5qMkhKSkpVSjlzNTdYd2ZiTk5hNnBRZXVzT1c?oc=5",
+   "raw_title": "Telstra to undertake works on Harden service - Boorowa News",
+   "raw_summary": "Telstra to undertake works on Harden service &nbsp;&nbsp; Boorowa News",
+   "stratum": "D"
+  },
+  {
+   "event_id": "6dc57831-b8dc-4945-bf41-a1664ebab37f",
+   "source_name": "MIT Technology Review",
+   "published_at": "2026-09-23 09:00:00+00",
+   "collected_at": null,
+   "canonical_url": "https://www.technologyreview.com/2026/09/23/1144940/ai-hype-index-ai-loves-cheating/",
+   "raw_title": "The AI Hype Index: AI loves cheating",
+   "raw_summary": "Brace yourself: It turns out AI is being optimized for cheating. OpenAI\u2019s agents hacked into Hugging Face to get the answers to a cybersecurity test. Next, they solved a prestigious math problem (or just stole from two top mathematicians\u2019 answer sheets). Anthropic\u2019s models have also hacked into othe",
+   "stratum": "D"
+  },
+  {
+   "event_id": "4dd120c8-c93a-4768-8611-b4889603c9c3",
+   "source_name": "CISA Known Exploited Vulnerabilities",
+   "published_at": "2026-07-13 00:00:00+00",
+   "collected_at": "2026-07-13 20:00:07.840685+00",
+   "canonical_url": "https://nvd.nist.gov/vuln/detail/CVE-2008-4128",
+   "raw_title": "CVE-2008-4128: Cisco IOS Cross-Site Request Forgery Vulnerability",
+   "raw_summary": "Cisco IOS 12.4 contains multiple cross-site forgery vulnerabilities that allows remote attackers to execute arbitrary commands via (1) a certain \"show privilege\" command to the /level/15/exec/- URI, and (2) a certain \"alias exec\" command to the /level/15/exec/-/configure/http URI.",
+   "stratum": "D"
+  },
+  {
+   "event_id": "744388bc-d9e6-427a-9434-b6f5a66e0edd",
+   "source_name": "Google News - Telstra",
+   "published_at": "2026-09-10 04:24:43+00",
+   "collected_at": null,
+   "canonical_url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxOVENGSUF4N1FWVDM1ckFXTGdicXlZalNWajBfb1RVREotVlJ0N0k4eVhFY0N2OUMybkRSTGhSbXE2QW42R05PZjZ6QnBiNGN3T2M5ZHctb1hWSHpxaDQwSXF1WU5oYkhEdmhvXzhIalFqMzVlbkxSaEJ2RDlucEtoaWY5MjZqTG9IeVh1QnRrYndSbGlqRW84VVA3Tks0ZWVfZzJZQXVrTnc?oc=5",
+   "raw_title": "TLS:ASX Announcement - Telstra announces CHF200 million bond issue - 10 Sep 2026 - Market Index",
+   "raw_summary": "TLS:ASX Announcement - Telstra announces CHF200 million bond issue - 10 Sep 2026 &nbsp;&nbsp; Market Index",
+   "stratum": "D"
+  }
+ ],
+ "truth": {
+  "0e40880e-2cae-45cf-b4f7-4afc19532e4a": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "0720f568-6a29-41a0-a4f6-11ace6dc9adb": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "6ee31496-6d90-486a-b784-7d1432dcd3f3": {
+   "providers": [
+    "twilio"
+   ],
+   "involved": [
+    "twilio"
+   ],
+   "stratum": "A"
+  },
+  "2884a172-c858-4a8e-8852-15c59501f287": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "9ed5d95d-ab93-4e15-9533-897143f8f26c": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "742808b6-6926-4e0b-8945-a113d261790b": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "A"
+  },
+  "b0c73e65-cb05-4a1d-8e46-0c6ab1b42e7e": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "37c28115-2f4c-4628-9cfb-40481c76a099": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "d3e3cd26-891a-4489-a7fd-8576f112f35f": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "30d9c94b-a48b-4e55-8fc1-404db058c3b9": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "95516e26-b637-43e5-bc8a-ee5c1488eacb": {
+   "providers": [
+    "github"
+   ],
+   "involved": [
+    "github"
+   ],
+   "stratum": "A"
+  },
+  "bdf00ce9-234b-4008-a26e-ba737232ae74": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "66c00dde-50f7-4c06-9d2e-ef09c550ee2c": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "868d4708-f340-4a9f-8d37-58ed93cbd20d": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "2430f845-ea07-4d0a-8488-8b207da740d3": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "A"
+  },
+  "0d3af7b4-7cb3-4ecc-829f-4ace3af1ebac": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "A"
+  },
+  "bb98f2cd-70cd-435d-a245-313f2d9983fe": {
+   "providers": [
+    "microsoft_365"
+   ],
+   "involved": [
+    "microsoft_365"
+   ],
+   "stratum": "A"
+  },
+  "67ded937-7855-4441-b8de-22e6d23bbdf4": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "971809a2-0f63-45cb-9782-8b04bb5ab29a": {
+   "providers": [
+    "zoom"
+   ],
+   "involved": [
+    "zoom"
+   ],
+   "stratum": "A"
+  },
+  "4e8470d8-9756-4d69-8e62-bb5aa87f8183": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "741e0119-946c-4b6a-96d7-7762adfeed7d": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "A"
+  },
+  "ad05cff5-9bd5-4295-86b8-8f2e7439b251": {
+   "providers": [
+    "microsoft_365"
+   ],
+   "involved": [
+    "microsoft_365"
+   ],
+   "stratum": "A"
+  },
+  "44f3df73-6705-4490-b74d-ae5328f8eb45": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "055f2edb-5456-40d6-b606-1ded9a5ce897": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "4fb7c4e6-4954-4028-9557-d47189459fb4": {
+   "providers": [
+    "twilio"
+   ],
+   "involved": [
+    "twilio"
+   ],
+   "stratum": "A"
+  },
+  "03b5e57f-b6b6-4731-accd-27483a4c1c34": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "39bff852-ccbc-467d-9a48-aba5c0302ffc": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "34d7ab9d-b531-4d24-b04c-67a6d2da85f2": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "1c97732f-fef7-4dda-b734-04f55265c708": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "A"
+  },
+  "47d76312-cf3e-4091-81f4-a8954562ea59": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "5346cc95-c4a8-4d62-89e4-b710e74e0a77": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "A"
+  },
+  "b88c260a-86ed-425d-be49-17a4d56fbb68": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "625cf446-c033-45bf-8f54-05ba847bb966": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "A"
+  },
+  "fbbbdc59-46a5-4edf-b2fd-3595e4da22ba": {
+   "providers": [
+    "microsoft_msrc"
+   ],
+   "involved": [
+    "microsoft_msrc"
+   ],
+   "stratum": "A"
+  },
+  "e8f57155-dc5d-42d0-8424-228e5b61a1c8": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "A"
+  },
+  "b83f0789-fefd-485d-bea0-0c7080584100": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "6b347a4f-25ea-46a3-b749-ce62a954d9e0": {
+   "providers": [
+    "fortinet"
+   ],
+   "involved": [
+    "fortinet"
+   ],
+   "stratum": "A"
+  },
+  "3393092a-8fda-483e-997a-571bc6d17f51": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "1f773ebc-ab67-42ab-b71e-1912bf5914b3": {
+   "providers": [
+    "cloudflare"
+   ],
+   "involved": [
+    "cloudflare"
+   ],
+   "stratum": "A"
+  },
+  "1b8c8e93-6ebb-4854-9d05-564cfe331a27": {
+   "providers": [],
+   "involved": [],
+   "stratum": "A"
+  },
+  "7ff265a5-7919-4481-aa37-45f2b20b59c9": {
+   "providers": [
+    "microsoft_msrc"
+   ],
+   "involved": [
+    "microsoft_msrc"
+   ],
+   "stratum": "B"
+  },
+  "4612778c-0da9-4799-bbb1-7d66164fa22c": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "7a3c0cf1-8698-4cd0-85df-409938d68761": {
+   "providers": [
+    "atlassian"
+   ],
+   "involved": [
+    "atlassian"
+   ],
+   "stratum": "B"
+  },
+  "b01bd53f-7c25-4c13-8326-ad659fe18e61": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "5249104d-f9b8-4a78-bbd4-9b088e5195e9": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "284a5ab3-d6f6-4be4-94e6-2c387311aec3": {
+   "providers": [
+    "google_cloud"
+   ],
+   "involved": [
+    "google_cloud"
+   ],
+   "stratum": "B"
+  },
+  "89229ebf-0364-49a7-b43d-ece02bd5da68": {
+   "providers": [
+    "twilio"
+   ],
+   "involved": [
+    "twilio"
+   ],
+   "stratum": "B"
+  },
+  "b5d56508-124e-4c57-a5ae-8f8bccaf1a15": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "1b849287-b726-4abd-8008-3eb1a48a37d7": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "B"
+  },
+  "4c7d638b-5dcc-417a-8bb6-5f06d086b0a0": {
+   "providers": [
+    "github"
+   ],
+   "involved": [
+    "github"
+   ],
+   "stratum": "B"
+  },
+  "787135fe-0fe9-4bfa-ae0b-3e4b8aca4907": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "0cd75c59-6623-4c05-b014-e56cad18e267": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "5fa4c3b6-fe12-4384-86b3-79323aa9d7a2": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "1ef7a509-ff98-4f21-84b4-bef85e8d6612": {
+   "providers": [
+    "microsoft_msrc"
+   ],
+   "involved": [
+    "microsoft_msrc"
+   ],
+   "stratum": "B"
+  },
+  "8af41e11-e7ac-4234-a1b1-8fcebeb2e6b8": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "95d838f8-b8ef-436c-b99f-8c2de6673268": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "6aa6bd91-beab-410f-a7ba-e8763dd0cd59": {
+   "providers": [
+    "github"
+   ],
+   "involved": [
+    "github"
+   ],
+   "stratum": "B"
+  },
+  "156bf7c3-9e60-4584-bcdf-498d538777de": {
+   "providers": [
+    "cloudflare"
+   ],
+   "involved": [
+    "cloudflare"
+   ],
+   "stratum": "B"
+  },
+  "670d7029-940d-48ad-8458-5124dece854a": {
+   "providers": [
+    "microsoft_msrc"
+   ],
+   "involved": [
+    "microsoft_msrc"
+   ],
+   "stratum": "B"
+  },
+  "fdbdc5f3-e638-45c9-8926-c1463ce99b7f": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "B"
+  },
+  "2466ed0f-4bae-4f6c-9abd-1d8f8ef26bb0": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "34c0427f-4d5f-4928-9c11-c1dcbc445782": {
+   "providers": [
+    "salesforce"
+   ],
+   "involved": [
+    "salesforce"
+   ],
+   "stratum": "B"
+  },
+  "fd82cc9c-02d8-4845-9599-cab2169c6ac4": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [
+    "anthropic"
+   ],
+   "stratum": "B"
+  },
+  "2dafd651-8508-442c-a6b3-385b004fc441": {
+   "providers": [
+    "openai"
+   ],
+   "involved": [
+    "openai"
+   ],
+   "stratum": "B"
+  },
+  "4d760bcb-150a-43d0-8db1-474069dc47fd": {
+   "providers": [
+    "okta"
+   ],
+   "involved": [],
+   "stratum": "B"
+  },
+  "6b55a7cf-50aa-4757-bde0-6f78cdfb974e": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "1a136113-d1a4-4efa-bcf7-859b45df2b8f": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "ba36d815-e582-4928-afbd-14156c8aa53f": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "B"
+  },
+  "8d8a19ec-5e56-4914-bc1a-2128b0207c90": {
+   "providers": [
+    "cloudflare"
+   ],
+   "involved": [
+    "cloudflare"
+   ],
+   "stratum": "B"
+  },
+  "b0252404-2500-43a8-866c-5a0c8dec01ff": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "be68b0a5-c399-42a6-aba7-0d576a2babc5": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "5d5e147c-8980-4c52-b4fe-8e8e5332fdc9": {
+   "providers": [
+    "slack"
+   ],
+   "involved": [
+    "slack"
+   ],
+   "stratum": "B"
+  },
+  "9aaebd50-dc79-4255-ba4b-7a4d8528cd3b": {
+   "providers": [
+    "akamai"
+   ],
+   "involved": [
+    "akamai"
+   ],
+   "stratum": "B"
+  },
+  "1af2a1ab-0b57-45fe-b13b-1c0d73dabe6a": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "5f7e403d-5f3f-415b-b79a-6664c3c8fa45": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "b03b237c-3d9d-4383-999d-4faebcea4c54": {
+   "providers": [
+    "cloudflare"
+   ],
+   "involved": [
+    "cloudflare"
+   ],
+   "stratum": "B"
+  },
+  "4a431453-9e1c-4116-8af6-3aecc6984ff1": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "81ab27c6-f189-43cd-b896-d030600e2092": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "9dd42908-fa75-4ad8-ba06-6e01e1d958ba": {
+   "providers": [
+    "aemo"
+   ],
+   "involved": [
+    "aemo"
+   ],
+   "stratum": "B"
+  },
+  "152cf1f7-da35-405f-965b-ae82e5b34c1e": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "B"
+  },
+  "478bd310-1ac2-49f5-a55d-59bcc13b5bf3": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "7ea1a3e5-fc93-4d1b-a976-94842159f99e": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "1b40b563-9575-4f6b-8fb9-c3a242b6c231": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "a4e263af-e500-47c0-990d-9b76a6b5cffa": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "b9017028-c1eb-46c8-8312-58a3ce766162": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "001c37ad-8b69-40ff-ab19-b872ec5398a8": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "2621a115-2b4c-495f-b50d-a316858addc0": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "d517e563-2d67-4f4a-8126-2dbe045708cc": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "afaf2143-fe5a-41c6-b1b7-bcec4dfd3d14": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "92e87601-56fa-4463-b704-7220b7210c22": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "0e26d575-677e-45d5-b451-247218397056": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "d180ba1d-b903-435f-9a0f-b93838c2a200": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "a8078669-c034-4b20-9772-043435296476": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "7cc28dfc-5fb8-43f8-8f87-5e34ce6dde9d": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "dd5c0e5e-5749-4cf8-8bcf-446e259f2f04": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "1b3f23bc-ce4c-4f2c-b9da-67bf05776f5b": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "aa5da506-2b5e-4f00-bdcd-cea57f525a35": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "78c5edad-ad2b-4a32-9788-87593dd30c15": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "a3c51339-6768-4e45-b240-d54e97fc8440": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "f48b712a-b799-40f6-b2cb-19e44c946ca7": {
+   "providers": [],
+   "involved": [],
+   "stratum": "C"
+  },
+  "22370123-8c8b-4654-be94-655717353135": {
+   "providers": [
+    "openai",
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "d62194e1-484c-469b-989a-19c56178baa3": {
+   "providers": [
+    "openai"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "edce632c-f108-4334-a739-feae2f54e34d": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "8237e96c-543a-4905-ac74-d96218d60909": {
+   "providers": [
+    "citrix"
+   ],
+   "involved": [
+    "citrix"
+   ],
+   "stratum": "D"
+  },
+  "8f2df3d5-eb3b-4f0c-857e-e7cfbff5bad6": {
+   "providers": [
+    "anthropic",
+    "slack"
+   ],
+   "involved": [
+    "anthropic"
+   ],
+   "stratum": "D"
+  },
+  "c8c2bac2-cfc5-4790-abd7-3bf05bdc28a9": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "fb91329f-7c68-4009-b75e-a03d1c72fcd4": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "a615fba9-cb97-4f1f-9665-48f6089f9bed": {
+   "providers": [
+    "ivanti"
+   ],
+   "involved": [
+    "ivanti"
+   ],
+   "stratum": "D"
+  },
+  "21babff2-1684-400e-81e8-9a9d674f71e0": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "a5dc212d-5f8b-4416-b712-6761b13ace4a": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "38319ced-f9e6-4755-b0b4-1276a68b3279": {
+   "providers": [
+    "openai"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "74d4c980-c5b9-4dab-9848-0459b629bee8": {
+   "providers": [
+    "optus"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "324fd9fa-7796-47be-b4b7-c7dc768ad03a": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "0f164f42-16a2-4017-977c-0b53443603a7": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [
+    "telstra"
+   ],
+   "stratum": "D"
+  },
+  "a447c7a5-55c6-47d0-9c2c-597e414b816a": {
+   "providers": [
+    "openai"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "ba2a7398-a85f-4b87-9377-45afe13dc511": {
+   "providers": [
+    "microsoft_azure"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "06cd4fa6-b644-4e51-a4e8-8358cae4db24": {
+   "providers": [
+    "openai"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "1004e32d-eccd-4259-98fa-a5f16d15e187": {
+   "providers": [
+    "google_cloud"
+   ],
+   "involved": [
+    "google_cloud"
+   ],
+   "stratum": "D"
+  },
+  "2630f94c-0f2b-40ae-86a6-f60e30fff1b5": {
+   "providers": [
+    "supabase"
+   ],
+   "involved": [
+    "supabase"
+   ],
+   "stratum": "D"
+  },
+  "6a5c2d03-dec7-42cd-b426-957ae0c84dfc": {
+   "providers": [
+    "microsoft_365"
+   ],
+   "involved": [
+    "microsoft_365"
+   ],
+   "stratum": "D"
+  },
+  "13fed25a-8c6a-492a-92cc-092c5f9a94c3": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "b4287352-5d1d-44b5-8c45-ad5e8be7cd59": {
+   "providers": [
+    "citrix"
+   ],
+   "involved": [
+    "citrix"
+   ],
+   "stratum": "D"
+  },
+  "eaa22a44-43d4-4f4d-9c5c-cad3f422c359": {
+   "providers": [
+    "cisco"
+   ],
+   "involved": [
+    "cisco"
+   ],
+   "stratum": "D"
+  },
+  "4d12bd82-5c3f-4ab7-8bfd-f45b382e9606": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "663285d1-4b41-4607-a591-1a3b9a54a18d": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "221d2503-6431-496e-ae94-d1c44604c93e": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "f145dcd2-e4c6-40f4-8953-81229da9fc76": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "1b70937c-3631-413f-b9e9-8ea9074db943": {
+   "providers": [
+    "openai"
+   ],
+   "involved": [
+    "openai"
+   ],
+   "stratum": "D"
+  },
+  "6ce7edc3-d98a-480c-af04-6046089a673b": {
+   "providers": [
+    "openai"
+   ],
+   "involved": [
+    "openai"
+   ],
+   "stratum": "D"
+  },
+  "a5d6531b-e8b0-4c32-b543-ae827fb98657": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "92880046-6cdd-4996-8174-e12d0e26aec1": {
+   "providers": [],
+   "involved": [],
+   "stratum": "D"
+  },
+  "5a46209a-d7c0-434d-9e65-82d119b1bcd5": {
+   "providers": [
+    "openai"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "47ef2735-7fad-44ee-bcf5-d29a761c3c4b": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [
+    "telstra"
+   ],
+   "stratum": "D"
+  },
+  "d9c70661-11e4-46af-bea1-7774691ea1d6": {
+   "providers": [
+    "supabase"
+   ],
+   "involved": [
+    "supabase"
+   ],
+   "stratum": "D"
+  },
+  "165d3bb7-3094-41d5-8fbf-49fc7d275c25": {
+   "providers": [
+    "optus"
+   ],
+   "involved": [
+    "optus"
+   ],
+   "stratum": "D"
+  },
+  "28017417-3cef-4684-bf3f-8efdd1836d48": {
+   "providers": [
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "9e1978f1-fd6c-431b-bc26-965593889b49": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [
+    "telstra"
+   ],
+   "stratum": "D"
+  },
+  "6dc57831-b8dc-4945-bf41-a1664ebab37f": {
+   "providers": [
+    "openai",
+    "anthropic"
+   ],
+   "involved": [],
+   "stratum": "D"
+  },
+  "4dd120c8-c93a-4768-8611-b4889603c9c3": {
+   "providers": [
+    "cisco"
+   ],
+   "involved": [
+    "cisco"
+   ],
+   "stratum": "D"
+  },
+  "744388bc-d9e6-427a-9434-b6f5a66e0edd": {
+   "providers": [
+    "telstra"
+   ],
+   "involved": [],
+   "stratum": "D"
+  }
+ }
+}

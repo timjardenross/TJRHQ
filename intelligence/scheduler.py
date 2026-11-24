@@ -79,6 +79,19 @@ except Exception as exc:  # noqa: BLE001 - tracing is observability-only; must n
     log.warning("[scheduler] Telemetry tracing setup failed (non-fatal): %s", exc)
 
 
+def _run_incident_alerts(source: str) -> None:
+    """Post-collection hook for proactive incident alerting (Stream 3). Default OFF: with INCIDENT_ALERTS_V1 unset this is one env read and
+    nothing else (no import, no network). Dry-run unless INCIDENT_ALERTS_SEND and INCIDENT_ALERT_DESTINATION are set. Never raises into
+    the collection job and never adds a scheduler: it simply runs at the end of the existing collection batches."""
+    if os.environ.get("INCIDENT_ALERTS_V1", "").strip().lower() not in ("1", "true", "yes", "on"):
+        return
+    try:
+        from intelligence import alert_runner
+        alert_runner.run_after_collection(source)
+    except Exception as exc:  # noqa: BLE001 - alerting must never break a collection job
+        log.warning("[incident-alert] hook failed (%s): %s", source, exc)
+
+
 def _record_heartbeat(domain_key: str, status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort —
     a heartbeat write must never break the job it's attached to — but a
@@ -93,6 +106,18 @@ def _record_heartbeat(domain_key: str, status: str, detail: str | None = None, e
             log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", domain_key)
     except Exception as exc:  # noqa: BLE001 - heartbeat recording is observability-only and must never crash the caller it's reporting on
         log.warning("[heartbeat] record_heartbeat(%s) raised: %s", domain_key, exc)
+
+
+def _annotate_publisher_verification(ranked) -> None:
+    """Original-publisher / original-date verification of eligible aggregator items, between rank() and persistence. Bounded (per-run,
+    per-day, per-fetch and total wall-clock caps, Firecrawl budget breaker) and failure-safe: it only decorates events in memory, never
+    raises and never drops or reorders them. Does nothing unless INTEL_ORIGINAL_PUBLISHER_VERIFY=1 and the provenance columns are on.
+    See intelligence/ingestion/publisher_verification.py."""
+    try:
+        from intelligence.ingestion import publisher_verification
+        publisher_verification.annotate_events(ranked)
+    except Exception as exc:  # noqa: BLE001 - verification is additive; a failure here must never touch collection or persistence
+        log.warning("[publisher-verification] skipped: %s", exc)
 
 
 def _brief_to_stdout(brief: ResilienceBrief) -> None:
@@ -176,6 +201,8 @@ def _start_scheduler() -> None:
 
     from datetime import datetime, timezone
 
+    from intelligence import brief_reliability as _brief_reliability
+
     scheduler = BlockingScheduler()
     tz = _resolve_tz(SCHEDULE_TZ)
 
@@ -251,6 +278,28 @@ def _start_scheduler() -> None:
         CronTrigger(hour=7, minute=0, timezone=tz),
         id="captains_morning_brief",
         replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.MORNING_GRACE_SECONDS),
+    )
+
+    # Missed-brief deadman: 08:00, one hour after the morning brief; alerts once if no morning row exists for today.
+    scheduler.add_job(
+        _brief_deadman_job,
+        CronTrigger(hour=8, minute=0, timezone=tz),
+        id="captains_brief_deadman",
+        replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.DEADMAN_GRACE_SECONDS),
+    )
+
+    # Startup catch-up: a restart past 07:00 loses the in-memory cron run; send the missed morning brief once (before 12:00 only).
+    from datetime import timedelta as _td
+
+    from apscheduler.triggers.date import DateTrigger as _DateTrigger
+    scheduler.add_job(
+        _morning_catch_up_job,
+        _DateTrigger(run_date=datetime.now(timezone.utc) + _td(seconds=30)),
+        id="captains_morning_catchup",
+        replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.MORNING_GRACE_SECONDS),
     )
 
     # Midday check — 12:30 AEST daily (conditional: only delivers if new signals)
@@ -259,6 +308,7 @@ def _start_scheduler() -> None:
         CronTrigger(hour=12, minute=30, timezone=tz),
         id="captains_midday_check",
         replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.MIDDAY_GRACE_SECONDS),
     )
 
     # EOD summary — 18:00 AEST daily
@@ -267,6 +317,7 @@ def _start_scheduler() -> None:
         CronTrigger(hour=18, minute=0, timezone=tz),
         id="captains_eod_brief",
         replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.EOD_GRACE_SECONDS),
     )
 
     # Weekly report — Monday 07:00 AEST (replaces morning brief that day)
@@ -275,6 +326,7 @@ def _start_scheduler() -> None:
         CronTrigger(day_of_week="mon", hour=7, minute=0, timezone=tz),
         id="captains_weekly_brief",
         replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.WEEKLY_GRACE_SECONDS),
     )
 
     # ── USS-TJR-MSN-0207A: Knowledge Platform daily digest ──────────────────────
@@ -297,6 +349,10 @@ def _start_scheduler() -> None:
         CronTrigger(hour=6, minute=0, timezone=tz),
         id="daily_source_collection",
         replace_existing=True,
+        # APScheduler's default grace is 1s: a restart (auto-deploy) or a busy executor at 06:00 silently
+        # dropped the whole day's sweep until the next 06:00. The job is idempotent (dedup), so run it late.
+        misfire_grace_time=_DAILY_COLLECTION_MISFIRE_GRACE_SECONDS,
+        coalesce=True,
     )
 
     # ── HEALTH_OSINT_IMPLEMENTATION.md Phase 4: weekly auto-fetch ───────────────
@@ -607,6 +663,16 @@ def _start_scheduler() -> None:
     except Exception as exc:  # noqa: BLE001 - best-effort sub-registrar call, already logged as non-blocking
         log.warning("Proactive cadences failed to register (non-blocking): %s", exc)
 
+    # ── Intelligence products (recurring provider / systemic / forward watch): default OFF,
+    # registers only when INTEL_PRODUCTS_ENABLED=1. Reuses this scheduler; no new instance.
+    try:
+        from intelligence.intel_products_job import (
+            register_jobs as _register_intel_products,
+        )
+        _register_intel_products(scheduler, tz)
+    except Exception as exc:  # noqa: BLE001 - best-effort sub-registrar call, non-blocking
+        log.warning("Intel products job failed to register (non-blocking): %s", exc)
+
     log.info(
         "Scheduler started. ORI brief: event-driven, polls every 5min for collection-ready "
         "(target ~%s AEST, bounded cutoff — see morning_cycle.py) | GitHub sync: %s (%s) | "
@@ -700,6 +766,7 @@ def _morning_brief_job() -> None:
     log.info("Captain's morning brief job triggered")
     try:
         ok = send_brief("morning")
+        _record_brief_delivery("morning", ok)
         if ok:
             _morning_brief_sent_at = datetime.now(timezone.utc).isoformat()
             log.info("Morning brief delivered")
@@ -718,8 +785,48 @@ def _morning_brief_job() -> None:
             _record_heartbeat("morning_brief", "failed", error_message="morning brief delivery failed")
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Morning brief job failed: %s", exc)
+        _record_brief_delivery("morning", False)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
         _record_heartbeat("morning_brief", "failed", error_message=str(exc))
+
+
+def _record_brief_delivery(brief_type: str, ok: bool) -> None:
+    """Tell the deadman whether this brief reached Telegram (the row is stored before the send). Never raises."""
+    try:
+        from intelligence import brief_reliability as br
+        br.record_delivery(brief_type, br.brief_date_aest(), ok)
+    except Exception as exc:  # noqa: BLE001 - observability only; must never affect the brief job
+        log.warning("[brief-deadman] could not record delivery outcome: %s", exc)
+
+
+def _brief_deadman_job() -> None:
+    from intelligence import brief_reliability as br
+    from intelligence import captains_brief as cb
+
+    try:
+        result = br.check_missed_brief(cb._sb_request, cb._send_telegram, br.brief_date_aest(), "morning")
+        log.info("Brief deadman: %s", result)
+    except Exception as exc:  # noqa: BLE001 - scheduled-job boundary; must never crash the shared scheduler
+        log.error("Brief deadman job failed: %s", exc)
+
+
+def _catch_up_send(cb) -> bool:
+    ok = cb.send_brief("morning", catch_up=True)
+    _record_brief_delivery("morning", ok)
+    return ok
+
+
+def _morning_catch_up_job() -> None:
+    from intelligence import brief_reliability as br
+    from intelligence import captains_brief as cb
+
+    try:
+        result = br.catch_up_morning(cb._sb_request, lambda: _catch_up_send(cb))
+        log.info("Morning brief catch-up: %s", result)
+        if result == "sent":
+            _record_heartbeat("captains_daily_briefs", "ok", detail="morning brief delivered (startup catch-up)")
+    except Exception as exc:  # noqa: BLE001 - scheduled-job boundary; must never crash the shared scheduler
+        log.error("Morning brief catch-up failed: %s", exc)
 
 
 def _midday_check_job() -> None:
@@ -853,6 +960,7 @@ def _daily_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         # Phase A enrichment: source-tier + fuzzy near-dup clustering + 10-dim
         # heuristic scoring, persisted via save_event(..., phase_a=). Guarded —
@@ -883,6 +991,7 @@ def _daily_collection_job() -> None:
         # Collection heartbeat already recorded above — this stage is
         # classify/dedup/save, logged but not deadman's-switch-gated.
         log.error("Daily collection post-processing failed: %s", exc)
+    _run_incident_alerts("daily_collection")
 
 
 def _health_osint_weekly_fetch_job() -> None:
@@ -1035,7 +1144,38 @@ _INTRADAY_STATUS_CATEGORIES = {"cloud_technology", "critical_infrastructure"}
 _FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
     "AEMO Market Notices",
     "Fastly Status",
+    # 2026-11-24: ASIC's list is client-rendered and is read through Firecrawl (scrape_adapter._FIRECRAWL_RENDER_SOURCE_NAMES)
+    "ASIC News Centre",
+    "ASIC Enforcement Activity",
+    "ASIC Consultations",               # forward-dated closing dates; client-rendered, 1 credit/day when activated
+    "Optus National Outage Register",   # statutory register, client-rendered; 1 credit/day
+    # 2026-11-24: oaic.gov.au 403s the production host's plain fetch; Firecrawl fallback (scrape_adapter), 1 credit/source/day
+    "OAIC Breach Notifications",
+    "OAIC Privacy Determinations & News",
+    # 2026-11-24 (forward-sources-maint-2kq): planned-maintenance pages (inactive rows); once a day = ~30 credits/month each
+    "ATO System Maintenance",
+    "ATO ABR Scheduled Site Maintenance",
+    "DVS Status Scheduled Outages",
 })
+
+
+# Seconds a missed 06:00 sweep may still start late (restart/deploy at the fire time). 3h: a restart at the fire
+# time must be covered; after 09:00 the intraday sweeps have long covered the same feeds.
+_DAILY_COLLECTION_MISFIRE_GRACE_SECONDS = 3 * 3600
+
+# 2026-11-24: plain-RSS publishers outside category "media" that belong in the 90-minute media sweep. iTnews is
+# category "cybersecurity", so only the 06:00 sweep fetched it (24h gap, items up to 33h late, e.g. the Vocus
+# cable break). Zero cost: plain RSS, no Firecrawl. Matched by exact name (the registry row is not changed).
+_INTRADAY_MEDIA_EXTRA_SOURCE_NAMES = frozenset({"iTnews"})
+
+
+def _select_intraday_media_sources(sources: list) -> list:
+    """Sources for the 90-minute media sweep: category 'media' plus the named extra RSS publishers."""
+    return [
+        s for s in sources
+        if s.category == "media"
+        or (s.source_name in _INTRADAY_MEDIA_EXTRA_SOURCE_NAMES and s.source_type == "rss")
+    ]
 
 
 def _excluding_firecrawl_fetch_sources(sources: list) -> list:
@@ -1160,6 +1300,7 @@ def _priority_tiered_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
@@ -1187,6 +1328,7 @@ def _priority_tiered_collection_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Priority tiered collection job failed: %s", exc)
         _record_heartbeat("downdetector_priority_tiered_collection", "failed", error_message=str(exc))
+    _run_incident_alerts("priority_tiered_collection")
 
 
 def _downdetector_threshold_recompute_job() -> None:
@@ -1310,6 +1452,7 @@ def _intraday_status_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
@@ -1337,6 +1480,7 @@ def _intraday_status_collection_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Intraday status collection job failed: %s", exc)
         _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
+    _run_incident_alerts("intraday_status_collection")
 
 
 def _intraday_media_collection_job() -> None:
@@ -1361,7 +1505,7 @@ def _intraday_media_collection_job() -> None:
         from intelligence.ranking.ranker import rank
 
         all_sources = store.load_source_registry()
-        sources = [s for s in all_sources if s.category == "media"]
+        sources = _select_intraday_media_sources(all_sources)
         if not sources:
             log.warning("Intraday media collection: no active sources in category 'media'")
             return
@@ -1389,6 +1533,7 @@ def _intraday_media_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
@@ -1416,6 +1561,7 @@ def _intraday_media_collection_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Intraday media collection job failed: %s", exc)
         _record_heartbeat("intraday_media_collection", "failed", error_message=str(exc))
+    _run_incident_alerts("intraday_media_collection")
 
 
 def _health_mission_correlation_job() -> None:

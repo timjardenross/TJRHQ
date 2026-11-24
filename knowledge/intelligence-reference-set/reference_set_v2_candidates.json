@@ -1,0 +1,1434 @@
+{
+ "schema_version": "1.0",
+ "name": "intelligence-reference-set-v2-candidates",
+ "set_version": "v2-candidates",
+ "extends": "v1 (reference_set_v1.json); v0 and v1 files are frozen and are not modified by this file",
+ "created_utc": "2026-11-24T12:00:00Z",
+ "window": "2026-07-28..2026-11-24 (17 weeks of production intelligence_events, SELECT only, project cjvrpjwewsrumnbdydgg)",
+ "status": "CANDIDATES ONLY. Nothing here is confirmed. Every record has reviewed_by_human=false. The owner or a reviewer promotes a record by copying it into a new reference set version with status confirmed_material; this file never does.",
+ "purpose": "Move the reference set from 15 toward about 30 confirmed material incidents.",
+ "strict_criteria": {
+  "rule": "A record is proposed as a candidate only if ALL THREE hold; otherwise it is listed as unresolved (or left out).",
+  "1_stated_operational_impact": "The cited reporting states a concrete effect on services, customers, data or operations (an outage, services or sites offline, a named data-loss scale, calls failing, flights affected, active exploitation inside Australian organisations per a national authority). General commentary, statistics, fines, policy or opinion do not qualify.",
+  "2_named_service": "A specific organisation, service or product is named (a headline that only says 'a flaw' or 'a hospital' fails this test).",
+  "3_credible_source": "At least one primary authority (ASD/ACSC, regulator, operator status) or a national or specialist publisher (ABC, Guardian Australia, iTnews, SBS and similar). A single aggregator-only copy is not enough on its own.",
+  "geography": "Australian, or international with stated Australian exposure (Australian customers, travellers or organisations named in the evidence).",
+  "exclusions": "Anything already in reference_set_v1.json (RS-001 to RS-053) is excluded, including stale resurfacing items. Scheduled maintenance, routine status-page degradations and regulatory fines are not incidents.",
+  "first_report": "first_report is the earliest report TJR collected (published_at after the 2026-11-24 +10h RSS repair); an earlier public report may exist. Same convention as v1."
+ },
+ "evidence_basis": "Evidence rows are intelligence_events ids with source, published_at, collected_at and disposition as read on 2026-11-24. Headlines were read from TJR; the linked articles were NOT re-read, so scale and cause are unverified until a reviewer opens them (see uncertain_facts per record). The shortlist was found by keyword and source filters over titles, so it is a sample of what is in the table, not an exhaustive census.",
+ "known_gaps": [
+  "Title keyword search cannot find incidents whose headlines avoid outage/breach/attack words.",
+  "TJR's own collection lagged or dropped items in August (see the missed-incident log), so incidents the pipeline never collected are invisible to this method.",
+  "Only 16 candidates meet all three tests; reaching about 30 confirmed material records still needs reviewer promotion plus further discovery outside TJR data."
+ ],
+ "counts": {
+  "candidate": 16,
+  "unresolved": 9
+ },
+ "incidents": [
+  {
+   "id": "C2-001",
+   "title": "Hackers leak sensitive Victorian court data to the dark web (6 Aug 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "government",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-08-06T19:10:35Z",
+    "source_name": "ABC News",
+    "event_id": "b19f2ee5-3ff3-432c-85bf-c0e8d5b75e5d",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Sensitive court data published on the dark web (follow-up: man charged 9 Sep)",
+    "named_service": "Victorian courts (court data)",
+    "credible_source": "ABC News (national broadcaster); follow-up ABC 9 Sep"
+   },
+   "evidence": [
+    {
+     "event_id": "b19f2ee5-3ff3-432c-85bf-c0e8d5b75e5d",
+     "source_name": "ABC News",
+     "headline": "Hackers leak sensitive Victorian court data to dark web",
+     "published_at": "2026-08-06T19:10:35Z",
+     "collected_at": "2026-08-06T20:00:25Z",
+     "disposition": "SUPPRESS",
+     "reached_brief": false,
+     "suppressed": true
+    },
+    {
+     "event_id": "1a0f85b0-f294-42b1-8ae3-ce84873c4354",
+     "source_name": "ABC News",
+     "headline": "Man charged over court data breach asked AI for legal advice, court hears",
+     "published_at": "2026-09-09T20:32:54Z",
+     "collected_at": "2026-09-09T20:37:10Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Victorian court.*(data|hack|leak)|court data breach",
+    "published_from": "2026-08-06",
+    "published_to": "2026-09-09",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-06T20:00:25Z",
+    "hours_first_report_to_first_collection": 0.83,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "Exact record counts and which court system were not in the headline; read the article.",
+    "TJR suppressed the first report."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-002",
+   "title": "Sydney Airport delays and near-misses: dozens of flights affected, regulator investigating six incidents in a month (8-26 Aug 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "transport",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-08-08T03:48:52Z",
+    "source_name": "Guardian Australia",
+    "event_id": "fad30c0f-cab4-4f61-8eb8-d9e9949bbddb",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Significant delays, dozens of flights affected; tarmac near-miss (Jetstar/Qatar); transport regulator investigating six incidents in a month",
+    "named_service": "Sydney Airport",
+    "credible_source": "Guardian Australia and ABC News; regulator action reported"
+   },
+   "evidence": [
+    {
+     "event_id": "fad30c0f-cab4-4f61-8eb8-d9e9949bbddb",
+     "source_name": "Guardian Australia",
+     "headline": "Sydney airport passengers warned of significant delays as dozens of flights affected",
+     "published_at": "2026-08-08T03:48:52Z",
+     "collected_at": "2026-08-08T20:00:21Z",
+     "disposition": "SUPPRESS",
+     "reached_brief": false,
+     "suppressed": true
+    },
+    {
+     "event_id": "762e1557-09e9-4131-9565-73805ab0bca9",
+     "source_name": "ABC News",
+     "headline": "Planes in tarmac near miss at Sydney Airport",
+     "published_at": "2026-08-09T00:28:41Z",
+     "collected_at": "2026-08-09T03:34:34Z",
+     "disposition": "REFERENCE",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "cc32c99d-8511-4ccb-aaa7-44e0fa281d6c",
+     "source_name": "Guardian Australia",
+     "headline": "'Not enough air traffic controllers': safety concerns at Sydney airport after Jetstar and Qatar planes involved in near-miss",
+     "published_at": "2026-08-09T02:49:12Z",
+     "collected_at": "2026-08-09T03:34:34Z",
+     "disposition": "REFERENCE",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "6c001814-d56c-41d6-b2a8-7a84222b7abf",
+     "source_name": "Guardian Australia",
+     "headline": "What's behind Sydney airport's heavy delays and near-miss incident?",
+     "published_at": "2026-08-12T15:00:33Z",
+     "collected_at": "2026-08-12T20:01:09Z",
+     "disposition": "REFERENCE",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "e4b5bed4-d8ed-4fd3-b70d-f5e99957455b",
+     "source_name": "Guardian Australia",
+     "headline": "Transport regulator investigating two more incidents at Sydney airport, taking tally to six in a month",
+     "published_at": "2026-08-26T09:38:23Z",
+     "collected_at": "2026-08-26T20:31:13Z",
+     "disposition": "SUPPRESS",
+     "reached_brief": false,
+     "suppressed": true
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Sydney airport.*(delay|near.miss|incident)|near.miss.*Sydney",
+    "published_from": "2026-08-08",
+    "published_to": "2026-08-26",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-08T20:00:21Z",
+    "hours_first_report_to_first_collection": 16.19,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "REFERENCE"
+   },
+   "uncertain_facts": [
+    "Root cause (staffing vs equipment) is contested in the reporting.",
+    "Multi-event story: reviewer should decide whether it is one incident or several."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-003",
+   "title": "ASD HIGH alert: active exploitation of the N-able N-central remote monitoring platform within Australia (19 Aug 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "cyber_security",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-08-19T04:44:29Z",
+    "source_name": "ACSC Alerts & Advisories",
+    "event_id": "f9deb608-76a7-4dac-918a-94570b93b10d",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Active exploitation of CVE-2026-18556 / CVE-2026-18577 inside Australian organisations (per the alert)",
+    "named_service": "N-able N-central (RMM)",
+    "credible_source": "ACSC / ASD alert (primary, tier 1)"
+   },
+   "evidence": [
+    {
+     "event_id": "f9deb608-76a7-4dac-918a-94570b93b10d",
+     "source_name": "ACSC Alerts & Advisories",
+     "headline": "HIGH ALERT: Active exploitation of remote monitoring and management platform within Australia",
+     "published_at": "2026-08-19T04:44:29Z",
+     "collected_at": "2026-08-19T20:00:11Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "57d5bb9c-e4b9-46cc-b0ce-de8d58191ff9",
+     "source_name": "ACSC Alerts & Advisories",
+     "headline": "Active exploitation of remote monitoring and management platform within Australia (ACSC page item)",
+     "published_at": "2026-08-19T04:44:29Z",
+     "collected_at": "2026-10-08T19:00:11Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "remote monitoring and management platform within Australia|N-able|N-central",
+    "published_from": "2026-08-19",
+    "published_to": "2026-08-19",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-19T20:00:11Z",
+    "hours_first_report_to_first_collection": 15.26,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "CVE ids are as quoted in the TJR summary only.",
+    "The alert page re-appears in TJR on 8 Oct and 10 Nov (re-collection, not new events)."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-004",
+   "title": "ASD HIGH alert: active exploitation of JetBrains TeamCity On-Premise within Australia (24 Aug 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "cyber_security",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-08-24T06:03:59Z",
+    "source_name": "ACSC Alerts & Advisories",
+    "event_id": "aaf5fdb6-88a4-4c1e-ba39-5171c4d163c7",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Active exploitation of TeamCity On-Premise servers (CVE-2026-63077, critical 9.8) within Australia (per the alert)",
+    "named_service": "TeamCity On-Premise",
+    "credible_source": "ACSC / ASD alert (primary, tier 1)"
+   },
+   "evidence": [
+    {
+     "event_id": "aaf5fdb6-88a4-4c1e-ba39-5171c4d163c7",
+     "source_name": "ACSC Alerts & Advisories",
+     "headline": "HIGH ALERT: Active exploitation of a software development platform within Australia",
+     "published_at": "2026-08-24T06:03:59Z",
+     "collected_at": "2026-08-24T20:00:15Z",
+     "disposition": "ESCALATE",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "607afd1e-0e06-4128-ab0f-77276087bb98",
+     "source_name": "ACSC Alerts & Advisories",
+     "headline": "Active exploitation of a software development platform within Australia (ACSC page item)",
+     "published_at": "2026-08-24T06:03:59Z",
+     "collected_at": "2026-10-07T19:00:15Z",
+     "disposition": "REFERENCE",
+     "reached_brief": true,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "software development platform within Australia|TeamCity",
+    "published_from": "2026-08-24",
+    "published_to": "2026-08-24",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-24T20:00:15Z",
+    "hours_first_report_to_first_collection": 13.94,
+    "any_event_reached_brief": true,
+    "highest_disposition_seen": "ESCALATE"
+   },
+   "uncertain_facts": [
+    "Vendor named only in the alert summary; alert body not read.",
+    "One page item did reach a brief, on 7 Oct (a re-collection)."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-005",
+   "title": "ASD CRITICAL alert: Adobe Commerce and Magento Open Source stores under active attack in Australia (9 Sep 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "retail_cyber",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-09-09T02:58:57Z",
+    "source_name": "ACSC Alerts & Advisories",
+    "event_id": "35663948-3234-49be-9892-abdc2a0347f2",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Active exploitation of Australian online stores (per ASD alert and iTnews)",
+    "named_service": "Adobe Commerce / Magento Open Source",
+    "credible_source": "ACSC / ASD alert (primary); iTnews (specialist)"
+   },
+   "evidence": [
+    {
+     "event_id": "35663948-3234-49be-9892-abdc2a0347f2",
+     "source_name": "ACSC Alerts & Advisories",
+     "headline": "Active exploitation of Adobe Commerce and Magento Open Source vulnerability (ACSC page item)",
+     "published_at": "2026-09-09T02:58:57Z",
+     "collected_at": "2026-10-14T19:00:07Z",
+     "disposition": "ESCALATE",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "f65829a0-3a06-4bd8-9fa3-8ffa2ecd6c26",
+     "source_name": "ACSC Alerts & Advisories",
+     "headline": "CRITICAL ALERT: Active exploitation of Adobe Commerce and Magento Open Source vulnerability",
+     "published_at": "2026-09-09T07:09:57Z",
+     "collected_at": "2026-09-09T20:07:14Z",
+     "disposition": "ESCALATE",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "c5385b20-5a5f-4561-a350-65af885c0bd8",
+     "source_name": "iTnews",
+     "headline": "ASD warns Aussie Adobe Commerce and Magento stores under attack",
+     "published_at": "2026-09-09T10:37:00Z",
+     "collected_at": "2026-09-09T20:51:33Z",
+     "disposition": null,
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Adobe Commerce|Magento",
+    "published_from": "2026-09-09",
+    "published_to": "2026-09-09",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-09-09T20:07:14Z",
+    "hours_first_report_to_first_collection": 17.14,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "ESCALATE"
+   },
+   "uncertain_facts": [
+    "Number of Australian stores affected is not stated in the headlines."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-006",
+   "title": "Coles website and app offline for hours after viral discount post (22 Aug 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "retail",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-08-22T05:55:46Z",
+    "source_name": "Guardian Australia",
+    "event_id": "8e68f7f8-c14c-44e7-ba19-8f793e69346d",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Website and app offline for several hours on a Saturday",
+    "named_service": "Coles online store and app",
+    "credible_source": "Guardian Australia"
+   },
+   "evidence": [
+    {
+     "event_id": "8e68f7f8-c14c-44e7-ba19-8f793e69346d",
+     "source_name": "Guardian Australia",
+     "headline": "Coles website down after viral Reddit post sees customers buy cases of alcoholic drinks at nearly 80% discount",
+     "published_at": "2026-08-22T05:55:46Z",
+     "collected_at": "2026-08-22T07:18:17Z",
+     "disposition": "REFERENCE",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Coles (website|app).*(down|offline)",
+    "published_from": "2026-08-22",
+    "published_to": "2026-08-22",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-22T07:18:17Z",
+    "hours_first_report_to_first_collection": 1.38,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "REFERENCE"
+   },
+   "uncertain_facts": [
+    "Cause was demand/pricing error, not a cyber event.",
+    "Single source in TJR."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-007",
+   "title": "Virgin Australia flights forced to refuel mid-route to Fiji after fuel contamination (21 Aug 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "transport",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-08-21T00:58:00Z",
+    "source_name": "ABC News Business",
+    "event_id": "7f3e22c0-f0c4-4d61-bfe5-56075dfb19d9",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Flights had to refuel halfway to Fiji",
+    "named_service": "Virgin Australia flights to Fiji",
+    "credible_source": "ABC News Business"
+   },
+   "evidence": [
+    {
+     "event_id": "7f3e22c0-f0c4-4d61-bfe5-56075dfb19d9",
+     "source_name": "ABC News Business",
+     "headline": "Virgin flights forced to refuel halfway to Fiji after fuel contamination",
+     "published_at": "2026-08-21T00:58:00Z",
+     "collected_at": "2026-08-22T07:18:18Z",
+     "disposition": "REFERENCE",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Virgin.*(refuel|fuel contamination)",
+    "published_from": "2026-08-21",
+    "published_to": "2026-08-21",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-22T07:18:18Z",
+    "hours_first_report_to_first_collection": 30.34,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "REFERENCE"
+   },
+   "uncertain_facts": [
+    "Number of flights and passengers affected not stated in the headline.",
+    "Borderline materiality: reviewer to decide."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-008",
+   "title": "UK air traffic control failure strands Australian travellers at Heathrow (8 Sep 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "transport",
+   "geography": "international_with_au_exposure",
+   "first_report": {
+    "value": "2026-09-08T23:52:20Z",
+    "source_name": "ABC News",
+    "event_id": "6b22cf41-d2bd-4394-b986-635edfadaee1",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Australians sleeping at Heathrow after a UK air traffic control failure",
+    "named_service": "UK air traffic control (Heathrow)",
+    "credible_source": "ABC News"
+   },
+   "evidence": [
+    {
+     "event_id": "6b22cf41-d2bd-4394-b986-635edfadaee1",
+     "source_name": "ABC News",
+     "headline": "Australians sleep at Heathrow after UK air traffic control failure",
+     "published_at": "2026-09-08T23:52:20Z",
+     "collected_at": "2026-09-08T23:56:54Z",
+     "disposition": "REFERENCE",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "(UK|Heathrow).*air traffic control (failure|outage)|sleep at Heathrow",
+    "published_from": "2026-09-08",
+    "published_to": "2026-09-08",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-09-08T23:56:54Z",
+    "hours_first_report_to_first_collection": 0.08,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "REFERENCE"
+   },
+   "uncertain_facts": [
+    "Australian exposure is travellers only; scale unknown.",
+    "Comparable to RS-010 (US ATC outage, scored non-material) so the reviewer should apply the same rule."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-009",
+   "title": "Napoleon Perdis data breach affects 340,000 clients (17 Oct 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "retail_cyber",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-10-17T05:59:12Z",
+    "source_name": "ABC News",
+    "event_id": "50229498-cde8-44e3-9ee6-6f50b16a7f03",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Names, dates of birth, emails, phones, postal addresses and purchase histories accessed; 340,000 clients",
+    "named_service": "Napoleon Perdis",
+    "credible_source": "ABC News"
+   },
+   "evidence": [
+    {
+     "event_id": "50229498-cde8-44e3-9ee6-6f50b16a7f03",
+     "source_name": "ABC News",
+     "headline": "Cosmetics company data breach affects 340,000 clients",
+     "published_at": "2026-10-17T05:59:12Z",
+     "collected_at": "2026-10-17T06:37:26Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Napoleon Perdis|Cosmetics company data breach",
+    "published_from": "2026-10-17",
+    "published_to": "2026-10-17",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-10-17T06:37:26Z",
+    "hours_first_report_to_first_collection": 0.64,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "Scale (340,000) is as reported by ABC; company statement not seen."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-010",
+   "title": "Critical software flaw forces major government websites, education platforms and web hosts offline (22 Oct 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "government",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-10-22T00:48:22Z",
+    "source_name": "ABC News",
+    "event_id": "de43fcb5-745a-4a45-abd4-803df4d132b9",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Major government websites, education platforms and web hosts forced offline; spike in breaches expected",
+    "named_service": "Unnamed flaw (headline does not name the product)",
+    "credible_source": "ABC News"
+   },
+   "evidence": [
+    {
+     "event_id": "de43fcb5-745a-4a45-abd4-803df4d132b9",
+     "source_name": "ABC News",
+     "headline": "Australians facing spike in data breaches after 'critical' flaw uncovered",
+     "published_at": "2026-10-22T00:48:22Z",
+     "collected_at": "2026-10-22T01:56:42Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "critical.*flaw.*(data breaches|offline)|spike in data breaches",
+    "published_from": "2026-10-22",
+    "published_to": "2026-10-22",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-10-22T01:56:42Z",
+    "hours_first_report_to_first_collection": 1.14,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "Product and sites not named in the headline: reviewer must read the article and may reclassify as unresolved.",
+    "Possibly related to RS-031 (Citrix) or another product; not established."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-011",
+   "title": "ABC wipes staff devices after sophisticated cyber attack (22-23 Oct 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "media_cyber",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-10-22T07:00:00Z",
+    "source_name": "Google News - Critical Infrastructure/Energy Cyberattack AU",
+    "event_id": "b28ee180-bb1e-4805-bd31-a2ea7fc5adb8",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Staff devices wiped after exposure to a sophisticated cyber attack",
+    "named_service": "ABC (staff devices)",
+    "credible_source": "ABC News (own organisation reporting) and Google News copy"
+   },
+   "evidence": [
+    {
+     "event_id": "b28ee180-bb1e-4805-bd31-a2ea7fc5adb8",
+     "source_name": "Google News - Critical Infrastructure/Energy Cyberattack AU",
+     "headline": "ABC wipes staff devices exposed to new, sophisticated cyber attack (Google News copy of ABC)",
+     "published_at": "2026-10-22T07:00:00Z",
+     "collected_at": "2026-11-04T19:00:13Z",
+     "disposition": "BRIEF",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "4a151322-daa8-41f5-a76d-7d9dc675de8c",
+     "source_name": "ABC News",
+     "headline": "ABC staff targeted in sophisticated cyber attack",
+     "published_at": "2026-10-23T01:41:30Z",
+     "collected_at": "2026-10-23T01:56:16Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "ABC (staff|wipes).*(cyber|device)|ABC.*sophisticated cyber attack",
+    "published_from": "2026-10-22",
+    "published_to": "2026-10-23",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-10-23T01:56:16Z",
+    "hours_first_report_to_first_collection": 18.94,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "BRIEF"
+   },
+   "uncertain_facts": [
+    "TJR's first copy was a Google News item collected 13 days after publication; the direct ABC item was collected within minutes but only dispositioned WATCH.",
+    "Scale of devices wiped not stated in headlines."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-012",
+   "title": "Telstra MessageBank fault floods customers with missed-call notifications (4-5 Nov 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "telecommunications",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-11-04T09:51:00Z",
+    "source_name": "Google News - Telstra",
+    "event_id": "09ac7ab3-5679-4a93-aa36-8bd95340801b",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Customers flooded with mystery missed-call notifications; hacking rumours; Telstra admitted a glitch",
+    "named_service": "Telstra MessageBank",
+    "credible_source": "The West Australian, Tech Business News, News.com.au, Telecompaper (via Google News)"
+   },
+   "evidence": [
+    {
+     "event_id": "83c30141-48b4-4fec-b640-f9d12633365a",
+     "source_name": "Google News - Telstra",
+     "headline": "Telstra Customers Flooded With Missed Call Notifications After MessageBank Fault (Tech Business News via Google News)",
+     "published_at": "2026-11-04T10:19:30Z",
+     "collected_at": "2026-11-04T12:07:45Z",
+     "disposition": "BRIEF",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "09ac7ab3-5679-4a93-aa36-8bd95340801b",
+     "source_name": "Google News - Telstra",
+     "headline": "Telstra glitch bombards customers with mystery calls (The West Australian via Google News)",
+     "published_at": "2026-11-04T09:51:00Z",
+     "collected_at": "2026-11-04T15:07:43Z",
+     "disposition": "BRIEF",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Telstra.*(MessageBank|missed call|mystery calls)",
+    "published_from": "2026-11-04",
+    "published_to": "2026-11-04",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-11-04T12:07:45Z",
+    "hours_first_report_to_first_collection": 2.28,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "BRIEF"
+   },
+   "uncertain_facts": [
+    "Customer count not stated.",
+    "All TJR copies are Google News aggregator items; original publisher unverified."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-013",
+   "title": "Storms leave more than 58,000 Queensland homes without power (11 Nov 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "energy",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-11-11T06:41:00Z",
+    "source_name": "ABC News",
+    "event_id": "637b353c-220b-4824-8529-25970542fdc8",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "More than 58,000 homes without power in Logan, Scenic Rim, Moreton Bay and Gympie regions; thousands still out next day",
+    "named_service": "Queensland electricity network (distributor not named in headline)",
+    "credible_source": "ABC News"
+   },
+   "evidence": [
+    {
+     "event_id": "637b353c-220b-4824-8529-25970542fdc8",
+     "source_name": "ABC News",
+     "headline": "More than 58,000 homes without power as storms hit parts of Qld",
+     "published_at": "2026-11-11T06:41:00Z",
+     "collected_at": "2026-11-11T06:46:24Z",
+     "disposition": "BRIEF",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "e9733e96-64fa-47d7-9a55-c01728988061",
+     "source_name": "ABC News",
+     "headline": "Thousands remain without power in Qld with more storms on the way",
+     "published_at": "2026-11-11T20:52:36Z",
+     "collected_at": "2026-11-11T21:43:42Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "homes without power.*Qld|without power.*(Qld|Queensland)",
+    "published_from": "2026-11-11",
+    "published_to": "2026-11-11",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-11-11T06:46:24Z",
+    "hours_first_report_to_first_collection": 0.09,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "BRIEF"
+   },
+   "uncertain_facts": [
+    "Distributor (Energex/Ergon) not named in the headline.",
+    "Weather-caused; v1 treated a storm outage (RS-030) as material, so consistency applies."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-014",
+   "title": "VCAA website hacked during VCE exam period; hacker claims to have sold exam papers (11 Nov 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "education_cyber",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-11-11T09:15:15Z",
+    "source_name": "ABC News",
+    "event_id": "7d1b0027-9965-4767-a120-c447ea5a83e6",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Government exam authority website hacked during exams; hacker claims VCE exam papers sold to hundreds of students",
+    "named_service": "VCAA website / VCE exams",
+    "credible_source": "ABC News and Guardian Australia"
+   },
+   "evidence": [
+    {
+     "event_id": "7d1b0027-9965-4767-a120-c447ea5a83e6",
+     "source_name": "ABC News",
+     "headline": "VCAA investigating after website hacked during exam period",
+     "published_at": "2026-11-11T09:15:15Z",
+     "collected_at": "2026-11-11T09:46:24Z",
+     "disposition": "REFERENCE",
+     "reached_brief": false,
+     "suppressed": false
+    },
+    {
+     "event_id": "bf57f52a-1ab1-430b-aca2-cc5cf42f52cf",
+     "source_name": "Guardian Australia",
+     "headline": "Hacker claims to have sold VCE exam papers to hundreds of students after government website hack",
+     "published_at": "2026-11-11T23:28:17Z",
+     "collected_at": "2026-11-12T01:00:47Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "VCAA|VCE exam papers",
+    "published_from": "2026-11-11",
+    "published_to": "2026-11-11",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-11-11T09:46:24Z",
+    "hours_first_report_to_first_collection": 0.52,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "The hacker's sales claim is unverified; VCAA's confirmation of exam-paper exposure should be checked.",
+    "Both TJR items were dispositioned REFERENCE/WATCH; none reached a brief."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-015",
+   "title": "ACT national park campground booking portal disabled after data breach; about 6,000 customers alerted (14 Nov 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "government",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-11-14T04:17:12Z",
+    "source_name": "ABC News",
+    "event_id": "29b4a708-2ba6-4ea9-8f0f-b83a8c3a370e",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Booking portal disabled; about 6,000 customers contacted about potential scam activity",
+    "named_service": "ACT Government national park booking site",
+    "credible_source": "ABC News"
+   },
+   "evidence": [
+    {
+     "event_id": "29b4a708-2ba6-4ea9-8f0f-b83a8c3a370e",
+     "source_name": "ABC News",
+     "headline": "Campground booking portal disabled while data breach investigated",
+     "published_at": "2026-11-14T04:17:12Z",
+     "collected_at": "2026-11-14T04:18:56Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Campground booking portal|national park booking",
+    "published_from": "2026-11-14",
+    "published_to": "2026-11-14",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-11-14T04:18:56Z",
+    "hours_first_report_to_first_collection": 0.03,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "Which data was taken is not stated in the headline summary."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-016",
+   "title": "Four-minute Triple Zero outage in Canberra; backup power failed (week of 16 Nov 2026)",
+   "record_kind": "incident",
+   "status": "candidate",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "telecommunications",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-11-21T03:39:43Z",
+    "source_name": "ABC News",
+    "event_id": "ef242803-9993-41c8-91f9-7b67449471f8",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Temporary Triple Zero outage; initial backup power system failed; authorities investigating",
+    "named_service": "Triple Zero (Canberra)",
+    "credible_source": "ABC News"
+   },
+   "evidence": [
+    {
+     "event_id": "ef242803-9993-41c8-91f9-7b67449471f8",
+     "source_name": "ABC News",
+     "headline": "Authorities investigating four-minute Triple Zero outage in Canberra",
+     "published_at": "2026-11-21T03:39:43Z",
+     "collected_at": "2026-11-21T05:02:46Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Triple Zero outage in Canberra|four-minute Triple Zero",
+    "published_from": "2026-11-21",
+    "published_to": "2026-11-21",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-11-21T05:02:46Z",
+    "hours_first_report_to_first_collection": 1.38,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "Exact outage date is within the week before 21 Nov; first TJR report is 21 Nov.",
+    "Duration was four minutes: reviewer to decide whether that is material for an emergency service."
+   ],
+   "promotion_if_reviewed": "confirmed_material"
+  },
+  {
+   "id": "C2-U01",
+   "title": "Quest hotel chain investigating customer data breach (19 Aug 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "hospitality_cyber",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-08-19T02:08:09Z",
+    "source_name": "ABC News Business",
+    "event_id": "64196b70-f68d-431d-be07-5d042f3a97f2",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Customer data breach under investigation",
+    "named_service": "Quest Apartment Hotels",
+    "credible_source": "ABC News Business"
+   },
+   "evidence": [
+    {
+     "event_id": "64196b70-f68d-431d-be07-5d042f3a97f2",
+     "source_name": "ABC News Business",
+     "headline": "Hotel chain Quest investigating customer data breach",
+     "published_at": "2026-08-19T02:08:09Z",
+     "collected_at": "2026-08-19T20:01:23Z",
+     "disposition": "SUPPRESS",
+     "reached_brief": false,
+     "suppressed": true
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Quest.*(data breach|customer)",
+    "published_from": "2026-08-19",
+    "published_to": "2026-08-19",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-19T20:01:23Z",
+    "hours_first_report_to_first_collection": 17.89,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "SUPPRESS"
+   },
+   "uncertain_facts": [
+    "Scale and data types unknown."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "No stated scale or impact in the only TJR item."
+  },
+  {
+   "id": "C2-U02",
+   "title": "Google Cloud multiple products: timeouts and service errors (20 Aug 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "cloud",
+   "geography": "international_with_au_exposure",
+   "first_report": {
+    "value": "2026-08-20T16:44:37Z",
+    "source_name": "Google Cloud Status",
+    "event_id": "284a5ab3-d6f6-4be4-94e6-2c387311aec3",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Customers may experience timeouts / service errors across multiple products",
+    "named_service": "Google Cloud (multiple products)",
+    "credible_source": "Google Cloud Status (primary)"
+   },
+   "evidence": [
+    {
+     "event_id": "284a5ab3-d6f6-4be4-94e6-2c387311aec3",
+     "source_name": "Google Cloud Status",
+     "headline": "Google Cloud Status: Multiple Products - customers may experience timeouts, service ...",
+     "published_at": "2026-08-20T16:44:37Z",
+     "collected_at": "2026-08-20T17:24:23Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Google Cloud Status.*Multiple Products",
+    "published_from": "2026-08-20",
+    "published_to": "2026-08-20",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-20T17:24:23Z",
+    "hours_first_report_to_first_collection": 0.66,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "Australian exposure (region) not shown in the TJR item.",
+    "Status feed items are routinely noisy; v1 scored a similar one (RS-022) as non-material."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "No evidence of Australian customer impact."
+  },
+  {
+   "id": "C2-U03",
+   "title": "Origin Energy: full bank account and ID numbers of dozens of customers accessed (21 Aug 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "energy_cyber",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-08-21T01:06:18Z",
+    "source_name": "ABC News Business",
+    "event_id": "abec8447-55b9-4ca2-98b7-2db51f69c94b",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Full bank account numbers and ID numbers accessed (dozens of customers)",
+    "named_service": "Origin Energy",
+    "credible_source": "ABC News Business"
+   },
+   "evidence": [
+    {
+     "event_id": "abec8447-55b9-4ca2-98b7-2db51f69c94b",
+     "source_name": "ABC News Business",
+     "headline": "Dozens of Origin customers' full bank accounts, ID numbers accessed in breach",
+     "published_at": "2026-08-21T01:06:18Z",
+     "collected_at": "2026-08-21T20:01:10Z",
+     "disposition": "SUPPRESS",
+     "reached_brief": false,
+     "suppressed": true
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Origin.*(breach|bank account)",
+    "published_from": "2026-08-21",
+    "published_to": "2026-08-21",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-08-21T20:01:10Z",
+    "hours_first_report_to_first_collection": 18.91,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "SUPPRESS"
+   },
+   "uncertain_facts": [
+    "v1 holds the wider Origin breach as RS-042 (stale_or_resurfaced, first report 22 Jul). This item may be a new development; reviewer to reconcile."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "Conflicts with frozen record RS-042; frozen set is not edited here."
+  },
+  {
+   "id": "C2-U04",
+   "title": "Another Optus mobile outage blocks 46 Triple Zero calls (15 Sep 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "telecommunications",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-09-15T02:50:53Z",
+    "source_name": "Google News - Telstra",
+    "event_id": "86d6455f-6c84-4c67-8ead-46ba3df4a670",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "46 Triple Zero calls blocked",
+    "named_service": "Optus mobile network",
+    "credible_source": "Information Age (ACS) via Google News"
+   },
+   "evidence": [
+    {
+     "event_id": "86d6455f-6c84-4c67-8ead-46ba3df4a670",
+     "source_name": "Google News - Telstra",
+     "headline": "Another Optus mobile outage blocks 46 Triple Zero calls (Information Age via Google News)",
+     "published_at": "2026-09-15T02:50:53Z",
+     "collected_at": "2026-09-16T07:16:46Z",
+     "disposition": "BRIEF",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Optus.*(46|Triple Zero)",
+    "published_from": "2026-09-15",
+    "published_to": "2026-09-15",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-09-16T07:16:46Z",
+    "hours_first_report_to_first_collection": 28.43,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "BRIEF"
+   },
+   "uncertain_facts": [
+    "May be the same event as RS-003 (11 Sep) or a separate one; only one aggregator copy in TJR."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "Single aggregator item; unclear if distinct from RS-003."
+  },
+  {
+   "id": "C2-U05",
+   "title": "Cisco gateways rooted via SQL injection emails (16 Sep 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "cyber_security",
+   "geography": "international_with_au_exposure",
+   "first_report": {
+    "value": "2026-09-16T10:34:00Z",
+    "source_name": "iTnews",
+    "event_id": "614e5278-ef89-4817-86c4-50b754963c47",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Attackers rooting Cisco gateways",
+    "named_service": "Cisco email gateways",
+    "credible_source": "iTnews (specialist)"
+   },
+   "evidence": [
+    {
+     "event_id": "614e5278-ef89-4817-86c4-50b754963c47",
+     "source_name": "iTnews",
+     "headline": "Attackers use SQL injection emails to root Cisco gateways",
+     "published_at": "2026-09-16T10:34:00Z",
+     "collected_at": "2026-09-16T21:01:53Z",
+     "disposition": null,
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Cisco gateways",
+    "published_from": "2026-09-16",
+    "published_to": "2026-09-16",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-09-16T21:01:53Z",
+    "hours_first_report_to_first_collection": 10.46,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": null
+   },
+   "uncertain_facts": [
+    "No Australian victim or advisory stated."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "No Australian exposure evidenced."
+  },
+  {
+   "id": "C2-U06",
+   "title": "Aussie-based finance app Stake caught in data breach (25 Sep 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "financial_services_cyber",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-09-25T07:09:49Z",
+    "source_name": "Google News - Origin Energy",
+    "event_id": "418aaa46-8d37-48cf-bdbe-d29997293bd4",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Data breach at an Australian investing app",
+    "named_service": "Stake",
+    "credible_source": "Daily Mail via Google News (single aggregator copy)"
+   },
+   "evidence": [
+    {
+     "event_id": "418aaa46-8d37-48cf-bdbe-d29997293bd4",
+     "source_name": "Google News - Origin Energy",
+     "headline": "Aussie-based finance app Stake caught in data breach: What you need to know (Daily Mail via Google News)",
+     "published_at": "2026-09-25T07:09:49Z",
+     "collected_at": "2026-09-25T12:01:47Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Stake.*data breach",
+    "published_from": "2026-09-25",
+    "published_to": "2026-09-25",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-09-25T12:01:47Z",
+    "hours_first_report_to_first_collection": 4.87,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "Single aggregator copy; scale unknown."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "Single weak source."
+  },
+  {
+   "id": "C2-U07",
+   "title": "Data breach reported at an SA private hospital (8 Oct 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "healthcare_cyber",
+   "geography": "AU",
+   "first_report": {
+    "value": "2026-10-08T05:01:42Z",
+    "source_name": "ABC News",
+    "event_id": "e5a34172-0d21-40c4-92aa-28a8d60418fd",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Adelaide private hospital notified individuals and cyber security authorities of a breach of personal information",
+    "named_service": "Unnamed SA private hospital",
+    "credible_source": "ABC News"
+   },
+   "evidence": [
+    {
+     "event_id": "e5a34172-0d21-40c4-92aa-28a8d60418fd",
+     "source_name": "ABC News",
+     "headline": "Data breach reported at SA private hospital",
+     "published_at": "2026-10-08T05:01:42Z",
+     "collected_at": "2026-10-08T06:16:53Z",
+     "disposition": "WATCH",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "SA private hospital|Adelaide private hospital",
+    "published_from": "2026-10-08",
+    "published_to": "2026-10-08",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-10-08T06:16:53Z",
+    "hours_first_report_to_first_collection": 1.25,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "WATCH"
+   },
+   "uncertain_facts": [
+    "Hospital not named in the TJR item."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "Named service missing."
+  },
+  {
+   "id": "C2-U08",
+   "title": "Railway (app hoster) attackers ran up US$740,000 on stolen AI keys (10 Nov 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "cloud_cyber",
+   "geography": "international_with_au_exposure",
+   "first_report": {
+    "value": "2026-11-10T17:31:00Z",
+    "source_name": "iTnews",
+    "event_id": "85ec6791-4c26-4728-b1ef-670a386bdcc9",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "US$740,000 charges on stolen keys",
+    "named_service": "Railway",
+    "credible_source": "iTnews (specialist)"
+   },
+   "evidence": [
+    {
+     "event_id": "85ec6791-4c26-4728-b1ef-670a386bdcc9",
+     "source_name": "iTnews",
+     "headline": "App hoster Railway attackers ran up US$740,000 on stolen AI keys",
+     "published_at": "2026-11-10T17:31:00Z",
+     "collected_at": "2026-11-11T19:00:42Z",
+     "disposition": "REFERENCE",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Railway attackers",
+    "published_from": "2026-11-10",
+    "published_to": "2026-11-10",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-11-11T19:00:42Z",
+    "hours_first_report_to_first_collection": 25.5,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "REFERENCE"
+   },
+   "uncertain_facts": [
+    "No evidence of Australian customers affected."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "No Australian exposure evidenced."
+  },
+  {
+   "id": "C2-U09",
+   "title": "Optimizely Web cyberattack exposes banking, media and insurance websites to malware (16 Nov 2026)",
+   "record_kind": "incident",
+   "status": "unresolved",
+   "reviewed_by_human": false,
+   "set_membership": "v2_candidate",
+   "primary_sector": "cyber_security",
+   "geography": "international_with_au_exposure",
+   "first_report": {
+    "value": "2026-11-16T08:00:00Z",
+    "source_name": "Google News - Critical Infrastructure/Energy Cyberattack AU",
+    "event_id": "5e73ee8a-456f-4f9a-a6ce-9f052d06cdaa",
+    "basis": "earliest TJR-collected report (published_at, post-repair); an earlier public report may exist"
+   },
+   "criteria": {
+    "stated_operational_impact": "Websites of banks, media and insurers exposed to malware",
+    "named_service": "Optimizely Web",
+    "credible_source": "Beinsure via Google News (aggregator)"
+   },
+   "evidence": [
+    {
+     "event_id": "5e73ee8a-456f-4f9a-a6ce-9f052d06cdaa",
+     "source_name": "Google News - Critical Infrastructure/Energy Cyberattack AU",
+     "headline": "Cyberattack via Optimizely Web exposes banking, media and insurance websites to malware (Beinsure via Google News)",
+     "published_at": "2026-11-16T08:00:00Z",
+     "collected_at": "2026-11-17T19:00:06Z",
+     "disposition": "BRIEF",
+     "reached_brief": false,
+     "suppressed": false
+    }
+   ],
+   "proposed_match": {
+    "title_regex": "Optimizely",
+    "published_from": "2026-11-16",
+    "published_to": "2026-11-16",
+    "note": "proposed, not yet run against the full table; reviewer should check n_events before promotion"
+   },
+   "tjr_observed": {
+    "appeared": true,
+    "first_collected_at": "2026-11-17T19:00:06Z",
+    "hours_first_report_to_first_collection": 35.0,
+    "any_event_reached_brief": false,
+    "highest_disposition_seen": "BRIEF"
+   },
+   "uncertain_facts": [
+    "No Australian site named; original publisher unverified."
+   ],
+   "promotion_if_reviewed": "reviewer decides: confirmed_material | confirmed_non_material | stale_or_resurfaced",
+   "why_unresolved": "No Australian exposure; aggregator only."
+  }
+ ]
+}

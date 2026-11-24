@@ -35,7 +35,8 @@ export const PILLARS: readonly Pillar[] = [
     keywords: [
       'resilience', 'risk', 'outage', 'incident', 'recovery', 'continuity',
       'disruption', 'ori', 'threat', 'exposure',
-      'cyber', 'vulnerability', 'breach', 'ransomware', 'failover', 'redundancy',
+      'cyber', 'cyberattack', 'cyber attack', 'cybersecurity', 'cyber security',
+      'vulnerability', 'breach', 'ransomware', 'failover', 'redundancy',
       'apra', 'cirmp', 'critical infrastructure', 'crisis', 'cascade',
       'single point of failure', 'vendor risk', 'supply chain', 'high availability',
       'disaster', 'backup', 'stress test', 'systemic risk', 'operational risk',
@@ -53,7 +54,7 @@ export const PILLARS: readonly Pillar[] = [
       'business impact', 'bia', 'disaster recovery', 'continuity planning',
       'crisis management', 'emergency response', 'business disruption',
       'service resumption', 'workaround', 'alternate site', 'succession',
-      'plan testing', 'rehearsal', 'prudential', 'regulatory',
+      'plan testing', 'rehearsal', 'prudential', 'apra', 'regulatory',
       'maximum tolerable downtime', 'mtd', 'critical function',
       'recovery point objective', 'recovery time objective', 'backup site',
     ],
@@ -88,10 +89,10 @@ export const PILLARS: readonly Pillar[] = [
       'emotional wellbeing', 'positive psychology', 'gratitude', 'purpose',
       'meaning', 'fulfillment', 'psychological safety', 'self-compassion',
       'compassion fatigue', 'overwork', 'exhaustion', 'mindset',
-      'lifestyle', 'sustainable high performance',
+      'lifestyle', 'resilience', 'sustainable high performance',
       'emotional intelligence', 'eq', 'inner game', 'recovery science',
       'restorative', 'regeneration', 'recharge', 'thriving', 'flourish',
-      'wellbeing at work', 'happiness at work',
+      'mental fitness', 'wellbeing at work', 'happiness at work',
       'engagement', 'workplace mental health', 'psychological wellbeing',
     ],
   },
@@ -214,13 +215,29 @@ const ANGLE_TEMPLATES: Record<string, Array<[string[], string]>> = {
   ],
 };
 
-/** Pure: best-matching pillar for a piece of text + the match score (count of distinct keyword hits). */
+const KEYWORD_RE_CACHE = new Map<string, RegExp>();
+
+/**
+ * Whole-word match with an optional plural suffix, so "risk" matches "risks" but
+ * "ai" no longer matches inside "said"/"maintain". Must stay identical to
+ * _kw_re() in platform-runtime/lib/comms/pillars.py.
+ */
+export function keywordRegex(kw: string): RegExp {
+  let re = KEYWORD_RE_CACHE.get(kw);
+  if (!re) {
+    re = new RegExp('(?<![a-z0-9])' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:s|es)?(?![a-z0-9])');
+    KEYWORD_RE_CACHE.set(kw, re);
+  }
+  return re;
+}
+
+/** Pure: best-matching pillar for a piece of text + the match score (count of distinct whole-word keyword hits). */
 export function classifyPillar(text: string): { pillar: Pillar; score: number } {
   const hay = (text || '').toLowerCase();
   let best = DEFAULT_PILLAR;
   let bestScore = 0;
   for (const p of PILLARS) {
-    const score = p.keywords.reduce((acc, kw) => (hay.includes(kw) ? acc + 1 : acc), 0);
+    const score = p.keywords.reduce((acc, kw) => (keywordRegex(kw).test(hay) ? acc + 1 : acc), 0);
     if (score > bestScore) {
       best = p;
       bestScore = score;

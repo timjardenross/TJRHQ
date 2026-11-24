@@ -1,6 +1,7 @@
 """V1 shared evidence foundation across the three briefs: one identity/materiality/provenance, flag-gated, legacy unchanged when off."""
 from __future__ import annotations
 
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,8 +18,9 @@ NOW = datetime(2026, 11, 23, 0, 0, tzinfo=timezone.utc)
 
 def ev(i, title, source="ABC News", hours_ago=2, geo="AU", url=None):
     t = NOW - timedelta(hours=hours_ago)
+    # #692: a published time is what makes a report's time verified (live evidence); collection time alone is not.
     return {"id": i, "title": title, "source": source, "geography": geo, "collected_at": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "url": url or f"https://example.test/{i}"}
+            "published_at": t.strftime("%Y-%m-%dT%H:%M:%SZ"), "url": url or f"https://example.test/{i}"}
 
 
 EVENTS = [
@@ -151,3 +153,43 @@ def test_aggregator_only_evidence_is_never_ready_to_draft_and_is_labelled():
     assert inc.priority == "VERIFY"                       # aggregator-only evidence never reaches ESCALATE
     text = "\n".join(be.comms_view(es, pillar_fn=lambda t: "Operational Resilience", similarity_fn=lambda t, ex: 0.0, existing_titles=["x"]))
     assert "ready to draft" not in text
+
+
+# ── plain-language wording (no dashboard statistics on the page) ──────────────────────────────────────────────────
+@pytest.mark.parametrize("c,expected", [(0.95, "high confidence"), (0.75, "high confidence"), (0.74, "moderate confidence"),
+                                        (0.5, "moderate confidence"), (0.49, "low confidence"), (0.0, "low confidence")])
+def test_confidence_is_shown_in_words(c, expected):
+    assert be._confidence_words(c) == expected
+
+
+def test_the_morning_picture_has_no_method_string_counts_or_raw_confidence():
+    text = "\n".join(be.morning_view(be.build_evidence(EVENTS, now=NOW, window_hours=72)))
+    assert "EVIDENCE-BASED PICTURE" in text and "Based on reports from the last 72 hours" in text
+    assert "method wk-detect" not in text and "assessed from" not in text and "incident(s)" not in text
+    assert not re.search(r"confidence \d", text) and re.search(r"(high|moderate|low) confidence", text)
+
+
+# ── header consistency between the 24h marker and the window ─────────────────────────────────────────────────────
+def _header(events, window):
+    lines = be.morning_view(be.build_evidence(events, now=NOW, window_hours=window))
+    i = next(k for k, l in enumerate(lines) if "EVIDENCE-BASED PICTURE" in l)
+    return lines, lines[i + 1]
+
+
+def test_header_admits_no_reports_in_24h_when_window_is_72():
+    lines, header = _header([ev("o1", "Microsoft platforms suffering widespread outages, including Outlook", "BBC News", hours_ago=30)], 72)
+    assert any("EVIDENCE COVERAGE INSUFFICIENT" in l for l in lines)
+    assert header == "Based on reports from the last 72 hours; none were collected in the last 24 hours, so this is not a current picture."
+
+
+def test_header_says_newest_within_24h_when_reports_arrived():
+    lines, header = _header(EVENTS, 72)
+    assert not any("EVIDENCE COVERAGE INSUFFICIENT" in l for l in lines)
+    assert header == "Based on reports from the last 72 hours (newest within 24 hours)."
+
+
+def test_header_for_a_24h_window_has_no_contradiction():
+    _, header = _header(EVENTS, 24)
+    assert header == "Based on reports from the last 24 hours."
+    lines, header = _header([], 24)
+    assert "none were collected in the last 24 hours" in header and any("EVIDENCE COVERAGE INSUFFICIENT" in l for l in lines)

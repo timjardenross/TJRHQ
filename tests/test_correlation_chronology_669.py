@@ -159,7 +159,8 @@ def test_a_partly_restored_report_after_a_still_report_stays_ongoing():
 def test_partial_restoration_phrases_are_not_restoration():
     for t in ("Telstra outage partially restored in Adelaide", "Power yet to be restored for 3,000 Adelaide customers",
               "Not all Adelaide customers restored after Telstra outage", "Power restored in Adelaide but 4,000 homes remain offline"):
-        assert ed._report_state(ed.detect_candidate(e("a", t, "ABC News"))) in ("ongoing", None), t
+        # #692: partial wording ('partially restored', 'not all ... restored') is now its own 'partially_restored' state; never 'restored'
+        assert ed._report_state(ed.detect_candidate(e("a", t, "ABC News"))) in ("ongoing", "partially_restored", None), t
 
 
 def test_a_clean_restoration_is_still_restored():
@@ -220,7 +221,8 @@ def test_load_events_carries_published_at():
     from intelligence import brief_evidence as be
     rows = [{"event_id": "x", "raw_title": "T", "raw_summary": "", "geography": "AU", "collected_at": "2026-11-22T06:10:00Z",
              "published_at": "2026-11-22T03:00:00Z", "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
-    out = be.load_events(lambda *a, **k: rows, hours=24)
+    # evaluated at the time of the data: the backlog guard (#710) keeps reports published inside the evidence window
+    out = be.load_events(lambda *a, **k: rows, hours=24, now=datetime(2026, 11, 22, 7, 0, tzinfo=timezone.utc))
     assert out[0]["published_at"] == "2026-11-22T03:00:00Z"
 
 

@@ -7,6 +7,7 @@ Returns all items and health records.
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from intelligence import config
 from intelligence.ingestion.api_adapter import APIAdapter
 from intelligence.ingestion.browser_adapter import BrowserAdapter
 from intelligence.ingestion.changedetection_adapter import ChangeDetectionAdapter
@@ -64,6 +65,13 @@ def collect_all(
     """
     if sources is None:
         sources = store.load_source_registry()
+
+    paused = config.paused_source_names()
+    if paused:
+        skipped = [s.source_name for s in sources if s.source_name in paused]
+        if skipped:
+            log.info("Collection: %d source(s) temporarily paused (INTELLIGENCE_PAUSED_SOURCES): %s", len(skipped), skipped)
+            sources = [s for s in sources if s.source_name not in paused]
 
     if not sources:
         log.warning("No active sources found in registry")

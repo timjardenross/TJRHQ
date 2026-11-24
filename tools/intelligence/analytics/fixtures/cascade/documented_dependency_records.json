@@ -1,0 +1,475 @@
+{
+ "note": "Derived from fixtures/dependency_evidence by cascading_exposure.documented_records_from_fixtures(); relation_basis=documented only. Vendor documents fetched 2026-11-24 (see docs/DEPENDENCY-EVIDENCE-FINDINGS.md). Fixtures hold the rows the search tool returned, not full-page captures.",
+ "records": [
+  {
+   "provider_from": "anthropic",
+   "provider_to": "aws",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "Amazon Web Services \u2022 Cloud Infrastructure<br>Worldwide<br>Products: All Products",
+   "source_url": "https://trust.anthropic.com/subprocessors",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "anthropic",
+   "provider_to": "microsoft",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "Microsoft Azure \u2022 Cloud Infrastructure<br>Worldwide<br>Products: All Products",
+   "source_url": "https://trust.anthropic.com/subprocessors",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "anthropic",
+   "provider_to": "cloudflare",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "Cloudflare \u2022 Traffic Routing (CDN)<br>Worldwide (Local to Customer)<br>Products: All Products",
+   "source_url": "https://trust.anthropic.com/subprocessors",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "anthropic",
+   "provider_to": "stripe",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "Stripe \u2022 Billing<br>United States<br>Products: Claude Pro/Max, Claude Developer Platform, Claude for Work",
+   "source_url": "https://trust.anthropic.com/subprocessors",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "anthropic",
+   "provider_to": "twilio",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "Twilio \u2022 Analytics, email/SMS communications<br>United States<br>Products: All Products except Claude for Government",
+   "source_url": "https://trust.anthropic.com/subprocessors",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "cloudflare",
+   "provider_to": "slack",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Slack Technologies, Inc. | Customer support communications | United States |",
+   "source_url": "https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "cloudflare",
+   "provider_to": "salesforce",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Salesforce, Inc. | Customer support and account management | United States |",
+   "source_url": "https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "cloudflare",
+   "provider_to": "google",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Google LLC | Cloudflare Developer Platform, Cloudflare Zero Trust and AI Gateway | European Economic Area, United States, Australia, India |",
+   "source_url": "https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "cloudflare",
+   "provider_to": "oracle",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Oracle America, Inc. | Cloudflare Developer Platform and Cache Reserve | United States, European Economic Area, UK, Japan, Australia, Canada, Singapore |",
+   "source_url": "https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "cloudflare",
+   "provider_to": "aws",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Amazon Web Services (AWS) | Cloudflare Email Security (formerly Area 1) | United States, European Economic Area |",
+   "source_url": "https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "cloudflare",
+   "provider_to": "coreweave",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| CoreWeave, Inc. | Workers AI | United States |",
+   "source_url": "https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "cloudflare",
+   "provider_to": "anthropic",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Anthropic PBC | AI Gateway | United States |",
+   "source_url": "https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "cloudflare",
+   "provider_to": "openai",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| OpenAI, Inc. | AI Gateway | OpenAI operates servers globally using the cloud infrastructure providers as described here. |",
+   "source_url": "https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "openai",
+   "provider_to": "cloudflare",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Cloudflare, Ltd. | API<br>ChatGPT Enterprise<br>ChatGPT Edu<br>ChatGPT Business | Processing is performed at the data center that is closest to the End User. | Content delivery network provider |",
+   "source_url": "https://openai.com/policies/sub-processor-list/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "openai",
+   "provider_to": "cloudflare",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Cloudflare, Ltd. | ChatGPT Enterprise<br>ChatGPT Edu<br>ChatGPT Business | United States | Web Hosting |",
+   "source_url": "https://openai.com/policies/sub-processor-list/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "openai",
+   "provider_to": "microsoft",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Microsoft Corporation | API<br>ChatGPT Enterprise<br>ChatGPT Edu<br>ChatGPT Business | Australia<br>Belgium | Cloud infrastructure |",
+   "source_url": "https://openai.com/policies/sub-processor-list/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "openai",
+   "provider_to": "coreweave",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| CoreWeave, Inc. | API<br>ChatGPT Enterprise<br>ChatGPT Edu<br>ChatGPT Business | Norway<br>Spain | Cloud infrastructure |",
+   "source_url": "https://openai.com/policies/sub-processor-list/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "openai",
+   "provider_to": "oracle",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Oracle Cloud Infrastructure | API<br>ChatGPT Enterprise<br>ChatGPT Edu<br>ChatGPT Business | Brazil<br>Japan | Cloud infrastructure |",
+   "source_url": "https://openai.com/policies/sub-processor-list/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "openai",
+   "provider_to": "google",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Google Cloud Platform | API<br>ChatGPT Enterprise<br>ChatGPT Edu<br>ChatGPT Business | Finland<br>Japan | Cloud infrastructure |",
+   "source_url": "https://openai.com/policies/sub-processor-list/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "openai",
+   "provider_to": "aws",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Amazon Web Services, Inc. | API<br>ChatGPT Enterprise<br>ChatGPT Edu<br>ChatGPT Business | United States | Cloud infrastructure |",
+   "source_url": "https://openai.com/policies/sub-processor-list/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "openai",
+   "provider_to": "salesforce",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Salesforce | API<br>ChatGPT Enterprise<br>ChatGPT Edu<br>ChatGPT Business | Australia<br>Brazil | Customer support |",
+   "source_url": "https://openai.com/policies/sub-processor-list/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "Active Campaign, LLC d/b/a Postmark",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Active Campaign, LLC d/b/a Postmark | Communication with Authorized Users in connection with the provision of the Services and support |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "aws",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Amazon Web Services, Inc | Provision of hosting services |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "Braintrust Data, Inc",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Braintrust Data, Inc | Provision of monitoring and tracing |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "Clay Labs Inc.",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Clay Labs Inc. | Provision of customer insight services |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "cloudflare",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Cloudflare, Inc | Provision of hosting services |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "ConfigCat Korl\u00e1tolt Felel\u0151ss\u00e9g\u0171 T\u00e1rsas\u00e1g",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| ConfigCat Korl\u00e1tolt Felel\u0151ss\u00e9g\u0171 T\u00e1rsas\u00e1g | Feature flagging |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "google",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Google, LLC | Provision of hosting services |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "fly_io",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Fly.io, Inc | Provision of hosting services |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "FrontApp, Inc",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| FrontApp, Inc | Communication with Authorized Users in connection with the provision of the Services and support |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "Functional Software, Inc d/b/a Sentry",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Functional Software, Inc d/b/a Sentry | Error monitoring and tracing |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "github",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Github, Inc | Authorized Users account authentication |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "Hubspot, Inc",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Hubspot, Inc | Communication with Authorized Users in connection with the provision of the Services and support |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "notion",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Notion Labs, Inc | Communication with Authorized Users in connection with the provision of the Services and support |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "Latacora, LLC",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Latacora, LLC | Managed Security Service Provider |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "PandaDoc, Inc",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| PandaDoc, Inc | Communication with Authorized Users in connection with the provision of the Services and support |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "upstash",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Upstash, Inc | Provision of serverless data hosting services |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "supabase",
+   "provider_to": "vercel",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Vercel, Inc | Provision of hosting services |",
+   "source_url": "https://supabase.com/legal/subprocessor-list/June-1-2026.pdf",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "zoom",
+   "provider_to": "aws",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Amazon Web Services | Cloud Service Provider | - Real-time meeting and webinar traffic | Australia, Brazil, Canada | SCCs |",
+   "source_url": "https://www.zoom.com/en/trust/subprocessors/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "zoom",
+   "provider_to": "anthropic",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Anthropic | Intelligent Features Service Provider | Anthropic may process the following data if AI features are enabled: Customer Content and context | United States | SCCs |",
+   "source_url": "https://www.zoom.com/en/trust/subprocessors/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "zoom",
+   "provider_to": "cloudflare",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Cloudflare | Content Delivery Network | - Uploaded files | North America | SCCs |",
+   "source_url": "https://www.zoom.com/en/trust/subprocessors/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "zoom",
+   "provider_to": "google",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Google Cloud Platform | Cloud Service Provider, Intelligent Features Service Provider | - Real-time meeting and webinar traffic | United States | SCCs |",
+   "source_url": "https://www.zoom.com/en/trust/subprocessors/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "zoom",
+   "provider_to": "microsoft",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Microsoft | Cloud Service Provider. | - Real-time meeting and webinar traffic | Switzerland | SCCs |",
+   "source_url": "https://www.zoom.com/en/trust/subprocessors/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "zoom",
+   "provider_to": "openai",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| OpenAI | Intelligent Features Service Provider | OpenAI may process the following data if AI features are enabled | United States, European Union | SCCs |",
+   "source_url": "https://www.zoom.com/en/trust/subprocessors/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "zoom",
+   "provider_to": "oracle",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "| Oracle | Cloud Service Provider | - Real-time meeting and webinar traffic | Mexico, United States, Saudi Arabia | Binding Corporate Rules (BCRs) |",
+   "source_url": "https://www.zoom.com/en/trust/subprocessors/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "zoom",
+   "provider_to": "twilio",
+   "relation": "supplied_by",
+   "relation_basis": "documented",
+   "evidence_span": "| Twilio | Notifications | For notifications from Zoom such as those related to the services | United States, European Union | SCCs |",
+   "source_url": "https://www.zoom.com/en/trust/subprocessors/",
+   "source_class": "vendor_subprocessor_list",
+   "observed_at": "2026-11-24"
+  },
+  {
+   "provider_from": "notion",
+   "provider_to": "aws",
+   "relation": "hosted_on",
+   "relation_basis": "documented",
+   "evidence_span": "Notion is hosted by AWS and stores Customer Data using a combination of databases.",
+   "source_url": "https://www.notion.com/help/data-residency",
+   "source_class": "vendor_documentation",
+   "observed_at": "2026-11-24"
+  }
+ ]
+}

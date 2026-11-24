@@ -1,0 +1,51 @@
+{
+ "title": "CISA Catalog of Known Exploited Vulnerabilities",
+ "catalogVersion": "2026.11.23",
+ "dateReleased": "2026-11-23T00:00:00.000Z",
+ "count": 3,
+ "vulnerabilities": [
+  {
+   "cveID": "CVE-2026-129448",
+   "vendorProject": "Apache",
+   "product": "Roller",
+   "vulnerabilityName": "Apache Roller Deserialization of Untrusted Data Vulnerability",
+   "dateAdded": "2026-11-20",
+   "shortDescription": "Apache Roller contains a deserialization of untrusted data vulnerability that allows an unauthenticated remote attacker to execute arbitrary code via the XML-RPC endpoint.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions.",
+   "dueDate": "2026-11-23",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://nvd.nist.gov/vuln/detail/CVE-2026-129448",
+   "cwes": [
+    "CWE-502"
+   ]
+  },
+  {
+   "cveID": "CVE-2026-133968",
+   "vendorProject": "Project MONAI",
+   "product": "MONAI Label",
+   "vulnerabilityName": "Project MONAI MONAI Label Path Traversal Vulnerability",
+   "dateAdded": "2026-11-23",
+   "shortDescription": "Project MONAI MONAI Label contains a path traversal vulnerability.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions.",
+   "dueDate": "2026-11-26",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "",
+   "cwes": [
+    "CWE-24"
+   ]
+  },
+  {
+   "cveID": "CVE-2020-0001",
+   "vendorProject": "Old",
+   "product": "Thing",
+   "vulnerabilityName": "Old Thing Flaw",
+   "dateAdded": "2021-11-03",
+   "shortDescription": "Old flaw.",
+   "requiredAction": "Patch.",
+   "dueDate": "2021-11-17",
+   "knownRansomwareCampaignUse": "Known",
+   "notes": "",
+   "cwes": []
+  }
+ ]
+}

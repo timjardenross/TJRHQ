@@ -1,0 +1,63 @@
+{
+ "_note": "Verbatim excerpts from pages fetched on 2026-11-24 (Firecrawl search/scrape). Each value holds only the quoted passages the records rely on, not a full-page capture. Used by dependency_acquisition.validate_curated to prove each evidence span occurs verbatim in a retrieved source.",
+ "acma_optus_2023": {
+  "url": "https://www.acma.gov.au/sites/default/files/2024-11/Investigation%20report%20-%20Optus%20outage%201Nov23%20%28redacted%29.pdf",
+  "retrieved": "2026-11-24",
+  "source_date": "2024-11",
+  "text": "On 8 November 2023, the Optus network experienced a nation-wide outage affecting Optus fixed phone, internet and mobile services (the outage). The outage also impacted CSP resellers of Optus' network. The increase in routing information occurred after a routine software upgrade in one of Optus' international upstream transit networks, the Singtel internet exchange (STiX). STiX routers in North America were upgraded, causing traffic to be re-routed to one of the available alternate paths into the Optus network, a STiX peering router located in Asia. While the default limits on the routers were set by a third party, the response of the Optus network to the increase in routing traffic resulting from the upstream change in the STiX network was within Optus' control. The ACMA accepts that the software update caused an increase to routing information, the consequences of which meant that Optus was unable to carry emergency calls to the relevant termination point and give an end-user access to the emergency call service."
+ },
+ "singtel_reuters_2023": {
+  "url": "https://www.reuters.com/technology/optus-parent-singtel-denies-software-upgrade-root-cause-outage-2023-11-16/",
+  "retrieved": "2026-11-24",
+  "source_date": "2023-11-16",
+  "text": "\"We are aware that Optus experienced a network outage after the upgrade when a significant increase in addresses being propagated through their network triggered preset failsafes,\" SingTel said. \"However, the upgrade was not the root cause,\" it added."
+ },
+ "optus_schott_2025": {
+  "url": "https://www.optus.com.au/content/dam/optus/cloud/documents/about-us/media-centre/speeches-and-reports/2025/Independent_Report_Triple_Zero_Outage_at_Optus_18_September_2025.pdf",
+  "retrieved": "2026-11-24",
+  "source_date": "2025-12-18",
+  "text": "Nokia implemented this incorrect change request and adequate reviews of the likely outcomes to follow from this procedure were not made by either Nokia or Optus. The result was a locked gateway implemented at an exchange in Regency Park SA which blocked both voice calls and emergency calls."
+ },
+ "abc_crowdstrike_telstra_2024": {
+  "url": "https://www.abc.net.au/news/2024-07-19/global-it-outage-crowdstrike-microsoft-banks-airlines-australia/104119960",
+  "retrieved": "2026-11-24",
+  "source_date": "2024-07-19",
+  "text": "We've just gotten this from a Telstra spokesperson: Like a number of other organisations, global issues affecting CrowdStrike and Microsoft are disrupting some of our systems."
+ },
+ "thousandeyes_aws_2025": {
+  "url": "https://www.thousandeyes.com/blog/aws-outage-analysis-october-20-2025",
+  "retrieved": "2026-11-24",
+  "source_date": "2025-10-24",
+  "text": "On October 20, Amazon Web Services (AWS) experienced a significant disruption in its US-EAST-1 region that lasted over 15 hours and impacted multiple services that rely on AWS including Slack, Atlassian, Snapchat, and others."
+ },
+ "infra_ecp_regulations": {
+  "url": "https://www.infrastructure.gov.au/media-communications/phone/triple-zero/emergency-call-service-regulations",
+  "retrieved": "2026-11-24",
+  "source_date": null,
+  "text": "The Determination recognises Telstra as the Emergency Call Person for Triple Zero (000) and 112. The Telecommunications (Emergency Call Service) Determination 2019 sets out obligations on carriers, carriage service providers and the emergency call persons to ensure that they have arrangements in place for dealing with emergency calls."
+ },
+ "acma_telstra_ecp_2024": {
+  "url": "https://www.acma.gov.au/acma-statement-telstra-triple-zero-incident-investigation",
+  "retrieved": "2026-11-24",
+  "source_date": "2024-03-05",
+  "text": "The Australian Communications and Media Authority (ACMA) commenced an investigation on 5 March 2024 into Telstra Limited's compliance with the Telecommunications (Emergency Call Service) Determination 2019 in relation to the incident that impacted Telstra's transfer of some Triple Zero calls to police, fire and ambulance services on 1 March 2024. The investigation will focus on Telstra's obligations as the Emergency Call Person to transfer emergency calls to the applicable service."
+ },
+ "cloudflare_june12_2025": {
+  "url": "https://blog.cloudflare.com/cloudflare-service-outage-june-12-2025/",
+  "retrieved": "2026-11-24",
+  "source_date": "2025-06-12",
+  "text": "Part of this infrastructure is backed by a third-party cloud provider, which experienced an outage today and directly impacted availability of our KV service."
+ },
+ "apra_sro_2026_11": {
+  "url": "https://www.apra.gov.au/news-and-publications/apras-system-risk-outlook-november-2026",
+  "retrieved": "2026-11-24",
+  "source_date": "2026-11",
+  "text": "Some individual providers support institutions that collectively account for more than half of APRA-regulated financial assets, indicating potentially significant concentration."
+ },
+ "rba_fsr_2026_10": {
+  "url": "https://www.rba.gov.au/publications/fsr/2026/oct/focus-topic-operational-risk-and-financial-stability.html",
+  "retrieved": "2026-11-24",
+  "source_date": "2026-10",
+  "text": "As noted above, APRA now requires entities to report their dependencies on service providers, which will enable a better understanding of where reliance on"
+ }
+}

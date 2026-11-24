@@ -81,9 +81,16 @@ def test_hook_says_nothing_otherwise(payload):
     assert code == 0 and out == ""
 
 
-def test_settings_wire_the_hook_to_execute_sql_only():
+def test_settings_wire_the_hooks_and_allow_only_the_read_only_server():
     settings = json.loads((HOOK.parent.parent / "settings.json").read_text(encoding="utf-8"))
     entries = settings["hooks"]["PreToolUse"]
-    assert [e["matcher"] for e in entries] == ["mcp__Supabase__execute_sql"]
+    # the Vercel deployment gate (a separate hook, see docs/ops/VERCEL-DEPLOYMENT-POLICY.md) is the only other PreToolUse entry
+    assert [e["matcher"] for e in entries] == ["mcp__Supabase__execute_sql", "mcp__supabase_ro__execute_sql", "mcp__Vercel__create_deployment|Bash"]
     assert "supabase_readonly_sql.py" in entries[0]["hooks"][0]["command"]
-    assert not settings.get("permissions", {}).get("allow"), "no blanket Supabase allow rule: only the hook may approve, and only reads"
+    assert "supabase_ro_scope.py" in entries[1]["hooks"][0]["command"]
+    # No blanket Supabase allow rule. The ONLY standing allow is for the read-only server, whose database role cannot write
+    # (see tests/test_supabase_ro_access.py); the write-capable server stays behind the read-only hook and the permission prompt.
+    allow = settings.get("permissions", {}).get("allow", [])
+    assert allow and all(rule.startswith("mcp__supabase_ro__") for rule in allow), allow
+    assert not any("*" in rule for rule in allow)
+    assert "mcp__Supabase__execute_sql" not in allow and not any(rule.startswith("mcp__Supabase__") for rule in allow)

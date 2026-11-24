@@ -60,6 +60,16 @@ def test_company_results_and_funding_news_are_not_technology_intelligence():
     assert items == []
 
 
+def test_share_market_movement_is_not_technology_intelligence():
+    _, items = _wk([_ev(1, "Asian Chip Stocks Set to Jump as Huang Comeback Refires AI Trade", "Bloomberg",
+                        "Asian semiconductor-related stocks are poised to climb after the board reinstated the chief executive."),
+                    _ev(2, "European Chip Stocks Bounce After AI Rout", "Bloomberg",
+                        "European semiconductor stocks staged a partial rebound after a selloff."),
+                    _ev(3, "Nvidia unveils new AI chip for data centres", "iTnews",
+                        "The accelerator targets inference workloads in cloud data centres.")])
+    assert _heads(items) == ["Nvidia unveils new AI chip for data centres"]
+
+
 def test_ai_is_a_technology_subject_not_a_market_talking_point():
     _, items = _wk([_ev(1, "Barclays nervously overweight equities on AI strength", "Financial Newswire"),
                     _ev(2, "Tech suppliers raise AI server prices up to 45% months after deals are signed", "Financial Times")])
@@ -133,7 +143,8 @@ def test_morning_view_carries_the_section_last_and_stays_short():
     events = [_ev(i, f"Researchers detail phishing technique {c} aimed at enterprise cloud accounts", "iTnews") for i, c in enumerate("ABCDEFG", 1)]
     view = be.morning_view(be.build_evidence(events, now=NOW, window_hours=72))
     idx = [n for n, ln in enumerate(view) if ln.startswith("WORTH KNOWING")]
-    assert len(idx) == 1 and idx[0] > max(n for n, ln in enumerate(view) if ln.startswith("Forward watch"))
+    others = [n for n, ln in enumerate(view) if ln.startswith(("Forward watch", "Nothing to report in:"))]       # empty sections collapse into one line
+    assert len(idx) == 1 and idx[0] > max(others)
     assert len(view[idx[0]:]) <= 1 + 5 + 1
 
 

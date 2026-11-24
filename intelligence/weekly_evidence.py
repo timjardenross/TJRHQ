@@ -121,20 +121,27 @@ _KIND_TERMS = (
     (REGISTRY, ("clinicaltrials",)),
     (AGGREGATOR, ("google news",)),
     (PRIMARY, ("cisa", "cisco security", "google cloud security", "aemo", "acsc", "cyber.gov.au",
-               "nist", "apra", "asic", "rba ", "fda", "cdc", "who ")),
+               "nist", "apra", "asic", "rba ", "fda", "cdc", "who ", "ato online services",
+               # planned-maintenance publishers (forward-sources-maint-2kq), the agencies' own pages
+               "ato system maintenance", "ato abr", "ato practitioner lodgment", "dvs status")),
     (MAINSTREAM, ("bloomberg", "abc news", "bbc", "financial times", "guardian", "reuters",
                   "associated press", "the age", "financial review", "new york times")),
     (SPECIALIST, ("arn", "sans ", "financial newswire", "industrial cyber", "the register", "itnews")),
-    (CONTENT, ("psychology today", "inc.", "fast company", "mckinsey", "harvard business")),
+    # wellness / thought-leadership registry feeds are commentary, not event reporting (MIT Technology Review is
+    # technology journalism and is deliberately NOT listed).
+    (CONTENT, ("psychology today", "inc.", "fast company", "mckinsey", "harvard business", "mit sloan", "gartner",
+               "world economic forum", "stanford social innovation", "deloitte insights", "pwc strategy", "greater good",
+               "mindful.org", "gallup", "positive psychology", "harvard health", "black dog institute", "the conversation",
+               "international coach federation", "center for creative leadership", "cambridge wellbeing", "people management")),
 )
 _KIND_GRADE = {PRIMARY: 0.90, MAINSTREAM: 0.60, SPECIALIST: 0.50, AGGREGATOR: 0.30,
                CONTENT: 0.20, REGISTRY: 0.0, UNKNOWN: 0.30}
 
 
 def source_kind(source_name: str) -> str:
-    n = f" {(source_name or '').lower()} "
+    n = (source_name or "").lower()
     for kind, terms in _KIND_TERMS:
-        if any(t in n for t in terms):
+        if any(_wb(re.escape(t.strip()), n) for t in terms):     # whole words/phrases: "arn" is not inside "Warnings"
             return kind
     return UNKNOWN
 
@@ -593,9 +600,12 @@ def correlate_incidents(events: list[dict], *, now: datetime | None = None,
 
 
 def _independent_families(members: list[dict]) -> set[str]:
-    """Distinct publisher families after collapsing near-identical (syndicated) copies."""
+    """Distinct publisher families after collapsing near-identical (syndicated) copies. An aggregator item (Google News) is a
+    discovery route, never an independent corroborating publisher, whatever outlet its title names."""
     fams: dict[str, str] = {}
     for m in members:
+        if source_kind(m.get("source", "")) == AGGREGATOR:
+            continue
         fam = m["_family"]
         title = m.get("title", "")
         # A copy with a near-identical title from another family is syndication of
@@ -748,7 +758,8 @@ def validate_claims(claims: list[Claim], evidence: dict[str, dict], *, min_suppo
             if num.replace(",", "") not in flat:
                 failures.append(f"{tag}: figure {num} not found in cited evidence")
         if has_causal_language(c.text):
-            fams = {publisher_family(e.get("source", ""), e.get("title", "")) for e in cited}
+            fams = {publisher_family(e.get("source", ""), e.get("title", "")) for e in cited
+                    if source_kind(e.get("source", "")) != AGGREGATOR}      # an aggregator copy never corroborates
             states = any(has_causal_language(f"{e.get('title', '')} {e.get('summary', '')}") for e in cited)
             if len(fams) < 2 or not states:
                 failures.append(f"{tag}: causal claim without two independent sources stating the cause")

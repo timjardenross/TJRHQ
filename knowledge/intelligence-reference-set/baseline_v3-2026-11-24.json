@@ -1,0 +1,2248 @@
+{
+ "report": "category_baseline",
+ "generated_for": {
+  "window_start": "2026-07-28",
+  "window_end_exclusive": "2026-11-24",
+  "period_days": 7,
+  "as_of": "2026-11-24T10:00:00+00:00"
+ },
+ "reference_set": {
+  "name": "intelligence-reference-set",
+  "set_version": "v3",
+  "records": 84,
+  "reviewed_by_human": true,
+  "reviewer": "owner",
+  "review_date": "2026-11-24",
+  "material_records_all_reviewed": true,
+  "records_not_reviewed": 36,
+  "detection_basis": "embedded tjr_detection measured by read-only SELECT (measurements_v3-2026-11-24.json)"
+ },
+ "period_definition": "Fixed 7-day UTC observation periods from the window start; an incident belongs to the period of its first public report; pre_window = first report before the window start. COMPLETE = no dated collection confounder in or after the period (all periods from the last feed-ceiling step that are free of outage/transition) and no volume outlier; otherwise LIMITED (reported separately, excluded from rate comparisons).",
+ "periods": [
+  {
+   "period": "P01",
+   "start": "2026-07-28",
+   "end_inclusive": "2026-08-03",
+   "state": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "reasons": [
+    "ends before the 2026-09-06 feed-ceiling step (mainstream volume about 4x lower, six sources not yet added)"
+   ],
+   "reports_collected": 1263,
+   "active_sources": 32,
+   "collected_vs_clean_median": 0.41,
+   "records": {
+    "material_operational_disruption": 0,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 0,
+    "detected": 0,
+    "detection_rate": null,
+    "missed_ids": []
+   },
+   "material_ids": []
+  },
+  {
+   "period": "P02",
+   "start": "2026-08-04",
+   "end_inclusive": "2026-08-10",
+   "state": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "reasons": [
+    "ends before the 2026-09-06 feed-ceiling step (mainstream volume about 4x lower, six sources not yet added)"
+   ],
+   "reports_collected": 1672,
+   "active_sources": 48,
+   "collected_vs_clean_median": 0.55,
+   "records": {
+    "material_operational_disruption": 2,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 2,
+    "detected": 2,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-054",
+    "RS-075"
+   ]
+  },
+  {
+   "period": "P03",
+   "start": "2026-08-11",
+   "end_inclusive": "2026-08-17",
+   "state": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "reasons": [
+    "ends before the 2026-09-06 feed-ceiling step (mainstream volume about 4x lower, six sources not yet added)"
+   ],
+   "reports_collected": 1488,
+   "active_sources": 46,
+   "collected_vs_clean_median": 0.49,
+   "records": {
+    "material_operational_disruption": 0,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 0,
+    "detected": 0,
+    "detection_rate": null,
+    "missed_ids": []
+   },
+   "material_ids": []
+  },
+  {
+   "period": "P04",
+   "start": "2026-08-18",
+   "end_inclusive": "2026-08-24",
+   "state": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "reasons": [
+    "ends before the 2026-09-06 feed-ceiling step (mainstream volume about 4x lower, six sources not yet added)"
+   ],
+   "reports_collected": 1573,
+   "active_sources": 45,
+   "collected_vs_clean_median": 0.52,
+   "records": {
+    "material_operational_disruption": 2,
+    "material_emerging_risk_or_warning": 2,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 2,
+    "detected": 2,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-055",
+    "RS-056",
+    "RS-063",
+    "RS-077"
+   ]
+  },
+  {
+   "period": "P05",
+   "start": "2026-08-25",
+   "end_inclusive": "2026-08-31",
+   "state": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "reasons": [
+    "ends before the 2026-09-06 feed-ceiling step (mainstream volume about 4x lower, six sources not yet added)"
+   ],
+   "reports_collected": 1795,
+   "active_sources": 53,
+   "collected_vs_clean_median": 0.59,
+   "records": {
+    "material_operational_disruption": 0,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 0,
+    "detected": 0,
+    "detection_rate": null,
+    "missed_ids": []
+   },
+   "material_ids": []
+  },
+  {
+   "period": "P06",
+   "start": "2026-09-01",
+   "end_inclusive": "2026-09-07",
+   "state": "limited",
+   "limit_kind": "transition_feed_ceiling",
+   "reasons": [
+    "2026-09-06 rate: Per-run feed ceiling raised: ABC, Bloomberg, BBC, FT, Guardian volume stepped about 4x (about 45 to about 200 items a day); six sources added (Google News x4, iTnews, ARN)."
+   ],
+   "reports_collected": 1960,
+   "active_sources": 56,
+   "collected_vs_clean_median": 0.64,
+   "records": {
+    "material_operational_disruption": 4,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 1
+   },
+   "material_operational_disruption": {
+    "total": 4,
+    "detected": 4,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-011",
+    "RS-028",
+    "RS-064",
+    "RS-080",
+    "RS-082"
+   ]
+  },
+  {
+   "period": "P07",
+   "start": "2026-09-08",
+   "end_inclusive": "2026-09-14",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 3262,
+   "active_sources": 56,
+   "collected_vs_clean_median": 1.07,
+   "records": {
+    "material_operational_disruption": 1,
+    "material_emerging_risk_or_warning": 1,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 1,
+    "detected": 1,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-003",
+    "RS-057"
+   ]
+  },
+  {
+   "period": "P08",
+   "start": "2026-09-15",
+   "end_inclusive": "2026-09-21",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 3148,
+   "active_sources": 50,
+   "collected_vs_clean_median": 1.03,
+   "records": {
+    "material_operational_disruption": 1,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 1,
+    "detected": 1,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-081"
+   ]
+  },
+  {
+   "period": "P09",
+   "start": "2026-09-22",
+   "end_inclusive": "2026-09-28",
+   "state": "limited",
+   "limit_kind": "outage_or_gap",
+   "reasons": [
+    "2026-09-26..2026-09-27 outage: Reduced collection on 26 and 27 Sep (about 55-65% of a normal day)."
+   ],
+   "reports_collected": 2890,
+   "active_sources": 52,
+   "collected_vs_clean_median": 0.95,
+   "records": {
+    "material_operational_disruption": 2,
+    "material_emerging_risk_or_warning": 1,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 2,
+    "detected": 2,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-001",
+    "RS-002",
+    "RS-031"
+   ]
+  },
+  {
+   "period": "P10",
+   "start": "2026-09-29",
+   "end_inclusive": "2026-10-05",
+   "state": "limited",
+   "limit_kind": "outage_or_gap",
+   "reasons": [
+    "2026-10-02..2026-10-04 outage: No reports collected at all on 2, 3 and 4 Oct (collection gap).",
+    "no reports collected on 2026-10-02, 2026-10-03, 2026-10-04"
+   ],
+   "reports_collected": 1809,
+   "active_sources": 52,
+   "collected_vs_clean_median": 0.59,
+   "records": {
+    "material_operational_disruption": 2,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 2,
+    "detected": 1,
+    "detection_rate": 0.5,
+    "missed_ids": [
+     "RS-032"
+    ]
+   },
+   "material_ids": [
+    "RS-032",
+    "RS-034"
+   ]
+  },
+  {
+   "period": "P11",
+   "start": "2026-10-06",
+   "end_inclusive": "2026-10-12",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 3044,
+   "active_sources": 60,
+   "collected_vs_clean_median": 1.0,
+   "records": {
+    "material_operational_disruption": 1,
+    "material_emerging_risk_or_warning": 1,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 1,
+    "detected": 1,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-033",
+    "RS-083"
+   ]
+  },
+  {
+   "period": "P12",
+   "start": "2026-10-13",
+   "end_inclusive": "2026-10-19",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 3084,
+   "active_sources": 51,
+   "collected_vs_clean_median": 1.01,
+   "records": {
+    "material_operational_disruption": 1,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 1,
+    "detected": 1,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-058"
+   ]
+  },
+  {
+   "period": "P13",
+   "start": "2026-10-20",
+   "end_inclusive": "2026-10-26",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 2810,
+   "active_sources": 55,
+   "collected_vs_clean_median": 0.92,
+   "records": {
+    "material_operational_disruption": 1,
+    "material_emerging_risk_or_warning": 1,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 1,
+    "detected": 1,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-059",
+    "RS-060"
+   ]
+  },
+  {
+   "period": "P14",
+   "start": "2026-10-27",
+   "end_inclusive": "2026-11-02",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 3007,
+   "active_sources": 59,
+   "collected_vs_clean_median": 0.99,
+   "records": {
+    "material_operational_disruption": 1,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 1,
+    "detected": 1,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-065"
+   ]
+  },
+  {
+   "period": "P15",
+   "start": "2026-11-03",
+   "end_inclusive": "2026-11-09",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 2882,
+   "active_sources": 51,
+   "collected_vs_clean_median": 0.95,
+   "records": {
+    "material_operational_disruption": 1,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 1,
+    "detected": 1,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-029"
+   ]
+  },
+  {
+   "period": "P16",
+   "start": "2026-11-10",
+   "end_inclusive": "2026-11-16",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 3123,
+   "active_sources": 68,
+   "collected_vs_clean_median": 1.03,
+   "records": {
+    "material_operational_disruption": 5,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 5,
+    "detected": 5,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-008",
+    "RS-009",
+    "RS-061",
+    "RS-062",
+    "RS-066"
+   ]
+  },
+  {
+   "period": "P17",
+   "start": "2026-11-17",
+   "end_inclusive": "2026-11-23",
+   "state": "complete",
+   "limit_kind": null,
+   "reasons": [],
+   "reports_collected": 2939,
+   "active_sources": 58,
+   "collected_vs_clean_median": 0.97,
+   "records": {
+    "material_operational_disruption": 2,
+    "material_emerging_risk_or_warning": 0,
+    "material_retrospective_finding": 0
+   },
+   "material_operational_disruption": {
+    "total": 2,
+    "detected": 2,
+    "detection_rate": 1.0,
+    "missed_ids": []
+   },
+   "material_ids": [
+    "RS-030",
+    "RS-079"
+   ]
+  }
+ ],
+ "period_counts": {
+  "total": 17,
+  "complete": 9,
+  "limited": 8,
+  "limited_by_kind": {
+   "pre_feed_ceiling": 5,
+   "transition_feed_ceiling": 1,
+   "outage_or_gap": 2
+  }
+ },
+ "results": {
+  "comparable_complete_coverage_periods": {
+   "periods": [
+    "P07",
+    "P08",
+    "P11",
+    "P12",
+    "P13",
+    "P14",
+    "P15",
+    "P16",
+    "P17"
+   ],
+   "metrics": {
+    "material_operational_disruption": {
+     "total": 14,
+     "detected": 14,
+     "missed": 0,
+     "detection_rate": 1.0,
+     "missed_ids": [],
+     "time_to_first_detection_hours": {
+      "n": 14,
+      "median": 0.91,
+      "p90": 7.78,
+      "max": 12.51
+     },
+     "detected_within_24h": 14,
+     "detected_after_24h_ids": [],
+     "reached_a_brief_ids": [
+      "RS-008",
+      "RS-009",
+      "RS-029",
+      "RS-030",
+      "RS-033",
+      "RS-058",
+      "RS-060",
+      "RS-061",
+      "RS-065",
+      "RS-066"
+     ],
+     "dispositioned_brief_or_escalate_ids": [
+      "RS-003",
+      "RS-008",
+      "RS-009",
+      "RS-030",
+      "RS-033",
+      "RS-060",
+      "RS-061",
+      "RS-065",
+      "RS-081"
+     ]
+    },
+    "material_emerging_risk_or_warning": {
+     "total": 3,
+     "detected": 3,
+     "missed_ids": [],
+     "detection_rate": 1.0,
+     "converted": 2,
+     "converted_ids": [
+      "RS-059",
+      "RS-083"
+     ],
+     "not_converted_ids": [
+      "RS-057"
+     ],
+     "conversion_not_provided_ids": [],
+     "conversion_rate_of_measured": 0.667
+    },
+    "material_retrospective_finding": {
+     "total": 0,
+     "missed_ids": [],
+     "detection_rate": null,
+     "converted_ids": [],
+     "not_converted_ids": [],
+     "conversion_not_provided_ids": [],
+     "conversion_rate_of_measured": "NOT PROVIDED",
+     "collected": 0,
+     "surfaced": 0
+    }
+   }
+  },
+  "limited_coverage_periods_reported_separately": {
+   "periods": [
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05",
+    "P06",
+    "P09",
+    "P10"
+   ],
+   "NOT_FOR_RATE_COMPARISON": true,
+   "metrics": {
+    "material_operational_disruption": {
+     "total": 12,
+     "detected": 11,
+     "missed": 1,
+     "detection_rate": 0.917,
+     "missed_ids": [
+      "RS-032"
+     ],
+     "time_to_first_detection_hours": {
+      "n": 11,
+      "median": 1.32,
+      "p90": 33.09,
+      "max": 264.28
+     },
+     "detected_within_24h": 8,
+     "detected_after_24h_ids": [
+      "RS-011",
+      "RS-077",
+      "RS-080"
+     ],
+     "reached_a_brief_ids": [
+      "RS-002",
+      "RS-028",
+      "RS-034",
+      "RS-063",
+      "RS-064"
+     ],
+     "dispositioned_brief_or_escalate_ids": [
+      "RS-002"
+     ]
+    },
+    "material_emerging_risk_or_warning": {
+     "total": 3,
+     "detected": 3,
+     "missed_ids": [],
+     "detection_rate": 1.0,
+     "converted": 3,
+     "converted_ids": [
+      "RS-031",
+      "RS-055",
+      "RS-056"
+     ],
+     "not_converted_ids": [],
+     "conversion_not_provided_ids": [],
+     "conversion_rate_of_measured": 1.0
+    },
+    "material_retrospective_finding": {
+     "total": 1,
+     "missed_ids": [],
+     "detection_rate": 1.0,
+     "converted_ids": [
+      "RS-082"
+     ],
+     "not_converted_ids": [],
+     "conversion_not_provided_ids": [],
+     "conversion_rate_of_measured": 1.0,
+     "collected": 1,
+     "surfaced": 1
+    }
+   },
+   "by_limit_kind": {
+    "outage_or_gap": {
+     "material_operational_disruption": {
+      "total": 4,
+      "detected": 3,
+      "missed": 1,
+      "detection_rate": 0.75,
+      "missed_ids": [
+       "RS-032"
+      ],
+      "time_to_first_detection_hours": {
+       "n": 3,
+       "median": 0.69,
+       "p90": 1.1,
+       "max": 1.1
+      },
+      "detected_within_24h": 3,
+      "detected_after_24h_ids": [],
+      "reached_a_brief_ids": [
+       "RS-002",
+       "RS-034"
+      ],
+      "dispositioned_brief_or_escalate_ids": [
+       "RS-002"
+      ]
+     },
+     "material_emerging_risk_or_warning": {
+      "total": 1,
+      "detected": 1,
+      "missed_ids": [],
+      "detection_rate": 1.0,
+      "converted": 1,
+      "converted_ids": [
+       "RS-031"
+      ],
+      "not_converted_ids": [],
+      "conversion_not_provided_ids": [],
+      "conversion_rate_of_measured": 1.0
+     },
+     "material_retrospective_finding": {
+      "total": 0,
+      "missed_ids": [],
+      "detection_rate": null,
+      "converted_ids": [],
+      "not_converted_ids": [],
+      "conversion_not_provided_ids": [],
+      "conversion_rate_of_measured": "NOT PROVIDED",
+      "collected": 0,
+      "surfaced": 0
+     }
+    },
+    "transition_feed_ceiling": {
+     "material_operational_disruption": {
+      "total": 4,
+      "detected": 4,
+      "missed": 0,
+      "detection_rate": 1.0,
+      "missed_ids": [],
+      "time_to_first_detection_hours": {
+       "n": 4,
+       "median": 17.21,
+       "p90": 264.28,
+       "max": 264.28
+      },
+      "detected_within_24h": 2,
+      "detected_after_24h_ids": [
+       "RS-011",
+       "RS-080"
+      ],
+      "reached_a_brief_ids": [
+       "RS-028",
+       "RS-064"
+      ],
+      "dispositioned_brief_or_escalate_ids": []
+     },
+     "material_emerging_risk_or_warning": {
+      "total": 0,
+      "detected": 0,
+      "missed_ids": [],
+      "detection_rate": null,
+      "converted": 0,
+      "converted_ids": [],
+      "not_converted_ids": [],
+      "conversion_not_provided_ids": [],
+      "conversion_rate_of_measured": "NOT PROVIDED"
+     },
+     "material_retrospective_finding": {
+      "total": 1,
+      "missed_ids": [],
+      "detection_rate": 1.0,
+      "converted_ids": [
+       "RS-082"
+      ],
+      "not_converted_ids": [],
+      "conversion_not_provided_ids": [],
+      "conversion_rate_of_measured": 1.0,
+      "collected": 1,
+      "surfaced": 1
+     }
+    },
+    "pre_feed_ceiling": {
+     "material_operational_disruption": {
+      "total": 4,
+      "detected": 4,
+      "missed": 0,
+      "detection_rate": 1.0,
+      "missed_ids": [],
+      "time_to_first_detection_hours": {
+       "n": 4,
+       "median": 17.04,
+       "p90": 30.34,
+       "max": 30.34
+      },
+      "detected_within_24h": 3,
+      "detected_after_24h_ids": [
+       "RS-077"
+      ],
+      "reached_a_brief_ids": [
+       "RS-063"
+      ],
+      "dispositioned_brief_or_escalate_ids": []
+     },
+     "material_emerging_risk_or_warning": {
+      "total": 2,
+      "detected": 2,
+      "missed_ids": [],
+      "detection_rate": 1.0,
+      "converted": 2,
+      "converted_ids": [
+       "RS-055",
+       "RS-056"
+      ],
+      "not_converted_ids": [],
+      "conversion_not_provided_ids": [],
+      "conversion_rate_of_measured": 1.0
+     },
+     "material_retrospective_finding": {
+      "total": 0,
+      "missed_ids": [],
+      "detection_rate": null,
+      "converted_ids": [],
+      "not_converted_ids": [],
+      "conversion_not_provided_ids": [],
+      "conversion_rate_of_measured": "NOT PROVIDED",
+      "collected": 0,
+      "surfaced": 0
+     }
+    }
+   }
+  },
+  "pre_window_onset_not_in_rates": [
+   {
+    "id": "RS-042",
+    "title": "Origin Energy customer data breach: ONE incident, onset 22-23 Jul 2026 (announced 22 Jul, confirmed 23 Jul), with dated material developments through 20 Oct 2026",
+    "category": "material_operational_disruption",
+    "detected": true
+   }
+  ],
+  "undated_not_scored": [],
+  "full_window_total_not_a_rate_for_comparison": {
+   "metrics": {
+    "material_operational_disruption": {
+     "total": 27,
+     "detected": 26,
+     "missed": 1,
+     "detection_rate": 0.963,
+     "missed_ids": [
+      "RS-032"
+     ],
+     "time_to_first_detection_hours": {
+      "n": 26,
+      "median": 1.1,
+      "p90": 22.58,
+      "max": 264.28
+     },
+     "detected_within_24h": 23,
+     "detected_after_24h_ids": [
+      "RS-011",
+      "RS-077",
+      "RS-080"
+     ],
+     "reached_a_brief_ids": [
+      "RS-002",
+      "RS-008",
+      "RS-009",
+      "RS-028",
+      "RS-029",
+      "RS-030",
+      "RS-033",
+      "RS-034",
+      "RS-058",
+      "RS-060",
+      "RS-061",
+      "RS-063",
+      "RS-064",
+      "RS-065",
+      "RS-066"
+     ],
+     "dispositioned_brief_or_escalate_ids": [
+      "RS-002",
+      "RS-003",
+      "RS-008",
+      "RS-009",
+      "RS-030",
+      "RS-033",
+      "RS-060",
+      "RS-061",
+      "RS-065",
+      "RS-081"
+     ]
+    },
+    "material_emerging_risk_or_warning": {
+     "total": 6,
+     "detected": 6,
+     "missed_ids": [],
+     "detection_rate": 1.0,
+     "converted": 5,
+     "converted_ids": [
+      "RS-031",
+      "RS-055",
+      "RS-056",
+      "RS-059",
+      "RS-083"
+     ],
+     "not_converted_ids": [
+      "RS-057"
+     ],
+     "conversion_not_provided_ids": [],
+     "conversion_rate_of_measured": 0.833
+    },
+    "material_retrospective_finding": {
+     "total": 1,
+     "missed_ids": [],
+     "detection_rate": 1.0,
+     "converted_ids": [
+      "RS-082"
+     ],
+     "not_converted_ids": [],
+     "conversion_not_provided_ids": [],
+     "conversion_rate_of_measured": 1.0,
+     "collected": 1,
+     "surfaced": 1
+    }
+   },
+   "composition": "17 records in 9 complete periods + 16 records in 8 limited periods + 1 pre-window; shown as a total only"
+  }
+ },
+ "persistent_source_gaps": {
+  "note": "Sources collecting only from 2026-11-24 (ASIC, OAIC, ATO, Optus outage register, RBA) mean incident types first reported there were not observable in ANY period; excluding weeks cannot remove this.",
+  "records_with_declared_limits": [
+   {
+    "id": "RS-003",
+    "period": "P07",
+    "coverage_limits": [
+     "Optus National Outage Register was registered and began collecting only on 2026-11-24; the Downdetector AU - Optus feed has stored no events; detection came from news items"
+    ],
+    "detected": true
+   },
+   {
+    "id": "RS-032",
+    "period": "P10",
+    "coverage_limits": [
+     "no ASX announcements source exists in intelligence_source_registry (no active source with 'ASX' in its name, SELECT 2026-11-24); the ASX announcement (2026-10-01T23:03Z) came within an hour of the 2-4 Oct no-collection gap (zero reports collected on those days)"
+    ],
+    "detected": false
+   },
+   {
+    "id": "RS-080",
+    "period": "P06",
+    "coverage_limits": [
+     "the event (2026-09-05) precedes the 2026-09-06 feed-ceiling step (mainstream volume about 4x lower; Google News, iTnews and ARN not yet added); the only TJR row is a Google News copy collected 2026-09-16"
+    ],
+    "detected": true
+   },
+   {
+    "id": "RS-082",
+    "period": "P06",
+    "coverage_limits": [
+     "ARN - Australian IT Channel and the Google News feeds were added on 2026-09-06, after the 1-2 Sep publications: first collection was 4.1 days after first publication (COVERAGE_CHANGES 2026-09-06)"
+    ],
+    "detected": true
+   }
+  ],
+  "coverage_file": "coverage_v3-2026-11-24.json"
+ },
+ "excluded_from_scores_but_listed": {
+  "non_material": [
+   {
+    "id": "RS-004",
+    "title": "NSW wholesale electricity price spike near market price cap (12 Oct 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P11",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "market_event_no_supply_loss"
+   },
+   {
+    "id": "RS-005",
+    "title": "Telstra publishes external (TAP) review of 8 Jul 2026 outage; AGM scrutiny (12-14 Oct 2026)",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "P11",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "retrospective_old_event_update"
+   },
+   {
+    "id": "RS-010",
+    "title": "US air traffic control outage delays Australian flights (~12-14 Nov 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P16",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "foreign_event_low_au_materiality"
+   },
+   {
+    "id": "RS-014",
+    "title": "AEMO routine SA 'Foreseeable intervention' / cancellation notices (Sep-Nov 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P06",
+    "pool": "limited",
+    "limit_kind": "transition_feed_ceiling",
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": true,
+    "duplicate_of": null,
+    "non_material_type": "routine_notice_noise"
+   },
+   {
+    "id": "RS-016",
+    "title": "AWS 'can no longer recover' me-central-1 (UAE) / me-south-1 data - 15 Sep 2026 update",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "P08",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "retrospective_old_event_update"
+   },
+   {
+    "id": "RS-017",
+    "title": "Cloudflare minor status incidents (Nov 2026: cache purge, Workers, DNSSEC, 1.1.1.1 Canada)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P14",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "status_page_noise"
+   },
+   {
+    "id": "RS-018",
+    "title": "Cloudflare global outage of 18 Nov 2025 (resurfacing in 2026 results)",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "retrospective_old_story"
+   },
+   {
+    "id": "RS-019",
+    "title": "Telstra July outage retold in Nov 2026 (share-buyback 'after the July outage' commentary)",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "P15",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "retrospective_old_story"
+   },
+   {
+    "id": "RS-020",
+    "title": "Mastercard card declines in Australia (15 Aug 2026) - outside window",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "P03",
+    "pool": "limited",
+    "limit_kind": "pre_feed_ceiling",
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "out_of_window_old_story"
+   },
+   {
+    "id": "RS-021",
+    "title": "ACMA court action over Sep 2025 Optus Triple Zero outage (Jul 2026) and Sep 2025 retellings",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "P01",
+    "pool": "limited",
+    "limit_kind": "pre_feed_ceiling",
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "retrospective_old_story"
+   },
+   {
+    "id": "RS-022",
+    "title": "Google Cloud outage hits UK banks (20 Oct 2026, europe-west2)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P13",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "global_event_not_material_to_au"
+   },
+   {
+    "id": "RS-023",
+    "title": "OAIC half-year notifiable data breach statistics (26 Oct 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P13",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "statistics_release_not_incident"
+   },
+   {
+    "id": "RS-024",
+    "title": "Dragos Q3 industrial ransomware statistics (17 Nov 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P17",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "statistics_release_not_incident"
+   },
+   {
+    "id": "RS-025",
+    "title": "AEMO summer readiness outlook (20 Nov 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P17",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "non_incident_publication"
+   },
+   {
+    "id": "RS-038",
+    "title": "NSW Health: MedusaLocker claim denied by NSW Health (Aug 2026)",
+    "status": "unrelated_incident",
+    "category": "non_material",
+    "period": "P01",
+    "pool": "limited",
+    "limit_kind": "pre_feed_ceiling",
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "unrelated_to_oct_breach"
+   },
+   {
+    "id": "RS-039",
+    "title": "ASD high-priority alert on commercial refrigeration systems after overseas incidents (14-15 Oct 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P12",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "advisory_no_au_incident"
+   },
+   {
+    "id": "RS-040",
+    "title": "ACSC 'Act Now' alert on pace of vulnerability exploitation (17 Nov 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P17",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "general_advisory"
+   },
+   {
+    "id": "RS-041",
+    "title": "myID / Digital ID scheduled maintenance windows (2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "planned_maintenance"
+   },
+   {
+    "id": "RS-043",
+    "title": "Qantas customer data breach (Jul-Oct 2025) appearing in 2026 search results",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "old_event_resurfacing"
+   },
+   {
+    "id": "RS-044",
+    "title": "Vodafone Australia network-hub outage (18 Jun 2026)",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "old_event_resurfacing"
+   },
+   {
+    "id": "RS-045",
+    "title": "Azupay PayTo/PayID/NPP disruptions (24 and 27 Aug 2026), outside window",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "P04",
+    "pool": "limited",
+    "limit_kind": "pre_feed_ceiling",
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "old_event_resurfacing"
+   },
+   {
+    "id": "RS-046",
+    "title": "RBA RITS settlement outage (27 Jan 2026)",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "old_event_resurfacing"
+   },
+   {
+    "id": "RS-047",
+    "title": "DP World Australia port cyber attack (Nov 2023) with a page stamped 20 Sep 2026",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "old_event_resurfacing"
+   },
+   {
+    "id": "RS-048",
+    "title": "Macquarie Health Corporation ransomware (7 Oct 2021) surfacing as '7 October' in 2026 search",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "old_event_resurfacing"
+   },
+   {
+    "id": "RS-049",
+    "title": "iiNet/TPG order-system breach (Aug 2025)",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "old_event_resurfacing"
+   },
+   {
+    "id": "RS-050",
+    "title": "Remote-community comms outages 'for weeks' after Telstra July outage (NIT, 8 Sep 2026)",
+    "status": "stale_or_resurfaced",
+    "category": "non_material",
+    "period": "pre_window",
+    "pool": "pre_window",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "old_event_resurfacing"
+   },
+   {
+    "id": "RS-051",
+    "title": "Optus 11 Sep 2026 outage: ACS Information Age '90-minute' report (duplicate coverage of RS-003)",
+    "status": "duplicate_report",
+    "category": "non_material",
+    "period": "undated",
+    "pool": "undated",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": "RS-003",
+    "non_material_type": "same_event_other_outlet"
+   },
+   {
+    "id": "RS-052",
+    "title": "NSW notifies Privacy Commissioner of Oral Health scheme breach (9 Nov 2026), follow-on report of RS-029",
+    "status": "duplicate_report",
+    "category": "non_material",
+    "period": "undated",
+    "pool": "undated",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": "RS-029",
+    "non_material_type": "same_event_follow_on"
+   },
+   {
+    "id": "RS-053",
+    "title": "ASIO and AFP hit by Microsoft outage; priority restoration agreement invoked (political.org, 12-13 Nov 2026)",
+    "status": "duplicate_report",
+    "category": "non_material",
+    "period": "undated",
+    "pool": "undated",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": "RS-008",
+    "non_material_type": "same_event_other_outlet"
+   },
+   {
+    "id": "RS-067",
+    "title": "UK air traffic control failure; Australians sleep at Heathrow (8-9 Sep 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P07",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "foreign_event_low_au_materiality"
+   },
+   {
+    "id": "RS-068",
+    "title": "Google Cloud Status: Multiple Products, timeouts/service errors (20 Aug 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P04",
+    "pool": "limited",
+    "limit_kind": "pre_feed_ceiling",
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "status_page_noise"
+   },
+   {
+    "id": "RS-069",
+    "title": "Attackers use SQL-injection emails to root Cisco email gateways (iTnews, 16 Sep 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P08",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "foreign_event_low_au_materiality"
+   },
+   {
+    "id": "RS-070",
+    "title": "Railway (app hoster) attackers ran up US$740,000 on stolen AI keys (iTnews, 10 Nov 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P16",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "foreign_event_low_au_materiality"
+   },
+   {
+    "id": "RS-071",
+    "title": "ACT national-park campground booking portal disabled after data breach; about 6,000 customers alerted (14 Nov 2026)",
+    "status": "duplicate_report",
+    "category": "non_material",
+    "period": "P16",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": "RS-066",
+    "non_material_type": "same_event_other_jurisdiction"
+   },
+   {
+    "id": "RS-076",
+    "title": "Coles website and app offline for several hours (Saturday 22 Aug 2026) after a viral discount post triggered mass orders",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P04",
+    "pool": "limited",
+    "limit_kind": "pre_feed_ceiling",
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "assessed_low_consequence"
+   },
+   {
+    "id": "RS-078",
+    "title": "Telstra MessageBank fault floods customers with missed-call notifications; Telstra admits a glitch (4-5 Nov 2026)",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P15",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "assessed_low_consequence"
+   },
+   {
+    "id": "RS-084",
+    "title": "Sydney Airport: 104 flights cancelled by weather (cloud and wind; Airservices ground delay program), 16 Nov 2026",
+    "status": "confirmed_non_material",
+    "category": "non_material",
+    "period": "P16",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "weather_disruption_no_qualifier_evidenced"
+   }
+  ],
+  "unresolved": [
+   {
+    "id": "RS-006",
+    "title": "CommBank payment failures / maintenance overrun (22-23 Oct 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P13",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": null
+   },
+   {
+    "id": "RS-007",
+    "title": "Westpac services outage (10 Nov 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P16",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": null
+   },
+   {
+    "id": "RS-012",
+    "title": "Telstra Stockton (Newcastle) mobile outage attributed to attempted copper cable theft (12 Nov 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P16",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "local_outage_low_materiality"
+   },
+   {
+    "id": "RS-013",
+    "title": "'Telstra's problems continue with AWS outage' (Mashable, 31 Oct 2026) - possible recycled or misdated story",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P14",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "retrospective_or_misdated"
+   },
+   {
+    "id": "RS-015",
+    "title": "Azure ExpressRoute/VPN/Firewall gateway outage, 18 regions (30 Sep - 1 Oct 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P10",
+    "pool": "limited",
+    "limit_kind": "outage_or_gap",
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "global_event_not_material_to_au"
+   },
+   {
+    "id": "RS-026",
+    "title": "JPMorgan/Visa/Mastercard third-party vendors targeted in cyberattack (19 Nov 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P17",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "unrelated_pair_member"
+   },
+   {
+    "id": "RS-027",
+    "title": "Iran-linked ships hover over subsea cables after threats (6 Nov 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P15",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": "speculative_foreign_threat"
+   },
+   {
+    "id": "RS-035",
+    "title": "Qantas investigates hotel booking hack after Capella guests targeted (AFR via Google News, 17 Sep 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P08",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": null
+   },
+   {
+    "id": "RS-036",
+    "title": "Chadwick Switchboards (NSW) allegedly breached by Qilin ransomware (leak post 4 Oct; reported 16 Oct 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P10",
+    "pool": "limited",
+    "limit_kind": "outage_or_gap",
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": null
+   },
+   {
+    "id": "RS-037",
+    "title": "Sydney Trains urgent signal repairs at Clyde delay multiple lines (Monday, date unconfirmed, ~12 Oct 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "undated",
+    "pool": "undated",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": false,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": null
+   },
+   {
+    "id": "RS-072",
+    "title": "Stake (Australian investing app) data breach (Daily Mail via Google News, 25 Sep 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P09",
+    "pool": "limited",
+    "limit_kind": "outage_or_gap",
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": null
+   },
+   {
+    "id": "RS-073",
+    "title": "Data breach at an Adelaide private hospital (ABC, 8 Oct 2026; hospital named only in the URL slug)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P11",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": null
+   },
+   {
+    "id": "RS-074",
+    "title": "Cyberattack via Optimizely Web exposes banking, media and insurance websites to malware (Beinsure via Google News, 16 Nov 2026)",
+    "status": "unresolved_insufficiently_verified",
+    "category": "unresolved",
+    "period": "P16",
+    "pool": "complete",
+    "limit_kind": null,
+    "coverage_limits": [],
+    "appeared": true,
+    "reached_a_brief": false,
+    "duplicate_of": null,
+    "non_material_type": null
+   }
+  ],
+  "false_escalation_info_only": {
+   "non_material_reached_a_brief_ids": [
+    "RS-014"
+   ],
+   "note": "information only, not a score (owner: non-material and unresolved are excluded from scores)"
+  }
+ },
+ "manual_verification_burden": {
+  "status": "NOT PROVIDED",
+  "minutes": null,
+  "owner_prompt": "OWNER TO FILL, never estimated by this tool: total minutes you spent manually verifying the week's briefs and alerts (opening sources, cross-checking claims). Record it in ratings.csv (column manual_verification_minutes) and re-run."
+ },
+ "per_incident": [
+  {
+   "id": "RS-001",
+   "title": "NAB phone, internet and mobile banking outage (23 Sep 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P09",
+   "pool": "limited",
+   "limit_kind": "outage_or_gap",
+   "coverage_limits": [],
+   "first_report": "2026-09-23T06:00:34Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.2,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-002",
+   "title": "OpenAI agent accessed Services Australia Medicare statistics portal; made public 23 Sep 2026",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P09",
+   "pool": "limited",
+   "limit_kind": "outage_or_gap",
+   "coverage_limits": [],
+   "first_report": "2026-09-23T20:31:06Z",
+   "appeared": true,
+   "first_source": "Guardian Australia",
+   "hours_after_first_public": 0.69,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-003",
+   "title": "Optus exchange hardware failure: voice outage, Triple Zero calls failed (VIC/SA/TAS/NT), ~10-11 Sep 2026",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P07",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [
+    "Optus National Outage Register was registered and began collecting only on 2026-11-24; the Downdetector AU - Optus feed has stored no events; detection came from news items"
+   ],
+   "first_report": "2026-09-12T00:52:41Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.67,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-008",
+   "title": "Microsoft 365 global outage (Outlook, Teams, Exchange Online, Copilot), 12-13 Nov 2026",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P16",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-11-12T19:29:40Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.77,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-009",
+   "title": "Coles cybersecurity incident (15-16 Nov 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P16",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-11-15T23:11:00Z",
+   "appeared": true,
+   "first_source": "Guardian Australia",
+   "hours_after_first_public": 2.71,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-011",
+   "title": "Vocus Australia-Singapore Cable (ASC) break and Perth subsea faults (Aug-Sep 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P06",
+   "pool": "limited",
+   "limit_kind": "transition_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-09-06T10:55:00Z",
+   "appeared": true,
+   "first_source": "iTnews",
+   "hours_after_first_public": 33.09,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-028",
+   "title": "Mathspace data breach: 1.08 million AU/NZ students, parents and staff (disclosed 3-8 Sep 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P06",
+   "pool": "limited",
+   "limit_kind": "transition_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-09-07T06:53:31Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 1.32,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-029",
+   "title": "NSW Health Oral Health Fee For Service Scheme breach declared a major incident (30 Oct - 9 Nov 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P15",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-11-03T15:06:00Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 7.78,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-030",
+   "title": "Eyre Peninsula (SA) storm topples two transmission towers; ~23-24k properties without power (from 19 Nov 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P17",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-11-19T06:59:07Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.14,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-031",
+   "title": "ASD/ACSC critical alert: Citrix NetScaler ADC/Gateway zero-days exploited, incl. Australian organisations (27 Sep - 3 Oct 2026)",
+   "status": "confirmed_material",
+   "category": "material_emerging_risk_or_warning",
+   "period": "P09",
+   "pool": "limited",
+   "limit_kind": "outage_or_gap",
+   "coverage_limits": [],
+   "first_report": "2026-09-27T10:33:32Z",
+   "appeared": true,
+   "first_source": "ACSC Alerts & Advisories",
+   "hours_after_first_public": 33.45,
+   "reached_a_brief": true,
+   "conversion": true
+  },
+  {
+   "id": "RS-032",
+   "title": "OFX Group (ASX) cyber incident: unauthorised access incl. some client data (2 Oct 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P10",
+   "pool": "limited",
+   "limit_kind": "outage_or_gap",
+   "coverage_limits": [
+    "no ASX announcements source exists in intelligence_source_registry (no active source with 'ASX' in its name, SELECT 2026-11-24); the ASX announcement (2026-10-01T23:03Z) came within an hour of the 2-4 Oct no-collection gap (zero reports collected on those days)"
+   ],
+   "first_report": "2026-10-01T23:03:00Z",
+   "appeared": false,
+   "first_source": null,
+   "hours_after_first_public": null,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-033",
+   "title": "NT Government territory-wide network outage, ~12 hours (7-8 Oct 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P11",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-10-07T21:49:00Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 12.51,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-034",
+   "title": "Queensland government department loses $809,000 after third-party telecom provider systems accessed (disclosed late Sep 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P10",
+   "pool": "limited",
+   "limit_kind": "outage_or_gap",
+   "coverage_limits": [],
+   "first_report": "2026-09-29T22:38:19Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 1.1,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-042",
+   "title": "Origin Energy customer data breach: ONE incident, onset 22-23 Jul 2026 (announced 22 Jul, confirmed 23 Jul), with dated material developments through 20 Oct 2026",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "pre_window",
+   "pool": "pre_window",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-07-22T21:25:25Z",
+   "appeared": true,
+   "first_source": "Guardian Australia",
+   "hours_after_first_public": 22.58,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-054",
+   "title": "Hackers leak Court Services Victoria hearing data (28,600 lines of Magistrates'/Children's Court WebEx records incl. family-violence order parties) to a dark-web forum (posted July; ABC 6 Aug 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P02",
+   "pool": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-08-06T19:10:35Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.83,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-055",
+   "title": "ASD HIGH alert: active exploitation of the N-able N-central remote monitoring platform within Australia (19 Aug 2026)",
+   "status": "confirmed_material",
+   "category": "material_emerging_risk_or_warning",
+   "period": "P04",
+   "pool": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-08-19T04:44:29Z",
+   "appeared": true,
+   "first_source": "ACSC Alerts & Advisories",
+   "hours_after_first_public": 15.26,
+   "reached_a_brief": true,
+   "conversion": true
+  },
+  {
+   "id": "RS-056",
+   "title": "ASD HIGH alert: active exploitation of JetBrains TeamCity On-Premise within Australia (24 Aug 2026)",
+   "status": "confirmed_material",
+   "category": "material_emerging_risk_or_warning",
+   "period": "P04",
+   "pool": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-08-24T06:03:59Z",
+   "appeared": true,
+   "first_source": "ACSC Alerts & Advisories",
+   "hours_after_first_public": 13.94,
+   "reached_a_brief": true,
+   "conversion": true
+  },
+  {
+   "id": "RS-057",
+   "title": "ASD CRITICAL alert: Adobe Commerce / Magento Open Source stores under active attack in Australia (9 Sep 2026)",
+   "status": "confirmed_material",
+   "category": "material_emerging_risk_or_warning",
+   "period": "P07",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-09-09T02:58:57Z",
+   "appeared": true,
+   "first_source": "ACSC Alerts & Advisories",
+   "hours_after_first_public": 17.14,
+   "reached_a_brief": false,
+   "conversion": false
+  },
+  {
+   "id": "RS-058",
+   "title": "Napoleon Perdis data breach: names, DOB, emails, phones, addresses and purchase histories of 340,000 clients (17 Oct 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P12",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-10-17T05:59:12Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.64,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-059",
+   "title": "Critical PHP flaw ('PHP2shell'): ASD critical alert; ABC reports GovCMS, Moodle and VentraIP among platforms affected, expected spike in Australian breaches (21-22 Oct 2026)",
+   "status": "confirmed_material",
+   "category": "material_emerging_risk_or_warning",
+   "period": "P13",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-10-21T03:01:26Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 13.07,
+   "reached_a_brief": true,
+   "conversion": true
+  },
+  {
+   "id": "RS-060",
+   "title": "ABC wipes staff devices after a 'sophisticated cyber attack' (22-23 Oct 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P13",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-10-23T01:41:30Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.25,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-061",
+   "title": "Storms leave more than 58,000 Queensland homes without power (Logan, Scenic Rim, Moreton Bay, Gympie); thousands still out next day (11-12 Nov 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P16",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-11-11T06:41:00Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.09,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-062",
+   "title": "VCAA website hacked during VCE exam period; hacker claims to have sold VCE exam papers to hundreds of students (11 Nov 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P16",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-11-11T09:15:15Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.52,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-063",
+   "title": "Quest Apartment Hotels customer data breach (19 Aug 2026); 22 Sep ABC: customers told to replace passports and driver's licences",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P04",
+   "pool": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-08-19T02:08:09Z",
+   "appeared": true,
+   "first_source": "ABC News Business",
+   "hours_after_first_public": 17.89,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-064",
+   "title": "Tungatinah Power Station (Hydro Tasmania, Central Highlands) gutted by fire; supplies about 5% of Tasmania's energy; fire accidental per authorities (2-9 Sep 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P06",
+   "pool": "limited",
+   "limit_kind": "transition_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-09-02T20:22:23Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 0.14,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-065",
+   "title": "RMS Cloud (accommodation software) breach: bookings of BIG4, Reflections, G'day Parks, Summerstar, McMillans of Metung and other holiday parks exposed; scam emails to guests; card data not exposed (27-28 Oct 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P14",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-10-27T05:24:30Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 1.04,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-066",
+   "title": "Bookeasy booking platform breach: Qld, Vic and SA national-park booking systems hacked (11 Nov), ACT system disabled and about 6,000 customers alerted (13-14 Nov); new campsite bookings suspended",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P16",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-11-11T23:54:20Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 1.11,
+   "reached_a_brief": true,
+   "conversion": null
+  },
+  {
+   "id": "RS-075",
+   "title": "Sydney Airport: one parent incident anchored on 8 Aug 2026 (dozens of flights delayed), with dated developments (9 Aug tarmac near-miss; 26 Aug regulator investigating six incidents)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P02",
+   "pool": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-08-08T03:48:52Z",
+   "appeared": true,
+   "first_source": "Guardian Australia",
+   "hours_after_first_public": 16.19,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-077",
+   "title": "Fiji (Nadi) jet fuel contamination disrupts Virgin Australia, Qantas and other carriers: Virgin cancelled two services and added refuel stops; reserve fuel released by Fiji (Aug 2026)",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P04",
+   "pool": "limited",
+   "limit_kind": "pre_feed_ceiling",
+   "coverage_limits": [],
+   "first_report": "2026-08-21T00:58:00Z",
+   "appeared": true,
+   "first_source": "ABC News Business",
+   "hours_after_first_public": 30.34,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-079",
+   "title": "ACT Triple Zero call centre (ESA headquarters, Fairbairn) loses power for four minutes (8:11-8:15pm AEDT, 19 Nov 2026); first backup battery pack failed, second took four minutes",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P17",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-11-21T03:39:43Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 1.38,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-080",
+   "title": "Sydney/NSW wind storm: more than 46,000 homes without power (Endeavour Energy network; Ausgrid also reporting outages), Saturday 5 Sep 2026",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P06",
+   "pool": "limited",
+   "limit_kind": "transition_feed_ceiling",
+   "coverage_limits": [
+    "the event (2026-09-05) precedes the 2026-09-06 feed-ceiling step (mainstream volume about 4x lower; Google News, iTnews and ARN not yet added); the only TJR row is a Google News copy collected 2026-09-16"
+   ],
+   "first_report": "2026-09-05T07:00:00Z",
+   "appeared": true,
+   "first_source": "Google News - Telstra",
+   "hours_after_first_public": 264.28,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-081",
+   "title": "Mildura (Vic) power outage: about 2,700-3,360 homes and businesses out from Monday 21 Sep after a ute hit a critical pole; restoration for most of the network extended to midday Friday; vulnerable residents affected",
+   "status": "confirmed_material",
+   "category": "material_operational_disruption",
+   "period": "P08",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-09-21T01:23:52Z",
+   "appeared": true,
+   "first_source": "ABC News",
+   "hours_after_first_public": 1.24,
+   "reached_a_brief": false,
+   "conversion": null
+  },
+  {
+   "id": "RS-082",
+   "title": "Telstra external (TAP) review findings on the 8 Jul 2026 nationwide outage: timing not treated as a critical capability; unclear ownership, insufficient expertise, weak process controls (public 1-2 Sep 2026); AGM scrutiny 12-14 Oct",
+   "status": "confirmed_material",
+   "category": "material_retrospective_finding",
+   "period": "P06",
+   "pool": "limited",
+   "limit_kind": "transition_feed_ceiling",
+   "coverage_limits": [
+    "ARN - Australian IT Channel and the Google News feeds were added on 2026-09-06, after the 1-2 Sep publications: first collection was 4.1 days after first publication (COVERAGE_CHANGES 2026-09-06)"
+   ],
+   "first_report": "2026-09-01T23:33:14Z",
+   "appeared": true,
+   "first_source": "Google News - Telstra",
+   "hours_after_first_public": 97.5,
+   "reached_a_brief": true,
+   "conversion": true
+  },
+  {
+   "id": "RS-083",
+   "title": "AEMO reserve notices for NSW: forecast Lack Of Reserve Level 1 (LOR1) for 12 Oct and suspect LOR1/LOR2 from 10 Oct 2026 (forward-looking risk signal around the 12 Oct NSW price spike)",
+   "status": "confirmed_material",
+   "category": "material_emerging_risk_or_warning",
+   "period": "P11",
+   "pool": "complete",
+   "limit_kind": null,
+   "coverage_limits": [],
+   "first_report": "2026-10-09T19:00:23Z",
+   "appeared": true,
+   "first_source": "AEMO Market Notices",
+   "hours_after_first_public": 0.0,
+   "reached_a_brief": true,
+   "conversion": true
+  }
+ ],
+ "comparison_with_previous_baseline": {
+  "provided": true,
+  "v1_first_baseline": {
+   "material": 15,
+   "detected": 13,
+   "detection_rate": 0.867,
+   "missed_ids": [
+    "RS-004",
+    "RS-032"
+   ],
+   "ttd_median_h": 8.56,
+   "ttd_p90_h": 33.45,
+   "false_escalation": "2/25"
+  },
+  "like_for_like_shared_operational_disruptions": {
+   "ids": [
+    "RS-001",
+    "RS-002",
+    "RS-003",
+    "RS-008",
+    "RS-009",
+    "RS-011",
+    "RS-028",
+    "RS-029",
+    "RS-030",
+    "RS-032",
+    "RS-033",
+    "RS-034"
+   ],
+   "v1_detected": 11,
+   "v3_detected": 11,
+   "total": 12,
+   "v1_missed": [
+    "RS-032"
+   ],
+   "v3_missed": [
+    "RS-032"
+   ],
+   "v1_ttd_median_h": 7.61,
+   "v3_ttd_median_h": 1.1
+  },
+  "what_changed": [
+   "scoring population: v1 scored 15 material records of any kind; v3 scores detection on operational disruptions only and moves alerts/advisories (RS-031) to the warning category, RS-005 to retrospective and RS-004 to non-material",
+   "window start moved from 2026-09-01 to 2026-07-28 and periods with incomplete coverage are separated",
+   "measurement corrections: RS-030 first detection (v1 recorded 2 days late; actually minutes), first-report placeholders for RS-002/RS-003, RS-029 first report added",
+   "new records from the owner's review (RS-054..RS-084)"
+  ]
+ }
+}

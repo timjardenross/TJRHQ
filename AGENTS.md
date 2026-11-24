@@ -28,8 +28,33 @@ in the 2026-11 process peel-back; see git history before that commit if you need
 
 ### Supabase tool permissions
 
-`.claude/settings.json` wires a `PreToolUse` hook (`.claude/hooks/supabase_readonly_sql.py`) to
-`mcp__Supabase__execute_sql`. It auto-approves only provably read-only queries; everything else
-goes to the normal permission prompt. Keep reads and writes in separate calls, do not add a blanket
-`mcp__Supabase__*` allow rule (`tests/test_supabase_readonly_hook.py` enforces this), and back up
-rows before any data fix.
+Two Supabase MCP servers, two trust models:
+
+- **`mcp__supabase_ro__*` (read-only, standing approval).** `.claude/mcp/supabase_ro.mcp.json` defines `supabase_ro` with `read_only=true`, scoped to this
+  project and to the `database,docs` tool groups (`.mcp.json` is gitignored: activate with
+  `claude mcp add --transport http supabase_ro "<url in that file>"` or copy the entry into your own `.mcp.json`, then confirm the tool
+  names are `mcp__supabase_ro__*`). The platform runs every query as `supabase_read_only_user`
+  (`default_transaction_read_only=on`, no write privileges, cannot execute SECURITY DEFINER writers), so SQL text is irrelevant to write
+  safety and is not parsed. `.claude/settings.json` allows only `execute_sql` and `list_tables` on that server. Use it for ALL research:
+  SELECTs, CTEs (including column lists), aggregates, scorecards, metadata and `explain`. `.claude/hooks/supabase_ro_scope.py` (config:
+  `supabase_ro_scope.json`) limits READS to an explicit list of intelligence relations (`permitted_relations`) and refuses everything else,
+  credential/platform schemas, user-defined functions and SQL-executing builtins. That scope is application-level: the role can read every
+  table and `postgres` cannot revoke that platform-granted membership. Verify the DB facts and scope drift with
+  `tools/intelligence/ro_scope_verify.sql` (regenerate with `python tools/intelligence/ro_scope.py`); `tests/test_supabase_ro_access.py` proves
+  the role cannot write (local Postgres).
+- **Rule for every research agent and subagent:** use `mcp__supabase_ro__execute_sql` for every SELECT. Never use `mcp__Supabase__execute_sql`
+  for reads: it prompts the Captain. If `supabase_ro` is not available in your session, do NOT fall back to the privileged connector; write the
+  exact SELECT you need into your report and continue with other work. Activation steps: `docs/SUPABASE-READONLY-ACTIVATION.md`.
+- **`mcp__Supabase__*` (write-capable, prompts).** `.claude/hooks/supabase_readonly_sql.py` still auto-approves a query only when it is
+  provably read-only; every write, DDL, transaction and unknown function goes to the normal permission prompt, and `apply_migration` and
+  every other tool on that server always prompt. Do not add a blanket `mcp__Supabase__*` allow rule
+  (`tests/test_supabase_readonly_hook.py` enforces this) and do not keep widening the function allowlist: use the read-only server.
+  Keep reads and writes in separate calls, and back up rows before any data fix.
+
+### Vercel deployments (read before pushing or deploying)
+
+The portal project is on the Hobby plan (100 deployments per day, canceled ones included). Branch pushes must not create deployments:
+`lcars-portal/vercel.json` disables Git deployments for `claude/**`, `worktree-*`, `archive/**`, and a PreToolUse hook
+(`.claude/hooks/vercel_deploy_gate.py`) refuses `git push` from a branch that lacks that guard (merge `origin/main` first) and refuses any
+agent-created deployment without a single-use budget ticket (`tools/ops/vercel_deploy_budget.py ... --issue-ticket`, internal budget 10 previews and
+10 routine production deployments per rolling 24 h). Previews are explicit, never a side effect of a commit. See `docs/ops/VERCEL-DEPLOYMENT-POLICY.md`.

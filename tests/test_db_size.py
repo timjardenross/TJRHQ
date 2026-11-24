@@ -145,7 +145,7 @@ def test_weekly_report_still_renders_when_the_size_check_fails(monkeypatch):
 
 
 def _stub_send(monkeypatch):
-    monkeypatch.setattr(cb, "generate_morning_brief", lambda: "morning text")
+    monkeypatch.setattr(cb, "generate_morning_brief", lambda *a, **k: "morning text")
     monkeypatch.setattr(cb, "generate_weekly_report", lambda: "weekly text")
     monkeypatch.setattr(cb, "_get_recent_signals", lambda hours=24: [])
     monkeypatch.setattr(cb, "_collection_coverage_caveat", lambda *_a, **_k: None)

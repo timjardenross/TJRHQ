@@ -9,12 +9,14 @@ Feed URL resolution order:
   3. source.url              (last resort — home page, feedparser may still find a feed)
 """
 
+import calendar
 import logging
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
-from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
+from intelligence import provenance as prov
+from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_FEED_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
@@ -70,7 +72,7 @@ class RSSAdapter(BaseSourceAdapter):
             raise RuntimeError(f"Feed parse error: {exc}")
 
         items = []
-        for entry in feed.entries[:MAX_ITEMS_PER_SOURCE]:
+        for entry in feed.entries[:MAX_FEED_ITEMS_PER_SOURCE]:
             title = entry.get("title", "").strip()
             if not title:
                 continue
@@ -107,11 +109,18 @@ class RSSAdapter(BaseSourceAdapter):
             if url and "/ics-advisories/" in url.lower():
                 continue
 
+            # Provenance (additive; nothing downstream needs it). A Statuspage/Twilio <published> in the future is the SCHEDULED
+            # maintenance start: kept as an event window, never as a publication time.
+            sched_start, sched_end = prov.parse_event_window(f"{title} {summary or ''}")
+            if sched_start is None:
+                sched_start = self._future_scheduled_start(entry)
             items.append(self._make_item(
                 raw_title=title,
                 raw_summary=summary,
                 canonical_url=url,
                 published_at=published,
+                provenance=prov.rss_provenance(published=published, feed_url=self._feed_url, entry=entry,
+                                               scheduled_start=sched_start, scheduled_end=sched_end),
             ))
 
         return items
@@ -129,22 +138,41 @@ class RSSAdapter(BaseSourceAdapter):
                 return val[:1000] if val else None
         return None
 
+    def _future_scheduled_start(self, entry) -> datetime | None:
+        """A feed date more than a day ahead of now (see _parse_date): a scheduled-event time, not a publication time."""
+        horizon = datetime.now(UTC) + timedelta(days=1)
+        when = self._read_date_field(entry, "published_parsed", "published")
+        return when if when is not None and when > horizon else None
+
     def _parse_date(self, entry) -> datetime | None:
-        for field in ("published_parsed", "updated_parsed"):
-            val = entry.get(field)
-            if val:
-                try:
-                    import time as _time
-                    ts = _time.mktime(val)
-                    return datetime.fromtimestamp(ts, tz=UTC)
-                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
-                    log.debug("[rss_adapter] %s field failed mktime parse: %s", field, exc)
-        # Fallback: try string fields
-        for field in ("published", "updated"):
-            val = entry.get(field)
-            if val:
-                try:
-                    return parsedate_to_datetime(val)
-                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
-                    log.debug("[rss_adapter] %s field failed RFC822 parse: %s", field, exc)
+        """Publication time of a feed entry.
+
+        Prefers ``published``, then ``updated``. A date more than a day ahead of now is not a publication
+        date: Statuspage Atom feeds (Twilio) put the *scheduled maintenance start* in ``<published>`` and the
+        announcement time in ``<updated>``. Such a date is skipped in favour of the next field; if every
+        field is in the future the entry has no usable date (None) rather than a future one.
+        """
+        horizon = datetime.now(UTC) + timedelta(days=1)
+        for parsed_field, text_field in (("published_parsed", "published"), ("updated_parsed", "updated")):
+            when = self._read_date_field(entry, parsed_field, text_field)
+            if when is not None and when <= horizon:
+                return when
+        return None
+
+    @staticmethod
+    def _read_date_field(entry, parsed_field: str, text_field: str) -> datetime | None:
+        val = entry.get(parsed_field)
+        if val:
+            try:
+                # feedparser's *_parsed fields are UTC struct_times: timegm, not mktime (which assumes local time)
+                return datetime.fromtimestamp(calendar.timegm(val), tz=UTC)
+            except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
+                log.debug("[rss_adapter] %s field failed timegm parse: %s", parsed_field, exc)
+        val = entry.get(text_field)
+        if val:
+            try:
+                when = parsedate_to_datetime(val)
+                return when if when.tzinfo else when.replace(tzinfo=UTC)
+            except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
+                log.debug("[rss_adapter] %s field failed RFC822 parse: %s", text_field, exc)
         return None

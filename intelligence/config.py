@@ -160,6 +160,16 @@ DAILY_BRIEF_AFTER_SYNC = os.getenv("OR_INTEL_DAILY_BRIEF_AFTER_SYNC", "0") == "1
 
 HTTP_TIMEOUT_SECONDS   = int(os.getenv("OR_INTEL_HTTP_TIMEOUT", "15"))
 MAX_ITEMS_PER_SOURCE   = int(os.getenv("OR_INTEL_MAX_ITEMS_PER_SOURCE", "20"))
+# 2026-11-24 (collection-reliability): RSS/Atom/JSON-feed sources use this larger per-run ceiling. The flat
+# 20 was cutting feeds that return more (Inc., Psychology Today, Geoscience Australia hit it in ~50% of
+# batches; a Statuspage reactivation dropped 30 of 50 incidents). Duplicates are filtered after collection, so
+# a higher ceiling only costs rows that are genuinely new. HTML scraping keeps MAX_ITEMS_PER_SOURCE.
+MAX_FEED_ITEMS_PER_SOURCE = int(os.getenv("OR_INTEL_MAX_FEED_ITEMS_PER_SOURCE", "100"))
+# NVD: one run used to take the 20 OLDEST CVEs of an 8-day window (no server-side sort), so the same 20 came
+# back daily and the rest were never reached. Now a short window, paged, newest first.
+NVD_WINDOW_HOURS       = int(os.getenv("OR_INTEL_NVD_WINDOW_HOURS", "96"))
+NVD_MAX_PAGES          = int(os.getenv("OR_INTEL_NVD_MAX_PAGES", "4"))
+NVD_MAX_ITEMS_PER_RUN  = int(os.getenv("OR_INTEL_NVD_MAX_ITEMS_PER_RUN", "100"))
 STALE_ITEM_HOURS       = int(os.getenv("OR_INTEL_STALE_ITEM_HOURS", "24"))
 # 2026-08-22: was 14 — fine for a fortnightly cadence, wrong for daily.
 # At 14 days with a daily cron, each day's digest would re-summarize the
@@ -247,3 +257,18 @@ STATUS_NARRATIVE_KEYWORDS = [
     "outage", "incident", "disruption", "restored", "affecting",
     "degraded", "service issue", "unplanned", "resolved", "down",
 ]
+
+# ── Temporary source pause (2026-11-24) ──────────────────────────────────────
+# Exact source_name values collect_all() skips without touching the registry row or any stored data.
+# Default pauses GitHub Status (see docs/GITHUB-STATUS-TEMPORARY-PAUSE.md). Override with
+# INTELLIGENCE_PAUSED_SOURCES="A,B"; set it to "none" (or empty) to reinstate everything.
+DEFAULT_PAUSED_SOURCE_NAMES = frozenset({"GitHub Status"})
+
+
+def paused_source_names() -> frozenset[str]:
+    raw = os.environ.get("INTELLIGENCE_PAUSED_SOURCES")
+    if raw is None:
+        return DEFAULT_PAUSED_SOURCE_NAMES
+    names = {n.strip() for n in raw.split(",") if n.strip()}
+    names.discard("none")
+    return frozenset(names)

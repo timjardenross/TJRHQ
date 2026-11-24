@@ -36,7 +36,7 @@ EVENT_TYPES = {
                r"los(?:t|e|es|ing) power", r"supply (?:is )?at risk", r"(?:power|energy|fuel) shortages?",
                r"(?:towers?|lines?|poles?|substations?) (?:\w+ )?(?:crushed|toppled?|downed|collapsed?|damaged)",
                r"(?:crushed|toppl\w+|downed|collapsed) (?:\w+ )?(?:transmission )?(?:towers?|lines?|poles?)"),
-    "hazard": (r"earthquakes?", r"tsunamis?", r"cyclones?", r"bushfires?", r"fire warnings?", r"emergency warnings?", r"flash flood\w*", r"(?:major|severe|moderate) flood(?:ing)?", r"flood (?:warnings?|emergency|evacuation\w*)",
+    "hazard": (r"earthquakes?", r"quakes?", r"tsunamis?", r"cyclones?", r"bushfires?", r"fire warnings?", r"emergency warnings?", r"flash flood\w*", r"(?:major|severe|moderate) flood(?:ing)?", r"flood (?:warnings?|emergency|evacuation\w*)",
                r"hail(?:storm)?", r"severe (?:thunder)?storms?", r"(?:severe|extreme|catastrophic) heatwaves?", r"heatwave warnings?", r"tornado(?:es)?", r"tremors?", r"storm warnings?",
                r"evacuation (?:order|warning)s?", r"damaging winds?"),
     "supply_shortfall": (r"lack of reserve", r"lor[123]", r"reserve shortfalls?", r"supply (?:gap|shortfall)s?", r"(?:power|energy|gas|fuel) shortages?",
@@ -98,6 +98,12 @@ MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"parti
 RETROSPECTIVE = (r"investigated", r"post-(?:blackout|outage|incident)", r"convicted", r"charged", r"sentenced", r"jailed", r"guilty", r"trial", r"verdict", r"inquest", r"court", r"fined",
                  r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
                  r"apolog\w+", r"lessons?", r"anniversary", r"fallout",
+                 # governance and aftermath coverage of a PAST outage (AGM, shareholder questions, economic-cost modelling, 'fell short'): it reports
+                 # on the outage, it is not evidence the outage is live (Telstra, 13 Oct: nine such headlines read as 'URGENT TO VERIFY, ongoing')
+                 r"shareholder grilling", r"annual general meeting", r"hot seat",
+                 r"cost(?:s|ing)?\s+(?:the\s+)?(?:\w+\s+){0,2}economy", r"economic (?:cost|impact|modell?ing|damage|toll)",
+                 r"modell?ing (?:finds|shows|suggests|estimates)", r"fell short",
+                 r"report (?:finds|says|reveals|shows)", r"(?:says|finds|reveals|shows) (?:new )?report",
                  r"near[- ]miss(?:es)?", r"post-?mortems?",
                  # a root cause that HAS BEEN found is retrospective; 'engineers investigate root cause' is a live incident
                  r"root[- ]cause\b[^.;]{0,40}\b(?:identified|found|revealed|confirmed|analysis|report)",
@@ -163,7 +169,7 @@ _RESTORED_RX = _rx((r"restored", r"resolved", r"back online", r"power is back", 
 _NEG_RESTORE_RX = re.compile(
     r"(?:\b(?:not|never|no longer|yet to|\w+n't)\s+(?:\w+\s+){0,3}?(?:be\s+)?(?:restored|resolved|back online))"
     r"|(?:\bbeing\s+(?:\w+\s+){0,2}?(?:restored|resolved))"
-    r"|(?:\bpartial(?:ly)?\s+(?:\w+\s+){0,1}?(?:restored|resolved|back online))"
+    r"|(?:\b(?:partial(?:ly)?|partly|mostly|largely)\s+(?:\w+\s+){0,1}?(?:restored|resolved|back online))"
     r"|(?:\brestoration\s+(?:is\s+)?(?:unlikely|delayed|uncertain|postponed))", re.IGNORECASE)
 
 
@@ -237,6 +243,10 @@ class Candidate:
     hedged: bool = False      # hedged or anonymously sourced (likely / reportedly / 'sources say')
     legacy: dict = field(default_factory=dict)
     summary: str = ""         # the report's summary text (used only for Australian-relevance checks, never for classification)
+    time_verified: bool = False   # ``published`` is a parseable publication time (not the collection-time fallback): see _time_verified
+    time_claimed: bool = False    # ``published`` parses but its provenance says it is only CLAIMED (aggregator pubDate, date-only): see _time_trusted
+    day_precision: bool = False   # the publication time is a DATE (confidence verified/claimed, precision day): can support KNOWN STALE, never hour-level freshness
+    provenance: dict = field(default_factory=dict)   # published_at_basis / precision / confidence / publisher_domain ... present on the row, else {}
 
     @property
     def primary_type(self) -> str:
@@ -267,21 +277,120 @@ def _orgs(title: str) -> frozenset:
     return frozenset(o for o in found if o not in _PROPER_STOP and len(o) > 2)
 
 
+def _pub_not_credible(event: dict) -> bool:
+    """Provenance says ``published_at`` is not a usable publication time (basis unknown / collected_fallback: e.g. a date taken from the
+    title that may be an EVENT date). It is then ignored and the report is timed by collection, as if it had no published time. Rows with
+    no provenance are never affected."""
+    return event.get("published_at_basis") in ("unknown", "collected_fallback")
+
+
 def _report_time(event: dict):
     """When the report was PUBLISHED. Report chronology (restored vs ongoing) must follow publication, not ingestion: an older
     restoration article collected after a newer ongoing report must not win. The stored ``published_at`` is used when it parses
     and is not later than collection (plus a small clock skew); otherwise collection time, which is the only time we have."""
     collected = we._parse_ts(event.get("collected_at"))
-    published = we._parse_ts(event.get("published_at")) if event.get("published_at") else None
+    published = we._parse_ts(event.get("published_at")) if event.get("published_at") and not _pub_not_credible(event) else None
     if published and (collected is None or published <= collected + timedelta(hours=1)):
         return published
     return collected
 
 
+def _time_verified(event: dict) -> bool:
+    """True only when the report carries a parseable published time that is not later than its collection time (+1h skew), i.e. when
+    _report_time() returned a real publication time. A row with no published time (Google News and some other feeds) is timed by its
+    collection time, which says when WE saw it, not when it was written: a nine-day-old republished story would look new."""
+    if not event.get("published_at") or _pub_not_credible(event):
+        return False
+    published = we._parse_ts(event.get("published_at"))
+    collected = we._parse_ts(event.get("collected_at"))
+    return bool(published) and (collected is None or published <= collected + timedelta(hours=1))
+
+
+def _time_trusted(event: dict) -> bool:
+    """Provenance check on a parseable publication time. True when the row carries NO provenance (today's behaviour, unchanged) or its
+    basis is the source's own clock (feed / feed_corrected_utc) at better than day precision and not marked claimed/unknown. An aggregator's
+    pubDate (aggregator_claimed), a date-only value, a collection fallback or an unknown basis is only CLAIMED: it can place a report in time
+    but cannot ESTABLISH that it is current. A publisher domain is never consulted here."""
+    basis, conf, prec = event.get("published_at_basis"), event.get("published_at_confidence"), event.get("published_at_precision")
+    if not (basis or conf or prec):
+        return True
+    if basis is not None and basis not in ("feed", "feed_corrected_utc"):
+        return False
+    if conf is not None and conf not in ("verified", "feed"):
+        return False
+    return prec != "day"
+
+
+def _event_provenance(event: dict) -> dict:
+    return {k: event[k] for k in ("publisher_domain", "publisher_family", "published_at_basis", "published_at_precision",
+                                  "published_at_confidence", "published_at_label", "event_window_start", "event_window_end") if event.get(k) is not None}
+
+
+# Four freshness states of a report / incident (Captain's rule). Unverified times never ESTABLISH currency, yet a potentially severe
+# emerging incident must still be surfaced for urgent verification; known-stale reports never surface as urgent.
+FRESH_VERIFIED, FRESH_CLAIMED, FRESH_UNKNOWN, FRESH_STALE = "VERIFIED", "CLAIMED", "UNKNOWN", "KNOWN STALE"
+FRESHNESS_STATES = (FRESH_VERIFIED, FRESH_CLAIMED, FRESH_UNKNOWN, FRESH_STALE)
+URGENT_MAX_AGE_HOURS = 24      # 'urgent' is about what is happening now: an incident whose newest report is older than this is KNOWN STALE
+
+
+def report_freshness(m: Candidate, now: datetime | None) -> str:
+    """One report's freshness. Its best-known time (``published``: the stated time, else collection, which can only be LATER than the
+    true publication) older than URGENT_MAX_AGE_HOURS is KNOWN STALE whatever its provenance. Within the window: VERIFIED (trusted
+    publication time), CLAIMED (a parseable time whose provenance is claimed only) or UNKNOWN (no publication time, timed by collection)."""
+    # A DAY-precision date spans 24h, so it is stale only once the whole day is older than the window.
+    limit = URGENT_MAX_AGE_HOURS + (24 if m.day_precision else 0)
+    if now is not None and m.published and now - m.published > timedelta(hours=limit):
+        return FRESH_STALE
+    return FRESH_VERIFIED if m.time_verified else FRESH_CLAIMED if m.time_claimed else FRESH_UNKNOWN
+
+
+def incident_freshness(members: list[Candidate], now: datetime | None) -> str:
+    """The best freshness among an incident's reports; KNOWN STALE only when every report is stale (its newest report is older than the
+    window). Never 'confirmed current': only VERIFIED rests on a trusted publication time, and even that is a freshness label, not
+    a statement of service state (restoration status has its own live-evidence rule)."""
+    states = {report_freshness(m, now) for m in members if m.published}
+    for s in (FRESH_VERIFIED, FRESH_CLAIMED, FRESH_UNKNOWN):
+        if s in states:
+            return s
+    return FRESH_STALE if states else FRESH_UNKNOWN
+
+
+# A hazard warning is often stated only in the report's first summary sentence ("The weather bureau is warning of severe storms west of
+# Charleville") under a headline with no hazard term ("Storms to hit south-western Qld as heatwave lingers"). Everything else is still
+# read from the headline only; this narrow rule reads the summary's FIRST sentence for the hazard class alone, and only when that sentence
+# also says the hazard is being warned about or has struck, so a business story that merely mentions an earthquake is not a hazard report.
+_SUMMARY_HAZARD_EVENT_RX = re.compile(r"\b(?:warn(?:s|ed|ing|ings)?|alerts?|struck|strikes?|rattled|shaken|magnitude|damag\w+)\b", re.IGNORECASE)
+
+
+def _summary_first_sentence(event: dict) -> str:
+    summary = re.sub(r"<[^>]+>|&\w+;", " ", event.get("summary") or "").strip()
+    return re.split(r"(?<=[.!?])\s+", summary, maxsplit=1)[0] if summary else ""
+
+
+def _summary_hazard(event: dict) -> bool:
+    sentence = _summary_first_sentence(event)
+    return bool(sentence and _TYPE_RX["hazard"].search(sentence) and _SUMMARY_HAZARD_EVENT_RX.search(sentence))
+
+
+# "blackout" is also a restriction idiom (a central-bank or trading "blackout period", a media or news blackout). It names no power or
+# service failure, so it must not make a headline an outage candidate or link it to a real blackout (24 Nov preview: "Top Fed official
+# probed over whether she breached 'blackout period'" was grouped with five reports of the Eyre Peninsula power blackout and shown
+# as an ACTIVE alert-level incident).
+_NONOUTAGE_BLACKOUT = re.compile(r"\b(?:(?:trading|reporting|quiet|media|news|information|press|earnings|election)\s+blackouts?|blackouts?\s+(?:periods?|dates?|windows?|restrictions?|rules?))\b", re.IGNORECASE)
+
+
+def _neutralise_blackout_idioms(text: str) -> str:
+    return _NONOUTAGE_BLACKOUT.sub(" restriction ", text or "")
+
+
 def detect_candidate(event: dict) -> Candidate:
     title = event.get("title") or ""
-    text = title        # headline only: this is what every measurement was made on; summaries add unmeasured noise
+    text = _neutralise_blackout_idioms(title)        # headline only: this is what every measurement was made on; summaries add unmeasured noise
     types = tuple(k for k, rx in _TYPE_RX.items() if rx.search(text))
+    summary_hazard_warning = False
+    if "hazard" not in types and _summary_hazard(event):
+        types = types + ("hazard",)
+        summary_hazard_warning = True       # the headline states no consequence: a hazard read from the summary is a warning-class notice, never a stated outage
     sectors = tuple(k for k, rx in _SECTOR_RX.items() if rx.search(text))
     scale = bool(_SCALE_RX.search(text))
     actual = bool(_ACTUAL_RX.search(text))
@@ -324,7 +433,7 @@ def detect_candidate(event: dict) -> Candidate:
         status = "retrospective"                       # about a past event (named older date): not a stated live disruption, so never an escalation on its own
     elif hazardous and forward and not any(t in types for t in ("water_quality", "service_disruption")):
         status = "forecast"                            # a forecast is not a stated outage
-    elif "hazard" in types and bool(_WARN_RX.search(text)):
+    elif "hazard" in types and (bool(_WARN_RX.search(text)) or summary_hazard_warning):
         status = "warning"                             # an emergency warning is not a stated consequence
     elif conseq or exposure or safety or hazardous:
         status = "unconfirmed" if hedged else "stated"       # "likely accessed" is a report, not a statement of fact
@@ -333,6 +442,10 @@ def detect_candidate(event: dict) -> Candidate:
     src = event.get("source") or ""
     return Candidate(
         event_id=str(event.get("id")), title=title, source=src, published=_report_time(event),
+        time_verified=_time_verified(event) and _time_trusted(event), time_claimed=_time_verified(event) and not _time_trusted(event),
+        day_precision=event.get("published_at_precision") == "day" and event.get("published_at_confidence") in ("verified", "claimed")
+        and _time_verified(event),
+        provenance=_event_provenance(event),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,
@@ -545,7 +658,7 @@ def correlate(cands: list[Candidate]) -> list[Group]:
             if len(members) > 1 and _SYNDICATION_SUFFIX.search(m.title):
                 synd.append(m.event_id)         # a wire suffix marks a copy only when the group holds other reports of it
         original = [m for m in members if not m.commentary and m.event_id not in synd]
-        fams = {m.family for m in original if m.kind != we.AGGREGATOR or m.family != "aggregator"}
+        fams = {m.family for m in original if m.kind != we.AGGREGATOR}      # an aggregator re-post is never an independent publisher
         groups.append(Group(gid, members, plist, conf, len(fams), sorted(set(synd)),
                             [m.event_id for m in members if m.commentary]))
     return groups
@@ -629,7 +742,7 @@ def evidence_status(group: Group) -> tuple[str, list[str]]:
 # page counts: 'Supabase Status' reporting a Supabase disruption is a dependency report. Advisories (vulnerabilities) are
 # exempt: they are judged by exposure, not geography. A publisher's nationality is NOT operational relevance (see below).
 _AU_MARKER_RX = _rx((r"australia\w*", r"aussie\w*", r"nsw", r"new south wales", r"queensland\w*", r"tasmania\w*", r"victorian",
-                     r"canberra", r"asx", r"nbn", r"apra", r"acsc", r"aemo",
+                     r"canberra", r"asx", r"nbn", r"apra", r"acsc", r"aemo", r"northern territory", r"nt government",
                      r"ausgrid", r"electranet", r"endeavour energy", r"ergon", r"energex", r"essential energy", r"ausnet", r"powercor",
                      r"jemena", r"western power", r"sa power networks", r"tasnetworks", r"evoenergy",
                      r"telstra", r"optus", r"tpg", r"qantas", r"jetstar", r"virgin australia", r"westpac",
@@ -878,6 +991,9 @@ def decide(group: Group, *, now: datetime | None = None) -> Decision:
             if why.startswith("plausible dependency") and d.priority == "ESCALATE":
                 d.reasons.append("dependency only, no Australian impact evidence: capped at VERIFY")
                 d.priority, d.urgency, d.provisional = "VERIFY", "soon", True
+            elif why.startswith("plausible dependency") and d.priority == "VERIFY" and d.urgency == "immediate":
+                d.reasons.append("dependency only, no Australian impact evidence: ordinary verification, not urgent")
+                d.urgency = "soon"
         elif australian_editorial_relevance(group):
             d.reasons.append("Australian-audience outlet only: editorial relevance, Australian operational impact not established (capped at WATCH)")
             d.priority, d.urgency, d.provisional = "WATCH", "routine", False
@@ -934,8 +1050,10 @@ def _decide_core(group: Group, *, now: datetime | None = None) -> Decision:
             if provisional:
                 reasons.append("single credible report: provisional, follow-up verification required")
             return out("ESCALATE", "immediate", provisional)
+        # Captain's rule: high materiality + low confidence is a PROMINENT verification priority, so stricter corroboration never
+        # buries a potentially severe emerging incident (brief_evidence shows it under URGENT TO VERIFY).
         reasons.append("high operational materiality but weak evidence: verify before acting")
-        return out("VERIFY", "soon")
+        return out("VERIFY", "immediate")
     if status == "unconfirmed" and head.is_candidate and (tier in (1, 2) or head.compromise):
         # An unconfirmed incident with no stated operational consequence is VERIFY, whatever the sector or tier.
         return out("VERIFY", "soon")
@@ -967,17 +1085,14 @@ def _next_action(primary_type: str, impact_status: str, restoration: str) -> str
     if impact_status == "retrospective":
         return "read the cited review, inquiry or analysis and confirm its findings and any remedial actions with the operator or regulator (no live restoration action)"
     if primary_type == "outage":
-        if restoration == "ongoing":
+        if restoration in CURRENT_DISRUPTION:          # ongoing or partially restored: still a live disruption
             return "confirm the customer count, affected area and restoration estimate with the operator or regulator (primary source)"
         return ("confirm the disruption is current (operator status page or a dated primary statement); if it is not, treat the report as "
                 "historical and take no live restoration action")
     return _VERIFY_NEXT.get(primary_type, "confirm with an official source")
 
 
-# A report that says service is restored AND says some of it is not: 'restored to some customers but thousands without power',
-# 'partially restored', 'yet to be restored', 'not all restored'. It has no 'still' / 'continues' word, but it is not a restoration.
-_PARTIAL_RX = _rx((r"restored (?:to|for) (?:some|part|parts|a number)", r"partial(?:ly)? restor\w*", r"(?:yet|not yet) (?:to be )?restored",
-                   r"not all (?:\w+ ){0,3}restored", r"(?:but|although|while|however)\b[^.;]{0,60}\b(?:without|remain\w*|yet to|outstanding|still)"))
+# Partial / mixed restoration wording is classified by _PARTIAL_RESTORE_RX and _MIXED_RX beside _report_state() below.
 
 
 # ── Historical dated references ────────────────────────────────────────────────────────────────────────────
@@ -1045,60 +1160,102 @@ def _historic(m: Candidate) -> bool:
     return _historic_at(m.title, m.published)
 
 
+CUE_MAX_AGE_HOURS = 48     # a continuation cue ('continues', 'still' ...) is current evidence only in a report this recent
+FRESH_REPORT_HOURS = 12    # a stated, non-retrospective report this recent is current evidence that a disruption is live
+
+# The restoration status of an incident. Exhaustive: every consumer must handle all four.
+#   ongoing             live evidence of a continuing disruption (a continuation cue, an unresolved statement, or a fresh stated report)
+#                       in a report whose publication time is verified and recent
+#   partially_restored  a recent, time-verified report says service is only partly back ('partly restored', 'back for most'); still a
+#                       CURRENT disruption, never resolved
+#   restored            a report affirms full restoration with no continuation cue, partial wording, hedge or negation, live or stale
+#   unknown             current state cannot be established (stale cue, unverified report time, ambiguous reopen); never resolved
+RESTORATION_STATUSES = ("ongoing", "partially_restored", "restored", "unknown")
+CURRENT_DISRUPTION = frozenset({"ongoing", "partially_restored"})
+# Less resolved first: when reports at the same instant disagree, the first status present wins.
+_LEAST_RESOLVED_FIRST = ("ongoing", "partially_restored", "unknown", "restored")
+
+# Partial restoration: some service is back, some is not. Checked before (and excluded from) an affirmative full restoration.
+_PARTIAL_RESTORE_RX = _rx((r"(?:partial(?:ly)?|partly|mostly|largely)\s+(?:\w+\s+)?(?:restored|resolved|back(?: online)?|returned|resumed)",
+                           r"restored (?:to|for) (?:some|most|many|part|parts|a number)\b", r"back (?:for|to) (?:some|most|many)\b",
+                           r"not all (?:\w+ ){0,3}restored", r"being (?:\w+ ){0,2}restored",
+                           r"services? (?:returning|coming back|slowly returning|gradually returning|resuming)"))
+# An unresolved statement that is not a continuation word: a forecast, a negation ('yet to be restored', 'not restored') or a mixed
+# 'restored ... but thousands without power'. Like a continuation cue it is live evidence only in a recent, time-verified report.
+_MIXED_RX = _rx((r"(?:yet|not yet) (?:to be )?restored", r"(?:but|although|while|however)\b[^.;]{0,60}\b(?:without|remain\w*|yet to|outstanding|still)"))
+
+
+def _live(m: Candidate, now: datetime | None, hours: int = CUE_MAX_AGE_HOURS) -> bool:
+    """The report is current evidence: with a clock, its publication time is VERIFIED (not the collection-time fallback) and within
+    ``hours`` of ``now``. No clock keeps the previous behaviour (every report counts)."""
+    if now is None:
+        return True
+    return bool(m.time_verified and m.published and now - m.published <= timedelta(hours=hours))
+
+
+def _live_cue(m: Candidate, now: datetime | None) -> bool:
+    """An explicit continuation cue in the headline, in a report that is live (_live: verified time, within CUE_MAX_AGE_HOURS)."""
+    return _ongoing_cue(m.title) and _live(m, now)
+
+
 def _report_state(m: Candidate, now: datetime | None = None, active_default: bool = False) -> str | None:
-    """What one report says about service: 'restored' only if it says so and nothing in it is still ongoing or only partly
-    restored (a mixed 'power restored but thousands still without' is ongoing); None when it says neither."""
-    forecast = bool(_FORECAST_RESTORE_RX.search(m.title))
-    hedged_restore = bool(_HEDGED_RESTORE_RX.search(m.title))
-    negated = _negated_restore(m.title)
-    restored = _affirmative_restored(m.title) and not forecast and not hedged_restore      # only an affirmative, unhedged statement restores
-    cue = _ongoing_cue(m.title) or forecast or negated or (restored and bool(_PARTIAL_RX.search(m.title)))
+    """What one report says about service: 'ongoing', 'partially_restored', 'restored', 'unknown' (it speaks to current state but
+    cannot establish it: a stale or unverified-time continuation / partial statement), 'reopened' (a stated interruption after a
+    restoration that is no longer fresh) or None (it says nothing about restoration). 'restored' only for an affirmative, unhedged,
+    full restoration with no continuation cue, partial wording or negation: a stale cue can never leave the word 'restored' standing."""
+    t = m.title
+    forecast = bool(_FORECAST_RESTORE_RX.search(t))
+    partial = bool(_PARTIAL_RESTORE_RX.search(t))
+    unresolved = _ongoing_cue(t) or forecast or bool(_MIXED_RX.search(t)) or (_negated_restore(t) and not partial)
+    restored = (_affirmative_restored(t) and not forecast and not partial and not unresolved
+                and not _HEDGED_RESTORE_RX.search(t))
     if _historic(m):
-        # An old dated event: its continuation cue is not current evidence, but a negated or partial restoration ('yet to be
-        # restored') can never be read as a restoration either. No state at all unless it cleanly says restored.
-        return None if cue else ("restored" if restored else None)
-    if cue:
-        return "ongoing"
+        # An old dated event: no continuation or partial statement in it is current evidence, and none can read as restored.
+        return "restored" if restored else None
+    if unresolved:
+        return "ongoing" if _live(m, now) else "unknown"
+    if partial:
+        return "partially_restored" if _live(m, now) else "unknown"
     if active_default and not restored and m.ongoing and m.status == "stated":
         # A stated, still-active interruption with no explicit 'still' ('... without power again') reopens an earlier restoration. It is
-        # live evidence only while current; once it ages out it can no longer establish an outage, but it still INVALIDATES the earlier
-        # restoration, so the status becomes unknown rather than resurrecting 'restored'.
-        if now is None or (m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS)):
+        # live evidence only while fresh and time-verified; otherwise it still INVALIDATES the earlier restoration ('reopened' -> unknown).
+        if now is None or (_live(m, now, FRESH_REPORT_HOURS) and m.published <= now):
             return "ongoing"
         return "reopened"
     return "restored" if restored else None
 
 
-FRESH_REPORT_HOURS = 12       # a stated, non-retrospective report this recent is current evidence that a disruption is live
+def _least_resolved(states: set) -> str:
+    states = {"unknown" if s == "reopened" else s for s in states}
+    return next(s for s in _LEAST_RESOLVED_FIRST if s in states)
 
 
 def _restoration_status(originals: list[Candidate], now: datetime | None = None) -> str:
-    """#669: decide by report CHRONOLOGY. The latest dated report that states restored or ongoing wins, so an earlier 'still
-    without power' report no longer vetoes a later 'power restored' (and a later 'still ongoing' reopens an earlier
-    'restored'). Ties go to 'ongoing'. Reports without a date cannot be ordered, so with no dated statement the previous
-    any-report rule applies."""
+    """One of RESTORATION_STATUSES. #669/#674: decide by report CHRONOLOGY. The latest dated report that speaks to restoration wins, so
+    an earlier 'still without power' no longer vetoes a later 'power restored', a later 'still' or 'partly restored' reopens an earlier
+    'restored', and a later full restoration closes an earlier partial one. Reports at the same instant that disagree resolve to the
+    LESS resolved status (ongoing > partially_restored > unknown > restored). A latest report that cannot establish current state (stale
+    or unverified-time cue) gives 'unknown', never an earlier 'restored'. Reports without a date cannot be ordered, so with no dated
+    statement the any-report rule applies. 'ongoing' always needs live evidence: a verified report time within the window."""
     dated = sorted((m for m in originals if m.published), key=lambda m: m.published)
     for m in reversed(dated):
         latest = m.published
         states = {_report_state(x, now, active_default=True) for x in dated if x.published == latest} - {None}
         if states:
-            return "ongoing" if "ongoing" in states else "unknown" if "reopened" in states else "restored"
-    states = {_report_state(m) for m in originals}
-    if "ongoing" in states:                  # an explicit 'still' / 'partly restored' statement, whatever the report order
-        return "ongoing"
-    if "restored" in states:
-        return "restored"
+            return _least_resolved(states)
+    states = {_report_state(m, now) for m in originals} - {None}
+    if states - {"unknown"}:
+        return _least_resolved(states - {"unknown"})
     if now is None:                         # callers that do not say what time it is keep the previous rule
         return "ongoing" if any(m.ongoing and m.status == "stated" and not _historic(m) for m in originals) else "unknown"
-    # #669: "ongoing" needs CURRENT evidence: an explicit continuation cue (still / ongoing / continues ...) in a stated
-    # report, or a stated, non-retrospective report from the last FRESH_REPORT_HOURS. Retrospective reporting about a past
-    # event, or an old report with no continuation cue, is "unknown" rather than a live disruption.
+    # #669: "ongoing" needs CURRENT evidence: a live continuation cue in a stated report, or a stated, non-retrospective report from the
+    # last FRESH_REPORT_HOURS, in both cases with a VERIFIED publication time. Anything else is "unknown" rather than a live disruption.
     for m in originals:
         if m.status != "stated" or _historic(m):   # retrospective, unconfirmed, warning or a re-surfaced old dated event: not a live disruption
             continue
-        if _ongoing_cue(m.title):
+        if _live_cue(m, now):
             return "ongoing"
-        if m.ongoing and m.published and timedelta(0) <= now - m.published <= timedelta(hours=FRESH_REPORT_HOURS):
+        if m.ongoing and _live(m, now, FRESH_REPORT_HOURS) and m.published <= now:
             return "ongoing"
     return "unknown"
 

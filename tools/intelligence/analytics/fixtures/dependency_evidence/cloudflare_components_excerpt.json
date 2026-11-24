@@ -1,0 +1,6 @@
+{"components": [
+ {"id": "x1", "name": "Cloudflare Sites and Services", "description": "Sites and services that Cloudflare customers use to interact with the Cloudflare Network and its provided services", "group": true},
+ {"id": "x2", "name": "Cloud Connector", "description": "Cloud Connector allows you to route matching incoming traffic from your website to a public cloud provider that you define such as AWS, Google Cloud, and Azure."},
+ {"id": "x3", "name": "Secondary DNS", "description": "Secondary DNS capabilities allow for incoming as well as outgoing zone transfers between Cloudflare and other DNS providers."},
+ {"id": "x4", "name": "Workflows", "description": "Workflows is Cloudflare Durable Execution engine, that give the ability to build and execute applications that are durable in the face of errors, network issues, upstream API outages, rate limits, and (most importantly) infrastructure failure."}
+]}

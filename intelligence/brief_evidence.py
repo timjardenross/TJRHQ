@@ -26,6 +26,8 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 from intelligence import event_detection as ed
+from intelligence import freshness as fr
+from intelligence import provenance
 from intelligence import weekly_evidence as we
 
 MASTER_FLAG = "BRIEF_EVIDENCE_V1"
@@ -33,6 +35,8 @@ FLAGS = {"morning": "BRIEF_EVIDENCE_V1_MORNING", "weekly": "BRIEF_EVIDENCE_V1_WE
 SNAPSHOT_ENV = "BRIEF_EVIDENCE_SNAPSHOT_PATH"
 _TRUE = ("1", "true", "yes", "on")
 _ACTIONABLE = ("ESCALATE", "VERIFY", "WATCH")
+# ed.RESTORATION_STATUSES as shown to the reader; 'unknown' has no label because it is never stated as a fact.
+RESTORATION_LABEL = {"ongoing": "ongoing", "partially_restored": "partially restored", "restored": "restored"}
 STATUS_LABEL = {"officially_confirmed": "officially confirmed", "corroborated": "corroborated", "reported": "reported", "unverified": "unverified"}
 
 
@@ -63,6 +67,8 @@ class IncidentView:
     last_seen: datetime | None
     record: dict                    # ed.escalation_record()
     reasons: list[str] = field(default_factory=list)
+    urgent_verify: bool = False     # VERIFY + high materiality + immediate urgency + stated impact: potentially severe, not yet corroborated
+    freshness: str = ed.FRESH_UNKNOWN   # VERIFIED | CLAIMED | UNKNOWN | KNOWN STALE (ed.incident_freshness): publication-time trust, NOT service state
 
     @property
     def report_ids(self) -> list[str]:
@@ -85,6 +91,9 @@ def _incident_id(report_ids: list[str]) -> str:
     return "inc-" + hashlib.sha1("|".join(sorted(report_ids)).encode(), usedforsecurity=False).hexdigest()[:10]  # nosec B324 - identity hash, not security
 
 
+URGENT_MAX_AGE_HOURS = fr.BRIEF_FRESH_HOURS      # 'urgent' is about what is happening now: an incident whose newest report is older than this is never flagged (nor promoted in the weekly view)
+
+
 def build_evidence(events: list[dict], *, now: datetime | None = None, window_hours: int = 24) -> EvidenceSet:
     """events: dicts with id, title, source, geography, collected_at, optional url. Pure; no I/O."""
     now = now or datetime.now(timezone.utc)
@@ -100,8 +109,10 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             reports.append({"report_id": m.event_id, "publisher": m.family, "source_name": m.source, "source_kind": m.kind,
                             "title": m.title, "url": e.get("url"), "collected_at": e.get("collected_at"),
                             "published_at": m.published.isoformat() if m.published else None,
-                            "role": role, "geography": e.get("geography") or "", "summary": e.get("summary") or ""})
+                            "role": role, "geography": e.get("geography") or "", "summary": e.get("summary") or "",
+                            **({"provenance": m.provenance} if m.provenance else {})})
         times = [m.published for m in members if m.published]
+        freshness = ed.incident_freshness(members, now)
         incidents.append(IncidentView(
             incident_id=_incident_id([m.event_id for m in members]), headline=d.headline.title, priority=d.priority,
             materiality=d.materiality, sector_tier=d.sector_tier, event_type=d.event_type, impact_status=d.impact_status,
@@ -109,10 +120,39 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             evidence_confidence=d.evidence_confidence, independent_publishers=d.group.independent_publishers,
             provisional=d.provisional, grouping_confidence=d.group.grouping_confidence, reports=reports,
             first_seen=min(times) if times else None, last_seen=max(times) if times else None,
-            record=ed.escalation_record(d, now=now), reasons=list(d.reasons)))
+            record=ed.escalation_record(d, now=now), reasons=list(d.reasons),
+            freshness=freshness,
+            # Unverified (CLAIMED / UNKNOWN) times may feed URGENT TO VERIFY: a potentially severe emerging incident is surfaced for
+            # verification. KNOWN STALE (newest report older than URGENT_MAX_AGE_HOURS) never is.
+            urgent_verify=(d.priority == "VERIFY" and d.materiality == "high" and d.urgency == "immediate" and d.impact_status == "stated"
+                           and bool(times) and freshness != ed.FRESH_STALE)))
     order = {"ESCALATE": 0, "VERIFY": 1, "WATCH": 2, "REFERENCE": 3}
-    incidents.sort(key=lambda i: (order[i.priority], -(i.last_seen.timestamp() if i.last_seen else 0)))
+    incidents.sort(key=lambda i: (order[i.priority], not i.urgent_verify, -(i.last_seen.timestamp() if i.last_seen else 0)))
     return EvidenceSet(ed.METHOD_VERSION, now, window_hours, len(events), incidents)
+
+
+# Sources that publish only AFTER an outage is rectified (statutory registers). They are authoritative confirmation and restoration
+# evidence for analysis and the portal, never a live signal, so they are not incident seeds for the brief.
+_RETROSPECTIVE_SOURCE_MARKERS = ("outage register",)
+
+
+def is_retrospective_source(source) -> bool:
+    """True for a source that publishes only after an outage is rectified (statutory outage register). Shared guard so every
+    consumer (brief evidence, incident snapshot) treats these the same way."""
+    return any(m in (source or "").lower() for m in _RETROSPECTIVE_SOURCE_MARKERS)
+
+
+def _retrospective_import(source: str, published_at, now: datetime, hours: int) -> bool:
+    """True when a report is a historical import, not a recent development: it comes from a retrospective register, or its own
+    publication date is older than the evidence window (a newly activated or repaired source back-fills old publications, e.g.
+    ASIC releases from weeks ago, which keep their original dates but must not be shown as new). Reports with no usable publication
+    date are kept: absence of a date is not evidence of age."""
+    if is_retrospective_source(source):
+        return True
+    if not published_at:
+        return False
+    published = we._parse_ts(published_at)
+    return published is not None and now - published > timedelta(hours=hours)
 
 
 def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None = None) -> list[dict]:
@@ -123,15 +163,19 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
     try:
         rows = sb_get("intelligence_events",
                       f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE&order=collected_at.desc&limit={limit}"
-                      "&select=event_id,raw_title,raw_summary,geography,collected_at,published_at,canonical_url,intelligence_source_registry(source_name)")
+                      "&select=event_id,raw_title,raw_summary,geography,collected_at,published_at,canonical_url,intelligence_source_registry(source_name)"
+                      + provenance.select_columns())      # '' until INTEL_PROVENANCE_COLUMNS says the migration was applied
     except Exception:  # noqa: BLE001 - evidence layer is additive; the legacy brief must still render
         return []
     out = []
     for r in rows or []:
         reg = r.get("intelligence_source_registry") or {}
+        if _retrospective_import(reg.get("source_name") or "", r.get("published_at"), now, hours):
+            continue
         out.append({"id": str(r.get("event_id")), "title": r.get("raw_title") or "", "summary": r.get("raw_summary") or "",
                     "source": reg.get("source_name") or "", "geography": r.get("geography") or "",
-                    "collected_at": r.get("collected_at"), "published_at": r.get("published_at"), "url": r.get("canonical_url")})
+                    "collected_at": r.get("collected_at"), "published_at": r.get("published_at"), "url": r.get("canonical_url"),
+                    **provenance.event_provenance_fields(r)})
     return out
 
 
@@ -218,8 +262,8 @@ def _facts(i: IncidentView) -> str:
         bits.append(r["impact"])
     if r.get("affected_customers"):
         bits.append(f"{r['affected_customers']:,} customers")
-    if r.get("restoration_status") != "unknown":
-        bits.append(r["restoration_status"])
+    if r.get("restoration_status") in RESTORATION_LABEL:     # 'unknown' (current state not established) is not stated as a fact
+        bits.append(RESTORATION_LABEL[r["restoration_status"]])
     if r.get("duration"):
         bits.append(r["duration"])
     return ", ".join(bits)
@@ -313,8 +357,13 @@ def _impact_open(i: IncidentView) -> bool:
     return i.evidence_status != "unverified" and i.impact_status in ("unconfirmed", "potential", "none")
 
 
+def _confidence_words(c: float) -> str:
+    """Plain words for evidence confidence; the raw score stays in the evidence data, not on the page."""
+    return "high confidence" if c >= 0.75 else "moderate confidence" if c >= 0.5 else "low confidence"
+
+
 def _line(i: IncidentView, with_action: bool = False) -> str:
-    s = f"- [{_tag(i)}] {i.headline} — {_facts(i)}; confidence {i.evidence_confidence:.2f} {_cite(i)}"
+    s = f"- [{_tag(i)}] {i.headline} — {_facts(i)}; {_confidence_words(i.evidence_confidence)} {_cite(i)}"
     if with_action:
         s += f"\n    next: {i.record['next_verification_action']}"
     return s
@@ -348,14 +397,44 @@ def _fw_credible(i: IncidentView) -> bool:
     return not (i.evidence_status == "unverified" and kinds <= {we.AGGREGATOR})
 
 
+def _unverified_why(i: IncidentView) -> str:
+    """Why a potentially severe incident is not yet treated as fact, in plain words."""
+    originals = [r for r in i.reports if r["role"] == "original"] or [r for r in i.reports if r["role"] != "commentary"]
+    if originals and all(r["source_kind"] == we.AGGREGATOR for r in originals):
+        named = sorted({r["publisher"] for r in originals if r["publisher"] != "aggregator"})
+        return "seen only via aggregators" + (f" (naming {', '.join(named)})" if named else "") + "; no direct report from a publisher yet"
+    if len(originals) == 1:
+        return "single report from a source not rated credible; no second independent source yet"
+    return "no primary, mainstream or specialist source yet"
+
+
+def _time_basis_words(i: IncidentView) -> str:
+    """Plain statement of how far the publication time can be trusted. Empty for VERIFIED (nothing to caveat). Never claims currency."""
+    if i.freshness == ed.FRESH_CLAIMED:
+        return "publication time only claimed (e.g. aggregator date), not verified as current"
+    if i.freshness == ed.FRESH_UNKNOWN:
+        return "publication time unknown (timed by when we collected it), not verified as current"
+    return ""
+
+
+def _urgent_verify_lines(urgent: list[IncidentView]) -> list[str]:
+    """High materiality + weak evidence: a prominent verification priority (Captain's rule). Nothing at all when there is none."""
+    if not urgent:
+        return []
+    return (["URGENT TO VERIFY (potentially severe, not yet corroborated)"]
+            + [f"- {i.headline} — reported: {_facts(i)}; unverified: {_unverified_why(i)}{('; ' + _time_basis_words(i)) if _time_basis_words(i) else ''}; next: {i.record['next_verification_action']} {_cite(i)}"
+               for i in urgent[:6]] + [""])
+
+
 def morning_view(ev: EvidenceSet) -> list[str]:
-    recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - timedelta(hours=24)]
+    recent = [i for i in ev.incidents if i.last_seen and i.last_seen >= ev.generated_at - fr.brief_window()]
     editorial = [i for i in recent if i.impact_status not in ("warning", "forecast") and _editorial_only(i)]
     active = [i for i in recent if i.impact_status not in ("warning", "forecast") and i not in editorial]
     firm = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated"
             and i.evidence_status in ("officially_confirmed", "corroborated")]
     single = [i for i in active if i.priority in ("ESCALATE", "WATCH") and i.impact_status == "stated" and i.evidence_status == "reported"]
-    verify = [i for i in active if i.priority == "VERIFY" or (i.priority in ("ESCALATE", "WATCH") and i not in firm and i not in single)]
+    urgent = [i for i in active if i.urgent_verify]       # shown once, in its own prominent section
+    verify = [i for i in active if i not in urgent and (i.priority == "VERIFY" or (i.priority in ("ESCALATE", "WATCH") and i not in firm and i not in single))]
     notices = [i for i in recent if i.impact_status in ("warning", "forecast") and i.priority in _ACTIONABLE]
     # Section choice uses SOURCE QUALITY as well as evidence status: only an incident with an original report from a primary, mainstream
     # or specialist source is an 'impact not yet established' / exposure / retrospective question; the rest is a source question.
@@ -367,7 +446,8 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     impact_open = [i for i in credible if i.impact_status != "retrospective" and i.event_type != "vulnerability"]
     exposure = [i for i in credible if i.impact_status != "retrospective" and i.event_type == "vulnerability"]
     # Only CURRENT evidence counts as a current disruption: an incident whose restoration status is unknown (current status not
-    # established, e.g. a historic outage still being written about) is listed but not counted.
+    # established, e.g. a historic outage still being written about, a stale cue or an unverified report time) is listed but not
+    # counted. A partially restored incident is still a current disruption and is counted with ongoing ones.
     firm_n = [i for i in firm if i.record["restoration_status"] != "unknown"]
     single_n = [i for i in single if i.record["restoration_status"] != "unknown"]
     stale_n = len(firm) + len(single) - len(firm_n) - len(single_n)
@@ -375,7 +455,13 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines = []
     if not recent:
         lines.append("⚠️ EVIDENCE COVERAGE INSUFFICIENT: no reports collected in the last 24 hours; nothing below should be read as all quiet.")
-    lines += ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
+    if not recent:
+        based = f"Based on reports from the last {ev.window_hours} hours; none were collected in the last 24 hours, so this is not a current picture."
+    elif ev.window_hours > 24:
+        based = f"Based on reports from the last {ev.window_hours} hours (newest within 24 hours)."
+    else:
+        based = f"Based on reports from the last {ev.window_hours} hours."
+    lines += ["🛰 EVIDENCE-BASED PICTURE", based, ""]
     if not recent:
         lines.append("Operational situation: evidence coverage is insufficient (no recent reports), so no judgement about current disruption can be made.")
     elif firm_n or single_n:
@@ -385,32 +471,39 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     if notices or exposure:
         lines.append("Credible warnings and emerging exposures are listed separately below; they are not current disruptions and no operational consequence is inferred from them.")
     lines.append("")
+    lines += _urgent_verify_lines(urgent)
     lines.append("What matters today — OFFICIALLY CONFIRMED or CORROBORATED incidents")
     lines += [_line(i, True) for i in firm[:6]] or ["- None officially confirmed or corroborated in the last 24 hours."]
-    lines += ["", "REPORTED by one source (provisional until a second or primary source)"]
-    lines += [_line(i, True) for i in single[:6]] or ["- None."]
-    lines += ["", "IMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)"]
-    lines += [_line(i, True) for i in impact_open[:6]] or ["- None."]
-    lines += ["", "RETROSPECTIVE REPORTS (about past events; not live disruptions)"]
-    lines += [_line(i, True) for i in retro_open[:6]] or ["- None."]
-    lines += ["", "SOURCE NOT YET VERIFIED (hedged, aggregator-only, low-quality source, editorial relevance only or weakly evidenced; not treated as fact)"]
-    lines += [_line(i, True) for i in source_open[:6]] or ["- None."]
-    lines += ["", "WARNINGS AND FORECASTS (not confirmed incidents)"]
-    lines += [_line(i) for i in notices[:6]] or ["- No active warning or forecast notice."]
-    lines += ["", "EMERGING EXPOSURE (credible advisories and risks; no confirmed current disruption; nothing here states an operational consequence)"]
-    lines += [_line(i, True) for i in exposure[:6]] or ["- None."]
-    lines += ["", "Operational implications (only what the cited reports state)"]
     imp = [f"- {'tier ' + str(i.sector_tier) if i.sector_tier else 'unclassified sector'}: "
            f"{', '.join(i.record['critical_service_dependencies']) or 'no recognised service'} — {_facts(i)} {_cite(i)}"
            for i in firm[:4] + single[:2]]
-    lines += imp or ["- No operational implication is supported by corroborated reports today."]
-    lines += ["", "Forward watch, next 24–72 hours"]
-    fw = [f"- Ongoing: {i.headline} (restoration {i.record['restoration_status']}) {_cite(i)}"
-          for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
+    fw = [f"- {RESTORATION_LABEL[i.record['restoration_status']].capitalize()}: {i.headline} "
+          f"(restoration {RESTORATION_LABEL[i.record['restoration_status']]}) {_cite(i)}"
+          for i in active if i.record["restoration_status"] in ed.CURRENT_DISRUPTION and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
     fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev) if i not in notices and _fw_credible(i)][:3]
     fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']} {_cite(i)}" for i in [x for x in impact_open + exposure + source_open if _fw_credible(x)][:2]]
-    lines += fw or ["- No ongoing incident, warning or dated notice to watch."]
+    # Sections with nothing to show are collapsed into ONE line instead of a heading and a 'None' each; sections with content keep their heading.
+    sections = [
+        ("REPORTED by one source (provisional until a second or primary source)", "reported by one source", [_line(i, True) for i in single[:6]]),
+        ("IMPACT NOT YET ESTABLISHED (credible source; effect on service not yet shown)", "impact not yet established", [_line(i, True) for i in impact_open[:6]]),
+        ("RETROSPECTIVE REPORTS (about past events; not live disruptions)", "retrospective reports", [_line(i, True) for i in retro_open[:6]]),
+        ("SOURCE NOT YET VERIFIED (hedged, aggregator-only, low-quality source, editorial relevance only or weakly evidenced; not treated as fact)",
+         "source not yet verified", [_line(i, True) for i in source_open[:6]]),
+        ("WARNINGS AND FORECASTS (not confirmed incidents)", "warnings and forecasts", [_line(i) for i in notices[:6]]),
+        ("EMERGING EXPOSURE (credible advisories and risks; no confirmed current disruption; nothing here states an operational consequence)",
+         "emerging exposure", [_line(i, True) for i in exposure[:6]]),
+        ("Operational implications (only what the cited reports state)", "operational implications", imp),
+        ("Forward watch, next 24–72 hours", "forward watch", fw),
+    ]
+    empty = []
+    for heading, short, body in sections:
+        if body:
+            lines += ["", heading] + body
+        else:
+            empty.append(short)
+    if empty:
+        lines += ["", "Nothing to report in: " + "; ".join(empty) + "."]
     lines += worth_knowing_lines(ev)
     return lines
 
@@ -445,8 +538,8 @@ _WK_AU_RX = re.compile(r"\baustralia(?:n|ns)?\b|\bsydney\b|\bmelbourne\b|\bbrisb
 # Editorial quality: promotional, list, awards, how-to, opinion and speculative-question headlines do not qualify as intelligence.
 _WK_LOW_QUALITY_RX = re.compile(r"\b(?:how to|best|top \d+|\d+ (?:ways|things|tips)|reviews?|sponsored|webinar|podcast|opinion|fast 50|awards?|ranked|ranking|"
                                 r"hiring|jobs?|(?:best|top|black friday|cyber monday) deals?|giveaway|quiz|sale|discount|coupon)\b|^(?:could|should|why|what|how|is|are|will|can|does|do)\b|\?\s*(?:-\s.*)?$", re.IGNORECASE)
-# Company results and funding news is business reporting, not technology intelligence (checked against headline and summary).
-_WK_CORPORATE_RX = re.compile(r"\b(?:revenue|year[- ]on[- ]year|yoy|(?<!non-)(?<!non )(?<!for-)(?<!for )profits?|earnings|funding round|series [a-d]|ipo|share price|market cap)\b", re.IGNORECASE)
+# Company results, funding and share-market movement are business reporting, not technology intelligence (checked against headline and summary).
+_WK_CORPORATE_RX = re.compile(r"\b(?:revenue|year[- ]on[- ]year|yoy|(?<!non-)(?<!non )(?<!for-)(?<!for )profits?|earnings|funding round|series [a-d]|ipo|share price|market cap|chip stocks?|semiconductor(?:-related)? stocks?|stocks? (?:set to|poised to|rally|rall(?:y|ies)|jump|fall|slump|rebound|bounce)|(?:set to|poised to) (?:jump|climb|rally))\b", re.IGNORECASE)
 _WK_CREDIBLE_KINDS = (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST)
 _WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported": 1}
 # An aggregator feed item whose trailing ' - Outlet' names a primary or specialist publisher is attributable reporting by that outlet
@@ -711,7 +804,8 @@ def _patterns(ev: EvidenceSet) -> dict[str, list[IncidentView]]:
 
 
 def snapshot_payload(ev: EvidenceSet) -> dict:
-    """The compact record stored for next week's comparison: identities by report id (incident ids change as reports join), not copies of articles."""
+    """The compact record stored for next week's comparison: identities by report id (incident ids change as reports join), not copies of articles.
+    ``restoration_status`` is stored as one of ed.RESTORATION_STATUSES (older snapshots hold only ongoing / restored / unknown)."""
     return {"date": ev.generated_at.date().isoformat(), "kind": "weekly_evidence_incidents", "method_version": ev.method_version,
             "incidents": [{"incident_id": i.incident_id, "report_ids": i.report_ids, "headline": i.headline, "priority": i.priority,
                            "materiality": i.materiality, "evidence_status": i.evidence_status,
@@ -720,7 +814,9 @@ def snapshot_payload(ev: EvidenceSet) -> dict:
 
 
 def compare_snapshots(prev: dict, ev: EvidenceSet) -> dict:
-    """New / continuing / materially changed / resolved / no-longer-reported incidents and newly emerging patterns, matched by report-id overlap."""
+    """New / continuing / materially changed / resolved / no-longer-reported incidents and newly emerging patterns, matched by report-id overlap.
+    RESOLVED only when the incident is now 'restored' (and was not before): 'partially_restored' is still a current disruption and
+    'unknown' is not a resolution."""
     prev_by_report = {rid: p for p in prev["incidents"] for rid in p["report_ids"]}
     cur = [i for i in ev.incidents if i.priority in _ACTIONABLE]
     out = {"new": [], "continuing": [], "changed": [], "resolved": [], "no_longer_reported": [], "emerging_patterns": []}

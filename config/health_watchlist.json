@@ -1,0 +1,46 @@
+{
+ "_note": "Health lane watchlist (Morning brief, flag BRIEF_HEALTH_V1_MORNING, default OFF). Each condition lists case-insensitive regex 'terms' matched against a signal's title and description. Edit this file to change what is watched; no code change is needed. Prefer phrases over ambiguous single words. A signal flagged for safety (safety_relevance, fda_flagged) is always shown, whether or not it matches a term. 'exclude_title' phrases drop animal studies (matched against the title only).",
+ "conditions": {
+  "Neurodivergence": {
+   "terms": [
+    "\\bADHD\\b",
+    "attention[- ]deficit",
+    "\\bautis(?:m|tic)\\b",
+    "\\bAuDHD\\b",
+    "\\bneurodiver\\w*",
+    "executive function",
+    "sensory processing",
+    "autistic masking",
+    "camouflaging",
+    "\\bmasking\\b.{0,40}\\b(?:autis\\w*|ADHD|neurodiver\\w*)\\b"
+   ]
+  },
+  "Chronic pain": {
+   "terms": [
+    "fibromyalgia",
+    "chronic pain",
+    "neuropathic pain",
+    "persistent pain",
+    "central sensitis\\w+"
+   ]
+  },
+  "Sleep": {
+   "terms": [
+    "sleep apn(?:o)?ea",
+    "\\bCPAP\\b",
+    "obstructive sleep",
+    "insomnia"
+   ]
+  },
+  "Burnout & recovery": {
+   "terms": [
+    "\\bburn-?out\\b",
+    "occupational stress",
+    "work-related stress"
+   ]
+  }
+ },
+ "exclude_title": [
+  "\\b(?:dogs?|canine|cats?|feline|horses?|equine|cattle|mice|mouse|murine|rats?|rodents?|zebrafish|veterinary)\\b"
+ ]
+}

@@ -16,8 +16,8 @@ SOURCE_H = "SOURCE NOT YET VERIFIED"
 
 
 def ev(i, title, source, age=3, geo="AU"):
-    return {"id": i, "title": title, "source": source, "geography": geo, "summary": "",
-            "collected_at": (NOW - timedelta(hours=age)).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    t = (NOW - timedelta(hours=age)).strftime("%Y-%m-%dT%H:%M:%SZ")     # #692: published time = verified report time
+    return {"id": i, "title": title, "source": source, "geography": geo, "summary": "", "collected_at": t, "published_at": t}
 
 
 def view(events, **override):
@@ -31,16 +31,23 @@ def view(events, **override):
 RETRO_H = "RETROSPECTIVE REPORTS"
 
 
+def section(text, heading):
+    """Body of the section whose heading starts with `heading`, or '' when the section is empty (empty sections are collapsed into the single
+    'Nothing to report in: ...' line, so their heading is absent)."""
+    import re
+    m = re.search(r"(?m)^" + re.escape(heading), text)          # a heading starts a line (the same words also appear inside item tags)
+    if not m:
+        return ""
+    end = text.find("\n\n", m.start())
+    return text[m.start():end if end != -1 else len(text)]
+
+
 def sections(text):
-    a = text.index(IMPACT_H)
-    r = text.index(RETRO_H)
-    b = text.index(SOURCE_H)
-    c = text.index("WARNINGS AND FORECASTS")
-    return text[a:r], text[b:c]
+    return section(text, IMPACT_H), section(text, SOURCE_H)
 
 
 def retro_section(text):
-    return text[text.index(RETRO_H):text.index(SOURCE_H)]
+    return section(text, RETRO_H)
 
 
 COLES = "Coles Group investigating a cyber incident"
@@ -73,10 +80,13 @@ def test_a_stated_impact_from_a_credible_source_carries_neither_warning():
     assert "IMPACT NOT YET ESTABLISHED" not in tag and "SOURCE UNVERIFIED" not in tag
 
 
-def test_headings_always_appear_and_empty_sections_say_none():
+def test_empty_sections_are_collapsed_into_one_line_not_a_heading_and_none_each():
     _, text = view([ev("a", "Power outage hits 20,000 customers in SA", "ABC News")])
     impact, source = sections(text)
-    assert "- None." in impact and "- None." in source
+    assert impact == "" and source == ""                              # no empty heading and no '- None.' filler
+    assert "- None." not in text
+    nothing = next(l for l in text.splitlines() if l.startswith("Nothing to report in:"))
+    assert "impact not yet established" in nothing and "source not yet verified" in nothing
 
 
 def test_the_old_blended_heading_is_gone():
@@ -117,11 +127,12 @@ def test_an_unverified_retrospective_report_is_a_source_question():
     assert "Optus" in source and "retrospective report" in source
 
 
-def test_every_section_heading_is_present_and_empty_ones_say_none():
-    _, text = view([ev("a", "Power outage hits 20,000 customers in SA", "ABC News")])
-    for h in (IMPACT_H, RETRO_H, SOURCE_H):
-        assert h in text
-    assert retro_section(text).strip().endswith("- None.")
+def test_a_section_with_content_keeps_its_heading_and_only_empty_ones_are_collapsed():
+    _, text = view([ev("a", COLES, "ABC News")])
+    assert IMPACT_H in text and "Coles Group" in section(text, IMPACT_H)        # has content: heading kept
+    nothing = next(l for l in text.splitlines() if l.startswith("Nothing to report in:"))
+    assert "retrospective reports" in nothing and "impact not yet established" not in nothing
+    assert RETRO_H not in text.replace(nothing, "")
 
 
 # ── Operational situation versus emerging exposure ──────────────────────────────────────────────────────────
@@ -134,7 +145,7 @@ def test_the_brief_states_the_operational_situation_and_separates_emerging_expos
     assert "Operational situation: no confirmed, corroborated or single-source reported current disruption" in text
     assert "emerging exposures are listed separately" in text and "no operational consequence is inferred" in text
     assert "EMERGING EXPOSURE" in text
-    exposure = text[text.index("EMERGING EXPOSURE"):text.index("Operational implications")]
+    exposure = section(text, "EMERGING EXPOSURE")
     assert CISA in exposure
     assert CISA not in sections(text)[0]                       # a vulnerability advisory is not an unestablished service impact
 
@@ -144,7 +155,8 @@ def test_the_situation_line_counts_real_disruptions_and_does_not_invent_any():
                     ev("b", "Telstra mobile outage leaves thousands unable to call, company confirms", "Telstra Exchange")])
     assert "Operational situation: 1 confirmed or corroborated" in text or "Operational situation: 0 confirmed or corroborated and 1" in text
     _, quiet = view([ev("a", CISA, "CISA Alerts")])
-    assert "Operational implications (only what the cited reports state)\n- No operational implication" in quiet
+    nothing = next(l for l in quiet.splitlines() if l.startswith("Nothing to report in:"))
+    assert "operational implications" in nothing and "Operational implications (only what" not in quiet       # collapsed, not invented
 
 
 def test_a_quiet_day_with_no_exposure_has_no_exposure_sentence():
@@ -159,12 +171,12 @@ MS13 = "Microsoft's Friday 13th outage continues with fraud and employee risk wa
 
 
 def forward(text):
-    return text[text.index("Forward watch"):text.index("WORTH KNOWING")] if "WORTH KNOWING" in text else text[text.index("Forward watch"):]
+    return section(text, "Forward watch")
 
 
 def test_a_stale_aggregator_only_report_stays_visible_but_is_not_carried_into_forward_watch():
     _, text = view([ev("a", MS13, AGG, age=5.4)])
-    assert MS13 in text[text.index(SOURCE_H):text.index("WARNINGS AND FORECASTS")]      # still shown, labelled source-not-verified
+    assert MS13 in section(text, SOURCE_H)      # still shown, labelled source-not-verified
     assert "Microsoft's Friday 13th" not in forward(text)                                # but not a 24-72h watch item
 
 
@@ -226,9 +238,9 @@ def test_editorial_relevance_only_is_tagged_and_not_counted_or_listed_as_matters
     text = "\n".join(be.morning_view(es))
     line = next(l for l in text.splitlines() if l.startswith("Operational situation:"))
     assert "no confirmed" in line
-    matters = text[text.index("What matters today"):text.index(IMPACT_H)]
+    matters = section(text, "What matters today")
     assert "20,000" not in matters
-    assert "20,000" in text[text.index(SOURCE_H):text.index("WARNINGS AND FORECASTS")]
+    assert "20,000" in section(text, SOURCE_H)
 
 
 LONDON = "Power outage leaves 20,000 customers in London without electricity"
@@ -243,7 +255,7 @@ def test_london_outage_from_an_australian_outlet_is_editorial_only_without_injec
     text = "\n".join(be.morning_view(es))
     line = next(l for l in text.splitlines() if l.startswith("Operational situation:"))
     assert "no confirmed" in line
-    assert "20,000" not in text[text.index("What matters today"):text.index(IMPACT_H)]
+    assert "20,000" not in section(text, "What matters today")
 
 
 def test_an_au_geography_incident_is_not_editorial_only():
@@ -296,7 +308,7 @@ def _classify(title, source, geo="GB"):
     inc = es.incidents[0]
     text = "\n".join(be.morning_view(es))
     sit = next(l for l in text.splitlines() if l.startswith("Operational situation:"))
-    fw = text[text.index("Forward watch"):]
+    fw = section(text, "Forward watch")
     return inc, be._editorial_only(inc), be._tag(inc), sit, fw, inc.priority
 
 

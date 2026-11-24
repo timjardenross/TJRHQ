@@ -16,6 +16,7 @@ All rules are keyword-based against title + summary text.
 Rules are additive: later rules can increase scores, not decrease them.
 """
 
+import os
 import re
 
 from intelligence.classification.deduplicator import compute_hash
@@ -220,6 +221,21 @@ _GEOGRAPHY_AU = [
     "vic", "nsw", "qld", "sa", "wa", "tas", "nt",
 ]
 
+# Australian institutions and operators whose names carry no Australian marker word. Demonstrated defect (24 Nov): 'NAB customers
+# experiencing phone and internet banking outages', 'Coles Group investigating a cyber incident', 'Woolworths apologises after customers
+# report drained gift card balances', 'Qantas ...', 'TPG Telecom ...', 'Commonwealth Bank ...' were all stored as geography=GLOBAL, so the
+# ranker gave them the lowest geography weight. <=4-char names need a whole-word match (see classify()); longer names match as substrings.
+_GEOGRAPHY_AU_ENTITIES = [
+    "commonwealth bank", "commbank", "westpac", "anz", "cba", "national australia bank", "macquarie bank", "macquarie group", "suncorp",
+    "bendigo bank", "bank of queensland", "bankwest", "st.george bank", "amp bank",
+    "vocus", "aussie broadband", "vodafone australia", "tpg telecom", "tpg", "superloop", "singtel optus",
+    "services australia", "mygov", "centrelink", "ato", "australia post", "auspost", "qantas", "virgin australia", "jetstar",
+    "woolworths", "coles", "ausgrid", "endeavour energy", "western power", "powercor", "jemena", "ausnet", "energyaustralia", "origin energy",
+    "agl", "asx", "auspaynet", "eftpos", "bpay", "pexa", "equifax australia",
+]
+# 'NAB' is also an English verb ('police nab suspect'): only the upper-case token counts.
+_NAB_UPPER = re.compile(r"\bNAB\b")
+
 _GEOGRAPHY_APAC = [
     "asia pacific", "apac", "singapore", "new zealand", "hong kong", "japan",
     "china", "india", "south korea", "indonesia", "malaysia", "philippines",
@@ -295,6 +311,38 @@ _CATEGORY_RELEVANCE = {
 }
 
 
+# ─── AU relevance gate (default OFF) ──────────────────────────────────────────
+# Measured 2026-11-24 (30 days): 475 events scored operational_relevance >= 0.85, 301 of them geography=AU, and 183 of those 301 are
+# event_type=regulatory (base 0.70 + the 0.15 AU lift = exactly 0.85) - political news, APRA/ASIC statistics, speeches, IT-channel partner
+# news. The AU lift rewards mentioning an Australian institution, not an operational disruption. With the flag on, HIGH relevance (>= 0.85)
+# requires a stated disruption/consequence signal in the text; without one the score is capped at AU_GATE_CAP (below HIGH). Read at call time.
+AU_GATE_FLAG = "AU_RELEVANCE_DISRUPTION_GATE_V1"
+AU_GATE_CAP = 0.80
+HIGH_RELEVANCE = 0.85
+# Only \b, alternation, \s, \w and ? are used so the same pattern runs unchanged in PostgreSQL (\b -> \y) for A/B measurement.
+DISRUPTION_SIGNAL_PATTERN = (
+    r"\b(?:outages?|disrupt\w*|offline|unavailable|interruptions?|blackouts?|power cuts?|without power|knocked out|grounded|cancell?ed|cancell?ations|"
+    r"(?:went|goes|is|are|was|were|been|still|remain\w*) down|systems? down|unable to|cannot (?:access|log|use|connect)|can't (?:access|log|use|connect)|"
+    r"locked out|degraded|failures?|failed|crash\w*|evacuat\w*|floods?|flooding|flooded|bushfires?|cyclones?|heatwaves?|storms?|"
+    r"ransomware|data breach|breach\w*|hack\w*|infiltrat\w*|intrusions?|cyber ?attacks?|cyber incidents?|compromised|stolen|leaked|exploited|actively exploited|zero-day|"
+    r"affected customers|customers affected|impacted customers|customers impacted|emergency warnings?|"
+    r"wildfires?|fire warnings?|fire emergency|emergency fire|fire danger|shelter in place|shelter indoors|"
+    r"vulnerabilit(?:y|ies)|critical (?:flaws?|bugs?)|remote code execution|rce|"
+    r"(?:attack|attacked)s? (?:on|against))\b"
+)
+_DISRUPTION_SIGNAL_RX = re.compile(DISRUPTION_SIGNAL_PATTERN, re.IGNORECASE)
+
+
+def au_gate_enabled() -> bool:
+    return os.getenv(AU_GATE_FLAG, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def has_disruption_signal(text: str) -> bool:
+    """True when the text states an operational disruption or consequence (outage, offline, breach, evacuation ...), as opposed to
+    merely naming an institution, a regulator, a policy or a statistic."""
+    return bool(_DISRUPTION_SIGNAL_RX.search(text or ""))
+
+
 _CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 
 
@@ -360,7 +408,14 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         1 for kw in _GEOGRAPHY_APAC
         if (kw in words if len(kw) <= 4 else kw in text)
     )
-    if au_hits > 0:
+    entity_text = text.replace("south africa", " ")          # South African Woolworths/Coles-named items are not Australian
+    entity_hits = sum(
+        1 for kw in _GEOGRAPHY_AU_ENTITIES
+        if (kw in words if len(kw) <= 4 else kw in entity_text)
+    )
+    if "south africa" in text:
+        entity_hits -= int("woolworths" in text)
+    if au_hits > 0 or entity_hits > 0 or _NAB_UPPER.search(f"{item.raw_title or ''} {item.raw_summary or ''}"):
         geography = "AU"
     elif apac_hits > 0:
         geography = "APAC"
@@ -378,6 +433,8 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         op_rel = min(1.0, op_rel + 0.15)
     if any(kw in text for kw in _HIGH_IMPACT_KEYWORDS):
         op_rel = min(1.0, op_rel + 0.20)
+    if au_gate_enabled() and op_rel >= HIGH_RELEVANCE and not has_disruption_signal(text):
+        op_rel = min(op_rel, AU_GATE_CAP)       # HIGH needs a stated disruption/consequence, not an AU institution mention alone
 
     # ── Customer impact ───────────────────────────────────────────────────────
     if any(kw in text for kw in _HIGH_IMPACT_KEYWORDS):
@@ -475,6 +532,7 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         dependency_risk=dependency_risk,
         confidence=confidence,
         affected_cves=affected_cves,
+        provenance=getattr(item, "provenance", None),
     )
 
 

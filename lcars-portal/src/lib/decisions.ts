@@ -24,6 +24,7 @@
 
 import { fetchEngineeringQueue, setQueueItemStatus, type QueueItem } from '@/lib/engineering-queue';
 import type { ApprovalQueueItem } from '@/components/ApprovalQueue';
+import { toDecisionItem, type IncidentDecisionItem, type IncidentRow } from '@/lib/incidents';
 
 export type DecisionSource = 'engineering' | 'intelligence';
 
@@ -103,16 +104,32 @@ async function fetchIntelligenceDecisions(): Promise<IntelligenceDecisionItem[]>
   }
 }
 
+/** Alert-level incidents and material exceptions (INCIDENT_VIEW_V1, default OFF: the API answers enabled:false, so this is []). Read-only
+ * "verify" items linking to the Intelligence page: no governed acknowledge write path exists for an incident and none is invented here.
+ * id 'inc:<incident_key>' is the shared dedupe key with Telegram and Home. */
+export async function fetchIncidentDecisions(): Promise<IncidentDecisionItem[]> {
+  try {
+    const resp = await fetch('/api/intelligence-workbench/incidents?scope=attention');
+    if (!resp.ok) return [];
+    const doc = (await resp.json()) as { enabled?: boolean; incidents?: IncidentRow[] };
+    return doc.enabled ? (doc.incidents ?? []).map(toDecisionItem) : [];
+  } catch {
+    return [];
+  }
+}
+
 export interface DecisionsInboxData {
   actionable: DecisionItem[]; // sorted, highest priorityRank first
   intelligence: IntelligenceDecisionItem[]; // real, currently expected empty (see header)
-  counts: { engineering: number; intelligence: number };
+  incidents: IncidentDecisionItem[]; // alert-level incidents / material exceptions to verify (flag-gated)
+  counts: { engineering: number; intelligence: number; incidents: number };
 }
 
 export async function fetchDecisionsInbox(): Promise<DecisionsInboxData> {
-  const [engineering, intelligenceRaw] = await Promise.all([
+  const [engineering, intelligenceRaw, incidents] = await Promise.all([
     fetchEngineeringDecisions(),
     fetchIntelligenceDecisions(),
+    fetchIncidentDecisions(),
   ]);
   const actionable = [...engineering].sort((a, b) => b.priorityRank - a.priorityRank);
   // Sort by the emitting recommendation's own confidence, highest first.
@@ -125,7 +142,8 @@ export async function fetchDecisionsInbox(): Promise<DecisionsInboxData> {
   return {
     actionable,
     intelligence,
-    counts: { engineering: engineering.length, intelligence: intelligence.length },
+    incidents,
+    counts: { engineering: engineering.length, intelligence: intelligence.length, incidents: incidents.length },
   };
 }
 
