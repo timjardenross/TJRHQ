@@ -17,7 +17,7 @@ import re
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from intelligence import provenance as prov
 from intelligence.config import (
@@ -50,7 +50,20 @@ _UA = "USS-TJR-Intelligence-Agent/1.0 (+https://github.com/usstjros)"
 _FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
     "AEMO Market Notices",
     "Fastly Status",
+    # 2026-11-24: oaic.gov.au answers the production host's plain fetch with HTTP 403 on every check (both OAIC sources,
+    # every run since at least 2026-11-21). Firecrawl reaches it (200, server-rendered list). Fires only on a 403, so it
+    # stops costing credits if OAIC unblocks the host. Daily sweep only (scheduler._FIRECRAWL_FETCH_SOURCE_NAMES): 2 credits/day.
+    "OAIC Breach Notifications",
+    "OAIC Privacy Determinations & News",
 })
+
+# OAIC media centre (https://www.oaic.gov.au/news/media-centre): a server-rendered list of `div.card` results, each with an
+# `a.card-title` (a site-search redirect wrapping the real URL), `p.card-text`, topic tags and `p.date`. Value = topic tag a
+# source keeps (lower-case), or None for all cards.
+_OAIC_CARD_SOURCE_NAMES = {
+    "OAIC Breach Notifications": "data breach",
+    "OAIC Privacy Determinations & News": None,
+}
 
 # 2026-11-24: sources whose release list is rendered client-side. A plain fetch returns the page chrome without the list
 # (ASIC's newsroom: 14 KB of navigation, zero releases), which is why ASIC News Centre and ASIC Enforcement Activity returned
@@ -123,6 +136,11 @@ class ScrapeAdapter(BaseSourceAdapter):
 
         if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES:
             return self._parse_outage_register(soup)[:MAX_ITEMS_PER_SOURCE]
+
+        if self.source.source_name in _OAIC_CARD_SOURCE_NAMES:
+            cards = self._parse_oaic_cards(soup)
+            if cards:
+                return cards[:MAX_ITEMS_PER_SOURCE]
 
         page_text = soup.get_text(" ", strip=True).lower()
 
@@ -252,6 +270,33 @@ class ScrapeAdapter(BaseSourceAdapter):
                 published = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), tzinfo=_AEDT).astimezone(timezone.utc)
             item = self._make_item(f"Optus outage register: {title}", summary, f"{self.source.url}#{ref}", published)
             items.append(item)
+        return items
+
+    def _parse_oaic_cards(self, soup) -> list[IntelligenceItem]:
+        """One item per OAIC media-centre card, with the card's own date. The card link is a site-search redirect
+        (`/s/redirect?...&url=<real url>&auth=...`); the real page URL is the identity, so the per-request `auth`/`rank` never leak in."""
+        wanted_tag = _OAIC_CARD_SOURCE_NAMES.get(self.source.source_name)
+        items: list[IntelligenceItem] = []
+        for card in soup.select("div.card"):
+            link = card.select_one("a.card-title")
+            if not link:
+                continue
+            title = link.get_text(" ", strip=True)
+            if len(title) < 10:
+                continue
+            tags = [t.get_text(strip=True) for t in card.select(".tags .tag")]
+            if wanted_tag and wanted_tag not in {t.lower() for t in tags}:
+                continue
+            href = link.get("href") or ""
+            real = parse_qs(urlparse(href).query).get("url", [None])[0]
+            url = urljoin(self.source.url, real or href) if (real or href) else None
+            date_el = card.select_one("p.date")
+            published = self._extract_date(date_el) if date_el else None
+            text_el = card.select_one("p.card-text")
+            summary = text_el.get_text(" ", strip=True)[:500] if text_el else None
+            if tags:
+                summary = f"[{', '.join(tags)}] {summary or ''}".strip()
+            items.append(self._make_item(title, summary, url, published))
         return items
 
     def _extract_items(self, soup) -> list[IntelligenceItem]:
