@@ -98,6 +98,12 @@ MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"parti
 RETROSPECTIVE = (r"investigated", r"post-(?:blackout|outage|incident)", r"convicted", r"charged", r"sentenced", r"jailed", r"guilty", r"trial", r"verdict", r"inquest", r"court", r"fined",
                  r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
                  r"apolog\w+", r"lessons?", r"anniversary", r"fallout",
+                 # governance and aftermath coverage of a PAST outage (AGM, shareholder questions, economic-cost modelling, 'fell short'): it reports
+                 # on the outage, it is not evidence the outage is live (Telstra, 13 Oct: nine such headlines read as 'URGENT TO VERIFY, ongoing')
+                 r"shareholder grilling", r"annual general meeting", r"hot seat",
+                 r"cost(?:s|ing)?\s+(?:the\s+)?(?:\w+\s+){0,2}economy", r"economic (?:cost|impact|modell?ing|damage|toll)",
+                 r"modell?ing (?:finds|shows|suggests|estimates)", r"fell short",
+                 r"report (?:finds|says|reveals|shows)", r"(?:says|finds|reveals|shows) (?:new )?report",
                  r"near[- ]miss(?:es)?", r"post-?mortems?",
                  # a root cause that HAS BEEN found is retrospective; 'engineers investigate root cause' is a live incident
                  r"root[- ]cause\b[^.;]{0,40}\b(?:identified|found|revealed|confirmed|analysis|report)",
