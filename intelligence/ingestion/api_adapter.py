@@ -28,6 +28,7 @@ from intelligence.config import (
     HTTP_TIMEOUT_SECONDS,
     MAX_FEED_ITEMS_PER_SOURCE,
     NVD_MAX_ITEMS_PER_RUN,
+    NVD_MAX_PAGES,
     NVD_WINDOW_HOURS,
 )
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
@@ -56,6 +57,24 @@ class APIAdapter(BaseSourceAdapter):
         data = self._fetch_json(endpoint)
         if data is None:
             raise RuntimeError(f"No data returned from {endpoint}")
+
+        # NVD pages results (oldest first). Without following the pages, a window with more CVEs than one
+        # page silently drops the newest. Follow up to NVD_MAX_PAGES pages so a catch-up after an outage
+        # inside the window is complete.
+        if ("nvd" in name or "nist cve" in name) and isinstance(data, dict):
+            total = int(data.get("totalResults") or 0)
+            got = list(data.get("vulnerabilities") or [])
+            pages = 1
+            while len(got) < total and pages < NVD_MAX_PAGES:
+                page = self._fetch_json(f"{endpoint}&startIndex={len(got)}")
+                more = (page or {}).get("vulnerabilities") if isinstance(page, dict) else None
+                if not more:
+                    break
+                got.extend(more)
+                pages += 1
+            data["vulnerabilities"] = got
+            if len(got) < total:
+                log.warning("NVD: collected %d of %d CVEs in window (page cap %d)", len(got), total, NVD_MAX_PAGES)
 
         # RSS/Atom detected inline — already parsed, return directly
         if isinstance(data, dict) and "__feed_items__" in data:

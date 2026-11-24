@@ -65,8 +65,25 @@ def test_nvd_cap_keeps_newest(monkeypatch):
     assert ids == [f"CVE-{n:03d}" for n in range(29, 24, -1)]
 
 
-def test_nvd_window_is_short():
-    assert config.NVD_WINDOW_HOURS <= 72
+def test_nvd_window_covers_an_outage_but_stays_bounded():
+    assert 72 <= config.NVD_WINDOW_HOURS <= 120
+
+
+def test_nvd_follows_pages_so_a_catch_up_is_complete(monkeypatch):
+    pages = {0: [{"cve": {"id": f"CVE-{n}", "published": "2026-11-01T00:00:00.000", "descriptions": []}} for n in range(3)],
+             3: [{"cve": {"id": f"CVE-{n}", "published": "2026-11-02T00:00:00.000", "descriptions": []}} for n in range(3, 5)]}
+    calls = []
+
+    def fake(self, endpoint):
+        calls.append(endpoint)
+        idx = int(endpoint.split("startIndex=")[1]) if "startIndex=" in endpoint else 0
+        return {"totalResults": 5, "vulnerabilities": pages[idx]}
+
+    monkeypatch.setattr(aa.APIAdapter, "_fetch_json", fake)
+    adapter = aa.APIAdapter(_src("NVD / NIST CVE Database", "cybersecurity", "api"))
+    items = adapter.collect()
+    assert len(calls) == 2 and "startIndex=3" in calls[1]
+    assert {i.raw_title for i in items} == {f"CVE-{n}" for n in range(5)}
 
 
 def test_itnews_in_media_sweep_only_as_rss():

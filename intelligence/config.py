@@ -167,7 +167,8 @@ MAX_ITEMS_PER_SOURCE   = int(os.getenv("OR_INTEL_MAX_ITEMS_PER_SOURCE", "20"))
 MAX_FEED_ITEMS_PER_SOURCE = int(os.getenv("OR_INTEL_MAX_FEED_ITEMS_PER_SOURCE", "100"))
 # NVD: one run used to take the 20 OLDEST CVEs of an 8-day window (no server-side sort), so the same 20 came
 # back daily and the rest were never reached. Now a short window, paged, newest first.
-NVD_WINDOW_HOURS       = int(os.getenv("OR_INTEL_NVD_WINDOW_HOURS", "48"))
+NVD_WINDOW_HOURS       = int(os.getenv("OR_INTEL_NVD_WINDOW_HOURS", "96"))
+NVD_MAX_PAGES          = int(os.getenv("OR_INTEL_NVD_MAX_PAGES", "4"))
 NVD_MAX_ITEMS_PER_RUN  = int(os.getenv("OR_INTEL_NVD_MAX_ITEMS_PER_RUN", "100"))
 STALE_ITEM_HOURS       = int(os.getenv("OR_INTEL_STALE_ITEM_HOURS", "24"))
 # 2026-08-22: was 14 — fine for a fortnightly cadence, wrong for daily.
