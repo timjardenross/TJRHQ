@@ -98,6 +98,12 @@ MINOR = (r"\w+-minute", r"minutes?", r"brief(?:ly)?", r"some customers", r"parti
 RETROSPECTIVE = (r"investigated", r"post-(?:blackout|outage|incident)", r"convicted", r"charged", r"sentenced", r"jailed", r"guilty", r"trial", r"verdict", r"inquest", r"court", r"fined",
                  r"complaints?", r"compensation", r"claims?", r"agm", r"inquiry", r"review", r"restored", r"resolved",
                  r"apolog\w+", r"lessons?", r"anniversary", r"fallout",
+                 # governance and aftermath coverage of a PAST outage (AGM, shareholder questions, economic-cost modelling, 'fell short'): it reports
+                 # on the outage, it is not evidence the outage is live (Telstra, 13 Oct: nine such headlines read as 'URGENT TO VERIFY, ongoing')
+                 r"shareholder grilling", r"annual general meeting", r"hot seat",
+                 r"cost(?:s|ing)?\s+(?:the\s+)?(?:\w+\s+){0,2}economy", r"economic (?:cost|impact|modell?ing|damage|toll)",
+                 r"modell?ing (?:finds|shows|suggests|estimates)", r"fell short",
+                 r"report (?:finds|says|reveals|shows)", r"(?:says|finds|reveals|shows) (?:new )?report",
                  r"near[- ]miss(?:es)?", r"post-?mortems?",
                  # a root cause that HAS BEEN found is retrospective; 'engineers investigate root cause' is a live incident
                  r"root[- ]cause\b[^.;]{0,40}\b(?:identified|found|revealed|confirmed|analysis|report)",
@@ -578,7 +584,7 @@ def correlate(cands: list[Candidate]) -> list[Group]:
             if len(members) > 1 and _SYNDICATION_SUFFIX.search(m.title):
                 synd.append(m.event_id)         # a wire suffix marks a copy only when the group holds other reports of it
         original = [m for m in members if not m.commentary and m.event_id not in synd]
-        fams = {m.family for m in original if m.kind != we.AGGREGATOR or m.family != "aggregator"}
+        fams = {m.family for m in original if m.kind != we.AGGREGATOR}      # an aggregator re-post is never an independent publisher
         groups.append(Group(gid, members, plist, conf, len(fams), sorted(set(synd)),
                             [m.event_id for m in members if m.commentary]))
     return groups
@@ -911,6 +917,9 @@ def decide(group: Group, *, now: datetime | None = None) -> Decision:
             if why.startswith("plausible dependency") and d.priority == "ESCALATE":
                 d.reasons.append("dependency only, no Australian impact evidence: capped at VERIFY")
                 d.priority, d.urgency, d.provisional = "VERIFY", "soon", True
+            elif why.startswith("plausible dependency") and d.priority == "VERIFY" and d.urgency == "immediate":
+                d.reasons.append("dependency only, no Australian impact evidence: ordinary verification, not urgent")
+                d.urgency = "soon"
         elif australian_editorial_relevance(group):
             d.reasons.append("Australian-audience outlet only: editorial relevance, Australian operational impact not established (capped at WATCH)")
             d.priority, d.urgency, d.provisional = "WATCH", "routine", False
@@ -967,8 +976,10 @@ def _decide_core(group: Group, *, now: datetime | None = None) -> Decision:
             if provisional:
                 reasons.append("single credible report: provisional, follow-up verification required")
             return out("ESCALATE", "immediate", provisional)
+        # Captain's rule: high materiality + low confidence is a PROMINENT verification priority, so stricter corroboration never
+        # buries a potentially severe emerging incident (brief_evidence shows it under URGENT TO VERIFY).
         reasons.append("high operational materiality but weak evidence: verify before acting")
-        return out("VERIFY", "soon")
+        return out("VERIFY", "immediate")
     if status == "unconfirmed" and head.is_candidate and (tier in (1, 2) or head.compromise):
         # An unconfirmed incident with no stated operational consequence is VERIFY, whatever the sector or tier.
         return out("VERIFY", "soon")

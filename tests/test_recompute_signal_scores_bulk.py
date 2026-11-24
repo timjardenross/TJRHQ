@@ -384,3 +384,23 @@ def test_window_days_zero_or_negative_is_rejected_not_a_full_sweep():
         rss._positive_int("0")
     with patch.object(rss, "create_client", return_value=MagicMock()), pytest.raises(ValueError):
         rss.SignalScoreRecomputer(window_days=0)
+
+
+# ── corroboration principle: aggregator and same-publisher pairs never corroborate ──
+def _src(i, title, name):
+    return _ev(i, 1, title=title, intelligence_source_registry={"reliability_tier": "TIER_2", "source_name": name})
+
+
+@pytest.mark.parametrize("a,b,expected", [
+    ("ABC News", "Guardian Australia", 1),
+    ("ABC News", "ABC News Business", 0),          # same publisher repeated
+    ("ABC News", "Google News - Telco", 0),        # aggregator is discovery, not corroboration
+    ("Google News - Power", "Google News - Telco", 0),
+])
+def test_corroboration_pairs_follow_the_independence_principle(a, b, expected):
+    events = [_src(1, "outage northern region telecom", a), _src(2, "telecom outage region report", b)]
+    db = _FakeDB(intelligence_events=events, signal_corroboration=[], signal_escalation_history=[],
+                 intelligence_source_registry=[], validation_job_runs=[{"run_id": "r"}])
+    r = _recomputer_on(db)
+    r.compute_corroboration()
+    assert r.stats["corroboration_pairs_inserted"] == expected
