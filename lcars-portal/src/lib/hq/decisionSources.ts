@@ -131,5 +131,6 @@ export async function actOnImprovement(ref: ImprovementRef, decision: 'approve_i
     return { ok: false, alreadyDecided: true, error: 'Already decided elsewhere. Nothing was changed.' };
   }
   const res = await postJson('/api/self-improvement/opportunities/decide', { opportunity_id: ref.opportunityId, decision_type: decision });
-  return res.ok ? { ok: true } : { ok: false, error: errOf(res) };
+  // The backend now refuses a conflicting decision with 409 (and treats a repeat as an unchanged no-op).
+  return res.ok ? { ok: true } : { ok: false, alreadyDecided: res.status === 409, error: errOf(res) };
 }
