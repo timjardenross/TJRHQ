@@ -413,7 +413,7 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
     )
     if "south africa" in text:
         entity_hits -= int("woolworths" in text)
-    if au_hits > 0 or entity_hits > 0 or _NAB_UPPER.search(item.raw_title or ""):
+    if au_hits > 0 or entity_hits > 0 or _NAB_UPPER.search(f"{item.raw_title or ''} {item.raw_summary or ''}"):
         geography = "AU"
     elif apac_hits > 0:
         geography = "APAC"
