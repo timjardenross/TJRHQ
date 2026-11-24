@@ -115,6 +115,15 @@ def test_credible_fire_warning_is_monitored_not_reference():
     assert td.tier == dt.MONITOR
 
 
+def test_hazard_warning_lapses_with_the_brief_window_not_72h():
+    # An emergency fire warning is time-bound: 49 h old it is no longer a current monitoring item (an advisory still is).
+    td, _ = tier_of([ev("f3", "Breaking: Emergency fire warning issued for Victoria's north-west", hours_ago=49, geography="AU")], "fire warning")
+    assert td.tier == "REFERENCE_RETAIN"
+    assert "older than" in td.reasons[0]
+    td, _ = tier_of([ev("f4", "Breaking: Emergency fire warning issued for Victoria's north-west", hours_ago=20, geography="AU")], "fire warning")
+    assert td.tier == "MONITOR"
+
+
 def test_stale_warning_ages_out():
     td, _ = tier_of([ev("f2", "Breaking: Emergency fire warning issued for Victoria's north-west", hours_ago=90, geography="AU")], "fire warning")
     assert td.tier == dt.REFERENCE_RETAIN
