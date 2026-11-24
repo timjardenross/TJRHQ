@@ -3,8 +3,9 @@
 import sys
 import unittest
 import urllib.parse
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from pathlib import Path
+from typing import ClassVar
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -65,7 +66,7 @@ class TestNullPublishedRows(unittest.TestCase):
 
 
 class TestDatedEventsInProduct(unittest.TestCase):
-    ROWS = [
+    ROWS: ClassVar[list] = [
         frow("r1", "Cisco Security Advisories", "Advance notice", "The next planned publication of advisories will be 28 November 2026. Customers should prepare.", day=20),
         frow("m1", "Twilio Status", "UK carrier maintenance", "THIS IS A SCHEDULED EVENT planned maintenance from 24 November 2026 at 08:00 PST until 25 November 2026 at 01:00 PST", day=20),
     ]
@@ -107,7 +108,7 @@ class TestBriefBlockRobustness(unittest.TestCase):
         self.assertIn("note R", cov[0])
 
     def test_missing_or_stale_product_degrades_to_nothing(self):
-        self.assertEqual(bpb.brief_lines(date(2026, 11, 21), reader=lambda: []), [])
+        self.assertEqual(bpb.brief_lines(date(2026, 11, 21), reader=list), [])
         stale = [self.rec("forward_watch", "W due", "n", gen="2026-11-01")]
         self.assertEqual(bpb.brief_lines(date(2026, 11, 21), reader=lambda: stale), [])
 

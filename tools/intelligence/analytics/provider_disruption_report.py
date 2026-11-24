@@ -341,8 +341,8 @@ def render(feeds, as_of, start, source_note, undated=None):
             "",
             "## Rows with no publication date (not analysed)",
             "",
-            "These status-feed rows carry no `published_at`, so they cannot be placed in the window and are not counted as incidents. "
-            "A feed listed here has NO scored or insufficient-evidence line above: its history is unknown, not clear.",
+            ("These status-feed rows carry no `published_at`, so they cannot be placed in the window and are not counted as incidents. "
+             "A feed listed here has NO scored or insufficient-evidence line above: its history is unknown, not clear."),
             "",
         ]
         out += [f"- {md_cell(feed)}: {n} undated rows." for feed, n in undated.items()]
