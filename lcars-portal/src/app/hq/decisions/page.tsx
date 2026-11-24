@@ -9,9 +9,11 @@ import type { HqDecision } from '@/lib/hq/model';
 import { ErrorLine, Loading } from '../_components/ui';
 
 function DecisionDetail({ d, busy, onApprove, onDefer, onDecline }: {
-  d: HqDecision; busy: boolean; onApprove: () => void; onDefer: () => void; onDecline: () => void;
+  d: HqDecision; busy: boolean; onApprove: (option?: string) => void; onDefer: () => void; onDecline: () => void;
 }) {
   const canDecline = d.source !== 'brief';
+  const [option, setOption] = useState<string>('');
+  const needsChoice = Boolean(d.options?.length);
   return (
     <div className="hq-panel">
       <div className="hq-meta"><span className="hq-tag">{d.sourceLabel}</span>{d.undoable && <span>Can be undone</span>}</div>
@@ -24,8 +26,32 @@ function DecisionDetail({ d, busy, onApprove, onDefer, onDecline }: {
         <dt>If you defer</dt><dd>{d.ifDefer}</dd>
         <dt>Do you need to act?</dt><dd>{d.need}</dd>
       </dl>
+      {d.options && d.options.length > 0 && (
+        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+          <legend className="hq-muted" style={{ fontSize: '.82rem', fontWeight: 600, padding: 0, marginBottom: 6 }}>Your decision</legend>
+          <div className="hq-pkg">
+            {d.options.map((o, i) => (
+              <label key={o} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <input type="radio" name={`opt-${d.id}`} value={o} checked={option === o} onChange={() => setOption(o)} id={`opt-${d.id}-${i}`} style={{ marginTop: 4, accentColor: 'var(--hq-accent)' }} />
+                <span>{o}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {d.evidence && d.evidence.length > 0 && (
+        <details className="hq-details"><summary>Evidence carried from the item</summary>
+          <ul style={{ margin: 0, paddingLeft: '1.1em' }}>{d.evidence.map((e, i) => <li key={i}><strong>{e.label}</strong>{e.detail ? `: ${e.detail}` : ''}</li>)}</ul>
+        </details>
+      )}
+      {d.sourceItem && (
+        <div className="hq-meta">
+          <Link className="hq-link inline" href={d.sourceItem.hqHref}>Original intelligence item</Link>
+          {d.sourceItem.url && <a className="hq-link inline" href={d.sourceItem.url} target="_blank" rel="noopener noreferrer">Original source</a>}
+        </div>
+      )}
       <div className="hq-acts">
-        <button type="button" className="hq-btn primary" onClick={onApprove} disabled={busy} aria-disabled={busy}>
+        <button type="button" className="hq-btn primary" onClick={() => onApprove(option)} disabled={busy || (needsChoice && !option)} aria-disabled={busy || (needsChoice && !option)}>
           {busy ? 'Working…' : d.source === 'brief' && d.ifApprove.includes('published') ? 'Approve and publish' : 'Approve'}
         </button>
         <button type="button" className="hq-btn" onClick={onDefer} disabled={busy}>Defer</button>
@@ -74,9 +100,9 @@ function Inner() {
     await reloadDecisions();
   }
 
-  async function approve(d: HqDecision) {
+  async function approve(d: HqDecision, option?: string) {
     setBusyId(d.id);
-    const res = await approveHqDecision(d);
+    const res = await approveHqDecision(d, option);
     await settle(d, d.source === 'brief' && d.ifApprove.includes('published') ? 'Approved and published' : 'Approved', res, 'approved');
     setBusyId(null);
     select(null);
@@ -181,7 +207,7 @@ function Inner() {
               </div>
             )}
             {current && current.id !== pkg?.id && 'source' in current && (
-              <DecisionDetail d={current as HqDecision} busy={busyId === current.id} onApprove={() => approve(current as HqDecision)} onDefer={() => defer(current as HqDecision)} onDecline={() => decline(current as HqDecision)} />
+              <DecisionDetail key={current.id} d={current as HqDecision} busy={busyId === current.id} onApprove={(o) => approve(current as HqDecision, o)} onDefer={() => defer(current as HqDecision)} onDecline={() => decline(current as HqDecision)} />
             )}
             {!current && <div className="hq-quiet">Select a decision to review it.</div>}
           </div>

@@ -12,7 +12,7 @@ import {
   useTodaysBriefing,
   type HqStatusSummary,
 } from '@/lib/captainsChairData';
-import { fetchCaptureAnalytics, fetchInboxCaptures } from '@/lib/capture';
+import { loadInbox } from './inbox';
 import { getJson } from './data';
 
 /** Where an existing workbench link lands in HQ. Anything HQ does not cover
@@ -47,7 +47,8 @@ export interface HqAttentionCounts {
   oldestCapturePending: string | null;
 }
 
-/** Same sources as useAttentionCounts, without its human-systems (wellness) fetch. */
+/** Same sources as useAttentionCounts, without its human-systems (wellness) fetch, and with
+ *  personal captures excluded from both the count and the title shown. */
 export function useHqAttentionCounts(): { data: HqAttentionCounts; loading: boolean } {
   const [data, setData] = useState<HqAttentionCounts>({
     contentAwaitingPublish: null, oldestContentAwaitingPublish: null, capturePending: null, oldestCapturePending: null,
@@ -57,17 +58,15 @@ export function useHqAttentionCounts(): { data: HqAttentionCounts; loading: bool
     let cancelled = false;
     (async () => {
       const content = await getJson<{ items: { status: string; title?: string; created_at?: string }[] }>('/api/content-workbench');
-      const capture = await fetchCaptureAnalytics().catch(() => null);
-      const oldest = await fetchInboxCaptures({ statusFilter: 'pending', limit: 50 })
-        .then((rows) => (rows.length ? rows[rows.length - 1] : null)).catch(() => null);
+      const inbox = await loadInbox().catch(() => null);
       if (cancelled) return;
       const ready = content.ok ? content.data.items.filter((i) => i.status === 'ready_to_publish') : [];
       const oldestContent = [...ready].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0];
       setData({
         contentAwaitingPublish: content.ok ? ready.length : null,
         oldestContentAwaitingPublish: oldestContent?.title ?? null,
-        capturePending: capture ? capture.pending : null,
-        oldestCapturePending: oldest ? (oldest.title || oldest.raw_text?.slice(0, 60) || null) : null,
+        capturePending: inbox ? inbox.length : null,
+        oldestCapturePending: inbox && inbox.length ? inbox[inbox.length - 1].title : null,
       });
       setLoading(false);
     })();

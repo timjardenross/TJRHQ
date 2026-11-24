@@ -1,38 +1,41 @@
-// Research in HQ has exactly two honest states.
+// Research is a type of work in HQ, backed by the existing mission mechanism.
 //
-//   requested : a request has been CAPTURED in Capture for review. Nothing is
-//               executing. This is the only state HQ can create today.
-//   running   : research is actually executing. No research runner exists in
-//               the platform yet, so HQ never shows this state.
+// A research request is created as an ordinary mission (POST /api/missions, status "Idea")
+// whose title starts with "Research:". HQ shows it in Work with the mission's real status.
 //
-// HQ lists captured requests so they do not disappear after being filed, and
-// labels them "not running" everywhere they appear.
-import { fetchInboxCaptures, type InboxCapture } from '@/lib/capture';
+// Honest status. No research runner is attached to missions: nothing reads a research mission
+// and executes it (the one live mission dispatcher turns approved missions into code-change
+// hand-offs, which is the wrong behaviour for research). So HQ states "Requested, not running"
+// for a new request, and never states "running" or "findings ready" unless a person or a real
+// executor has set a status that says so. When an executor is connected, only this mapping
+// needs to learn the new statuses.
+export const RESEARCH_PREFIX = 'Research:';
+export const RESEARCH_NOT_RUNNING = 'Requested, not running';
+export const RESEARCH_NO_RUNNER = 'No research runner is attached to missions, so nothing executes a research item yet. Progress and findings appear here only if someone records them on the mission.';
 
-export const RESEARCH_PREFIX = 'Research request:';
-export const RESEARCH_NOT_RUNNING = 'Captured request. Nothing is running: no research runner is connected yet.';
+export const isResearchTitle = (title: string): boolean => title.trimStart().startsWith(RESEARCH_PREFIX);
 
-export interface HqResearchRequest {
-  id: string;
-  title: string;
-  requestedAt: string;
-  /** Always 'requested' today. 'running' is reserved for a future runner. */
-  state: 'requested';
-  legacyHref: string;
+export interface ResearchStatus {
+  label: string;
+  /** True only when something real says the research is executing. Always false today. */
+  executing: boolean;
+  tone: 'info' | 'amber' | 'green';
 }
 
-export function isResearchRequest(c: Pick<InboxCapture, 'raw_text' | 'title'>): boolean {
-  return (c.raw_text ?? c.title ?? '').trimStart().startsWith(RESEARCH_PREFIX);
+export function researchStatus(missionStatus: string): ResearchStatus {
+  switch (missionStatus) {
+    case 'Idea': return { label: RESEARCH_NOT_RUNNING, executing: false, tone: 'info' };
+    case 'Blocked':
+    case 'Requires Rework': return { label: `Blocked (${missionStatus})`, executing: false, tone: 'amber' };
+    case 'Awaiting Number One Review':
+    case 'Awaiting XO Approval':
+    case 'Awaiting Captain Approval':
+    case 'Validated': return { label: `Ready for review (${missionStatus})`, executing: false, tone: 'green' };
+    case 'Closed':
+    case 'Archived': return { label: 'Done', executing: false, tone: 'green' };
+    // Any other recorded status is shown verbatim, never reinterpreted as "running".
+    default: return { label: `Status recorded: ${missionStatus}`, executing: false, tone: 'info' };
+  }
 }
 
-export function mapResearchRequest(c: InboxCapture): HqResearchRequest {
-  const text = (c.raw_text ?? c.title ?? '').trimStart().slice(RESEARCH_PREFIX.length).trim();
-  // The context footer HQ appends ("(Captured from HQ ...)") is not part of the question.
-  const question = text.split('\n\n(Captured from HQ')[0].trim();
-  return { id: `research:${c.id}`, title: question || 'Research request', requestedAt: c.captured_at, state: 'requested', legacyHref: '/capture-workbench' };
-}
-
-export async function loadResearchRequests(): Promise<HqResearchRequest[]> {
-  const rows = await fetchInboxCaptures({ statusFilter: 'pending', source: 'portal-floating-capture', limit: 100 });
-  return rows.filter(isResearchRequest).map(mapResearchRequest);
-}
+export const researchTitle = (question: string): string => `${RESEARCH_PREFIX} ${question.trim()}`.slice(0, 200);

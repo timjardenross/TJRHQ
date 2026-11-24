@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { HqContext } from '@/lib/hq/HqProvider';
 import { loadWork } from '@/lib/hq/data';
 import { useAsync } from '@/lib/hq/useAsync';
+import { RESEARCH_NO_RUNNER } from '@/lib/hq/research';
 import { ErrorLine, Loading, Notice } from '../../_components/ui';
 
 const STATE_LABEL = { review: 'Ready for you', attention: 'Needs attention', progress: 'In progress', done: 'Completed' } as const;
@@ -22,7 +23,7 @@ export default function HqWorkItemPage({ params }: { params: { id: string } }) {
       {w && (
         <>
           <div className="hq-head">
-            <div className="hq-meta"><span className="hq-tag">{STATE_LABEL[w.state]}</span>{w.updatedAt && <span>Updated {new Date(w.updatedAt).toLocaleDateString()}</span>}</div>
+            <div className="hq-meta"><span className="hq-tag">{w.kind === 'research' ? 'Research' : STATE_LABEL[w.state]}</span>{w.updatedAt && <span>Updated {new Date(w.updatedAt).toLocaleDateString()}</span>}</div>
             <h1>{w.title}</h1>
             <p className="hq-lead">{w.line}</p>
           </div>
@@ -35,6 +36,7 @@ export default function HqWorkItemPage({ params }: { params: { id: string } }) {
               </div>
             ))}
           </section>
+          {w.kind === 'research' && <Notice>{RESEARCH_NO_RUNNER}</Notice>}
           <Notice>Status changes and approvals stay in the existing workbench in this version, so there is one place that records them.</Notice>
           <div className="hq-acts"><Link className="hq-btn" href={w.legacyHref}>Open in existing workbench</Link></div>
         </>

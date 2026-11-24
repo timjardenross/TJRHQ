@@ -6,17 +6,18 @@
 //  - Mission   -> captureItem('mission') then promoteCaptureToMission(): the
 //                 existing Command Centre route, which creates a mission
 //                 CANDIDATE (status Idea) for the Captain to review.
-//  - Research  -> filed as an idea in Capture, labelled as a research
-//                 request. No automatic research runner is connected.
-//  - Ask       -> NOT connected yet (see ASK_AVAILABLE).
+//  - Research  -> a mission-backed work item (POST /api/missions, status Idea, title
+//                 "Research: ..."), shown in Work as requested, not running.
+//  - Ask       -> existing retrieval, AI Console chat and Advisory service (lib/hq/ask.ts).
 import { captureItem, promoteCaptureToMission, type CaptureResult } from '@/lib/capture';
+import { researchTitle } from './research';
 
-/** Ask needs an existing question-answering service that is safe to call
- *  from HQ without new cost or governance. None is connected yet, so the
- *  control is shown but disabled, and says so. */
-export const ASK_AVAILABLE = false;
+/** Ask is connected to the existing retrieval, AI Console and Advisory services (lib/hq/ask.ts).
+ *  Whether it can answer in a given environment depends on that environment's configuration, and
+ *  the dialog says so when it cannot. */
+export const ASK_AVAILABLE = true;
 
-/** True when research can actually run automatically. It cannot yet. */
+/** True when research can actually run automatically. It cannot yet: no executor reads research missions. */
 export const RESEARCH_RUNNER_CONNECTED = false;
 
 export interface HqActionContext { label: string; href?: string }
@@ -34,8 +35,27 @@ export async function hqCapture(text: string, ctx?: HqActionContext | null): Pro
   return captureItem(withContext(text, ctx), 'note', undefined, 'portal-floating-capture');
 }
 
-export async function hqResearch(text: string, ctx?: HqActionContext | null): Promise<CaptureResult> {
-  return captureItem(withContext(`Research request: ${text.trim()}`, ctx), 'idea', undefined, 'portal-floating-capture');
+/** Research is a mission-backed work item (status "Idea" = requested, not running). It is created
+ *  through the existing audited missions API, so it appears in Work with the mission's real status. */
+export async function hqResearch(text: string, ctx?: HqActionContext | null): Promise<{ ok: boolean; missionId?: string; error?: string }> {
+  try {
+    const resp = await fetch('/api/missions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: researchTitle(text),
+        status: 'Idea',
+        priority: 'P3',
+        created_by: 'hq-workbench',
+        description: withContext(text, ctx),
+      }),
+    });
+    const json = (await resp.json().catch(() => ({}))) as { mission?: { mission_id?: string }; error?: string };
+    if (!resp.ok) return { ok: false, error: json.error ?? `Could not create the research item (HTTP ${resp.status}).` };
+    return { ok: true, missionId: json.mission?.mission_id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Network error' };
+  }
 }
 
 export interface HqMissionResult { ok: boolean; captureId?: string; missionId?: string; error?: string; partial?: boolean }

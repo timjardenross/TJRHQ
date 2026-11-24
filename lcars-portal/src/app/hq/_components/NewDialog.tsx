@@ -5,19 +5,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { useHq } from '@/lib/hq/HqProvider';
 import { trapTab } from '@/lib/hq/focusTrap';
-import { ASK_AVAILABLE, RESEARCH_RUNNER_CONNECTED, hqCapture, hqMission, hqResearch } from '@/lib/hq/actions';
+import { RESEARCH_RUNNER_CONNECTED, hqCapture, hqMission, hqResearch } from '@/lib/hq/actions';
+import { askHq, type AskMode, type AskResult } from '@/lib/hq/ask';
+import { RESEARCH_NO_RUNNER } from '@/lib/hq/research';
 
 type Kind = 'capture' | 'research' | 'ask' | 'mission';
 
 const COPY: Record<Kind, { choice: string; label: string; button: string; placeholder: string }> = {
   capture: { choice: 'Capture an idea', label: 'Idea or note', button: 'Capture', placeholder: 'e.g. Check whether other vendors use the same provider' },
-  research: { choice: 'Request research', label: 'What should HQ find out?', button: 'Capture research request', placeholder: 'e.g. Which of our vendors depend on this provider?' },
-  ask: { choice: 'Ask a question', label: 'Your question', button: 'Ask', placeholder: 'Ask about anything HQ knows' },
+  research: { choice: 'Request research', label: 'What should HQ find out?', button: 'Create research item', placeholder: 'e.g. Which of our vendors depend on this provider?' },
+  ask: { choice: 'Ask', label: 'Your question', button: 'Ask', placeholder: 'e.g. What do we know about the Meridian outage?' },
   mission: { choice: 'New mission', label: 'What needs to be done?', button: 'Create mission', placeholder: 'e.g. Review vendor contracts for settlement clauses' },
 };
 
 export function NewDialog() {
-  const { newOpen, newPreset, closeNew, context, toast } = useHq();
+  const { newOpen, newPreset, closeNew, context, toast, reloadDecisions } = useHq();
+  const [askMode, setAskMode] = useState<AskMode>('answer');
+  const [answer, setAnswer] = useState<AskResult | null>(null);
+  const [streaming, setStreaming] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
   const [kind, setKind] = useState<Kind>('capture');
   const [text, setText] = useState('');
   const [attach, setAttach] = useState(true);
@@ -35,6 +41,8 @@ export function NewDialog() {
     setAttach(true);
     setError(null);
     setBusy(false);
+    setAnswer(null);
+    setStreaming('');
     const t = setTimeout(() => areaRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, [newOpen, newPreset]);
@@ -42,7 +50,7 @@ export function NewDialog() {
   useEffect(() => {
     if (!newOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeNew();
+      if (e.key === 'Escape') { abortRef.current?.abort(); closeNew(); }
       else trapTab(e, sheetRef.current, document.activeElement);
     };
     document.addEventListener('keydown', onKey);
@@ -55,15 +63,25 @@ export function NewDialog() {
 
   if (!newOpen) return null;
   const ctx = attach ? (newPreset?.context !== undefined ? newPreset.context : context) : null;
-  const askBlocked = kind === 'ask' && !ASK_AVAILABLE;
+  const askBlocked = false;
   const c = COPY[kind];
 
   async function submit() {
     const body = text.trim();
     if (!body) { areaRef.current?.focus(); return; }
-    if (askBlocked || busy) return;
+    if (busy) return;
     setBusy(true);
     setError(null);
+    if (kind === 'ask') {
+      setAnswer(null);
+      setStreaming('');
+      abortRef.current = new AbortController();
+      const res = await askHq(body, { mode: askMode, context: ctx?.label ?? null, onToken: setStreaming, signal: abortRef.current.signal });
+      setAnswer(res);
+      setBusy(false);
+      if (res.kind === 'answer' && res.proposals.length) void reloadDecisions();
+      return;
+    }
     try {
       if (kind === 'capture') {
         const r = await hqCapture(body, ctx);
@@ -71,8 +89,8 @@ export function NewDialog() {
         toast(`Captured${ctx ? `, linked to “${ctx.label}”` : ''}. It is waiting to be sorted in Capture.`);
       } else if (kind === 'research') {
         const r = await hqResearch(body, ctx);
-        if (!r.ok) throw new Error(r.error ?? 'Could not file the request.');
-        toast(`Research request captured. ${RESEARCH_RUNNER_CONNECTED ? 'It is queued to run.' : 'Nothing is running: it waits for review in Capture.'}`);
+        if (!r.ok) throw new Error(r.error ?? 'Could not create the research item.');
+        toast(`Research item created in Work. ${RESEARCH_RUNNER_CONNECTED ? 'It is queued to run.' : 'Status: requested, not running.'}`);
       } else if (kind === 'mission') {
         const r = await hqMission(body, ctx);
         if (!r.ok) {
@@ -108,16 +126,36 @@ export function NewDialog() {
             </span>
           </div>
         )}
-        {askBlocked && <div className="hq-notice" role="note">Ask is not connected yet. Use Capture or Request research for now.</div>}
         {kind === 'research' && !RESEARCH_RUNNER_CONNECTED && (
-          <div className="hq-notice" role="note">This captures a request in Capture for review. It does not start any research: no research runner is connected yet.</div>
+          <div className="hq-notice" role="note">This creates a research item in Work with the status &ldquo;Requested, not running&rdquo;. {RESEARCH_NO_RUNNER}</div>
+        )}
+        {kind === 'ask' && (
+          <div className="hq-seg" role="radiogroup" aria-label="Kind of answer">
+            <label><input type="radio" name="hq-ask-mode" checked={askMode === 'answer'} onChange={() => setAskMode('answer')} /><span>Answer</span></label>
+            <label><input type="radio" name="hq-ask-mode" checked={askMode === 'advice'} onChange={() => setAskMode('advice')} /><span>Advice</span></label>
+          </div>
         )}
         <label htmlFor="hq-new-text" className="hq-muted" style={{ fontSize: '.84rem' }}>{c.label}</label>
-        <textarea id="hq-new-text" ref={areaRef} className="hq-input" value={text} placeholder={c.placeholder} onChange={(e) => setText(e.target.value)} disabled={askBlocked} />
+        <textarea id="hq-new-text" ref={areaRef} className="hq-input" value={text} placeholder={c.placeholder} onChange={(e) => setText(e.target.value)} />
+        {kind === 'ask' && streaming && !answer && <div className="hq-answer" aria-live="polite">{streaming}</div>}
+        {kind === 'ask' && answer && (
+          <div className="hq-answer" aria-live="polite">
+            {answer.kind === 'answer' ? (
+              <>
+                <div style={{ whiteSpace: 'pre-wrap' }}>{answer.text}</div>
+                {answer.basedOn.length > 0 && <div className="hq-meta" style={{ marginTop: 6 }}>Based on: {answer.basedOn.map((b) => `${b.label} (${b.count})`).join(', ')}</div>}
+                {answer.proposals.map((p, i) => <div key={i} className="hq-meta" style={{ marginTop: 6 }}>{p.success ? `Queued for your approval in Decisions: ${p.detail}` : p.detail}</div>)}
+                {answer.notes.map((n, i) => <div key={i} className="hq-meta" style={{ marginTop: 4 }}>{n}</div>)}
+              </>
+            ) : (
+              <div role={answer.kind === 'error' ? 'alert' : 'status'}>{answer.reason}</div>
+            )}
+          </div>
+        )}
         {error && <div className="hq-notice" role="alert">{error}</div>}
         <div className="hq-acts">
-          <button type="button" className="hq-btn primary" onClick={submit} disabled={busy || askBlocked} aria-disabled={busy || askBlocked}>{busy ? 'Working…' : c.button}</button>
-          <button type="button" className="hq-btn quiet" onClick={closeNew}>Cancel</button>
+          <button type="button" className="hq-btn primary" onClick={submit} disabled={busy} aria-disabled={busy}>{busy ? 'Working…' : c.button}</button>
+          <button type="button" className="hq-btn quiet" onClick={() => { abortRef.current?.abort(); closeNew(); }}>{kind === 'ask' && answer ? 'Close' : 'Cancel'}</button>
         </div>
       </div>
     </div>

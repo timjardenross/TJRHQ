@@ -8,10 +8,11 @@ import Link from 'next/link';
 import { useHq } from '@/lib/hq/HqProvider';
 import { useHqNeedsYou } from '@/lib/hq/home';
 import { getJson, loadWork } from '@/lib/hq/data';
-import { loadResearchRequests } from '@/lib/hq/research';
 import { useAsync } from '@/lib/hq/useAsync';
 import { ErrorLine, Loading, RiskPill } from './_components/ui';
 import { normaliseRisk } from '@/lib/hq/vocab';
+import { toHqHref } from '@/lib/hq/home';
+import type { HqWeeklyReview } from '@/lib/hq/weeklyReview';
 
 function greeting() {
   const h = new Date().getHours();
@@ -29,7 +30,11 @@ export default function HqHome() {
     return r.data.briefs[0] ?? null;
   });
   const work = useAsync(loadWork);
-  const research = useAsync(loadResearchRequests);
+  const week = useAsync(async () => {
+    const r = await getJson<HqWeeklyReview>('/api/hq/weekly-review');
+    if (!r.ok) throw new Error(r.error);
+    return r.data;
+  });
 
   const attentionCount = needsYou.length;
   const waiting = decisions.length;
@@ -40,9 +45,10 @@ export default function HqHome() {
       ? `${attentionCount} ${attentionCount === 1 ? 'thing needs' : 'things need'} attention and ${waiting} ${waiting === 1 ? 'decision is' : 'decisions are'} waiting.`
       : 'Nothing needs you right now.';
 
-  const review = work.data?.items.filter((w) => w.state === 'review').length ?? 0;
-  const progress = work.data?.items.filter((w) => w.state === 'progress').length ?? 0;
-  const blockedCount = work.data?.items.filter((w) => w.state === 'attention').length ?? 0;
+  const review = work.data?.items.filter((w) => w.kind !== 'research' && w.state === 'review').length ?? 0;
+  const progress = work.data?.items.filter((w) => w.kind !== 'research' && w.state === 'progress').length ?? 0;
+  const researchPending = work.data?.items.filter((w) => w.kind === 'research' && w.rawStatus === 'Idea').length ?? 0;
+  const blockedCount = work.data?.items.filter((w) => w.kind !== 'research' && w.state === 'attention').length ?? 0;
 
   const snapshot = brief.data?.bottom_line ?? brief.data?.executive_snapshot ?? null;
 
@@ -100,12 +106,37 @@ export default function HqHome() {
         )}
       </section>
 
+      <section className="hq-sec" aria-labelledby="h-week">
+        <div className="hq-sech"><h2 id="h-week">This week</h2><Link href="/weekly-review">Open Weekly Review</Link></div>
+        {week.loading && <Loading what="the weekly review" />}
+        {week.error && <ErrorLine what="the weekly review" />}
+        {week.data && (
+          <>
+            <div className="hq-plain">
+              {week.data.lastCompletedAt
+                ? `Last weekly review ${week.data.reviewDebtDays ?? 0} ${week.data.reviewDebtDays === 1 ? 'day' : 'days'} ago.`
+                : 'No weekly review has been completed yet.'}
+              {' '}{week.data.looks} {week.data.looks === 1 ? 'item' : 'items'} to look at{week.data.urgent ? `, ${week.data.urgent} urgent` : ''}.
+            </div>
+            {week.data.items.slice(0, 4).map((it, i) => {
+              const m = it.href ? toHqHref(it.href) : null;
+              return m ? (
+                <Link key={i} href={m.href} className="hq-row"><span className="t">{it.title}</span><span className="s">{it.section}{m.external ? ' · opens the existing workbench' : ''}</span><span className="r"><span className={`hq-pill ${it.tone === 'crit' ? 'red' : 'amber'}`}>{it.tone === 'crit' ? 'Urgent' : 'Look'}</span></span></Link>
+              ) : (
+                <div key={i} className="hq-plain">{it.title} <span className="hq-muted">· {it.section}</span></div>
+              );
+            })}
+            <div className="hq-quiet">Completing the review stays in the Weekly Review workbench. Personal health and personal tasks are not included here.</div>
+          </>
+        )}
+      </section>
+
       <section className="hq-sec" aria-labelledby="h-work">
         <div className="hq-sech"><h2 id="h-work">Happening on your behalf</h2><Link href="/hq/work">Open Work</Link></div>
         {work.loading && <Loading what="work" />}
         {work.data && (
           <div className="hq-plain">
-            {review} {review === 1 ? 'item is' : 'items are'} ready for you to review. {progress} {progress === 1 ? 'is' : 'are'} in progress.{blockedCount > 0 ? ` ${blockedCount} ${blockedCount === 1 ? 'is' : 'are'} blocked.` : ''}{(research.data?.length ?? 0) > 0 ? ` ${research.data!.length} research ${research.data!.length === 1 ? 'request is' : 'requests are'} captured and not running.` : ''}
+            {review} {review === 1 ? 'item is' : 'items are'} ready for you to review. {progress} {progress === 1 ? 'is' : 'are'} in progress.{blockedCount > 0 ? ` ${blockedCount} ${blockedCount === 1 ? 'is' : 'are'} blocked.` : ''}{researchPending > 0 ? ` ${researchPending} research ${researchPending === 1 ? 'item is' : 'items are'} requested and not running.` : ''}
           </div>
         )}
         {work.error && <ErrorLine what="work" />}

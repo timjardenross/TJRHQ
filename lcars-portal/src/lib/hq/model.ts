@@ -6,7 +6,8 @@ export type HqDecisionSource =
   | 'ai-action'        // build_request_inbox: AI-proposed action (mission / decision / content)
   | 'brief'            // intelligence brief gate (QA passed -> publish)
   | 'improvement'      // HQ Evolution opportunity
-  | 'knowledge';       // knowledge-library document review
+  | 'knowledge'        // knowledge-library document review
+  | 'intelligence';    // a decision requested on an intelligence item (HQ)
 
 export interface HqDecision {
   /** Namespaced, stable id, e.g. "engineering:<uuid>". */
@@ -33,6 +34,12 @@ export interface HqDecision {
   routine: boolean;
   /** Where this decision lives in the existing workbench, for context. */
   legacyHref: string;
+  /** Options to choose between. Present only for decisions that need a choice. */
+  options?: string[];
+  /** Evidence carried from the source item, shown with the decision. */
+  evidence?: { label: string; detail: string }[];
+  /** The original intelligence item this decision is about. */
+  sourceItem?: { title: string; url: string | null; hqHref: string };
   /** Opaque handle the source adapter needs to act on the item. */
   ref: unknown;
 }
@@ -47,6 +54,10 @@ export type HqWorkState = 'review' | 'attention' | 'progress' | 'done';
 
 export interface HqWorkItem {
   id: string;
+  /** 'research' items are shown in their own section with a research status. */
+  kind?: 'research';
+  /** The status as recorded on the source (a mission status). */
+  rawStatus?: string;
   title: string;
   state: HqWorkState;
   line: string;

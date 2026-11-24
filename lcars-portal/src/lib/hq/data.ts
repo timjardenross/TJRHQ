@@ -3,6 +3,7 @@
 // source that fails is reported by name rather than hidden.
 import { normaliseEvidence, normaliseRisk } from './vocab';
 import type { HqIntelItem, HqLibraryItem, HqWorkItem, HqWorkState } from './model';
+import { isResearchTitle, researchStatus } from './research';
 
 type Fetched<T> = { ok: true; data: T } | { ok: false; status: number; error: string };
 
@@ -128,6 +129,14 @@ export function missionState(status: string): HqWorkState {
 }
 
 export function mapMission(m: MissionRow): HqWorkItem {
+  if (isResearchTitle(m.title)) {
+    const rs = researchStatus(m.status);
+    return {
+      id: `mission:${m.mission_id}`, kind: 'research', rawStatus: m.status, title: m.title.replace(/^\s*Research:\s*/, ''),
+      state: missionState(m.status), line: rs.label, outputs: [],
+      legacyHref: `/mission-workbench/${encodeURIComponent(m.mission_id)}`, updatedAt: m.updated_at ?? m.created_at,
+    };
+  }
   const state = missionState(m.status);
   const line =
     m.status === 'Idea' ? 'Mission candidate. Waiting for your review.'

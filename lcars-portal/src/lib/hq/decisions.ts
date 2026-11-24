@@ -5,6 +5,8 @@
 // approve-action route, ...), adding only an opt-in compare-and-set guard so
 // a decision already made in another interface cannot be applied twice.
 import { approveDecideItem, fetchDecideQueue, holdDecideItem, type DecideItem } from '@/lib/decide';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { DECISION_REQUEST_SOURCE, type DecisionRequestPayload } from './decisionRequests';
 import { actOnBrief, actOnDoc, actOnImprovement, loadBriefDecisions, loadDocDecisions, loadImprovementDecisions, type BriefRef, type DocRef, type ImprovementRef } from './decisionSources';
 import type { HqDecision, HqPackage } from './model';
 
@@ -85,6 +87,43 @@ export function buildPackage(decisions: HqDecision[], minLines = 3): { pkg: HqPa
   };
 }
 
+interface RequestRow { id: string; action_payload: DecisionRequestPayload }
+
+/** Intelligence decision requests carry their evidence, options and source in
+ *  action_payload. Read them so the generic AI-proposal entry can be shown properly. */
+async function loadIntelRequests(): Promise<Map<string, DecisionRequestPayload>> {
+  const out = new Map<string, DecisionRequestPayload>();
+  try {
+    const { data } = await createSupabaseBrowserClient()
+      .from('build_request_inbox')
+      .select('id, action_payload')
+      .eq('source', DECISION_REQUEST_SOURCE)
+      .limit(100);
+    for (const r of (data ?? []) as RequestRow[]) if (r.action_payload?.options) out.set(r.id, r.action_payload);
+  } catch { /* fall back to the generic entry */ }
+  return out;
+}
+
+export function enrichIntelRequest(base: HqDecision, p: DecisionRequestPayload): HqDecision {
+  return {
+    ...base,
+    source: 'intelligence',
+    sourceLabel: 'Intelligence',
+    title: `Decision needed: ${p.source.title}`,
+    request: p.title,
+    why: p.rationale,
+    recommendation: p.recommendation ? `Recommended: ${p.recommendation}.` : 'No recommendation has been made. Choose the option you judge best.',
+    ifApprove: 'Records the option you choose as a decision. It does not start any work.',
+    ifDefer: 'The request stays open. Nothing changes.',
+    need: 'Your call. This is a judgement about an intelligence item.',
+    undoable: false,
+    routine: false,
+    options: p.options,
+    evidence: p.evidence,
+    sourceItem: { title: p.source.title, url: p.source.url, hqHref: `/hq/intelligence/${encodeURIComponent(p.source.id)}` },
+  };
+}
+
 export interface HqDecisionLoad {
   decisions: HqDecision[];
   /** Sources that failed to load, by label. Empty when everything loaded. */
@@ -94,13 +133,16 @@ export interface HqDecisionLoad {
 export async function loadHqDecisions(): Promise<HqDecisionLoad> {
   const errors: string[] = [];
   const decisions: HqDecision[] = [];
-  const [eng, briefs, docs, imps] = await Promise.all([
+  const [eng, briefs, docs, imps, requests] = await Promise.all([
     fetchDecideQueue().then((items) => items.map(mapDecideItem)).catch(() => null),
     loadBriefDecisions(),
     loadDocDecisions(),
     loadImprovementDecisions(),
+    loadIntelRequests(),
   ]);
-  if (eng) decisions.push(...eng); else errors.push('Build requests');
+  if (eng) {
+    decisions.push(...eng.map((d) => { const p = requests.get((d.ref as DecideItem).rawId); return p ? enrichIntelRequest(d, p) : d; }));
+  } else errors.push('Build requests');
   if (briefs) decisions.push(...briefs); else errors.push('Brief gate');
   if (docs) decisions.push(...docs); else errors.push('Knowledge review');
   if (imps) decisions.push(...imps); else errors.push('Improvements');
@@ -135,7 +177,7 @@ async function once<T extends HqActionResult>(id: string, run: () => Promise<T>)
   }
 }
 
-const isEngineering = (d: HqDecision) => d.source === 'engineering' || d.source === 'ai-action';
+const isEngineering = (d: HqDecision) => d.source === 'engineering' || d.source === 'ai-action' || d.source === 'intelligence';
 
 interface ServerReply { ok: boolean; status: number; error?: string }
 
@@ -166,8 +208,28 @@ const serverMessage = (r: ServerReply) =>
   : r.status === 409 ? 'This item must be approved through its own action route.'
   : r.error ?? 'That did not work. Nothing was changed.';
 
-export function approveHqDecision(d: HqDecision): Promise<HqActionResult> {
+/** Approve an intelligence decision request with the option the Captain chose. */
+async function approveIntelRequest(d: HqDecision, option: string | undefined): Promise<HqActionResult> {
+  if (!option) return { ok: false, error: 'Choose an option first.' };
+  const item = d.ref as DecideItem;
+  try {
+    const resp = await fetch(`/api/hq/decisions/intel-request/${encodeURIComponent(item.rawId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ option }),
+    });
+    let json: { error?: string } = {};
+    try { json = await resp.json(); } catch { /* non-JSON */ }
+    if (resp.ok) return { ok: true };
+    return { ok: false, alreadyDecided: resp.status === 409, error: resp.status === 409 ? 'Already decided elsewhere. Nothing was changed.' : json.error ?? 'That did not work. Nothing was changed.' };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Network error' };
+  }
+}
+
+export function approveHqDecision(d: HqDecision, option?: string): Promise<HqActionResult> {
   return once(d.id, async () => {
+    if (d.source === 'intelligence') return approveIntelRequest(d, option);
     if (d.source === 'engineering') {
       const item = d.ref as DecideItem;
       const r = await decideBuildRequest(item, { action: 'approve', expectedStatus: item.priorStatus });

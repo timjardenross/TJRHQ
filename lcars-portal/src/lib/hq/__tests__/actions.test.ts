@@ -21,12 +21,23 @@ describe('HQ contextual actions reuse the existing capture pipeline', () => {
     await hqCapture('Note', { label: 'L' });
     expect(captureItem).toHaveBeenCalledWith(expect.stringContaining('Note'), 'note', undefined, 'portal-floating-capture');
   });
-  it('research is a filed request, and the UI knows no runner is connected', async () => {
-    captureItem.mockResolvedValue({ ok: true, id: 'c1' });
-    await hqResearch('Who depends on X?');
-    expect(captureItem.mock.calls[0][0]).toMatch(/^Research request:/);
+  it('research is a mission-backed work item created through the existing missions API, and no runner is connected', async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ mission: { mission_id: 'MSN-9' } }) });
+    vi.stubGlobal('fetch', f);
+    const r = await hqResearch('Who depends on X?', { label: 'Incident Y' });
+    expect(r).toEqual({ ok: true, missionId: 'MSN-9' });
+    const [url, init] = f.mock.calls[0];
+    expect(url).toBe('/api/missions');
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toMatchObject({ title: 'Research: Who depends on X?', status: 'Idea' });
+    expect(body.description).toContain('Incident Y');
+    expect(captureItem).not.toHaveBeenCalled();
     expect(RESEARCH_RUNNER_CONNECTED).toBe(false);
-    expect(ASK_AVAILABLE).toBe(false);
+    expect(ASK_AVAILABLE).toBe(true);
+  });
+  it('a failed research request is reported, not swallowed', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'Failed to create' }) }));
+    expect(await hqResearch('q')).toMatchObject({ ok: false, error: 'Failed to create' });
   });
   it('a mission is a captured candidate promoted through the existing route, once', async () => {
     captureItem.mockResolvedValue({ ok: true, id: 'c1' });
