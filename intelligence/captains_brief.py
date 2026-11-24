@@ -1397,11 +1397,19 @@ def _coverage_lines() -> list[str]:
         return []
 
 
-def generate_morning_brief() -> str:
+def _morning_gap():
+    from intelligence import brief_reliability as br
+    return br.get_gap(_sb_request, datetime.now(_AEST).date().isoformat())
+
+
+def generate_morning_brief(gap=None, collection_caveat: str | None = None) -> str:
+    """``gap``/``collection_caveat`` are computed by send_brief and passed in so the text and the persisted window agree."""
+    from intelligence import brief_reliability as br
     now = _now_aest()
+    gap = gap if gap is not None else _morning_gap()
     brief = _get_latest_ori_brief()
     capacity = _get_capacity_today()
-    signals = _get_recent_signals(hours=24)
+    signals = _get_recent_signals(hours=gap.lookback_hours)
     infra = _get_infra_verification()
 
     lines = [
@@ -1409,6 +1417,13 @@ def generate_morning_brief() -> str:
         f"<i>Stardate {now.strftime('%Y.%j')} · {_clock_label(now)}</i>",
         "",
     ]
+
+    # Coverage limitation (missed previous cycle / degraded collection): [] on a normal day, so the default brief is unchanged.
+    note = br.coverage_note(gap, collection_caveat)
+    if gap.missed:
+        note.append(f"⚠️ The evidence section below lists incidents seen in the last 24h only; use the {gap.lookback_hours}h signal list for the gap.")
+    if note:
+        lines += [_esc(x) for x in note] + [""]
 
     lines += _format_capacity_block(capacity)
 
@@ -1763,18 +1778,17 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     evidence_window_hours: int | None = None
     collection_caveat: str | None = None
     if brief_type == "morning":
-        text = generate_morning_brief()
+        gap = _morning_gap()
+        collection_caveat = _collection_coverage_caveat("intelligence_collection")
+        text = generate_morning_brief(gap, collection_caveat)
         # USS-TJR-MSN-0339 WP4: generate_morning_brief() does its own internal
         # signal fetch for display but doesn't return the count — re-fetch here
         # so the persisted signals_count reflects reality instead of always 0
         # (MSN-0338 §8 Gap #1).
-        evidence_window_hours = 24
+        evidence_window_hours = gap.lookback_hours
         signals = _get_recent_signals(hours=evidence_window_hours)
-        # HQ V1 Integration QA §21 (Deferred Gap I7): the morning brief is the
-        # artifact TJR actually reads first each day and the one flagged in
-        # that audit — check whether its feeding 06:00 collection job
-        # actually completed before this 07:00 generation.
-        collection_caveat = _collection_coverage_caveat("intelligence_collection")
+        # HQ V1 Integration QA §21 (Deferred Gap I7): collection_caveat (feeding 06:00 job health) is computed above, once, so the
+        # persisted value matches the coverage line shown in the text.
     elif brief_type == "midday":
         signals = kwargs.get("signals", [])
         if not signals:
