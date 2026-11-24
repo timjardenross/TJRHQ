@@ -2,7 +2,7 @@
 
 The single living record of delivery. A capability is **Operational** only when it is running in production and has been observed working; code written, merged or deployed-but-unobserved is **Partial**. Engineering detail (changes, commits, tests) lives in the engineering records, not here.
 
-Last updated: 24 Nov 2026 (evening). 20 capabilities: 3 Operational, 16 Partial, 1 Outstanding.
+Last updated: 24 Nov 2026 (evening). 20 capabilities: 3 Operational, 17 Partial, 0 Outstanding.
 
 | Capability | Status | What's left to complete |
 |---|---|---|
@@ -19,7 +19,7 @@ Last updated: 24 Nov 2026 (evening). 20 capabilities: 3 Operational, 16 Partial,
 | Missed-brief detection and recovery | Partial | Deployed but never exercised live; confirm it on a real or controlled miss. |
 | Recurring provider disruption analysis | Partial | Built and tested offline; needs its storage created, activation and a first generation run. |
 | Shared dependencies and concentration risk | Partial | Extractor built and audited: 47 documented relationships from 6 vendor documents, but only 1 demonstrated operational dependency in 90 days, so no concentration statement is supportable. Next: fetch the remaining provider documents and measure recall of incident statements; any collector for sub-processor lists is an owner decision. |
-| Systemic and cascading risk | Outstanding | Build on verified dependency evidence: identify authoritative evidence of cross-sector links, implement extraction, and verify each finding before reporting; observed facts, plausible relationships and hypotheses stay labelled separately. |
+| Systemic and cascading risk | Partial | A default-off, unwired cascading exposure view is built and tested offline (documented, demonstrated, inferred and unknown kept apart; see `docs/CASCADING-EXPOSURE-FINDINGS.md`). Needs owner acceptance of its scope lines, wider documented evidence (6 vendors today), customer-side evidence, and activation. |
 | Forward-looking intelligence | Partial | Dated-event extractor built and audited (62 events in 90 days, none regulatory); source coverage work for regulatory deadlines, technology lifecycle dates and Australian telecom, energy and government maintenance is in progress. |
 | Longitudinal analysis and emerging trends | Partial | Built and run on 17 weeks of real history with collection-coverage handling: repeated status-page disruption is evidenced for GitHub, Anthropic, Supabase, Cloudflare and Salesforce Trust, and the September jump in incident counts is a collection artefact, not a trend. Precision is single-reviewer and in-sample; generic emerging terms, restoration trends (7 of 168 outages dated) and sector mix are not supported. Left: activation, an independent precision check on live weeks, and more dated restoration evidence. |
 | Portal and Telegram access | Partial | Telegram brief operational; the Intelligence workbench tabs (incidents, products, source coverage) are built and wait for portal deployment capacity. |
