@@ -59,7 +59,14 @@ _FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
 _FIRECRAWL_RENDER_SOURCE_NAMES = frozenset({
     "ASIC News Centre",
     "ASIC Enforcement Activity",
+    "Optus National Outage Register",
 })
+
+# Statutory outage registers (carriers publish every Major / Significant Local Outage after it is rectified). Each entry is a
+# block of label:value fields, parsed by _parse_outage_register. Retrospective by design: a confirmation and restoration record,
+# not a first-alert source.
+_OUTAGE_REGISTER_SOURCE_NAMES = frozenset({"Optus National Outage Register"})
+_AEDT = timezone(timedelta(hours=11))
 
 # Dates the adapter reads from a page. Slash dates are day-first (Australian sources); see _extract_date.
 _NAMED_MONTH_DATE_RE = re.compile(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})\b", re.IGNORECASE)
@@ -104,10 +111,16 @@ class ScrapeAdapter(BaseSourceAdapter):
 
         html = self._fetch_html(self.source.url)
         # keep the free plain fetch when it already carries the list; render only when it does not
-        if self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES and not self._extract_items(BeautifulSoup(html, "html.parser")):
+        _plain = BeautifulSoup(html, "html.parser")
+        _has_list = (bool(_plain.select('[data-testid^="outage-result-"]')) if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES
+                     else bool(self._extract_items(_plain)))
+        if self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES and not _has_list:
             log.info("[%s] plain fetch has no release list (client-rendered) — rendering via Firecrawl", self.source.source_name)
             html = firecrawl_client.fetch_html(self.source.url)
         soup = BeautifulSoup(html, "html.parser")
+
+        if self.source.source_name in _OUTAGE_REGISTER_SOURCE_NAMES:
+            return self._parse_outage_register(soup)[:MAX_ITEMS_PER_SOURCE]
 
         page_text = soup.get_text(" ", strip=True).lower()
 
@@ -203,6 +216,41 @@ class ScrapeAdapter(BaseSourceAdapter):
             if "charset=" in content_type:
                 charset = content_type.split("charset=")[-1].split(";")[0].strip()
             return resp.read().decode(charset, errors="replace")
+
+    def _parse_outage_register(self, soup) -> list[IntelligenceItem]:
+        """One item per register entry. The entry reference is the identity (canonical_url '<page>#<ref>'), so a re-read never duplicates.
+
+        published_at is the register's own 'Date and time entry first published' (day precision); the outage's start and end times are
+        kept in the summary as event times and never used as the publication date."""
+        items: list[IntelligenceItem] = []
+        for block in soup.select('[data-testid^="outage-result-"]'):
+            fields: dict[str, str] = {}
+            for node in block.find_all(["h3", "p"]):
+                label = node.find("span", class_=lambda c: c and "result-label" in c)
+                value = node.find("span", class_=lambda c: c and "result-value" in c)
+                if label and value:
+                    fields[label.get_text(strip=True).rstrip(":").strip().lower()] = value.get_text(" ", strip=True)
+            ref = fields.get("reference")
+            title = fields.get("outage title")
+            if not ref or not title:
+                continue
+            services = fields.get("number of each type of services affected", "")
+            cause = fields.get("cause (high level)", "unknown")
+            start = f"{fields.get('start date of outage', '?')} {fields.get('start time of outage', '')}".strip()
+            end = f"{fields.get('end date of outage', '?')} {fields.get('end time of outage', '')}".strip()
+            summary = (
+                f"Restored. {fields.get('outage type', 'Outage')}. Start {start}; end {end}; duration {fields.get('duration of outage', '?').strip()} h. "
+                f"Services affected: {fields.get('types of services affected', 'unknown')} ({services or 'count not stated'}). "
+                f"Locations: {fields.get('affected suburbs/towns', 'n/a')} ({fields.get('affected states/territories', 'n/a')}). "
+                f"Cause (as stated by the carrier): {cause}. Register reference {ref}."
+            )
+            published = None
+            m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", fields.get("date and time entry first published", ""))
+            if m:
+                published = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), tzinfo=_AEDT).astimezone(timezone.utc)
+            item = self._make_item(f"Optus outage register: {title}", summary, f"{self.source.url}#{ref}", published)
+            items.append(item)
+        return items
 
     def _extract_items(self, soup) -> list[IntelligenceItem]:
         items = []

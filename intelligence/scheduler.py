@@ -1093,6 +1093,7 @@ _FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
     # 2026-11-24: ASIC's list is client-rendered and is read through Firecrawl (scrape_adapter._FIRECRAWL_RENDER_SOURCE_NAMES)
     "ASIC News Centre",
     "ASIC Enforcement Activity",
+    "Optus National Outage Register",   # statutory register, client-rendered; 1 credit/day
 })
 
 

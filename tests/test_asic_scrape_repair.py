@@ -61,5 +61,29 @@ def test_other_sources_never_render_via_firecrawl(monkeypatch):
 
 
 def test_asic_is_kept_to_the_daily_sweep():
-    assert {"ASIC News Centre", "ASIC Enforcement Activity"} <= scheduler._FIRECRAWL_FETCH_SOURCE_NAMES
-    assert {"ASIC News Centre", "ASIC Enforcement Activity"} == sa._FIRECRAWL_RENDER_SOURCE_NAMES
+    assert sa._FIRECRAWL_RENDER_SOURCE_NAMES <= scheduler._FIRECRAWL_FETCH_SOURCE_NAMES
+    assert sa._FIRECRAWL_RENDER_SOURCE_NAMES == {"ASIC News Centre", "ASIC Enforcement Activity", "Optus National Outage Register"}
+
+
+_OPTUS = (_REPO / "tests/fixtures/optus_outage_register_rendered_20261124.html").read_text(encoding="utf-8")
+
+
+def test_optus_outage_register_parses_entries_with_reference_identity():
+    a = _adapter("Optus National Outage Register")
+    a.source.url = "https://www.optus.com.au/living-network/service-status/national-outage-register"
+    a._fetch_html = lambda url: _OPTUS
+    items = a.collect()
+    assert len(items) == 5
+    first = items[0]
+    assert first.raw_title == "Optus outage register: Mobile outage - Springlands (4804) area Queensland"
+    assert first.canonical_url.endswith("#IM2450998")
+    assert "Restored." in first.raw_summary and "Mobile data 339" in first.raw_summary and "Damage by a third party" in first.raw_summary
+    assert first.published_at is not None and first.published_at.date().isoformat() in ("2026-11-22", "2026-11-23")
+    assert len({i.canonical_url for i in items}) == 5
+
+
+def test_optus_register_renders_via_firecrawl_when_plain_fetch_has_no_list(monkeypatch):
+    monkeypatch.setattr(sa.firecrawl_client, "fetch_html", lambda url, timeout=None: _OPTUS)
+    a = _adapter("Optus National Outage Register")
+    a._fetch_html = lambda url: "<html><body><h1>Optus National Outage Register</h1></body></html>"
+    assert len(a.collect()) == 5
