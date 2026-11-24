@@ -1,6 +1,6 @@
 # Original-publisher and original-date verification (Google News items)
 
-Status: module `intelligence/original_publisher.py` merged-ready, default OFF (`INTEL_ORIGINAL_PUBLISHER_VERIFY=1`), NOT WIRED.
+Status: module `intelligence/original_publisher.py` (flag `INTEL_ORIGINAL_PUBLISHER_VERIFY=1`) is wired into ingestion by `intelligence/ingestion/publisher_verification.py` (stream 2, see 'Ingestion wiring' below).
 Checklist item: "Original-publisher and original-date verification" (finding F-05).
 
 ## Measured on production (SELECT-only, 2026-11-24)
@@ -59,3 +59,25 @@ Cost is about 1 Firecrawl credit per HIGH-materiality item. The daily count of i
 rows have no stored materiality); the per-run cap of 5 is what bounds spend regardless. Before enabling: (1) wire a Firecrawl fetcher behind the cap, (2) store the outcome with the
 event (needs the provenance columns from `claude/provenance-v1-a7k2`, still unapplied), (3) re-measure on 30+ items including genuinely old
 re-surfaced stories, which this sample did not contain. Not built: crawling, caching, fuzzy title matching, any ingestion or brief wiring.
+
+## Ingestion wiring (stream 2)
+
+`scheduler._annotate_publisher_verification(ranked)` runs in the four collection jobs between `rank()` and `enrich_and_save()`. It decorates
+eligible events in memory (`event.provenance`); `intelligence_store.save_event` then writes the publisher columns and merges the outcome record into
+`score_provenance.publisher_verification` (`provenance.merge_verification_record`). No migration: it uses existing columns.
+
+| Bound | Default (hard max) | Env |
+|---|---|---|
+| rendered fetches per run | 5 (10) | `INTEL_PUBVERIFY_MAX_PER_RUN` |
+| rendered fetches per UTC day | 20 (50), DB count of today's records and in-process count, larger wins; unreadable = no fetch | `INTEL_PUBVERIFY_MAX_PER_DAY` |
+| per-fetch deadline | 20 s (60) | `INTEL_PUBVERIFY_FETCH_TIMEOUT_S` |
+| whole-step deadline | 90 s (300) | `INTEL_PUBVERIFY_RUN_DEADLINE_S` |
+| skip when primary Firecrawl account above | 70 % of its ceiling (90), unreadable = skip | `INTEL_PUBVERIFY_MAX_BUDGET_PCT` |
+
+Every fetch is `firecrawl_client.scrape`, so `external_fetch_budget.check_and_increment` enforces the account ceilings (1,700 primary, 850 of 1,000
+failover). A budget refusal, timeout, exception, flag off or provenance columns off leaves the event stored exactly as before.
+
+Date semantics: `published_at`, `published_at_basis` (`aggregator_claimed`) and `published_at_confidence` (`claimed`) are NOT changed by default.
+The page's own timezone-aware time, the delta and the outcome are recorded in the record (`date_status` stays `claimed`). Only with
+`INTEL_PUBVERIFY_PROMOTE_DATE=1` (default off, a separate owner decision) and a timezone-aware, non-future, not-after-collection publisher time is
+`published_at` replaced, labelled basis `feed` / confidence `verified` / label `publication` (freshness already treats that as VERIFIED).

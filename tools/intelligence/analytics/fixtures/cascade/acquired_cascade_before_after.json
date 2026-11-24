@@ -1,0 +1,126 @@
+{
+ "before": {
+  "documented_records": 47,
+  "documented_pairs": 46,
+  "documented_vendors": [
+   "anthropic",
+   "cloudflare",
+   "notion",
+   "openai",
+   "supabase",
+   "zoom"
+  ],
+  "recent_status_incidents": 68,
+  "demonstrated_statements_90d": 2,
+  "upstreams_with_recent_incident_and_documented_dependents": 8,
+  "potential_exposure_links": 15,
+  "exposure": {
+   "anthropic": [
+    "cloudflare",
+    "zoom"
+   ],
+   "cloudflare": [
+    "anthropic",
+    "openai",
+    "supabase",
+    "zoom"
+   ],
+   "github": [
+    "supabase"
+   ],
+   "notion": [
+    "supabase"
+   ],
+   "openai": [
+    "cloudflare",
+    "zoom"
+   ],
+   "salesforce": [
+    "cloudflare",
+    "openai"
+   ],
+   "twilio": [
+    "anthropic",
+    "zoom"
+   ],
+   "vercel": [
+    "supabase"
+   ]
+  }
+ },
+ "after": {
+  "documented_records": 112,
+  "documented_pairs": 98,
+  "documented_vendors": [
+   "anthropic",
+   "atlassian",
+   "australian_carriers_and_csps",
+   "cloudflare",
+   "datadog",
+   "github",
+   "notion",
+   "okta",
+   "openai",
+   "salesforce",
+   "slack",
+   "supabase",
+   "twilio",
+   "vercel",
+   "zoom"
+  ],
+  "recent_status_incidents": 68,
+  "demonstrated_statements_90d": 2,
+  "upstreams_with_recent_incident_and_documented_dependents": 8,
+  "potential_exposure_links": 30,
+  "exposure": {
+   "anthropic": [
+    "cloudflare",
+    "github",
+    "twilio",
+    "vercel",
+    "zoom"
+   ],
+   "cloudflare": [
+    "anthropic",
+    "github",
+    "okta",
+    "openai",
+    "salesforce",
+    "supabase",
+    "zoom"
+   ],
+   "github": [
+    "supabase"
+   ],
+   "notion": [
+    "supabase"
+   ],
+   "openai": [
+    "atlassian",
+    "cloudflare",
+    "github",
+    "salesforce",
+    "twilio",
+    "vercel",
+    "zoom"
+   ],
+   "salesforce": [
+    "cloudflare",
+    "openai"
+   ],
+   "twilio": [
+    "anthropic",
+    "datadog",
+    "github",
+    "okta",
+    "vercel",
+    "zoom"
+   ],
+   "vercel": [
+    "supabase"
+   ]
+  }
+ },
+ "as_of": "2026-11-24T06:00:00Z",
+ "note": "Same rows both times; only the documented set differs. Demonstrated statements come from incident rows and are unchanged by documents. Potential exposure is not an observed impact."
+}

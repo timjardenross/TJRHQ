@@ -1,7 +1,7 @@
 """Original-publisher and original-date verification for aggregator (Google News) items.
 
-Default OFF and NOT WIRED into ingestion, scoring or any brief (flag: INTEL_ORIGINAL_PUBLISHER_VERIFY=1).
-Pure functions plus one bounded, injected-fetcher step. This module never performs network I/O itself.
+Behind the flag INTEL_ORIGINAL_PUBLISHER_VERIFY=1. Pure functions plus one bounded, injected-fetcher step; this module never performs
+network I/O itself. The ingestion wiring (caps, budget, timeouts, storage) lives in intelligence/ingestion/publisher_verification.py.
 
 Rules (owner direction):
   * An aggregator date is a CLAIM. Collection time is never used as, or substituted for, publication time.

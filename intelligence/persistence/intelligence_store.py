@@ -23,7 +23,7 @@ from intelligence.models import (
     SourceHealth,
     SourceRecord,
 )
-from intelligence.provenance import provenance_row_fields
+from intelligence.provenance import merge_verification_record, provenance_row_fields
 
 # Mirrors AttentionThresholds.delayed_importance_floor (default 40). Events
 # below this land in NEVER_INTERRUPT or SHOULD_SIMPLY_BE_REMEMBERED and carry
@@ -1116,6 +1116,9 @@ def save_event(event: RankedEvent, ori: dict | None = None,
         })
     if phase_a:
         row.update({k: phase_a[k] for k in _PHASE_A_FIELDS if k in phase_a})
+    # Original-publisher verification outcome (only present when an eligible aggregator item was verified; see
+    # intelligence/ingestion/publisher_verification.py). Merged AFTER phase_a so scoring provenance is kept alongside it.
+    merge_verification_record(row, getattr(event, "provenance", None))
     result = _post("intelligence_events", row, on_conflict="dedup_hash")
     if result:
         event_id = result.get("event_id")

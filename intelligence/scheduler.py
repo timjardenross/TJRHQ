@@ -79,6 +79,19 @@ except Exception as exc:  # noqa: BLE001 - tracing is observability-only; must n
     log.warning("[scheduler] Telemetry tracing setup failed (non-fatal): %s", exc)
 
 
+def _run_incident_alerts(source: str) -> None:
+    """Post-collection hook for proactive incident alerting (Stream 3). Default OFF: with INCIDENT_ALERTS_V1 unset this is one env read and
+    nothing else (no import, no network). Dry-run unless INCIDENT_ALERTS_SEND and INCIDENT_ALERT_DESTINATION are set. Never raises into
+    the collection job and never adds a scheduler: it simply runs at the end of the existing collection batches."""
+    if os.environ.get("INCIDENT_ALERTS_V1", "").strip().lower() not in ("1", "true", "yes", "on"):
+        return
+    try:
+        from intelligence import alert_runner
+        alert_runner.run_after_collection(source)
+    except Exception as exc:  # noqa: BLE001 - alerting must never break a collection job
+        log.warning("[incident-alert] hook failed (%s): %s", source, exc)
+
+
 def _record_heartbeat(domain_key: str, status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort —
     a heartbeat write must never break the job it's attached to — but a
@@ -93,6 +106,18 @@ def _record_heartbeat(domain_key: str, status: str, detail: str | None = None, e
             log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", domain_key)
     except Exception as exc:  # noqa: BLE001 - heartbeat recording is observability-only and must never crash the caller it's reporting on
         log.warning("[heartbeat] record_heartbeat(%s) raised: %s", domain_key, exc)
+
+
+def _annotate_publisher_verification(ranked) -> None:
+    """Original-publisher / original-date verification of eligible aggregator items, between rank() and persistence. Bounded (per-run,
+    per-day, per-fetch and total wall-clock caps, Firecrawl budget breaker) and failure-safe: it only decorates events in memory, never
+    raises and never drops or reorders them. Does nothing unless INTEL_ORIGINAL_PUBLISHER_VERIFY=1 and the provenance columns are on.
+    See intelligence/ingestion/publisher_verification.py."""
+    try:
+        from intelligence.ingestion import publisher_verification
+        publisher_verification.annotate_events(ranked)
+    except Exception as exc:  # noqa: BLE001 - verification is additive; a failure here must never touch collection or persistence
+        log.warning("[publisher-verification] skipped: %s", exc)
 
 
 def _brief_to_stdout(brief: ResilienceBrief) -> None:
@@ -935,6 +960,7 @@ def _daily_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         # Phase A enrichment: source-tier + fuzzy near-dup clustering + 10-dim
         # heuristic scoring, persisted via save_event(..., phase_a=). Guarded —
@@ -965,6 +991,7 @@ def _daily_collection_job() -> None:
         # Collection heartbeat already recorded above — this stage is
         # classify/dedup/save, logged but not deadman's-switch-gated.
         log.error("Daily collection post-processing failed: %s", exc)
+    _run_incident_alerts("daily_collection")
 
 
 def _health_osint_weekly_fetch_job() -> None:
@@ -1273,6 +1300,7 @@ def _priority_tiered_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
@@ -1300,6 +1328,7 @@ def _priority_tiered_collection_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Priority tiered collection job failed: %s", exc)
         _record_heartbeat("downdetector_priority_tiered_collection", "failed", error_message=str(exc))
+    _run_incident_alerts("priority_tiered_collection")
 
 
 def _downdetector_threshold_recompute_job() -> None:
@@ -1423,6 +1452,7 @@ def _intraday_status_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
@@ -1450,6 +1480,7 @@ def _intraday_status_collection_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Intraday status collection job failed: %s", exc)
         _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
+    _run_incident_alerts("intraday_status_collection")
 
 
 def _intraday_media_collection_job() -> None:
@@ -1502,6 +1533,7 @@ def _intraday_media_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
@@ -1529,6 +1561,7 @@ def _intraday_media_collection_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Intraday media collection job failed: %s", exc)
         _record_heartbeat("intraday_media_collection", "failed", error_message=str(exc))
+    _run_incident_alerts("intraday_media_collection")
 
 
 def _health_mission_correlation_job() -> None:
