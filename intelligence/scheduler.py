@@ -108,6 +108,18 @@ def _record_heartbeat(domain_key: str, status: str, detail: str | None = None, e
         log.warning("[heartbeat] record_heartbeat(%s) raised: %s", domain_key, exc)
 
 
+def _annotate_publisher_verification(ranked) -> None:
+    """Original-publisher / original-date verification of eligible aggregator items, between rank() and persistence. Bounded (per-run,
+    per-day, per-fetch and total wall-clock caps, Firecrawl budget breaker) and failure-safe: it only decorates events in memory, never
+    raises and never drops or reorders them. Does nothing unless INTEL_ORIGINAL_PUBLISHER_VERIFY=1 and the provenance columns are on.
+    See intelligence/ingestion/publisher_verification.py."""
+    try:
+        from intelligence.ingestion import publisher_verification
+        publisher_verification.annotate_events(ranked)
+    except Exception as exc:  # noqa: BLE001 - verification is additive; a failure here must never touch collection or persistence
+        log.warning("[publisher-verification] skipped: %s", exc)
+
+
 def _brief_to_stdout(brief: ResilienceBrief) -> None:
     """Print a brief summary to stdout as JSON (used by Node.js connector)."""
     import dataclasses
@@ -948,6 +960,7 @@ def _daily_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         # Phase A enrichment: source-tier + fuzzy near-dup clustering + 10-dim
         # heuristic scoring, persisted via save_event(..., phase_a=). Guarded —
@@ -1287,6 +1300,7 @@ def _priority_tiered_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
@@ -1438,6 +1452,7 @@ def _intraday_status_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
@@ -1518,6 +1533,7 @@ def _intraday_media_collection_job() -> None:
         classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+        _annotate_publisher_verification(ranked)
 
         saved = 0
         try:
