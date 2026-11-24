@@ -13,7 +13,7 @@ _PRIMARY = {"Google Cloud Security Bulletins", "AEMO NEMweb Market Notices", "AE
             "NVD / NIST CVE Database", "ACSC Advisories", "ACSC Alerts & Advisories", "APRA Consultations", "APRA Media Releases",
             "APRA Publications", "ASIC Enforcement Activity", "ASIC News Centre", "ASIC Consultations", "CISA Alerts", "CISA Known Exploited Vulnerabilities",
             "APRA — Speeches and Publications", "APRA (changedetection.io watchlist)", "ASIC (changedetection.io watchlist)",
-            "RBA Media Releases", "ATO Online Services for Agents Status",
+            "RBA Media Releases", "ATO Online Services for Agents Status", "ATO Online Services for Business Status", "ATO Practitioner Lodgment Service Status",
             "ATO Online Services for Agents Scheduled Maintenance", "ATO Online Services for Business Scheduled Maintenance",
             "ATO Practitioner Lodgment Service Scheduled Maintenance", "ATO System Maintenance",
             "ATO ABR Scheduled Site Maintenance", "DVS Status Scheduled Outages"}
