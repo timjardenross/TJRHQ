@@ -9,6 +9,7 @@ import pytest
 
 _REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO))
+sys.path.insert(0, str(_REPO / "tools" / "intelligence" / "analytics"))
 
 from intelligence import alert_dispatcher as ad
 from intelligence import incident_clustering as ic
@@ -63,3 +64,17 @@ def test_material_exception_is_live_scheduled_brief_only(events):
     for r in pub.build_rows(events, now=now):
         if r["material_exception"]:
             assert r["tier"] == "SCHEDULED_BRIEF" and r["restoration_status"] in ("ongoing", "partially_restored")
+
+
+def test_outage_register_entries_are_never_live_exceptions():
+    """A statutory register publishes only after restoration: it must not become a NEW/ongoing material exception."""
+    import register_records as rr
+    fixture = _REPO / "tests/fixtures/optus_outage_register_rendered_20261124.html"
+    now = _ts("2026-11-24T06:00:00+00:00")
+    events = [{"id": r["event_id"], "source": r["source_name"], "title": r["raw_title"],
+               "published_at": "2026-11-24T05:00:00+00:00", "collected_at": "2026-11-24T05:00:00+00:00"}
+              for r in rr.rows_from_register_html(fixture.read_text(encoding="utf-8"))]
+    assert events and any("Springlands" in e["title"] for e in events)
+    rows = pub.build_rows(events, now=now)
+    assert [r for r in rows if r["material_exception"]] == []
+    assert rows == []  # the register is not an incident seed at all

@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from intelligence import brief_evidence as be
 from intelligence import delivery_tiers as dt
 from intelligence import incident_clustering as ic
 from intelligence import tiered_brief as tb
@@ -42,6 +43,9 @@ def material_exception(inc: ic.Incident, td: dt.TierDecision) -> bool:
 def build_rows(events: list[dict], *, now: datetime | None = None) -> list[dict]:
     now = now or datetime.now(timezone.utc)
     rows = []
+    # Statutory outage registers publish only after restoration: confirmation evidence, never a live incident seed (same guard as
+    # the morning brief), so a newly published register entry cannot surface as a NEW/ongoing material exception.
+    events = [e for e in events if not be.is_retrospective_source(e.get("source") or e.get("source_name"))]
     for inc in ic.cluster_incidents(events, now=now, force=True):
         td = dt.tier_for_incident(inc, now=now)
         times = [r.candidate.published for r in inc.reports if r.candidate.published]

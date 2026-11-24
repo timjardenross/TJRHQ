@@ -37,8 +37,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from analytics_common import HYPOTHESIS, OBSERVED, parse_ts
-from provider_failure import url_incident_id
 from product_common import clean_text, load_rows, md_cell, require_enabled, short
+from provider_failure import url_incident_id
 
 MONTHS = {
     m: i

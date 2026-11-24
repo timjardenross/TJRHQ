@@ -80,7 +80,8 @@ def _live_findings(key, product, today):
     for e in product.get("exceptions") or []:
         try:
             due = date.fromisoformat(str(e.get("due_date"))[:10])
-        except Exception:  # noqa: BLE001 - undated or unreadable: never expires
+        except Exception as exc:  # noqa: BLE001 - undated or unreadable: never expires
+            log.debug("forward_watch exception without readable due_date (%s)", exc)
             continue
         if due < today:
             expired.add(f"{e.get('title')} ({e.get('detail')})")
