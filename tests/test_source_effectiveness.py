@@ -44,3 +44,24 @@ def test_shipped_evidence_file_is_valid():
     ev = se.load_evidence()
     assert {g["provider"] for g in ev["coverage_gaps"]} >= {"Telstra", "ASX", "ACMA"}
     assert all("verified_on" in v for v in ev["quiet_verifications"])
+
+
+def test_parity_fixture_matches_recorded_expectations():
+    """Same fixture is classified by lcars-portal/src/lib/sourceEffectiveness.ts (vitest); both must equal `expected`."""
+    import json
+
+    fx = json.loads((_REPO / "tests" / "fixtures" / "source_effectiveness_parity.json").read_text(encoding="utf-8"))
+    now, ev, rows = datetime.fromisoformat(fx["now"]), fx["evidence"], fx["rows"]
+    exp = fx["expected"]
+    classified = se.classify_all(rows, ev, now)
+    assert classified == exp["classified"] and se.summarise(classified) == exp["summary"]
+    assert sorted(x["key"] for x in se.material_exceptions(rows, ev, now)) == exp["material"]
+    lim = se.coverage_limitations(rows, ev, now)
+    assert lim == exp["limitations"] and se.limitations_line(lim) == exp["limitations_line"]
+
+
+def test_portal_evidence_copy_is_identical():
+    import json
+
+    portal = _REPO / "lcars-portal" / "src" / "config" / "source_effectiveness.json"
+    assert json.loads(portal.read_text(encoding="utf-8")) == se.load_evidence()

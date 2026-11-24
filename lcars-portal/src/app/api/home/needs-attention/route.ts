@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { materialExceptions, type MaterialException } from '@/lib/sourceEffectiveness';
+import { loadSourceRows } from '@/app/api/intelligence-workbench/_lib/sourceCoverage';
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -56,12 +58,23 @@ export async function GET(req: NextRequest) {
       .limit(3);
     if (sourcesError) throw sourcesError;
 
+    // Source coverage: only a material exception (a BROKEN priority source,
+    // 3+ days without a successful check; one entry per stable key). Additive and best-effort: a failure here never breaks the
+    // existing sections.
+    let sourceCoverage: MaterialException[] = [];
+    try {
+      sourceCoverage = materialExceptions(await loadSourceRows(sb));
+    } catch (e) {
+      console.error('[home/needs-attention] source coverage failed:', e);
+    }
+
     const items = {
       hotSignals: hotSignals ?? [],
       interrupts: interrupts ?? [],
       staleSources: staleSources ?? [],
+      sourceCoverage,
       hasAnything: (hotSignals?.length ?? 0) +
-                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) > 0,
+                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) + sourceCoverage.length > 0,
     };
 
     return NextResponse.json(items);

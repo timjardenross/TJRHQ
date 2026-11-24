@@ -12,6 +12,7 @@ Pure functions over plain dicts so the same classification serves the CLI report
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -24,10 +25,11 @@ with ev as (select source_id, count(*) filter (where collected_at > now()-interv
                    count(*) filter (where collected_at > now()-interval '7 days') n7, max(collected_at) last_event
             from intelligence_events group by 1),
 h as (select source_id, count(*) filter (where checked_at > now()-interval '7 days') checks7,
-             count(*) filter (where checked_at > now()-interval '7 days' and status <> 'ok') bad7, max(checked_at) last_check
+             count(*) filter (where checked_at > now()-interval '7 days' and status <> 'ok') bad7, max(checked_at) last_check,
+             max(checked_at) filter (where status = 'ok') last_ok
       from intelligence_source_health group by 1)
 select s.source_name, s.source_type, s.active, coalesce(ev.n7,0) n7, coalesce(ev.n30,0) n30, ev.last_event,
-       coalesce(h.checks7,0) checks7, coalesce(h.bad7,0) bad7, h.last_check
+       coalesce(h.checks7,0) checks7, coalesce(h.bad7,0) bad7, h.last_check, h.last_ok
 from intelligence_source_registry s left join ev using (source_id) left join h using (source_id)
 order by s.active desc, s.source_name
 """
@@ -91,3 +93,48 @@ if __name__ == "__main__":  # python -m intelligence.source_effectiveness rows.j
     for c in res:
         if c["state"] not in (HEALTHY,):
             print(f"{c['state']:<10} {c['source_name']}: {c['reason']}")
+
+
+# ---- material exceptions and product-facing coverage limitations ----
+MATERIAL_BROKEN_DAYS = 3
+
+
+def is_priority(source_name: str, evidence: dict | None = None) -> bool:
+    evidence = evidence if evidence is not None else load_evidence()
+    return any(re.search(r"\b" + re.escape(p) + r"\b", source_name, re.IGNORECASE) for p in evidence.get("priority_sources", []))
+
+
+def _broken_priority(rows, evidence, now):
+    return [r for r in rows if is_priority(r["source_name"], evidence) and classify_source(r, evidence, now)[0] == BROKEN]
+
+
+def material_exceptions(rows: list[dict], evidence: dict | None = None, now: datetime | None = None) -> list[dict]:
+    """BROKEN priority sources with no successful check for 3+ days: the only source-health matter raised on Home."""
+    evidence = evidence if evidence is not None else load_evidence()
+    now = now or datetime.now(timezone.utc)
+    out = []
+    for r in _broken_priority(rows, evidence, now):
+        last_ok = _dt(r.get("last_ok"))
+        if last_ok is None or now - last_ok >= timedelta(days=MATERIAL_BROKEN_DAYS):
+            out.append({"key": f"source-coverage:broken:{r['source_name']}", "source_name": r["source_name"],
+                        "reason": classify_source(r, evidence, now)[1]})
+    return out
+
+
+def coverage_limitations(rows: list[dict], evidence: dict | None = None, now: datetime | None = None) -> list[dict]:
+    """Short list for intelligence products: declared uncovered providers plus any BROKEN priority source."""
+    evidence = evidence if evidence is not None else load_evidence()
+    now = now or datetime.now(timezone.utc)
+    out = [{"name": g["provider"], "kind": "uncovered", "reason": g["reason"]} for g in evidence.get("coverage_gaps", [])]
+    out += [{"name": r["source_name"], "kind": "broken_priority", "reason": classify_source(r, evidence, now)[1]}
+            for r in _broken_priority(rows, evidence, now)]
+    return out
+
+
+def limitations_line(limits: list[dict]) -> str:
+    if not limits:
+        return ""
+    unc = [x["name"] for x in limits if x["kind"] == "uncovered"]
+    brk = [x["name"] for x in limits if x["kind"] == "broken_priority"]
+    parts = ([f"{', '.join(unc)} not covered by an authoritative feed"] if unc else []) + ([f"{', '.join(brk)} currently failing"] if brk else [])
+    return "Coverage limitations: " + "; ".join(parts) + "."
