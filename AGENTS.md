@@ -42,6 +42,9 @@ Two Supabase MCP servers, two trust models:
   table and `postgres` cannot revoke that platform-granted membership. Verify the DB facts and scope drift with
   `tools/intelligence/ro_scope_verify.sql` (regenerate with `python tools/intelligence/ro_scope.py`); `tests/test_supabase_ro_access.py` proves
   the role cannot write (local Postgres).
+- **Rule for every research agent and subagent:** use `mcp__supabase_ro__execute_sql` for every SELECT. Never use `mcp__Supabase__execute_sql`
+  for reads: it prompts the Captain. If `supabase_ro` is not available in your session, do NOT fall back to the privileged connector; write the
+  exact SELECT you need into your report and continue with other work. Activation steps: `docs/SUPABASE-READONLY-ACTIVATION.md`.
 - **`mcp__Supabase__*` (write-capable, prompts).** `.claude/hooks/supabase_readonly_sql.py` still auto-approves a query only when it is
   provably read-only; every write, DDL, transaction and unknown function goes to the normal permission prompt, and `apply_migration` and
   every other tool on that server always prompt. Do not add a blanket `mcp__Supabase__*` allow rule
