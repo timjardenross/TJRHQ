@@ -34,7 +34,7 @@ def test_scheduler_brief_jobs_register_grace_and_deadman():
 
 def test_apscheduler_late_job_runs_within_grace_but_not_default():
     import pytest
-    pytest.importorskip("apscheduler")
+    pytest.importorskip("apscheduler.schedulers.background")  # a stubbed top-level package (other tests) must not defeat the skip
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.date import DateTrigger
 
