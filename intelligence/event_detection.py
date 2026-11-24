@@ -313,9 +313,20 @@ def _summary_hazard(event: dict) -> bool:
     return bool(sentence and _TYPE_RX["hazard"].search(sentence) and _SUMMARY_HAZARD_EVENT_RX.search(sentence))
 
 
+# "blackout" is also a restriction idiom (a central-bank or trading "blackout period", a media or news blackout). It names no power or
+# service failure, so it must not make a headline an outage candidate or link it to a real blackout (24 Nov preview: "Top Fed official
+# probed over whether she breached 'blackout period'" was grouped with five reports of the Eyre Peninsula power blackout and shown
+# as an ACTIVE alert-level incident).
+_NONOUTAGE_BLACKOUT = re.compile(r"\b(?:(?:trading|reporting|quiet|media|news|information|press|earnings|election)\s+blackouts?|blackouts?\s+(?:periods?|dates?|windows?|restrictions?|rules?))\b", re.IGNORECASE)
+
+
+def _neutralise_blackout_idioms(text: str) -> str:
+    return _NONOUTAGE_BLACKOUT.sub(" restriction ", text or "")
+
+
 def detect_candidate(event: dict) -> Candidate:
     title = event.get("title") or ""
-    text = title        # headline only: this is what every measurement was made on; summaries add unmeasured noise
+    text = _neutralise_blackout_idioms(title)        # headline only: this is what every measurement was made on; summaries add unmeasured noise
     types = tuple(k for k, rx in _TYPE_RX.items() if rx.search(text))
     summary_hazard_warning = False
     if "hazard" not in types and _summary_hazard(event):
