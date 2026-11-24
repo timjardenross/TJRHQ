@@ -30,8 +30,10 @@ in the 2026-11 process peel-back; see git history before that commit if you need
 
 Two Supabase MCP servers, two trust models:
 
-- **`mcp__supabase_ro__*` (read-only, standing approval).** `.mcp.json` defines `supabase_ro` with `read_only=true`, scoped to this
-  project and to the `database,docs` tool groups. The platform runs every query as `supabase_read_only_user`
+- **`mcp__supabase_ro__*` (read-only, standing approval).** `.claude/mcp/supabase_ro.mcp.json` defines `supabase_ro` with `read_only=true`, scoped to this
+  project and to the `database,docs` tool groups (`.mcp.json` is gitignored: activate with
+  `claude mcp add --transport http supabase_ro "<url in that file>"` or copy the entry into your own `.mcp.json`, then confirm the tool
+  names are `mcp__supabase_ro__*`). The platform runs every query as `supabase_read_only_user`
   (`default_transaction_read_only=on`, no write privileges, cannot execute SECURITY DEFINER writers), so SQL text is irrelevant to write
   safety and is not parsed. `.claude/settings.json` allows only `execute_sql` and `list_tables` on that server. Use it for ALL research:
   SELECTs, CTEs (including column lists), aggregates, scorecards, metadata and `explain`. `.claude/hooks/supabase_ro_scope.py` (config:

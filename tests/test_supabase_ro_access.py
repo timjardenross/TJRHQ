@@ -27,8 +27,8 @@ import supabase_ro_scope as scope
 # ── 1. repo config ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
 
-def test_mcp_json_defines_a_read_only_scoped_server():
-    cfg = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
+def test_connector_definition_is_a_read_only_scoped_server():
+    cfg = json.loads((ROOT / ".claude" / "mcp" / "supabase_ro.mcp.json").read_text(encoding="utf-8"))
     server = cfg["mcpServers"]["supabase_ro"]
     url = server["url"]
     assert url.startswith("https://mcp.supabase.com/mcp?")
@@ -36,6 +36,8 @@ def test_mcp_json_defines_a_read_only_scoped_server():
     assert "project_ref=" in url, "scope the server to this project"
     assert "features=database,docs" in url, "no account, edge-function, branching or storage tools"
     assert set(cfg["mcpServers"]) == {"supabase_ro"}, "only the read-only server is defined here; the write-capable one is not auto-added"
+    # `.mcp.json` is gitignored in this repo, so the definition lives at a tracked path and is activated by copying or `claude mcp add`.
+    assert not (ROOT / ".mcp.json").is_file() or "read_only=true" in (ROOT / ".mcp.json").read_text(encoding="utf-8")
 
 
 def test_standing_allow_rules_cover_only_read_tools_of_the_read_only_server():
