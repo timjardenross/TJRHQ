@@ -60,6 +60,16 @@ def test_company_results_and_funding_news_are_not_technology_intelligence():
     assert items == []
 
 
+def test_share_market_movement_is_not_technology_intelligence():
+    _, items = _wk([_ev(1, "Asian Chip Stocks Set to Jump as Huang Comeback Refires AI Trade", "Bloomberg",
+                        "Asian semiconductor-related stocks are poised to climb after the board reinstated the chief executive."),
+                    _ev(2, "European Chip Stocks Bounce After AI Rout", "Bloomberg",
+                        "European semiconductor stocks staged a partial rebound after a selloff."),
+                    _ev(3, "Nvidia unveils new AI chip for data centres", "iTnews",
+                        "The accelerator targets inference workloads in cloud data centres.")])
+    assert _heads(items) == ["Nvidia unveils new AI chip for data centres"]
+
+
 def test_ai_is_a_technology_subject_not_a_market_talking_point():
     _, items = _wk([_ev(1, "Barclays nervously overweight equities on AI strength", "Financial Newswire"),
                     _ev(2, "Tech suppliers raise AI server prices up to 45% months after deals are signed", "Financial Times")])

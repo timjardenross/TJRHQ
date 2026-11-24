@@ -538,8 +538,8 @@ _WK_AU_RX = re.compile(r"\baustralia(?:n|ns)?\b|\bsydney\b|\bmelbourne\b|\bbrisb
 # Editorial quality: promotional, list, awards, how-to, opinion and speculative-question headlines do not qualify as intelligence.
 _WK_LOW_QUALITY_RX = re.compile(r"\b(?:how to|best|top \d+|\d+ (?:ways|things|tips)|reviews?|sponsored|webinar|podcast|opinion|fast 50|awards?|ranked|ranking|"
                                 r"hiring|jobs?|(?:best|top|black friday|cyber monday) deals?|giveaway|quiz|sale|discount|coupon)\b|^(?:could|should|why|what|how|is|are|will|can|does|do)\b|\?\s*(?:-\s.*)?$", re.IGNORECASE)
-# Company results and funding news is business reporting, not technology intelligence (checked against headline and summary).
-_WK_CORPORATE_RX = re.compile(r"\b(?:revenue|year[- ]on[- ]year|yoy|(?<!non-)(?<!non )(?<!for-)(?<!for )profits?|earnings|funding round|series [a-d]|ipo|share price|market cap)\b", re.IGNORECASE)
+# Company results, funding and share-market movement are business reporting, not technology intelligence (checked against headline and summary).
+_WK_CORPORATE_RX = re.compile(r"\b(?:revenue|year[- ]on[- ]year|yoy|(?<!non-)(?<!non )(?<!for-)(?<!for )profits?|earnings|funding round|series [a-d]|ipo|share price|market cap|chip stocks?|semiconductor(?:-related)? stocks?|stocks? (?:set to|poised to|rally|rall(?:y|ies)|jump|fall|slump|rebound|bounce)|(?:set to|poised to) (?:jump|climb|rally))\b", re.IGNORECASE)
 _WK_CREDIBLE_KINDS = (we.PRIMARY, we.MAINSTREAM, we.SPECIALIST)
 _WK_EVIDENCE_POINTS = {"officially_confirmed": 3, "corroborated": 2, "reported": 1}
 # An aggregator feed item whose trailing ' - Outlet' names a primary or specialist publisher is attributable reporting by that outlet
