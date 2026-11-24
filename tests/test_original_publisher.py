@@ -1,4 +1,4 @@
-"""Original-publisher / original-date verification (default OFF, not wired)."""
+"""Original-publisher / original-date verification (pure functions; ingestion wiring is tested in test_publisher_verification_ingest.py)."""
 import pathlib
 from datetime import datetime, timezone
 
@@ -115,11 +115,12 @@ def test_batch_budget_and_failures(monkeypatch):
     assert out["0"].outcome == op.VERIFIED_DATE
 
 
-def test_not_wired():
+def test_only_the_ingestion_wrapper_uses_the_module():
+    """Wired 2026-11-24 (stream 2): the single consumer is the bounded ingestion step, which the scheduler calls."""
     root = pathlib.Path(__file__).resolve().parents[1]
-    users = [p for p in (root / "intelligence").rglob("*.py") if "original_publisher" in p.read_text(errors="ignore")
-             and p.name != "original_publisher.py"]
-    assert users == []
+    users = sorted(p.name for p in (root / "intelligence").rglob("*.py") if "original_publisher" in p.read_text(errors="ignore")
+                   and p.name != "original_publisher.py")
+    assert users == ["publisher_verification.py"]
 
 
 def _page(**meta):

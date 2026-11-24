@@ -64,6 +64,20 @@ def provenance_row_fields(prov: dict | None, *, columns_exist_override: bool | N
     return {k: (_iso(prov.get(k)) if k.startswith("event_window") else prov.get(k)) for k in COLUMNS}
 
 
+VERIFICATION_KEY = "publisher_verification"   # key inside score_provenance (jsonb) and inside an event's provenance dict
+
+
+def merge_verification_record(row: dict, prov: dict | None, *, columns_exist_override: bool | None = None) -> dict:
+    """Add the original-publisher verification record (intelligence/ingestion/publisher_verification.py) to row["score_provenance"], keeping
+    whatever scoring provenance is already there. No-op unless the provenance columns are known to exist and the event carries a record,
+    so a row without a record is byte-identical to today's. Returns the row."""
+    on = columns_exist() if columns_exist_override is None else columns_exist_override
+    rec = (prov or {}).get(VERIFICATION_KEY)
+    if on and rec:
+        row["score_provenance"] = {**(row.get("score_provenance") or {}), VERIFICATION_KEY: rec}
+    return row
+
+
 def select_columns() -> str:
     """Extra PostgREST select fragment for readers (leading comma); empty while the columns are not known to exist."""
     return ("," + ",".join(COLUMNS)) if columns_exist() else ""
