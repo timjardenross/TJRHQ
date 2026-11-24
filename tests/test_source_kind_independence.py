@@ -11,7 +11,7 @@ P, M, S, A, C, U = we.PRIMARY, we.MAINSTREAM, we.SPECIALIST, we.AGGREGATOR, we.C
 
 _PRIMARY = {"Google Cloud Security Bulletins", "AEMO NEMweb Market Notices", "AEMO Market Notices", "Cisco Security Advisories",
             "NVD / NIST CVE Database", "ACSC Advisories", "ACSC Alerts & Advisories", "APRA Consultations", "APRA Media Releases",
-            "APRA Publications", "ASIC Enforcement Activity", "ASIC News Centre", "CISA Alerts", "CISA Known Exploited Vulnerabilities",
+            "APRA Publications", "ASIC Enforcement Activity", "ASIC News Centre", "ASIC Consultations", "CISA Alerts", "CISA Known Exploited Vulnerabilities",
             "APRA — Speeches and Publications", "APRA (changedetection.io watchlist)", "ASIC (changedetection.io watchlist)",
             "RBA Media Releases", "ATO Online Services for Agents Status",
             "ATO Online Services for Agents Scheduled Maintenance", "ATO Online Services for Business Scheduled Maintenance",
