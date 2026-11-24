@@ -1,0 +1,6 @@
+{
+  "_comment": "Scope guard for the read-only Supabase MCP server (mcp__supabase_ro__execute_sql). The database role already cannot write; this only keeps credential/auth schemas out of reach and lets the Captain list sensitive PUBLIC tables that must go to the permission prompt. Edit this file, not the hook code.",
+  "deny_schemas": ["vault", "auth", "storage", "net", "supabase_functions", "pgsodium", "pgsodium_masks", "extensions", "cron", "pgmq", "realtime", "graphql_public"],
+  "deny_catalog_names": ["pg_authid", "pg_shadow", "pg_user_mapping", "pg_read_file", "pg_read_binary_file", "pg_ls_dir", "pg_ls_logdir", "pg_ls_waldir", "lo_import", "lo_export", "dblink", "pg_stat_ssl"],
+  "ask_tables": []
+}
