@@ -260,16 +260,20 @@ def _collection_coverage_caveat(domain_key: str) -> str | None:
 def _persist_brief(
     brief_type: str, text: str, signals_count: int = 0, health: dict | None = None,
     evidence_window_hours: int | None = None, collection_caveat: str | None = None,
-) -> None:
-    """Persist a generated brief to captains_daily_briefs for historical retrieval."""
+) -> str | None:
+    """Persist a generated brief to captains_daily_briefs for historical retrieval.
+
+    Returns the inserted row's id, only when CAPTAINS_BRIEF_RECORD_EVENTS is on (the insert then asks for the row back);
+    otherwise, or when the insert fails, returns None. With the flag off the request is exactly the legacy one."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
-        return
+        return None
+    want_id = _record_events_enabled()
     url = f"{_SUPABASE_URL}/rest/v1/captains_daily_briefs"
     headers = {
         "apikey": _SUPABASE_KEY,
         "Authorization": f"Bearer {_SUPABASE_KEY}",
         "Content-Type": "application/json",
-        "Prefer": "return=minimal",
+        "Prefer": "return=representation" if want_id else "return=minimal",
     }
     payload = json.dumps({
         "brief_type":      brief_type,
@@ -282,11 +286,20 @@ def _persist_brief(
     }).encode()
     try:
         req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=8):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
-            pass
+        with urllib.request.urlopen(req, timeout=8) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
+            body = resp.read() if want_id else b""
         log.info("[brief-persist] %s brief stored", brief_type)
     except Exception as exc:  # noqa: BLE001 - best-effort brief persistence, already logged as a warning; the brief itself was already generated/sent by this point
         log.warning("[brief-persist] failed to persist %s brief: %s", brief_type, exc)
+        return None
+    if not want_id:
+        return None
+    try:
+        rows = json.loads(body)
+        return str(rows[0]["id"]) if rows and rows[0].get("id") is not None else None
+    except Exception as exc:  # noqa: BLE001 - id unreadable: events are simply not recorded for this brief
+        log.warning("[brief-persist] stored %s brief but could not read its id: %s", brief_type, exc)
+        return None
 
 
 def _derive_risk_label(row: dict) -> str:
@@ -1810,15 +1823,26 @@ def _email_morning_brief(text: str) -> None:
         log.warning("Morning brief email to %s failed (non-blocking)", _MORNING_BRIEF_EMAIL_TO)
 
 
-def _record_brief_events(brief_type: str) -> None:
+def _record_events_enabled() -> bool:
+    try:
+        from intelligence import brief_event_links as bel
+        return bool(bel.enabled())
+    except Exception:  # noqa: BLE001 - optional audit trail must never affect persistence
+        return False
+
+
+def _record_brief_events(brief_type: str, brief_id: str | None = None) -> None:
     """CAPTAINS_BRIEF_RECORD_EVENTS (default off): record which events this brief contained, keyed by the persisted brief id.
-    Never raises; does nothing at all when the flag is off (the legacy persist path is untouched)."""
+    `brief_id` is the id returned by _persist_brief for THIS brief; without it (persistence failed) nothing is recorded,
+    so today's events can never attach to an earlier brief. Never raises; does nothing when the flag is off."""
     try:
         from intelligence import brief_event_links as bel
         if not bel.enabled():
             return
-        rows = _sb_get("captains_daily_briefs", f"brief_type=eq.{brief_type}&order=generated_at.desc&limit=1&select=id")
-        bel.flush(brief_type, brief_ref=(rows[0].get("id") if rows else None), kind=brief_type)
+        if not brief_id:
+            log.warning("Brief event recording skipped: %s brief was not persisted", brief_type)
+            return
+        bel.flush(brief_type, brief_ref=brief_id, kind=brief_type)
     except Exception as exc:  # noqa: BLE001 - best-effort audit trail
         log.warning("Brief event recording skipped: %s", exc)
 
@@ -1861,11 +1885,11 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     else:
         log.error("Unknown brief type: %s", brief_type)
         return False
-    _persist_brief(
+    brief_id = _persist_brief(
         brief_type, text, signals_count=len(signals), health=_get_capacity_today(),
         evidence_window_hours=evidence_window_hours, collection_caveat=collection_caveat,
     )
-    _record_brief_events(brief_type)
+    _record_brief_events(brief_type, brief_id)
     if brief_type == "morning":
         # USS-TJR-MSN-0412 Stream 4: once-a-day database size guard (warns at
         # >= 450 MB, at most once per 24h; best-effort, never raises).
