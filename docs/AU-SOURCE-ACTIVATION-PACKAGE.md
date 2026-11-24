@@ -45,3 +45,18 @@ Status: DRAFT for approval. The seed script was **not** run against the database
 
 - `seed_source_registry.py` header counts ("172 sources") were already stale (observed: 130 rows before this change, 133 after); left untouched to keep the diff scoped.
 - `sources_live.csv` is a live DB export and was not edited.
+
+
+## Live verification update (2026-11-24, after the network allowlist)
+Observed from the verification container (plain fetch or Firecrawl; the production VM fetches from its own network):
+| Source | Result |
+|---|---|
+| RBA Media Releases | **Verified.** HTTP 200, RSS 1.0; valid but very low volume (one item, 6 Nov 2026). Active. |
+| Okta Status `history.rss` | **Not usable.** HTTP 401 / login wall (redirects to `status.okta.com/login`), not a feed. Row removed from this package. |
+| Google Workspace Status feed | **Verified but stale.** Valid Atom; last updated 2026-09-25 with one entry. Stays staged inactive (pilot); expect near-zero volume. |
+| ATO Online services for agents | **Verified and added.** `osfa.status.ato.gov.au/api/v2/incidents.json`: HTTP 200 JSON, 50 incidents, standard Statuspage shape handled by the existing `/incidents.json` dispatch; plain fetch, 0 credits. Replaces the Okta pilot. |
+| ATO business (`osb`) and PLS status pages | Verified via Firecrawl (osb: RSS and JSON, 200); **not reachable from the container** (hosts not on the allowlist), so not added. Allowlist request: `osb.status.ato.gov.au`, `pls.status.ato.gov.au`. |
+| ASX | No economical method (company announcements feed is a paid subscription). Genuine gap. |
+| ACMA | No RSS (`/rss` returns 404) and no documented machine-readable method. Genuine gap. |
+| ASIC | Collection repaired separately (PR on branch `claude/asic-source-repair-2kq`): the newsroom is client-rendered. |
+Further hosts blocked from the container: `asic.gov.au` (bare), `www.cyber.gov.au`, `www.cfr.gov.au`, `status.cloud.google.com`.
