@@ -50,3 +50,11 @@ Two Supabase MCP servers, two trust models:
   every other tool on that server always prompt. Do not add a blanket `mcp__Supabase__*` allow rule
   (`tests/test_supabase_readonly_hook.py` enforces this) and do not keep widening the function allowlist: use the read-only server.
   Keep reads and writes in separate calls, and back up rows before any data fix.
+
+### Vercel deployments (read before pushing or deploying)
+
+The portal project is on the Hobby plan (100 deployments per day, canceled ones included). Branch pushes must not create deployments:
+`lcars-portal/vercel.json` disables Git deployments for `claude/**`, `worktree-*`, `archive/**`, and a PreToolUse hook
+(`.claude/hooks/vercel_deploy_gate.py`) refuses `git push` from a branch that lacks that guard (merge `origin/main` first) and refuses any
+agent-created deployment without a single-use budget ticket (`tools/ops/vercel_deploy_budget.py ... --issue-ticket`, internal budget 10 previews and
+10 routine production deployments per rolling 24 h). Previews are explicit, never a side effect of a commit. See `docs/ops/VERCEL-DEPLOYMENT-POLICY.md`.
