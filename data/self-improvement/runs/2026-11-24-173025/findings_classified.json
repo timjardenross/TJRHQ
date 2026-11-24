@@ -1,0 +1,97 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model Router Call Log Missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router reports call_log_exists as false for configured log path /opt/starship-endeavour/core/model-router/call_log.jsonl.",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router creates and writes invocation metrics and traces to call_log.jsonl."
+      },
+      "expected_benefit": "Restores call-level observability and log metrics auditing across routed model operations.",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 Features in Research Commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Multiple Phase 5 TODO markers found for authorization checking via Supabase, integration with decision_to_memory, and general implementation stubs.",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement the planned Phase 5 authorization checks and memory integrations or document their roadmapped schedule."
+      },
+      "expected_benefit": "Completes research command integration and enforces Supabase-backed authorization.",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.90; Risk: low; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Quality Anomalies Table Query",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Hardcoded empty list with TODO placeholder to query quality_anomalies table.",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement database query to fetch records from quality_anomalies table instead of returning a static empty list."
+      },
+      "expected_benefit": "Enables actual anomaly analysis in the quality forecasting module.",
+      "finding_id": "FND-003",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.90; Risk: low; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct Gemini Call Bypass in Emergency Alerts",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct call to call_gemini using GEMINI_API_KEY environment variable rather than delegating through the model router.",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM queries through the centralized model router using an appropriate task type."
+      },
+      "expected_benefit": "Ensures central policy governance, metrics tracking, and failover support for emergency alert prompts.",
+      "finding_id": "FND-004",
+      "evidence_strength": "strong",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: strong; Confidence: 0.85; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need conclusive); Category reason: Router bypasses must be corrected by design review"
+    }
+  ],
+  "errors": []
+}
