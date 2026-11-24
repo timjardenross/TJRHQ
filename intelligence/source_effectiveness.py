@@ -101,7 +101,7 @@ MATERIAL_BROKEN_DAYS = 3
 
 def is_priority(source_name: str, evidence: dict | None = None) -> bool:
     evidence = evidence if evidence is not None else load_evidence()
-    return any(re.search(r"\b" + re.escape(p) + r"\b", source_name, re.I) for p in evidence.get("priority_sources", []))
+    return any(re.search(r"\b" + re.escape(p) + r"\b", source_name, re.IGNORECASE) for p in evidence.get("priority_sources", []))
 
 
 def _broken_priority(rows, evidence, now):
