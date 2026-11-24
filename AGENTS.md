@@ -35,9 +35,11 @@ Two Supabase MCP servers, two trust models:
   (`default_transaction_read_only=on`, no write privileges, cannot execute SECURITY DEFINER writers), so SQL text is irrelevant to write
   safety and is not parsed. `.claude/settings.json` allows only `execute_sql` and `list_tables` on that server. Use it for ALL research:
   SELECTs, CTEs (including column lists), aggregates, scorecards, metadata and `explain`. `.claude/hooks/supabase_ro_scope.py` (config:
-  `supabase_ro_scope.json`) refuses credential/platform schemas (`vault`, `auth`, `storage`, `net`, ...) and sends any table listed under
-  `ask_tables` to the prompt, because that role can read every table. Verify the role posture with
-  `tools/intelligence/ro_access_verification.sql`; `tests/test_supabase_ro_access.py` proves the role cannot write (local Postgres).
+  `supabase_ro_scope.json`) limits READS to an explicit list of intelligence relations (`permitted_relations`) and refuses everything else,
+  credential/platform schemas, user-defined functions and SQL-executing builtins. That scope is application-level: the role can read every
+  table and `postgres` cannot revoke that platform-granted membership. Verify the DB facts and scope drift with
+  `tools/intelligence/ro_scope_verify.sql` (regenerate with `python tools/intelligence/ro_scope.py`); `tests/test_supabase_ro_access.py` proves
+  the role cannot write (local Postgres).
 - **`mcp__Supabase__*` (write-capable, prompts).** `.claude/hooks/supabase_readonly_sql.py` still auto-approves a query only when it is
   provably read-only; every write, DDL, transaction and unknown function goes to the normal permission prompt, and `apply_migration` and
   every other tool on that server always prompt. Do not add a blanket `mcp__Supabase__*` allow rule

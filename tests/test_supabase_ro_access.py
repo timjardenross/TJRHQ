@@ -46,21 +46,60 @@ def test_standing_allow_rules_cover_only_read_tools_of_the_read_only_server():
         assert not any(forbidden in rule for rule in allow)
 
 
-# ── 2. scope guard ───────────────────────────────────────────────────────────────────────────────────────────────────────
+# ── 2. scope guard (application-level) ────────────────────────────────────────────────────────────────────────────────────
+
+CFG = scope._load_config()
 
 ALLOWED_RESEARCH = [
     "select count(*) from intelligence_events where collected_at > now() - interval '7 days'",
     "with k(id, rx, d0) as (values ('RS-001','NAB','2026-09-23')) select * from k",  # CTE column list: the old parser could not classify this
     "select * from generate_series(1,3) as g(n)",
     "select * from intelligence_events tablesample system (1)",
-    "select sha256(convert_to('x','UTF8')), pg_get_viewdef('x'::regclass)",
+    "select sha256(convert_to(raw_title,'UTF8')), pg_get_viewdef('intelligence_source_health_latest'::regclass) from intelligence_events limit 1",
+    "select brief_date, brief_type, brief_text from captains_daily_briefs where brief_text ~* 'optus'",
+    "select e.event_id, s.source_name from intelligence_events e join intelligence_source_registry s using (source_id)",
     "select * from information_schema.columns where table_name = 'intelligence_events'",
     "explain select * from intelligence_events limit 1",
-    "select 'vault.secrets is mentioned inside text only'",
-    "select e.raw_title from intelligence_events e -- vault.secrets in a comment",
+    "select relname, reltuples from pg_class where relnamespace = 'public'::regnamespace",  # metadata inspection stays available
+    "select row_to_json(t) from (select * from alerts limit 3) t",
+    "select e.raw_title from intelligence_events e -- tasks and vault.secrets only in a comment",
+    "select source_id, percentile_cont(0.5) within group (order by latency_ms) from llm_call_metrics group by 1",
 ]
 
-REFUSED = [
+DENIED = [
+    # direct, schema-qualified, quoted, upper-case, aliased, subquery, join, TABLE form, JSON wrapping
+    "select * from health_daily_logs",
+    "select * from public.health_daily_logs",
+    'select * from public."health_daily_logs"',
+    'select * from "Health_Daily_Logs"',
+    "select * from HEALTH_DAILY_LOGS",
+    "select h.* from health_daily_logs as h",
+    "select * from (select * from capacity_checkins) x",
+    "with x as (select * from pain_recovery_sessions) select * from x",
+    "select e.raw_title from intelligence_events e join google_calendar_tokens g on true",
+    "select * from intelligence_events, health_insights",
+    "table mood_chart",
+    "select row_to_json(t) from conversation_turns t",
+    "select to_jsonb(c) from public . captured_items c",
+    # views and functions that read outside scope
+    "select * from analytics_health_daily",
+    "select * from human_systems_daily",
+    "select compute_recovery_score()",
+    "select * from get_recovery_posture()",
+    "select * from public.match_document_chunks(null, 1)",
+    # SQL-executing builtins, including names built from pieces
+    "select query_to_xml('select * from ' || 'health_' || 'daily_logs', true, false, '')",
+    "select table_to_xml('x'::regclass, true, false, '')",
+    "select * from ts_stat('select 1')",
+    "select cursor_to_xml('c'::refcursor, 1, true, false, '')",
+    # catalogs that expose other sessions' text or credentials
+    "select query from pg_stat_statements",
+    "select query from pg_stat_activity",
+    "select * from pg_authid",
+    "select usename, passwd from pg_shadow",
+    "select pg_read_file('/etc/passwd')",
+    "select lo_import('/etc/passwd')",
+    # credential / platform schemas
     "select * from vault.secrets",
     "select * from vault.decrypted_secrets",
     'select * from "vault"."secrets"',
@@ -69,45 +108,89 @@ REFUSED = [
     "select * from net.http_request_queue",
     "select * from cron.job",
     "select * from pgmq.q_xo",
-    "select usename, passwd from pg_shadow",
-    "select * from pg_authid",
-    "select pg_read_file('/etc/passwd')",
-    "select lo_import('/etc/passwd')",
+    # names passed as text
+    "select * from intelligence_events where raw_title = 'health_daily_logs'",
+]
+
+ASK = [
+    # routes to dynamic SQL, or statements a person should decide
+    "do $$ begin execute 'select 1'; end $$",
+    "create temp table x as select 1",
+    "create function pg_temp.f() returns int language sql as 'select 1'",
+    "begin; set transaction read write; select 1; commit",
+    "set role postgres",
+    "select set_config('role','postgres',true)" if False else "prepare p as select 1",
+    "execute p",
+    'select * from U&"health\\005fdaily_logs"',
+    "select 1 from U&'x'",
+    "select 'unterminated",
+    "",
 ]
 
 
 @pytest.mark.parametrize("sql", ALLOWED_RESEARCH)
 def test_scope_guard_leaves_routine_research_alone(sql):
-    assert scope.classify(sql, scope._load_config()) is None
+    assert scope.classify(sql, CFG) is None
 
 
-@pytest.mark.parametrize("sql", REFUSED)
-def test_scope_guard_refuses_credential_and_platform_schemas(sql):
-    result = scope.classify(sql, scope._load_config())
-    assert result is not None and result[0] == "deny"
+@pytest.mark.parametrize("sql", DENIED)
+def test_scope_guard_denies_out_of_scope_reads_however_they_are_written(sql):
+    result = scope.classify(sql, CFG)
+    assert result is not None and result[0] == "deny", (sql, result)
+
+
+@pytest.mark.parametrize("sql", ASK)
+def test_scope_guard_sends_dynamic_or_non_read_statements_to_a_person(sql):
+    result = scope.classify(sql, CFG)
+    assert result is not None and result[0] == "ask", (sql, result)
+
+
+def test_scope_lists_are_consistent():
+    all_rel, permitted = set(CFG["all_public_relations"]), set(CFG["permitted_relations"])
+    assert permitted <= all_rel
+    assert len(CFG["all_public_relations"]) == len(all_rel), "duplicate relation names"
+    personal_markers = ("health_", "pain_", "mood_", "capacity_", "physical_", "weight_", "recovery_", "burnout", "human_systems", "comms_",
+                        "conversation_", "personal_", "shopping_", "google_calendar", "captain_readiness", "captured_items", "debrief_",
+                        "user_settings", "wellness_", "captains_log", "alert_sites", "analytics_health", "intelligence_notes",
+                        "intelligence_health_correlations", "daily_health")
+    leaked = sorted(r for r in permitted if r.startswith(personal_markers))
+    assert not leaked, f"personal or credential-bearing relations must not be permitted: {leaked}"
+    # captains_daily_briefs holds health_snapshot and llm_call_metrics holds free-form metadata: both are column-limited
+    assert set(CFG["column_grants"]) >= {"captains_daily_briefs", "llm_call_metrics"}
+    assert "health_snapshot" not in CFG["column_grants"]["captains_daily_briefs"]
+    assert "metadata" not in CFG["column_grants"]["llm_call_metrics"]
+
+
+def test_scope_guard_fails_closed_on_credential_schemas_when_config_is_unreadable(monkeypatch):
+    monkeypatch.setattr(scope, "CONFIG", Path("/nonexistent/supabase_ro_scope.json"))
+    assert scope.classify("select * from vault.secrets")[0] == "deny"
+    assert scope.classify("select query from pg_stat_statements")[0] == "deny"
 
 
 def test_scope_guard_sends_listed_sensitive_tables_to_the_prompt():
-    cfg = {"deny_schemas": [], "deny_catalog_names": [], "ask_tables": ["pain_checkins"]}
-    assert scope.classify("select * from pain_checkins", cfg)[0] == "ask"
+    cfg = {**CFG, "ask_tables": ["intelligence_notes_x"], "all_public_relations": [], "denied_user_functions": []}
+    assert scope.classify("select * from intelligence_notes_x", cfg)[0] == "ask"
     assert scope.classify("select * from intelligence_events", cfg) is None
 
 
 def test_scope_guard_hook_never_prints_allow():
-    for sql in ALLOWED_RESEARCH + REFUSED:
+    for sql in ALLOWED_RESEARCH + DENIED + ASK:
         out = subprocess.run(
             [sys.executable, str(ROOT / ".claude" / "hooks" / "supabase_ro_scope.py")],
             input=json.dumps({"tool_input": {"query": sql}}),
             capture_output=True, text=True, check=True,
         ).stdout
         if out:
-            decision = json.loads(out)["hookSpecificOutput"]["permissionDecision"]
-            assert decision in {"deny", "ask"}
+            assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
 
 
-def test_scope_guard_fails_closed_when_config_is_unreadable(monkeypatch):
-    monkeypatch.setattr(scope, "CONFIG", Path("/nonexistent/supabase_ro_scope.json"))
-    assert scope.classify("select * from vault.secrets")[0] == "deny"
+def test_verify_script_is_generated_from_the_same_lists():
+    sys.path.insert(0, str(ROOT / "tools" / "intelligence"))
+    import ro_scope
+
+    rendered = ro_scope.render_verify(CFG)
+    assert rendered == (ROOT / "tools" / "intelligence" / "ro_scope_verify.sql").read_text(encoding="utf-8"), "regenerate: python tools/intelligence/ro_scope.py > tools/intelligence/ro_scope_verify.sql"
+    assert all(f"'{r}'" in rendered for r in CFG["permitted_relations"])
 
 
 # ── 3. database enforcement (local Postgres emulation of supabase_read_only_user) ─────────────────────────────────────────
@@ -267,3 +350,30 @@ def test_residual_risk_a_public_executable_security_definer_writer_defeats_the_r
 def test_credential_schema_is_readable_by_pg_read_all_data_which_is_why_the_scope_guard_exists(pg):
     assert _try(pg, "select secret from vault_like.secrets")[0] == "ok"
     assert scope.classify("select secret from vault.secrets")[0] == "deny"
+
+
+def test_postgres_cannot_revoke_a_platform_granted_membership_so_table_scope_is_not_database_enforceable(pg):
+    """Why read scope is application-level: on Supabase the role `postgres` (CREATEROLE, ADMIN OPTION on pg_read_all_data, not a superuser)
+    holds pg_read_all_data/pg_monitor with ADMIN OPTION, but supabase_read_only_user received its membership from supabase_admin, and
+    PostgreSQL only lets a role revoke grants it made itself. This reproduces that arrangement locally."""
+    admin = pg("owner_admin")
+    admin.autocommit = True
+    cur = admin.cursor()
+    for sql in (
+        "drop role if exists pgrole", "drop role if exists ro_member",
+        "create role pgrole createrole login", "create role ro_member login",
+        "grant pg_read_all_data to pgrole with admin option",
+        "grant pg_read_all_data to ro_member",
+    ):
+        cur.execute(sql)
+    conn = pg("pgrole")
+    conn.autocommit = True
+    c = conn.cursor()
+    c.execute("revoke pg_read_all_data from ro_member")  # emits a WARNING and changes nothing
+    cur.execute("select pg_has_role('ro_member', 'pg_read_all_data', 'member')")
+    assert cur.fetchone()[0] is True
+    with pytest.raises(psycopg2.Error) as excinfo:
+        c.execute("revoke pg_read_all_data from ro_member granted by owner_admin")
+    assert "permission denied" in str(excinfo.value).lower()
+    conn.close()
+    admin.close()
