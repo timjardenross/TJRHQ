@@ -24,6 +24,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+from intelligence import provenance as prov
 from intelligence.config import (
     HTTP_TIMEOUT_SECONDS,
     MAX_FEED_ITEMS_PER_SOURCE,
@@ -40,6 +41,13 @@ _UA = "USS-TJR-Intelligence-Agent/1.0"
 
 
 class APIAdapter(BaseSourceAdapter):
+
+    def _make_item(self, raw_title, raw_summary=None, canonical_url=None, published_at=None, provenance=None):
+        """Attach provenance: a structured API timestamp is the source's own ('feed'); a date-only field (CISA KEV dateAdded) is
+        passed in explicitly as day precision by its parser. Behaviour of the item is otherwise unchanged."""
+        if provenance is None:
+            provenance = prov.api_provenance(published=published_at, endpoint=self.source.api_endpoint or self.source.url)
+        return super()._make_item(raw_title, raw_summary, canonical_url, published_at, provenance=provenance)
 
     def collect(self) -> list[IntelligenceItem]:
         endpoint = self.source.api_endpoint or self.source.url
@@ -174,7 +182,8 @@ class APIAdapter(BaseSourceAdapter):
                     break
             link = entry.get("link") or entry.get("id") or url
             published = self._parse_date_from_entry(entry)
-            items.append(self._make_item(title, summary, link, published))
+            items.append(self._make_item(title, summary, link, published, provenance=prov.rss_provenance(
+                published=published, feed_url=url, entry=entry)))
         # Return sentinel so collect() knows we already have items
         return {"__feed_items__": items}
 
@@ -302,7 +311,9 @@ class APIAdapter(BaseSourceAdapter):
             summary = v.get("shortDescription")
             url = f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else self.source.url
             published = self._parse_iso(v.get("dateAdded"))
-            items.append(self._make_item(title, summary, url, published))
+            items.append(self._make_item(title, summary, url, published, provenance=prov.api_provenance(
+                published=published, endpoint=self.source.api_endpoint or self.source.url, date_only=True, explicit_publication_date=True,
+                label="catalogue_addition")))   # dateAdded dates the KEV catalogue ENTRY (verified, day precision), not the CVE's disclosure
         return items
 
     def _parse_nvd(self, data) -> list[IntelligenceItem]:

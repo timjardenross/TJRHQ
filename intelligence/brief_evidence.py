@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 from intelligence import event_detection as ed
+from intelligence import provenance
 from intelligence import weekly_evidence as we
 
 MASTER_FLAG = "BRIEF_EVIDENCE_V1"
@@ -66,6 +67,7 @@ class IncidentView:
     record: dict                    # ed.escalation_record()
     reasons: list[str] = field(default_factory=list)
     urgent_verify: bool = False     # VERIFY + high materiality + immediate urgency + stated impact: potentially severe, not yet corroborated
+    freshness: str = ed.FRESH_UNKNOWN   # VERIFIED | CLAIMED | UNKNOWN | KNOWN STALE (ed.incident_freshness): publication-time trust, NOT service state
 
     @property
     def report_ids(self) -> list[str]:
@@ -88,7 +90,7 @@ def _incident_id(report_ids: list[str]) -> str:
     return "inc-" + hashlib.sha1("|".join(sorted(report_ids)).encode(), usedforsecurity=False).hexdigest()[:10]  # nosec B324 - identity hash, not security
 
 
-URGENT_MAX_AGE_HOURS = 24      # 'urgent' is about what is happening now: an incident whose newest report is older than this is never flagged (nor promoted in the weekly view)
+URGENT_MAX_AGE_HOURS = ed.URGENT_MAX_AGE_HOURS      # 'urgent' is about what is happening now: an incident whose newest report is older than this is never flagged (nor promoted in the weekly view)
 
 
 def build_evidence(events: list[dict], *, now: datetime | None = None, window_hours: int = 24) -> EvidenceSet:
@@ -106,8 +108,10 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             reports.append({"report_id": m.event_id, "publisher": m.family, "source_name": m.source, "source_kind": m.kind,
                             "title": m.title, "url": e.get("url"), "collected_at": e.get("collected_at"),
                             "published_at": m.published.isoformat() if m.published else None,
-                            "role": role, "geography": e.get("geography") or "", "summary": e.get("summary") or ""})
+                            "role": role, "geography": e.get("geography") or "", "summary": e.get("summary") or "",
+                            **({"provenance": m.provenance} if m.provenance else {})})
         times = [m.published for m in members if m.published]
+        freshness = ed.incident_freshness(members, now)
         incidents.append(IncidentView(
             incident_id=_incident_id([m.event_id for m in members]), headline=d.headline.title, priority=d.priority,
             materiality=d.materiality, sector_tier=d.sector_tier, event_type=d.event_type, impact_status=d.impact_status,
@@ -116,8 +120,11 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
             provisional=d.provisional, grouping_confidence=d.group.grouping_confidence, reports=reports,
             first_seen=min(times) if times else None, last_seen=max(times) if times else None,
             record=ed.escalation_record(d, now=now), reasons=list(d.reasons),
+            freshness=freshness,
+            # Unverified (CLAIMED / UNKNOWN) times may feed URGENT TO VERIFY: a potentially severe emerging incident is surfaced for
+            # verification. KNOWN STALE (newest report older than URGENT_MAX_AGE_HOURS) never is.
             urgent_verify=(d.priority == "VERIFY" and d.materiality == "high" and d.urgency == "immediate" and d.impact_status == "stated"
-                           and bool(times) and now - max(times) <= timedelta(hours=URGENT_MAX_AGE_HOURS))))
+                           and bool(times) and freshness != ed.FRESH_STALE)))
     order = {"ESCALATE": 0, "VERIFY": 1, "WATCH": 2, "REFERENCE": 3}
     incidents.sort(key=lambda i: (order[i.priority], not i.urgent_verify, -(i.last_seen.timestamp() if i.last_seen else 0)))
     return EvidenceSet(ed.METHOD_VERSION, now, window_hours, len(events), incidents)
@@ -149,7 +156,8 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
     try:
         rows = sb_get("intelligence_events",
                       f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE&order=collected_at.desc&limit={limit}"
-                      "&select=event_id,raw_title,raw_summary,geography,collected_at,published_at,canonical_url,intelligence_source_registry(source_name)")
+                      "&select=event_id,raw_title,raw_summary,geography,collected_at,published_at,canonical_url,intelligence_source_registry(source_name)"
+                      + provenance.select_columns())      # '' until INTEL_PROVENANCE_COLUMNS says the migration was applied
     except Exception:  # noqa: BLE001 - evidence layer is additive; the legacy brief must still render
         return []
     out = []
@@ -159,7 +167,8 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
             continue
         out.append({"id": str(r.get("event_id")), "title": r.get("raw_title") or "", "summary": r.get("raw_summary") or "",
                     "source": reg.get("source_name") or "", "geography": r.get("geography") or "",
-                    "collected_at": r.get("collected_at"), "published_at": r.get("published_at"), "url": r.get("canonical_url")})
+                    "collected_at": r.get("collected_at"), "published_at": r.get("published_at"), "url": r.get("canonical_url"),
+                    **provenance.event_provenance_fields(r)})
     return out
 
 
@@ -392,12 +401,21 @@ def _unverified_why(i: IncidentView) -> str:
     return "no primary, mainstream or specialist source yet"
 
 
+def _time_basis_words(i: IncidentView) -> str:
+    """Plain statement of how far the publication time can be trusted. Empty for VERIFIED (nothing to caveat). Never claims currency."""
+    if i.freshness == ed.FRESH_CLAIMED:
+        return "publication time only claimed (e.g. aggregator date), not verified as current"
+    if i.freshness == ed.FRESH_UNKNOWN:
+        return "publication time unknown (timed by when we collected it), not verified as current"
+    return ""
+
+
 def _urgent_verify_lines(urgent: list[IncidentView]) -> list[str]:
     """High materiality + weak evidence: a prominent verification priority (Captain's rule). Nothing at all when there is none."""
     if not urgent:
         return []
     return (["URGENT TO VERIFY (potentially severe, not yet corroborated)"]
-            + [f"- {i.headline} — reported: {_facts(i)}; unverified: {_unverified_why(i)}; next: {i.record['next_verification_action']} {_cite(i)}"
+            + [f"- {i.headline} — reported: {_facts(i)}; unverified: {_unverified_why(i)}{('; ' + _time_basis_words(i)) if _time_basis_words(i) else ''}; next: {i.record['next_verification_action']} {_cite(i)}"
                for i in urgent[:6]] + [""])
 
 
