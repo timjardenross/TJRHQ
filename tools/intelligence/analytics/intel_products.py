@@ -15,6 +15,7 @@ Pure functions: no network, no database. Persistence and scheduling live in inte
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from datetime import timedelta
@@ -85,6 +86,11 @@ def recurring_provider_product(rows, as_of, source_note, register_rows=()):
     unknowns = [
         f"{f['feed']}: insufficient evidence ({'; '.join(f['reasons'])})." for f in bad
     ]
+    undated = pdr.undated_feeds(rows)
+    unknowns += [
+        f"{feed}: {n} status rows carry no publication date and are not analysed; the feed's history is unknown."
+        for feed, n in undated.items()
+    ]
     unknowns.append(
         "Collector silence cannot be told from 'no incidents' (no liveness signal)."
     )
@@ -102,10 +108,11 @@ def recurring_provider_product(rows, as_of, source_note, register_rows=()):
                     ],
                 }
             )
-    body = pdr.render(feeds, as_of, start, source_note)
+    body = pdr.render(feeds, as_of, start, source_note, undated)
     sections_extra = {
         "brief_findings": [f"{e['title']} ({e['detail']})" for e in exceptions],
         "coverage_note": f"{len(bad)} of {len(feeds)} status feeds have insufficient evidence and are not scored; "
+        + (f"{len(undated)} feeds have only undated rows and are not analysed; " if undated else "")
         + pdr.DISCLAIMER,
     }
     return {
@@ -208,12 +215,19 @@ def systemic_risk_product(rows, as_of, source_note):
 
 def forward_watch_product(rows, as_of, source_note, horizon_days=42):
     items, undated, later = fw.extract_items(rows, as_of, horizon_days)
+    dated = None
+    if os.environ.get("INTEL_DATED_EVENTS_ENABLED", "0") == "1":  # fifth input, default OFF (same flag as forward_watch.py)
+        dated = fw.dated_events_input(rows, as_of, horizon_days, items)
     primary = [i for i in items if i["tier"] != "SECONDARY"]
     secondary = [i for i in items if i["tier"] == "SECONDARY"]
     confirmed = [
         f"{i['when']} {i['row'].get('source_name')}: {short(i['row'].get('raw_title'), 70)} [{i['label']}] "
         f"({i['row'].get('event_id')})"
         for i in primary
+    ]
+    confirmed += [
+        f"{e['date']} {e['source']}: {short(e['event'], 70)} [{e['kind']}; {e['uncertainty_label']}] ({e['event_id']})"
+        for e in dated or []
     ]
     inference = [
         "Items are dates the sources state; nothing is predicted. Owner-published windows can move or be cancelled.",
@@ -251,6 +265,20 @@ def forward_watch_product(rows, as_of, source_note, horizon_days=42):
         if i["date"] <= soon
         and (i["tier"] == "PRIMARY_OFFICIAL" or i["kind"] != "maintenance")
     ]
+    exceptions += [
+        {
+            "dedupe_key": f"forward-watch:{e['event_id']}:{e['date']}",
+            "title": f"{e['date']}: {short(e['event'], 80)}",
+            "detail": f"{e['source']}; {e['uncertainty_label']}; due within {FORWARD_EXCEPTION_DAYS} days.",
+            "severity": "attention",
+            "evidence_ids": [e["event_id"]],
+            "due_date": e["date"],
+        }
+        for e in dated or []
+        if e["kind"] != "planned_maintenance"
+        and e["date"] <= soon.isoformat()
+        and e["uncertainty_label"] != "RELAYED_BY_NEWS"
+    ]
     return {
         "product_key": "forward_watch",
         "title": TITLES["forward_watch"],
@@ -267,7 +295,7 @@ def forward_watch_product(rows, as_of, source_note, horizon_days=42):
         },
         "exceptions": exceptions,
         "body_md": fw.render(
-            items, undated, later, as_of, horizon_days, len(rows), source_note
+            items, undated, later, as_of, horizon_days, len(rows), source_note, dated
         ),
     }
 

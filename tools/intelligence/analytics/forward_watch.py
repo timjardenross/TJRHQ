@@ -114,7 +114,7 @@ DROP = re.compile(
     re.IGNORECASE,
 )
 STEM_STRIP = re.compile(
-    r"^(?:rescheduled|update|reminder|maintenance|completed|cancel+ed)\s*:\s*|\s*\([a-z ]+\)\s*$",
+    r"^(?:rescheduled|update|reminder|maintenance|completed|cancel+ed|initial)\s*(?::|-|\u2013)\s*|\s*\([a-z ]+\)\s*$",
     re.IGNORECASE,
 )
 
@@ -220,10 +220,14 @@ def _stem(row):
 
 
 def latest_per_notice(rows):
-    """Latest published row per (source, incident id from URL, else normalised title stem)."""
+    """Latest row per (source, incident id from URL, else normalised title stem).
+
+    A row with no published_at (several regulator and scrape feeds) is ordered by its collected_at, so a later 'Completed' or
+    'Cancelled' notice with no publication date still retires the earlier notice instead of being invisible.
+    """
     best = {}
     for r in rows:
-        p = parse_ts(r.get("published_at"))
+        p = parse_ts(r.get("published_at")) or parse_ts(r.get("collected_at"))
         if p is None:
             continue
         k = _stem(r)
@@ -326,10 +330,16 @@ def dated_events_input(rows, as_of, horizon_days, items):
     import dated_events as de
 
     listed = {(i["row"].get("event_id"), i["date"].isoformat()) for i in items}
+
+    def already_listed(e):
+        # A multi-day window the item list already carries (for example item date 25 Nov, window 24 to 25 Nov) is one event.
+        lo, hi = e["date"], e.get("end_date") or e["date"]
+        return any(eid == e["event_id"] and lo <= d <= hi for eid, d in listed)
+
     evs = de.upcoming(
         de.latest_per_notice(de.extract_events(rows)), as_of, horizon_days
     )
-    return [e for e in evs if (e["event_id"], e["date"]) not in listed]
+    return [e for e in evs if not already_listed(e)]
 
 
 def render(items, undated, later, as_of, horizon_days, n_rows, source_note, dated=None):
