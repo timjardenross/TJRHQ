@@ -4,7 +4,10 @@
   "git": {
     "deploymentEnabled": {
       "dependabot/**": false,
-      "self-improvement": false
+      "self-improvement": false,
+      "claude/**": false,
+      "worktree-*": false,
+      "archive/**": false
     }
   }
 }
