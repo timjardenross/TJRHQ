@@ -334,7 +334,9 @@ class ScrapeAdapter(BaseSourceAdapter):
             m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", fields.get("date and time entry first published", ""))
             if m:
                 published = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), tzinfo=_AEDT).astimezone(timezone.utc)
-            item = self._make_item(f"Optus outage register: {title}", summary, f"{self.source.url}#{ref}", published)
+            full_title = f"Optus outage register: {title}"
+            item = self._make_item(full_title, summary, f"{self.source.url}#{ref}", published, provenance=prov.scrape_provenance(
+                published=published, page_url=self.source.url, date_only=True, title=full_title))
             items.append(item)
         return items
 
@@ -362,12 +364,14 @@ class ScrapeAdapter(BaseSourceAdapter):
             summary = text_el.get_text(" ", strip=True)[:500] if text_el else None
             if tags:
                 summary = f"[{', '.join(tags)}] {summary or ''}".strip()
-            items.append(self._make_item(title, summary, url, published))
+            items.append(self._make_item(title, summary, url, published, provenance=prov.scrape_provenance(
+                published=published, page_url=url or self.source.url, date_only=True, title=title)))
         return items
 
     def _extract_items(self, soup) -> list[IntelligenceItem]:
         items = []
         base = self.source.url
+        seen_urls: set[str] = set()      # repaired (render) sources list a release in several page sections: keep it once
 
         for selector in _ARTICLE_SELECTORS:
             elements = soup.select(selector)
@@ -394,6 +398,12 @@ class ScrapeAdapter(BaseSourceAdapter):
                     continue
 
                 url = urljoin(base, link_el["href"]) if link_el else None
+                if url and self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES:
+                    # ASIC's newsroom shows the same release under 'latest', 'media releases' and 'news items' (4 of 20 items
+                    # were repeats on 2026-11-24, which also used up slots of the per-source cap).
+                    if url in seen_urls:
+                        continue
+                    seen_urls.add(url)
 
                 # Try to find a date near the element
                 published = self._extract_date(container)
