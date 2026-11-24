@@ -220,6 +220,21 @@ _GEOGRAPHY_AU = [
     "vic", "nsw", "qld", "sa", "wa", "tas", "nt",
 ]
 
+# Australian institutions and operators whose names carry no Australian marker word. Demonstrated defect (24 Nov): 'NAB customers
+# experiencing phone and internet banking outages', 'Coles Group investigating a cyber incident', 'Woolworths apologises after customers
+# report drained gift card balances', 'Qantas ...', 'TPG Telecom ...', 'Commonwealth Bank ...' were all stored as geography=GLOBAL, so the
+# ranker gave them the lowest geography weight. <=4-char names need a whole-word match (see classify()); longer names match as substrings.
+_GEOGRAPHY_AU_ENTITIES = [
+    "commonwealth bank", "commbank", "westpac", "anz", "cba", "national australia bank", "macquarie bank", "macquarie group", "suncorp",
+    "bendigo bank", "bank of queensland", "bankwest", "st.george bank", "amp bank",
+    "vocus", "aussie broadband", "vodafone australia", "tpg telecom", "tpg", "superloop", "singtel optus",
+    "services australia", "mygov", "centrelink", "ato", "australia post", "auspost", "qantas", "virgin australia", "jetstar",
+    "woolworths", "coles", "ausgrid", "endeavour energy", "western power", "powercor", "jemena", "ausnet", "energyaustralia", "origin energy",
+    "agl", "asx", "auspaynet", "eftpos", "bpay", "pexa", "equifax australia",
+]
+# 'NAB' is also an English verb ('police nab suspect'): only the upper-case token counts.
+_NAB_UPPER = re.compile(r"\bNAB\b")
+
 _GEOGRAPHY_APAC = [
     "asia pacific", "apac", "singapore", "new zealand", "hong kong", "japan",
     "china", "india", "south korea", "indonesia", "malaysia", "philippines",
@@ -360,7 +375,14 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         1 for kw in _GEOGRAPHY_APAC
         if (kw in words if len(kw) <= 4 else kw in text)
     )
-    if au_hits > 0:
+    entity_text = text.replace("south africa", " ")          # South African Woolworths/Coles-named items are not Australian
+    entity_hits = sum(
+        1 for kw in _GEOGRAPHY_AU_ENTITIES
+        if (kw in words if len(kw) <= 4 else kw in entity_text)
+    )
+    if "south africa" in text:
+        entity_hits -= int("woolworths" in text)
+    if au_hits > 0 or entity_hits > 0 or _NAB_UPPER.search(item.raw_title or ""):
         geography = "AU"
     elif apac_hits > 0:
         geography = "APAC"
