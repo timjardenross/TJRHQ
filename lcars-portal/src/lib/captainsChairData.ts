@@ -691,3 +691,17 @@ export function useRemember(): { data: RememberData | null; error: string | null
 
   return { data, error };
 }
+
+/** Material intelligence-product exceptions for Needs You (informational; fail-soft, [] on any problem). */
+export function useIntelProductExceptions(): Array<{ dedupe_key: string; title: string; detail: string; href: string }> {
+  const [items, setItems] = useState<Array<{ dedupe_key: string; title: string; detail: string; href: string }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/intelligence-workbench/products')
+      .then((r) => (r.ok ? r.json() : { exceptions: [] }))
+      .then((d) => { if (!cancelled) setItems(d.exceptions ?? []); })
+      .catch(() => { if (!cancelled) setItems([]); });
+    return () => { cancelled = true; };
+  }, []);
+  return items;
+}

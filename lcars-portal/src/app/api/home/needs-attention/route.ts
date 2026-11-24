@@ -7,6 +7,7 @@ import { errorDetail } from '@/lib/errorDetail';
 import { materialExceptions, type MaterialException } from '@/lib/sourceEffectiveness';
 import { loadSourceRows } from '@/app/api/intelligence-workbench/_lib/sourceCoverage';
 import { fetchIncidentSnapshot, incidentViewEnabled, type IncidentRow } from '@/lib/incidents';
+import { collectExceptions, fetchLatestProducts } from '@/lib/intelligenceProducts';
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -76,14 +77,23 @@ export async function GET(req: NextRequest) {
       ? (await fetchIncidentSnapshot(sb, { attentionOnly: true, limit: 50 })).incidents.slice(0, 5)
       : [];
 
+    // ── Intelligence-product exceptions (stable dedupe_key; empty until the products table exists) ──
+    let productExceptions: ReturnType<typeof collectExceptions> = [];
+    try {
+      productExceptions = collectExceptions((await fetchLatestProducts(sb)).products);
+    } catch {
+      productExceptions = []; // optional section: never break Home
+    }
+
     const items = {
       hotSignals: hotSignals ?? [],
       ...(incidentsOn ? { incidents } : {}),
       interrupts: interrupts ?? [],
       staleSources: staleSources ?? [],
       sourceCoverage,
+      productExceptions,
       hasAnything: (hotSignals?.length ?? 0) +
-                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) + sourceCoverage.length + incidents.length > 0,
+                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) + sourceCoverage.length + incidents.length + productExceptions.length > 0,
     };
 
     return NextResponse.json(items);

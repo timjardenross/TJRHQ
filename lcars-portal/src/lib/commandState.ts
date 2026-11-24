@@ -172,6 +172,8 @@ export interface NeedsYouBuildInputs {
   /** Alert-level incidents / material exceptions (INCIDENT_VIEW_V1, default OFF -> [] / omitted). One entry per incident_key, the same key
    *  Telegram and the Decisions inbox use (id 'incident-<key>' mirrors Decisions' 'inc:<key>'). Read-only: links to the Intelligence page. */
   incidentAttention?: Array<{ incidentKey: string; title: string; detail: string }> | null;
+  /** Material intelligence-product exceptions (stable dedupe_key); informational, link to /intelligence. Optional. */
+  intelProductExceptions?: Array<{ dedupe_key: string; title: string; detail: string; href: string }> | null;
 }
 
 export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] {
@@ -309,6 +311,10 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
         ? `/ready-room?domain=unstick&task=${encodeURIComponent(item.ref)}`
         : undefined,
     });
+  }
+
+  for (const e of (inputs.intelProductExceptions ?? [])) {
+    items.push({ id: `intel-product-${e.dedupe_key}`, kind: 'triage', title: e.title, detail: e.detail, href: e.href, actionLabel: 'View' });
   }
 
   return items;

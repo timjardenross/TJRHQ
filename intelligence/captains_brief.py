@@ -1454,6 +1454,14 @@ def generate_morning_brief(gap=None, collection_caveat: str | None = None, catch
     # Health watch (default off): monitored conditions and safety-flagged signals; and a coverage block (default off) stating what was looked at.
     lines += _health_lines()
     lines += _coverage_lines()
+    # INTEL_PRODUCTS_IN_BRIEF hook (default off, fail-soft, prints nothing when nothing qualifies): intelligence/brief_products_block.py
+    try:
+        from intelligence.brief_products_block import (
+            brief_lines as _intel_product_lines,
+        )
+        lines += [_esc(x) for x in _intel_product_lines()]
+    except Exception as exc:  # noqa: BLE001 - additive flag-gated block must never break the brief
+        log.debug("Intel products block unavailable: %s", exc)
     # Authority depends on USABLE coverage: lines that announce insufficient coverage are not an authoritative picture.
     evidence_insufficient = any(_EVIDENCE_INSUFFICIENT_MARKER in line for line in evidence_lines)
     evidence_authoritative = bool(evidence_lines) and not evidence_insufficient
