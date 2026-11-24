@@ -233,3 +233,22 @@ def test_bare_maintenance_word_is_not_planned():
     assert not dt._is_planned([])
     td, _ = tier_of([ev("p2", "Optus network upgrade leaves thousands of customers without mobile service", "ABC News", 1)], "Optus network")
     assert td.tier != dt.MONITOR or "planned" not in td.reasons[0]
+
+
+# 25 Nov live-brief assessment: retrospective regulator action and aftermath stories must not read as current incidents -------------
+
+def test_regulator_penalty_for_a_past_incident_is_monitor_not_a_material_incident():
+    t = "APRA secures $8 million penalty against Bendigo and Adelaide Bank over cyber incident"
+    td, _ = tier_of([ev("r1", t, "APRA Media Releases", 20)], "APRA secures")
+    assert td.tier == dt.MONITOR and "retrospective" in td.reasons[0]
+
+
+def test_cause_aftermath_story_is_context_not_a_current_incident():
+    t = "Still no answers on what caused Triple Zero outage to ambulance, fire services - Region Canberra"
+    td, _ = tier_of([ev("r2", t, "ABC News", 20)], "Still no answers")
+    assert td.tier == dt.CONTEXT
+
+
+def test_a_live_outage_report_is_not_swallowed_by_the_retro_rule():
+    td, _ = tier_of([ev("r3", "Optus customers hit by nationwide mobile outage", "ABC News", 1), ev("r4", "Optus outage: thousands unable to make calls", "SMH", 1.1)], "Optus customers")
+    assert td.tier == dt.IMMEDIATE_ALERT
