@@ -28,8 +28,18 @@ in the 2026-11 process peel-back; see git history before that commit if you need
 
 ### Supabase tool permissions
 
-`.claude/settings.json` wires a `PreToolUse` hook (`.claude/hooks/supabase_readonly_sql.py`) to
-`mcp__Supabase__execute_sql`. It auto-approves only provably read-only queries; everything else
-goes to the normal permission prompt. Keep reads and writes in separate calls, do not add a blanket
-`mcp__Supabase__*` allow rule (`tests/test_supabase_readonly_hook.py` enforces this), and back up
-rows before any data fix.
+Two Supabase MCP servers, two trust models:
+
+- **`mcp__supabase_ro__*` (read-only, standing approval).** `.mcp.json` defines `supabase_ro` with `read_only=true`, scoped to this
+  project and to the `database,docs` tool groups. The platform runs every query as `supabase_read_only_user`
+  (`default_transaction_read_only=on`, no write privileges, cannot execute SECURITY DEFINER writers), so SQL text is irrelevant to write
+  safety and is not parsed. `.claude/settings.json` allows only `execute_sql` and `list_tables` on that server. Use it for ALL research:
+  SELECTs, CTEs (including column lists), aggregates, scorecards, metadata and `explain`. `.claude/hooks/supabase_ro_scope.py` (config:
+  `supabase_ro_scope.json`) refuses credential/platform schemas (`vault`, `auth`, `storage`, `net`, ...) and sends any table listed under
+  `ask_tables` to the prompt, because that role can read every table. Verify the role posture with
+  `tools/intelligence/ro_access_verification.sql`; `tests/test_supabase_ro_access.py` proves the role cannot write (local Postgres).
+- **`mcp__Supabase__*` (write-capable, prompts).** `.claude/hooks/supabase_readonly_sql.py` still auto-approves a query only when it is
+  provably read-only; every write, DDL, transaction and unknown function goes to the normal permission prompt, and `apply_migration` and
+  every other tool on that server always prompt. Do not add a blanket `mcp__Supabase__*` allow rule
+  (`tests/test_supabase_readonly_hook.py` enforces this) and do not keep widening the function allowlist: use the read-only server.
+  Keep reads and writes in separate calls, and back up rows before any data fix.
