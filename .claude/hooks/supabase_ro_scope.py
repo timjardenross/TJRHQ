@@ -106,6 +106,17 @@ def classify(sql: str, config: dict | None = None) -> tuple[str, str] | None:
     for function in config.get("denied_user_functions", []):
         if has(function):
             return "deny", f"user-defined function '{function}' can read outside the permitted scope"
+    # Column limits on permitted tables: forbidden columns by name, and no way to pull every column (`*`, whole-row JSON) from such a table.
+    for table, columns in config.get("column_denies", {}).items():
+        if has(table):
+            for column in columns:
+                if has(column):
+                    return "deny", f"column '{column}' of '{table}' is outside the permitted scope"
+            without_count_star = re.sub(r"count\s*\(\s*\*\s*\)", " ", scan)
+            if re.search(r"(?:\bselect|\bdistinct|,|\.)\s*\*", without_count_star):  # `select *`, `b.*`, `, *`; not `~*` or `a * b`
+                return "deny", f"list columns explicitly when reading '{table}' (a wildcard would include '{columns[0]}')"
+            if re.search(r"\b(to_jsonb|to_json|row_to_json|json_agg|jsonb_agg)\s*\(\s*\w+\s*\)", without_count_star):
+                return "deny", f"whole-row JSON of '{table}' would include '{columns[0]}': select named columns"
     for table in config.get("ask_tables", []):
         if has(table):
             return "ask", f"table '{table}' is listed as sensitive and needs explicit approval"

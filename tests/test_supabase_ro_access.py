@@ -59,6 +59,10 @@ ALLOWED_RESEARCH = [
     "select * from intelligence_events tablesample system (1)",
     "select sha256(convert_to(raw_title,'UTF8')), pg_get_viewdef('intelligence_source_health_latest'::regclass) from intelligence_events limit 1",
     "select brief_date, brief_type, brief_text from captains_daily_briefs where brief_text ~* 'optus'",
+    "select count(*) from captains_daily_briefs",
+    "select brief_type, count(*), avg(signals_count) from captains_daily_briefs group by 1",
+    "select * from intelligence_events where event_id is not null limit 1",
+    "select call_at, latency_ms from llm_call_metrics order by call_at desc limit 5",
     "select e.event_id, s.source_name from intelligence_events e join intelligence_source_registry s using (source_id)",
     "select * from information_schema.columns where table_name = 'intelligence_events'",
     "explain select * from intelligence_events limit 1",
@@ -112,6 +116,14 @@ DENIED = [
     "select * from pgmq.q_xo",
     # names passed as text
     "select * from intelligence_events where raw_title = 'health_daily_logs'",
+    # column limits on permitted tables
+    "select health_snapshot from captains_daily_briefs",
+    "select b.health_snapshot from captains_daily_briefs b",
+    "select * from captains_daily_briefs",
+    "select b.* from captains_daily_briefs b where brief_date = '2026-09-14'",
+    "select to_jsonb(b) from captains_daily_briefs b",
+    "select row_to_json(m) from llm_call_metrics m",
+    "select metadata from llm_call_metrics",
 ]
 
 ASK = [

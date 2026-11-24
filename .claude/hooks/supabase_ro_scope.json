@@ -331,5 +331,13 @@
   "update_decision_outcomes_updated_at",
   "update_updated_at_column"
  ],
- "ask_tables": []
+ "ask_tables": [],
+ "column_denies": {
+  "captains_daily_briefs": [
+   "health_snapshot"
+  ],
+  "llm_call_metrics": [
+   "metadata"
+  ]
+ }
 }
