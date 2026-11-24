@@ -2057,6 +2057,21 @@ SOURCES = [
         "content_expectation": "intermittent",
         "useful_life_days": 7,
     },
+    {
+        "source_name":        "ACMA Media Releases",
+        "category":           "regulatory",
+        "priority_rank":      3,
+        "url":                "https://www.acma.gov.au/media-releases",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "scrape",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.90,
+        "active":             False,
+        "notes":              "Checked 2026-11-24 (no existing row for acma.gov.au). No RSS/Atom/API exists. Listing markup is stable Drupal cards, parsed by intelligence/ingestion/acma_media_releases.py (offline fixture + tests). Plain fetch from the container egress is dropped by ACMA's edge, so a live run needs the metered Firecrawl path (1 credit/run, about 30/month if daily) and the source must be added to scrape_adapter._FIRECRAWL_FALLBACK_SOURCE_NAMES after owner budget sign-off. Licence CC BY 4.0, attribute ACMA. Roughly 3-5 releases a month, few outage related (enforcement after the fact, e.g. Optus Triple Zero court action): regulatory context, not real-time outage detection. Inactive pending owner decision.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 30,
+    },
 ]
 
 # ─── Seed logic ───────────────────────────────────────────────────────────────
