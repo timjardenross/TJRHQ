@@ -176,6 +176,8 @@ def _start_scheduler() -> None:
 
     from datetime import datetime, timezone
 
+    from intelligence import brief_reliability as _brief_reliability
+
     scheduler = BlockingScheduler()
     tz = _resolve_tz(SCHEDULE_TZ)
 
@@ -251,6 +253,28 @@ def _start_scheduler() -> None:
         CronTrigger(hour=7, minute=0, timezone=tz),
         id="captains_morning_brief",
         replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.MORNING_GRACE_SECONDS),
+    )
+
+    # Missed-brief deadman: 08:00, one hour after the morning brief; alerts once if no morning row exists for today.
+    scheduler.add_job(
+        _brief_deadman_job,
+        CronTrigger(hour=8, minute=0, timezone=tz),
+        id="captains_brief_deadman",
+        replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.DEADMAN_GRACE_SECONDS),
+    )
+
+    # Startup catch-up: a restart past 07:00 loses the in-memory cron run; send the missed morning brief once (before 12:00 only).
+    from datetime import timedelta as _td
+
+    from apscheduler.triggers.date import DateTrigger as _DateTrigger
+    scheduler.add_job(
+        _morning_catch_up_job,
+        _DateTrigger(run_date=datetime.now(timezone.utc) + _td(seconds=30)),
+        id="captains_morning_catchup",
+        replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.MORNING_GRACE_SECONDS),
     )
 
     # Midday check — 12:30 AEST daily (conditional: only delivers if new signals)
@@ -259,6 +283,7 @@ def _start_scheduler() -> None:
         CronTrigger(hour=12, minute=30, timezone=tz),
         id="captains_midday_check",
         replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.MIDDAY_GRACE_SECONDS),
     )
 
     # EOD summary — 18:00 AEST daily
@@ -267,6 +292,7 @@ def _start_scheduler() -> None:
         CronTrigger(hour=18, minute=0, timezone=tz),
         id="captains_eod_brief",
         replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.EOD_GRACE_SECONDS),
     )
 
     # Weekly report — Monday 07:00 AEST (replaces morning brief that day)
@@ -275,6 +301,7 @@ def _start_scheduler() -> None:
         CronTrigger(day_of_week="mon", hour=7, minute=0, timezone=tz),
         id="captains_weekly_brief",
         replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.WEEKLY_GRACE_SECONDS),
     )
 
     # ── USS-TJR-MSN-0207A: Knowledge Platform daily digest ──────────────────────
@@ -720,6 +747,30 @@ def _morning_brief_job() -> None:
         log.error("Morning brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
         _record_heartbeat("morning_brief", "failed", error_message=str(exc))
+
+
+def _brief_deadman_job() -> None:
+    from intelligence import brief_reliability as br
+    from intelligence import captains_brief as cb
+
+    try:
+        result = br.check_missed_brief(cb._sb_request, cb._send_telegram, br.brief_date_aest(), "morning")
+        log.info("Brief deadman: %s", result)
+    except Exception as exc:  # noqa: BLE001 - scheduled-job boundary; must never crash the shared scheduler
+        log.error("Brief deadman job failed: %s", exc)
+
+
+def _morning_catch_up_job() -> None:
+    from intelligence import brief_reliability as br
+    from intelligence import captains_brief as cb
+
+    try:
+        result = br.catch_up_morning(cb._sb_request, lambda: cb.send_brief("morning", catch_up=True))
+        log.info("Morning brief catch-up: %s", result)
+        if result == "sent":
+            _record_heartbeat("captains_daily_briefs", "ok", detail="morning brief delivered (startup catch-up)")
+    except Exception as exc:  # noqa: BLE001 - scheduled-job boundary; must never crash the shared scheduler
+        log.error("Morning brief catch-up failed: %s", exc)
 
 
 def _midday_check_job() -> None:
