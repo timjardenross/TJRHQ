@@ -21,12 +21,21 @@ Events JSON row:  event_id, source_name, raw_title, [raw_summary], published_at,
 Briefs JSON row:  brief_date (YYYY-MM-DD), brief_type, brief_text
 Captain CSV:      date,brief_usefulness_1to5,noise_count,manual_verification_minutes[,notes]
 
+v0 vs v1: when the reference set carries ``set_membership`` ("v0" / "v1_new") and per-record ``status``
+(confirmed_material, confirmed_non_material, stale_or_resurfaced, duplicate_report, unrelated_incident,
+unresolved_insufficiently_verified) the scorecard reports three views: ``all``, ``v0_subset`` and ``v1_new_only``,
+so benchmark expansion is not mistaken for capability change. unresolved records are never scored.
+Events export may be a dict with ``covered_incident_ids`` and rows carrying ``incident_id`` (keyed sample);
+incidents not covered fall back to the embedded tjr_detection (flagged in measurement_provenance).
+
 Metric semantics
-  * material incident = reference record, not a negative example, Australian materiality high|med,
-    and not verification_status 'unverified' (unverified records are counted separately).
+  * material incident = status confirmed_material (v1) or, for v0 files, not a negative example with Australian
+    materiality high|med and verification_status not 'unverified'.
   * time to first detection = first matching event collected_at minus the reference
     first_public_report_time (hours). It bundles feed and collection lag; it is NOT a score by itself.
-  * false escalation = a negative example that reached a brief (brief_id set, or a brief's text matches).
+  * false escalation = a scored negative (confirmed_non_material, stale_or_resurfaced, unrelated_incident) that reached a
+    brief (brief_id set or brief text matches) or was dispositioned BRIEF/ESCALATE. Rates are given over all scored
+    negatives and over those actually observed in TJR.
   * false recovery = a matching event claiming restoration (restored/resolved/back online...) published
     more than 1h BEFORE the reference end time. Only incidents with a reference end time are checked.
   * independent corroboration share = detected incidents with >= 2 independent publisher families
@@ -56,7 +65,7 @@ if str(_REPO) not in sys.path:
 from intelligence import weekly_evidence as we
 
 MATERIAL_LEVELS = {"high", "med"}
-RESTORE_RE = re.compile(r"(restor|resolved|back online|back up|recovered|services? (return|resum)|fixed)", re.IGNORECASE)
+RESTORE_RE = re.compile(r"\b(restored|resolved|back online|recovered|recovers)\b|(?<!be )\bfixed\b|services? (have |has )?(returned|resumed)", re.IGNORECASE)
 CHRONO_RE = re.compile(r"(what we know|what happened|explained|root cause|timeline|post-incident|findings|review|why )", re.IGNORECASE)
 FALSE_RECOVERY_TOLERANCE = timedelta(hours=1)
 CONFIRMING_KINDS = {we.PRIMARY, we.MAINSTREAM, we.SPECIALIST}
@@ -75,9 +84,20 @@ class FileSource:
 
     def __init__(self, events=None, briefs=None, ratings=None):
         self._p = {"events": events, "briefs": briefs, "ratings": ratings}
+        self.covered_ids = None
+        self.sampled = False
+        self._events = None
+        if events:
+            with open(events, encoding="utf-8") as fh:
+                data = json.load(fh)
+            if isinstance(data, dict):
+                self.covered_ids = set(data.get("covered_incident_ids") or []) or None
+                self.sampled = bool(data.get("sampling"))
+                data = data.get("events", [])
+            self._events = data
 
     def events(self):
-        return _load_json(self._p["events"])
+        return self._events
 
     def briefs(self):
         return _load_json(self._p["briefs"])
@@ -139,10 +159,35 @@ def _p90(xs):
     return round(s[min(len(s) - 1, round(0.9 * (len(s) - 1)))], 2)
 
 
+NEGATIVE_STATUSES = {"confirmed_non_material", "stale_or_resurfaced", "unrelated_incident", "duplicate_report"}
+ESCALATION_DISPOSITIONS = {"BRIEF", "ESCALATE"}
+
+
+def is_excluded(inc):
+    """v1: unresolved records are never scored (neither positive nor negative)."""
+    return inc.get("status") == "unresolved_insufficiently_verified" or bool(inc.get("scoring_excluded"))
+
+
 def is_material(inc):
+    if "status" in inc:
+        return inc["status"] == "confirmed_material"
     return (not inc.get("is_negative_example")
             and inc["australian_materiality"]["level"] in MATERIAL_LEVELS
             and inc.get("verification_status") != "unverified")
+
+
+def is_scored_negative(inc):
+    """Escalation population: v1 statuses (duplicates are clustered under their parent) or the v0 flag."""
+    if "status" in inc:
+        return inc["status"] in NEGATIVE_STATUSES - {"duplicate_report"}
+    return bool(inc.get("is_negative_example"))
+
+
+def traps_of(inc):
+    t = inc.get("correlation_traps")
+    if t is None:
+        t = [inc["correlation_trap"]] if inc.get("correlation_trap") else []
+    return t
 
 
 def in_window(inc, w0, w1):
@@ -155,6 +200,10 @@ def in_window(inc, w0, w1):
 
 
 def match_events(inc, events):
+    explicit = [e for e in events if e.get("incident_id") == inc["id"]]
+    if explicit:
+        explicit.sort(key=lambda e: (parse_ts(e.get("collected_at")) or datetime.max.replace(tzinfo=timezone.utc)))
+        return explicit
     det = inc.get("tjr_detection") or {}
     m = det.get("match") or {}
     if not m.get("title_regex"):
@@ -191,7 +240,8 @@ def evaluate_incident(inc, events, briefs):
     d = {"appeared": bool(evs), "n_events": len(evs), "from": "events_snapshot"}
     if not evs:
         d.update(first_collected_at=None, first_source=None, brief_surfaced=False, independent_publishers=0,
-                 escalated=False, restoration_claims_before_end=0)
+                 escalated=False, disposition_brief_or_escalate=False, restoration_claims_before_end=0,
+                 basis="events_export")
         return d, []
     first = evs[0]
     fc = parse_ts(first.get("collected_at"))
@@ -201,7 +251,9 @@ def evaluate_incident(inc, events, briefs):
              events_with_brief_id=sum(1 for e in evs if e.get("brief_id")),
              independent_publishers=len(independent_families(evs)))
     d["brief_surfaced"] = d["events_with_brief_id"] > 0 or _brief_text_hit(inc, briefs, first_pub)
-    d["escalated"] = d["brief_surfaced"]
+    d["disposition_brief_or_escalate"] = any((e.get("disposition") or "").upper() in ESCALATION_DISPOSITIONS for e in evs)
+    d["escalated"] = d["brief_surfaced"] or d["disposition_brief_or_escalate"]
+    d["basis"] = "events_export"
     end = parse_ts(inc["end_time_utc"]["value"])
     fr = 0
     if end:
@@ -242,6 +294,7 @@ def detection_from_embedded(inc):
             "brief_surfaced": bool(t.get("events_with_brief_id") or t.get("daily_briefs_mentioning")),
             "escalated": bool(t.get("events_with_brief_id") or t.get("daily_briefs_mentioning")),
             "independent_publishers": t.get("n_non_aggregator_sources") or 0,
+            "disposition_brief_or_escalate": None, "basis": "embedded_baseline",
             "restoration_claims_before_end": None}
 
 
@@ -334,13 +387,18 @@ def summarise_ratings(rows, w0, w1):
 
 # ── scorecard ───────────────────────────────────────────────────────────────────
 
-def compute_scorecard(reference, source: DataSource, week_start=None, week_end=None):
+def compute_scorecard(reference, source: DataSource, week_start=None, week_end=None, subset=None):
+    """subset: None (all records), 'v0' (records with set_membership 'v0') or 'v1_new'."""
     w0, w1 = (_day(week_start) if week_start else None), (_day(week_end) if week_end else None)
     events, briefs = source.events(), source.briefs()
-    incidents = [i for i in reference["incidents"] if in_window(i, w0, w1)]
+    covered = getattr(source, "covered_ids", None)
+    incidents = [i for i in reference["incidents"] if in_window(i, w0, w1)
+                 and (subset is None or i.get("set_membership", "v0") == subset)]
+    scorable = [i for i in incidents if not is_excluded(i)]
+    excluded_ids = [i["id"] for i in incidents if is_excluded(i)]
     per_inc, per_inc_events, rows = {}, {}, []
-    for inc in incidents:
-        if events is not None:
+    for inc in scorable:
+        if events is not None and (covered is None or inc["id"] in covered):
             det, evs = evaluate_incident(inc, events, briefs)
         else:
             det, evs = detection_from_embedded(inc), []
@@ -349,46 +407,51 @@ def compute_scorecard(reference, source: DataSource, week_start=None, week_end=N
         rows.append((inc, det))
 
     material = [(i, d) for i, d in rows if is_material(i)]
-    unverified_material = [i["id"] for i, _ in rows if not i.get("is_negative_example")
-                           and i["australian_materiality"]["level"] in MATERIAL_LEVELS
-                           and i.get("verification_status") == "unverified"]
+    unverified_material = [i["id"] for i in incidents if is_excluded(i)
+                           and i["australian_materiality"]["level"] in MATERIAL_LEVELS]
     detected = [(i, d) for i, d in material if d["appeared"]]
     missed = [i["id"] for i, d in material if not d["appeared"]]
     ttd = [d["hours_after_first_public"] for _, d in detected if d.get("hours_after_first_public") is not None]
-    negatives = [(i, d) for i, d in rows if i.get("is_negative_example")]
+    negatives = [(i, d) for i, d in rows if is_scored_negative(i)]
+    observed_neg = [(i, d) for i, d in negatives if d["appeared"]]
     false_esc = [i["id"] for i, d in negatives if d["escalated"]]
-    fr_claims = {i["id"]: d["restoration_claims_before_end"] for i, d in rows
-                 if d.get("restoration_claims_before_end")}
+    by_brief = [i["id"] for i, d in negatives if d["brief_surfaced"]]
+    by_disp = [i["id"] for i, d in negatives if d.get("disposition_brief_or_escalate")]
+    fr_claims = {i["id"]: d["restoration_claims_before_end"] for i, d in rows if d.get("restoration_claims_before_end")}
     corroborated = [i["id"] for i, d in detected if d["independent_publishers"] >= 2]
     escalated_pos = [(i, d) for i, d in rows if d["escalated"]]
-    au_rel = [i for i, _ in escalated_pos if i["australian_materiality"]["level"] in MATERIAL_LEVELS
-              and not i.get("is_negative_example")]
+    au_rel = [i for i, _ in escalated_pos if is_material(i)]
     pairs = defaultdict(list)
     for i, d in rows:
-        if i.get("correlation_trap"):
-            pairs[i["correlation_trap"]["pair_id"]].append((i, d))
-    # incorrect correlation: an unrelated pair where one canonical signal/regex-group contains both incidents' events
-    wrong_corr = []
-    for pid, members in pairs.items():
-        if len(members) == 2 and events is not None:
-            a, b = (per_inc_events[members[0][0]["id"]], per_inc_events[members[1][0]["id"]])
-            shared = {e.get("canonical_signal_id") for e in a if e.get("canonical_signal_id")} & \
-                     {e.get("canonical_signal_id") for e in b if e.get("canonical_signal_id")}
-            shared_ids = {e.get("event_id") for e in a} & {e.get("event_id") for e in b}
-            if shared or shared_ids:
-                wrong_corr.append(pid)
-
+        for t in traps_of(i):
+            pairs[t["pair_id"]].append((i, d))
+    complete_pairs = {pid: m for pid, m in pairs.items() if len(m) == 2}
+    wrong_corr, untestable = [], []
+    for pid, members in complete_pairs.items():
+        a_ev, b_ev = per_inc_events[members[0][0]["id"]], per_inc_events[members[1][0]["id"]]
+        if events is None or not a_ev or not b_ev:
+            untestable.append(pid)
+            continue
+        shared = {e.get("canonical_signal_id") for e in a_ev if e.get("canonical_signal_id")} & \
+                 {e.get("canonical_signal_id") for e in b_ev if e.get("canonical_signal_id")}
+        shared_ids = {e.get("event_id") for e in a_ev} & {e.get("event_id") for e in b_ev}
+        if shared or shared_ids:
+            wrong_corr.append(pid)
+    bases = {d.get("basis") for _, d in rows}
     card = {
-        "scorecard_version": "1.0",
+        "scorecard_version": "1.1",
+        "subset": subset or "all",
         "mode": "events_snapshot" if events is not None else "embedded_baseline",
         "window": {"start": week_start, "end": week_end},
-        "reference_set": {"name": reference.get("name"), "created_utc": reference.get("created_utc"),
+        "reference_set": {"name": reference.get("name"), "set_version": reference.get("set_version", "v0"),
+                          "created_utc": reference.get("created_utc"),
                           "reviewed_by_human": all(i.get("reviewed_by_human") for i in reference["incidents"]),
-                          "incidents_scored": len(incidents)},
+                          "records_in_subset": len(incidents), "records_scored": len(scorable),
+                          "excluded_unresolved": excluded_ids},
         "material_incidents": {
             "total": len(material), "detected": len(detected), "missed": len(missed),
             "detection_rate": round(len(detected) / len(material), 3) if material else None,
-            "missed_ids": missed, "unverified_material_not_scored": unverified_material},
+            "missed_ids": missed, "unresolved_material_not_scored": unverified_material},
         "time_to_first_detection_hours": {
             "n": len(ttd), "median": _median(ttd), "p90": _p90(ttd), "max": max(ttd) if ttd else None,
             "by_incident": {i["id"]: d.get("hours_after_first_public") for i, d in detected},
@@ -396,25 +459,47 @@ def compute_scorecard(reference, source: DataSource, week_start=None, week_end=N
         "brief_surfacing": {
             "material_detected_in_brief": sum(1 for _, d in detected if d["brief_surfaced"]),
             "material_detected_not_in_brief": [i["id"] for i, d in detected if not d["brief_surfaced"]]},
-        "false_escalation": {"negatives_total": len(negatives), "escalated": len(false_esc), "ids": false_esc,
-                             "rate": round(len(false_esc) / len(negatives), 3) if negatives else None},
+        "false_escalation": {
+            "negatives_scored": len(negatives), "negatives_observed_in_tjr": len(observed_neg),
+            "escalated": len(false_esc), "ids": false_esc, "reached_brief_ids": by_brief,
+            "disposition_brief_or_escalate_ids": by_disp,
+            "rate_of_scored": round(len(false_esc) / len(negatives), 3) if negatives else None,
+            "rate_of_observed": round(len(false_esc) / len(observed_neg), 3) if observed_neg else None,
+            "note": "unresolved records excluded; duplicate_report clustered under parent; escalated = brief_id/brief text OR disposition BRIEF/ESCALATE"},
         "false_recovery": {"incidents_with_early_recovery_claims": len(fr_claims), "claims_by_incident": fr_claims,
-                           "checkable": events is not None},
-        "incorrect_correlation": {"unrelated_pairs": len(pairs), "wrongly_correlated": wrong_corr,
-                                  "checkable": events is not None},
+                           "checkable": events is not None,
+                           "note": "restoration-worded event published >1h before the reference end time; reference end times are often approximate, so treat as candidates"},
+        "incorrect_correlation": {"unrelated_pairs_complete": len(complete_pairs), "wrongly_correlated": wrong_corr,
+                                  "untestable_pairs": untestable, "checkable": events is not None},
         "independent_corroboration": {
             "detected_incidents": len(detected), "corroborated": len(corroborated),
             "share": round(len(corroborated) / len(detected), 3) if detected else None,
             "uncorroborated_ids": [i["id"] for i, d in detected if d["independent_publishers"] < 2],
             "rule": ">=2 independent non-aggregator publisher families; aggregators excluded"},
         "australian_relevance": {
-            "escalated_incidents": len(escalated_pos), "escalated_with_au_materiality": len(au_rel),
+            "escalated_incidents": len(escalated_pos), "escalated_confirmed_material": len(au_rel),
             "precision": round(len(au_rel) / len(escalated_pos), 3) if escalated_pos else None},
         "source_contribution": contributions(per_inc_events) if events is not None else None,
         "captain_ratings": summarise_ratings(source.ratings(), w0, w1),
+        "measurement_provenance": {
+            "detection_basis_per_incident": {i["id"]: d.get("basis") for i, d in rows},
+            "bases_present": sorted(b for b in bases if b),
+            "events_export_is_sample": bool(getattr(source, "sampled", False)),
+            "full_db_checks": reference.get("measured_checks"),
+            "note": "events_export = recomputed from supplied rows; embedded_baseline = frozen tjr_detection values written by the agent from SELECT queries; web facts are unverified secondary evidence"},
         "per_incident": per_inc,
     }
     return card
+
+
+def compute_by_subset(reference, source, week_start=None, week_end=None):
+    """Benchmark-expansion effects (v1_new) are reported separately from the v0 subset and the full set."""
+    out = {"all": compute_scorecard(reference, source, week_start, week_end)}
+    memberships = {i.get("set_membership") for i in reference["incidents"]}
+    if "v0" in memberships and "v1_new" in memberships:
+        out["v0_subset"] = compute_scorecard(reference, source, week_start, week_end, subset="v0")
+        out["v1_new_only"] = compute_scorecard(reference, source, week_start, week_end, subset="v1_new")
+    return out
 
 
 # ── output ──────────────────────────────────────────────────────────────────────
@@ -422,24 +507,26 @@ def compute_scorecard(reference, source: DataSource, week_start=None, week_end=N
 def render_text(c):
     m, t = c["material_incidents"], c["time_to_first_detection_hours"]
     fe, ic, au = c["false_escalation"], c["independent_corroboration"], c["australian_relevance"]
-    r = c["captain_ratings"]
-    lines = [f"Intelligence performance scorecard ({c['mode']}; window {c['window']['start'] or '-'}..{c['window']['end'] or '-'})",
-             f"  reference set reviewed by human: {c['reference_set']['reviewed_by_human']}  incidents scored: {c['reference_set']['incidents_scored']}",
+    r, rs = c["captain_ratings"], c["reference_set"]
+    fr, co = c["false_recovery"], c["incorrect_correlation"]
+    lines = [f"== subset={c['subset']} ({rs['set_version']}; {c['mode']}; window {c['window']['start'] or '-'}..{c['window']['end'] or '-'})",
+             f"  records {rs['records_in_subset']} (scored {rs['records_scored']}, unresolved excluded {len(rs['excluded_unresolved'])}); reviewed by human: {rs['reviewed_by_human']}",
              f"  material detected {m['detected']}/{m['total']} (rate {m['detection_rate']}); missed: {', '.join(m['missed_ids']) or 'none'}",
-             f"  unverified material records not scored: {', '.join(m['unverified_material_not_scored']) or 'none'}",
+             f"  unresolved material-looking records not scored: {', '.join(m['unresolved_material_not_scored']) or 'none'}",
              f"  time to first detection h: median {t['median']} p90 {t['p90']} max {t['max']} (n={t['n']})",
              f"  detected but never in a brief: {', '.join(c['brief_surfacing']['material_detected_not_in_brief']) or 'none'}",
-             f"  false escalation {fe['escalated']}/{fe['negatives_total']} {fe['ids']}",
-             f"  false recovery incidents: {c['false_recovery']['incidents_with_early_recovery_claims']} (checkable={c['false_recovery']['checkable']})",
-             f"  incorrect correlation: {c['incorrect_correlation']['wrongly_correlated']} of {c['incorrect_correlation']['unrelated_pairs']} unrelated pairs (checkable={c['incorrect_correlation']['checkable']})",
+             f"  false escalation {fe['escalated']}/{fe['negatives_scored']} scored ({fe['negatives_observed_in_tjr']} observed in TJR) {fe['ids']}; brief: {fe['reached_brief_ids']}",
+             f"  false recovery candidates: {fr['incidents_with_early_recovery_claims']} {fr['claims_by_incident']} (checkable={fr['checkable']})",
+             f"  incorrect correlation: {co['wrongly_correlated']} of {co['unrelated_pairs_complete']} complete unrelated pairs; untestable {co['untestable_pairs']}",
              f"  independent corroboration share {ic['share']} ({ic['corroborated']}/{ic['detected_incidents']}); uncorroborated: {', '.join(ic['uncorroborated_ids']) or 'none'}",
              f"  Australian relevance precision of escalated items: {au['precision']}",
-             f"  Captain ratings: provided={r['provided']} usefulness={r['brief_usefulness_mean_1to5']} noise={r['noise_count']} verify_min={r['manual_verification_minutes']}"]
+             f"  Captain ratings: provided={r['provided']} usefulness={r['brief_usefulness_mean_1to5']} noise={r['noise_count']} verify_min={r['manual_verification_minutes']}",
+             f"  basis: {', '.join(c['measurement_provenance']['bases_present'])}; export is sample: {c['measurement_provenance']['events_export_is_sample']}"]
     for w in r["warnings"]:
         lines.append(f"    ratings warning: {w}")
     if c["source_contribution"]:
         lines.append("  source contribution (first/confirm/restore/chrono; events):")
-        for s in c["source_contribution"][:12]:
+        for s in c["source_contribution"][:10]:
             lines.append(f"    {s['source'][:38]:38s} {s['first_report']}/{s['confirmation']}/{s['restoration_evidence']}/{s['chronology']}; {s['events']} ev [{s['source_kind']}]")
     return "\n".join(lines)
 
@@ -453,14 +540,15 @@ def main(argv=None):
     ap.add_argument("--week-start")
     ap.add_argument("--week-end")
     ap.add_argument("--format", choices=("text", "json"), default="text")
-    ap.add_argument("--out", help="optional path to write the JSON scorecard")
+    ap.add_argument("--out", help="optional path to write the JSON scorecard(s)")
     a = ap.parse_args(argv)
     with open(a.reference, encoding="utf-8") as fh:
         ref = json.load(fh)
-    card = compute_scorecard(ref, FileSource(a.events, a.briefs, a.ratings), a.week_start, a.week_end)
+    cards = compute_by_subset(ref, FileSource(a.events, a.briefs, a.ratings), a.week_start, a.week_end)
     if a.out:
-        Path(a.out).write_text(json.dumps(card, indent=1, ensure_ascii=False), encoding="utf-8")
-    print(json.dumps(card, indent=1, ensure_ascii=False) if a.format == "json" else render_text(card))
+        Path(a.out).write_text(json.dumps(cards, indent=1, ensure_ascii=False), encoding="utf-8")
+    print(json.dumps(cards, indent=1, ensure_ascii=False) if a.format == "json"
+          else "\n".join(render_text(c) for c in cards.values()))
     return 0
 
 

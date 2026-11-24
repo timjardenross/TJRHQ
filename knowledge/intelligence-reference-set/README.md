@@ -67,3 +67,17 @@ Export the inputs yourself with a read-only SELECT (the script never connects). 
 - A detection is a regex title match; it can over-match (opinion pieces) or under-match. Review `n_events`
   with suspicion.
 - Brief surfacing from `brief_text` is a regex match and is weaker evidence than `intelligence_events.brief_id`.
+
+## v1 (draft)
+
+`reference_set_v1.json` (53 records, statuses per record) supersedes v0 for scoring; v0 files stay frozen. See
+`CHANGELOG.md` for counts, the unresolved-is-not-negative rule, targets not met (15 of 25 material) and the
+measured-vs-unverified split. Run:
+
+```bash
+python3 tools/intelligence/performance_scorecard.py \
+  --reference knowledge/intelligence-reference-set/reference_set_v1.json \
+  --events knowledge/intelligence-reference-set/events_export_2026-11-24.json
+```
+
+The output has three views (`all`, `v0_subset`, `v1_new_only`).

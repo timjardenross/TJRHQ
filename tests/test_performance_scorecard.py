@@ -67,11 +67,10 @@ def test_detected_missed_and_time_to_detection():
     assert c["time_to_first_detection_hours"]["by_incident"]["A"] == 5.0  # \m \M translated, 'Alphabet' not matched
 
 
-def test_unverified_material_is_not_scored_but_listed():
+def test_v0_unverified_record_is_not_scored_as_material():
     r = ref(inc("A", "Alpha", verif="unverified"), inc("N", "Nope", mat="low"))
     c = ps.compute_scorecard(r, FakeSource([]))
     assert c["material_incidents"]["total"] == 0
-    assert c["material_incidents"]["unverified_material_not_scored"] == ["A"]
 
 
 def test_false_escalation_by_brief_id_and_brief_text():
@@ -81,7 +80,7 @@ def test_false_escalation_by_brief_id_and_brief_text():
     briefs = [{"brief_date": "2026-11-13", "brief_type": "morning", "brief_text": "Today: old story again resurfaced"}]
     c = ps.compute_scorecard(r, FakeSource(events, briefs))
     fe = c["false_escalation"]
-    assert fe["negatives_total"] == 3 and sorted(fe["ids"]) == ["N1", "N2"]
+    assert fe["negatives_scored"] == 3 and sorted(fe["ids"]) == ["N1", "N2"]
 
 
 def test_corroboration_excludes_aggregators_and_dedupes_publisher_families():
@@ -136,7 +135,7 @@ def test_incorrect_correlation_detected_when_unrelated_pair_shares_signal():
 def test_week_window_filters_incidents_by_first_public_report():
     r = ref(inc("A", "Alpha", first="2026-11-12T00:00:00Z"), inc("B", "Beta", first="2026-11-20T00:00:00Z"))
     c = ps.compute_scorecard(r, FakeSource([]), "2026-11-17", "2026-11-24")
-    assert c["reference_set"]["incidents_scored"] == 1 and c["material_incidents"]["missed_ids"] == ["B"]
+    assert c["reference_set"]["records_scored"] == 1 and c["material_incidents"]["missed_ids"] == ["B"]
 
 
 def test_ratings_csv_parsing_and_validation(tmp_path):
@@ -165,7 +164,7 @@ def test_cli_runs_from_exported_json(tmp_path, capsys):
     (tmp_path / "ev.json").write_text(json.dumps([ev("1", "Alpha outage")]))
     assert ps.main(["--reference", str(tmp_path / "ref.json"), "--events", str(tmp_path / "ev.json"),
                     "--format", "json", "--out", str(tmp_path / "o.json")]) == 0
-    assert json.loads((tmp_path / "o.json").read_text())["material_incidents"]["detected"] == 1
+    assert json.loads((tmp_path / "o.json").read_text())["all"]["material_incidents"]["detected"] == 1
     assert '"detected": 1' in capsys.readouterr().out
 
 
@@ -193,3 +192,90 @@ class TestReferenceSetIntegrity:
     def test_baseline_runs(self, doc):
         c = ps.compute_scorecard(doc, FakeSource(None))
         assert c["material_incidents"]["total"] >= 5
+
+
+# ── v1: statuses, subsets, dispositions, keyed export ───────────────────────────
+
+def v1(iid, regex, status, member="v1_new", mat="high", **kw):
+    r = inc(iid, regex, mat=mat, **kw)
+    r.update(status=status, set_membership=member)
+    return r
+
+
+def test_unresolved_is_excluded_from_scoring_not_a_negative():
+    r = ref(v1("U", "Stockton", "unresolved_insufficiently_verified", mat="low"),
+            v1("S", "Old story", "stale_or_resurfaced", mat="none"))
+    events = [ev("1", "Stockton outage", disposition="BRIEF", brief_id="b"), ev("2", "Old story again")]
+    c = ps.compute_scorecard(r, FakeSource(events))
+    fe = c["false_escalation"]
+    assert fe["negatives_scored"] == 1 and fe["ids"] == []          # U never counted, even though it was briefed
+    assert c["reference_set"]["excluded_unresolved"] == ["U"]
+
+
+def test_disposition_brief_counts_as_escalation_and_duplicates_are_not_negatives():
+    r = ref(v1("S", "Old story", "stale_or_resurfaced", mat="none"),
+            v1("D", "Alpha", "duplicate_report", mat="none", ),
+            v1("C", "Routine", "confirmed_non_material", mat="low"))
+    events = [ev("1", "Old story resurfaces", disposition="BRIEF"), ev("2", "Routine item", disposition="WATCH")]
+    fe = ps.compute_scorecard(r, FakeSource(events))["false_escalation"]
+    assert fe["negatives_scored"] == 2 and fe["ids"] == ["S"]
+    assert fe["disposition_brief_or_escalate_ids"] == ["S"] and fe["reached_brief_ids"] == []
+
+
+def test_subset_reports_separate_v0_and_v1_new():
+    r = ref(v1("A", "Alpha", "confirmed_material", member="v0"), v1("B", "Beta", "confirmed_material"))
+    events = [ev("1", "Alpha outage")]
+    out = ps.compute_by_subset(r, FakeSource(events))
+    assert set(out) == {"all", "v0_subset", "v1_new_only"}
+    assert out["all"]["material_incidents"]["detected"] == 1 and out["all"]["material_incidents"]["total"] == 2
+    assert out["v0_subset"]["material_incidents"]["detection_rate"] == 1.0
+    assert out["v1_new_only"]["material_incidents"]["missed_ids"] == ["B"]
+
+
+def test_v0_only_reference_yields_single_view():
+    assert set(ps.compute_by_subset(ref(inc("A", "Alpha")), FakeSource([]))) == {"all"}
+
+
+def test_keyed_export_rows_and_covered_ids_fallback(tmp_path):
+    embedded = {"appeared": True, "first_collected_at": "2026-11-12T05:00:00Z", "n_non_aggregator_sources": 2}
+    r = ref(v1("K", "never matches", "confirmed_material"), v1("E", "x", "confirmed_material", embedded=embedded))
+    export = {"sampling": "sample", "covered_incident_ids": ["K"],
+              "events": [dict(ev("1", "different title", col="2026-11-12T04:00:00Z"), incident_id="K")]}
+    p = tmp_path / "e.json"
+    p.write_text(json.dumps(export))
+    c = ps.compute_scorecard(r, ps.FileSource(events=str(p)))
+    assert c["per_incident"]["K"]["basis"] == "events_export" and c["per_incident"]["K"]["appeared"]
+    assert c["per_incident"]["E"]["basis"] == "embedded_baseline"           # not covered by the export
+    assert c["measurement_provenance"]["events_export_is_sample"] is True
+
+
+def test_recovery_regex_ignores_imperatives_and_questions():
+    for t in ("Microsoft races to restore services", "when will it be fixed?", "Fix incoming"):
+        assert not ps.RESTORE_RE.search(t)
+    for t in ("Services restored after outage", "Outlook back online", "NAB issue resolved"):
+        assert ps.RESTORE_RE.search(t)
+
+
+class TestReferenceSetV1:
+    @pytest.fixture()
+    def doc(self):
+        return json.loads((_REPO / "knowledge" / "intelligence-reference-set" / "reference_set_v1.json").read_text())
+
+    def test_every_record_has_valid_status_and_v0_ids_are_kept(self, doc):
+        v0 = json.loads(REF_PATH.read_text())
+        assert all(i["status"] in doc["statuses"] for i in doc["incidents"])
+        assert {i["id"] for i in v0["incidents"]} <= {i["id"] for i in doc["incidents"]}
+        assert all(i["reviewed_by_human"] is False for i in doc["incidents"])
+
+    def test_unverified_are_never_negatives(self, doc):
+        for i in doc["incidents"]:
+            if i["status"] == "unresolved_insufficiently_verified":
+                assert i["is_negative_example"] is False and i["scoring_excluded"] is True
+            if i["status"] == "duplicate_report":
+                assert i["duplicate_of"]
+
+    def test_v1_scorecard_runs_offline_against_export(self, doc):
+        d = _REPO / "knowledge" / "intelligence-reference-set"
+        out = ps.compute_by_subset(doc, ps.FileSource(events=str(d / "events_export_2026-11-24.json")))
+        assert out["v0_subset"]["material_incidents"]["total"] == 8
+        assert out["all"]["false_recovery"]["claims_by_incident"] == {"RS-008": 2}
