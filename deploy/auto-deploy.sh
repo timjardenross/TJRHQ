@@ -224,6 +224,11 @@ fi
 /usr/bin/python3 "$REPO_ROOT/tools/alert_on_stale_dirty_tree.py" clear \
   || echo "$LOG_PREFIX WARNING: dirty-tree alert state clear failed" >&2
 
+# Release windows (09:30 and 14:30 Melbourne), urgent flag and the deferral rules live in release-window.sh so the
+# state-sync job obeys the same ones. See that file for the reasoning.
+# shellcheck source=deploy/release-window.sh
+. "$(dirname "${BASH_SOURCE[0]}")/release-window.sh"
+
 git fetch origin "$BRANCH" --quiet
 
 LOCAL_SHA="$(git rev-parse HEAD)"
@@ -231,6 +236,8 @@ REMOTE_SHA="$(git rev-parse "origin/$BRANCH")"
 
 if [ "$LOCAL_SHA" = "$REMOTE_SHA" ]; then
   echo "$LOG_PREFIX up to date ($LOCAL_SHA) - nothing to pull."
+elif restart_deferred; then
+  echo "$LOG_PREFIX DEFER pull: origin/$BRANCH is ahead ($LOCAL_SHA -> $REMOTE_SHA) but routine releases run only at 09:30 and 14:30 Melbourne; the working tree stays on one version until then (urgent: touch the urgent-restart flag)"
 else
   if ! git merge --ff-only "origin/$BRANCH"; then
     echo "$LOG_PREFIX ABORT: fast-forward failed (history diverged?) - needs a human." >&2
@@ -356,7 +363,9 @@ elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
       LP_STALE_REASON="lcars-portal/ differs from the last deployed state"
     fi
   fi
-  if [ -n "$LP_STALE_REASON" ]; then
+  if [ -n "$LP_STALE_REASON" ] && restart_deferred; then
+    echo "$LOG_PREFIX DEFER lcars-portal.service: stale ($LP_STALE_REASON) but routine releases run only at 09:30 and 14:30 Melbourne (urgent: touch the urgent-restart flag)"
+  elif [ -n "$LP_STALE_REASON" ]; then
     echo "$LOG_PREFIX lcars-portal.service is stale ($LP_STALE_REASON) - rebuilding"
     LP_DEPLOY_SHA="$(git rev-parse HEAD)"   # fixed before the build; this is what gets recorded on success
     ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
@@ -392,9 +401,8 @@ fi
 BRIEF_PROTECTED_SERVICES="intelligence-scheduler.service context-service.service"
 
 in_brief_window() {
-  local hm mins
-  hm="$(TZ=Australia/Melbourne date +%H:%M)"
-  mins=$((10#${hm%%:*} * 60 + 10#${hm##*:}))
+  local mins
+  mins="$(melbourne_mins)"
   # 06:55-07:10 = 415-430, 12:25-12:40 = 745-760, 17:55-18:10 = 1075-1090
   { [ "$mins" -ge 415 ] && [ "$mins" -le 430 ]; } ||
   { [ "$mins" -ge 745 ] && [ "$mins" -le 760 ]; } ||
@@ -411,6 +419,10 @@ if [ -f "$SERVICES_CONF" ]; then
     fi
     if svc_start_ts="$(unit_active_since_epoch "$svc")"; then
       if component_changed "$(baseline_for "svc-$svc" "$svc_start_ts")"; then
+        if restart_deferred; then
+          echo "$LOG_PREFIX DEFER $svc: stale but routine releases run only at 09:30 and 14:30 Melbourne (urgent: touch the urgent-restart flag)"
+          continue
+        fi
         case " $BRIEF_PROTECTED_SERVICES " in
           *" $svc "*)
             if in_brief_window; then

@@ -16,6 +16,9 @@ FAIL=0
 fail() { echo "  FAIL: $1" >&2; FAIL=$((FAIL + 1)); }
 pass() { echo "  pass: $1"; PASS=$((PASS + 1)); }
 
+# Release windows (deploy/release-window.sh): tests run "inside" a window unless they say otherwise.
+export AUTO_DEPLOY_NOW_HHMM="${AUTO_DEPLOY_NOW_HHMM:-09:30}"
+
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.invalid GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.invalid
 
 # Builds $tmp/origin.git, $tmp/local (the job's checkout) and $tmp/peer (another clone that
@@ -32,6 +35,7 @@ setup() {
     echo '{}' > data/self-improvement/review/evolution_summary.json
     : > data/self-improvement/review/finding_staleness.jsonl
     echo 0 > data/self-improvement/review/opportunity_id_counter.txt
+    echo '{}' > data/self-improvement/review/opportunity_snapshot.json  # now in STATE_FILES; fixture predated it (4 tests failed on main)
     echo base > other.txt
     git add -A && git commit -q -m base && git push -q origin main
   )
@@ -61,6 +65,28 @@ rc="$(run_sync)"
 [ "$(git -C "$tmp/origin.git" show main:.id-counters.json)" = '{"MSN":2}' ] && pass "origin has the state commit" || fail "origin missing state commit"
 [ "$(git -C "$tmp/local" rev-list --count origin/main..HEAD)" = 0 ] && pass "local not ahead of origin" || fail "local ahead of origin"
 [ "$(git -C "$tmp/local" rev-list --count HEAD..origin/main)" = 0 ] && pass "local not behind origin" || fail "local behind origin"
+
+echo "behind origin OUTSIDE a release window: sync deferred, working tree not moved, nothing committed, exit 0"
+setup
+peer_commit other.txt changed
+echo '{"MSN":2}' > "$tmp/local/.id-counters.json"
+before="$(git -C "$tmp/local" rev-parse HEAD)"; origin_before="$(git -C "$tmp/origin.git" rev-parse main)"
+rc="$(AUTO_DEPLOY_NOW_HHMM=11:00 run_sync)"
+[ "$rc" = 0 ] && pass "exit 0 (a deferral is not a failure)" || fail "exit $rc ($(cat "$tmp/err"))"
+[ "$(git -C "$tmp/local" rev-parse HEAD)" = "$before" ] && pass "local HEAD unchanged" || fail "tree moved outside a window"
+[ "$(git -C "$tmp/origin.git" rev-parse main)" = "$origin_before" ] && pass "origin untouched" || fail "origin changed"
+grep -q DEFER "$tmp/out" && pass "deferral logged" || fail "no DEFER line"
+[ "$(cat "$tmp/local/.id-counters.json")" = '{"MSN":2}' ] && pass "state file left dirty for the next window" || fail "state file lost"
+echo "next window: the deferred sync fast-forwards and commits"
+rc="$(AUTO_DEPLOY_NOW_HHMM=14:35 run_sync)"
+[ "$rc" = 0 ] && [ "$(git -C "$tmp/origin.git" show main:.id-counters.json)" = '{"MSN":2}' ] && [ "$(git -C "$tmp/origin.git" show main:other.txt)" = changed ] \
+  && pass "caught up and committed inside the window" || fail "window sync (rc=$rc $(cat "$tmp/err"))"
+
+echo "up to date OUTSIDE a window: still commits and pushes (nothing moves the tree)"
+setup
+echo '{"MSN":2}' > "$tmp/local/.id-counters.json"
+rc="$(AUTO_DEPLOY_NOW_HHMM=11:00 run_sync)"
+[ "$rc" = 0 ] && [ "$(git -C "$tmp/origin.git" show main:.id-counters.json)" = '{"MSN":2}' ] && pass "up-to-date sync is unaffected by the windows" || fail "up-to-date outside window (rc=$rc)"
 
 echo "behind origin and incoming change touches the dirty state file: skip, no commit"
 setup

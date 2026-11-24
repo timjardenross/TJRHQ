@@ -60,6 +60,8 @@ TOLERATED_DIRTY=(
 )
 
 cd "$REPO_ROOT"
+# shellcheck source=deploy/release-window.sh
+. "$(dirname "${BASH_SOURCE[0]}")/release-window.sh"
 
 # Refresh the tracked snapshot of open opportunities (opportunities.jsonl
 # itself is untracked on purpose) so it rides along with the other state
@@ -134,6 +136,14 @@ if ! git fetch origin "$BRANCH" --quiet; then
   exit 1
 fi
 if [ "$(git rev-list --count "HEAD..origin/$BRANCH")" -gt 0 ]; then
+  # 2026-11-25: fast-forwarding here moves the live working tree under running services. Outside a release window
+  # (see release-window.sh) skip the sync instead: the state files stay dirty (auto-deploy tolerates them), nothing
+  # is committed that could diverge, and the next window cycle commits on top of origin as usual. Exit 0: a
+  # deliberate deferral is not a failure and must not raise the failure alert.
+  if restart_deferred; then
+    echo "$LOG_PREFIX DEFER: origin/$BRANCH is ahead but routine releases run only at 09:30 and 14:30 Melbourne - skipping this sync so the working tree does not move between windows."
+    exit 0
+  fi
   if ! git merge --ff-only "origin/$BRANCH" --quiet 2>/dev/null; then
     echo "$LOG_PREFIX WARNING: local $BRANCH is behind origin/$BRANCH and cannot fast-forward (diverged, or incoming changes touch dirty files) - skipping commit, needs a human." >&2
     exit 1
