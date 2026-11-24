@@ -33,6 +33,8 @@ FLAGS = {"morning": "BRIEF_EVIDENCE_V1_MORNING", "weekly": "BRIEF_EVIDENCE_V1_WE
 SNAPSHOT_ENV = "BRIEF_EVIDENCE_SNAPSHOT_PATH"
 _TRUE = ("1", "true", "yes", "on")
 _ACTIONABLE = ("ESCALATE", "VERIFY", "WATCH")
+# ed.RESTORATION_STATUSES as shown to the reader; 'unknown' has no label because it is never stated as a fact.
+RESTORATION_LABEL = {"ongoing": "ongoing", "partially_restored": "partially restored", "restored": "restored"}
 STATUS_LABEL = {"officially_confirmed": "officially confirmed", "corroborated": "corroborated", "reported": "reported", "unverified": "unverified"}
 
 
@@ -218,8 +220,8 @@ def _facts(i: IncidentView) -> str:
         bits.append(r["impact"])
     if r.get("affected_customers"):
         bits.append(f"{r['affected_customers']:,} customers")
-    if r.get("restoration_status") != "unknown":
-        bits.append(r["restoration_status"])
+    if r.get("restoration_status") in RESTORATION_LABEL:     # 'unknown' (current state not established) is not stated as a fact
+        bits.append(RESTORATION_LABEL[r["restoration_status"]])
     if r.get("duration"):
         bits.append(r["duration"])
     return ", ".join(bits)
@@ -372,7 +374,8 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     impact_open = [i for i in credible if i.impact_status != "retrospective" and i.event_type != "vulnerability"]
     exposure = [i for i in credible if i.impact_status != "retrospective" and i.event_type == "vulnerability"]
     # Only CURRENT evidence counts as a current disruption: an incident whose restoration status is unknown (current status not
-    # established, e.g. a historic outage still being written about) is listed but not counted.
+    # established, e.g. a historic outage still being written about, a stale cue or an unverified report time) is listed but not
+    # counted. A partially restored incident is still a current disruption and is counted with ongoing ones.
     firm_n = [i for i in firm if i.record["restoration_status"] != "unknown"]
     single_n = [i for i in single if i.record["restoration_status"] != "unknown"]
     stale_n = len(firm) + len(single) - len(firm_n) - len(single_n)
@@ -401,8 +404,9 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     imp = [f"- {'tier ' + str(i.sector_tier) if i.sector_tier else 'unclassified sector'}: "
            f"{', '.join(i.record['critical_service_dependencies']) or 'no recognised service'} — {_facts(i)} {_cite(i)}"
            for i in firm[:4] + single[:2]]
-    fw = [f"- Ongoing: {i.headline} (restoration {i.record['restoration_status']}) {_cite(i)}"
-          for i in active if i.record["restoration_status"] == "ongoing" and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
+    fw = [f"- {RESTORATION_LABEL[i.record['restoration_status']].capitalize()}: {i.headline} "
+          f"(restoration {RESTORATION_LABEL[i.record['restoration_status']]}) {_cite(i)}"
+          for i in active if i.record["restoration_status"] in ed.CURRENT_DISRUPTION and i.priority in ("ESCALATE", "WATCH") and _fw_credible(i)][:4]
     fw += [f"- Forecast/warning: {i.headline} {_cite(i)}" for i in notices[:4]]
     fw += [f"- Dated notice for {d.strftime('%d %b')}: {i.headline} {_cite(i)}" for i, d in forward_dated_items(ev) if i not in notices and _fw_credible(i)][:3]
     fw += [f"- Verify: {i.headline} → {i.record['next_verification_action']} {_cite(i)}" for i in [x for x in impact_open + exposure + source_open if _fw_credible(x)][:2]]
@@ -727,7 +731,8 @@ def _patterns(ev: EvidenceSet) -> dict[str, list[IncidentView]]:
 
 
 def snapshot_payload(ev: EvidenceSet) -> dict:
-    """The compact record stored for next week's comparison: identities by report id (incident ids change as reports join), not copies of articles."""
+    """The compact record stored for next week's comparison: identities by report id (incident ids change as reports join), not copies of articles.
+    ``restoration_status`` is stored as one of ed.RESTORATION_STATUSES (older snapshots hold only ongoing / restored / unknown)."""
     return {"date": ev.generated_at.date().isoformat(), "kind": "weekly_evidence_incidents", "method_version": ev.method_version,
             "incidents": [{"incident_id": i.incident_id, "report_ids": i.report_ids, "headline": i.headline, "priority": i.priority,
                            "materiality": i.materiality, "evidence_status": i.evidence_status,
@@ -736,7 +741,9 @@ def snapshot_payload(ev: EvidenceSet) -> dict:
 
 
 def compare_snapshots(prev: dict, ev: EvidenceSet) -> dict:
-    """New / continuing / materially changed / resolved / no-longer-reported incidents and newly emerging patterns, matched by report-id overlap."""
+    """New / continuing / materially changed / resolved / no-longer-reported incidents and newly emerging patterns, matched by report-id overlap.
+    RESOLVED only when the incident is now 'restored' (and was not before): 'partially_restored' is still a current disruption and
+    'unknown' is not a resolution."""
     prev_by_report = {rid: p for p in prev["incidents"] for rid in p["report_ids"]}
     cur = [i for i in ev.incidents if i.priority in _ACTIONABLE]
     out = {"new": [], "continuing": [], "changed": [], "resolved": [], "no_longer_reported": [], "emerging_patterns": []}

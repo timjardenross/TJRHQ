@@ -18,8 +18,9 @@ NOW = datetime(2026, 11, 23, 0, 0, tzinfo=timezone.utc)
 
 def ev(i, title, source="ABC News", hours_ago=2, geo="AU", url=None):
     t = NOW - timedelta(hours=hours_ago)
+    # #692: a published time is what makes a report's time verified (live evidence); collection time alone is not.
     return {"id": i, "title": title, "source": source, "geography": geo, "collected_at": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "url": url or f"https://example.test/{i}"}
+            "published_at": t.strftime("%Y-%m-%dT%H:%M:%SZ"), "url": url or f"https://example.test/{i}"}
 
 
 EVENTS = [
