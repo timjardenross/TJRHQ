@@ -70,6 +70,7 @@ def replay(events: list[dict], *, consolidated: bool = True) -> dict:
     first_collect: dict[str, datetime] = {}
     alerts: dict[str, dict] = {}                    # keyed by the sorted-member signature of the FIRST alerting state
     alerted_members: dict[str, str] = {}            # event id -> alert key (so a growing incident is one alert, not many)
+    ever_material: set[str] = set()                 # event ids that belonged to an IMMEDIATE_ALERT/SCHEDULED_BRIEF incident at ANY batch (tiers age out)
     for now in batches:
         seen = [e for e in evs if _ts(e["collected_at"]) <= now]
         for e in seen:
@@ -77,6 +78,8 @@ def replay(events: list[dict], *, consolidated: bool = True) -> dict:
         for inc in ic.cluster_incidents(seen, now=now, force=consolidated):
             td = dt.tier_for_incident(inc, now=now)
             ids = [r.event_id for r in inc.reports]
+            if td.tier in (dt.IMMEDIATE_ALERT, dt.SCHEDULED_BRIEF):
+                ever_material.update(ids)
             known = {alerted_members[i] for i in ids if i in alerted_members}
             if td.tier == dt.IMMEDIATE_ALERT and not known:
                 key = f"alert-{len(alerts) + 1}"
@@ -90,7 +93,7 @@ def replay(events: list[dict], *, consolidated: bool = True) -> dict:
                 for i in ids:
                     alerted_members.setdefault(i, min(known))
     final = ic.cluster_incidents(evs, now=batches[-1], force=consolidated) if batches else []
-    return {"alerts": list(alerts.values()), "final_incidents": final, "alerted_members": alerted_members, "first_collect": first_collect,
+    return {"alerts": list(alerts.values()), "final_incidents": final, "alerted_members": alerted_members, "first_collect": first_collect, "ever_material": ever_material,
             "tiers": {inc.incident_id: dt.tier_for_incident(inc, now=batches[-1]) for inc in final} if batches else {}}
 
 
@@ -161,7 +164,7 @@ def surfacing_audit(result: dict, events: list[dict]) -> dict:
     material, surfaced, never, why = [], [], [], {}
     for inc in result["final_incidents"]:
         tier = result["tiers"][inc.incident_id].tier
-        if tier not in (dt.IMMEDIATE_ALERT, dt.SCHEDULED_BRIEF):
+        if tier not in (dt.IMMEDIATE_ALERT, dt.SCHEDULED_BRIEF) and not any(r.event_id in result.get("ever_material", ()) for r in inc.reports):
             continue
         material.append(inc)
         rows = [by_id[r.event_id] for r in inc.reports]
@@ -185,7 +188,7 @@ def surfacing_audit(result: dict, events: list[dict]) -> dict:
         why.setdefault(reason, []).append(inc.incident_id)
     return {"material_incidents": len(material), "surfaced_in_a_brief": len(surfaced), "never_surfaced": len(never),
             "never_surfaced_headlines": [i.decision.headline.title[:90] for i in never], "why": {k: len(v) for k, v in why.items()},
-            "caveat": "material = tier IMMEDIATE_ALERT/SCHEDULED_BRIEF from the offline rules; surfacing = brief_id on any member event"}
+            "caveat": "material = tier IMMEDIATE_ALERT/SCHEDULED_BRIEF from the offline rules at the final batch OR at any earlier batch (tiers age out by design); surfacing = brief_id on any member event"}
 
 
 def main(argv=None) -> int:

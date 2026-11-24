@@ -11,9 +11,9 @@ Pure: no I/O, never sends anything. ``render`` also returns the event ids it sho
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import os
-import dataclasses
 from datetime import datetime, timedelta, timezone
 
 from intelligence import delivery_tiers as dt
@@ -142,22 +142,27 @@ def render(events: list[dict], *, now: datetime | None = None, window_hours: int
              f"Based on reports from the last {window_hours} hours; incidents are consolidated, so one disruption is one entry.", ""]
     shown: list[str] = []
 
-    def section(title, tier, limit, full):
-        items = by_tier[tier][:limit]
+    exposures = [(i, d) for i, d in by_tier[dt.SCHEDULED_BRIEF] if d.evidence.get("exposure")]
+    by_tier[dt.SCHEDULED_BRIEF] = [(i, d) for i, d in by_tier[dt.SCHEDULED_BRIEF] if not d.evidence.get("exposure")]
+
+    def section(title, tier, limit, full, items=None):
+        pool = by_tier[tier] if items is None else items
+        items = pool[:limit]
         if not items:
             return False
         lines.append(title)
         for inc, td in items:
             lines.extend(_entry(inc, td) if full else _brief_entry(inc, td))
             shown.extend(r.event_id for r in inc.reports)
-        if len(by_tier[tier]) > limit:
-            lines.append(f"- ... and {len(by_tier[tier]) - limit} more in this tier")
+        if len(pool) > limit:
+            lines.append(f"- ... and {len(pool) - limit} more in this tier")
         lines.append("")
         return True
 
     alert_h = fr.alert_window().total_seconds() / 3600
     any_shown = section(f"ACTIVE ALERT-LEVEL INCIDENTS (live, stated impact, Australian relevance, solid evidence, newest factual report within {alert_h:g} h)", dt.IMMEDIATE_ALERT, SECTION_FULL_LIMIT, True)
     any_shown |= section(f"MATERIAL INCIDENTS FOR TODAY'S BRIEF (newest factual report within {fr.BRIEF_FRESH_HOURS} h, or still ongoing)", dt.SCHEDULED_BRIEF, SECTION_FULL_LIMIT, True)
+    any_shown |= section("EMERGING EXPOSURES (credible advisories: exploited or critical; no confirmed disruption, nothing here states an operational consequence)", dt.SCHEDULED_BRIEF, SECTION_MONITOR_LIMIT, False, exposures)
     any_shown |= section("MONITORING (credible warnings, emerging exposures and candidates whose evidence is not yet sufficient; re-tiered when it arrives)", dt.MONITOR, SECTION_MONITOR_LIMIT, False)
     if not any_shown:
         lines += ["No alert-level, scheduled or monitored incident in the window. This is not an all-clear: see the counts below.", ""]
