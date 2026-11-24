@@ -1,0 +1,302 @@
+{
+  "now": "2026-11-24T06:00:00+00:00",
+  "evidence": {
+    "priority_sources": [
+      "ASIC",
+      "APRA",
+      "AEMO",
+      "ACSC",
+      "Optus"
+    ],
+    "quiet_verifications": [
+      {
+        "source_name": "Quiet Feed",
+        "verified_on": "2026-11-24",
+        "newest_item_on_source": "2026-10-01"
+      },
+      {
+        "source_name": "ACSC Advisories",
+        "verified_on": "2026-11-24",
+        "newest_item_on_source": "2026-10-09"
+      }
+    ],
+    "coverage_gaps": [
+      {
+        "sector": "telecommunications",
+        "provider": "Telstra",
+        "reason": "form-gated"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "source_name": "Healthy Feed",
+      "active": true,
+      "n7": 3,
+      "n30": 12,
+      "checks7": 14,
+      "bad7": 0,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "Broken Feed",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 14,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-18T19:00:00+00:00"
+    },
+    {
+      "source_name": "Degraded Feed",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 5,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "Never Checked",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 0,
+      "bad7": 0,
+      "last_check": null,
+      "last_ok": null
+    },
+    {
+      "source_name": "Stale Check",
+      "active": true,
+      "n7": 0,
+      "n30": 4,
+      "checks7": 14,
+      "bad7": 0,
+      "last_check": "2026-11-20T19:00:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "Quiet Feed",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 0,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "Unknown Quiet",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 0,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "Inactive Feed",
+      "active": false,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 0,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "Edge 80pct",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 10,
+      "bad7": 8,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-18T19:00:00+00:00"
+    },
+    {
+      "source_name": "Edge 20pct",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 10,
+      "bad7": 2,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "ACSC Advisories",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 0,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "ASIC News Centre",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 14,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-18T19:00:00+00:00"
+    },
+    {
+      "source_name": "APRA Releases",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 14,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T01:00:00+00:00"
+    },
+    {
+      "source_name": "AEMO Notices",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 14,
+      "bad7": 5,
+      "last_check": "2026-11-23T19:03:00+00:00",
+      "last_ok": "2026-11-23T19:03:00+00:00"
+    },
+    {
+      "source_name": "Optus Outage Register",
+      "active": true,
+      "n7": 0,
+      "n30": 0,
+      "checks7": 0,
+      "bad7": 0,
+      "last_check": null,
+      "last_ok": null
+    }
+  ],
+  "expected": {
+    "classified": [
+      {
+        "source_name": "Healthy Feed",
+        "state": "HEALTHY",
+        "reason": "12 items in 30 days, 3 in 7"
+      },
+      {
+        "source_name": "Broken Feed",
+        "state": "BROKEN",
+        "reason": "14 of 14 checks failed in 7 days"
+      },
+      {
+        "source_name": "Degraded Feed",
+        "state": "DEGRADED",
+        "reason": "5 of 14 checks failed in 7 days"
+      },
+      {
+        "source_name": "Never Checked",
+        "state": "BROKEN",
+        "reason": "active but not checked in the last 7 days"
+      },
+      {
+        "source_name": "Stale Check",
+        "state": "DEGRADED",
+        "reason": "last check 2026-11-20, older than two days"
+      },
+      {
+        "source_name": "Quiet Feed",
+        "state": "QUIET",
+        "reason": "live feed probe on 2026-11-24: newest item on source 2026-10-01"
+      },
+      {
+        "source_name": "Unknown Quiet",
+        "state": "UNVERIFIED",
+        "reason": "checks succeed but no items in 30 days and no live-feed probe on record"
+      },
+      {
+        "source_name": "Inactive Feed",
+        "state": "UNCOVERED",
+        "reason": "inactive: not collecting"
+      },
+      {
+        "source_name": "Edge 80pct",
+        "state": "BROKEN",
+        "reason": "8 of 10 checks failed in 7 days"
+      },
+      {
+        "source_name": "Edge 20pct",
+        "state": "DEGRADED",
+        "reason": "2 of 10 checks failed in 7 days"
+      },
+      {
+        "source_name": "ACSC Advisories",
+        "state": "QUIET",
+        "reason": "live feed probe on 2026-11-24: newest item on source 2026-10-09"
+      },
+      {
+        "source_name": "ASIC News Centre",
+        "state": "BROKEN",
+        "reason": "14 of 14 checks failed in 7 days"
+      },
+      {
+        "source_name": "APRA Releases",
+        "state": "BROKEN",
+        "reason": "14 of 14 checks failed in 7 days"
+      },
+      {
+        "source_name": "AEMO Notices",
+        "state": "DEGRADED",
+        "reason": "5 of 14 checks failed in 7 days"
+      },
+      {
+        "source_name": "Optus Outage Register",
+        "state": "BROKEN",
+        "reason": "active but not checked in the last 7 days"
+      },
+      {
+        "source_name": "Telstra (telecommunications)",
+        "state": "UNCOVERED",
+        "reason": "form-gated"
+      }
+    ],
+    "summary": {
+      "HEALTHY": 1,
+      "QUIET": 2,
+      "UNVERIFIED": 1,
+      "DEGRADED": 4,
+      "BROKEN": 6,
+      "UNCOVERED": 2
+    },
+    "material": [
+      "source-coverage:broken:ASIC News Centre",
+      "source-coverage:broken:Optus Outage Register"
+    ],
+    "limitations": [
+      {
+        "name": "Telstra",
+        "kind": "uncovered",
+        "reason": "form-gated"
+      },
+      {
+        "name": "ASIC News Centre",
+        "kind": "broken_priority",
+        "reason": "14 of 14 checks failed in 7 days"
+      },
+      {
+        "name": "APRA Releases",
+        "kind": "broken_priority",
+        "reason": "14 of 14 checks failed in 7 days"
+      },
+      {
+        "name": "Optus Outage Register",
+        "kind": "broken_priority",
+        "reason": "active but not checked in the last 7 days"
+      }
+    ],
+    "limitations_line": "Coverage limitations: Telstra not covered by an authoritative feed; ASIC News Centre, APRA Releases, Optus Outage Register currently failing."
+  }
+}

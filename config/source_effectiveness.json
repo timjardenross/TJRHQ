@@ -1,13 +1,56 @@
 {
-  "_doc": "Evidence recorded by people/agents about sources that look quiet or are not covered. A quiet source is only called QUIET when a content probe of the live feed (not the database) shows no newer item than the newest one collected; otherwise it is UNVERIFIED. Gaps are sectors with no authoritative collection method.",
+  "_doc": "Evidence recorded by people/agents about sources that look quiet or are not covered. A quiet source is only called QUIET when a content probe of the live feed (not the database) shows no newer item than the newest one collected; otherwise it is UNVERIFIED. Gaps are sectors with no authoritative collection method. priority_sources: AU/critical-infrastructure authoritative sources (word-boundary, case-insensitive match on source_name); only a BROKEN priority source (3+ days without a successful check) is raised as a material exception.",
+  "priority_sources": [
+    "ASIC",
+    "APRA",
+    "RBA",
+    "ACSC",
+    "AEMO",
+    "ATO",
+    "Optus",
+    "Council of Financial Regulators",
+    "ACMA",
+    "AFSA",
+    "OAIC"
+  ],
   "quiet_verifications": [
-    {"source_name": "ACSC Advisories", "verified_on": "2026-11-24", "newest_item_on_source": "2026-10-09", "method": "live feed fetched via Firecrawl; newest item 9 Oct 2026 matches the newest collected event"},
-    {"source_name": "Council of Financial Regulators", "verified_on": "2026-11-24", "newest_item_on_source": "2026-10-01", "method": "live feed fetched via Firecrawl; single item dated 1 Oct 2026, already collected"},
-    {"source_name": "APRA — Speeches and Publications", "verified_on": "2026-11-24", "newest_item_on_source": "2026-10-29", "method": "live feed fetched from the container; newest item 29 Oct 2026"}
+    {
+      "source_name": "ACSC Advisories",
+      "verified_on": "2026-11-24",
+      "newest_item_on_source": "2026-10-09",
+      "method": "live feed fetched via Firecrawl; newest item 9 Oct 2026 matches the newest collected event"
+    },
+    {
+      "source_name": "Council of Financial Regulators",
+      "verified_on": "2026-11-24",
+      "newest_item_on_source": "2026-10-01",
+      "method": "live feed fetched via Firecrawl; single item dated 1 Oct 2026, already collected"
+    },
+    {
+      "source_name": "APRA — Speeches and Publications",
+      "verified_on": "2026-11-24",
+      "newest_item_on_source": "2026-10-29",
+      "method": "live feed fetched from the container; newest item 29 Oct 2026"
+    }
   ],
   "coverage_gaps": [
-    {"sector": "telecommunications", "provider": "Telstra", "reason": "Outage register is behind an address/postcode/date search form; no public list or feed. Coverage relies on news and Downdetector.", "observed_on": "2026-11-24"},
-    {"sector": "financial market infrastructure", "provider": "ASX", "reason": "Company announcements feed is a paid subscription service; no free machine-readable method found.", "observed_on": "2026-11-24"},
-    {"sector": "communications regulation", "provider": "ACMA", "reason": "No RSS feed (rss path returns 404) and no documented machine-readable method found.", "observed_on": "2026-11-24"}
+    {
+      "sector": "telecommunications",
+      "provider": "Telstra",
+      "reason": "Outage register is behind an address/postcode/date search form; no public list or feed. Coverage relies on news and Downdetector.",
+      "observed_on": "2026-11-24"
+    },
+    {
+      "sector": "financial market infrastructure",
+      "provider": "ASX",
+      "reason": "Company announcements feed is a paid subscription service; no free machine-readable method found.",
+      "observed_on": "2026-11-24"
+    },
+    {
+      "sector": "communications regulation",
+      "provider": "ACMA",
+      "reason": "No RSS feed (rss path returns 404) and no documented machine-readable method found.",
+      "observed_on": "2026-11-24"
+    }
   ]
 }

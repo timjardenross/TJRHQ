@@ -41,8 +41,9 @@ import type { StateTone } from '@/lib/types';
 import { TodayView } from './_components/TodayView';
 import { WatchingView } from './_components/WatchingView';
 import { LibraryView } from './_components/LibraryView';
+import { SourceCoverageView } from './_components/SourceCoverageView';
 
-type Tab = 'today' | 'watching' | 'library';
+type Tab = 'today' | 'watching' | 'library' | 'sources';
 type AnalystDomain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment' | 'credibility';
 
 type Payload = { domain: AnalystDomain; [key: string]: any };
@@ -51,6 +52,7 @@ const TAB_OPTIONS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'watching', label: 'Watching' },
   { key: 'library', label: 'Library' },
+  { key: 'sources', label: 'Source coverage' },
 ];
 
 const ANALYST_DOMAIN_OPTIONS: { key: AnalystDomain; label: string }[] = [
@@ -62,7 +64,7 @@ const ANALYST_DOMAIN_OPTIONS: { key: AnalystDomain; label: string }[] = [
 ];
 
 function isTab(v: string | null): v is Tab {
-  return v === 'today' || v === 'watching' || v === 'library';
+  return v === 'today' || v === 'watching' || v === 'library' || v === 'sources';
 }
 
 function isAnalystDomain(v: string | null): v is AnalystDomain {
@@ -361,6 +363,7 @@ function Workbench() {
               <TodayView onOpenWatching={() => setTab('watching')} onOpenTechnical={openAnalyst} />
             )}
             {tab === 'watching' && <WatchingView />}
+            {tab === 'sources' && <SourceCoverageView />}
             {tab === 'library' && (
               <div className="space-y-3">
                 <LibraryView />
