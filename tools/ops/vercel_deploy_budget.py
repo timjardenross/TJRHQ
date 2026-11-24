@@ -14,7 +14,9 @@ Exit status: 0 = a deployment of that kind is within budget, 3 = budget reached 
 from __future__ import annotations
 
 import json
+import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -48,12 +50,52 @@ def decide(deployments: list[dict], kind: str, *, emergency: bool = False, now_m
     return True, f"{kind} within budget: {c[kind]} of {budget} used in the last {WINDOW_HOURS}h (platform total {c['total']}/{PLATFORM_LIMIT})"
 
 
+# --- deployment ticket: connects the budget check to the paths that actually create deployments -------------------------------------
+# A deployment created by an agent (Vercel create_deployment tool, or the vercel CLI through Bash) is refused by
+# .claude/hooks/vercel_deploy_gate.py unless a fresh single-use ticket for that kind exists. A ticket is only issued by this
+# script, from a current deployment list, when the internal budget allows it. Rollbacks and promotions do not need a ticket.
+TICKET_TTL_SECONDS = 30 * 60
+
+
+def ticket_path(kind: str) -> Path:
+    base = os.environ.get("VERCEL_DEPLOY_TICKET_DIR") or tempfile.gettempdir()
+    return Path(base) / f"vercel_deploy_ticket_{kind}.json"
+
+
+def issue_ticket(deployments: list[dict], kind: str, *, emergency: bool = False, now_ms: int | None = None) -> tuple[bool, str]:
+    ok, why = decide(deployments, kind, emergency=emergency, now_ms=now_ms)
+    if not ok:
+        return False, why
+    now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
+    ticket_path(kind).write_text(json.dumps({"kind": kind, "issued_ms": now_ms, "emergency": emergency, "reason": why}), encoding="utf-8")
+    return True, why
+
+
+def consume_ticket(kind: str, *, now_ms: int | None = None) -> tuple[bool, str]:
+    """Single use: a valid ticket is deleted as it is consumed."""
+    path = ticket_path(kind)
+    try:
+        t = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False, f"no {kind} deployment ticket: run tools/ops/vercel_deploy_budget.py <deployments.json> --target {kind} --issue-ticket"
+    now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
+    if t.get("kind") != kind or now_ms - int(t.get("issued_ms", 0)) > TICKET_TTL_SECONDS * 1000:
+        path.unlink(missing_ok=True)
+        return False, f"the {kind} deployment ticket has expired; re-run the budget check"
+    path.unlink(missing_ok=True)
+    return True, str(t.get("reason", "ticket accepted"))
+
+
 def main(argv: list[str]) -> int:
     path, kind = argv[1], (argv[argv.index("--target") + 1] if "--target" in argv else "preview")
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     deployments = data.get("result", data).get("deployments", data) if isinstance(data, dict) else data
     if isinstance(deployments, dict):
         deployments = deployments.get("deployments", [])
+    if "--issue-ticket" in argv:
+        ok, why = issue_ticket(deployments, kind, emergency="--emergency" in argv)
+        print(("TICKET ISSUED: " if ok else "DENY: ") + why)
+        return 0 if ok else 3
     ok, why = decide(deployments, kind, emergency="--emergency" in argv)
     print(("ALLOW: " if ok else "DENY: ") + why)
     return 0 if ok else 3

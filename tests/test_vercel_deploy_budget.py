@@ -37,3 +37,32 @@ def test_emergency_release_is_possible_until_the_platform_allowance_is_gone():
 def test_canceled_deployments_count_like_any_other():
     deps = [dict(_d(i * 0.1), state="CANCELED") for i in range(10)]
     assert vb.decide(deps, "preview", now_ms=NOW)[0] is False
+
+
+def test_ticket_is_issued_only_within_budget_and_is_single_use(tmp_path, monkeypatch):
+    monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
+    ok, _ = vb.issue_ticket([_d(1)], "preview", now_ms=NOW)
+    assert ok and vb.consume_ticket("preview", now_ms=NOW + 1000)[0] is True
+    assert vb.consume_ticket("preview", now_ms=NOW + 2000)[0] is False          # single use
+    full = [_d(i * 0.1) for i in range(10)]
+    assert vb.issue_ticket(full, "preview", now_ms=NOW)[0] is False
+    assert vb.consume_ticket("preview", now_ms=NOW)[0] is False                  # nothing was issued
+
+
+def test_ticket_expires(tmp_path, monkeypatch):
+    monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
+    vb.issue_ticket([], "production", now_ms=NOW)
+    assert vb.consume_ticket("production", now_ms=NOW + 31 * 60 * 1000)[0] is False
+
+
+def test_gate_hook_classifies_deployment_paths_and_ignores_everything_else():
+    sys.path.insert(0, str(_REPO / ".claude" / "hooks"))
+    import vercel_deploy_gate as gate
+    assert gate.kind_of("mcp__Vercel__create_deployment", {"requestBody": {"target": "production"}}) == "production"
+    assert gate.kind_of("mcp__Vercel__create_deployment", {"requestBody": {"name": "x"}}) == "preview"
+    assert gate.kind_of("Bash", {"command": "vercel deploy --prod"}) == "production"
+    assert gate.kind_of("Bash", {"command": "cd lcars-portal && vercel deploy"}) == "preview"
+    assert gate.kind_of("Bash", {"command": "git push origin main"}) is None
+    assert gate.kind_of("Bash", {"command": "ls vercel.json"}) is None
+    assert gate.kind_of("mcp__Vercel__request_rollback", {}) is None              # rollbacks never need a ticket
+    assert gate.kind_of("mcp__Vercel__list_deployments", {}) is None
