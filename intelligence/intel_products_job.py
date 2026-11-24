@@ -15,6 +15,8 @@ import json
 import logging
 import os
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -49,11 +51,42 @@ def _cfg():
     }
 
 
-def _get(table, query):
+_RETRY_STATUSES = frozenset({500, 502, 503, 504})
+
+
+def _get(table, query, *, attempts=3, sleep=time.sleep):
     url, headers = _cfg()
-    req = urllib.request.Request(f"{url}/rest/v1/{table}?{query}", headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - SUPABASE_URL env, https
-        return json.loads(resp.read())
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(f"{url}/rest/v1/{table}?{query}", headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - SUPABASE_URL env, https
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            # A transient gateway/statement-timeout error is retried with backoff; anything else fails at once.
+            if exc.code not in _RETRY_STATUSES or attempt == attempts:
+                raise
+        except (TimeoutError, urllib.error.URLError):
+            if attempt == attempts:
+                raise
+        sleep(2 * attempt)
+    return []
+
+
+def _keyset_pages(getter, cols, filter_q):
+    """All rows matching `filter_q`, read in primary-key order with keyset paging.
+
+    2026-11-24 live run: the first version read the whole window in one combined OR filter ordered by published_at with offset paging.
+    intelligence_events has no index on published_at, so every page re-sorted ~35,000 rows (8 s, then a 500). Keyset paging on the
+    primary key plus one simple filter per query keeps each page cheap and the read stable under concurrent inserts.
+    """
+    rows, last = [], None
+    while True:
+        after = f"&event_id=gt.{last}" if last else ""
+        page = getter("intelligence_events", f"select={cols}&{filter_q}{after}&order=event_id.asc&limit={PAGE}")
+        rows += page
+        if len(page) < PAGE:
+            return rows
+        last = page[-1]["event_id"]
 
 
 def fetch_rows(since, getter=_get):
@@ -69,17 +102,14 @@ def fetch_rows(since, getter=_get):
     since_q = urllib.parse.quote(since.isoformat())
     # Several feeds (AEMO notices, Fastly status, APRA/AusPayNet scrapes) carry no published_at. They are fetched by collected_at so a
     # completion notice or a whole feed is not silently invisible; the analytics treat an undated row explicitly, never as dated.
-    window = f"or=(published_at.gte.{since_q},and(published_at.is.null,collected_at.gte.{since_q}))"
-    rows, offset = [], 0
-    while True:
-        q = f"select={cols}&{window}&order=published_at.asc.nullsfirst,event_id.asc&limit={PAGE}&offset={offset}"
-        page = getter("intelligence_events", q)
-        for r in page:
-            r["source_name"] = names.get(r.pop("source_id", None), "")
-        rows += page
-        if len(page) < PAGE:
-            return rows
-        offset += PAGE
+    dated = _keyset_pages(getter, cols, f"published_at=gte.{since_q}")
+    undated = _keyset_pages(getter, cols, f"published_at=is.null&collected_at=gte.{since_q}")
+    rows = dated + undated
+    for r in rows:
+        r["source_name"] = names.get(r.pop("source_id", None), "")
+    # Same order the single query produced: undated first, then by publication time, event id as the tie-break.
+    rows.sort(key=lambda r: (r.get("published_at") is not None, r.get("published_at") or "", r["event_id"]))
+    return rows
 
 
 def _upsert(record):
