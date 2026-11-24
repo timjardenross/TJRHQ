@@ -545,8 +545,38 @@ push_backend() {
     && echo "x$RANDOM" > "$2" && git add -A && git commit --quiet -m "$2" && git push --quiet origin HEAD 2>&1 ) >/dev/null 2>&1
 }
 
-echo "test: stale service outside a release window -> DEFER, no restart"
+commit_local() {
+  ( cd "$1/clone" && echo "L$RANDOM" > "$2" && git add -A && git commit --quiet -m "local $2" ) >/dev/null 2>&1
+}
+
+echo "test: origin ahead outside a release window -> pull deferred, working tree unchanged, no restart"
 tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+before="$(git -C "$tmp/clone" rev-parse HEAD)"
+out="$(TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if echo "$out" | grep -q "DEFER pull" && [ "$before" = "$(git -C "$tmp/clone" rev-parse HEAD)" ] && ! grep -q "systemctl restart" "$log"; then
+  pass "pull deferred: tree stays on one commit between windows"
+else fail "pull defer (out=$out)"; fi
+rm -rf "$tmp"
+
+echo "test: deferred pull lands, and services restart, together in the next window"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+before="$(git -C "$tmp/clone" rev-parse HEAD)"
+TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+out="$(TEST_NOW_HHMM=14:31 run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if [ "$before" != "$(git -C "$tmp/clone" rev-parse HEAD)" ] && grep -q "systemctl restart context-service.service" "$log"; then
+  pass "pull and restart happen in the same run, inside the window"
+else fail "window pull+restart (out=$out)"; fi
+rm -rf "$tmp"
+
+echo "test: fresh urgent flag lets the pull through outside a window"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" core_change.txt
+before="$(git -C "$tmp/clone" rev-parse HEAD)"; flag="$tmp/urgent"; touch "$flag"
+AUTO_DEPLOY_URGENT_FLAG="$flag" TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" >/dev/null 2>&1
+if [ "$before" != "$(git -C "$tmp/clone" rev-parse HEAD)" ]; then pass "urgent flag pulls outside a window"; else fail "urgent pull"; fi
+rm -rf "$tmp"
+
+echo "test: stale service outside a release window -> DEFER, no restart (same-VM commit, nothing to pull)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; commit_local "$tmp" core_change.txt
 out="$(TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
 if echo "$out" | grep -q "DEFER context-service.service" && ! grep -q "systemctl restart" "$log"; then
   pass "restart deferred outside the release windows"
@@ -593,8 +623,8 @@ out="$(AUTO_DEPLOY_URGENT_FLAG="$flag" TEST_NOW_HHMM=07:00 run_script "$tmp/clon
 if echo "$out" | grep -q "HOLD context-service.service" && ! grep -q "systemctl restart" "$log"; then pass "brief window still holds with urgent flag"; else fail "brief hold lost (out=$out)"; fi
 rm -rf "$tmp"
 
-echo "test: portal change outside a window -> no npm build, no restart"
-tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; push_backend "$tmp" lcars-portal/page.tsx
+echo "test: portal change outside a window -> no npm build, no restart (same-VM commit)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"; commit_local "$tmp" lcars-portal/page.tsx
 out="$(TEST_NOW_HHMM=11:00 run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
 if echo "$out" | grep -q "DEFER lcars-portal.service" && ! grep -q "npm " "$log" && ! grep -q "restart lcars-portal" "$log"; then
   pass "portal rebuild deferred outside the window"
