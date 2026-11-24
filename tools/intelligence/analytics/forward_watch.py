@@ -22,6 +22,11 @@ Uncertainty labels:
 
 A later row for the same notice that says completed/cancelled removes the item; only the latest row per notice counts.
 
+Fifth input, 'Dated events' (flag-gated, default OFF): with --dated-events (or INTEL_DATED_EVENTS_ENABLED=1) the deterministic
+extractor in dated_events.py also reads the same rows and its upcoming events (regulatory dates, vendor lifecycle dates,
+planned maintenance, advisory deadlines; stated year or labelled inferred) are listed in a 'Dated events' section. Without the
+flag the output is byte-for-byte the original.
+
 Usage:
     python forward_watch.py --enable --input a.jsonl --input b.jsonl --as-of 2026-11-24 --horizon-days 42 --out watch.md
 """
@@ -29,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -306,7 +312,18 @@ def _monday(d):
     return d - timedelta(days=d.weekday())
 
 
-def render(items, undated, later, as_of, horizon_days, n_rows, source_note):
+def dated_events_input(rows, as_of, horizon_days, items):
+    """Fifth input: upcoming events from the dated-events extractor, minus any already listed as an item above."""
+    import dated_events as de
+
+    listed = {(i["row"].get("event_id"), i["date"].isoformat()) for i in items}
+    evs = de.upcoming(
+        de.latest_per_notice(de.extract_events(rows)), as_of, horizon_days
+    )
+    return [e for e in evs if (e["event_id"], e["date"]) not in listed]
+
+
+def render(items, undated, later, as_of, horizon_days, n_rows, source_note, dated=None):
     today = as_of.date()
     primary = [i for i in items if i["tier"] != "SECONDARY"]
     secondary = [i for i in items if i["tier"] == "SECONDARY"]
@@ -362,6 +379,8 @@ def render(items, undated, later, as_of, horizon_days, n_rows, source_note):
                 f'{md_cell(i["basis"])}: "{md_cell(short(i["quote"], 150))}" | {i["label"]} | `{r.get("event_id")}` |'
             )
         out.append("")
+    if dated is not None:
+        out += _render_dated(dated)
     out += ["## Announced but undated (official sources)", ""]
     if undated:
         out += ["| Source | Item | Uncertainty | Event id |", "|---|---|---|---|"]
@@ -403,6 +422,33 @@ def render(items, undated, later, as_of, horizon_days, n_rows, source_note):
     return "\n".join(out)
 
 
+def _render_dated(dated):
+    out = [
+        "## Dated events (extractor, flag-gated)",
+        "",
+        (
+            "Events read by the deterministic dated-events extractor from the same rows, not already listed above. "
+            "Only dates the text states count; a year taken from the publication date is labelled INFERRED_YEAR and a "
+            "relative date RELATIVE_DATE_LOWER_CONFIDENCE. Kinds: regulatory, vendor_lifecycle, planned_maintenance, "
+            "advisory_deadline."
+        ),
+        "",
+    ]
+    if not dated:
+        return out + ["None in the horizon.", ""]
+    out += [
+        "| Date | Kind | Source | Item | Basis and evidence | Uncertainty | Event id |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for e in dated:
+        when = e["date"] + (f" to {e['end_date']}" if e.get("end_date") else "")
+        out.append(
+            f"| {when} | {e['kind']} | {md_cell(e['source'])} | {md_cell(short(e['event'], 80))} | "
+            f'{md_cell(e["date_basis"])}: "{md_cell(short(e["evidence_span"], 150))}" | {e["uncertainty_label"]} | `{e["event_id"]}` |'
+        )
+    return out + [""]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--input", action="append", required=True)
@@ -411,6 +457,11 @@ def main(argv=None):
     ap.add_argument("--out", default=None)
     ap.add_argument("--source-note", default="events export (read-only SELECT)")
     ap.add_argument("--enable", action="store_true")
+    ap.add_argument(
+        "--dated-events",
+        action="store_true",
+        help="add the fifth input: upcoming events from dated_events.py (or INTEL_DATED_EVENTS_ENABLED=1)",
+    )
     args = ap.parse_args(argv)
     if not require_enabled(args.enable):
         return 2
@@ -421,8 +472,18 @@ def main(argv=None):
         else datetime.now(timezone.utc)
     )
     items, undated, later = extract_items(rows, as_of, args.horizon_days)
+    dated = None
+    if args.dated_events or os.environ.get("INTEL_DATED_EVENTS_ENABLED", "0") == "1":
+        dated = dated_events_input(rows, as_of, args.horizon_days, items)
     text = render(
-        items, undated, later, as_of, args.horizon_days, len(rows), args.source_note
+        items,
+        undated,
+        later,
+        as_of,
+        args.horizon_days,
+        len(rows),
+        args.source_note,
+        dated,
     )
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
