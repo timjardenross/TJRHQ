@@ -151,15 +151,14 @@ class TestStatedDates(unittest.TestCase):
         self.assertEqual(out[0]["uncertainty_label"], "DATE_PRECISION_MONTH")
         self.assertEqual(out[0]["date"], "2027-03-01")
 
-    def test_excluded_cve_feeds(self):
-        r = row(
-            "k1",
-            "CISA Known Exploited Vulnerabilities",
-            "2026-11-02 00:00:00+00",
-            "CVE-2026-1: Thing",
-            "Apply updates by 30 November 2026 due date.",
-        )
-        self.assertEqual(ev([r]), [])
+    def test_nvd_excluded_but_kev_due_dates_kept(self):
+        # NVD rows carry no forward date; KEV rows carry a stated due date (#730).
+        nvd = row("k0", "NVD Recent CVEs", "2026-11-02 00:00:00+00", "CVE-2026-1: Thing",
+                  "Apply updates by 30 November 2026 due date.")
+        kev = row("k1", "CISA Known Exploited Vulnerabilities", "2026-11-02 00:00:00+00",
+                  "CVE-2026-1: Thing", "Apply updates by 30 November 2026 due date.")
+        self.assertEqual(ev([nvd]), [])
+        self.assertEqual(len(ev([kev])), 1)
 
 
 class TestMissingPublicationDate(unittest.TestCase):
