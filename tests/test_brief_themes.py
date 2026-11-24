@@ -6,6 +6,7 @@ scheme, 'breach trade rules', a Telstra AFL-draft post).
 """
 from __future__ import annotations
 
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -199,12 +200,45 @@ def test_an_empty_lane_says_so_instead_of_vanishing():
     assert lines[0].startswith("DEVELOPMENTS & THEMES") and "Nothing new in your watched topics" in lines[1]
 
 
-def test_every_line_says_why_it_is_shown():
+def test_lines_are_plain_language_and_say_why_they_are_shown():
     lines = bt.format_lane(bt.build_lane(nvidia_story() + outage_reports(5), NOW))
     story = next(line for line in lines if line.startswith("- AI & chips"))
-    assert "reports from" in story and "publishers" in story and "prior-3-day average" in story and "Lead:" in story
-    running = next(line for line in lines if "running theme" in line)
-    assert "new in 48h" in running
+    assert "Coverage is" in story and "independent publisher" in story and story.count("(") == 1
+    running = next(line for line in lines if "is active this week" in line)
+    assert "Latest:" in running
+    # no dashboard numbers: no counts, ratios or averages in the wording
+    assert not re.search(r"\d+ reports|\dx|per day|/day|prior-3-day|new in 48h", "\n".join(lines))
+
+
+def test_the_story_line_names_the_lead_and_how_unusual_coverage_is():
+    lane = bt.build_lane(nvidia_story(), NOW)
+    s = lane.stories[0]
+    assert bt._how_much(s) in ("far above normal", "well above normal", "heavy and sustained across several publishers")
+    text = bt.format_lane(lane)[1]
+    assert text.startswith("- AI & chips: ") and s.lead_title[:40] in text and s.lead_source in text
+
+
+@pytest.mark.parametrize("why,ratio,expected", [("spike", 2.5, "well above normal"), ("spike", 4.0, "far above normal"),
+                                                ("sustained", 1.0, "heavy and sustained across several publishers")])
+def test_how_unusual_wording(why, ratio, expected):
+    s = bt.StoryLine("AI & chips", ["Nvidia"], 9, 4, 1.0, ratio, why, "t", "ABC News")
+    assert bt._how_much(s) == expected
+
+
+def test_running_theme_latest_items_prefer_real_publishers_over_aggregators():
+    reports = outage_reports(6) + [rep(500, "Telstra outage hits thousands of customers across Victoria", "Google News - Telstra cyber", 3),
+                                   rep(501, "Optus outage knocks out services in Sydney", "ABC News", 5)]
+    lane = bt.build_lane(reports, NOW)
+    picks = [src for r in lane.running for src, _ in r.picks]
+    assert picks and all(not src.startswith("Google News") for src in picks[:1])
+
+
+def test_aggregators_do_not_count_as_independent_publishers():
+    # eight reports of one story, but only one non-aggregator publisher: Google News re-serving it is not corroboration
+    titles = [f"Nvidia reinstates Jensen Huang as chief executive, report {i}" for i in range(8)]
+    reports = [rep(300 + i, t, f"Google News - Source {i}", 2 + i) for i, t in enumerate(titles)]
+    reports.append(rep(399, "Nvidia reinstates Jensen Huang as chief executive", "Bloomberg", 2))
+    assert bt.build_lane(reports, NOW).stories == []
 
 
 # ── loading ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -290,10 +324,58 @@ def test_flag_off_output_is_identical_to_the_baseline_without_the_lane(monkeypat
 def test_flag_on_the_lane_appears_in_the_morning_brief(monkeypatch):
     text = _morning(monkeypatch, themes_on=True, rows=_raw_rows())
     assert "DEVELOPMENTS &amp; THEMES" in text
-    assert "AI &amp; chips" in text and "Nvidia" in text and "prior-3-day average" in text
+    assert "AI &amp; chips" in text and "Nvidia" in text and "Coverage is" in text
 
 
 def test_flag_on_and_the_lane_crashing_leaves_the_brief_intact(monkeypatch):
     with patch("intelligence.brief_themes.theme_lines", side_effect=RuntimeError("boom")):
         text = _morning(monkeypatch, themes_on=True, rows=_raw_rows())
     assert "MORNING BRIEF" in text and "DEVELOPMENTS" not in text
+
+
+# ── aggregator-only coverage stays visible but unverified ────────────────────────────────────────────────────────
+def _agg_reports(n=8, extra=()):
+    titles = [f"Nvidia reinstates Jensen Huang as chief executive, report {i}" for i in range(n)]
+    return [rep(300 + i, t, f"Google News - Source {i}", 2 + i) for i, t in enumerate(titles)] + list(extra)
+
+
+def _lines(reports):
+    return bt.format_lane(bt.build_lane(reports, NOW))
+
+
+def test_aggregator_only_surge_is_shown_as_unverified_never_corroborated():
+    lane = bt.build_lane(_agg_reports(), NOW)
+    assert lane.stories == [] and not lane.empty
+    text = "\n".join(bt.format_lane(lane))
+    assert "(seen only through aggregators so far; unverified)" in text and "Nvidia" in text
+    assert "independent publisher" not in text and "Coverage is" not in text
+
+
+def test_one_independent_publisher_plus_aggregators_is_counted_as_one_only():
+    lines = _lines(_agg_reports(extra=[rep(399, "Nvidia reinstates Jensen Huang as chief executive", "Bloomberg", 2)]))
+    text = "\n".join(lines)
+    assert "unverified" in text and "independent publishers" not in text and "other independent" not in text
+    assert "1 independent publisher" in text and "aggregators" in text
+
+
+def test_unverified_lines_are_capped_at_two():
+    reports = _agg_reports() + [rep(700 + i, f"Telstra outage hits customers again, report {i}", f"Google News - Feed {i}", 2 + i) for i in range(8)] \
+        + [rep(800 + i, f"OpenAI releases model update, report {i}", f"Google News - Wire {i}", 2 + i) for i in range(8)]
+    assert sum("unverified" in l for l in _lines(reports)) <= bt.MAX_UNVERIFIED_LINES == 2
+
+
+def test_no_aggregator_content_leaves_output_unchanged():
+    lines = bt.format_lane(bt.build_lane(nvidia_story(), NOW))
+    assert not any("unverified" in l for l in lines) and any("independent publisher" in l for l in lines)
+    assert bt.format_lane(bt.build_lane([], NOW)) == ["DEVELOPMENTS & THEMES (what moved in your watched topics)", "- Nothing new in your watched topics."]
+
+
+def test_content_feeds_never_count_even_as_aggregator_style_lift():
+    reports = [rep(900 + i, f"Nvidia reinstates Jensen Huang as chief executive, report {i}", f"Psychology Today {i}", 2 + i) for i in range(8)]
+    assert bt.build_lane(reports, NOW).empty
+
+
+def test_aggregator_only_running_theme_is_unverified_not_active():
+    reports = [rep(950 + i, f"Telstra outage hits customers, report {i}", f"Google News - Feed {i}", 3 + 30 * (i % 3)) for i in range(6)]
+    lane = bt.build_lane(reports, NOW)
+    assert lane.running == [] and lane.unverified and "unverified" in "\n".join(bt.format_lane(lane))

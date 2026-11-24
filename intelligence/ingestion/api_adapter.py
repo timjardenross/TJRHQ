@@ -155,14 +155,16 @@ class APIAdapter(BaseSourceAdapter):
         return {"__feed_items__": items}
 
     def _parse_date_from_entry(self, entry) -> datetime | None:
-        import time as _time
+        import calendar
         for field in ("published_parsed", "updated_parsed"):
             val = entry.get(field)
             if val:
                 try:
-                    return datetime.fromtimestamp(_time.mktime(val), tz=timezone.utc)
+                    # feedparser's *_parsed fields are UTC struct_times: timegm, not mktime (which assumes the host's local time and
+                    # shifts every date by the host's UTC offset)
+                    return datetime.fromtimestamp(calendar.timegm(val), tz=timezone.utc)
                 except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through to the next format
-                    log.debug("[api_adapter] %s field failed mktime parse: %s", field, exc)
+                    log.debug("[api_adapter] %s field failed timegm parse: %s", field, exc)
         from email.utils import parsedate_to_datetime
         for field in ("published", "updated"):
             val = entry.get(field)

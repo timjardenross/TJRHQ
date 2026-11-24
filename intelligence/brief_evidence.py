@@ -313,8 +313,13 @@ def _impact_open(i: IncidentView) -> bool:
     return i.evidence_status != "unverified" and i.impact_status in ("unconfirmed", "potential", "none")
 
 
+def _confidence_words(c: float) -> str:
+    """Plain words for evidence confidence; the raw score stays in the evidence data, not on the page."""
+    return "high confidence" if c >= 0.75 else "moderate confidence" if c >= 0.5 else "low confidence"
+
+
 def _line(i: IncidentView, with_action: bool = False) -> str:
-    s = f"- [{_tag(i)}] {i.headline} — {_facts(i)}; confidence {i.evidence_confidence:.2f} {_cite(i)}"
+    s = f"- [{_tag(i)}] {i.headline} — {_facts(i)}; {_confidence_words(i.evidence_confidence)} {_cite(i)}"
     if with_action:
         s += f"\n    next: {i.record['next_verification_action']}"
     return s
@@ -375,7 +380,13 @@ def morning_view(ev: EvidenceSet) -> list[str]:
     lines = []
     if not recent:
         lines.append("⚠️ EVIDENCE COVERAGE INSUFFICIENT: no reports collected in the last 24 hours; nothing below should be read as all quiet.")
-    lines += ["🛰 EVIDENCE-BASED PICTURE (V1)", f"{len(recent)} incident(s) assessed from {ev.n_events} report(s); method {ev.method_version}.", ""]
+    if not recent:
+        based = f"Based on reports from the last {ev.window_hours} hours; none were collected in the last 24 hours, so this is not a current picture."
+    elif ev.window_hours > 24:
+        based = f"Based on reports from the last {ev.window_hours} hours (newest within 24 hours)."
+    else:
+        based = f"Based on reports from the last {ev.window_hours} hours."
+    lines += ["🛰 EVIDENCE-BASED PICTURE", based, ""]
     if not recent:
         lines.append("Operational situation: evidence coverage is insufficient (no recent reports), so no judgement about current disruption can be made.")
     elif firm_n or single_n:
