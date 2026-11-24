@@ -22,14 +22,16 @@ Dry-run state is kept apart from real-send state (``dry_*`` fields), so rehearsi
 Rate limit: at most ``max_per_window`` sends (real or dry, counted separately) per ``window``; the rest are deferred (state untouched,
 retried on the next pass) and returned with ``deferred=True``.
 
-State lives behind ``AlertStore``. ``InMemoryAlertStore`` is provided; the production table is drafted, NOT applied, in
-``docs/migration-drafts/DRAFT-incident-alert-state.sql``.
+State lives behind ``AlertStore``: ``InMemoryAlertStore`` (tests, replay) or the durable ``intelligence.alert_store.PostgrestAlertStore`` (claim-before-send). Tables: PROD (state+sends), claims drafted NOT applied in
+``docs/migration-drafts/DRAFT-incident-alert-claims.sql``. Scheduled caller: ``intelligence.alert_runner``; sender: ``intelligence.alert_telegram``.
 """
 from __future__ import annotations
 
 import logging
 import os
 import re
+import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -94,14 +96,20 @@ class AlertState:
 class AlertStore(Protocol):
     def find(self, event_ids: set) -> AlertState | None: ...
     def put(self, state: AlertState) -> None: ...
-    def log_send(self, at: datetime, mode: str) -> None: ...
+    def log_send(self, at: datetime, mode: str, incident_key: str = "", kind: str = "alert") -> None: ...
     def sends_since(self, since: datetime, mode: str) -> int: ...
+    # Optional (a store without them just never blocks a send): atomic claim-before-send. ``claim`` returns a token or None (already sent or
+    # claimed by someone else), ``complete`` records the send, ``release`` gives the claim back after a failed send.
+    def claim(self, kind: str, incident_key: str) -> str | None: ...
+    def complete(self, kind: str, incident_key: str, token: str, now: datetime) -> bool: ...
+    def release(self, kind: str, incident_key: str, token: str) -> bool: ...
 
 
 class InMemoryAlertStore:
     def __init__(self):
         self.states: dict[str, AlertState] = {}
         self.sends: list[tuple[datetime, str]] = []
+        self._claims: dict[tuple[str, str], str] = {}
 
     def find(self, event_ids: set) -> AlertState | None:
         for st in self.states.values():
@@ -112,11 +120,30 @@ class InMemoryAlertStore:
     def put(self, state: AlertState) -> None:
         self.states[state.incident_key] = state
 
-    def log_send(self, at: datetime, mode: str) -> None:
+    def log_send(self, at: datetime, mode: str, incident_key: str = "", kind: str = "alert") -> None:
         self.sends.append((at, mode))
 
     def sends_since(self, since: datetime, mode: str) -> int:
         return sum(1 for t, m in self.sends if t > since and m == mode)
+
+    def claim(self, kind: str, incident_key: str) -> str | None:
+        st = self.states.get(incident_key)
+        if st is None or (kind, incident_key) in self._claims:
+            return None
+        if (st.alerted_at if kind == "alert" else st.restoration_sent_at) is not None:
+            return None
+        token = self._claims[(kind, incident_key)] = uuid.uuid4().hex
+        return token
+
+    def complete(self, kind: str, incident_key: str, token: str, now: datetime) -> bool:
+        if self._claims.get((kind, incident_key)) != token:
+            return False
+        del self._claims[(kind, incident_key)]
+        setattr(self.states[incident_key], "alerted_at" if kind == "alert" else "restoration_sent_at", now)
+        return True
+
+    def release(self, kind: str, incident_key: str, token: str) -> bool:
+        return self._claims.pop((kind, incident_key), None) == token
 
 
 def build_payload(kind: str, inc: ic.Incident, td: dt.TierDecision, now: datetime, pinned_id: str | None = None,
@@ -164,18 +191,25 @@ def _decide(inc: ic.Incident, td: dt.TierDecision, st: AlertState | None, real: 
 
 def process(incidents: list[ic.Incident], *, now: datetime | None = None, store: AlertStore | None = None,
             sender: Callable[[dict, str], bool] | None = None, max_per_window: int = DEFAULT_MAX_PER_WINDOW,
-            window: timedelta = DEFAULT_WINDOW, force: bool | None = None) -> list[dict]:
+            window: timedelta = DEFAULT_WINDOW, force: bool | None = None, dry_only: bool = False, deadline: float | None = None) -> list[dict]:
     """One dispatcher pass. Returns the payloads handled (each with ``sent``, ``dry_run`` and ``deferred``). ``force`` overrides the master
-    flag for tests/replay; it never enables a real send."""
+    flag for tests/replay; it never enables a real send. ``dry_only`` makes a real send impossible (replay tools). ``deadline`` is a
+    ``time.monotonic()`` value after which no further incident is handled (bounded runtime; the rest is picked up on the next pass).
+
+    A real send is claim-before-send when the store supports it: only the caller that wins ``store.claim`` sends; ``complete`` records the
+    send afterwards and ``release`` hands the claim back after a failed send, so a failure stays retryable and nothing is sent twice."""
     if not (enabled() if force is None else force):
         return []
     now = now or datetime.now(timezone.utc)
     store = store if store is not None else InMemoryAlertStore()
-    real = real_send_allowed() and sender is not None
+    real = real_send_allowed() and sender is not None and not dry_only
     mode = "real" if real else "dry"
     out: list[dict] = []
     ordered = sorted(incidents, key=lambda i: (i.first_report_time or now, tb.incident_id(i)))
     for inc in ordered:
+        if deadline is not None and time.monotonic() > deadline:
+            log.warning("[incident-alert] time budget reached; remaining incidents wait for the next pass")
+            break
         td = dt.tier_for_incident(inc, now=now)
         ids = {r.event_id for r in inc.reports}
         st = store.find(ids)
@@ -195,7 +229,19 @@ def process(incidents: list[ic.Incident], *, now: datetime | None = None, store:
             if st is not None:
                 store.put(st)
             continue
+        token = None
         if real:
+            claim = getattr(store, "claim", None)
+            if claim is not None:
+                if st is None:                        # the state row must exist before it can be claimed
+                    st = AlertState(payload["incident_key"], set(ids), payload["headline"])
+                    store.put(st)
+                token = claim(kind, st.incident_key)
+                if token is None:
+                    payload["claimed_elsewhere"] = True
+                    log.info("[incident-alert] %s %s already sent or claimed; not sending", kind, payload["incident_key"])
+                    out.append(payload)
+                    continue
             try:
                 payload["sent"] = bool(sender(payload, os.getenv(DESTINATION_ENV, "").strip()))
             except Exception as exc:  # noqa: BLE001 - a failed send must not mark the alert as sent
@@ -204,14 +250,51 @@ def process(incidents: list[ic.Incident], *, now: datetime | None = None, store:
         else:
             log.info("[incident-alert][dry-run] %s %s: %s", kind, payload["incident_key"], payload["headline"])
         if real and not payload["sent"]:
+            if token is not None:
+                try:
+                    store.release(kind, st.incident_key, token)          # failed send: give the claim back so the next pass retries
+                except Exception as exc:  # noqa: BLE001 - claim stays held (at-most-once) and is reported
+                    log.error("[incident-alert] could not release claim for %s: %s", payload["incident_key"], exc)
             out.append(payload)                      # not recorded: it will be retried on the next pass
             if st is not None:
                 store.put(st)
             continue
         st = st or AlertState(payload["incident_key"], set(ids), payload["headline"])
+        if real and token is not None:
+            try:
+                store.complete(kind, st.incident_key, token, now)
+            except Exception as exc:  # noqa: BLE001 - already delivered; the claim stays held so it can never be sent again
+                log.error("[incident-alert] SENT %s %s but could not record it (claim stays held, will not resend): %s", kind, payload["incident_key"], exc)
         stamp = "alerted_at" if (kind == "alert" and real) else "restoration_sent_at" if real else "dry_alerted_at" if kind == "alert" else "dry_restoration_at"
         setattr(st, stamp, now)
-        store.put(st)
-        store.log_send(now, mode)
+        try:
+            store.put(st)
+            store.log_send(now, mode, st.incident_key, kind)
+        except Exception as exc:
+            if not real:
+                raise
+            log.error("[incident-alert] ledger write failed after send for %s: %s", payload["incident_key"], exc)
         out.append(payload)
     return out
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(prog="python -m intelligence.alert_dispatcher", description="Incident alert tools (flags stay OFF; neither mode needs them).")
+    g = ap.add_mutually_exclusive_group(required=True)
+    g.add_argument("--controlled-test", action="store_true", help="send ONE '[TEST] Alert path check' alert through the real sender; needs --yes")
+    g.add_argument("--replay-7d-dry-run", action="store_true", help="print what would have alerted over the last 7 days (read-only, never sends)")
+    ap.add_argument("--yes", action="store_true", help="confirm a real controlled-test send")
+    ap.add_argument("--destination", default=None, help=f"'xo' (XO default chat) or a chat id; default ${DESTINATION_ENV}")
+    ap.add_argument("--window-hours", type=float, default=6.0, help="controlled-test suppression window")
+    args = ap.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    from intelligence import alert_runner
+    if args.controlled_test:
+        return alert_runner.controlled_test(yes=args.yes, destination=args.destination, window_hours=args.window_hours)
+    alert_runner.replay(alert_runner.load_events(168, limit=5000))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
