@@ -39,7 +39,7 @@ Last updated: 2026-11-24.
 | Each decision states what is decided, why, the options, the consequences and whether you are needed (unknowns stated as unknown) | Partial | Default wording is in place. Review it with real data. |
 | No conflicting build-request decisions, enforced in the database | Partial | Migration 0261 is written and tested on a local database but NOT applied. Applying it to production needs your go. Until then the existing Decisions page can still overwrite a decision. |
 | No double execution of an AI proposal | Partial | Atomic claim built and tested. Verify live. |
-| No repeated or conflicting improvement decisions | Partial | Guard built and tested in the improvements service. It takes effect when that service is restarted, which needs your go. |
+| No repeated or conflicting improvement decisions | Partial | Guard built and tested in the improvements service. It takes effect when that service restarts. The VM's pull-based `deploy/auto-deploy.sh` restarts services whose start time predates the newest commit, so merging to `main` restarts it. No manual step. |
 | No repeat brief publication notification | Outstanding | Needs a change in the Intelligence workflow (a repeat publish must not resend the notification). To be agreed with the Intelligence agent. |
 | Decisions arising from intelligence products and incidents | Partial | Product exceptions and incidents are items in Intelligence, and "Ask me to decide" turns one into a governed request. Verify live once the products and incident data exist. |
 | **Work** | | |
@@ -52,10 +52,10 @@ Last updated: 2026-11-24.
 | Summary of agent activity with routine steps hidden | Outstanding | Not built. |
 | **Library** | | |
 | One search across knowledge, memory, intelligence archive, briefs and content, showing where each item is stored | Partial | Verify with live data. |
-| Search Notion directly | Outstanding | The portal has no Notion connection. Needs a Notion credential and your decision. Items already in the knowledge library appear, labelled by source. |
+| Search Notion directly | Outstanding | The portal has no Notion connection. The portal deployment holds no Notion credential (checked the Vercel project's variable names), so this needs a Notion integration token, which only you can create. Items already in the knowledge library appear, labelled by source. |
 | Health evidence, captures and missions in Library search | Outstanding | Not connected. |
 | **Ask and contextual actions** | | |
-| Ask (retrieval first, then the existing AI Console; Advice mode uses the existing Advisory service; proposed actions queue for approval) | Partial | Needs the AI Console switched on in the deployment and verifying live. Without it HQ says Ask is unavailable. |
+| Ask (retrieval first, then the existing AI Console; Advice mode uses the existing Advisory service; proposed actions queue for approval) | Partial | The deployment has `OLLAMA_CLOUD_BASE_URL`/`OLLAMA_CLOUD_MODEL` but no `OLLAMA_CLOUD_ENABLED`, so `/api/ai/chat` answers "not enabled". Switching it on routes prompts to the cloud model, a privacy-boundary setting that is yours to approve. Verify live after. Without it HQ says Ask is unavailable. |
 | Capture an idea from any screen, with that screen attached | Partial | Verify live. |
 | New mission from any screen (a candidate for your review) | Partial | Verify the mission route live. |
 | **Protection of the existing environment** | | |
@@ -66,3 +66,11 @@ Last updated: 2026-11-24.
 | Targeted improvements to the Missions, Capture, Content and Advisory screens | Outstanding | Not started. |
 | One consistent vocabulary for risk, evidence, posture and capacity across HQ | Partial | HQ uses one scale. The existing workbenches keep theirs and their correctness fixes have not started. |
 | Route-usage telemetry to support any later retirement decision | Outstanding | Not started. No retirement is authorised. |
+
+
+## Release sequence (approved 2026-11-24)
+
+1. Merge #718 to `main` (flag off) in the first production slot; the internal budget re-opens about 20 hours after 07:30 UTC on 2026-11-24.
+2. Migrations: `0261_build_request_decision_integrity` (HQ) first, then the Intelligence products draft promoted as `0262`. Rollback for 0261 is in its header. Neither is applied until separately approved.
+3. Verify existing routes unchanged and `/hq` 404 with the flag off.
+4. Set `HQ_WORKBENCH_ENABLED=true` after the morning-brief assessment, if the checks pass.
