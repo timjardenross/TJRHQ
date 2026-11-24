@@ -1,0 +1,10 @@
+# Optus National Outage Register: retrospective record sample (generated 2026-11-24)
+
+Source: tests/fixtures/optus_outage_register_rendered_20261124.html (the rendered register page fixture from PR #709), not the production table. Entries are bucketed by outage start date and are never alert candidates.
+
+- [retrospective record] Optus: 5 register entries with an outage start date in the window (by event date: 2026-11 5). The register is published after restoration; entries confirm past outages and are not new incidents.
+- [retrospective record] Optus outage register IM2450998 (register-IM2450998): Mobile outage - Springlands (4804) area Queensland; started 2026-11-22, 18.0 h; services: Mobile data; Mobile voice (Mobile data 339; Mobile voice 339); cause as stated by the carrier: Damage by a third party.
+- [retrospective record] Optus outage register IM2448673 (register-IM2448673): Mobile outage - Outback - North and Outback - South areas Queensland; started 2026-11-20, 4.4 h; services: Mobile data; Mobile voice (Mobile data 3998; Mobile voice 3998); cause as stated by the carrier: Damage by a third party.
+- [retrospective record] Optus outage register IM2444964 (register-IM2444964): Mobile outage - Kennington (3550) area Victoria; started 2026-11-18, 14.4 h; services: Mobile data; Mobile voice (Mobile data 2498; Mobile voice 2498); cause as stated by the carrier: Equipment or system fault or failure.
+- [retrospective record] Optus outage register IM2443993 (register-IM2443993): Mobile outage - Cloncurry (4824) area Queensland; started 2026-11-17, 13.3 h; services: Mobile data; Mobile voice (Mobile data 520; Mobile voice 520); cause as stated by the carrier: Damage by a third party.
+- [retrospective record] Optus outage register IM2436547 (register-IM2436547): Mobile outage - Cooperabung (2441) area New South Wales; started 2026-11-12, 6.6 h; services: Mobile data; Mobile voice (Mobile data 1029; Mobile voice 1029); cause as stated by the carrier: Power interruption.

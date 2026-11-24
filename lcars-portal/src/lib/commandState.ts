@@ -21,6 +21,7 @@
 
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 import type { NeedsYouItem } from './captainsChairSynthesis';
+import { incidentHref } from './intelligenceLinks';
 
 // ── "What kind of day is this?" — command posture ───────────────────────────
 
@@ -169,6 +170,11 @@ export interface NeedsYouBuildInputs {
    *  predates this field; never blocks the rest of Needs You (same
    *  degrade-gracefully discipline as every other field here). */
   numberOneAttentionItems?: NumberOneAttentionItem[] | null;
+  /** Alert-level incidents / material exceptions (INCIDENT_VIEW_V1, default OFF -> [] / omitted). One entry per incident_key, the same key
+   *  Telegram and the Decisions inbox use (id 'incident-<key>' mirrors Decisions' 'inc:<key>'). Read-only: links to the Intelligence page. */
+  incidentAttention?: Array<{ incidentKey: string; title: string; detail: string }> | null;
+  /** Material intelligence-product exceptions (stable dedupe_key); informational, link to /intelligence. Optional. */
+  intelProductExceptions?: Array<{ dedupe_key: string; title: string; detail: string; href: string }> | null;
 }
 
 export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] {
@@ -247,6 +253,17 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
     });
   }
 
+  const seenIncidents = new Set<string>();
+  for (const inc of (inputs.incidentAttention ?? []).slice(0, 3)) {
+    if (seenIncidents.has(inc.incidentKey)) continue;
+    seenIncidents.add(inc.incidentKey);
+    items.push({
+      id: `incident-${inc.incidentKey}`, kind: 'time_critical',
+      title: inc.title, detail: inc.detail,
+      href: incidentHref(inc.incidentKey), actionLabel: 'Verify',
+    });
+  }
+
   if ((inputs.evolutionPendingCount ?? 0) > 0) {
     items.push({
       id: 'hq-evolution', kind: 'review',
@@ -295,6 +312,10 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
         ? `/ready-room?domain=unstick&task=${encodeURIComponent(item.ref)}`
         : undefined,
     });
+  }
+
+  for (const e of (inputs.intelProductExceptions ?? [])) {
+    items.push({ id: `intel-product-${e.dedupe_key}`, kind: 'triage', title: e.title, detail: e.detail, href: e.href, actionLabel: 'View' });
   }
 
   return items;

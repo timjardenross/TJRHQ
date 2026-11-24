@@ -4,6 +4,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { materialExceptions, type MaterialException } from '@/lib/sourceEffectiveness';
+import { loadSourceRows } from '@/app/api/intelligence-workbench/_lib/sourceCoverage';
+import { fetchIncidentSnapshot, incidentViewEnabled, type IncidentRow } from '@/lib/incidents';
+import { collectExceptions, fetchLatestProducts } from '@/lib/intelligenceProducts';
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -56,12 +60,40 @@ export async function GET(req: NextRequest) {
       .limit(3);
     if (sourcesError) throw sourcesError;
 
+    // Source coverage: only a material exception (a BROKEN priority source,
+    // 3+ days without a successful check; one entry per stable key). Additive and best-effort: a failure here never breaks the
+    // existing sections.
+    let sourceCoverage: MaterialException[] = [];
+    try {
+      sourceCoverage = materialExceptions(await loadSourceRows(sb));
+    } catch (e) {
+      console.error('[home/needs-attention] source coverage failed:', e);
+    }
+
+    // Clustered incidents (INCIDENT_VIEW_V1, default OFF): alert-level incidents and material exceptions, one entry per incident_key -
+    // the same key the Telegram alert and the Decisions inbox use. Unavailable snapshot data adds nothing (never an all-clear claim).
+    const incidentsOn = incidentViewEnabled();
+    const incidents: IncidentRow[] = incidentsOn
+      ? (await fetchIncidentSnapshot(sb, { attentionOnly: true, limit: 50 })).incidents.slice(0, 5)
+      : [];
+
+    // ── Intelligence-product exceptions (stable dedupe_key; empty until the products table exists) ──
+    let productExceptions: ReturnType<typeof collectExceptions> = [];
+    try {
+      productExceptions = collectExceptions((await fetchLatestProducts(sb)).products);
+    } catch {
+      productExceptions = []; // optional section: never break Home
+    }
+
     const items = {
       hotSignals: hotSignals ?? [],
+      ...(incidentsOn ? { incidents } : {}),
       interrupts: interrupts ?? [],
       staleSources: staleSources ?? [],
+      sourceCoverage,
+      productExceptions,
       hasAnything: (hotSignals?.length ?? 0) +
-                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) > 0,
+                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) + sourceCoverage.length + incidents.length + productExceptions.length > 0,
     };
 
     return NextResponse.json(items);

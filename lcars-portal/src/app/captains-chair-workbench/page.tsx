@@ -18,6 +18,7 @@ import {
   useAttentionCounts,
   useEvolutionSignal,
   useEngineeringApprovals,
+  useIntelProductExceptions,
   useNotebookReadyCount,
   useNumberOneAttentionItems,
   useRemember,
@@ -80,6 +81,7 @@ export default function CaptainsChairWorkbench() {
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
   const { count: engineeringApprovalsCount, oldestTitle: oldestEngineeringApproval } = useEngineeringApprovals();
   const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
+  const intelProductExceptions = useIntelProductExceptions();
   const { data: rememberData, error: rememberError } = useRemember();
 
   const commandStatusLoading = humanSystemsLoading || opRiskLoading || briefingLoading || emergencyLoading || hqStatusLoading;
@@ -123,6 +125,7 @@ export default function CaptainsChairWorkbench() {
     hqAttentionItems: hqStatus?.attentionItems ?? [],
     criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),
     numberOneAttentionItems,
+    intelProductExceptions,
   });
   const sortedNeedsYou = sortNeedsYou(needsYouItems);
   const needsYouErrors = [...attentionErrors, ...(emergencyError ? ['Emergency alerts'] : []), ...(hqStatusError ? ['System status'] : [])];

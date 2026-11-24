@@ -11,6 +11,7 @@ import {
   type DecisionItem,
   type IntelligenceDecisionItem,
 } from '@/lib/decisions';
+import type { IncidentDecisionItem } from '@/lib/incidents';
 
 // Built 2026-09-26 (HQ Consolidation Audit follow-up). This page's real
 // function — one merged queue for decisions genuinely awaiting the
@@ -46,6 +47,7 @@ export default function DecisionsPage() {
   };
   const [actionable, setActionable] = useState<DecisionItem[]>([]);
   const [intelligence, setIntelligence] = useState<IntelligenceDecisionItem[]>([]);
+  const [incidents, setIncidents] = useState<IncidentDecisionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ id: string; message: string; ok: boolean } | null>(null);
@@ -56,6 +58,7 @@ export default function DecisionsPage() {
       .then((data) => {
         setActionable(data.actionable);
         setIntelligence(data.intelligence);
+        setIncidents(data.incidents);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -103,6 +106,26 @@ export default function DecisionsPage() {
           actingId={actingId}
           flash={flash}
         />
+
+        {/* Alert-level incidents and material exceptions (INCIDENT_VIEW_V1, default OFF: renders nothing). Read-only verify links; one entry per
+            incident_key, the same key Telegram and Home use. */}
+        {incidents.length > 0 && (
+          <div className="rounded-xl border border-wb-line bg-wb-surface p-3" data-testid="incident-decisions">
+            <p className="mb-3 text-wb-label uppercase tracking-[0.25em] text-wb-sand-deep">
+              Incidents to verify <span className="ml-1 text-wb-ink2">({incidents.length})</span>
+            </p>
+            <ul className="flex flex-col gap-2">
+              {incidents.map((item) => (
+                <li key={item.id} className="rounded border border-wb-line bg-wb-bg p-3">
+                  <Link href={item.href} className="block text-xs font-medium leading-snug text-wb-ink underline underline-offset-2 hover:text-wb-sand-deep">
+                    {item.title}
+                  </Link>
+                  <p className="mt-0.5 text-wb-label text-wb-ink2">{item.detail}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Operational Intelligence recommendations flagged requires_approval.
             Real fetch, real filter (lib/decisions.ts) — legitimately empty

@@ -96,3 +96,42 @@ def test_itnews_in_media_sweep_only_as_rss():
 
 def test_daily_collection_has_misfire_grace():
     assert scheduler._DAILY_COLLECTION_MISFIRE_GRACE_SECONDS >= 3600
+
+
+def test_github_status_paused_by_default(monkeypatch):
+    monkeypatch.delenv("INTELLIGENCE_PAUSED_SOURCES", raising=False)
+    assert config.paused_source_names() == frozenset({"GitHub Status"})
+
+
+@pytest.mark.parametrize("val,expected", [("none", set()), ("", set()), ("A, B", {"A", "B"})])
+def test_pause_env_override(monkeypatch, val, expected):
+    monkeypatch.setenv("INTELLIGENCE_PAUSED_SOURCES", val)
+    assert config.paused_source_names() == expected
+
+
+def test_collect_all_skips_paused_source_only(monkeypatch):
+    from datetime import datetime, timezone
+
+    from intelligence.ingestion import collection_engine as ce
+    seen = []
+
+    class _A:
+        def __init__(self, source):
+            self.source = source
+
+        def run(self):
+            seen.append(self.source.source_name)
+            return [], ce.SourceHealth(source_id=self.source.source_id, source_name=self.source.source_name,
+                                       checked_at=datetime.now(timezone.utc), status="ok")
+
+    monkeypatch.setattr(ce, "_ADAPTER_MAP", {"api": _A, "uptime_kuma": _A})
+    monkeypatch.setattr(ce.store, "save_source_health_batch", lambda h: None)
+    srcs = [_src("GitHub Status", source_type="api"),
+            _src("GitHub Status (Uptime Kuma direct probe)", source_type="uptime_kuma")]
+    monkeypatch.delenv("INTELLIGENCE_PAUSED_SOURCES", raising=False)
+    ce.collect_all(sources=srcs)
+    assert seen == ["GitHub Status (Uptime Kuma direct probe)"]
+    seen.clear()
+    monkeypatch.setenv("INTELLIGENCE_PAUSED_SOURCES", "none")
+    ce.collect_all(sources=srcs)
+    assert sorted(seen) == sorted(s.source_name for s in srcs)
