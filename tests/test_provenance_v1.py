@@ -388,3 +388,30 @@ def test_label_is_persisted_only_behind_the_flag_and_scrape_labels():
     assert ev_["published_at_label"] == "event"
     hdr = pv.scrape_provenance(published=NOW, page_url="https://x.test", date_only=True, explicit_header=True)
     assert hdr["published_at_label"] == "publication"
+
+
+# ── activation package guards (SQL is not executed here; these keep the files honest) ─────────────────────────
+def _sql(name: str) -> str:
+    from pathlib import Path
+    return (Path(__file__).resolve().parent.parent / "tools" / "intelligence" / name).read_text()
+
+
+def test_backfill_and_dryrun_use_the_same_rules():
+    import re
+    norm = lambda s: re.sub(r"\s+", " ", s)
+    backfill, dry = norm(_sql("provenance_backfill_20261124.sql")), norm(_sql("provenance_backfill_dryrun.sql"))
+    for frag in ("e.published_at = e.collected_at", "r.source_name ilike 'Google News%'".lower(),
+                 "r.source_name = 'CISA Known Exploited Vulnerabilities'", "e.published_at > e.collected_at + interval '1 hour'"):
+        assert frag.lower() in backfill.lower() and frag.lower() in dry.lower(), frag
+
+
+def test_backfill_never_writes_verified_or_touches_published_at():
+    body = "\n".join(ln for ln in _sql("provenance_backfill_20261124.sql").splitlines() if not ln.lstrip().startswith("--"))
+    assert "'verified'" not in body
+    assert "published_at  " not in body.split("update intelligence_events e set")[1].split("from intelligence_events_provenance_bak")[0]
+    assert "intelligence_events_provenance_bak_20261124" in body and "raise exception" in body
+
+
+def test_migration_is_additive_only():
+    body = "\n".join(ln for ln in _sql("provenance_migration_20261124.sql").splitlines() if not ln.lstrip().startswith("--")).upper()
+    assert "DROP " not in body and "NOT NULL" not in body and " DEFAULT " not in body and "NOT VALID" in body
