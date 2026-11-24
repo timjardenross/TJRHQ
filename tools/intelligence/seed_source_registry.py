@@ -2057,6 +2057,55 @@ SOURCES = [
         "content_expectation": "intermittent",
         "useful_life_days": 7,
     },
+    # -- AU source activation package (au-sources-2kq) --------------------------
+    # Feed URLs below were NOT reachable from the authoring sandbox (agent proxy
+    # 403 on every host), so they are "documented/unverified". See
+    # docs/AU-SOURCE-ACTIVATION-PACKAGE.md. All parse via the existing RSSAdapter.
+    {
+        "source_name":        "RBA Media Releases",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.rba.gov.au/media-releases/",
+        "rss_url":            "https://www.rba.gov.au/rss/rss-cb-media-releases.xml",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.95,
+        "active":             True,
+        "notes":              "RBA official media releases (cash rate decisions, payments system and FMI/clearing-and-settlement announcements). Documented RSS convention on rba.gov.au/rss/; unverified from sandbox. Tier: activate. Rollback: set active=false.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "Okta Status",
+        "category":           "cloud_technology",
+        "priority_rank":      3,
+        "url":                "https://status.okta.com/",
+        "rss_url":            "https://status.okta.com/history.rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.85,
+        "active":             False,
+        "notes":              "Okta identity-provider incident feed (identity sector). Documented status-page RSS; unverified from sandbox, staged inactive (pilot): verify one live fetch before enabling. Rollback: leave active=false.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
+    {
+        "source_name":        "Google Workspace Status",
+        "category":           "cloud_technology",
+        "priority_rank":      3,
+        "url":                "https://www.google.com/appsstatus/dashboard/",
+        "rss_url":            "https://www.google.com/appsstatus/dashboard/en/feed.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.85,
+        "active":             False,
+        "notes":              "Google Workspace incident Atom feed; distinct from the existing Google Cloud Status row. Documented dashboard feed; unverified from sandbox, staged inactive (pilot). Rollback: leave active=false.",
+        "content_expectation": "intermittent",
+        "useful_life_days": 7,
+    },
 ]
 
 # ─── Seed logic ───────────────────────────────────────────────────────────────
