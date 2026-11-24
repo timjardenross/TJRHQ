@@ -47,25 +47,32 @@ CLASS_SUBPROCESSOR = "vendor_subprocessor_list"
 CLASS_VENDOR_DOC = "vendor_documentation"
 CLASS_STATUS_COMPONENTS = "vendor_status_components"
 CLASS_REGULATOR = "regulator_register"
+CLASS_REGULATOR_DETERMINATION = "regulator_determination"  # a regulator instrument that designates a supplier role
 CLASS_STATUS_INCIDENT = "vendor_status_incident"
 CLASS_NEWS_INCIDENT = "news_incident_report"
+CLASS_REGULATOR_INCIDENT = "regulator_incident_report"  # regulator investigation report on a named outage
+CLASS_INDEPENDENT_REVIEW = "independent_incident_review"  # post-incident review commissioned by the affected party
 
-DOCUMENTED_CLASSES = {CLASS_SUBPROCESSOR, CLASS_VENDOR_DOC, CLASS_STATUS_COMPONENTS, CLASS_REGULATOR}
-DEMONSTRATED_CLASSES = {CLASS_STATUS_INCIDENT, CLASS_NEWS_INCIDENT}
+DOCUMENTED_CLASSES = {CLASS_SUBPROCESSOR, CLASS_VENDOR_DOC, CLASS_STATUS_COMPONENTS, CLASS_REGULATOR,
+                      CLASS_REGULATOR_DETERMINATION}
+DEMONSTRATED_CLASSES = {CLASS_STATUS_INCIDENT, CLASS_NEWS_INCIDENT, CLASS_REGULATOR_INCIDENT, CLASS_INDEPENDENT_REVIEW}
 
 # canonical id -> aliases (longest first at match time). Product names are kept only inside evidence spans.
 LEXICON = {
-    "aws": ["Amazon Web Services, Inc.", "Amazon Web Services, Inc", "Amazon Web Services (AWS)", "Amazon Web Services", "AWS"],
-    "microsoft": ["Microsoft Corporation", "Microsoft Azure", "Microsoft Outlook", "Microsoft 365", "Microsoft", "Azure"],
-    "google": ["Google Cloud Platform", "Google Cloud", "Google, LLC", "Google LLC", "Google"],
-    "cloudflare": ["Cloudflare, Inc", "Cloudflare, Ltd.", "Cloudflare, Ltd", "Cloudflare"],
-    "oracle": ["Oracle Cloud Infrastructure", "Oracle America, Inc.", "Oracle"],
+    "aws": ["Amazon Web Services, Inc.", "Amazon Web Services, Inc", "Amazon Web Services Inc (AWS)", "Amazon Web Services (AWS)",
+            "Amazon Web Services", "Amazon Bedrock", "AWS"],
+    "microsoft": ["Microsoft Corporation (Azure)", "Microsoft Corporation", "Microsoft (Azure)", "Microsoft Azure", "Microsoft Outlook",
+                  "Microsoft 365", "Microsoft, Inc.", "Microsoft", "Azure"],
+    "google": ["Google Cloud Platform (GCP)", "Google Cloud Platform", "Google Cloud", "Google, LLC", "Google LLC", "Google, Inc.",
+               "Google Inc.", "Google"],
+    "cloudflare": ["Cloudflare, Inc.", "Cloudflare, Inc", "Cloudflare, Ltd.", "Cloudflare, Ltd", "Cloudflare"],
+    "oracle": ["Oracle Cloud Infrastructure", "Oracle America, Inc.", "Oracle Corp. (OCI)", "Oracle"],
     "anthropic": ["Anthropic PBC", "Anthropic"],
-    "openai": ["OpenAI, Inc.", "OpenAI"],
+    "openai": ["OpenAI, L.L.C.", "OpenAI, Inc.", "OpenAI"],
     "notion": ["Notion Labs, Inc", "Notion"],
     "supabase": ["Supabase, Inc.", "Supabase"],
     "zoom": ["Zoom Communications, Inc.", "Zoom"],
-    "twilio": ["Twilio"],
+    "twilio": ["Twilio, Inc.", "Twilio (SendGrid)", "Twilio"],
     "salesforce": ["Salesforce, Inc.", "Salesforce"],
     "github": ["Github, Inc", "GitHub"],
     "vercel": ["Vercel, Inc", "Vercel"],
@@ -81,6 +88,13 @@ LEXICON = {
     "telstra": ["Telstra"],
     "optus": ["Optus"],
     "nbn_co": ["NBN Co", "NBN"],
+    # added by the targeted evidence acquisition (docs/CASCADING-EXPOSURE-FINDINGS.md section 7)
+    "atlassian": ["Atlassian"],
+    "datadog": ["Datadog"],
+    "nokia": ["Nokia"],
+    "singtel": ["Singtel internet exchange", "Singtel", "SingTel", "STiX"],
+    "miro": ["Miro"],
+    "canva": ["Canva"],
 }
 _ALIAS_TO_ID = {a: cid for cid, al in LEXICON.items() for a in al}
 _ALIAS_RE_SRC = "|".join(re.escape(a) for a in sorted(_ALIAS_TO_ID, key=len, reverse=True))
@@ -90,7 +104,7 @@ ALIAS_RE = re.compile(_ALIAS)
 _INCIDENT_NOUN = r"(?:outage|failure|incident|disruption|issue|problem)s?"
 _CAUSE = r"(?:due to|caused by|because of|as a result of|a result of|triggered by|stemming from|attributed to|disrupted by|hit by|impacted by|affected by)"
 _B_PHRASE = (
-    rf"(?:the |an? )?(?:(?:ongoing|global|major|widespread|wider|broader|recent) )*"
+    rf"(?:the |an? )?(?:(?:ongoing|global|major|widespread|wider|broader|recent|significant) )*"
     rf"(?P<b>{_ALIAS})(?: [\w’'\-\.]+){{0,3}}? {_INCIDENT_NOUN}"
 )
 CAUSE_RE = re.compile(rf"\b{_CAUSE} {_B_PHRASE}")
@@ -119,6 +133,16 @@ COMPONENT_DESC_RE = re.compile(
 )
 
 
+# Retrospective wording inside a vendor's OWN status feed ("Earlier disruptions were due to ..."): the disruption is the
+# publisher's own. Deliberately narrow: bare "Degraded service due to X" without a first person stays excluded.
+OWN_RETRO_RE = re.compile(r"\b(?:earlier|previous|prior)\s+(?:service\s+)?(?:disruptions?|degradation|errors|incidents?)\b", re.IGNORECASE)
+RELY_INCLUDING_RE = re.compile(
+    rf"\b(?:impact\w*|affect\w*|disrupt\w*|took down|knock\w* out)\b[^.]{{0,60}}?\b(?:services|apps|applications|platforms|companies) "
+    rf"that (?:rely|relied|depend|depended) on (?P<b>{_ALIAS}) including (?P<lst>[^.]+)"
+)
+_LIST_NOISE = {"and others", "others", "other services", "more"}
+
+
 def is_enabled(enabled=None):
     if enabled is not None:
         return bool(enabled)
@@ -137,6 +161,10 @@ def canonical(name):
     cleaned = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", name or "")
     cleaned = re.sub(r"<br>.*", "", cleaned)
     cleaned = re.sub(r"\*+|\\", "", cleaned).strip(" |")
+    if cleaned not in _ALIAS_TO_ID:
+        base = re.sub(r"\s*\([^)]*\)\s*$", "", cleaned).strip()  # "Amazon Web Services, Inc. (AWS Bedrock)"
+        if base in _ALIAS_TO_ID:
+            return _ALIAS_TO_ID[base], cleaned
     return _ALIAS_TO_ID.get(cleaned, cleaned), cleaned
 
 
@@ -158,7 +186,7 @@ def _record(frm, to, rel, basis, span, url, src_class, observed_at):
 
 def _sentences(text):
     text = (text or "").replace("e.g.", "e_g_").replace("i.e.", "i_e_")
-    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\"'(])|\n+", text)
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\"'(\[])|\n+", text)
     return [p.replace("e_g_", "e.g.").replace("i_e_", "i.e.").strip() for p in parts if p.strip()]
 
 
@@ -205,8 +233,8 @@ def extract_from_incident(text, source_name, source_url, observed_at, source_cla
             matched = True
             b = _ALIAS_TO_ID[m.group("b")]
             affected = _affected_before(sent, m.start())
-            if not affected and owner and FIRST_PERSON_RE.search(sent[: m.start()]):
-                affected = [owner]  # first-person statement inside the vendor's own status feed
+            if not affected and owner and (FIRST_PERSON_RE.search(sent[: m.start()]) or OWN_RETRO_RE.search(sent[: m.start()])):
+                affected = [owner]  # first-person (or retrospective own-disruption) statement inside the vendor's own status feed
             affected = [a for a in affected if a != b]
             if not affected:
                 res.excluded.append({**meta, "reason": "no_named_affected_party"})
@@ -222,6 +250,18 @@ def extract_from_incident(text, source_name, source_url, observed_at, source_cla
                 res.records.append(
                     _record(a, b, REL_DEPENDS_ON, BASIS_DEMONSTRATED, sent, source_url, source_class, observed_at)
                 )
+        for m in RELY_INCLUDING_RE.finditer(sent):
+            matched = True
+            b = _ALIAS_TO_ID[m.group("b")]
+            for item in re.split(r",\s*(?:and\s+)?|\s+and\s+", m.group("lst")):
+                item = item.strip()
+                if not item or item.lower() in _LIST_NOISE or not re.fullmatch(r"[A-Z][\w&.\-]*(?: [A-Z][\w&.\-]*){0,2}", item):
+                    continue
+                a = _ALIAS_TO_ID.get(item, item)
+                if a != b:
+                    res.records.append(
+                        _record(a, b, REL_DEPENDS_ON, BASIS_DEMONSTRATED, sent, source_url, source_class, observed_at)
+                    )
         if not matched:
             if UNNAMED_UPSTREAM_RE.search(sent) and re.search(r"\b(?:affecting|due to|caused by|impact\w*)\b", sent, re.IGNORECASE):
                 res.excluded.append({**meta, "reason": "unnamed_upstream_provider"})
@@ -319,10 +359,10 @@ def extract_from_subprocessor_list(markdown, vendor, source_url, observed_at, en
             in_table_ok = False
             if hdr and any(c for c in hdr):
                 htxt = " ".join(hdr).lower()
-                if re.search(r"purpose|activity|description", htxt):
+                if re.search(r"purpose|activit(?:y|ies)|description", htxt):
                     in_table_ok, ok_cols = True, len(hdr)
                     purpose_idx = next(
-                        j for j, h in enumerate(hdr) if re.search(r"purpose|activity|description", h.lower())
+                        j for j, h in enumerate(hdr) if re.search(r"purpose|activit(?:y|ies)|description", h.lower())
                     )
                 elif ok_cols is not None and len(hdr) == ok_cols and not re.search(r"location|parent|registered", htxt):
                     # continuation table split by a blank line: its first row was parsed as a header; keep it as data
@@ -339,6 +379,48 @@ def extract_from_subprocessor_list(markdown, vendor, source_url, observed_at, en
             continue
         _emit_row(res, cells, s, vendor_id, source_url, observed_at, purpose_idx)
     res.records = _dedupe(res.records)
+    return res
+
+
+def extract_from_purpose_first_table(markdown, vendor, source_url, observed_at, enabled=None):
+    """Documented relations from a sub-processor table whose FIRST column is the purpose and whose SECOND column is the
+    entity (the Salesforce Infrastructure and Sub-processors layout). Only entities in the lexicon produce a record, so
+    unknown names (for example 'Heroku, Inc. (on Amazon Web Services, Inc.)') are skipped, never guessed. One record per
+    (provider_to, relation): ``occurrences`` counts the table rows and ``australia_listed`` is True when any row's remaining
+    cells list Australia."""
+    res = Result()
+    if not is_enabled(enabled):
+        res.disabled = True
+        return res
+    vendor_id = _ALIAS_TO_ID.get(vendor, vendor)
+    agg = {}
+    for line in markdown.splitlines():
+        s = line.strip()
+        if not s.startswith("|") or _is_sep(s):
+            continue
+        cells = _split_row(s)
+        if len(cells) < 3 or len(cells[0].split()) < 3 or cells[0].lower().startswith("purpose of processing"):
+            continue
+        to_id, raw = canonical(cells[1])
+        if to_id not in LEXICON or to_id == vendor_id:
+            continue
+        rel = _subprocessor_relation(cells[0])
+        key = (to_id, rel)
+        au = bool(re.search(r"\bAustralia\b", " ".join(cells[2:])))
+        rec = _record(vendor_id, to_id, rel, BASIS_DOCUMENTED, f"{cells[0]} | {raw}", source_url, CLASS_SUBPROCESSOR, observed_at)
+        rec["occurrences"], rec["australia_listed"] = 1, au
+        if key in agg:
+            prev = agg[key]
+            rec["occurrences"] = prev["occurrences"] + 1
+            rec["australia_listed"] = prev["australia_listed"] or au
+            # keep the broadest statement as the representative span ("for all functionality" over a single feature)
+            if "all functionality" not in prev["evidence_span"].lower() and "all functionality" in rec["evidence_span"].lower():
+                agg[key] = rec
+            else:
+                prev["occurrences"], prev["australia_listed"] = rec["occurrences"], rec["australia_listed"]
+            continue
+        agg[key] = rec
+    res.records = list(agg.values())
     return res
 
 
