@@ -23,6 +23,7 @@ from intelligence.models import (
     SourceHealth,
     SourceRecord,
 )
+from intelligence.provenance import provenance_row_fields
 
 # Mirrors AttentionThresholds.delayed_importance_floor (default 40). Events
 # below this land in NEVER_INTERRUPT or SHOULD_SIMPLY_BE_REMEMBERED and carry
@@ -1099,6 +1100,8 @@ def save_event(event: RankedEvent, ori: dict | None = None,
         "suppression_reason": event.suppression_reason,
         "affected_cves": event.affected_cves or None,
     }
+    # Provenance columns: included only when INTEL_PROVENANCE_COLUMNS says the migration was applied (default OFF: row unchanged).
+    row.update(provenance_row_fields(getattr(event, "provenance", None)))
     if ori:
         bd = ori.get("brief_date")
         row.update({

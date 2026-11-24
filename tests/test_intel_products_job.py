@@ -103,7 +103,7 @@ class TestProducts(unittest.TestCase):
             e["dedupe_key"] for e in self.products["systemic_risk"]["exceptions"]
         ]
         self.assertTrue(
-            any(k.startswith("systemic:concentration:telstra:") for k in sys_keys)
+            any(k.startswith("systemic:concentration:aws:") for k in sys_keys)
         )
         fw_ex = self.products["forward_watch"]["exceptions"]
         self.assertEqual(

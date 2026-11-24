@@ -97,6 +97,7 @@ class BaseSourceAdapter(ABC):
         raw_summary: str | None = None,
         canonical_url: str | None = None,
         published_at: datetime | None = None,
+        provenance: dict | None = None,
     ) -> IntelligenceItem:
         return IntelligenceItem(
             source_id=self.source.source_id,
@@ -109,4 +110,5 @@ class BaseSourceAdapter(ABC):
             canonical_url=canonical_url,
             published_at=published_at,
             collected_at=datetime.now(timezone.utc),
+            provenance=provenance,
         )

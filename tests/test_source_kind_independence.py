@@ -11,9 +11,12 @@ P, M, S, A, C, U = we.PRIMARY, we.MAINSTREAM, we.SPECIALIST, we.AGGREGATOR, we.C
 
 _PRIMARY = {"Google Cloud Security Bulletins", "AEMO NEMweb Market Notices", "AEMO Market Notices", "Cisco Security Advisories",
             "NVD / NIST CVE Database", "ACSC Advisories", "ACSC Alerts & Advisories", "APRA Consultations", "APRA Media Releases",
-            "APRA Publications", "ASIC Enforcement Activity", "ASIC News Centre", "CISA Alerts", "CISA Known Exploited Vulnerabilities",
+            "APRA Publications", "ASIC Enforcement Activity", "ASIC News Centre", "ASIC Consultations", "CISA Alerts", "CISA Known Exploited Vulnerabilities",
             "APRA — Speeches and Publications", "APRA (changedetection.io watchlist)", "ASIC (changedetection.io watchlist)",
-            "RBA Media Releases", "ATO Online Services for Agents Status"}
+            "RBA Media Releases", "ATO Online Services for Agents Status",
+            "ATO Online Services for Agents Scheduled Maintenance", "ATO Online Services for Business Scheduled Maintenance",
+            "ATO Practitioner Lodgment Service Scheduled Maintenance", "ATO System Maintenance",
+            "ATO ABR Scheduled Site Maintenance", "DVS Status Scheduled Outages"}
 _MAINSTREAM = {"ABC News", "ABC News Business", "BBC News", "Bloomberg", "Financial Times", "Guardian Australia"}
 _SPECIALIST = {"SANS Internet Storm Center", "Financial Newswire"}
 # every wellness / thought_leadership seed source is CONTENT except technology journalism

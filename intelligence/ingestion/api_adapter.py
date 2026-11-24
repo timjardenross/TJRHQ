@@ -24,6 +24,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+from intelligence import provenance as prov
 from intelligence.config import (
     HTTP_TIMEOUT_SECONDS,
     MAX_FEED_ITEMS_PER_SOURCE,
@@ -31,6 +32,7 @@ from intelligence.config import (
     NVD_MAX_PAGES,
     NVD_WINDOW_HOURS,
 )
+from intelligence.ingestion import forward_dates
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem
 
@@ -40,6 +42,13 @@ _UA = "USS-TJR-Intelligence-Agent/1.0"
 
 
 class APIAdapter(BaseSourceAdapter):
+
+    def _make_item(self, raw_title, raw_summary=None, canonical_url=None, published_at=None, provenance=None):
+        """Attach provenance: a structured API timestamp is the source's own ('feed'); a date-only field (CISA KEV dateAdded) is
+        passed in explicitly as day precision by its parser. Behaviour of the item is otherwise unchanged."""
+        if provenance is None:
+            provenance = prov.api_provenance(published=published_at, endpoint=self.source.api_endpoint or self.source.url)
+        return super()._make_item(raw_title, raw_summary, canonical_url, published_at, provenance=provenance)
 
     def collect(self) -> list[IntelligenceItem]:
         endpoint = self.source.api_endpoint or self.source.url
@@ -53,6 +62,9 @@ class APIAdapter(BaseSourceAdapter):
             start = end - timedelta(hours=NVD_WINDOW_HOURS)
             fmt = lambda dt: dt.strftime("%Y-%m-%dT%H:%M:%S.000")
             endpoint = f"{endpoint}?pubStartDate={fmt(start)}&pubEndDate={fmt(end)}"
+
+        if "endoflife" in name:
+            return self._collect_endoflife(endpoint)
 
         data = self._fetch_json(endpoint)
         if data is None:
@@ -103,6 +115,9 @@ class APIAdapter(BaseSourceAdapter):
             return self._parse_nvd(data)
         if "msrc" in name or "microsoft security response" in name:
             return self._parse_msrc(data)
+        if isinstance(endpoint, str) and endpoint.rstrip("/").endswith("/scheduled-maintenances.json"):
+            # Statuspage planned maintenance (ATO osfa/osb/pls): dated windows only, see maintenance_parsers.
+            return self._parse_statuspage_maintenances(data)
         if "miro" in name or (isinstance(endpoint, str) and endpoint.rstrip("/").endswith("/incidents.json")):
             # Matches by endpoint shape (any Statuspage.io `/api/v2/incidents.json`
             # source), not just Miro by name — so any source migrated from the
@@ -174,7 +189,8 @@ class APIAdapter(BaseSourceAdapter):
                     break
             link = entry.get("link") or entry.get("id") or url
             published = self._parse_date_from_entry(entry)
-            items.append(self._make_item(title, summary, link, published))
+            items.append(self._make_item(title, summary, link, published, provenance=prov.rss_provenance(
+                published=published, feed_url=url, entry=entry)))
         # Return sentinel so collect() knows we already have items
         return {"__feed_items__": items}
 
@@ -294,15 +310,19 @@ class APIAdapter(BaseSourceAdapter):
         return items
 
     def _parse_cisa_kev(self, data) -> list[IntelligenceItem]:
-        vulns = data.get("vulnerabilities", [])
+        # newest additions first, so the per-source cap never keeps the oldest rows of a feed that grows at the tail
+        vulns = sorted(data.get("vulnerabilities", []), key=lambda v: v.get("dateAdded") or "", reverse=True)
         items = []
         for v in vulns[:MAX_FEED_ITEMS_PER_SOURCE]:
             cve_id = v.get("cveID", "")
             title = f"{cve_id}: {v.get('vulnerabilityName', '')}".strip(": ")
-            summary = v.get("shortDescription")
+            # dueDate (the remediation deadline) and the affected product used to be dropped here
+            summary = forward_dates.kev_summary(v)
             url = f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else self.source.url
             published = self._parse_iso(v.get("dateAdded"))
-            items.append(self._make_item(title, summary, url, published))
+            items.append(self._make_item(title, summary, url, published, provenance=prov.api_provenance(
+                published=published, endpoint=self.source.api_endpoint or self.source.url, date_only=True, explicit_publication_date=True,
+                label="catalogue_addition")))   # dateAdded dates the KEV catalogue ENTRY (verified, day precision), not the CVE's disclosure
         return items
 
     def _parse_nvd(self, data) -> list[IntelligenceItem]:
@@ -323,17 +343,45 @@ class APIAdapter(BaseSourceAdapter):
         return items
 
     def _parse_msrc(self, data) -> list[IntelligenceItem]:
-        updates = data.get("value", [])
-        # No server-side sort/filter available (both throw on this API) — sort client-side
-        # by CurrentReleaseDate so MAX_ITEMS_PER_SOURCE keeps the most recently touched bulletins.
-        updates = sorted(updates, key=lambda u: u.get("CurrentReleaseDate") or "", reverse=True)
+        # The list holds CBL-Mariner release notes back to 1999 that are re-touched constantly; sorting by CurrentReleaseDate
+        # surfaced those instead of the monthly security updates. Keep security updates only, newest initial release first.
+        updates = [u for u in data.get("value", []) if forward_dates.msrc_is_security_update(u)]
+        updates = sorted(updates, key=lambda u: u.get("InitialReleaseDate") or "", reverse=True)
         items = []
-        for u in updates[:MAX_FEED_ITEMS_PER_SOURCE]:
+        today = datetime.now(timezone.utc).date()
+        for n, u in enumerate(updates[:MAX_FEED_ITEMS_PER_SOURCE]):
             title = u.get("DocumentTitle") or u.get("Alias") or "MSRC Security Update"
             url = u.get("CvrfUrl") or self.source.url
-            published = self._parse_iso(u.get("CurrentReleaseDate") or u.get("InitialReleaseDate"))
-            items.append(self._make_item(title, None, url, published))
+            published = self._parse_iso(u.get("InitialReleaseDate") or u.get("CurrentReleaseDate"))
+            summary = forward_dates.msrc_summary(u, next_release_from=today if n == 0 else None)
+            items.append(self._make_item(title, summary or None, url, published))
         return items
+
+    def _collect_endoflife(self, endpoint: str) -> list[IntelligenceItem]:
+        """endoflife.date v1: one GET per product slug (bounded list), dated end-of-life / end-of-support milestones ahead.
+
+        `endpoint` is the products base (https://endoflife.date/api/v1/products). Slugs come from OR_INTEL_ENDOFLIFE_PRODUCTS
+        (comma separated) or forward_dates.DEFAULT_PRODUCTS. A slug that 404s is skipped; all failing is an error.
+        """
+        import os
+        slugs = [s.strip() for s in os.getenv("OR_INTEL_ENDOFLIFE_PRODUCTS", "").split(",") if s.strip()] \
+            or list(forward_dates.DEFAULT_PRODUCTS)
+        today = datetime.now(timezone.utc).date()
+        items, ok = [], 0
+        for slug in slugs:
+            try:
+                payload = self._fetch_json(f"{endpoint.rstrip('/')}/{slug}")
+            except RuntimeError as exc:
+                log.warning("[endoflife] %s skipped: %s", slug, exc)
+                continue
+            if not isinstance(payload, dict):
+                continue
+            ok += 1
+            for rec in forward_dates.endoflife_items(payload, today):
+                items.append(self._make_item(rec["title"], rec["summary"], rec["url"], None))
+        if not ok:
+            raise RuntimeError(f"No endoflife.date product payload returned from {endpoint}")
+        return items[:MAX_FEED_ITEMS_PER_SOURCE * 4]
 
     def _parse_statuspage_incidents(self, data) -> list[IntelligenceItem]:
         """Generic Statuspage.io `/api/v2/incidents.json` shape.
@@ -392,6 +440,14 @@ class APIAdapter(BaseSourceAdapter):
             )
             published = self._parse_iso(inc.get("created_at"))
             items.append(self._make_item(title, summary, url, published))
+        return items
+
+    def _parse_statuspage_maintenances(self, data) -> list[IntelligenceItem]:
+        """Statuspage `/api/v2/scheduled-maintenances.json`: one item per not-yet-completed window, with the window written into the summary."""
+        from intelligence.ingestion import maintenance_parsers
+        items = []
+        for r in maintenance_parsers.statuspage_maintenance_records(data, self.source.source_name, self.source.url)[:MAX_FEED_ITEMS_PER_SOURCE]:
+            items.append(self._make_item(f"{self.source.source_name}: {r['raw_title']}", r["raw_summary"], r["canonical_url"], self._parse_iso(r["published_at"])))
         return items
 
     def _parse_gcp_incidents(self, data) -> list[IntelligenceItem]:

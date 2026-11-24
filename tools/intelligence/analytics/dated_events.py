@@ -197,7 +197,7 @@ CANCEL = re.compile(
 
 AU_OFFICIAL = re.compile(
     r"\bAEMO\b|\bAEMC\b|\bAER\b|APRA|\bASIC\b|AUSTRAC|\bRBA\b|Reserve Bank|OAIC|Treasury|Home Affairs|\bACSC\b|Council of Financial|"
-    r"\bATO\b|Australian Taxation",
+    r"\bATO\b|Australian Taxation|\bmyID\b",
     re.IGNORECASE,
 )
 OFFICIAL = re.compile(
@@ -206,13 +206,13 @@ OFFICIAL = re.compile(
     re.IGNORECASE,
 )
 VENDOR = re.compile(
-    r"Cisco|MSRC|Microsoft Security|Google Cloud|Fortinet|Palo Alto|Security Bulletins?|Security Advisor|PSIRT|Security Response",
+    r"Cisco|MSRC|Microsoft Security|Google Cloud|Fortinet|Palo Alto|Security Bulletins?|Security Advisor|PSIRT|Security Response|endoflife",
     re.IGNORECASE,
 )
 PROVIDER = re.compile(r"status|service health", re.IGNORECASE)
 EXCLUDED = re.compile(
-    r"NVD|Known Exploited", re.IGNORECASE
-)  # KEV rows carry no due date in our export
+    r"NVD", re.IGNORECASE
+)  # NVD rows carry no forward date; KEV rows now carry a due date (#730)
 AGGREGATOR = re.compile(r"google news", re.IGNORECASE)
 
 

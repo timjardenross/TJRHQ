@@ -66,6 +66,28 @@ def _latest(rows):
     return out
 
 
+def _live_findings(key, product, today):
+    """brief_findings with passed forward-watch deadlines removed.
+
+    Weekly generation replays `brief_findings` for up to MAX_AGE_DAYS, so a forward-watch finding whose exception
+    `due_date` is before `today` would otherwise keep claiming 'due within 7 days'. Findings are matched to their
+    exception by the text the generator builds (`title (detail)`); findings with no dated exception are kept.
+    """
+    findings = list((product.get("sections") or {}).get("brief_findings") or [])
+    if key != "forward_watch":
+        return findings
+    expired = set()
+    for e in product.get("exceptions") or []:
+        try:
+            due = date.fromisoformat(str(e.get("due_date"))[:10])
+        except Exception as exc:  # noqa: BLE001 - undated or unreadable: never expires
+            log.debug("forward_watch exception without readable due_date (%s)", exc)
+            continue
+        if due < today:
+            expired.add(f"{e.get('title')} ({e.get('detail')})")
+    return [f for f in findings if f not in expired]
+
+
 def brief_lines(today=None, reader=None):
     """Lines for the morning brief; [] unless the flag is on and a finding qualifies. Never raises."""
     try:
@@ -91,9 +113,10 @@ def brief_lines(today=None, reader=None):
             if today - gen > timedelta(days=MAX_AGE_DAYS):
                 continue
             sec = p.get("sections") or {}
-            for f in (sec.get("brief_findings") or [])[:2]:
+            live = _live_findings(key, p, today)
+            for f in live[:2]:
                 findings.append(f"{LABELS[key]}: {f}")
-            if sec.get("brief_findings") and sec.get("coverage_note"):
+            if live and sec.get("coverage_note"):
                 notes.append(sec["coverage_note"])
         if not findings:
             return []

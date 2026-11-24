@@ -1,5 +1,7 @@
 # Production SELECT 2026-11-24 for the 70 frozen-reference export events present in the DB (id8 = event id prefix):
 # id8, stored operational_relevance, geography (A=AU, G=other), disruption signal on title+summary, on title only (both evaluated in PostgreSQL with the classifier pattern)
+# RE-RECORDED 2026-11-24 (tiering-quality-2kq) after adding fire/wildfire, vulnerability, critical flaw and remote code execution terms: the same 70 rows were re-queried and re-evaluated in PostgreSQL with the new pattern.
+# The title column is evaluated on the EXPORT's title text (9d79c88d's export title is truncated, so it differs from the longer DB title); the full-text column uses the DB title+summary.
 063f528e	0.65	G	1	1
 09a1ed42	0.35	A	0	0
 0d2685b2	0.55	G	0	0
@@ -20,7 +22,7 @@
 461206a2	0.80	A	0	0
 4642ee91	0.20	G	1	1
 47ef2735	1.00	A	1	1
-4a65276c	0.95	G	0	0
+4a65276c	0.95	G	1	1
 4d12bd82	0.35	A	0	0
 4df0bd3c	0.80	A	1	1
 4e356803	0.90	A	1	1
@@ -32,7 +34,7 @@
 64362801	0.75	G	1	1
 66d9673b	0.90	A	1	1
 6a5c2d03	0.65	G	1	1
-6cce76ae	0.75	G	1	0
+6cce76ae	0.75	G	1	1
 6ce4879e	0.80	A	0	0
 7247f99a	0.65	G	1	1
 72cd93d0	0.80	A	0	0
@@ -46,7 +48,7 @@
 8880d6f8	0.35	A	0	0
 9420187a	0.80	A	0	0
 997b22a6	0.90	A	1	1
-9d79c88d	0.75	G	0	0
+9d79c88d	0.75	G	1	0
 af2fdab8	0.65	G	1	1
 af5e7c16	0.80	A	1	1
 af9d4ebd	0.20	G	1	1

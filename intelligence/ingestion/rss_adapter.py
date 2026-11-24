@@ -15,6 +15,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
+from intelligence import provenance as prov
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_FEED_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
@@ -108,11 +109,18 @@ class RSSAdapter(BaseSourceAdapter):
             if url and "/ics-advisories/" in url.lower():
                 continue
 
+            # Provenance (additive; nothing downstream needs it). A Statuspage/Twilio <published> in the future is the SCHEDULED
+            # maintenance start: kept as an event window, never as a publication time.
+            sched_start, sched_end = prov.parse_event_window(f"{title} {summary or ''}")
+            if sched_start is None:
+                sched_start = self._future_scheduled_start(entry)
             items.append(self._make_item(
                 raw_title=title,
                 raw_summary=summary,
                 canonical_url=url,
                 published_at=published,
+                provenance=prov.rss_provenance(published=published, feed_url=self._feed_url, entry=entry,
+                                               scheduled_start=sched_start, scheduled_end=sched_end),
             ))
 
         return items
@@ -129,6 +137,12 @@ class RSSAdapter(BaseSourceAdapter):
                 val = " ".join(val.split())
                 return val[:1000] if val else None
         return None
+
+    def _future_scheduled_start(self, entry) -> datetime | None:
+        """A feed date more than a day ahead of now (see _parse_date): a scheduled-event time, not a publication time."""
+        horizon = datetime.now(UTC) + timedelta(days=1)
+        when = self._read_date_field(entry, "published_parsed", "published")
+        return when if when is not None and when > horizon else None
 
     def _parse_date(self, entry) -> datetime | None:
         """Publication time of a feed entry.

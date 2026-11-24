@@ -40,13 +40,25 @@ export interface ProductException2 extends ProductException {
   href: string;
 }
 
-/** Flatten exceptions across products, one entry per stable dedupe_key (first occurrence wins). */
-export function collectExceptions(products: IntelligenceProduct[]): ProductException2[] {
+/** A dated forward-watch exception expires once its due_date (YYYY-MM-DD, UTC) is before today. */
+export function isExpiredForwardWatch(productKey: string, e: ProductException, now: Date = new Date()): boolean {
+  if (productKey !== 'forward_watch' || !e?.due_date) return false;
+  const due = String(e.due_date).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(due) && due < now.toISOString().slice(0, 10);
+}
+
+/**
+ * Flatten exceptions across products, one entry per stable dedupe_key (first occurrence wins).
+ * Dated forward-watch exceptions are dropped after their due_date: weekly generation would otherwise keep a passed
+ * deadline on the attention list until the next run.
+ */
+export function collectExceptions(products: IntelligenceProduct[], now: Date = new Date()): ProductException2[] {
   const seen = new Set<string>();
   const out: ProductException2[] = [];
   for (const p of products) {
     for (const e of p.exceptions ?? []) {
       if (!e?.dedupe_key || seen.has(e.dedupe_key)) continue;
+      if (isExpiredForwardWatch(p.product_key, e, now)) continue;
       seen.add(e.dedupe_key);
       out.push({
         ...e,
