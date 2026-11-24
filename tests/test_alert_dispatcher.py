@@ -159,3 +159,37 @@ def test_incident_identity_survives_growth(ms_events):
     _run(ms_events, store, force=True)
     assert len(store.states) == 1
     assert len(next(iter(store.states.values())).event_ids) >= 4
+
+
+def _live_outage_events(t0):
+    return [{"id": "bbbb0001", "source": "ABC News", "title": "Telstra mobile network outage leaves customers across Australia unable to make calls",
+             "published_at": (t0 - timedelta(minutes=10)).isoformat(), "collected_at": (t0 - timedelta(minutes=5)).isoformat()},
+            {"id": "bbbb0002", "source": "ABC News", "title": "Telstra crews race to restore mobile network after outage",
+             "published_at": (t0 + timedelta(hours=1)).isoformat(), "collected_at": (t0 + timedelta(hours=1, minutes=5)).isoformat()},
+            {"id": "bbbb0003", "source": "ABC News", "title": "Telstra mobile network restored after outage, services back online",
+             "published_at": (t0 + timedelta(hours=3)).isoformat(), "collected_at": (t0 + timedelta(hours=3, minutes=5)).isoformat()}]
+
+
+def test_restoration_message_keeps_the_headline_of_the_original_alert():
+    """Rehearsal finding (2026-11-24): the incident headline is re-chosen each pass and became a hedged 'crews race to restore'
+    report, so a RESTORED message carried a title that contradicted it. The restoration pins the alert-time headline."""
+    t0 = datetime(2026, 11, 24, 3, 0, tzinfo=timezone.utc)
+    out = _run(_live_outage_events(t0), ad.InMemoryAlertStore(), force=True)
+    assert [p["kind"] for p in out] == ["alert", "restoration"]
+    assert out[1]["headline"] == out[0]["headline"] and "race to restore" not in out[1]["text"].split("\n")[0].lower()
+    assert out[1]["text"].startswith("RESTORED: Telstra mobile network outage")
+    assert "services back online" in out[1]["text"]                  # the restoration report itself is still cited
+
+
+def test_payload_reports_line_separates_factual_from_grouped_commentary():
+    """Rehearsal finding: a lone commentary report attached at low confidence inflated 'Reports: 4' when only 2 were factual."""
+    t0 = datetime(2026, 11, 24, 3, 0, tzinfo=timezone.utc)
+    inc = ic.cluster_incidents(_live_outage_events(t0)[:1], now=t0, force=True)[0]
+    from intelligence import delivery_tiers as dt
+    td = dt.tier_for_incident(inc, now=t0)
+    assert "Reports: 1 (" in ad.build_payload("alert", inc, td, t0)["text"]               # nothing to separate: unchanged text
+    td.evidence["n_factual"] = 1
+    inc2 = ic.cluster_incidents(_live_outage_events(t0), now=t0 + timedelta(hours=4), force=True)[0]
+    td2 = dt.tier_for_incident(inc2, now=t0 + timedelta(hours=4))
+    td2.evidence["n_factual"] = 2
+    assert "Reports: 3 grouped, 2 factual (" in ad.build_payload("alert", inc2, td2, t0)["text"]

@@ -105,6 +105,14 @@ def coverage_note(gap: GapInfo, collection_caveat: str | None = None) -> list[st
 
 # -- (2) Missed-brief deadman --------------------------------------------------
 _alerted: set[tuple[str, str]] = set()   # (brief_type, brief_date) already alerted by this process: no double fire
+_delivery: dict[tuple[str, str], bool] = {}   # (brief_type, brief_date) -> last Telegram delivery outcome seen by this process
+
+
+def record_delivery(brief_type: str, brief_date: str, ok: bool, delivery: dict | None = None) -> None:
+    """Remember whether the brief for ``brief_date`` actually reached the Captain. ``send_brief`` persists the captains_daily_briefs row BEFORE
+    it sends, so a row proves generation, not delivery: with Telegram down the row exists and the deadman used to say 'ok'.
+    In-process only (the deadman runs in the same scheduler process); after a restart nothing is known and the legacy row check applies."""
+    (_delivery if delivery is None else delivery)[(brief_type, brief_date)] = bool(ok)
 
 
 def _skip_dates() -> set[str]:
@@ -113,11 +121,13 @@ def _skip_dates() -> set[str]:
 
 
 def check_missed_brief(sb_request: Callable[[str, str], list], notify: Callable[[str], bool], today_iso: str,
-                       brief_type: str = "morning", alerted: set | None = None) -> str:
-    """After the expected generation time: alert once if no captains_daily_briefs row of ``brief_type`` exists for ``today_iso``.
+                       brief_type: str = "morning", alerted: set | None = None, delivery: dict | None = None) -> str:
+    """After the expected generation time: alert once if no captains_daily_briefs row of ``brief_type`` exists for ``today_iso``, or if the
+    row exists but this process saw its Telegram delivery fail (``record_delivery``).
 
-    Returns 'ok' | 'alerted' | 'already_alerted' | 'skipped' | 'unverified'. A query failure is 'unverified' (never alerts on a guess)."""
+    Returns 'ok' | 'alerted' | 'alerted_undelivered' | 'already_alerted' | 'skipped' | 'unverified'. A query failure is 'unverified' (never alerts on a guess)."""
     alerted = _alerted if alerted is None else alerted
+    delivery = _delivery if delivery is None else delivery
     key = (brief_type, today_iso)
     if today_iso in _skip_dates():
         return "skipped"
@@ -129,7 +139,17 @@ def check_missed_brief(sb_request: Callable[[str, str], list], notify: Callable[
         log.warning("[brief-deadman] could not verify %s brief for %s: %s", brief_type, today_iso, exc)
         return "unverified"
     if exists:
-        return "ok"
+        if delivery.get(key) is not False:
+            return "ok"
+        ukey = (brief_type + ":undelivered", today_iso)
+        if ukey in alerted:
+            return "already_alerted"
+        alerted.add(ukey)
+        if not notify(f"🚨 BRIEF NOT DELIVERED: the {brief_type} brief for {today_iso} was generated and stored but its Telegram delivery failed. "
+                      f"Read it in the portal or check the Telegram transport."):
+            alerted.discard(ukey)
+            return "unverified"
+        return "alerted_undelivered"
     alerted.add(key)
     delivered = notify(f"🚨 MISSED BRIEF: no {brief_type} brief exists for {today_iso}. Collection may still be running; the next brief "
                        f"will extend its lookback to cover the gap (up to {MAX_LOOKBACK_HOURS}h). Check intelligence-scheduler.")
