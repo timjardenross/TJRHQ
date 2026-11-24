@@ -278,7 +278,7 @@ def _persist_brief(
     payload = json.dumps({
         "brief_type":      brief_type,
         "brief_date":      datetime.now(_AEST).date().isoformat(),
-        "brief_text":      text[:8000],
+        "brief_text":      text,  # full text: the column is unbounded; a 8000-char cut dropped the tail (products block, later sections) from the audit record
         "signals_count":   signals_count,
         "health_snapshot": health or {},
         "evidence_window_hours": evidence_window_hours,
