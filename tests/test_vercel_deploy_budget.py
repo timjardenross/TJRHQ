@@ -92,3 +92,17 @@ def test_reissue_overwrites_atomically_and_leaves_no_temp_files(tmp_path, monkey
     vb.issue_ticket([], "preview", now_ms=NOW + 5)
     assert not list(tmp_path.glob("*.tmp"))
     assert vb.consume_ticket("preview", now_ms=NOW + 6)[0] is True
+
+
+def test_push_guard_requires_the_branch_guard_in_vercel_json(tmp_path):
+    sys.path.insert(0, str(_REPO / ".claude" / "hooks"))
+    import vercel_deploy_gate as gate
+    (tmp_path / "lcars-portal").mkdir()
+    cfg = tmp_path / "lcars-portal" / "vercel.json"
+    cfg.write_text('{"git": {"deploymentEnabled": {"dependabot/**": false}}}', encoding="utf-8")
+    assert gate.push_guard_missing(str(tmp_path)) is not None                      # old branch: push would trigger a counted preview
+    cfg.write_text('{"git": {"deploymentEnabled": {"claude/**": false}}}', encoding="utf-8")
+    assert gate.push_guard_missing(str(tmp_path)) is None
+    assert gate.push_guard_missing(str(tmp_path / "nowhere")) is None              # no portal config: nothing to protect
+    assert gate._GIT_PUSH.search("git push -u origin HEAD") and gate._GIT_PUSH.search("cd x && git -C y push")
+    assert not gate._GIT_PUSH.search("git log --oneline") and not gate._GIT_PUSH.search("echo pushing")
