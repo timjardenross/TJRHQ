@@ -43,3 +43,13 @@ def test_outage_register_entries_are_never_incident_seeds():
 def test_window_is_the_evidence_window_not_a_fixed_age():
     rows = [_row("x", "ABC News", "2026-11-23T10:00:00+00:00")]                 # 34h old
     assert len(_load(rows, hours=24)) == 0 and len(_load(rows, hours=72)) == 1
+
+
+def test_outage_register_rows_never_reach_other_signals_or_midday_alerts():
+    from intelligence import captains_brief as cb
+    rows = [{"raw_title": "Optus outage register: Mobile outage - Springlands", "operational_relevance": 0.9, "event_type": "outage", "geography": "AU",
+             "confidence": 0.9, "rank_score": 90, "raw_summary": "Restored.", "intelligence_source_registry": {"source_name": "Optus National Outage Register"}},
+            {"raw_title": "Telstra mobile outage hits Adelaide", "operational_relevance": 0.9, "event_type": "outage", "geography": "AU",
+             "confidence": 0.9, "rank_score": 90, "raw_summary": "", "intelligence_source_registry": {"source_name": "ABC News"}}]
+    out = cb._with_risk_label(rows)
+    assert [r["raw_title"] for r in out] == ["Telstra mobile outage hits Adelaide"]

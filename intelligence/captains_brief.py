@@ -308,7 +308,18 @@ def _derive_risk_label(row: dict) -> str:
     return "LOW"
 
 
+# Statutory outage registers publish an outage only after it is rectified: confirmation and restoration evidence for analysis and the portal,
+# never a live signal. They must not appear as HIGH "live" lines in OTHER SIGNALS or fire a midday alert (24 Nov preview, defect D3).
+_RETROSPECTIVE_SOURCE_MARKERS = ("outage register",)
+
+
+def _drop_retrospective(rows: list[dict]) -> list[dict]:
+    return [r for r in rows
+            if not any(m in ((r.get("intelligence_source_registry") or {}).get("source_name") or "").lower() for m in _RETROSPECTIVE_SOURCE_MARKERS)]
+
+
 def _with_risk_label(rows: list[dict]) -> list[dict]:
+    rows = _drop_retrospective(rows)
     for row in rows:
         row["risk_rating"] = _derive_risk_label(row)
     return rows
