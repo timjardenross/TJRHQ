@@ -1104,6 +1104,9 @@ _FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
     "ASIC News Centre",
     "ASIC Enforcement Activity",
     "Optus National Outage Register",   # statutory register, client-rendered; 1 credit/day
+    # 2026-11-24: oaic.gov.au 403s the production host's plain fetch; Firecrawl fallback (scrape_adapter), 1 credit/source/day
+    "OAIC Breach Notifications",
+    "OAIC Privacy Determinations & News",
 })
 
 
