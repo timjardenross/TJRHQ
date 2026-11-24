@@ -1,0 +1,40 @@
+{
+  "schema_version": 0,
+  "status": "NON-PRODUCTION extract of the unpublished 'Dependency Map v0' research draft (2026-11-24). Evidence was seen in search snippets only and not fetched; every link is PROVISIONAL or sector-level. Do not cite as evidence of any organisation's dependency.",
+  "evidence_classes": {
+    "sector_assumption": "plausible reliance at sector level; no source",
+    "unverified": "an incident or report suggests relevance; not confirmed",
+    "publicly_evidenced": "a public source says an organisation used the provider/service (still provisional here)"
+  },
+  "entries": {
+    "aws": {"sector_exposure": [{"sector": "banking", "evidence_class": "sector_assumption"}, {"sector": "telecommunications", "evidence_class": "unverified"}, {"sector": "government", "evidence_class": "sector_assumption"}], "org_links": [], "incident_references": ["AWS US-EAST-1 outage 2025-10-20 (region was not Australian)"]},
+    "microsoft_azure": {"sector_exposure": [{"sector": "government", "evidence_class": "unverified"}, {"sector": "banking", "evidence_class": "sector_assumption"}], "org_links": []},
+    "microsoft_365": {"sector_exposure": [{"sector": "shared_technology", "evidence_class": "sector_assumption"}, {"sector": "government", "evidence_class": "unverified"}], "org_links": []},
+    "crowdstrike": {"sector_exposure": [{"sector": "banking", "evidence_class": "unverified"}, {"sector": "transport", "evidence_class": "unverified"}, {"sector": "telecommunications", "evidence_class": "unverified"}], "org_links": [], "incident_references": ["CrowdStrike content update 2024-07-19"]},
+    "nokia": {"sector_exposure": [{"sector": "telecommunications", "evidence_class": "sector_assumption"}], "org_links": [{"org": "Optus", "evidence_class": "publicly_evidenced", "provisional": true, "scope_note": "one network-upgrade workstream, per a review reported by secondary media"}]},
+    "salesforce": {"sector_exposure": [{"sector": "transport", "evidence_class": "unverified"}], "org_links": [{"org": "Qantas", "evidence_class": "publicly_evidenced", "provisional": true, "scope_note": "customer-contact platform only, per secondary media; attribution disputed"}]},
+    "cloudflare": {"sector_exposure": [{"sector": "shared_technology", "evidence_class": "unverified"}], "org_links": []},
+    "akamai": {"sector_exposure": [{"sector": "banking", "evidence_class": "unverified"}], "org_links": []},
+    "auspaynet": {"sector_exposure": [{"sector": "banking", "evidence_class": "sector_assumption"}], "org_links": []},
+    "npp": {"sector_exposure": [{"sector": "banking", "evidence_class": "sector_assumption"}], "org_links": []},
+    "rba": {"sector_exposure": [{"sector": "financial_market_infrastructure", "evidence_class": "sector_assumption"}], "org_links": []},
+    "asx": {"sector_exposure": [{"sector": "financial_market_infrastructure", "evidence_class": "sector_assumption"}], "org_links": []},
+    "telstra": {"sector_exposure": [{"sector": "shared_technology", "evidence_class": "sector_assumption"}, {"sector": "government", "evidence_class": "unverified"}], "org_links": []},
+    "optus": {"sector_exposure": [{"sector": "telecommunications", "evidence_class": "sector_assumption"}], "org_links": []},
+    "nbn_co": {"sector_exposure": [{"sector": "telecommunications", "evidence_class": "sector_assumption"}], "org_links": []},
+    "aemo": {"sector_exposure": [{"sector": "energy", "evidence_class": "sector_assumption"}], "org_links": []}
+  },
+  "layer_cascade_hypotheses": {
+    "cdn_dns": "a failure could degrade reachability of many web properties that front through the provider; which ones is unknown without evidence",
+    "sms_voice": "a failure could delay one-time passcodes or customer notifications sent through the provider; which senders is unknown without evidence",
+    "cloud": "a regional failure could affect workloads hosted in that region; tenants are not identifiable from status text",
+    "saas": "a failure could interrupt the business process run on that platform; customers are not identifiable from status text",
+    "identity": "a failure could block sign-in to dependent applications",
+    "endpoint_security": "a faulty update could affect hosts running the agent",
+    "network_carrier": "a failure could affect services carried on that network, including emergency calls where applicable",
+    "payments_rail": "a failure could delay settlement or payments for participants",
+    "energy_market_system": "market-system notices are signals about market conditions, not dependencies",
+    "network_security": "a vulnerability could affect organisations running the product; exposure is not identifiable from advisories",
+    "other": "no generic cascade statement; needs a provider-specific evidence review"
+  }
+}
