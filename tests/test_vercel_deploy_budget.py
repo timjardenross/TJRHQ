@@ -68,18 +68,18 @@ def test_gate_hook_classifies_deployment_paths_and_ignores_everything_else():
     assert gate.kind_of("mcp__Vercel__list_deployments", {}) is None
 
 
+def _consume_after(barrier, wins):
+    barrier.wait()
+    wins.append(vb.consume_ticket("preview", now_ms=NOW + 1000)[0])
+
+
 def test_concurrent_consumers_exactly_one_wins(tmp_path, monkeypatch):
     import threading
     monkeypatch.setenv("VERCEL_DEPLOY_TICKET_DIR", str(tmp_path))
     for _ in range(20):                                   # repeat: races are probabilistic
         vb.issue_ticket([], "preview", now_ms=NOW)
         wins, barrier = [], threading.Barrier(8)
-
-        def go():
-            barrier.wait()
-            wins.append(vb.consume_ticket("preview", now_ms=NOW + 1000)[0])
-
-        threads = [threading.Thread(target=go) for _ in range(8)]
+        threads = [threading.Thread(target=_consume_after, args=(barrier, wins)) for _ in range(8)]
         [t.start() for t in threads]
         [t.join() for t in threads]
         assert wins.count(True) == 1
