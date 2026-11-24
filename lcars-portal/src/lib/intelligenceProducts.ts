@@ -2,6 +2,8 @@
 // Rows come from public.intelligence_products (DRAFT migration docs/migration-drafts/0261_intelligence_products.DRAFT.sql),
 // written by intelligence/intel_products_job.py. Until that table exists the API reports `available: false`.
 
+import { productHref } from './intelligenceLinks';
+
 export const PRODUCT_SECTIONS = [
   ['confirmed_evidence', 'Confirmed evidence'],
   ['analytical_inference', 'Analytical inference'],
@@ -51,7 +53,7 @@ export function collectExceptions(products: IntelligenceProduct[]): ProductExcep
         product_key: p.product_key,
         product_title: p.title,
         generated_for: p.generated_for,
-        href: `/intelligence#${p.product_key}`,
+        href: productHref(p.product_key),
       });
     }
   }

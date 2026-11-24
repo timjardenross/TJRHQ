@@ -9,6 +9,7 @@ import {
   type IncidentRow,
 } from '@/lib/incidents';
 import { buildNeedsYouItems, type NeedsYouBuildInputs } from '@/lib/commandState';
+import { incidentHref } from '@/lib/intelligenceLinks';
 
 function row(over: Partial<IncidentRow> = {}): IncidentRow {
   return {
@@ -75,7 +76,7 @@ describe('lifecycle and decision item', () => {
   it('the Decisions id and the Needs You id are built from the same incident_key as the Telegram alert', () => {
     const d = toDecisionItem(row());
     expect(d.id).toBe('inc:inc-1ac9ea52');
-    expect(d.href).toBe('/intelligence#inc-1ac9ea52');
+    expect(d.href).toBe('/intelligence-workbench?tab=incidents#inc-1ac9ea52');
     const inputs = { incidentAttention: [{ incidentKey: d.incidentKey, title: d.title, detail: d.detail }, { incidentKey: d.incidentKey, title: d.title, detail: d.detail }] };
     const items = buildNeedsYouItems(baseInputs(inputs));
     const inc = items.filter((i) => i.id.startsWith('incident-'));
@@ -110,5 +111,21 @@ function baseInputs(extra: Partial<NeedsYouBuildInputs>): NeedsYouBuildInputs {
 describe('buildNeedsYouItems default output', () => {
   it('adds no incident item when incidentAttention is absent (flag OFF)', () => {
     expect(buildNeedsYouItems(baseInputs({})).some((i) => i.id.startsWith('incident-'))).toBe(false);
+  });
+});
+
+describe('one incident = one entry across Home, Hub and Decisions', () => {
+  it('duplicate snapshots collapse once and every surface links the same canonical tab URL', () => {
+    const rows = [row({ snapshot_at: '2026-11-13T01:00:00Z' }), row({ snapshot_at: '2026-11-13T05:00:00Z' }), row({ snapshot_at: '2026-11-13T09:00:00Z' })];
+    const deduped = dedupeIncidents(rows);
+    expect(deduped).toHaveLength(1); // feeds Home (needs-attention route) and Decisions
+    const decision = toDecisionItem(deduped[0]);
+    const hub = buildNeedsYouItems(baseInputs({ incidentAttention: deduped.map((r) => ({ incidentKey: r.incident_key, title: r.headline, detail: 'd' })) }))
+      .filter((i) => i.id.startsWith('incident-'));
+    expect(hub).toHaveLength(1);
+    const canonical = incidentHref(deduped[0].incident_key);
+    expect(canonical).toBe('/intelligence-workbench?tab=incidents#inc-1ac9ea52');
+    expect(decision.href).toBe(canonical);
+    expect(hub[0].href).toBe(canonical);
   });
 });

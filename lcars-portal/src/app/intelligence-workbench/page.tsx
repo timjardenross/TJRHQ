@@ -42,8 +42,10 @@ import { TodayView } from './_components/TodayView';
 import { WatchingView } from './_components/WatchingView';
 import { LibraryView } from './_components/LibraryView';
 import { SourceCoverageView } from './_components/SourceCoverageView';
+import { IncidentsView } from './_components/IncidentsView';
+import { ProductsView } from './_components/ProductsView';
 
-type Tab = 'today' | 'watching' | 'library' | 'sources';
+type Tab = 'today' | 'watching' | 'library' | 'incidents' | 'products' | 'sources';
 type AnalystDomain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment' | 'credibility';
 
 type Payload = { domain: AnalystDomain; [key: string]: any };
@@ -52,6 +54,8 @@ const TAB_OPTIONS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'watching', label: 'Watching' },
   { key: 'library', label: 'Library' },
+  { key: 'incidents', label: 'Incidents' },
+  { key: 'products', label: 'Products' },
   { key: 'sources', label: 'Source coverage' },
 ];
 
@@ -64,7 +68,7 @@ const ANALYST_DOMAIN_OPTIONS: { key: AnalystDomain; label: string }[] = [
 ];
 
 function isTab(v: string | null): v is Tab {
-  return v === 'today' || v === 'watching' || v === 'library' || v === 'sources';
+  return v === 'today' || v === 'watching' || v === 'library' || v === 'incidents' || v === 'products' || v === 'sources';
 }
 
 function isAnalystDomain(v: string | null): v is AnalystDomain {
@@ -363,6 +367,8 @@ function Workbench() {
               <TodayView onOpenWatching={() => setTab('watching')} onOpenTechnical={openAnalyst} />
             )}
             {tab === 'watching' && <WatchingView />}
+            {tab === 'incidents' && <IncidentsView />}
+            {tab === 'products' && <ProductsView />}
             {tab === 'sources' && <SourceCoverageView />}
             {tab === 'library' && (
               <div className="space-y-3">

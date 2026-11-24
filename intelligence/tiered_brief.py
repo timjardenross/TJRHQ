@@ -53,10 +53,20 @@ def incident_id(inc: ic.Incident) -> str:
 incident_key = incident_id          # the portal/DB column is named incident_key; same value
 
 
-def incident_link(inc_id: str, base: str | None = None) -> str:
-    """Contextual link to the one portal incident view every channel points at (Intelligence page, anchored on the incident)."""
+# Mirrors lcars-portal/src/lib/intelligenceLinks.ts (the single portal-side builder); tests/test_intelligence_links.py keeps them in step.
+INTELLIGENCE_HOME_PATH = "/intelligence-workbench"
+INCIDENTS_TAB = "incidents"
+PRODUCTS_TAB = "products"
+
+
+def intelligence_tab_link(tab: str, anchor: str = "", base: str | None = None) -> str:
     base = (os.getenv(PORTAL_BASE_ENV, "") if base is None else base).strip().rstrip("/")
-    return f"{base}/intelligence#{inc_id}"
+    return f"{base}{INTELLIGENCE_HOME_PATH}?tab={tab}" + (f"#{anchor}" if anchor else "")
+
+
+def incident_link(inc_id: str, base: str | None = None) -> str:
+    """Contextual link to the one portal incident view every channel points at (Incidents tab of the Intelligence workbench, anchored on the incident)."""
+    return intelligence_tab_link(INCIDENTS_TAB, inc_id, base)
 
 
 def lifecycle_lines(inc: ic.Incident) -> list[str]:

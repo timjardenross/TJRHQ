@@ -114,7 +114,7 @@ class TestProducts(unittest.TestCase):
         text = ip.weekly_message(
             list(self.products.values()), "https://portal.example/", AS_OF
         )
-        self.assertIn("https://portal.example/intelligence", text)
+        self.assertIn("https://portal.example/intelligence-workbench?tab=products", text)
         self.assertIn("flagged for attention", text)
         self.assertLess(len(text), 1500)
 
@@ -168,7 +168,7 @@ class TestJob(unittest.TestCase):
                 notifier=sent.append,
             )
         self.assertTrue(ok or sent)
-        self.assertIn("https://p.example/intelligence", sent[0])
+        self.assertIn("https://p.example/intelligence-workbench?tab=products", sent[0])
 
     @unittest.skipUnless(
         importlib.util.find_spec("apscheduler"), "apscheduler not installed"

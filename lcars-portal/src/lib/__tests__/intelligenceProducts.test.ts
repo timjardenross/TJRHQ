@@ -42,7 +42,7 @@ describe('intelligence products', () => {
     const e = { dedupe_key: 'forward-watch:x:2026-11-26', title: 't', detail: 'd', severity: 'attention' };
     const out = collectExceptions([mk('forward_watch', '2026-11-24', [e, e]), mk('systemic_risk', '2026-11-24', [e])]);
     expect(out).toHaveLength(1);
-    expect(out[0].href).toBe('/intelligence#forward_watch');
+    expect(out[0].href).toBe('/intelligence-workbench?tab=products#forward_watch');
   });
 
   test('missing table is reported as unavailable, not an error', async () => {
@@ -79,9 +79,9 @@ describe('Needs You consumer', () => {
     expect(buildNeedsYouItems(base).some((i) => i.id.startsWith('intel-product-'))).toBe(false);
     const items = buildNeedsYouItems({
       ...base,
-      intelProductExceptions: [{ dedupe_key: 'forward-watch:x:2026-11-27', title: 't', detail: 'd', href: '/intelligence#forward_watch' }],
+      intelProductExceptions: [{ dedupe_key: 'forward-watch:x:2026-11-27', title: 't', detail: 'd', href: '/intelligence-workbench?tab=products#forward_watch' }],
     });
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ id: 'intel-product-forward-watch:x:2026-11-27', kind: 'triage', href: '/intelligence#forward_watch' });
+    expect(items[0]).toMatchObject({ id: 'intel-product-forward-watch:x:2026-11-27', kind: 'triage', href: '/intelligence-workbench?tab=products#forward_watch' });
   });
 });

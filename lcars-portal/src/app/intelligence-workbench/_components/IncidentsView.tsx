@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { lifecycleSummary, type IncidentRow } from '@/lib/incidents';
 
-// Clustered, tiered incident view (INCIDENT_VIEW_V1, default OFF: the API answers enabled:false and this renders nothing).
+// Incidents tab of /intelligence-workbench. Clustered, tiered incident view (INCIDENT_VIEW_V1, default OFF: the API answers enabled:false and the tab says so).
 // Read-only. Each entry is one incident (id = incident_key, the key the Telegram alert, Home and Decisions share) with its lifecycle:
 // NEW / SUBSEQUENT / RESTORATION_UPDATE / RELATED, and its delivery tier.
 const TIER_LABEL: Record<string, string> = {
@@ -21,7 +21,7 @@ const REL_LABEL: Record<string, string> = {
   HISTORICAL_REFERENCE: 'Historical',
 };
 
-export function IncidentsPanel() {
+export function IncidentsView() {
   const [state, setState] = useState<{ enabled: boolean; available: boolean; incidents: IncidentRow[] } | null>(null);
   useEffect(() => {
     fetch('/api/intelligence-workbench/incidents')
@@ -29,10 +29,17 @@ export function IncidentsPanel() {
       .then((d) => setState(d))
       .catch(() => setState(null));
   }, []);
-  if (!state?.enabled) return null;
+  // Deep links (/intelligence-workbench?tab=incidents#<incident_key>) point at an entry that only exists after the fetch, so scroll once rendered.
+  const loaded = !!state?.enabled;
+  useEffect(() => {
+    if (!loaded || typeof window === 'undefined' || !window.location.hash) return;
+    document.getElementById(decodeURIComponent(window.location.hash.slice(1)))?.scrollIntoView({ block: 'start' });
+  }, [loaded]);
+  if (!state) return <p className="text-wb-body text-wb-ink2">Loading incidents…</p>;
+  if (!state.enabled) return <p className="text-wb-body text-wb-ink2" data-testid="incidents-off">The incident view is not enabled (INCIDENT_VIEW_V1).</p>;
   const shown = state.incidents.filter((i) => i.tier !== 'REFERENCE_RETAIN');
   return (
-    <section className="mt-8" aria-labelledby="incidents-heading" data-testid="incidents-panel">
+    <section aria-labelledby="incidents-heading" data-testid="incidents-panel">
       <h2 id="incidents-heading" className="font-sans text-wb-label font-bold uppercase tracking-[0.25em] text-wb-sand-deep">
         Incidents (clustered, by tier)
       </h2>

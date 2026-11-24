@@ -18,7 +18,7 @@ Status: ongoing. Reports: 4 (2 independent publishers). Evidence: corroborated.
 Why this interrupts: high materiality, stated impact, live disruption, Australian relevance demonstrated, solid evidence, fresh report
 First report: Breaking: Microsoft platforms suffering widespread outages, including Outlook [1ac9ea52]
 Incident: inc-69dfb5f668
-View: /intelligence#inc-69dfb5f668
+View: /intelligence-workbench?tab=incidents#inc-69dfb5f668
 ```
 
 ### Tiered brief as rendered at 13 Nov 20:00Z (24 report ids shown)
@@ -30,7 +30,7 @@ Based on reports from the last 72 hours; incidents are consolidated, so one disr
 ACTIVE ALERT-LEVEL INCIDENTS (live, stated impact, Australian relevance, solid evidence)
 - Microsoft 'deeply sorry' for global outage, reports 'broad recovery' of services (partially restored; 24 reports; inc-e58ee4fe69)
     why: high materiality, stated impact, live disruption, Australian relevance demonstrated, solid evidence, fresh report
-    view: /intelligence#inc-e58ee4fe69
+    view: /intelligence-workbench?tab=incidents#inc-e58ee4fe69
     NEW 12 Nov 10:28Z: Microsoft users caught up in global M365 outage [a6d72e00]
     SUBSEQUENT x13, latest 13 Nov 13:19Z: US Futures Gain With Microsoft Outage, Producer Prices in Focus [7c491338]
     RESTORATION (full) 13 Nov 03:33Z: Microsoft 365 recovers with Outlook back online [a160eef1]
@@ -75,7 +75,7 @@ No alert-level payload at any collection batch. Reason, from the final tiering b
 Based on reports from the last 72 hours; incidents are consolidated, so one disruption is one entry.
 
 MONITORING (evidence not yet sufficient; will be re-tiered when it arrives)
-- Coles supermarket cyber attack: Australia’s retailer investigates security breach - Beinsure (ongoing; 4 reports; inc-874e4f5143) - consequence unconfirmed at an essential-service or compromised entity: verification target, not yet material [/intelligence#inc-874e4f5143]
+- Coles supermarket cyber attack: Australia’s retailer investigates security breach - Beinsure (ongoing; 4 reports; inc-874e4f5143) - consequence unconfirmed at an essential-service or compromised entity: verification target, not yet material [/intelligence-workbench?tab=incidents#inc-874e4f5143]
 
 Context only (supports an incident, no item of its own): 0. Reference retained (no demonstrated Australian relevance or no stated consequence): 0.
 ```

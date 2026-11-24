@@ -75,7 +75,7 @@ def test_payload_carries_the_canonical_id_and_portal_link(monkeypatch):
     monkeypatch.setenv(tb.PORTAL_BASE_ENV, "https://hq.example.test/")
     p = _alerts([_ev("c0000007", OPTUS, "ABC News", NOW - timedelta(hours=1))])[0]
     assert p["incident_id"] == p["incident_key"] and p["incident_id"].startswith("inc-") and len(p["incident_id"]) == 14
-    assert p["link"] == f"https://hq.example.test/intelligence#{p['incident_id']}" and p["link"] in p["text"]
+    assert p["link"] == f"https://hq.example.test/intelligence-workbench?tab=incidents#{p['incident_id']}" and p["link"] in p["text"]
 
 
 def test_incident_id_is_deterministic_and_linked_in_the_brief():

@@ -7,6 +7,8 @@
 //
 // Flag: INCIDENT_VIEW_V1 (env, read per request, default OFF). Read-only: nothing here writes, acknowledges or sends.
 
+import { incidentHref } from './intelligenceLinks';
+
 export type IncidentTier = 'IMMEDIATE_ALERT' | 'SCHEDULED_BRIEF' | 'MONITOR' | 'CONTEXT' | 'REFERENCE_RETAIN';
 export type IncidentRelation = 'NEW' | 'SUBSEQUENT' | 'RESTORATION_UPDATE' | 'RELATED' | 'HISTORICAL_REFERENCE';
 
@@ -75,7 +77,7 @@ export function toDecisionItem(r: IncidentRow): IncidentDecisionItem {
     incidentKey: r.incident_key,
     title: r.headline,
     detail: `${r.tier === 'IMMEDIATE_ALERT' ? 'Alert-level' : 'Material exception'} · ${r.restoration_status.replace(/_/g, ' ')} · ${r.n_reports} reports`,
-    href: `/intelligence#${r.incident_key}`,
+    href: incidentHref(r.incident_key),
   };
 }
 
