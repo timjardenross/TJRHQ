@@ -51,3 +51,12 @@ def test_non_australian_items_are_not_tagged_au(title):
 def test_existing_markers_still_work():
     assert _geo("Victoria power outage hits 20,000 homes") == "AU"
     assert _geo("Singapore data centre fire") == "APAC"
+
+
+def test_nab_named_only_in_summary_is_au():
+    item = IntelligenceItem(source_id="s", source_name="ABC News", source_priority=2, source_confidence_weight=0.8,
+                            source_category="media", raw_title="Online banking outage leaves customers unable to log in",
+                            collected_at=datetime(2026, 11, 24, tzinfo=timezone.utc), raw_summary="NAB says its services are unavailable.")
+    assert classify(item).geography == "AU"
+    item.raw_summary = "Police nab suspect in banking fraud probe."
+    assert classify(item).geography != "AU"

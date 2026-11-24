@@ -123,6 +123,24 @@ def build_evidence(events: list[dict], *, now: datetime | None = None, window_ho
     return EvidenceSet(ed.METHOD_VERSION, now, window_hours, len(events), incidents)
 
 
+# Sources that publish only AFTER an outage is rectified (statutory registers). They are authoritative confirmation and restoration
+# evidence for analysis and the portal, never a live signal, so they are not incident seeds for the brief.
+_RETROSPECTIVE_SOURCE_MARKERS = ("outage register",)
+
+
+def _retrospective_import(source: str, published_at, now: datetime, hours: int) -> bool:
+    """True when a report is a historical import, not a recent development: it comes from a retrospective register, or its own
+    publication date is older than the evidence window (a newly activated or repaired source back-fills old publications, e.g.
+    ASIC releases from weeks ago, which keep their original dates but must not be shown as new). Reports with no usable publication
+    date are kept: absence of a date is not evidence of age."""
+    if any(m in source.lower() for m in _RETROSPECTIVE_SOURCE_MARKERS):
+        return True
+    if not published_at:
+        return False
+    published = we._parse_ts(published_at)
+    return published is not None and now - published > timedelta(hours=hours)
+
+
 def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None = None) -> list[dict]:
     """Read validated reports through an injected PostgREST getter (captains_brief._sb_get). Fails soft: returns [] on any error so a
     brief is never blocked by the evidence layer."""
@@ -137,6 +155,8 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
     out = []
     for r in rows or []:
         reg = r.get("intelligence_source_registry") or {}
+        if _retrospective_import(reg.get("source_name") or "", r.get("published_at"), now, hours):
+            continue
         out.append({"id": str(r.get("event_id")), "title": r.get("raw_title") or "", "summary": r.get("raw_summary") or "",
                     "source": reg.get("source_name") or "", "geography": r.get("geography") or "",
                     "collected_at": r.get("collected_at"), "published_at": r.get("published_at"), "url": r.get("canonical_url")})
