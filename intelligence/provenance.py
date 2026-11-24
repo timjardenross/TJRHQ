@@ -1,7 +1,7 @@
 """Timestamp / source PROVENANCE carried on each collected item (USS-TJR provenance v1).
 
 Every field is optional and nullable. Code that does not find them behaves exactly as before, so this module can be merged and
-deployed BEFORE the database migration (tools/intelligence/provenance_migration_DRAFT_NOT_APPLIED.sql): persistence only includes the
+deployed BEFORE the database migration (tools/intelligence/provenance_migration_20261124.sql): persistence only includes the
 new keys in a row when PROVENANCE_COLUMNS_EXIST says the columns exist (env INTEL_PROVENANCE_COLUMNS, default OFF).
 
 A publisher DOMAIN is recorded for display and diagnosis only. It is never proof of independence: independence stays family /
