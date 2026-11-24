@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { fetchIncidentSnapshot, incidentViewEnabled, type IncidentRow } from '@/lib/incidents';
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -56,12 +57,20 @@ export async function GET(req: NextRequest) {
       .limit(3);
     if (sourcesError) throw sourcesError;
 
+    // Clustered incidents (INCIDENT_VIEW_V1, default OFF): alert-level incidents and material exceptions, one entry per incident_key -
+    // the same key the Telegram alert and the Decisions inbox use. Unavailable snapshot data adds nothing (never an all-clear claim).
+    const incidentsOn = incidentViewEnabled();
+    const incidents: IncidentRow[] = incidentsOn
+      ? (await fetchIncidentSnapshot(sb, { attentionOnly: true, limit: 50 })).incidents.slice(0, 5)
+      : [];
+
     const items = {
       hotSignals: hotSignals ?? [],
+      ...(incidentsOn ? { incidents } : {}),
       interrupts: interrupts ?? [],
       staleSources: staleSources ?? [],
       hasAnything: (hotSignals?.length ?? 0) +
-                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) > 0,
+                   (interrupts?.length ?? 0) + (staleSources?.length ?? 0) + incidents.length > 0,
     };
 
     return NextResponse.json(items);

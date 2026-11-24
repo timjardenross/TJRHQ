@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { IncidentsPanel } from './IncidentsPanel';
 
 // Retired 2026-09-19 (Mission 7 legacy-page sweep, §35). This was the
 // pre-"Three-Workbench Simplification" Intelligence Centre (MSN-0201
@@ -47,6 +48,7 @@ export default function IntelligencePage() {
           </Link>
         </li>
       </ul>
+      <IncidentsPanel />
     </div>
   );
 }
