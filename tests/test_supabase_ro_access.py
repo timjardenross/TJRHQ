@@ -60,6 +60,11 @@ ALLOWED_RESEARCH = [
     "select sha256(convert_to(raw_title,'UTF8')), pg_get_viewdef('intelligence_source_health_latest'::regclass) from intelligence_events limit 1",
     "select brief_date, brief_type, brief_text from captains_daily_briefs where brief_text ~* 'optus'",
     "select count(*) from captains_daily_briefs",
+    "select b.brief_date, b.brief_text from captains_daily_briefs b where b.brief_type = 'morning'",
+    "select e.raw_title, b.brief_date from intelligence_events e join captains_daily_briefs b on b.brief_date = e.brief_date",
+    "select x.brief_text from captains_daily_briefs as x",
+    "select brief_text from public.captains_daily_briefs where brief_date > '2026-09-01'",
+    "select 'captains_daily_briefs is a table name inside a literal' as note, count(*) from intelligence_events",
     "select brief_type, count(*), avg(signals_count) from captains_daily_briefs group by 1",
     "select * from intelligence_events where event_id is not null limit 1",
     "select call_at, latency_ms from llm_call_metrics order by call_at desc limit 5",
@@ -116,6 +121,18 @@ DENIED = [
     "select * from pgmq.q_xo",
     # names passed as text
     "select * from intelligence_events where raw_title = 'health_daily_logs'",
+    # Codex review of #699 (all reproduced, all fixed): comment markers inside literals, whole-row references, activity functions
+    "select '--', t.* from google_calendar_tokens t",
+    "select '/*', 1 from google_calendar_tokens",
+    "select 'it''s -- fine', x.* from health_daily_logs x",
+    "select b from captains_daily_briefs b",
+    "select jsonb_build_object('row', b) from captains_daily_briefs b",
+    "select to_jsonb(m) from llm_call_metrics m",
+    "select b, e.raw_title from captains_daily_briefs b, intelligence_events e",
+    "table captains_daily_briefs",
+    "select query from pg_stat_get_activity(null)",
+    "select pg_stat_get_backend_activity(1)",
+    "select * from pg_ls_dir('.')",
     # column limits on permitted tables
     "select health_snapshot from captains_daily_briefs",
     "select b.health_snapshot from captains_daily_briefs b",
@@ -127,6 +144,7 @@ DENIED = [
 ]
 
 ASK = [
+    "select E'a\\\\' -- ' from google_calendar_tokens",   # E'' strings: a backslash can escape the quote, so the scan cannot be trusted
     # routes to dynamic SQL, or statements a person should decide
     "do $$ begin execute 'select 1'; end $$",
     "create temp table x as select 1",
@@ -199,6 +217,33 @@ def test_scope_guard_hook_never_prints_allow():
         ).stdout
         if out:
             assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
+
+
+def test_generated_verify_script_runs_through_the_guard_it_verifies():
+    """Codex #699: the verification query must be runnable via supabase_ro (agents may not fall back to the privileged connector)."""
+    sys.path.insert(0, str(ROOT / "tools" / "intelligence"))
+    import ro_scope
+
+    assert scope.classify(ro_scope.render_verify(CFG), CFG) is None
+
+
+def test_verify_checks_effective_not_just_direct_write_privileges():
+    sys.path.insert(0, str(ROOT / "tools" / "intelligence"))
+    import ro_scope
+
+    sql = ro_scope.render_verify(CFG)
+    assert "has_table_privilege" in sql and "has_any_column_privilege" in sql and "INSERT,UPDATE,DELETE,TRUNCATE" in sql
+    assert "role_table_grants" not in sql, "direct grants miss PUBLIC and inherited privileges"
+
+
+def test_drift_helper_reports_new_and_missing_relations():
+    sys.path.insert(0, str(ROOT / "tools" / "intelligence"))
+    import ro_scope
+
+    names = ",".join(sorted(set(CFG["all_public_relations"]) - {"working_memory"}) + ["a_brand_new_table"])
+    new, gone = ro_scope.drift(names, CFG)
+    assert new == ["a_brand_new_table"] and gone == ["working_memory"]
+    assert ro_scope.drift(",".join(CFG["all_public_relations"]), CFG) == ([], [])
 
 
 def test_verify_script_is_generated_from_the_same_lists():

@@ -39,16 +39,17 @@ col_limited(name) as (values {column_limited}),
 public_rels as (select c.oid, c.relname from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind in ('r','v','m','p'))
 select 'member_of_pg_read_all_data (platform-managed; table scope is application-level)' as check, pg_has_role('{role}', 'pg_read_all_data', 'member')::text as value, 'true (cannot be revoked by postgres); if false the scope is now database-enforced' as expected
 union all
-select 'member_of_pg_monitor (pg_stat_statements / pg_stat_activity text readable; the guard refuses those names)', pg_has_role('{role}', 'pg_monitor', 'member')::text, 'true today' 
+select 'member_of_pg_monitor (other sessions query text readable; the guard refuses those functions and views)', pg_has_role('{role}', 'pg_monitor', 'member')::text, 'true today' 
 union all
 select 'default_transaction_read_only', coalesce((select array_to_string(s.setconfig, ';') from pg_db_role_setting s where s.setrole = '{role}'::regrole), '(none)'), 'default_transaction_read_only=on'
 union all
-select 'relations_not_in_scope_lists_(new_since_last_review)', coalesce(string_agg(r.relname, ', ' order by r.relname), '(none)'), '(none): add to all_public_relations in supabase_ro_scope.json and decide permitted or not'
+select 'public_relation_names', string_agg(r.relname, ',' order by r.relname), 'run: python tools/intelligence/ro_scope.py drift "<this value>" ; must print NEW: (none)'
 from public_rels r
-where r.relname <> all (array[{", ".join("'" + n + "'" for n in cfg["all_public_relations"])}])
 union all
-select 'direct_write_privileges', count(*)::text, '0'
-from information_schema.role_table_grants g where g.grantee = '{role}' and g.privilege_type in ('INSERT','UPDATE','DELETE','TRUNCATE')
+select 'relations_with_effective_write_privileges', coalesce(string_agg(n.nspname || '.' || c.relname, ', ' order by c.relname), '(none)'), '(none)'
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where c.relkind in ('r','v','m','p','f') and n.nspname not in ('pg_catalog','information_schema','pg_toast')
+  and (has_table_privilege('{role}', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE') or has_any_column_privilege('{role}', c.oid, 'INSERT,UPDATE'))
 union all
 select 'schemas_it_can_create_in', count(*)::text, '0'
 from pg_namespace n where has_schema_privilege('{role}', n.oid, 'create') and n.nspname not like 'pg_%' and n.nspname <> 'information_schema'
@@ -69,5 +70,18 @@ where d.relname not in (select name from permitted);
 """
 
 
+def drift(names_csv: str, cfg: dict | None = None) -> tuple[list[str], list[str]]:
+    """Compare the relation names the database reports (the `public_relation_names` row) with the scope lists. Returns (new, gone)."""
+    cfg = cfg or load()
+    seen = {n.strip() for n in names_csv.split(",") if n.strip()}
+    known = set(cfg["all_public_relations"])
+    return sorted(seen - known), sorted(known - seen)
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "drift":
+        new, gone = drift(sys.argv[2] if len(sys.argv) > 2 else sys.stdin.read())
+        print("NEW (add to all_public_relations and decide permitted or not): " + (", ".join(new) or "(none)"))
+        print("GONE (remove from the lists): " + (", ".join(gone) or "(none)"))
+        sys.exit(1 if new else 0)
     sys.stdout.write(render_verify())

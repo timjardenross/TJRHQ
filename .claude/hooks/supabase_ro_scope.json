@@ -339,5 +339,18 @@
   "llm_call_metrics": [
    "metadata"
   ]
- }
+ },
+ "deny_catalog_prefixes": [
+  "pg_stat_get_",
+  "pg_ls_",
+  "lo_",
+  "pg_logical_",
+  "pg_replication_",
+  "pg_show_all_file_settings",
+  "pg_hba_file_rules",
+  "pg_file_settings",
+  "pg_current_logfile",
+  "pg_stat_file",
+  "pg_stat_statements"
+ ]
 }
