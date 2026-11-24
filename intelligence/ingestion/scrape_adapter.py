@@ -51,6 +51,16 @@ _FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
     "Fastly Status",
 })
 
+# 2026-11-24: sources whose release list is rendered client-side. A plain fetch returns the page chrome without the list
+# (ASIC's newsroom: 14 KB of navigation, zero releases), which is why ASIC News Centre and ASIC Enforcement Activity returned
+# "no items" on every check from early September. For these names ONLY, when the plain fetch yields no items the adapter
+# renders the page through Firecrawl (one credit per source per run; both are also kept to the once-daily sweep in
+# scheduler._FIRECRAWL_FETCH_SOURCE_NAMES, so the cost is 2 credits/day).
+_FIRECRAWL_RENDER_SOURCE_NAMES = frozenset({
+    "ASIC News Centre",
+    "ASIC Enforcement Activity",
+})
+
 # Dates the adapter reads from a page. Slash dates are day-first (Australian sources); see _extract_date.
 _NAMED_MONTH_DATE_RE = re.compile(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})\b", re.IGNORECASE)
 _ISO_DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
@@ -93,6 +103,10 @@ class ScrapeAdapter(BaseSourceAdapter):
             raise RuntimeError("beautifulsoup4 not installed — run: pip install beautifulsoup4")
 
         html = self._fetch_html(self.source.url)
+        # keep the free plain fetch when it already carries the list; render only when it does not
+        if self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES and not self._extract_items(BeautifulSoup(html, "html.parser")):
+            log.info("[%s] plain fetch has no release list (client-rendered) — rendering via Firecrawl", self.source.source_name)
+            html = firecrawl_client.fetch_html(self.source.url)
         soup = BeautifulSoup(html, "html.parser")
 
         page_text = soup.get_text(" ", strip=True).lower()
@@ -200,20 +214,30 @@ class ScrapeAdapter(BaseSourceAdapter):
                 continue
 
             for el in elements:
-                title_el = el.find(["h1", "h2", "h3", "h4", "strong"]) or el.find("a")
+                if el.name == "a" and self.source.source_name in _FIRECRAWL_RENDER_SOURCE_NAMES:
+                    # "h2 a"/"h3 a" select the link itself: its own text is the title, and the date/summary live in the
+                    # enclosing list item. (el.find("a") on an <a> finds nothing, so every such item used to be skipped.)
+                    # Scoped to the repaired sources: other scrape sources that reach this selector today are served by the
+                    # narrative/fallback paths, and changing their output is a separate, evidenced decision.
+                    title_el = el
+                    link_el = el if el.get("href") else None
+                    container = el.find_parent(["li", "article", "div"]) or el
+                else:
+                    title_el = el.find(["h1", "h2", "h3", "h4", "strong"]) or el.find("a")
+                    link_el = el.find("a", href=True)
+                    container = el
                 if not title_el:
                     continue
                 title = title_el.get_text(strip=True)
                 if len(title) < 10 or len(title) > 300:
                     continue
 
-                link_el = el.find("a", href=True)
                 url = urljoin(base, link_el["href"]) if link_el else None
 
                 # Try to find a date near the element
-                published = self._extract_date(el)
+                published = self._extract_date(container)
 
-                summary_el = el.find("p")
+                summary_el = container.find("p")
                 summary = summary_el.get_text(strip=True)[:500] if summary_el else None
 
                 items.append(self._make_item(title, summary, url, published))

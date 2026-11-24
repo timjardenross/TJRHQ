@@ -1090,6 +1090,9 @@ _INTRADAY_STATUS_CATEGORIES = {"cloud_technology", "critical_infrastructure"}
 _FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
     "AEMO Market Notices",
     "Fastly Status",
+    # 2026-11-24: ASIC's list is client-rendered and is read through Firecrawl (scrape_adapter._FIRECRAWL_RENDER_SOURCE_NAMES)
+    "ASIC News Centre",
+    "ASIC Enforcement Activity",
 })
 
 
