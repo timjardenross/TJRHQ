@@ -167,3 +167,38 @@ def test_no_gap_output_is_byte_identical_to_default_path():
     assert again == explicit and rs.call_args.kwargs["hours"] == 24
     assert "COVERAGE LIMITED" not in explicit and "⚠️" not in explicit
     assert "Routine vendor patch" in explicit
+
+
+# -- (6) startup catch-up ----------------------------------------------------------------------------------------------------------
+def _cu(rows, now, done=None, sent=None):
+    sent = [] if sent is None else sent
+    return br.catch_up_morning(_sb(rows), lambda: sent.append(1) or True, now, done=set() if done is None else done), sent
+
+
+def test_catch_up_fires_once_after_cron_time_with_no_row():
+    done, sent = set(), []
+    now = datetime(2026, 9, 13, 0, 30, tzinfo=timezone.utc)   # 10:30 AEST
+    assert _cu([], now, done, sent)[0] == "sent"
+    assert _cu([], now, done, sent)[0] == "already_done"
+    assert sent == [1]
+
+
+def test_catch_up_does_nothing_when_row_exists_early_late_or_unverified():
+    sent = []
+    assert _cu([{"brief_date": "x"}], datetime(2026, 9, 13, 0, 30, tzinfo=timezone.utc), sent=sent)[0] == "exists"
+    assert _cu([], datetime(2026, 9, 12, 20, 30, tzinfo=timezone.utc), sent=sent)[0] == "too_early"   # 06:30 AEST
+    assert _cu([], datetime(2026, 9, 13, 2, 0, tzinfo=timezone.utc), sent=sent)[0] == "too_late"      # 12:00 AEST
+    assert _cu(RuntimeError("db"), datetime(2026, 9, 13, 0, 30, tzinfo=timezone.utc), sent=sent)[0] == "unverified"
+    assert sent == []
+
+
+def test_catch_up_brief_is_marked_late_and_default_is_unchanged():
+    default, _ = _render(br.NO_GAP, _events(NOW), NOW)
+    assert "LATE BRIEF" not in default and "⚠️" not in default
+    with patch.object(cb, "_get_latest_ori_brief", return_value=None), patch.object(cb, "_get_capacity_today", return_value=None), \
+         patch.object(cb, "_get_recent_signals", return_value=[]), patch.object(cb, "_get_infra_verification", return_value=None), \
+         patch.object(cb, "build_daily_digest", None), patch.object(cb, "_evidence_lines", return_value=[]), \
+         patch.object(cb, "_theme_lines", return_value=[]), patch.object(cb, "_health_lines", return_value=[]), \
+         patch.object(cb, "_coverage_lines", return_value=[]):
+        late = cb.generate_morning_brief(br.NO_GAP, None, catch_up=True)
+    assert "LATE BRIEF" in late

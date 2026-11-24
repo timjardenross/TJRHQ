@@ -1402,7 +1402,7 @@ def _morning_gap():
     return br.get_gap(_sb_request, datetime.now(_AEST).date().isoformat())
 
 
-def generate_morning_brief(gap=None, collection_caveat: str | None = None) -> str:
+def generate_morning_brief(gap=None, collection_caveat: str | None = None, catch_up: bool = False) -> str:
     """``gap``/``collection_caveat`` are computed by send_brief and passed in so the text and the persisted window agree."""
     from intelligence import brief_reliability as br
     now = _now_aest()
@@ -1420,6 +1420,8 @@ def generate_morning_brief(gap=None, collection_caveat: str | None = None) -> st
 
     # Coverage limitation (missed previous cycle / degraded collection): [] on a normal day, so the default brief is unchanged.
     note = br.coverage_note(gap, collection_caveat)
+    if catch_up:
+        note.insert(0, "⚠️ LATE BRIEF: generated after a scheduler restart past the usual 07:00 time (catch-up).")
     if gap.missed:
         note.append(f"⚠️ The evidence section below lists incidents seen in the last 24h only; use the {gap.lookback_hours}h signal list for the gap.")
     if note:
@@ -1780,7 +1782,7 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     if brief_type == "morning":
         gap = _morning_gap()
         collection_caveat = _collection_coverage_caveat("intelligence_collection")
-        text = generate_morning_brief(gap, collection_caveat)
+        text = generate_morning_brief(gap, collection_caveat, catch_up=bool(kwargs.get("catch_up")))
         # USS-TJR-MSN-0339 WP4: generate_morning_brief() does its own internal
         # signal fetch for display but doesn't return the count — re-fetch here
         # so the persisted signals_count reflects reality instead of always 0

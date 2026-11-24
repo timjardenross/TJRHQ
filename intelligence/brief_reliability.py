@@ -124,11 +124,11 @@ def check_missed_brief(sb_request: Callable[[str, str], list], notify: Callable[
     if key in alerted:
         return "already_alerted"
     try:
-        rows = sb_request("captains_daily_briefs", f"brief_type=eq.{brief_type}&brief_date=eq.{today_iso}&limit=1&select=brief_date")
+        exists = brief_row_exists(sb_request, today_iso, brief_type)
     except Exception as exc:  # noqa: BLE001 - cannot verify; do not raise a false alarm, log for the journal
         log.warning("[brief-deadman] could not verify %s brief for %s: %s", brief_type, today_iso, exc)
         return "unverified"
-    if rows:
+    if exists:
         return "ok"
     alerted.add(key)
     delivered = notify(f"🚨 MISSED BRIEF: no {brief_type} brief exists for {today_iso}. Collection may still be running; the next brief "
@@ -143,3 +143,48 @@ def brief_date_aest(now: datetime | None = None) -> str:
     """Same fixed UTC+10 date that captains_brief._persist_brief stamps on brief_date."""
     now = now or datetime.now(timezone.utc)
     return now.astimezone(timezone(timedelta(hours=10))).date().isoformat()
+
+
+# -- (6) Startup catch-up ------------------------------------------------------
+MORNING_CRON_HOUR = 7           # matches the captains_morning_brief CronTrigger (Melbourne)
+CATCH_UP_CUTOFF_HOUR = 12       # from this local hour a late morning brief is stale: do nothing
+_caught_up: set[str] = set()    # brief_dates already caught up by this process
+
+
+def brief_row_exists(sb_request: Callable[[str, str], list], today_iso: str, brief_type: str = "morning") -> bool:
+    """Shared lookup (deadman + catch-up). Raises on failure so callers can treat it as 'unverified'."""
+    rows = sb_request("captains_daily_briefs", f"brief_type=eq.{brief_type}&brief_date=eq.{today_iso}&limit=1&select=brief_date")
+    return bool(rows)
+
+
+def catch_up_morning(sb_request: Callable[[str, str], list], send: Callable[[], bool], now_utc: datetime | None = None,
+                     tz_name: str = "Australia/Melbourne", done: set | None = None) -> str:
+    """After a restart past the morning cron time, generate the missed morning brief once.
+
+    Returns 'sent' | 'failed' | 'too_early' | 'too_late' | 'exists' | 'already_done' | 'skipped' | 'unverified'."""
+    from zoneinfo import ZoneInfo
+    done = _caught_up if done is None else done
+    now_utc = now_utc or datetime.now(timezone.utc)
+    local = now_utc.astimezone(ZoneInfo(tz_name))
+    today = brief_date_aest(now_utc)
+    if today in done:
+        return "already_done"
+    if today in _skip_dates():
+        return "skipped"
+    if local.hour < MORNING_CRON_HOUR:
+        return "too_early"
+    if local.hour >= CATCH_UP_CUTOFF_HOUR:
+        return "too_late"
+    try:
+        if brief_row_exists(sb_request, today):
+            return "exists"
+    except Exception as exc:  # noqa: BLE001 - cannot verify; never risk a duplicate send
+        log.warning("[brief-catchup] could not verify morning brief for %s: %s", today, exc)
+        return "unverified"
+    done.add(today)
+    try:
+        ok = send()
+    except Exception as exc:  # noqa: BLE001 - scheduled-job boundary
+        log.error("[brief-catchup] generation failed: %s", exc)
+        return "failed"
+    return "sent" if ok else "failed"

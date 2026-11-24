@@ -265,6 +265,18 @@ def _start_scheduler() -> None:
         **_brief_reliability.job_kwargs(_brief_reliability.DEADMAN_GRACE_SECONDS),
     )
 
+    # Startup catch-up: a restart past 07:00 loses the in-memory cron run; send the missed morning brief once (before 12:00 only).
+    from datetime import timedelta as _td
+
+    from apscheduler.triggers.date import DateTrigger as _DateTrigger
+    scheduler.add_job(
+        _morning_catch_up_job,
+        _DateTrigger(run_date=datetime.now(timezone.utc) + _td(seconds=30)),
+        id="captains_morning_catchup",
+        replace_existing=True,
+        **_brief_reliability.job_kwargs(_brief_reliability.MORNING_GRACE_SECONDS),
+    )
+
     # Midday check — 12:30 AEST daily (conditional: only delivers if new signals)
     scheduler.add_job(
         _midday_check_job,
@@ -746,6 +758,19 @@ def _brief_deadman_job() -> None:
         log.info("Brief deadman: %s", result)
     except Exception as exc:  # noqa: BLE001 - scheduled-job boundary; must never crash the shared scheduler
         log.error("Brief deadman job failed: %s", exc)
+
+
+def _morning_catch_up_job() -> None:
+    from intelligence import brief_reliability as br
+    from intelligence import captains_brief as cb
+
+    try:
+        result = br.catch_up_morning(cb._sb_request, lambda: cb.send_brief("morning", catch_up=True))
+        log.info("Morning brief catch-up: %s", result)
+        if result == "sent":
+            _record_heartbeat("captains_daily_briefs", "ok", detail="morning brief delivered (startup catch-up)")
+    except Exception as exc:  # noqa: BLE001 - scheduled-job boundary; must never crash the shared scheduler
+        log.error("Morning brief catch-up failed: %s", exc)
 
 
 def _midday_check_job() -> None:
