@@ -49,11 +49,12 @@ describe('/api/hq/notion-search', () => {
     expect(j).toEqual({ configured: true, results: [{ title: 'Roadmap 2027', url: 'https://notion.so/Roadmap2027', last_edited_time: '2026-11-01T00:00:00Z', object: 'page' }] });
     expect(JSON.stringify(j)).not.toContain('secret_test_token');
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://api.notion.com/v1/search');
+    expect(url).toBe('https://api.notion.com/v1/data_sources/41f87b37-a428-8193-8111-000b4966ebf4/query'); // allowlisted source only, never /v1/search
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body);
     expect(body.page_size).toBeLessThanOrEqual(10);
-    expect(body.query.length).toBe(200);
+    expect(body.filter.title.contains.length).toBe(200);
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
   it('drops personal-health, Pain Recovery Studio and TJR Life titles', async () => {
