@@ -244,6 +244,8 @@ class Candidate:
     legacy: dict = field(default_factory=dict)
     summary: str = ""         # the report's summary text (used only for Australian-relevance checks, never for classification)
     time_verified: bool = False   # ``published`` is a parseable publication time (not the collection-time fallback): see _time_verified
+    time_claimed: bool = False    # ``published`` parses but its provenance says it is only CLAIMED (aggregator pubDate, date-only): see _time_trusted
+    provenance: dict = field(default_factory=dict)   # published_at_basis / precision / confidence / publisher_domain ... present on the row, else {}
 
     @property
     def primary_type(self) -> str:
@@ -294,6 +296,53 @@ def _time_verified(event: dict) -> bool:
     published = we._parse_ts(event.get("published_at"))
     collected = we._parse_ts(event.get("collected_at"))
     return bool(published) and (collected is None or published <= collected + timedelta(hours=1))
+
+
+def _time_trusted(event: dict) -> bool:
+    """Provenance check on a parseable publication time. True when the row carries NO provenance (today's behaviour, unchanged) or its
+    basis is the source's own clock (feed / feed_corrected_utc) at better than day precision and not marked claimed/unknown. An aggregator's
+    pubDate (aggregator_claimed), a date-only value, a collection fallback or an unknown basis is only CLAIMED: it can place a report in time
+    but cannot ESTABLISH that it is current. A publisher domain is never consulted here."""
+    basis, conf, prec = event.get("published_at_basis"), event.get("published_at_confidence"), event.get("published_at_precision")
+    if not (basis or conf or prec):
+        return True
+    if basis is not None and basis not in ("feed", "feed_corrected_utc"):
+        return False
+    if conf is not None and conf not in ("verified", "feed"):
+        return False
+    return prec != "day"
+
+
+def _event_provenance(event: dict) -> dict:
+    return {k: event[k] for k in ("publisher_domain", "publisher_family", "published_at_basis", "published_at_precision",
+                                  "published_at_confidence", "event_window_start", "event_window_end") if event.get(k) is not None}
+
+
+# Four freshness states of a report / incident (Captain's rule). Unverified times never ESTABLISH currency, yet a potentially severe
+# emerging incident must still be surfaced for urgent verification; known-stale reports never surface as urgent.
+FRESH_VERIFIED, FRESH_CLAIMED, FRESH_UNKNOWN, FRESH_STALE = "VERIFIED", "CLAIMED", "UNKNOWN", "KNOWN STALE"
+FRESHNESS_STATES = (FRESH_VERIFIED, FRESH_CLAIMED, FRESH_UNKNOWN, FRESH_STALE)
+URGENT_MAX_AGE_HOURS = 24      # 'urgent' is about what is happening now: an incident whose newest report is older than this is KNOWN STALE
+
+
+def report_freshness(m: "Candidate", now: datetime | None) -> str:
+    """One report's freshness. Its best-known time (``published``: the stated time, else collection, which can only be LATER than the
+    true publication) older than URGENT_MAX_AGE_HOURS is KNOWN STALE whatever its provenance. Within the window: VERIFIED (trusted
+    publication time), CLAIMED (a parseable time whose provenance is claimed only) or UNKNOWN (no publication time, timed by collection)."""
+    if now is not None and m.published and now - m.published > timedelta(hours=URGENT_MAX_AGE_HOURS):
+        return FRESH_STALE
+    return FRESH_VERIFIED if m.time_verified else FRESH_CLAIMED if m.time_claimed else FRESH_UNKNOWN
+
+
+def incident_freshness(members: list["Candidate"], now: datetime | None) -> str:
+    """The best freshness among an incident's reports; KNOWN STALE only when every report is stale (its newest report is older than the
+    window). Never 'confirmed current': only VERIFIED rests on a trusted publication time, and even that is a freshness label, not
+    a statement of service state (restoration status has its own live-evidence rule)."""
+    states = {report_freshness(m, now) for m in members if m.published}
+    for s in (FRESH_VERIFIED, FRESH_CLAIMED, FRESH_UNKNOWN):
+        if s in states:
+            return s
+    return FRESH_STALE if states else FRESH_UNKNOWN
 
 
 # A hazard warning is often stated only in the report's first summary sentence ("The weather bureau is warning of severe storms west of
@@ -371,7 +420,9 @@ def detect_candidate(event: dict) -> Candidate:
         status = "unconfirmed"
     src = event.get("source") or ""
     return Candidate(
-        event_id=str(event.get("id")), title=title, source=src, published=_report_time(event), time_verified=_time_verified(event),
+        event_id=str(event.get("id")), title=title, source=src, published=_report_time(event),
+        time_verified=_time_verified(event) and _time_trusted(event), time_claimed=_time_verified(event) and not _time_trusted(event),
+        provenance=_event_provenance(event),
         geography=event.get("geography") or "", types=types, sectors=sectors, orgs=_orgs(title), scale=scale, compromise=compromise,
         actual=actual, potential=potential, commentary=commentary, is_candidate=is_cand, consequence=consequence,
         tier=tier, status=status, exposure=exposure, safety=safety, cascading=cascading, minor=minor, customers=customers, ongoing=ongoing, conflict=conflict, hedged=hedged,

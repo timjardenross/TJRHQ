@@ -19,6 +19,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin
 
+from intelligence import provenance as prov
 from intelligence.config import (
     AUTH_GATED_SENTINEL_PHRASES,
     HTTP_TIMEOUT_SECONDS,
@@ -55,6 +56,7 @@ _FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
 _NAMED_MONTH_DATE_RE = re.compile(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})\b", re.IGNORECASE)
 _ISO_DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 _SLASH_DATE_RE = re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?")
+_HAS_TIME_RE = re.compile(r"\b\d{1,2}:\d{2}\b")      # a time of day near the date: without one the header date is 'date_only' (day precision)
 # Timezone a source publishes its dates in when the page states none (default UTC). AEMO uses NEM time: AEST, fixed UTC+10, no daylight saving.
 _SOURCE_UTC_OFFSET = {
     "AEMO Market Notices": timezone(timedelta(hours=10)),
@@ -216,7 +218,9 @@ class ScrapeAdapter(BaseSourceAdapter):
                 summary_el = el.find("p")
                 summary = summary_el.get_text(strip=True)[:500] if summary_el else None
 
-                items.append(self._make_item(title, summary, url, published))
+                items.append(self._make_item(title, summary, url, published, provenance=prov.scrape_provenance(
+                    published=published, page_url=url or base, date_only=not _HAS_TIME_RE.search(el.get_text(" ", strip=True)),
+                    basis_tz=self.source.source_name if self.source.source_name in _SOURCE_UTC_OFFSET else None)))
                 if len(items) >= MAX_ITEMS_PER_SOURCE:
                     break
 

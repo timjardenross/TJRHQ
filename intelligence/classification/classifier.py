@@ -497,6 +497,7 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         dependency_risk=dependency_risk,
         confidence=confidence,
         affected_cves=affected_cves,
+        provenance=getattr(item, "provenance", None),
     )
 
 

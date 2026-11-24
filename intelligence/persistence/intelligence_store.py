@@ -17,6 +17,7 @@ from core.platform.priority_engine import PriorityInputs, PriorityScore, score_e
 if TYPE_CHECKING:
     from core.llm.provider_chain import LLMCallResult
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
+from intelligence.provenance import provenance_row_fields
 from intelligence.models import (
     RankedEvent,
     ResilienceBrief,
@@ -1099,6 +1100,8 @@ def save_event(event: RankedEvent, ori: dict | None = None,
         "suppression_reason": event.suppression_reason,
         "affected_cves": event.affected_cves or None,
     }
+    # Provenance columns: included only when INTEL_PROVENANCE_COLUMNS says the migration was applied (default OFF: row unchanged).
+    row.update(provenance_row_fields(getattr(event, "provenance", None)))
     if ori:
         bd = ori.get("brief_date")
         row.update({

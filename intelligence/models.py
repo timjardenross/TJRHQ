@@ -57,6 +57,7 @@ class IntelligenceItem:
     raw_summary: str | None = None
     canonical_url: str | None = None
     published_at: datetime | None = None
+    provenance: dict | None = None   # optional timestamp/source provenance (intelligence/provenance.py); None = not carried
 
 
 @dataclass
@@ -88,6 +89,7 @@ class ClassifiedEvent:
     suppressed: bool = False
     suppression_reason: str | None = None
     affected_cves: list[str] = field(default_factory=list)  # CVE IDs extracted from title/summary
+    provenance: dict | None = None   # optional timestamp/source provenance, carried from the item
 
 
 @dataclass
