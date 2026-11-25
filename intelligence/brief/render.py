@@ -54,7 +54,7 @@ def _governed_narrative(brief: dict) -> tuple:
             from intelligence import claim_gate
             if claim_gate.gate_mode() != "enforce":
                 return legacy
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110 - best-effort display fallback; failure must not break the caller
             pass
         return None, []
 

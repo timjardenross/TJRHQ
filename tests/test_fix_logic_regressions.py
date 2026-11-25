@@ -13,19 +13,19 @@ import pytest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "fixtures", "claim_gate"))
 
-import corpus_v2_common as common  # noqa: E402
-import corpus_v2_dev  # noqa: E402
+import corpus_v2_common as common
+import corpus_v2_dev
 
-import intelligence.captains_brief as cb  # noqa: E402
-from intelligence import brief_published_notifier as notifier  # noqa: E402
-from intelligence import brief_reliability as br  # noqa: E402
-from intelligence import claim_gate as cg  # noqa: E402
-from intelligence import delivery_adapter as da  # noqa: E402
-from intelligence import delivery_degraded as dd  # noqa: E402
-from intelligence import delivery_record as dr  # noqa: E402
-from intelligence import production_status as ps  # noqa: E402
-from intelligence.brief import evidence_fallback as ef  # noqa: E402
-from intelligence.brief.brief_generator import BriefGenerator  # noqa: E402
+import intelligence.captains_brief as cb
+from intelligence import brief_published_notifier as notifier
+from intelligence import brief_reliability as br
+from intelligence import claim_gate as cg
+from intelligence import delivery_adapter as da
+from intelligence import delivery_degraded as dd
+from intelligence import delivery_record as dr
+from intelligence import production_status as ps
+from intelligence.brief import evidence_fallback as ef
+from intelligence.brief.brief_generator import BriefGenerator
 
 
 @pytest.fixture(autouse=True)
@@ -289,7 +289,7 @@ def test_captains_brief_status_uses_components_not_composite_length():
 
 
 def test_stale_missing_and_fallback_ori_brief_are_not_normal():
-    base = dict(brief_type="morning", text="Real content. " * 20, brief_id="1", collection_caveat=None, now=NOW)
+    base = {"brief_type": "morning", "text": "Real content. " * 20, "brief_id": "1", "collection_caveat": None, "now": NOW}
     assert "canonical_brief_missing" in ps.compute_captains_brief_status(ori_brief=None, **base).reasons
     stale = ps.compute_captains_brief_status(ori_brief=_ori(age_h=140), **base)
     assert stale.status is ps.ProductionStatus.DEGRADED and any(x.startswith("canonical_brief_stale") for x in stale.reasons)
@@ -355,7 +355,9 @@ def split3(text):
     return ["chunk-0", "chunk-1", "chunk-2"]
 
 
-def ok(n=[0]):
+def ok(n=None):
+    if n is None:
+        n = [0]
     def _s(piece):
         n[0] += 1
         return dr.ChunkResult(0, "CONFIRMED", message_id=n[0])
@@ -437,7 +439,7 @@ def test_store_failing_during_chunking_finishes_sending_and_keeps_state_in_ledge
     ledger = dd.DegradedLedger()
     r = deliver(store, s, ledger=ledger)
     assert len(wire) == 3 and r.degraded and r.phase == "update" and not r.recorded and r.alert["recorded"] is False
-    entry = list(ledger.entries().values())[0]
+    entry = next(iter(ledger.entries().values()))
     assert entry["needs_update"] and entry["outcome"] == "CONFIRMED" and len(entry["record"]["chunks"]) == 3
     # the store row was left 'sending' with only the first chunk; the ledger holds the truth; import fixes it once the store is back
     stale = store.snapshot()[0]

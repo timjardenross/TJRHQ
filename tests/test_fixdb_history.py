@@ -4,7 +4,7 @@ import copy
 import sys
 import unittest
 import urllib.error
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 from unittest import mock
@@ -14,10 +14,11 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT / "tools" / "intelligence" / "analytics"))
 
+from test_product_history import MemGateway, mel, rec
+
 from intelligence import brief_products_block as bpb
 from intelligence import intel_products_job as job
 from intelligence import product_history as ph
-from test_product_history import MemGateway, mel, rec
 
 UTC = timezone.utc
 F = ph.Freshness
@@ -143,7 +144,7 @@ class TestFailedGenerationIsRecorded(unittest.TestCase):
         def boom(*a):
             raise urllib.error.URLError("down")
 
-        with mock.patch.dict("os.environ", {"INTEL_PRODUCTS_ENABLED": "1", "INTEL_PRODUCTS_APPEND_V1": "1"}, clear=True):
+        with mock.patch.dict("os.environ", {"INTEL_PRODUCTS_ENABLED": "1", "INTEL_PRODUCTS_APPEND_V1": "1"}, clear=True):  # noqa: SIM117 - nested contexts kept for readability
             with self.assertRaises(urllib.error.URLError):
                 job.run(datetime(2026, 11, 25, 19, 20, tzinfo=UTC), getter=boom, gateway=mem, cadence="daily")
         self.assertEqual(sorted(r["product_key"] for r in mem.refreshes),
@@ -152,7 +153,7 @@ class TestFailedGenerationIsRecorded(unittest.TestCase):
 
     def test_flag_off_records_nothing_on_failure(self):
         mem = MemGateway()
-        with mock.patch.dict("os.environ", {"INTEL_PRODUCTS_ENABLED": "1"}, clear=True):
+        with mock.patch.dict("os.environ", {"INTEL_PRODUCTS_ENABLED": "1"}, clear=True):  # noqa: SIM117 - nested contexts kept for readability
             with self.assertRaises(RuntimeError):
                 job.run(datetime(2026, 11, 25, 19, 20, tzinfo=UTC), getter=lambda *a: (_ for _ in ()).throw(RuntimeError("x")), gateway=mem)
         self.assertEqual(mem.refreshes, [])

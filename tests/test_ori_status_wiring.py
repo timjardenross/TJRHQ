@@ -25,7 +25,10 @@ def _flags(monkeypatch):
 
 def _generate(monkeypatch, reply, *, records=OK_RECORDS, gate=None, status_flag=True):
     from intelligence.brief.external_domains import DomainFetchResult
-    from tests.test_intelligence_brief_generator import TestLLMFailureDegradation, _make_ranked_event
+    from tests.test_intelligence_brief_generator import (
+        TestLLMFailureDegradation,
+        _make_ranked_event,
+    )
     top = [_make_ranked_event("Event 1", 1)]
     if gate:
         monkeypatch.setenv(claim_gate.FLAG_NAME, gate)
@@ -104,8 +107,8 @@ def test_status_function_never_reads_delivery():
     sig = inspect.signature(ori_status.compute)
     assert not any("deliver" in p or "notif" in p or "telegram" in p or "email" in p for p in sig.parameters)
     cov = {"expected": 3, "completed": 3, "failed": 0, "degraded": False}
-    base = dict(executive_snapshot="An Optus fault disrupted services in Victoria.", bottom_line="Optus services were disrupted by a fault.",
-                llm_used=True, narrative_available=True, coverage=cov, collection_ready=True)
+    base = {"executive_snapshot": "An Optus fault disrupted services in Victoria.", "bottom_line": "Optus services were disrupted by a fault.",
+                "llm_used": True, "narrative_available": True, "coverage": cov, "collection_ready": True}
     from datetime import datetime, timezone
     now = datetime(2026, 11, 25, tzinfo=timezone.utc)
     a = ori_status.compute(**base, now=now)

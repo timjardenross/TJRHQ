@@ -9,7 +9,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
 
 import pytest
 
@@ -160,7 +159,7 @@ def test_ori_coverage_readers_ignore_status_and_gate_keys():
 
 # ── morning path hook ────────────────────────────────────────────────────────────────────────────────────────────
 def _run_send_brief(monkeypatch, events, *, layered: bool, pir: bool = False):
-    from intelligence import brief_event_links, db_size
+    from intelligence import db_size
     if layered:
         monkeypatch.setenv(lr.FLAG, "1")
     if pir:
@@ -212,13 +211,13 @@ def test_flag_on_failure_returns_health_unchanged(monkeypatch, events):
 
 
 def test_none_health_gets_only_shadow(monkeypatch, events):
-    result, items, meta = ls.build_from_evidence(be.build_evidence(events, now=NOW, window_hours=72), text=TEXT, ori_brief=_ori(COV_FULL), now=NOW)
+    result, _items, meta = ls.build_from_evidence(be.build_evidence(events, now=NOW, window_hours=72), text=TEXT, ori_brief=_ori(COV_FULL), now=NOW)
     assert list(ls.attach_shadow(None, result, meta=meta, now=NOW)) == ["shadow_v1"]
 
 
 # ── audio hook ───────────────────────────────────────────────────────────────────────────────────────────────────
 def _row(evidence):
-    result, items, meta = ls.build_from_evidence(evidence, text=TEXT, ori_brief=_ori(COV_FULL), now=NOW)
+    result, _items, _meta = ls.build_from_evidence(evidence, text=TEXT, ori_brief=_ori(COV_FULL), now=NOW)
     return {"id": "r1", "brief_text": "<b>legacy</b> text", "health_snapshot": ls.attach_shadow(HEALTH, result, now=NOW)}
 
 
@@ -279,7 +278,7 @@ def nov25_ev():
 
 def test_nov25_after_integration_keeps_axes_and_single_treatment():
     before = lr.render_layered(NOV25["incidents"], posture=None, coverage=NOV25["coverage"], confidence=None)
-    result, items, meta = ls.build_from_evidence(nov25_ev(), text=TEXT, ori_brief=_ori(NOV25["coverage"]), now=NOW)
+    result, _items, meta = ls.build_from_evidence(nov25_ev(), text=TEXT, ori_brief=_ori(NOV25["coverage"]), now=NOW)
     ids = {d["incident_id"] for d in NOV25["incidents"]}
     assert meta["incidents_rendered"] == len(ids) == 9
     assert all(c in (0, 1) for c in lr.treatment_counts(result).values())

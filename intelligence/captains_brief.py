@@ -245,7 +245,7 @@ def _note_delivery_outcome(brief_type: str, outcome: str) -> None:
     try:
         from intelligence import brief_reliability as br
         br.record_delivery_outcome(brief_type, br.brief_date_aest(), outcome)
-    except Exception:  # noqa: BLE001 - wording only
+    except Exception:  # noqa: BLE001, S110 - wording only
         pass
 
 
@@ -1162,8 +1162,8 @@ def _format_infra_block(infra: dict | None, morning_text: str | None = None) -> 
                 count = f"{int(n)} domain(s) " if isinstance(n, int) and not isinstance(n, bool) and n > 0 else "One or more domains "
                 log.info("[claim-gate-surface] platform_health narrative withheld in enforce (content cannot be checked)")
                 return ["<b>🛰 PLATFORM HEALTH</b>",
-                        f"  ⚠️ {count}reported degraded or unconfirmed by the platform verification state. The generated explanation is withheld "
-                        "because it cannot be checked against the underlying heartbeat data. This is not an all-clear; see the Agent/Job dashboard.",
+                        (f"  ⚠️ {count}reported degraded or unconfirmed by the platform verification state. The generated explanation is withheld "
+                        "because it cannot be checked against the underlying heartbeat data. This is not an all-clear; see the Agent/Job dashboard."),
                         ""]
             infra = {**infra, "narrative": claim_gate.strip_control_chars(det)}
         except Exception:  # noqa: BLE001 - the check itself failed: show nothing generated

@@ -53,7 +53,7 @@ def m365(**over):
 def test_restored_out_of_window_escalate_item_is_not_a_red_driver():
     _, p = posture([m365()])
     assert p == "GREEN"
-    r, p = posture([m365(outside_window=False, state="restored", impact_status="stated")])      # in window but restored
+    _r, p = posture([m365(outside_window=False, state="restored", impact_status="stated")])      # in window but restored
     assert p == "GREEN"
     _, p = posture([m365(outside_window=False, state="", impact_status="retrospective")])        # in window but retrospective
     assert p == "GREEN"
@@ -77,11 +77,11 @@ def test_watch_lane_alone_never_sets_amber_and_is_listed_for_review():
 
 
 def test_justified_severity_recency_rule_makes_a_lane_item_a_driver():
-    sev = dict(pir=pir(lane=True), severity="high", evidence_status="corroborated", independent_publishers=2)
+    sev = {"pir": pir(lane=True), "severity": "high", "evidence_status": "corroborated", "independent_publishers": 2}
     r, p = posture([inc(1, "Severe corroborated current item", **sev)])
     assert p == "AMBER" and "classifier severity high" in r["axes"]["posture"]["reasons"][0]
-    for bad in (dict(outside_window=True), dict(impact_status="retrospective"), dict(state="restored"), dict(priority="REFERENCE"),
-                dict(evidence_status="reported", independent_publishers=1), dict(severity="")):
+    for bad in ({"outside_window": True}, {"impact_status": "retrospective"}, {"state": "restored"}, {"priority": "REFERENCE"},
+                {"evidence_status": "reported", "independent_publishers": 1}, {"severity": ""}):
         _, p = posture([inc(1, "x", **{**sev, **bad})])
         assert p == "GREEN", bad
 
@@ -282,7 +282,7 @@ def test_lane_item_is_visible_even_when_low_relevance_and_outside_window():
 def big_day(n=120, full=20):
     incs = []
     for k in range(n):
-        kind = dict(priority="VERIFY", materiality="medium") if k < full else dict(priority="WATCH", outside_window=(k % 3 == 0))
+        kind = {"priority": "VERIFY", "materiality": "medium"} if k < full else {"priority": "WATCH", "outside_window": (k % 3 == 0)}
         incs.append(inc(k + 1, f"Headline number {k} " + "word " * 12, **kind, pir=pir(lane=(k % 2 == 0))))
     return incs
 
@@ -339,7 +339,7 @@ def test_meta_unaccounted_in_the_adapter_comes_from_the_rendered_output(monkeypa
     _, _, meta = ls.build_from_evidence(ev, text="t", ori_brief=ori, now=NOW)
     assert meta["unaccounted"] == 0 and meta["reconciliation"]["ok"]
     real = lr._l3
-    monkeypatch.setattr(lr, "_l3", lambda incs: (lambda x: x and {**x, "assessments": [], "one_line": []})(real(incs)))      # a renderer defect that loses the item
+    monkeypatch.setattr(lr, "_l3", lambda incs: (lambda x: x and {**x, "assessments": [], "one_line": []})(real(incs)))      # a renderer defect that loses the item  # noqa: PLC3002 - immediately-invoked lambda kept for locality
     _, _, meta = ls.build_from_evidence(ev, text="t", ori_brief=ori, now=NOW)
     assert meta["unaccounted"] == 1 and meta["reconciliation"]["ok"] is False
 
@@ -356,7 +356,7 @@ def test_ori_age_guard_applies_without_brief_status_flag(monkeypatch):
     monkeypatch.delenv("BRIEF_STATUS_V1", raising=False)
     ev = SimpleNamespace(incidents=[], n_events=50, generated_at=NOW)
     old = {"coverage": {"expected": 113, "completed": 113, "failed": 0, "missing_sources": []}, "events_evaluated": 50, "generated_at": (NOW - timedelta(days=3)).isoformat()}
-    r, _, meta = ls.build_from_evidence(ev, text="t", ori_brief=old, now=NOW)
+    r, _, _meta = ls.build_from_evidence(ev, text="t", ori_brief=old, now=NOW)
     assert r["axes"]["coverage"]["value"] == "DEGRADED" and any("old" in x for x in r["axes"]["coverage"]["limits"])
     assert r["axes"]["posture"]["value"] == "UNKNOWN"
     fresh = {**old, "generated_at": (NOW - timedelta(hours=1)).isoformat()}
@@ -370,7 +370,7 @@ def test_ori_age_guard_applies_without_brief_status_flag(monkeypatch):
 def test_funnel_daily_has_definitions_no_rates_and_select_only_sql():
     from tools.intelligence import effectiveness_measures as em
     q = em.build_queries(funnel_days=7)["funnel_daily"]
-    assert re.match(r"\s*with\b", q) and not re.search(r"\b(insert|update|delete|drop|alter|create|truncate|grant)\b\s", re.sub(r"'[^']*'", "''", q), re.I)
+    assert re.match(r"\s*with\b", q) and not re.search(r"\b(insert|update|delete|drop|alter|create|truncate|grant)\b\s", re.sub(r"'[^']*'", "''", q), re.IGNORECASE)
     rows = [{"day": "2026-11-24", "sources": 116, "items": 2059, "events": 1144, "suppressed": 478, "relevant": 43, "briefed_ori": 1, "briefed_disp": 59}]
     f = em.compute_funnel_daily(rows)
     d = f["days"][0]

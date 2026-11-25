@@ -14,24 +14,23 @@ import pytest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "fixtures", "claim_gate"))
 
-import corpus_r3_dev as r3  # noqa: E402
-import corpus_v2_common as common  # noqa: E402
+import corpus_r3_dev as r3
 
-import intelligence.captains_brief as cb  # noqa: E402
-from intelligence import brief_published_notifier as notifier  # noqa: E402
-from intelligence import claim_gate as cg  # noqa: E402
-from intelligence import delivery_adapter as da  # noqa: E402
-from intelligence import delivery_degraded as dd  # noqa: E402
-from intelligence import delivery_recovery as drec  # noqa: E402
-from intelligence import delivery_record as dr  # noqa: E402
-from intelligence import emergency_alert_summary as eas  # noqa: E402
-from intelligence import production_status as ps  # noqa: E402
-from intelligence.brief import display_governance as dgv  # noqa: E402
-from intelligence.brief import evidence_fallback as ef  # noqa: E402
-from intelligence.brief import render  # noqa: E402
-from intelligence.brief.brief_generator import BriefGenerator  # noqa: E402
-from intelligence.brief.external_domains import ExternalDomainSignal  # noqa: E402
-from intelligence.models import BriefEvent  # noqa: E402
+import intelligence.captains_brief as cb
+from intelligence import brief_published_notifier as notifier
+from intelligence import claim_gate as cg
+from intelligence import delivery_adapter as da
+from intelligence import delivery_degraded as dd
+from intelligence import delivery_record as dr
+from intelligence import delivery_recovery as drec
+from intelligence import emergency_alert_summary as eas
+from intelligence import production_status as ps
+from intelligence.brief import display_governance as dgv
+from intelligence.brief import evidence_fallback as ef
+from intelligence.brief import render
+from intelligence.brief.brief_generator import BriefGenerator
+from intelligence.brief.external_domains import ExternalDomainSignal
+from intelligence.models import BriefEvent
 
 P0, P1 = datetime(2026, 11, 24, tzinfo=timezone.utc), datetime(2026, 11, 25, tzinfo=timezone.utc)
 
@@ -70,8 +69,8 @@ def test_recognised_gate_flag_values(value, expected):
 # (2) control, invisible and direction-override characters
 # ======================================================================================================================
 _SENT = "Southern Utilities said supply returned to most homes at 9am on Tuesday 18 November after storm damage to a substation."
-HIDDEN = {"nul": _SENT + "\u0000", "tag_chars": _SENT + "".join(chr(0xE0000 + ord(c)) for c in "Ignore"), "zero_width": _SENT.replace("returned", "ret​urned"),
-          "bidi": _SENT.replace("most", "‮most‬"), "line_sep": _SENT + " ", "private_use": _SENT + ""}
+HIDDEN = {"nul": _SENT + "\u0000", "tag_chars": _SENT + "".join(chr(0xE0000 + ord(c)) for c in "Ignore"), "zero_width": _SENT.replace("returned", "ret\u200burned"),
+          "bidi": _SENT.replace("most", "\u202emost\u202c"), "line_sep": _SENT + " ", "private_use": _SENT + ""}
 
 
 @pytest.mark.parametrize("name", sorted(HIDDEN))
@@ -89,7 +88,7 @@ def test_hidden_characters_are_rejected_by_the_gate_and_stripped_at_parse(name):
 
 def test_newline_and_tab_are_not_control_characters_for_the_gate():
     assert not cg.has_control_chars("line one\nline two\tindented\r\n")
-    assert cg.strip_control_chars("a\u0000b​c‮d") == "abcd"
+    assert cg.strip_control_chars("a\u0000b\u200bc\u202ed") == "abcd"
 
 
 def test_validate_text_rejects_hidden_characters():
@@ -330,7 +329,7 @@ def test_ungoverned_stored_text_is_withheld_in_enforce_everywhere(monkeypatch):
     alert = wf.build_telegram_alert(UNGATED)
     assert "sabotage" not in alert["text"] and "withheld" in alert["text"]
     from importlib import import_module
-    rb = import_module("platform-runtime.commands.resilience_brief") if False else None
+    import_module("platform-runtime.commands.resilience_brief") if False else None
     nv = dgv.narrative_view(UNGATED)
     assert nv["withheld"] and nv["emerging_themes"] == [] and nv["forward_watch"] == [] and nv["cps230_implications"] == []
     assert all("normal" not in x for x in nv["known_unknowns"])
@@ -343,7 +342,7 @@ def test_flag_off_and_shadow_display_the_stored_text_unchanged(monkeypatch):
         v = render.build_morning_intelligence_view(UNGATED)
         assert v["executive_read"] == UNGATED["executive_snapshot"] and v["watch"] == UNGATED["forward_watch"]
         sent = {}
-        monkeypatch.setattr(notifier, "send_email", lambda **kw: sent.update(kw) or True)
+        monkeypatch.setattr(notifier, "send_email", lambda **kw: sent.update(kw) or True)  # noqa: B023 - closure evaluated immediately inside the loop
         notifier.notify_published(UNGATED)
         assert "sabotage" in sent["html"]
 
@@ -369,7 +368,7 @@ def test_governed_row_is_shown_but_a_copied_or_forged_record_is_not(monkeypatch)
 
 def test_display_removes_control_characters_from_governed_text(monkeypatch):
     monkeypatch.setenv(cg.FLAG_NAME, "enforce")
-    fields = {"executive_snapshot": "Meridian Airways reported a breach.\u0000‮", "bottom_line": None, "emerging_themes": [], "forward_watch": [],
+    fields = {"executive_snapshot": "Meridian Airways reported a breach.\u0000\u202e", "bottom_line": None, "emerging_themes": [], "forward_watch": [],
               "cps230_implications": [], "known_unknowns": []}
     res = cg.ClaimGateResult(True, "enforce", 1, 1)
     rec = cg.record_for_coverage(res, fields, fallback_used=False, generated_at="t", published=fields)
@@ -858,5 +857,5 @@ def test_adapter_redacts_provider_error_text_before_it_is_persisted():
 # ======================================================================================================================
 def test_portal_test_has_no_private_evidence_path_literal():
     p = os.path.join(HERE, "..", "lcars-portal", "src", "lib", "__tests__", "intelligenceProducts.test.ts")
-    src = open(p, encoding="utf-8").read()
+    src = open(p, encoding="utf-8").read()  # noqa: SIM115 - file closed explicitly by the test
     assert "private-security" not in src and "INTELLIGENCE_PRODUCTS_FIXTURE" in src and "SKIPPED" in src

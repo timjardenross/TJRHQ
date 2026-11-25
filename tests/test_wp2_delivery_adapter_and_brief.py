@@ -8,7 +8,7 @@ import pytest
 import intelligence.captains_brief as cb
 from intelligence import delivery_adapter as da
 from intelligence import delivery_record as dr
-from intelligence.delivery_record import DeliveryOutcome as O, InMemoryAttemptStore
+from intelligence.delivery_record import InMemoryAttemptStore
 
 
 @pytest.fixture(autouse=True)
