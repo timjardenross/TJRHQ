@@ -533,6 +533,19 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Credential expiry monitor (2026-11-25) ────────────────────────────────
+    # Daily 10:15, clear of the 06:55-07:10 / 12:25-12:40 / 17:55-18:10 brief windows. Warns at
+    # 30/14/7/1 days and on expiry via notification_service; registry is non-secret metadata
+    # (core/platform/credential_expiry.py).
+    scheduler.add_job(
+        _credential_expiry_job,
+        CronTrigger(hour=10, minute=15, timezone=tz),
+        id="credential_expiry_monitor",
+        replace_existing=True,
+        misfire_grace_time=3600,
+        coalesce=True,
+    )
+
     # ── Brief QA Pre-screen (automated review) ────────────────────────────────
     # Runs daily at 02:00 AEST (before morning brief at 07:00). Scores every
     # brief in IN_REVIEW and automatically advances passing briefs to QA_PASSED.
@@ -1813,6 +1826,16 @@ def _attention_drill_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Attention drill job failed: %s", exc)
         _record_heartbeat("attention_engine_drill", "failed", error_message=str(exc))
+
+
+def _credential_expiry_job() -> None:
+    """Daily credential expiry check (30/14/7/1-day warnings). Never raises into the scheduler."""
+    try:
+        from core.platform.credential_expiry import run_check
+
+        run_check()
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary - a job must never crash the shared APScheduler process
+        log.error("credential expiry job failed: %s", exc)
 
 
 def _validation_suite_job() -> None:
