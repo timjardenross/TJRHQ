@@ -3,6 +3,9 @@
 Flags (all default OFF):
   INTEL_PRODUCTS_ENABLED=1            register and run the generation job (read-only SELECTs, one upsert per product)
   INTEL_PRODUCTS_WEEKLY_TELEGRAM=1    also send the weekly summary over the existing Telegram notification path
+  INTEL_PRODUCTS_DAILY=0              (default ON once the job is enabled) switch off the daily refresh; the refresh only
+                                      regenerates and upserts the stored products so the portal/workbench is never a week
+                                      stale. It sends nothing.
 
 Persistence: table `intelligence_products` (DRAFT migration docs/migration-drafts/0261_intelligence_products.DRAFT.sql,
 NOT applied). Until it is applied the upsert fails and the job logs the error; nothing else is affected.
@@ -33,8 +36,8 @@ LOOKBACK_DAYS = 90
 PAGE = 1000
 
 
-def enabled(var="INTEL_PRODUCTS_ENABLED"):
-    return os.environ.get(var, "0").strip().lower() in ("1", "true", "yes", "on")
+def enabled(var="INTEL_PRODUCTS_ENABLED", default="0"):
+    return os.environ.get(var, default).strip().lower() in ("1", "true", "yes", "on")
 
 
 def _cfg():
@@ -189,6 +192,14 @@ def job_weekly():
         log.error("[intel_products] job failed: %s", exc)
 
 
+def job_daily():
+    """Daily refresh of the stored products (no delivery): regenerate and upsert only."""
+    try:
+        run(datetime.now(timezone.utc))
+    except Exception as exc:  # noqa: BLE001 - scheduled job must never take the scheduler down; logged
+        log.error("[intel_products] daily refresh failed: %s", exc)
+
+
 def register_jobs(scheduler, tz):
     """Registers the weekly job only when INTEL_PRODUCTS_ENABLED is on (default OFF)."""
     if not enabled():
@@ -204,3 +215,16 @@ def register_jobs(scheduler, tz):
         replace_existing=True,
     )
     log.info("Intel products weekly job registered (Mon 07:20)")
+    if enabled("INTEL_PRODUCTS_DAILY", default="1"):
+        # 10:30: after the 06:00 collection and clear of the 06:55-07:10 / 12:25-12:40 brief windows. Same table, same
+        # upsert key (product_key, generated_for), so a re-run on the same day replaces rather than duplicates.
+        scheduler.add_job(
+            job_daily,
+            CronTrigger(hour=10, minute=30, timezone=tz),
+            id="intel_products_daily",
+            name="Intelligence products (daily refresh)",
+            replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
+        )
+        log.info("Intel products daily refresh registered (10:30)")

@@ -177,7 +177,34 @@ class TestJob(unittest.TestCase):
         sched = mock.Mock()
         with mock.patch.dict("os.environ", {"INTEL_PRODUCTS_ENABLED": "1"}):
             job.register_jobs(sched, None)
-        self.assertEqual(sched.add_job.call_args.kwargs["id"], "intel_products_weekly")
+        ids = [c.kwargs["id"] for c in sched.add_job.call_args_list]
+        self.assertEqual(ids, ["intel_products_weekly", "intel_products_daily"])
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("apscheduler"), "apscheduler not installed"
+    )
+    def test_daily_refresh_can_be_switched_off(self):
+        sched = mock.Mock()
+        with mock.patch.dict(
+            "os.environ", {"INTEL_PRODUCTS_ENABLED": "1", "INTEL_PRODUCTS_DAILY": "0"}
+        ):
+            job.register_jobs(sched, None)
+        ids = [c.kwargs["id"] for c in sched.add_job.call_args_list]
+        self.assertEqual(ids, ["intel_products_weekly"])
+
+    def test_daily_refresh_persists_but_never_sends(self):
+        called = {"run": 0, "send": 0}
+        with mock.patch.object(
+            job, "run", side_effect=lambda *a, **k: called.__setitem__("run", called["run"] + 1) or []
+        ), mock.patch.object(
+            job, "send_weekly", side_effect=lambda *a, **k: called.__setitem__("send", 1)
+        ):
+            job.job_daily()
+        self.assertEqual(called, {"run": 1, "send": 0})
+
+    def test_daily_refresh_failure_is_contained(self):
+        with mock.patch.object(job, "run", side_effect=RuntimeError("db down")):
+            job.job_daily()  # must not raise into the scheduler
 
     def test_utc_aware(self):
         self.assertEqual(AS_OF.tzinfo, timezone.utc)
