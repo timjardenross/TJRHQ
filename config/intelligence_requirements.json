@@ -1,0 +1,1251 @@
+{
+  "_doc": "Candidate Priority Intelligence Requirements (PIRs), refined framework CD-2a, held in config for SHADOW tagging only (flag PIR_TAGGING_SHADOW_V1, default off). Priority A = national/systemic resilience; Priority B = professional/sector (regulated industries); X = cross-cutting product trust. No PIR depends on any organisation's own technology estate: relevance is judged on national, systemic and sector grounds, and international developments qualify on leading-indicator or transferable-lesson grounds without demonstrated Australian impact. Matching is lexical and deterministic (word-boundary, case-insensitive) over item title/summary plus structured classifier fields; it never changes selection, ranking or delivery. Fields: terms = any one is sufficient; event_types = sufficient on their own; context = list of [group_a, group_b] where one term from EACH group is needed. Match strength: a term or context hit is STRONG; an event_type-only match is WEAK (a stored type can be wrong), and an item whose only matches are weak and that is high severity stays in the unmatched high-severity lane.",
+  "version": 1,
+  "status": "approved_shadow_tagging_baseline",
+  "approval": {
+    "scope": "shadow_tagging_baseline_only",
+    "approved_by": "Captain",
+    "approved_at": "2026-11-25",
+    "gate": "G0",
+    "framework": "refined I04 PIR framework (CD-2a)",
+    "activated_for_selection": false,
+    "further_confirmation_required_for": "any use beyond shadow tagging: selection, ranking, delivery, alerting or scoring",
+    "further_confirmation_obtained": false
+  },
+  "high_severity": {
+    "risk_ratings": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "customer_impact": [
+      "high",
+      "critical"
+    ],
+    "dispositions": [
+      "BRIEF",
+      "ESCALATE"
+    ],
+    "min_operational_relevance": 0.7,
+    "materiality": [
+      "high"
+    ]
+  },
+  "emerging_terms": [
+    "zero-day",
+    "zero day",
+    "actively exploited",
+    "exploited in the wild",
+    "first-of-its-kind",
+    "novel attack",
+    "early warning",
+    "emerging threat",
+    "newly discovered",
+    "previously unknown",
+    "proof-of-concept exploit",
+    "supply chain compromise",
+    "supply-chain compromise",
+    "unprecedented",
+    "known exploited"
+  ],
+  "pirs": [
+    {
+      "id": "A1",
+      "priority": "A",
+      "question": "Is Australia's capacity to absorb, respond to and recover from disruption changing (preparedness, policy, post-incident reviews)?",
+      "audience": "Captain",
+      "decision_purpose": "Judge national resilience trajectory and where lessons should be applied",
+      "indicators": [
+        "post-incident review published",
+        "preparedness exercise results",
+        "resilience policy change",
+        "recovery time trends"
+      ],
+      "serving_sources": [
+        "regulators",
+        "government agencies",
+        "post-incident reviews"
+      ],
+      "gaps": [
+        "no dedicated preparedness source"
+      ],
+      "terms": [
+        "post-incident review",
+        "post incident review",
+        "after-action review",
+        "national resilience",
+        "crisis management",
+        "resilience exercise",
+        "recovery capability",
+        "emergency preparedness",
+        "national preparedness",
+        "inquiry into the outage",
+        "senate inquiry",
+        "royal commission"
+      ],
+      "event_types": [],
+      "context": [],
+      "service": {
+        "roles": [],
+        "supporting": [],
+        "min_healthy": 0,
+        "critical": [],
+        "declared_gap": "no dedicated preparedness or post-incident-review source is registered"
+      }
+    },
+    {
+      "id": "A2",
+      "priority": "A",
+      "question": "Is any essential service (energy, telecom, water, health, transport, finance, government identity/tax) disrupted, degraded or at risk of prolonged outage?",
+      "audience": "Captain",
+      "decision_purpose": "Invoke or stand down continuity actions; inform stakeholders",
+      "indicators": [
+        "stated outage",
+        "AU geography",
+        "operator-confirmed restoration state",
+        "duration"
+      ],
+      "serving_sources": [
+        "operator status pages",
+        "AEMO",
+        "ATO",
+        "regulators",
+        "media"
+      ],
+      "gaps": [
+        "health and water are media-only"
+      ],
+      "terms": [
+        "power outage",
+        "blackout",
+        "load shedding",
+        "grid emergency",
+        "water supply",
+        "boil water",
+        "hospital systems",
+        "hospital outage",
+        "health system outage",
+        "mygov outage",
+        "ato outage",
+        "online services unavailable",
+        "services disrupted",
+        "widespread outage",
+        "nationwide outage",
+        "without power",
+        "lost power",
+        "power cut",
+        "power loss"
+      ],
+      "event_types": [
+        "telecom_outage",
+        "energy_disruption",
+        "payments_disruption",
+        "transport_disruption"
+      ],
+      "context": [
+        [
+          [
+            "outage",
+            "outages",
+            "disruption",
+            "disrupted",
+            "down",
+            "offline",
+            "unavailable",
+            "degraded",
+            "failure"
+          ],
+          [
+            "optus",
+            "telstra",
+            "vodafone",
+            "tpg",
+            "nbn",
+            "aemo",
+            "ato",
+            "mygov",
+            "medicare",
+            "centrelink",
+            "airservices",
+            "hospital",
+            "water utility",
+            "sydney water",
+            "power",
+            "electricity",
+            "gas supply",
+            "airline",
+            "airport",
+            "rail",
+            "banking",
+            "bank",
+            "payments",
+            "eftpos"
+          ]
+        ],
+        [
+          [
+            "outage",
+            "outages",
+            "fail",
+            "failed",
+            "failure",
+            "down",
+            "disrupted",
+            "disruption",
+            "unable to connect",
+            "not working"
+          ],
+          [
+            "triple zero",
+            "000 calls",
+            "emergency calls",
+            "emergency call"
+          ]
+        ]
+      ],
+      "sectors": [],
+      "service": {
+        "roles": [
+          {
+            "role": "telecom outage or status",
+            "any_of": [
+              "Optus National Outage Register",
+              "TPG Telecom Service Status",
+              "NBN Network Status"
+            ]
+          },
+          {
+            "role": "energy market notices",
+            "any_of": [
+              "AEMO Market Notices"
+            ]
+          }
+        ],
+        "supporting": [
+          "Google News - Telstra"
+        ],
+        "min_healthy": 2,
+        "critical": [
+          "AEMO Market Notices"
+        ],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "A3",
+      "priority": "A",
+      "question": "Where do shared dependencies and provider/geographic concentration create systemic exposure, including fourth parties?",
+      "audience": "Captain",
+      "decision_purpose": "Identify concentration and common-mode failure exposure across sectors",
+      "indicators": [
+        "provider incident spanning sectors",
+        "single provider outage affecting many services",
+        "fourth-party dependency disclosed"
+      ],
+      "serving_sources": [
+        "status feeds",
+        "media",
+        "regulators"
+      ],
+      "gaps": [
+        "fourth-party data is inferred"
+      ],
+      "terms": [
+        "single point of failure",
+        "concentration risk",
+        "common mode failure",
+        "common-mode failure",
+        "fourth party",
+        "fourth-party",
+        "shared dependency",
+        "cascading failure",
+        "cascading outage",
+        "multiple services affected",
+        "many services affected",
+        "widespread disruption"
+      ],
+      "event_types": [],
+      "context": [
+        [
+          [
+            "outage",
+            "outages",
+            "disruption",
+            "incident",
+            "degraded",
+            "down",
+            "failure"
+          ],
+          [
+            "microsoft 365",
+            "microsoft365",
+            "office 365",
+            "azure",
+            "entra",
+            "aws",
+            "amazon web services",
+            "google cloud",
+            "cloudflare",
+            "akamai",
+            "fastly",
+            "okta",
+            "crowdstrike",
+            "salesforce",
+            "oracle cloud",
+            "cloud provider",
+            "cdn",
+            "dns provider",
+            "identity provider",
+            "m365",
+            "microsoft",
+            "google",
+            "amazon",
+            "cisco"
+          ]
+        ]
+      ],
+      "sectors": [],
+      "service": {
+        "roles": [
+          {
+            "role": "cloud provider status",
+            "any_of": [
+              "Cloudflare Status",
+              "Microsoft Azure Status",
+              "AWS Service Health",
+              "AWS Sydney (ap-southeast-2)",
+              "Google Cloud Status"
+            ]
+          }
+        ],
+        "supporting": [
+          "Cloudflare Status (Uptime Kuma direct probe)",
+          "AWS Status (Uptime Kuma direct probe)"
+        ],
+        "min_healthy": 2,
+        "critical": [],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "A4",
+      "priority": "A",
+      "question": "Are disruptions concurrent, cascading or prolonged, and what national economic/societal consequences follow?",
+      "audience": "Captain",
+      "decision_purpose": "Escalate to crisis posture when disruptions overlap or persist",
+      "indicators": [
+        "overlapping incidents across sectors within 24-72h",
+        "restoration repeatedly deferred",
+        "economic impact estimates"
+      ],
+      "serving_sources": [
+        "incident clustering",
+        "hazard hub",
+        "status feeds",
+        "media"
+      ],
+      "gaps": [
+        "no concurrency detector wired"
+      ],
+      "terms": [
+        "prolonged outage",
+        "days-long outage",
+        "second outage",
+        "repeat outage",
+        "multiple outages",
+        "concurrent outages",
+        "knock-on effects",
+        "economic impact of the outage",
+        "restoration delayed",
+        "still not restored",
+        "remains offline",
+        "ongoing disruption"
+      ],
+      "event_types": [],
+      "context": [],
+      "service": {
+        "roles": [],
+        "supporting": [],
+        "min_healthy": 0,
+        "critical": [],
+        "declared_gap": "derived from incident clustering over other sources; no serving source of its own"
+      }
+    },
+    {
+      "id": "A5",
+      "priority": "A",
+      "question": "What government policy, legislation or regulatory developments change national resilience obligations or expectations?",
+      "audience": "Captain, Compliance",
+      "decision_purpose": "Anticipate obligation changes and prepare submissions",
+      "indicators": [
+        "bill introduced",
+        "consultation open/close",
+        "commencement date",
+        "final rules"
+      ],
+      "serving_sources": [
+        "Treasury",
+        "Home Affairs",
+        "regulators"
+      ],
+      "gaps": [
+        "commencement-date source"
+      ],
+      "terms": [
+        "critical infrastructure bill",
+        "security of critical infrastructure",
+        "soci act",
+        "soci amendment",
+        "cyber security act",
+        "cyber security strategy",
+        "consultation paper",
+        "exposure draft",
+        "legislation introduced",
+        "mandatory reporting",
+        "ransomware reporting",
+        "ransom payment reporting",
+        "telecommunications sector security",
+        "essential eight",
+        "digital identity",
+        "privacy act reform",
+        "regulation commences",
+        "commencement date"
+      ],
+      "event_types": [],
+      "context": [
+        [
+          [
+            "consultation",
+            "legislation",
+            "bill",
+            "reform",
+            "regulation",
+            "rules",
+            "standard"
+          ],
+          [
+            "resilience",
+            "critical infrastructure",
+            "cyber",
+            "outage",
+            "telecommunications",
+            "essential service",
+            "operational risk"
+          ]
+        ]
+      ],
+      "sectors": [],
+      "service": {
+        "roles": [
+          {
+            "role": "policy and legislation",
+            "any_of": [
+              "Australian Treasury Consultations"
+            ]
+          }
+        ],
+        "supporting": [],
+        "min_healthy": 1,
+        "critical": [],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "A6",
+      "priority": "A",
+      "question": "Which geopolitical, supply-chain or international-dependency developments affect Australian exposure or signal future risk (not limited to demonstrated Australian impact)?",
+      "audience": "Captain",
+      "decision_purpose": "Strategic risk review; early warning of dependency shocks",
+      "indicators": [
+        "trade route or chokepoint disruption",
+        "sanctions or export controls on critical inputs",
+        "subsea cable damage",
+        "state-linked activity against infrastructure"
+      ],
+      "serving_sources": [
+        "BBC",
+        "FT",
+        "Bloomberg",
+        "ABC"
+      ],
+      "gaps": [
+        "no specialist source; NZ/APAC absent"
+      ],
+      "terms": [
+        "subsea cable",
+        "undersea cable",
+        "submarine cable",
+        "export controls",
+        "sanctions",
+        "strait of hormuz",
+        "red sea shipping",
+        "taiwan strait",
+        "south china sea",
+        "port closure",
+        "shipping disruption",
+        "semiconductor shortage",
+        "fuel supply",
+        "critical minerals",
+        "volt typhoon",
+        "state-sponsored",
+        "state sponsored",
+        "nation-state",
+        "nation state",
+        "critical mineral",
+        "critical minerals supply"
+      ],
+      "event_types": [],
+      "context": [
+        [
+          [
+            "blockade",
+            "embargo",
+            "conflict",
+            "attack",
+            "sabotage",
+            "shortage",
+            "disruption"
+          ],
+          [
+            "pacific",
+            "asia",
+            "apac",
+            "new zealand",
+            "indonesia",
+            "singapore",
+            "japan",
+            "global",
+            "international",
+            "shipping",
+            "supply chain"
+          ]
+        ]
+      ],
+      "sectors": [],
+      "service": {
+        "roles": [],
+        "supporting": [
+          "BBC News",
+          "Bloomberg",
+          "Financial Times",
+          "ABC News",
+          "ABC News Business",
+          "Guardian Australia"
+        ],
+        "min_healthy": 2,
+        "critical": [],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "A7",
+      "priority": "A",
+      "question": "Which emerging threats, vulnerabilities, structural weaknesses or international incidents are leading indicators of future Australian risk?",
+      "audience": "Captain",
+      "decision_purpose": "Early warning; decide where to watch and prepare",
+      "indicators": [
+        "exploitation of a widely deployed product",
+        "overseas infrastructure incident with transferable cause",
+        "new attack technique against critical services",
+        "regulator warning abroad"
+      ],
+      "serving_sources": [
+        "CISA",
+        "NCSC",
+        "KEV",
+        "vendor advisories",
+        "international media"
+      ],
+      "gaps": [
+        "selection of international items by relevance not volume"
+      ],
+      "terms": [
+        "zero-day",
+        "zero day",
+        "actively exploited",
+        "exploited in the wild",
+        "known exploited vulnerabilities",
+        "critical vulnerability",
+        "ransomware attack on",
+        "attack on critical infrastructure",
+        "infrastructure attack",
+        "power grid attack",
+        "water utility attack",
+        "cyber attack on hospital",
+        "wiper malware",
+        "supply chain compromise",
+        "supply-chain compromise",
+        "cascading outage overseas",
+        "root cause",
+        "post-mortem",
+        "postmortem",
+        "post-incident report",
+        "known exploited"
+      ],
+      "event_types": [],
+      "context": [
+        [
+          [
+            "outage",
+            "attack",
+            "breach",
+            "failure",
+            "compromise"
+          ],
+          [
+            "united states",
+            "u.s.",
+            "europe",
+            "uk",
+            "new zealand",
+            "asia",
+            "overseas",
+            "international",
+            "global",
+            "worldwide",
+            "nsa",
+            "white house",
+            "federal",
+            "american",
+            "america",
+            "us government",
+            "us ports",
+            "us tech"
+          ]
+        ]
+      ],
+      "sectors": [],
+      "service": {
+        "roles": [
+          {
+            "role": "international cyber authority",
+            "any_of": [
+              "CISA Alerts",
+              "CISA Known Exploited Vulnerabilities",
+              "NCSC UK Advisories",
+              "NCSC UK Threat Reports"
+            ]
+          }
+        ],
+        "supporting": [
+          "BBC News",
+          "Bloomberg",
+          "Financial Times",
+          "BIS Press Releases",
+          "FSB Press Releases"
+        ],
+        "min_healthy": 3,
+        "critical": [],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "A8",
+      "priority": "A",
+      "question": "Which physical and environmental hazards threaten infrastructure and essential services?",
+      "audience": "Captain",
+      "decision_purpose": "Site and service continuity within 72 hours",
+      "indicators": [
+        "warnings by state and severity",
+        "infrastructure damage",
+        "evacuation orders"
+      ],
+      "serving_sources": [
+        "emergency hub (BoM and state agencies)"
+      ],
+      "gaps": [
+        "severity often unknown"
+      ],
+      "terms": [
+        "bushfire",
+        "flood warning",
+        "severe storm",
+        "cyclone",
+        "heatwave",
+        "evacuation order",
+        "emergency warning",
+        "tsunami",
+        "landslide",
+        "storm damage",
+        "extreme heat",
+        "catastrophic fire",
+        "severe thunderstorm",
+        "weather warning",
+        "fire danger",
+        "flood watch",
+        "grass fire",
+        "bushfires",
+        "floods",
+        "cyclones",
+        "storms"
+      ],
+      "event_types": [],
+      "context": [],
+      "service": {
+        "roles": [
+          {
+            "role": "emergency alert hub",
+            "any_of": [
+              "Emergency Alert Hub"
+            ]
+          }
+        ],
+        "supporting": [
+          "VicEmergency"
+        ],
+        "min_healthy": 1,
+        "critical": [
+          "Emergency Alert Hub"
+        ],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "B1",
+      "priority": "B",
+      "question": "What is the resilience state of banking, payments and market infrastructure?",
+      "audience": "Captain, CRO",
+      "decision_purpose": "Judge sector continuity and peer incident exposure",
+      "indicators": [
+        "bank or payments outage",
+        "settlement or clearing disruption",
+        "market infrastructure incident",
+        "regulator statement on resilience"
+      ],
+      "serving_sources": [
+        "APRA",
+        "RBA",
+        "ASIC",
+        "AusPayNet",
+        "media"
+      ],
+      "gaps": [
+        "AusPayNet extractor invalid; bank status rows inactive"
+      ],
+      "terms": [
+        "payment system",
+        "payments outage",
+        "eftpos outage",
+        "card payments",
+        "real-time payments",
+        "new payments platform",
+        "npp outage",
+        "settlement failure",
+        "clearing house",
+        "asx outage",
+        "chess replacement",
+        "atm outage",
+        "internet banking outage",
+        "banking outage",
+        "bank outage",
+        "swift outage",
+        "payments disruption"
+      ],
+      "event_types": [
+        "payments_disruption"
+      ],
+      "context": [
+        [
+          [
+            "outage",
+            "disruption",
+            "down",
+            "failure",
+            "incident"
+          ],
+          [
+            "commonwealth bank",
+            "westpac",
+            "anz",
+            "nab",
+            "macquarie",
+            "bendigo",
+            "suncorp",
+            "bank",
+            "payments",
+            "visa",
+            "mastercard",
+            "tyro",
+            "square"
+          ]
+        ]
+      ],
+      "sectors": [],
+      "service": {
+        "roles": [
+          {
+            "role": "prudential or central-bank regulator",
+            "any_of": [
+              "APRA Media Releases",
+              "APRA Publications",
+              "APRA — Speeches and Publications",
+              "APRA (changedetection.io watchlist)",
+              "RBA Media Releases"
+            ]
+          }
+        ],
+        "supporting": [
+          "AusPayNet Insights",
+          "ASIC News Centre"
+        ],
+        "min_healthy": 2,
+        "critical": [],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "B2",
+      "priority": "B",
+      "question": "What is the resilience state of telecommunications and digital infrastructure?",
+      "audience": "Captain, CRO",
+      "decision_purpose": "Judge telecom continuity and emergency-call integrity",
+      "indicators": [
+        "carrier outage",
+        "emergency call failure",
+        "NBN or mobile network disruption",
+        "regulator action"
+      ],
+      "serving_sources": [
+        "Optus register",
+        "TPG status",
+        "ACMA (pending)",
+        "media"
+      ],
+      "gaps": [
+        "no official Telstra or Vodafone feed"
+      ],
+      "terms": [
+        "optus",
+        "telstra",
+        "vodafone",
+        "tpg telecom",
+        "nbn co",
+        "mobile network outage",
+        "network outage",
+        "acma",
+        "telecommunications outage",
+        "internet outage",
+        "broadband outage",
+        "data centre outage",
+        "data center outage"
+      ],
+      "event_types": [
+        "telecom_outage"
+      ],
+      "context": [
+        [
+          [
+            "outage",
+            "outages",
+            "fail",
+            "failed",
+            "failure",
+            "down",
+            "disrupted",
+            "disruption",
+            "unable to connect",
+            "not working"
+          ],
+          [
+            "triple zero",
+            "000 calls",
+            "emergency calls",
+            "emergency call"
+          ]
+        ]
+      ],
+      "service": {
+        "roles": [
+          {
+            "role": "telecom operator register or status",
+            "any_of": [
+              "Optus National Outage Register",
+              "TPG Telecom Service Status",
+              "NBN Network Status"
+            ]
+          }
+        ],
+        "supporting": [
+          "Google News - Telstra"
+        ],
+        "min_healthy": 1,
+        "critical": [],
+        "declared_gap": "no official Telstra or Vodafone feed; ACMA row absent"
+      }
+    },
+    {
+      "id": "B3",
+      "priority": "B",
+      "question": "What regulatory obligations, supervisory expectations and enforcement lessons apply to regulated industries (CPS 230/234, SOCI, sector regimes)?",
+      "audience": "Captain, Compliance",
+      "decision_purpose": "Prepare uplift plans; learn from enforcement outcomes",
+      "indicators": [
+        "APRA or ASIC enforcement action",
+        "penalty or capital add-on",
+        "final prudential standard",
+        "supervisory letter"
+      ],
+      "serving_sources": [
+        "APRA",
+        "ASIC",
+        "RBA",
+        "OAIC",
+        "CFR"
+      ],
+      "gaps": [
+        "ACMA and AFSA"
+      ],
+      "terms": [
+        "cps 230",
+        "cps230",
+        "cps 234",
+        "cps234",
+        "operational risk management",
+        "prudential standard",
+        "prudential practice guide",
+        "apra",
+        "asic",
+        "oaic",
+        "enforceable undertaking",
+        "capital add-on",
+        "civil penalty",
+        "penalty imposed",
+        "infringement notice",
+        "supervisory",
+        "operational resilience",
+        "material service provider",
+        "business continuity",
+        "regulator",
+        "enforcement action",
+        "infringement"
+      ],
+      "event_types": [],
+      "context": [],
+      "service": {
+        "roles": [
+          {
+            "role": "privacy regulator",
+            "any_of": [
+              "OAIC Breach Notifications",
+              "OAIC Privacy Determinations & News"
+            ]
+          },
+          {
+            "role": "financial conduct regulator",
+            "any_of": [
+              "APRA Media Releases",
+              "APRA Publications",
+              "APRA — Speeches and Publications",
+              "APRA (changedetection.io watchlist)",
+              "ASIC News Centre",
+              "ASIC Enforcement Activity",
+              "RBA Media Releases"
+            ]
+          }
+        ],
+        "supporting": [],
+        "min_healthy": 2,
+        "critical": [],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "B4",
+      "priority": "B",
+      "question": "Which technology changes, exploited vulnerabilities and cyber incidents at regulated or critical entities matter to the sector?",
+      "audience": "Captain, CISO",
+      "decision_purpose": "Peer-event learning; mitigation windows for sector-relevant flaws",
+      "indicators": [
+        "KEV addition",
+        "breach notification by a regulated entity",
+        "ACSC alert",
+        "ransomware at a critical entity"
+      ],
+      "serving_sources": [
+        "KEV",
+        "NVD",
+        "ACSC",
+        "OAIC",
+        "vendor advisories",
+        "iTnews"
+      ],
+      "gaps": [
+        "victim confirmation"
+      ],
+      "terms": [
+        "data breach",
+        "cyber incident",
+        "cyber attack",
+        "cyberattack",
+        "ransomware",
+        "known exploited",
+        "kev catalog",
+        "acsc",
+        "notifiable data breach",
+        "unauthorised access",
+        "unauthorized access",
+        "credential theft",
+        "denial of service",
+        "ddos",
+        "actively exploited",
+        "zero-day",
+        "zero day",
+        "critical vulnerability",
+        "cve",
+        "vulnerability",
+        "vulnerabilities",
+        "security advisory",
+        "security bulletin",
+        "cisa",
+        "phishing",
+        "phishers"
+      ],
+      "event_types": [],
+      "context": [],
+      "service": {
+        "roles": [
+          {
+            "role": "cyber authority",
+            "any_of": [
+              "ACSC Advisories",
+              "ACSC Alerts & Advisories",
+              "CISA Known Exploited Vulnerabilities",
+              "NCSC UK Advisories"
+            ]
+          }
+        ],
+        "supporting": [
+          "NVD / NIST CVE Database",
+          "iTnews",
+          "OAIC Breach Notifications",
+          "ASD Publications"
+        ],
+        "min_healthy": 3,
+        "critical": [],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "B5",
+      "priority": "B",
+      "question": "What third/fourth-party and cloud/SaaS/network/software concentration exists across the sector?",
+      "audience": "Captain, CTO",
+      "decision_purpose": "Third-party risk review at sector level",
+      "indicators": [
+        "provider incident with sector-wide effect",
+        "repeat incidents at one provider",
+        "outsourcing concentration commentary"
+      ],
+      "serving_sources": [
+        "status feeds",
+        "regulators",
+        "media"
+      ],
+      "gaps": [
+        "data centres and cables"
+      ],
+      "terms": [
+        "third party",
+        "third-party",
+        "outsourcing",
+        "service provider outage",
+        "cloud outage",
+        "saas outage",
+        "cloud concentration",
+        "cloud provider",
+        "microsoft 365",
+        "azure outage",
+        "aws outage",
+        "cloudflare outage",
+        "akamai outage",
+        "google cloud outage",
+        "software update caused",
+        "faulty update"
+      ],
+      "event_types": [],
+      "context": [
+        [
+          [
+            "outage",
+            "outages",
+            "degraded",
+            "disruption",
+            "disrupted",
+            "errors",
+            "incident",
+            "down",
+            "connector",
+            "failure"
+          ],
+          [
+            "microsoft 365",
+            "microsoft365",
+            "office 365",
+            "outlook",
+            "azure",
+            "entra",
+            "aws",
+            "amazon web services",
+            "google cloud",
+            "cloudflare",
+            "akamai",
+            "fastly",
+            "okta",
+            "crowdstrike",
+            "salesforce",
+            "oracle cloud",
+            "cloud provider",
+            "third party provider",
+            "upstream provider",
+            "m365",
+            "microsoft",
+            "google",
+            "amazon",
+            "cisco"
+          ]
+        ]
+      ],
+      "service": {
+        "roles": [
+          {
+            "role": "cloud provider status",
+            "any_of": [
+              "Cloudflare Status",
+              "Microsoft Azure Status",
+              "AWS Service Health",
+              "AWS Sydney (ap-southeast-2)",
+              "Google Cloud Status"
+            ]
+          }
+        ],
+        "supporting": [
+          "Cloudflare Status (Uptime Kuma direct probe)"
+        ],
+        "min_healthy": 2,
+        "critical": [],
+        "declared_gap": null
+      }
+    },
+    {
+      "id": "B6",
+      "priority": "B",
+      "question": "What preparedness, response and recovery practice and lessons from material incidents should organisations adopt?",
+      "audience": "Captain, COO",
+      "decision_purpose": "Adopt transferable practice from material incidents",
+      "indicators": [
+        "published root-cause analysis",
+        "regulator review findings",
+        "recovery practice guidance"
+      ],
+      "serving_sources": [
+        "vendor post-mortems",
+        "regulators",
+        "research institutions"
+      ],
+      "gaps": [
+        "selection by relevance"
+      ],
+      "terms": [
+        "root cause analysis",
+        "root-cause analysis",
+        "lessons learned",
+        "lessons from",
+        "post-mortem",
+        "postmortem",
+        "incident report",
+        "review found",
+        "independent review",
+        "recovery plan",
+        "incident response",
+        "business continuity plan",
+        "disaster recovery"
+      ],
+      "event_types": [],
+      "context": [],
+      "service": {
+        "roles": [],
+        "supporting": [
+          "NCSC UK Threat Reports",
+          "BIS FSI Publications",
+          "BIS Press Releases"
+        ],
+        "min_healthy": 1,
+        "critical": [],
+        "declared_gap": "vendor post-mortems are not a registered source class"
+      }
+    },
+    {
+      "id": "X1",
+      "priority": "X",
+      "question": "Can the Captain trust this product: what is silent, stale, single-sourced or unmeasured?",
+      "audience": "Captain",
+      "decision_purpose": "Decide where collection and assessment need attention",
+      "indicators": [
+        "silent sources",
+        "invalid-content sources",
+        "staleness",
+        "single-source claims"
+      ],
+      "serving_sources": [
+        "source health table",
+        "registry",
+        "brief evidence labels"
+      ],
+      "gaps": [
+        "no coverage KPI"
+      ],
+      "terms": [
+        "source health",
+        "feed unavailable",
+        "collection failure",
+        "stale source",
+        "single source",
+        "single-source",
+        "unverified report",
+        "coverage gap"
+      ],
+      "event_types": [],
+      "context": [],
+      "service": {
+        "roles": [],
+        "supporting": [],
+        "min_healthy": 0,
+        "critical": [],
+        "declared_gap": "the source health table is itself the evidence; no separate serving source"
+      }
+    }
+  ],
+  "blind_replay_baseline": {
+    "status": "independent reviewer blind replay, 25 Nov 2026 (development evidence, not an independent holdout: reviewer had read the config)",
+    "material_items": 13,
+    "not_material_items": 15,
+    "title_summary_only": {
+      "hit": 4,
+      "of": 13,
+      "recall": 0.31,
+      "false_matches": "0/15"
+    },
+    "with_classifier_fields": {
+      "hit": 6,
+      "of": 13,
+      "recall": 0.46,
+      "false_matches": "0/15 (1 marginal item false-tagged)"
+    },
+    "note": "This (31% to 46%, small sample, Wilson 13-58% and 23-71%) is the realistic recall baseline for the PIR framework. The earlier 88% (45/51) figure was measured on the author's own tuned development labels and is NOT PIR recall."
+  },
+  "service_policy": {
+    "_doc": "Criticality is derived ONLY from what a PIR needs in order to be assessed (intelligence service). It never reflects whether any organisation uses a technology or vendor. Owner of this block: Product Development Board (intelligence criticality, PIR-to-source relationships, coverage sufficiency, analytical consequence of missing evidence). Production Operations owns technical source-health monitoring and alerting; this block consumes their health signal and does not replace it. Each PIR service lists: roles (every role needs at least one healthy source from any_of, else the authoritative evidence for that PIR is unavailable), supporting sources, min_healthy (healthy sources across roles and supporting needed for the PIR to be considered served), critical (sources whose individual loss is analytically consequential), declared_gap (a standing, known absence of any serving source: reported, never a posture trigger).",
+    "posture_priorities": [
+      "A"
+    ],
+    "external_domains": {
+      "Emergency Alert Hub": "emergency",
+      "Health OSINT": "health"
+    },
+    "healthy_statuses": [
+      "ok",
+      "degraded"
+    ],
+    "owner": "PDB",
+    "evidence_source": "WP5 source-evaluation matrix (reports/wp5-source-evaluation.md) and the registry categories; names are registry source_name values and are checked against the registry in tests"
+  }
+}

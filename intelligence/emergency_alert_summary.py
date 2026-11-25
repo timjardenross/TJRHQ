@@ -244,6 +244,46 @@ def _generate_summary(alerts: list[dict]) -> tuple[str, str] | None:
         return None
 
 
+def _deterministic_summary(alerts: list[dict]) -> str:
+    """Count-only overview built from the alert rows with no model: totals by tier and by jurisdiction. The official wording of the urgent
+    tiers is appended verbatim by ``_verbatim_urgent_section``; nothing here describes causes, effects or outlook."""
+    from collections import Counter
+    tiers = Counter(str(a.get("severity") or "unknown") for a in alerts)
+    juris = Counter(str(a.get("jurisdiction") or "unknown") for a in alerts)
+    order = ["emergency_warning", "watch_and_act", "advice", "unknown"]
+    tier_txt = ", ".join(f"{tiers[t]} {t.replace('_', ' ')}" for t in order if tiers.get(t)) or "none"
+    jur_txt = ", ".join(f"{k} {v}" for k, v in sorted(juris.items(), key=lambda kv: (-kv[1], kv[0]))[:12]) or "none"
+    return (f"Count-only overview (generated analysis is not used for this digest). {len(alerts)} active alert(s). By tier: {tier_txt}. "
+            f"By jurisdiction: {jur_txt}. Urgent-tier alerts are listed below in the official wording.")
+
+
+def _govern_summary(summary_text: str, provider: str, alerts: list[dict]) -> tuple[str, str, bool]:
+    """BRIEF_CLAIM_GATE_V1: off = unchanged (returns governed=False). Shadow = the LLM text is checked against the alert rows and the result
+    is logged, the text is still used. Enforce = the LLM text is used only if it passes; otherwise the count-only overview replaces it."""
+    try:
+        from intelligence import claim_gate
+        mode = claim_gate.gate_mode()
+    except Exception:  # noqa: BLE001 - cannot read the flag: do not publish unchecked model text
+        mode = "enforce"
+    if mode == "off":
+        return summary_text, provider, False
+    try:
+        from intelligence import claim_gate
+        evidence = [{"id": "A0", "title": f"{len(alerts)} active alerts in total", "summary": "", "source": "Emergency Alert Hub"}]
+        for i, a in enumerate(alerts[:200], 1):
+            evidence.append({"id": f"A{i}", "title": str(a.get("headline") or ""), "summary": str(a.get("description") or "")[:600],
+                             "source": f"{a.get('jurisdiction') or ''} {a.get('source_key') or ''}".strip(), "published_at": str(a.get("issued_at") or "")})
+        res = claim_gate.validate_text(summary_text, evidence, field="executive_snapshot", mode=mode, context={"alert_count": len(alerts)})
+        passed, kinds = res.passed, sorted({f.kind for f in res.failures})
+    except Exception as exc:  # noqa: BLE001 - fail closed
+        passed, kinds = False, [f"gate_error:{type(exc).__name__}"]
+    log.info("[claim-gate-surface] %s", json.dumps({"surface": "emergency_alert_summary", "mode": mode, "passed": passed, "failure_kinds": kinds,
+                                                    "published": bool(passed or mode != "enforce")}))
+    if mode == "enforce" and not passed:
+        return _deterministic_summary(alerts), "deterministic", True
+    return summary_text, provider, True
+
+
 def _exclude_silenced(alerts: list[dict]) -> list[dict]:
     """Drops any alert currently covered by an active alert_silences rule
     (migration 0205) before this hourly digest does anything else with the
@@ -305,9 +345,12 @@ def run() -> dict:
         return {"changed": True, "count": len(alerts), "emailed": False, "error": "llm_failed"}
 
     summary_text, provider = result
+    summary_text, provider, governed = _govern_summary(summary_text, provider, alerts)
     subject = f"[DIGEST] Emergency Alert Hub - daily overview ({len(alerts)} active)"
     html = '<pre style="font-family:monospace;white-space:pre-wrap">Notice: DIGEST\nActive-Alerts: ' + str(len(alerts)) + "</pre>"
-    html += "<p>" + summary_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    # Governed (BRIEF_CLAIM_GATE_V1 shadow/enforce) text is escaped before it goes into the e-mail; with the flag off the legacy body is unchanged.
+    body_text = _esc(summary_text) if governed else summary_text
+    html += "<p>" + body_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
     html += _verbatim_urgent_section(alerts)
     html += _dropped_section()
 

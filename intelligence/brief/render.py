@@ -30,6 +30,35 @@ def clean_title(title: str | None) -> str | None:
 RISK_LABEL = {"RED": "🔴 RED", "AMBER": "🟡 AMBER", "GREEN": "🟢 GREEN", "UNKNOWN": "⚪ UNKNOWN"}
 
 
+def _display_so_what(brief: dict, event: dict):
+    """Stored so-what as before; under BRIEF_CLAIM_GATE_V1=enforce only a governed one, else the deterministic template."""
+    try:
+        from intelligence.brief.evidence_fallback import display_so_what
+        return display_so_what(brief, event)
+    except Exception:  # noqa: BLE001 - governance helper unavailable: legacy value
+        return event.get("so_what")
+
+
+def _governed_narrative(brief: dict) -> tuple:
+    """(executive read, watch list). Flag off or shadow: the stored values exactly as before. Enforce: only a narrative the row records as
+    governed in enforce mode (and that still matches the record); otherwise a disclosure that the stored analysis is withheld."""
+    legacy = (brief.get("executive_snapshot") or brief.get("bottom_line"), (brief.get("forward_watch") or [])[:5])
+    try:
+        from intelligence.brief import display_governance as dg
+        if not dg.enforcing():
+            return legacy
+        v = dg.narrative_view(brief)
+        return (v.get("executive_snapshot") or v.get("bottom_line")), (v.get("forward_watch") or [])[:5]
+    except Exception:  # noqa: BLE001 - governance helper unavailable: never show stored model text while it cannot be checked
+        try:
+            from intelligence import claim_gate
+            if claim_gate.gate_mode() != "enforce":
+                return legacy
+        except Exception:  # noqa: BLE001, S110 - best-effort display fallback; failure must not break the caller
+            pass
+        return None, []
+
+
 def build_morning_intelligence_view(brief: dict | None, max_items: int = 3) -> dict:
     """The one canonical content selection for morning intelligence
     delivery. Returns a plain dict — no markup — so every channel renders
@@ -45,7 +74,7 @@ def build_morning_intelligence_view(brief: dict | None, max_items: int = 3) -> d
 
     top = (brief.get("top_events") or [])[:max_items]
     what_matters = [
-        {"title": clean_title(e.get("title")), "so_what": e.get("so_what"), "risk_rating": e.get("risk_rating")}
+        {"title": clean_title(e.get("title")), "so_what": _display_so_what(brief, e), "risk_rating": e.get("risk_rating")}
         for e in top
     ]
 
@@ -72,18 +101,37 @@ def build_morning_intelligence_view(brief: dict | None, max_items: int = 3) -> d
         else:
             coverage_note = coverage.get("reason") or "This morning's collection cycle was degraded."
 
+    executive_read, watch = _governed_narrative(brief)
     return {
         "has_brief": True,
         "brief_id": brief.get("brief_id"),
         "generated_at": brief.get("generated_at"),
         "overall_risk": brief.get("overall_risk") or "UNKNOWN",
-        "executive_read": brief.get("executive_snapshot") or brief.get("bottom_line"),
+        "executive_read": executive_read,
         "what_matters": what_matters,
         "changed": changed,
-        "watch": (brief.get("forward_watch") or [])[:5],
+        "watch": watch,
         "coverage_note": coverage_note,
         "coverage_degraded": coverage_degraded,
     }
+
+
+def _nothing_to_report_line(view: dict) -> str:
+    """Legacy wording unless BRIEF_STATUS_V1 is on. With it on, an empty selection is never worded as reassurance
+    when coverage was degraded or no risk judgement was made: it says what is NOT known."""
+    legacy = "Nothing currently requires immediate action."
+    try:
+        from intelligence import production_status as ps
+        if not ps.enabled():
+            return legacy
+    except Exception:  # noqa: BLE001 - wording only; fall back to legacy
+        return legacy
+    if view.get("coverage_degraded"):
+        return ("No item was selected as requiring action, but collection was incomplete, "
+                "so this is not an all-clear. See the coverage note.")
+    if (view.get("overall_risk") or "UNKNOWN") == "UNKNOWN":
+        return "No risk judgement was made from the available evidence; this is not an all-clear."
+    return "No item in the available evidence was assessed as requiring immediate action."
 
 
 def render_telegram_morning_text(brief: dict | None, max_items: int = 3) -> str:
@@ -114,7 +162,7 @@ def render_telegram_morning_text(brief: dict | None, max_items: int = 3) -> str:
         lines.append("")
 
     if not view["what_matters"] and not view["changed"]:
-        lines.append("Nothing currently requires immediate action.")
+        lines.append(_nothing_to_report_line(view))
         lines.append("")
 
     if view["coverage_note"]:

@@ -7,8 +7,10 @@ that only sees a git checkout (remote agent sessions, PR review) cannot see
 what is waiting for a decision. This writes the current state of the open
 opportunities (proposed / investigating / watching) to
 data/self-improvement/review/opportunity_snapshot.json, which
-deploy/sync-self-improvement-state.sh commits like the other cycle-summary
-files.
+deploy/sync-self-improvement-state.sh publishes like the other cycle-summary
+files. Since #757 that is the state branch (origin/state/self-improvement), not
+main: remote agents and PR review read it there, e.g.
+`git show origin/state/self-improvement:data/self-improvement/review/opportunity_snapshot.json`.
 
 The file carries no generation timestamp and is only rewritten when its
 content changes, so an idle system produces no commits.

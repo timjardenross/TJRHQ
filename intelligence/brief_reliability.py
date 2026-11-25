@@ -108,6 +108,15 @@ _alerted: set[tuple[str, str]] = set()   # (brief_type, brief_date) already aler
 _delivery: dict[tuple[str, str], bool] = {}   # (brief_type, brief_date) -> last Telegram delivery outcome seen by this process
 
 
+_delivery_outcome: dict[tuple[str, str], str] = {}   # (brief_type, brief_date) -> DeliveryOutcome value, when the recorded path produced one
+_AMBIGUOUS_OUTCOMES = ("UNKNOWN", "UNCONFIRMED", "PARTIAL")
+
+
+def record_delivery_outcome(brief_type: str, brief_date: str, outcome: str, outcomes: dict | None = None) -> None:
+    """Remember the structured delivery outcome (CONFIRMED/PARTIAL/FAILED/UNKNOWN/UNCONFIRMED) for ``brief_date``. Only used to word the deadman alert."""
+    (_delivery_outcome if outcomes is None else outcomes)[(brief_type, brief_date)] = str(outcome)
+
+
 def record_delivery(brief_type: str, brief_date: str, ok: bool, delivery: dict | None = None) -> None:
     """Remember whether the brief for ``brief_date`` actually reached the Captain. ``send_brief`` persists the captains_daily_briefs row BEFORE
     it sends, so a row proves generation, not delivery: with Telegram down the row exists and the deadman used to say 'ok'.
@@ -121,7 +130,8 @@ def _skip_dates() -> set[str]:
 
 
 def check_missed_brief(sb_request: Callable[[str, str], list], notify: Callable[[str], bool], today_iso: str,
-                       brief_type: str = "morning", alerted: set | None = None, delivery: dict | None = None) -> str:
+                       brief_type: str = "morning", alerted: set | None = None, delivery: dict | None = None,
+                       outcomes: dict | None = None) -> str:
     """After the expected generation time: alert once if no captains_daily_briefs row of ``brief_type`` exists for ``today_iso``, or if the
     row exists but this process saw its Telegram delivery fail (``record_delivery``).
 
@@ -145,8 +155,15 @@ def check_missed_brief(sb_request: Callable[[str, str], list], notify: Callable[
         if ukey in alerted:
             return "already_alerted"
         alerted.add(ukey)
-        if not notify(f"🚨 BRIEF NOT DELIVERED: the {brief_type} brief for {today_iso} was generated and stored but its Telegram delivery failed. "
-                      f"Read it in the portal or check the Telegram transport."):
+        outcome = (_delivery_outcome if outcomes is None else outcomes).get(key)
+        if outcome in _AMBIGUOUS_OUTCOMES:
+            # The send was ambiguous or partly confirmed: it may well have arrived. Say unconfirmed, never "failed".
+            msg = (f"⚠️ BRIEF DELIVERY UNCONFIRMED ({outcome}): the {brief_type} brief for {today_iso} was generated and stored, but Telegram did not "
+                   f"confirm the whole message. It may have reached you; check Telegram before assuming it did not. The portal has the full text.")
+        else:
+            msg = (f"🚨 BRIEF NOT DELIVERED: the {brief_type} brief for {today_iso} was generated and stored but its Telegram delivery failed. "
+                   f"Read it in the portal or check the Telegram transport.")
+        if not notify(msg):
             alerted.discard(ukey)
             return "unverified"
         return "alerted_undelivered"

@@ -54,6 +54,26 @@ _LIVE_IMPACT_RX = re.compile(r"\b(?:outages?|unable to|cannot|can't|customers? (
                              r"(?:is|are|was|were|went|now|currently|remains?|still)\s+(?:offline|unavailable)|failed|failures?|knocked out|hit by)\b", re.IGNORECASE)
 
 
+# A regulator / court action about a PAST incident (penalty, fine, sentence, undertaking) is a retrospective finding: kept as intelligence
+# for the forward watch, never a current incident. An AFTERMATH story (cause still unknown, blame, review) is context for an incident.
+_RETRO_ACTION_RX = re.compile(r"\b(?:secures?|imposes?|imposed|issues?)\b[^.]{0,40}\b(?:penalty|fine|undertaking)\b|\b(?:civil penalty|penalty against|fined?|sentenced|pleaded guilty|enforceable undertaking|"
+                              r"court (?:orders?|finds?)|class action|settles?)\b", re.IGNORECASE)
+_AFTERMATH_RX = re.compile(r"\b(?:no answers|what caused|cause of|root cause|still (?:no|unclear|unknown)|investigation (?:into|finds)|inquiry (?:into|finds)|review (?:into|finds)|"
+                           r"who is to blame|smokescreen|questions (?:over|about|remain))\b", re.IGNORECASE)
+
+
+def _retro_kind(originals) -> str | None:
+    """'retro' or 'aftermath' when EVERY stated head report is such a story (a single live-event report keeps the incident current)."""
+    heads = [ed.core_title(m.title) for m in originals if m.status in ("stated", "unconfirmed")]
+    if not heads:
+        return None
+    if all(_RETRO_ACTION_RX.search(t) for t in heads):
+        return "retro"
+    if all(_AFTERMATH_RX.search(t) for t in heads):
+        return "aftermath"
+    return None
+
+
 def _is_planned(originals) -> bool:
     """Planned-ness is judged on the incident's LATEST stated report (a later cause update must not suppress, nor an old notice create, the
     verdict), and only on affirmative future-window wording with no stated live impact."""
@@ -149,6 +169,11 @@ def tier_for_incident(inc: ic.Incident, *, now: datetime | None = None) -> TierD
             return out(CONTEXT, "no factual report of a disruption in the window: only commentary, aftermath or historical references")
         return out(REFERENCE_RETAIN, "no factual disruption report and no Australian relevance")
     current = _brief_current(inc, now)
+    retro = _retro_kind(originals)
+    if retro == "retro":
+        return out(MONITOR, "retrospective regulatory or legal finding about a past incident: kept as intelligence for the forward watch, not a current incident")
+    if retro == "aftermath":
+        return out(CONTEXT, "aftermath story about a past incident (cause, blame, review): context, not a current incident")
     if _non_incident_hazard(originals):
         return out(REFERENCE_RETAIN, "policy or staffing story about a hazard: no hazard event is reported")
     if d.event_type == "vulnerability":

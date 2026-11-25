@@ -129,7 +129,7 @@ def build_queries(sweep_hour: int = 19, deployed_at: str = DEFAULT_DEPLOYED_AT, 
                              "or e.published_at_precision is not null or e.published_at_confidence is not null) order by e.collected_at desc limit 2000",
         "products_today": "select product_key, generated_for, as_of, left(coalesce(title,''),80) title, left(coalesce(summary,''),120) summary, "
                           "jsonb_typeof(sections) sections_type, jsonb_typeof(exceptions) exceptions_type, length(coalesce(body_md,'')) body_len "
-                          "from intelligence_products where generated_for >= current_date - 1 order by generated_for desc, product_key limit 12",
+                          "from intelligence_products where generated_for >= current_date - 1 order by generated_for desc, as_of desc, product_key limit 60",
         "health_split": "select 'recent' as w, count(*) checks, count(*) filter (where status <> 'ok') not_ok from intelligence_source_health "
                         "where checked_at > now() - interval '3 hours' union all select 'baseline', count(*), count(*) filter (where status <> 'ok') "
                         "from intelligence_source_health where checked_at > now() - interval '7 days' and checked_at <= now() - interval '3 hours'",
@@ -767,7 +767,14 @@ def check_products(ctx: Ctx) -> Check:
     if data is None:
         return _missing("products", t, "products_today")
     today = str(ctx.now.date())
-    mine = {r.get("product_key"): r for r in data if str(r.get("generated_for"))[:10] == today}
+    # Attribution may be the UTC date (original writer) or the Melbourne date (history writer); both are "today" for this check.
+    from zoneinfo import ZoneInfo
+    days = {today, str(ctx.now.astimezone(ZoneInfo("Australia/Melbourne")).date())}
+    mine: dict = {}
+    # Several stored generations per day are legitimate after the append-only history migration: keep the NEWEST per product
+    # (rows arrive newest first; one row per product-day gives the same result as before).
+    for r in sorted((r for r in data if str(r.get("generated_for"))[:10] in days), key=lambda r: str(r.get("as_of")), reverse=True):
+        mine.setdefault(r.get("product_key"), r)
     if not mine:
         return nyo("products", t, f"no intelligence_products row with generated_for={today}", data[:3])
     missing = [k for k in PRODUCT_KEYS if k not in mine]

@@ -38,3 +38,12 @@ After the settings are applied and capacity returns (needs live capacity): (a) a
 - **Project-level controls the Hobby plan does not offer:** deployment policy (403 `pro_plan_required`). No upgrade is authorised.
 - **`enableAffectedProjectsDeployments` is UNVERIFIED** (the API call succeeded but the value cannot be read back). Do not rely on it for capacity protection until a Python-only merge to `main` is observed to create no deployment record at all (not a canceled one).
 - **Quota window:** whether it is rolling or fixed is unverified; the hourly read-only count records the observed behaviour.
+
+## Branch-guard coverage (update)
+The guard in `lcars-portal/vercel.json` now names `claude/**`, `fix/**`, `feat/**`, `feature/**`, `chore/**`, `docs/**`, `hotfix/**`, `bugfix/**`, `codex/**`, `agent/**`, `bot/**`, `test/**`, `tmp/**`, `review/**`, `wip/**`, `worktree-*`, `archive/**`, `dependabot/**` and `self-improvement`. The push hook additionally refuses a `git push` from a branch whose name is outside those prefixes (other than `main`), so the gap that let `fix/oaic-sources-2kq-repair` create a deployment record is closed for any agent session that has this hook. Remaining limit: a branch pushed by a person or tool outside these sessions with an unguarded name still creates a (ignored) deployment record; keep to the `claude/<topic>` naming.
+
+## Automation-pushed branches (`state/**`, `mistral/**`)
+Two automated writers push branch names that must stay out of Vercel previews, so both prefixes are in the `lcars-portal/vercel.json` `git.deploymentEnabled` guard (value `false`):
+- `mistral/**`: `core/engineering/providers/github_pr.py` builds `mistral/<custom_id>` (`_BRANCH_PREFIX`, lines 193 and 266) and pushes it with `--force-with-lease` (lines 207 and 314) before opening a draft PR.
+- `state/**`: reserved for the mechanical state branch (`state/self-improvement`, #757). The guard must be on `main` BEFORE the first state-branch push, because Vercel reads `vercel.json` from the pushed commit and a state branch tree is frozen at its bootstrap tip.
+Already guarded and also automation-pushed: `self-improvement` (`scripts/self_improvement/auto_remediation.py` pushes only that branch) and `dependabot/**` (`.github/dependabot.yml`). No other automation-pushed prefix is provable from code; do not add speculative ones here.

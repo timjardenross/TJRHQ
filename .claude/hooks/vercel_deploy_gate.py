@@ -33,6 +33,20 @@ def kind_of(tool: str, tool_input: dict) -> str | None:
 _GIT_PUSH = re.compile(r"(?:^|[;&|\s])git\s+(?:-C\s+\S+\s+)?push\b")
 
 
+def _branch_guarded(branch: str, patterns: list[str]) -> bool:
+    import fnmatch
+    return any(fnmatch.fnmatch(branch, p.replace("**", "*")) for p in patterns)
+
+
+def current_branch(project_dir: str) -> str | None:
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", project_dir, "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, timeout=5, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() or None if out.returncode == 0 else None
+
+
 def push_guard_missing(project_dir: str) -> str | None:
     """A branch that does not yet contain the lcars-portal/vercel.json branch guard triggers a Vercel preview on every push (each one
     counts toward the daily allowance). Returns the reason when the guard is absent from the checked-out commit, else None."""
@@ -43,6 +57,11 @@ def push_guard_missing(project_dir: str) -> str | None:
         return None                                # no portal config in this checkout: nothing to protect
     enabled = ((cfg.get("git") or {}).get("deploymentEnabled")) or {}
     if isinstance(enabled, dict) and enabled.get("claude/**") is False:
+        branch = current_branch(project_dir)
+        patterns = [k for k, v in enabled.items() if v is False]
+        if branch and branch not in ("main", "HEAD") and not _branch_guarded(branch, patterns):
+            return (f"branch '{branch}' is not covered by the Vercel branch guard in lcars-portal/vercel.json, so each push would trigger a counted "
+                    "preview deployment. Name agent branches claude/<topic> (or another guarded prefix) before pushing.")
         return None
     return ("this branch lacks the Vercel branch guard (lcars-portal/vercel.json git.deploymentEnabled 'claude/**': false), so each push "
             "would trigger a counted preview deployment. Merge origin/main into the branch first (the merge commit carries the guard), then push.")

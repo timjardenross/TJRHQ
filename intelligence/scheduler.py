@@ -533,6 +533,19 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Credential expiry monitor (2026-11-25) ────────────────────────────────
+    # Daily 10:15, clear of the 06:55-07:10 / 12:25-12:40 / 17:55-18:10 brief windows. Warns at
+    # 30/14/7/1 days and on expiry via notification_service; registry is non-secret metadata
+    # (core/platform/credential_expiry.py).
+    scheduler.add_job(
+        _credential_expiry_job,
+        CronTrigger(hour=10, minute=15, timezone=tz),
+        id="credential_expiry_monitor",
+        replace_existing=True,
+        misfire_grace_time=3600,
+        coalesce=True,
+    )
+
     # ── Brief QA Pre-screen (automated review) ────────────────────────────────
     # Runs daily at 02:00 AEST (before morning brief at 07:00). Scores every
     # brief in IN_REVIEW and automatically advances passing briefs to QA_PASSED.
@@ -699,6 +712,10 @@ def _start_scheduler() -> None:
 _morning_brief_sent_at: str | None = None
 
 
+def _layered_audio_on() -> bool:
+    return os.environ.get("BRIEF_LAYERED_V1_AUDIO", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _pregenerate_brief_audio(brief_type: str) -> None:
     """Fire-and-forget: pre-generate + cache the just-sent brief's audio, so
     the Hub/Captain's Chair "read brief aloud" button plays instantly
@@ -729,6 +746,7 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
 
         rows = supabase_get(
             f"captains_daily_briefs?brief_type=eq.{brief_type}&order=generated_at.desc&limit=1&select=id,brief_text"
+            + (",health_snapshot" if _layered_audio_on() else "")
         )
         if not rows:
             return
@@ -738,6 +756,9 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
         # characters before the text is spoken.
         clean_text = html.unescape(clean_text)
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
+        if _layered_audio_on():          # BRIEF_LAYERED_V1_AUDIO (default off): spoken L1/L2/L6 script from the stored shadow, else the text above
+            from intelligence.brief import layered_shadow
+            clean_text = layered_shadow.audio_text_from_row(row) or clean_text
 
         tts_url = os.environ.get("KOKORO_SERVICE_URL") or os.environ.get("TTS_SERVICE_URL", "")
         tts_secret = os.environ.get("KOKORO_SERVICE_SECRET") or os.environ.get("TTS_SERVICE_SECRET", "")
@@ -1813,6 +1834,16 @@ def _attention_drill_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Attention drill job failed: %s", exc)
         _record_heartbeat("attention_engine_drill", "failed", error_message=str(exc))
+
+
+def _credential_expiry_job() -> None:
+    """Daily credential expiry check (30/14/7/1-day warnings). Never raises into the scheduler."""
+    try:
+        from core.platform.credential_expiry import run_check
+
+        run_check()
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary - a job must never crash the shared APScheduler process
+        log.error("credential expiry job failed: %s", exc)
 
 
 def _validation_suite_job() -> None:

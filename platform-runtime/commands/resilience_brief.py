@@ -103,6 +103,28 @@ def _fmtdate(iso: str) -> str:
 
 # ─── Formatters ───────────────────────────────────────────────────────────────
 
+
+def _governed_fields(brief: dict) -> dict:
+    """Stored narrative fields; under BRIEF_CLAIM_GATE_V1=enforce only governed text (else a withheld disclosure). Off/shadow: as stored."""
+    keys = ("executive_snapshot", "bottom_line", "emerging_themes", "forward_watch", "cps230_implications")
+    try:
+        from intelligence.brief import display_governance as dg
+        if dg.enforcing():
+            v = dg.narrative_view(brief)
+            return {k: v.get(k) for k in keys}
+    except Exception:  # noqa: BLE001 - governance unavailable: show no stored generated text
+        return {k: None for k in keys}
+    return {k: brief.get(k) for k in keys}
+
+
+def _gov_so_what(brief: dict, ev: dict):
+    try:
+        from intelligence.brief.evidence_fallback import display_so_what
+        return display_so_what(brief, ev) or ""
+    except Exception:  # noqa: BLE001
+        return ev.get("so_what", "")
+
+
 def format_brief(data: dict) -> list[dict]:
     """Format a ResilienceBrief as Slack Block Kit blocks."""
     status = data.get("status", "UNKNOWN")
@@ -136,6 +158,7 @@ def format_brief(data: dict) -> list[dict]:
     events_in      = brief.get("events_included", 0)
     provider       = brief.get("provider_used") or ("rule-based" if not brief.get("narrative_available") else "—")
 
+    _gov = _governed_fields(brief)
     blocks = [
         _header(f"{risk_emoji} Operational Resilience Intelligence Brief"),
         _context(
@@ -151,7 +174,7 @@ def format_brief(data: dict) -> list[dict]:
     ]
 
     # Executive Snapshot
-    snapshot = brief.get("executive_snapshot")
+    snapshot = _gov["executive_snapshot"]
     if snapshot:
         blocks += [
             _section(f"*📡 Executive Snapshot*\n{snapshot}"),
@@ -175,7 +198,7 @@ def format_brief(data: dict) -> list[dict]:
             loc   = ev.get("location", "—")
             status_ev = ev.get("status", "—")
             summary = (ev.get("summary") or "")[:280]
-            so_what = ev.get("so_what", "")
+            so_what = _gov_so_what(brief, ev)
             url = ev.get("canonical_url")
             title_text = f"<{url}|{title}>" if url else title
 
@@ -188,13 +211,13 @@ def format_brief(data: dict) -> list[dict]:
         blocks.append(_divider())
 
     # Emerging Themes
-    themes = brief.get("emerging_themes")
+    themes = _gov["emerging_themes"]
     if themes:
         theme_text = "\n".join(f"• {t}" for t in themes)
         blocks.append(_section(f"*🔍 Emerging Themes*\n{theme_text}"))
 
     # Forward Watch
-    fw = brief.get("forward_watch")
+    fw = _gov["forward_watch"]
     if fw:
         fw_text = "\n".join(f"• {t}" for t in fw)
         blocks.append(_section(f"*👁 Forward Watch*\n{fw_text}"))
@@ -203,14 +226,14 @@ def format_brief(data: dict) -> list[dict]:
         blocks.append(_divider())
 
     # CPS 230
-    cps = brief.get("cps230_implications")
+    cps = _gov["cps230_implications"]
     if cps:
         cps_text = "\n".join(f"◆ {t}" for t in cps)
         blocks.append(_section(f"*⚖️ CPS 230 / Banking Implications*\n{cps_text}"))
         blocks.append(_divider())
 
     # Bottom Line
-    bottom = brief.get("bottom_line")
+    bottom = _gov["bottom_line"]
     if bottom:
         blocks.append(_section(f"*📌 Bottom Line*\n{bottom}"))
     else:

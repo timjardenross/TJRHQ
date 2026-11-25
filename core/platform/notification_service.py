@@ -132,6 +132,34 @@ class NotificationResult:
     # response) — same "don't just say verified" standard as the
     # message_id convention above, applied to a transport that has no
     # message_id to cite.
+    # --- additive structured-result fields (strict mode only) ---------------------------------
+    # Both stay None unless the caller passes notify(..., strict=True), so every existing caller
+    # and every existing construction of NotificationResult is unaffected. `ok` keeps its legacy
+    # meaning in every mode: the outcome of the LAST chunk attempted. A strict-mode caller must
+    # read `delivery_outcome` / `chunk_results`, not `ok`, to decide whether a multi-chunk body
+    # was delivered. See docs/intelligence/NOTIFY-STRUCTURED-RESULT-SPEC.md.
+    chunk_results: list[ChunkResult] | None = None
+    delivery_outcome: str | None = None  # CONFIRMED | PARTIAL | FAILED | UNKNOWN (aggregate, strict mode only)
+
+
+# Per-chunk delivery states (strict mode). UNKNOWN = the request may have been accepted (timeout or
+# connection loss after it was written, 5xx, unparseable reply): never retried by this module in strict mode.
+CHUNK_CONFIRMED = "CONFIRMED"
+CHUNK_FAILED = "FAILED"
+CHUNK_UNKNOWN = "UNKNOWN"
+CHUNK_NOT_ATTEMPTED = "NOT_ATTEMPTED"
+
+
+@dataclass
+class ChunkResult:
+    index: int
+    total: int
+    state: str
+    attempts: int = 0
+    message_id: int | None = None  # only when CONFIRMED by a transport that returns one
+    error: str | None = None  # short, capped; never a request body or credential
+    sent_at: str | None = None
+    note: str | None = None  # e.g. "confirmed_without_message_id"
 
 
 @dataclass
@@ -386,7 +414,8 @@ def _send_apprise(
     apobj = apprise.Apprise()
     for url in urls:
         if not apobj.add(url):
-            return False, f"invalid or unrecognised APPRISE_URLS entry: {url}", None
+            # The URL itself is never echoed: Apprise configuration URLs carry webhook tokens, and this text reaches results, the call log and logs.
+            return False, "invalid or unrecognised APPRISE_URLS entry (the URL is not shown)", None
 
     notify_type = _SEVERITY_TO_APPRISE_TYPE.get(severity, "info")
     try:
@@ -422,6 +451,8 @@ def notify(
     reply_markup: dict | None = None,
     chat_id: str | None = None,
     chunk: bool = False,
+    strict: bool = False,
+    chunk_stop_on_failure: bool | None = None,
 ) -> NotificationResult:
     """Send a notification through the given transport.
 
@@ -443,15 +474,39 @@ def notify(
     content rather than an edge case. Returns the result of the LAST
     chunk sent (an early chunk failing does not raise — see the note
     below).
+
+    strict (additive, default False = every legacy behaviour, unchanged):
+    opt-in structured mode. Populates `result.chunk_results` (one entry per
+    chunk, NOT_ATTEMPTED for any chunk not sent) and `result.delivery_outcome`
+    (CONFIRMED / PARTIAL / FAILED / UNKNOWN). In this mode the transport
+    never retries an AMBIGUOUS failure (timeout or connection loss after the
+    request may have been accepted, HTTP 5xx, unparseable reply): a retry
+    there can deliver the same message twice. Only definite non-delivery
+    (HTTP 429, connection refused, DNS failure, network unreachable) is
+    retried, up to max_retries. `ok` keeps its legacy meaning (the last
+    chunk attempted).
+
+    chunk_stop_on_failure: strict mode only; None means True. Stop at the
+    first chunk that is FAILED or UNKNOWN (later chunks are NOT_ATTEMPTED)
+    rather than sending later chunks out of order. Ignored when strict is False.
     """
     sender = _SENDERS.get(transport)
     if sender is None:
         result = NotificationResult(ok=False, transport=transport, attempts=0, error="transport not implemented")
+        if strict:
+            result.chunk_results = [ChunkResult(0, 1, CHUNK_FAILED, attempts=0, error="transport not implemented")]
+            result.delivery_outcome = CHUNK_FAILED
         _CALL_LOG.append(NotificationLogEntry(transport, severity, title, body, result))
         return result
 
     render = _RENDERERS.get(transport, _render)
     text = render(template, title, body, severity)
+
+    if strict:
+        return _notify_strict(
+            sender, body, title, severity, template, transport, text, max_retries, retry_backoff_seconds,
+            reply_markup, chat_id, chunk, True if chunk_stop_on_failure is None else chunk_stop_on_failure,
+        )
 
     if chunk and transport == Transport.TELEGRAM and len(_render_full(template, title, body)) > _TELEGRAM_MAX_LEN:
         # Chunking at Telegram's exact 4096-char limit is Telegram-specific
@@ -474,13 +529,13 @@ def notify(
             result = _send_one(sender, piece_text, reply_markup, chat_id, max_retries, retry_backoff_seconds, transport, severity)
             _CALL_LOG.append(NotificationLogEntry(transport, severity, piece_title, piece, result))
             if not result.ok:
-                log.warning("[notification-service] chunk %d/%d failed via %s: %s", i + 1, len(chunks), transport.value, result.error)
+                log.warning("[notification-service] chunk %d/%d failed via %s: %s", i + 1, len(chunks), transport.value, _redact_error(result.error or ""))
         return result
 
     result = _send_one(sender, text, reply_markup, chat_id, max_retries, retry_backoff_seconds, transport, severity)
     _CALL_LOG.append(NotificationLogEntry(transport, severity, title, body, result))
     if not result.ok:
-        log.warning("[notification-service] send failed after %d attempt(s) via %s: %s", result.attempts, transport.value, result.error)
+        log.warning("[notification-service] send failed after %d attempt(s) via %s: %s", result.attempts, transport.value, _redact_error(result.error or ""))
     return result
 
 
@@ -604,6 +659,142 @@ def _send_one(
     return NotificationResult(ok=ok, transport=transport, attempts=attempts, error=error, message_id=message_id)
 
 
+# ----------------------------------------------------------------------------- strict (opt-in) mode
+
+_ERROR_CAP = 200
+_DEFINITE_HTTP_STATUSES = frozenset({400, 401, 403, 404, 429})
+_RETRYABLE_DEFINITE_HTTP = frozenset({429})
+_DEFINITE_NETWORK_TEXT = re.compile(
+    r"Connection refused|Name or service not known|Temporary failure in name resolution|"
+    r"Network is unreachable|No route to host|gaierror", re.IGNORECASE,
+)
+_DEFINITE_CONFIG_TEXT = re.compile(
+    r"missing TELEGRAM_BOT_TOKEN|missing APPRISE_URLS|invalid or unrecognised APPRISE_URLS|apprise not installed|transport not implemented",
+    re.IGNORECASE,
+)
+
+
+def classify_send_error(error: str | None) -> tuple[str, bool]:
+    """(chunk_state, retry_safe) for a failed send. Anything not provably undelivered is UNKNOWN and is never
+    retried in strict mode. Definite: the provider rejected the request (400/401/403/404/429) or it never left
+    this host (refused, DNS, unreachable, missing configuration). 429 and network-level definite failures are
+    safe to retry; configuration and rejection failures cannot succeed on retry."""
+    err = error or ""
+    m = _PERMANENT_FAILURE.match(err)
+    if m:
+        code = int(m.group(1))
+        if code in _DEFINITE_HTTP_STATUSES:
+            return CHUNK_FAILED, code in _RETRYABLE_DEFINITE_HTTP
+        return CHUNK_UNKNOWN, False  # 5xx / unexpected status: the server may have processed it
+    if _DEFINITE_CONFIG_TEXT.search(err):
+        return CHUNK_FAILED, False
+    if _DEFINITE_NETWORK_TEXT.search(err):
+        return CHUNK_FAILED, True
+    return CHUNK_UNKNOWN, False  # timeouts, resets, closed connections, unparseable or empty error text
+
+
+_URL_LIKE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]{1,30}://[^\s,;'\"<>)]+")
+_BOT_TOKEN = re.compile(r"\bbot\d{5,}:[A-Za-z0-9_-]{20,}")
+_LONG_SECRET = re.compile(r"\b[A-Za-z0-9_-]{32,}\b")
+
+
+def _redact_error(error: str) -> str:
+    """Strict-mode error text is persisted (delivery records, the degraded ledger) and logged: URLs (Apprise configuration URLs carry webhook
+    tokens), Telegram bot tokens and long opaque strings are removed from it."""
+    out = _URL_LIKE.sub("<url redacted>", str(error))
+    out = _BOT_TOKEN.sub("bot<redacted>", out)
+    return _LONG_SECRET.sub("<redacted>", out)
+
+
+def _aggregate_outcome(chunks: list[ChunkResult]) -> str:
+    """Same rule as intelligence.delivery_record.outcome_from_chunks: ambiguity is never promoted to success.
+    A chunk that was never attempted keeps the aggregate from being CONFIRMED."""
+    confirmed = sum(1 for c in chunks if c.state == CHUNK_CONFIRMED)
+    if chunks and confirmed == len(chunks):
+        return CHUNK_CONFIRMED
+    if confirmed:
+        return "PARTIAL"
+    if any(c.state == CHUNK_UNKNOWN for c in chunks):
+        return CHUNK_UNKNOWN
+    return CHUNK_FAILED
+
+
+def _send_one_strict(
+    sender, text: str, reply_markup, chat_id, max_retries, retry_backoff_seconds, transport: Transport,
+    severity: Severity, index: int, total: int,
+) -> tuple[NotificationResult, ChunkResult]:
+    ok = False
+    error: str | None = None
+    message_id: int | None = None
+    attempts = 0
+    state = CHUNK_FAILED
+    for attempt in range(max_retries + 1):
+        attempts += 1
+        try:
+            ok, error, message_id = sender(text, reply_markup, chat_id, severity)
+        except Exception as exc:  # noqa: BLE001 - raising after the request may have been written is ambiguous, never success
+            ok, error, message_id = False, f"{type(exc).__name__}", None
+            state = CHUNK_UNKNOWN
+            break
+        if ok:
+            if transport == Transport.TELEGRAM and message_id is None:
+                # Acceptance with no provider message id is not evidence of delivery. Strict mode records it UNKNOWN (never retried), the same
+                # as the delivery adapter does. Legacy ``.ok`` semantics are untouched (this branch runs only in strict mode).
+                state = CHUNK_UNKNOWN
+                error = "accepted_without_message_id"
+            else:
+                state = CHUNK_CONFIRMED
+            break
+        state, retry_safe = classify_send_error(error)
+        if not retry_safe or attempt >= max_retries:
+            break
+        time.sleep(retry_backoff_seconds)
+    result = NotificationResult(ok=ok, transport=transport, attempts=attempts, error=error, message_id=message_id)
+    chunk_result = ChunkResult(
+        index=index, total=total, state=state, attempts=attempts, sent_at=result.sent_at,
+        message_id=message_id if state == CHUNK_CONFIRMED else None,
+        error=None if state == CHUNK_CONFIRMED else _redact_error(error or "no_error_detail")[:_ERROR_CAP],
+        note=None,
+    )
+    return result, chunk_result
+
+
+def _notify_strict(
+    sender, body, title, severity, template, transport, text, max_retries, retry_backoff_seconds,
+    reply_markup, chat_id, chunk, stop_on_failure,
+) -> NotificationResult:
+    if chunk and transport == Transport.TELEGRAM and len(_render_full(template, title, body)) > _TELEGRAM_MAX_LEN:
+        if template in _RAW_TEMPLATES:
+            parts = _split_html_aware(body, _TELEGRAM_MAX_LEN)
+        else:
+            parts = _split_at_word_boundary(body, _TELEGRAM_MAX_LEN)
+        pieces = [((title if i == 0 else None), p, _render(template, (title if i == 0 else None), p)) for i, p in enumerate(parts)]
+    else:
+        pieces = [(title, body, text)]
+    total = len(pieces)
+    chunks: list[ChunkResult] = []
+    last: NotificationResult | None = None
+    stopped = False
+    for i, (piece_title, piece_body, piece_text) in enumerate(pieces):
+        if stopped:
+            chunks.append(ChunkResult(i, total, CHUNK_NOT_ATTEMPTED))
+            continue
+        last, cr = _send_one_strict(sender, piece_text, reply_markup, chat_id, max_retries, retry_backoff_seconds,
+                                    transport, severity, i, total)
+        chunks.append(cr)
+        _CALL_LOG.append(NotificationLogEntry(transport, severity, piece_title, piece_body, last))
+        if cr.state != CHUNK_CONFIRMED:
+            log.warning("[notification-service] chunk %d/%d %s via %s: %s", i + 1, total, cr.state, transport.value, cr.error)
+            stopped = stop_on_failure
+    assert last is not None  # pieces is never empty
+    result = NotificationResult(ok=last.ok, transport=transport, attempts=last.attempts,
+                                error=_redact_error(last.error) if last.error else last.error,   # strict mode only: redacted before it leaves the module
+                                sent_at=last.sent_at, message_id=last.message_id)
+    result.chunk_results = chunks
+    result.delivery_outcome = _aggregate_outcome(chunks)
+    return result
+
+
 def get_call_log(limit: int = 50) -> list[NotificationLogEntry]:
     """In-process call log, most recent last. Not yet persisted to Supabase —
     see Audit Service (core/platform/audit_service.py) for the durable path,
@@ -613,10 +804,12 @@ def get_call_log(limit: int = 50) -> list[NotificationLogEntry]:
 
 __all__ = [
     "TEMPLATES",
+    "ChunkResult",
     "NotificationLogEntry",
     "NotificationResult",
     "Severity",
     "Transport",
+    "classify_send_error",
     "get_call_log",
     "notify",
 ]
