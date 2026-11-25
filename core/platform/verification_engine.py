@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -72,6 +73,19 @@ def _check_command_centre_backend() -> bool:
         return False
 
 
+_DELIVERY_CONSUMER_STATE = Path(__file__).resolve().parents[2] / "outputs" / "delivery_alert_consumer_state.json"
+_DELIVERY_CONSUMER_MAX_AGE_S = 30 * 60       # the consumer runs in the dead-man's switch every 10 minutes
+
+
+def _delivery_alert_consumer_ok() -> bool:
+    """False when the delivery-alert consumer (deadmans_switch.check_delivery_alerts) has stopped checking."""
+    try:
+        checked = json.loads(_DELIVERY_CONSUMER_STATE.read_text(encoding="utf-8"))["checked_at"]
+        return time.time() - float(checked) <= _DELIVERY_CONSUMER_MAX_AGE_S
+    except Exception:  # noqa: BLE001 - missing or unreadable heartbeat is the documented 'not healthy' result
+        return False
+
+
 def run_verification_pass() -> dict[str, Any]:
     """Compute the Sure/Unsure state and persist it. Returns the computed report."""
     degraded: list[dict[str, str]] = []
@@ -87,6 +101,9 @@ def run_verification_pass() -> dict[str, Any]:
     )
     if not backend_ok:
         degraded.append({"domain_key": "command_centre_backend", "display_name": "Command Centre Backend"})
+
+    if not _delivery_alert_consumer_ok():
+        degraded.append({"domain_key": "delivery_alert_consumer", "display_name": "Brief Delivery Alert Consumer"})
 
     # 2. Read every other domain's computed staleness from the view.
     try:
