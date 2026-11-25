@@ -306,7 +306,8 @@ def test_stored_payload_keeps_every_layer_and_every_incident_within_the_bound():
     assert "Posture" in txt or "assessed" in txt.lower()
 
 
-def test_very_large_day_falls_back_to_ids_and_is_flagged_reduced_never_silently_dropped():
+def test_very_large_day_falls_back_to_ids_and_is_flagged_reduced_never_silently_dropped(monkeypatch):
+    monkeypatch.setattr(lr, "SHADOW_MAX_BYTES", 24 * 1024)  # exercise the last-resort level independently of the production bound
     incs = big_day(420, 60)
     r = lr.render_layered(incs, posture=None, coverage=CS.FULL, confidence=None)
     p = lr.build_shadow_payload(r, meta={"x": 1})
