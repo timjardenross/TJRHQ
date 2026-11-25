@@ -300,6 +300,12 @@ def build_telegram_alert(brief: dict) -> dict:
     bid = brief.get("brief_id", "")
     risk = brief.get("overall_risk", "UNKNOWN")
     snap = (brief.get("executive_snapshot") or brief.get("bottom_line") or "").strip()
+    try:                                                    # BRIEF_CLAIM_GATE_V1=enforce: only governed stored text goes into an alert
+        from intelligence.brief import display_governance as dg
+        if dg.enforcing():
+            snap = dg.governed_text(brief, "executive_snapshot", "bottom_line").strip()
+    except Exception:  # noqa: BLE001 - cannot establish governance: no generated text in the alert
+        snap = ""
     n = len(brief.get("signal_ids") or [])
     text = (
         f"🔴 CRITICAL — Operational Resilience\n\n{snap}\n\n"

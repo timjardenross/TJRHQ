@@ -712,6 +712,10 @@ def _start_scheduler() -> None:
 _morning_brief_sent_at: str | None = None
 
 
+def _layered_audio_on() -> bool:
+    return os.environ.get("BRIEF_LAYERED_V1_AUDIO", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _pregenerate_brief_audio(brief_type: str) -> None:
     """Fire-and-forget: pre-generate + cache the just-sent brief's audio, so
     the Hub/Captain's Chair "read brief aloud" button plays instantly
@@ -742,6 +746,7 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
 
         rows = supabase_get(
             f"captains_daily_briefs?brief_type=eq.{brief_type}&order=generated_at.desc&limit=1&select=id,brief_text"
+            + (",health_snapshot" if _layered_audio_on() else "")
         )
         if not rows:
             return
@@ -751,6 +756,9 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
         # characters before the text is spoken.
         clean_text = html.unescape(clean_text)
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
+        if _layered_audio_on():          # BRIEF_LAYERED_V1_AUDIO (default off): spoken L1/L2/L6 script from the stored shadow, else the text above
+            from intelligence.brief import layered_shadow
+            clean_text = layered_shadow.audio_text_from_row(row) or clean_text
 
         tts_url = os.environ.get("KOKORO_SERVICE_URL") or os.environ.get("TTS_SERVICE_URL", "")
         tts_secret = os.environ.get("KOKORO_SERVICE_SECRET") or os.environ.get("TTS_SERVICE_SECRET", "")

@@ -732,7 +732,7 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             db.table("intelligence_briefs")
             .select(
                 "brief_id,generated_at,period_start,period_end,overall_risk,"
-                "executive_snapshot,bottom_line,emerging_themes,forward_watch,"
+                "executive_snapshot,bottom_line,emerging_themes,forward_watch,cps230_implications,known_unknowns,"
                 "top_events,comparison,coverage,"
                 "events_included,events_evaluated,sources_checked,narrative_available"
             )
@@ -756,10 +756,11 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         p_start  = (b.get("period_start") or "")[:10]
         p_end    = (b.get("period_end") or "")[:10]
         gen_at   = (b.get("generated_at") or "")[:16].replace("T", " ")
-        snap     = b.get("executive_snapshot") or ""
-        bottom   = b.get("bottom_line") or ""
-        themes   = b.get("emerging_themes") or []
-        fw       = b.get("forward_watch")
+        _gv      = _governed_brief_view(b)
+        snap     = _gv.get("executive_snapshot") or ""
+        bottom   = _gv.get("bottom_line") or ""
+        themes   = _gv.get("emerging_themes") or []
+        fw       = _gv.get("forward_watch")
         ev_in    = b.get("events_included", 0)
         ev_total = b.get("events_evaluated", 0)
         sources  = b.get("sources_checked", 0)
@@ -913,6 +914,23 @@ async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 _NUMBER_ONE_LEVEL_ICON = {"CRITICAL": "🆘", "HIGH": "🔺", "MEDIUM": "🟡", "LOW": "⚪"}
 
 
+def _governed_brief_view(b: dict) -> dict:
+    """The ORI narrative fields exactly as the Captain may see them. With BRIEF_CLAIM_GATE_V1 unset/off/shadow this is the stored
+    text unchanged (identical to the previous behaviour); in enforce, stored generated text is shown only when its claim-gate
+    record matches (display_governance), otherwise it is withheld with disclosure. Fails CLOSED in enforce if the governance
+    module cannot be imported."""
+    try:
+        from intelligence.brief.display_governance import narrative_view
+        return narrative_view(b)
+    except Exception:  # noqa: BLE001 - never let a display helper break the bot, but never show ungoverned text in enforce
+        if str(os.environ.get("BRIEF_CLAIM_GATE_V1", "")).strip().lower() == "enforce":
+            return {"executive_snapshot": "Narrative withheld: the evidence-governance check is unavailable (not an all-clear).",
+                    "bottom_line": None, "emerging_themes": [], "forward_watch": [], "cps230_implications": [],
+                    "known_unknowns": [], "governed": False, "withheld": True}
+        return {f: b.get(f) for f in ("executive_snapshot", "bottom_line", "emerging_themes", "forward_watch",
+                                      "cps230_implications", "known_unknowns")} | {"governed": None, "withheld": False}
+
+
 def _esc_html(value: object) -> str:
     """Escape a dynamic value for Telegram's HTML parse_mode — Number One's
     escalation/follow-up text is free-form and may contain &, <, >."""
@@ -995,7 +1013,7 @@ async def cmd_themes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     try:
         res = (
             db.table("intelligence_briefs")
-            .select("brief_id,generated_at,overall_risk,emerging_themes,forward_watch,executive_snapshot,period_start,period_end")
+            .select("brief_id,generated_at,overall_risk,emerging_themes,forward_watch,executive_snapshot,bottom_line,cps230_implications,known_unknowns,coverage,period_start,period_end")
             .order("generated_at", desc=True)
             .limit(1)
             .execute()
@@ -1009,9 +1027,10 @@ async def cmd_themes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         brief_id = (row.get("brief_id") or "")[:8]
         period   = f"{(row.get('period_start') or '')[:10]} → {(row.get('period_end') or '')[:10]}"
         risk     = row.get("overall_risk", "?")
-        snap     = row.get("executive_snapshot") or row.get("bottom_line") or ""
-        themes   = row.get("emerging_themes") or []
-        fw       = row.get("forward_watch")
+        _gv      = _governed_brief_view(row)
+        snap     = _gv.get("executive_snapshot") or _gv.get("bottom_line") or ""
+        themes   = _gv.get("emerging_themes") or []
+        fw       = _gv.get("forward_watch")
 
         _RISK = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}
         risk_icon = _RISK.get(str(risk).upper(), "⚪")
