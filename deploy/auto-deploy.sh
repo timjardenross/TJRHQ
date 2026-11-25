@@ -446,3 +446,28 @@ if [ -f "$SERVICES_CONF" ]; then
 fi
 
 echo "$LOG_PREFIX done."
+
+# ── #757 provenance AUDIT (observe-only, default OFF) ──────────────────────
+# Deliberately the LAST step, after the pull/DEFER decision, the restarts and the "done" line, so it cannot delay, alter or
+# reorder any of them, and it never touches DEFER/urgent/brief-window logic. Runs only with DEPLOY_PROVENANCE_AUDIT=1 and only when
+# origin/$BRANCH is ahead of the HEAD this run started from (a new commit would be, or just was, pulled). It records verified /
+# unverified-direct-push / unavailable per new SHA in .git/auto-deploy-state/provenance/audit.jsonl and NEVER blocks, stops or
+# restarts anything: `timeout ... || true` in a subshell with errexit off, stdin closed, and this script's exit status is unchanged.
+# Anonymous GitHub API unless DEPLOY_PROVENANCE_TOKEN_FILE names a token file. See deploy/provenance_audit.py.
+if [ "${DEPLOY_PROVENANCE_AUDIT:-0}" = "1" ] && [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+  (
+    set +e
+    PROV_PY="${AUTO_DEPLOY_PYTHON:-/usr/bin/python3}"
+    PROV_TOOL="$(dirname "${BASH_SOURCE[0]}")/provenance_audit.py"
+    PROV_FINAL=""
+    [ "$(git rev-parse HEAD 2>/dev/null)" != "$LOCAL_SHA" ] && PROV_FINAL="--final-run"
+    if [ -f "$PROV_TOOL" ] && command -v timeout >/dev/null 2>&1; then
+      # shellcheck disable=SC2086
+      timeout -k 5 "${DEPLOY_PROVENANCE_TIMEOUT_S:-60}" "$PROV_PY" "$PROV_TOOL" --repo-root "$REPO_ROOT" --old "$LOCAL_SHA" --new "$REMOTE_SHA" \
+        --dir "$STATE_DIR/provenance" $PROV_FINAL </dev/null \
+        || echo "$LOG_PREFIX provenance-audit: did not complete (ignored, deployment unaffected)" >&2
+    else
+      echo "$LOG_PREFIX provenance-audit: auditor or timeout(1) missing - skipped" >&2
+    fi
+  ) || true
+fi
