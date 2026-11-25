@@ -1,0 +1,1405 @@
+[
+{
+"case": "m365_12_13_nov",
+"event_id": "2ce76314",
+"raw_title": "Elevated errors affecting the Microsoft 365 connector",
+"raw_summary": "Identified - We have identified an issue with an upstream provider affecting the Microsoft",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "BRIEF",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "bf175d4c",
+"raw_title": "Elevated errors affecting the Microsoft 365 connector",
+"raw_summary": "Investigating an issue with Microsoft connectors where new connections may be broken",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "medium",
+"disposition": "BRIEF",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "1ac9ea52",
+"raw_title": "Breaking: Microsoft platforms suffering widespread outages, including Outlook",
+"raw_summary": "A widespread outage has hit Microsoft platforms including Outlook",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.85,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "b66b1c0c",
+"raw_title": "Global Microsoft outage affecting Outlook and Teams users, with company 'restarting' servers",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "6a5c2d03",
+"raw_title": "Microsoft 'aggressively pursuing' fix as Outlook goes down globally",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "medium",
+"disposition": "BRIEF",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "28df66fb",
+"raw_title": "Issues with outlook connections",
+"raw_summary": "Degraded service for Outlook integrations (e.g. mail, calendar)",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "medium",
+"disposition": "BRIEF",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "7247f99a",
+"raw_title": "A global Microsoft 365 outage has hit thousands - what happened and when will it be fixed?",
+"raw_summary": "Outage lasting more than nine hours affects businesses, government agencies",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "53d0f9dc",
+"raw_title": "Recovery attempts fail as Microsoft struggles to globally restore M365 services",
+"raw_summary": "widespread disruption lasting more than 12 hours",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.85,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "d05821f7",
+"raw_title": "Outlook outage expected to cost Australian businesses billions of dollars",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.8,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "81db0cb8",
+"raw_title": "Watch: How a server outage took down Microsoft Teams and Outlook",
+"raw_summary": "Services including Teams, Outlook and Copilot",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "SUPPRESS",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "a160eef1",
+"raw_title": "Microsoft 365 recovers with Outlook back online",
+"raw_summary": "Asia Pacific infrastructure is remediated first.",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "a6d72e00",
+"raw_title": "Microsoft users caught up in global M365 outage",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "af5e7c16",
+"raw_title": "Global Microsoft Outage Disrupts Outlook, Teams and Cloud Services as Company Works to Restore Servers",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "BRIEF",
+"operational_relevance": 0.8,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "ecac4d41",
+"raw_title": "Microsoft 365 Went Down for a Day. The Internet Gave It a Brutally Accurate New Name",
+"raw_summary": "widespread disruption",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.85,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "36dbc980",
+"raw_title": "Microsoft's Outlook Outage Could Qualify Your Business for a 50 Percent Credit",
+"raw_summary": "Millions of users experienced disruptions to Outlook and other Microsoft 365 services",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "medium",
+"disposition": "BRIEF",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "f802acac",
+"raw_title": "Phishers quick to exploit extended M365 outage",
+"raw_summary": "Fake service health notices threaten to delete held email",
+"event_type": "cyber",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "BRIEF",
+"operational_relevance": 0.75,
+"expect_any": [
+"B4"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "0a126f44",
+"raw_title": "CVE-2026-124194: Microsoft Office Outlook Missing User Interaction for Potentially Unsafe Action Vulnerability",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": null,
+"customer_impact": "low",
+"disposition": "SUPPRESS",
+"operational_relevance": 0.75,
+"expect_any": [
+"B4"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "e083d801",
+"raw_title": "APRA's System Risk Outlook - November 2026",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": null,
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.7,
+"expect_any": [
+"B3"
+]
+},
+{
+"case": "m365_12_13_nov",
+"event_id": "9866feb3",
+"raw_title": "APRA's latest System Risk Outlook warns of rising threats to financial stability",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.85,
+"expect_any": [
+"B3"
+]
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "060d78cd",
+"raw_title": "Indonesia Bourse Adds 300 Stocks to High Concentration List",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "539c2375",
+"raw_title": "CSG Cuts Full-Year Margin Outlook as Revenue Misses Estimates",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "a8fc934b",
+"raw_title": "Companies Want Leaner AI-Powered Teams. They Could Be Making an Expensive Mistake",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "19fecf6d",
+"raw_title": "Nissan's Ivan Espinosa on China, US, Japan Markets and Company Outlook",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.4,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "ef9912a5",
+"raw_title": "AI Trade Roars Back, Anthropic IPO Outlook, Nordstrom Co-CEO on Going Private",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "MEDIUM",
+"customer_impact": "medium",
+"disposition": "WATCH",
+"operational_relevance": 0.75,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "8c6d8358",
+"raw_title": "Origin Energy: Strong Commodity Prices Buoy Outlook; Fair Value Estimate Raised - Morningstar",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "5f066954",
+"raw_title": "China's Loan Interest Rates Are Already Low, Central Bank Says",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "8eba5cde",
+"raw_title": "UAE Minister of Investment's Investment Outlook",
+"raw_summary": "",
+"event_type": "geopolitical",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.4,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "e793fb9c",
+"raw_title": "MaRCo@BIS: AI-agentic econometric analysis for central bankers",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "12b2a905",
+"raw_title": "VanEck says AI-shielded ASX has its own concentration risks",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.35,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "de98e600",
+"raw_title": "O fluxo de veneno no Brasil: Como agrotoxicos entram no pais",
+"raw_summary": "",
+"event_type": "transport_disruption",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.35,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "d0ce50e1",
+"raw_title": "Xero upgrades FY27 outlook amid strong first-half performance",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "REFERENCE",
+"operational_relevance": 0.4,
+"expect_any": []
+},
+{
+"case": "lexical_noise_nov",
+"event_id": "a1d58dd0",
+"raw_title": "Maintenance: Scheduled maintenance: Shared Pooler (Supavisor), eu-central-2",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "SUPPRESS",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "optus_triple_zero",
+"event_id": "ef242803",
+"raw_title": "Authorities investigating four-minute Triple Zero outage in Canberra",
+"raw_summary": "Authorities are continuing to investigate what caused a temporary Triple Zero outage this week",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.8,
+"expect_any": [
+"A2",
+"B2"
+]
+},
+{
+"case": "optus_triple_zero",
+"event_id": "da1ecde8",
+"raw_title": "Still no answers on what caused Triple Zero outage to ambulance, fire services - Region Canberra",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "BRIEF",
+"operational_relevance": 0.8,
+"expect_any": [
+"A2",
+"B2"
+]
+},
+{
+"case": "optus_triple_zero",
+"event_id": "2c6c277e",
+"raw_title": "Optus outage register: Mobile outage - Springlands (4804) area Queensland",
+"raw_summary": "Restored. Significant local outage. duration 18.00 h.",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "ESCALATE",
+"operational_relevance": 1.0,
+"expect_any": [
+"A2",
+"B2"
+]
+},
+{
+"case": "optus_triple_zero",
+"event_id": "e09b4c03",
+"raw_title": "Optus outage register: Mobile outage - Outback - North and Outback - South areas Queensland",
+"raw_summary": "Restored. Significant local outage. duration 4.43 h.",
+"event_type": "technology_outage",
+"risk_rating": null,
+"customer_impact": "high",
+"disposition": "REFERENCE",
+"operational_relevance": 1.0,
+"expect_any": [
+"A2",
+"B2"
+]
+},
+{
+"case": "optus_triple_zero",
+"event_id": "aa6e8605",
+"raw_title": "Optus outage register: Mobile outage - Kennington (3550) area Victoria",
+"raw_summary": "Restored. Significant local outage. duration 14.38 h.",
+"event_type": "technology_outage",
+"risk_rating": null,
+"customer_impact": "high",
+"disposition": "REFERENCE",
+"operational_relevance": 1.0,
+"expect_any": [
+"A2",
+"B2"
+]
+},
+{
+"case": "optus_triple_zero",
+"event_id": "918192ec",
+"raw_title": "Optus outage register: Mobile outage - Cloncurry (4824) area Queensland",
+"raw_summary": "Restored. Significant local outage. duration 13.35 h.",
+"event_type": "technology_outage",
+"risk_rating": null,
+"customer_impact": "high",
+"disposition": "REFERENCE",
+"operational_relevance": 1.0,
+"expect_any": [
+"A2",
+"B2"
+]
+},
+{
+"case": "optus_triple_zero_noise",
+"event_id": "9a16278a",
+"raw_title": "Desperate Triple Zero calls played in Floreat double murder inquest",
+"raw_summary": "",
+"event_type": "severe_weather",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.55,
+"expect_any": []
+},
+{
+"case": "optus_triple_zero_noise",
+"event_id": "bb00907d",
+"raw_title": "Questions over police response to Triple Zero calls before Floreat murders",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "optus_triple_zero_noise",
+"event_id": "f2bd367e",
+"raw_title": "Cold food, ingrown toenails among thousands of non-emergency Triple Zero calls",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.55,
+"expect_any": []
+},
+{
+"case": "apra_penalty",
+"event_id": "74dd1760",
+"raw_title": "Diversa pays $1.009,800 APRA penalty",
+"raw_summary": "Diversa Trustees has been hit with a $1,009,800 APRA penalty over allegations it failed to process rollovers",
+"event_type": "regulatory",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "BRIEF",
+"operational_relevance": 0.85,
+"expect_any": [
+"B3"
+]
+},
+{
+"case": "apra_penalty",
+"event_id": "eda833ce",
+"raw_title": "Diversa pays $1 million penalty under infringement notice issued by APRA",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.85,
+"expect_any": [
+"B3"
+]
+},
+{
+"case": "apra_penalty",
+"event_id": "aa8b7716",
+"raw_title": "APRA secures $8 million penalty against Bendigo and Adelaide Bank over cyber incident",
+"raw_summary": "The Federal Court has ordered Bendigo and Adelaide Bank to pay pecuniary penalties",
+"event_type": "cyber",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.9,
+"expect_any": [
+"B3",
+"B4"
+]
+},
+{
+"case": "cloud_providers",
+"event_id": "d7cd797e",
+"raw_title": "Telstra's problems in Australia continue with Amazon Web Services outage - Mashable",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "low",
+"disposition": "BRIEF",
+"operational_relevance": 0.8,
+"expect_any": [
+"A3",
+"B5",
+"B2"
+]
+},
+{
+"case": "cloud_providers",
+"event_id": "40628d85",
+"raw_title": "Canva Status: Canva is down due to Cloudflare outage (resolved)",
+"raw_summary": "Canva services have fully recovered following the Cloudflare outage",
+"event_type": "technology_outage",
+"risk_rating": null,
+"customer_impact": "high",
+"disposition": "REFERENCE",
+"operational_relevance": 0.85,
+"expect_any": [
+"A3",
+"B5"
+]
+},
+{
+"case": "cloud_providers",
+"event_id": "126c7202",
+"raw_title": "Cloudflare Status: Degraded network performance affecting some traffic between Cloudflare data centers (investigating)",
+"raw_summary": "[Impact: major] Affected: Cloudflare Sites and Services - Network",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.85,
+"expect_any": [
+"B5"
+]
+},
+{
+"case": "cloud_providers",
+"event_id": "707b1dad",
+"raw_title": "Cloudflare Status: Magic Transit Degraded Performance (investigating)",
+"raw_summary": "[Impact: major] Network Services - Magic Transit",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.85,
+"expect_any": [
+"B5"
+]
+},
+{
+"case": "cloud_providers",
+"event_id": "a6ff4333",
+"raw_title": "Cloudflare Status: Hyperdrive Degraded Performance (resolved)",
+"raw_summary": "[Impact: none]",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "medium",
+"disposition": "SUPPRESS",
+"operational_relevance": 0.65
+},
+{
+"case": "cloud_providers",
+"event_id": "c041a073",
+"raw_title": "Cloudflare Status: Degraded connectivity between Europe and Asia Pacific (monitoring)",
+"raw_summary": "[Impact: minor]",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "medium",
+"disposition": "SUPPRESS",
+"operational_relevance": 0.65
+},
+{
+"case": "cloud_providers",
+"event_id": "d9fb49fe",
+"raw_title": "Cloudflare Status: Network disruption across multiple colocations in India (resolved)",
+"raw_summary": "[Impact: minor]",
+"event_type": "technology_outage",
+"risk_rating": "MEDIUM",
+"customer_impact": "medium",
+"disposition": "SUPPRESS",
+"operational_relevance": 0.8
+},
+{
+"case": "lexical_noise_cloud",
+"event_id": "13ad1e19",
+"raw_title": "British-Iranian man arrested under terror laws over RAF Fairford incident",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_cloud",
+"event_id": "a89916b0",
+"raw_title": "Australia's housing market is definitely in a downturn - but let's put that in perspective",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_cloud",
+"event_id": "1095fc1c",
+"raw_title": "Infosys Draws Four Downgrades in a Day on Weaker Sales Outlook",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_cloud",
+"event_id": "451a30a9",
+"raw_title": "Nvidia exposed to possible lawsuits after Jensen Huang's downfall",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "lexical_noise_cloud",
+"event_id": "b668ec60",
+"raw_title": "A Court Just Struck Down Protections for Pregnant Workers. Other Covid-Era Laws Could Be Next",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "intl_leading",
+"event_id": "cee7c94e",
+"raw_title": "Ikea and Zoom among websites hit by major security incident at third-party provider",
+"raw_summary": "",
+"event_type": "physical_security",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "BRIEF",
+"operational_relevance": 0.65,
+"expect_any": [
+"A3",
+"A7",
+"B4",
+"B5"
+]
+},
+{
+"case": "intl_leading",
+"event_id": "5a420c8c",
+"raw_title": "Federal cybersecurity gaps leave US food supply vulnerable to ransomware and operational disruption",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"A7",
+"B4"
+],
+"material": true
+},
+{
+"case": "intl_leading",
+"event_id": "ea216766",
+"raw_title": "Queensland tungsten mine to supply critical mineral to US military",
+"raw_summary": "",
+"event_type": "third_party_disruption",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"A6"
+],
+"material": true
+},
+{
+"case": "intl_leading",
+"event_id": "f783ed51",
+"raw_title": "Java4Shell, NGINX2Shell and more: Why we are not at \"Yellow\", (Wed, Nov 18th)",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.85,
+"expect_any": [
+"A7",
+"B4"
+]
+},
+{
+"case": "intl_non_resilience",
+"event_id": "3cf3021c",
+"raw_title": "Euro Falls as Russia Risk, France Protests Dent Trader Sentiment",
+"raw_summary": "",
+"event_type": "physical_security",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": []
+},
+{
+"case": "intl_non_resilience",
+"event_id": "67ae793b",
+"raw_title": "France's government under pressure after weekend of widespread violence",
+"raw_summary": "",
+"event_type": "physical_security",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": []
+},
+{
+"case": "intl_non_resilience",
+"event_id": "89726f3c",
+"raw_title": "Spain sees widespread disruption in first general strike for 14 years",
+"raw_summary": "",
+"event_type": "physical_security",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": []
+},
+{
+"case": "intl_non_resilience",
+"event_id": "c8778606",
+"raw_title": "What Could Stand in the Way of India's Growth Ambitions",
+"raw_summary": "",
+"event_type": "physical_security",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": []
+},
+{
+"case": "intl_non_resilience",
+"event_id": "103e64bf",
+"raw_title": "India's IDBI Bank Employees Strike Over Fairfax Acquisition",
+"raw_summary": "",
+"event_type": "physical_security",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": []
+},
+{
+"case": "intl_non_resilience",
+"event_id": "ffd56f4d",
+"raw_title": "Ukraine confirms hit on Russian ship in Gulf of Finland, as escalation fears grow",
+"raw_summary": "",
+"event_type": "workforce",
+"risk_rating": "MEDIUM",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.65,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "3488a78a",
+"raw_title": "CISA Adds Two Known Exploited Vulnerabilities to Catalog",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"A7",
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "5126e7ec",
+"raw_title": "CISA Adds Four Known Exploited Vulnerabilities to Catalog",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"A7",
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "60380aeb",
+"raw_title": "CISA Adds Four Known Exploited Vulnerabilities to Catalog",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"A7",
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "93d1215b",
+"raw_title": "CISA Adds One Known Exploited Vulnerability to Catalog",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"A7",
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "f240ed2c",
+"raw_title": "Cisco License (Smart Software Manager) On-Prem Vulnerabilities",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "463693c5",
+"raw_title": "CVE-2026-132224: Optimizely Web Experimentation External Control of Critical State Data Vulnerability",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "SUPPRESS",
+"operational_relevance": 0.95,
+"expect_any": [
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "c91f2f54",
+"raw_title": "GCP-2026-090",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "b0ef72ce",
+"raw_title": "GCP-2026-086",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": [
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "6dc02088",
+"raw_title": "OAIC's action in relation to the 2023 Latitude Data Breach and information to update and assist",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "ESCALATE",
+"operational_relevance": 0.95,
+"expect_any": [
+"B3",
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "fabdd144",
+"raw_title": "Large-scale data breaches on the rise, latest OAIC statistics reveal",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "ESCALATE",
+"operational_relevance": 1.0,
+"expect_any": [
+"B3",
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "0d901e53",
+"raw_title": "OAIC closes preliminary inquiries into VIQ Solutions",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "ESCALATE",
+"operational_relevance": 1.0,
+"expect_any": [
+"B3",
+"B4"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "308a90c6",
+"raw_title": "How an ASIC report generated an AFCA complaints spike",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": [
+"B3"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "5c00a43c",
+"raw_title": "Victoria faced devastating bushfires and an 'extinction emergency' this year. So why is nature policy absent",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "8e8131de",
+"raw_title": "AI and cyber security are a business continuity problem",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": [
+"B4",
+"B6"
+]
+},
+{
+"case": "classifier_high_severity",
+"event_id": "3c0e2386",
+"raw_title": "Scathing report finds years of poor management of Tasmania's ports",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": [
+"A1",
+"A2"
+],
+"material": true
+},
+{
+"case": "classifier_high_severity",
+"event_id": "71c18ad1",
+"raw_title": "Giants clash over Australia's gas reservation policy",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": [
+"A5",
+"A2"
+],
+"material": true
+},
+{
+"case": "classifier_high_severity",
+"event_id": "b14c73d1",
+"raw_title": "Permit data breach causes 4WD 'free-for-all' on turtle nesting beach",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "2da2b049",
+"raw_title": "Social media companies could be fined 5% of global revenue after Labor and Greens join forces",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "90102608",
+"raw_title": "iCatalyst opens business unit to jump-start organisations' AI usage",
+"raw_summary": "",
+"event_type": "third_party_disruption",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.8,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "e0d3c766",
+"raw_title": "Shant Soghomonian leaves Dell",
+"raw_summary": "",
+"event_type": "third_party_disruption",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "BRIEF",
+"operational_relevance": 0.95,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "ff38d57c",
+"raw_title": "Parents afraid to take their kids to town's only childcare centre",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "5707f4d6",
+"raw_title": "How the Victorian election will shape the future of Melbourne's suburbs",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "1ac8496f",
+"raw_title": "Major aged care staffing agency stripped of licence to operate in Victoria",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 1.0,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "b70bdb67",
+"raw_title": "An 'awful mistake' that leaked Trump's tax statements",
+"raw_summary": "",
+"event_type": "cyber",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.95,
+"expect_any": []
+},
+{
+"case": "classifier_high_severity",
+"event_id": "e84721ab",
+"raw_title": "TNX-AU1 Interconnect Services - Network Infrastructure Upgrade",
+"raw_summary": "",
+"event_type": "technology_outage",
+"risk_rating": "HIGH",
+"customer_impact": "high",
+"disposition": "WATCH",
+"operational_relevance": 0.8,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "f14fc6bb",
+"raw_title": "AI-found Ghostscript flaw turned file uploads into remote code execution",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "352b4a3f",
+"raw_title": "Elderly man dies in Launceston grass fire",
+"raw_summary": "",
+"event_type": "regulatory",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.7,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "ffccd876",
+"raw_title": "Franc, Yen Emerge as FX Winners as US Midterms Weaken Dollar",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "a215df35",
+"raw_title": "Melbourne aged care facility under police guard after shooting",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.35,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "b88c260a",
+"raw_title": "Origin Energy Limited (OGFGY) Stock Price, News, Quote & History",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "d86b164b",
+"raw_title": "Finnish ambassador says interest in embassy no red herring after viral posts",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "5715cec1",
+"raw_title": "Lula's comeback in Brazil dents Trump's ambitions for Latin America",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "ba0ff7d7",
+"raw_title": "Indonesia's Prabowo Said to Accept Resignation of Vice President",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "346ea1ef",
+"raw_title": "Victorian Labor MPs conduct a 'pre-mortem' in political death spiral",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.35,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "85fae511",
+"raw_title": "FSB Regional Consultative Group for Europe meets in Bern",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "bf02ff77",
+"raw_title": "Worried a Tech Service Is Down? Check Any of These 8 Dashboards to See What's Happening",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "a3e9be0b",
+"raw_title": "Aware Super invests in data, AI capabilities via appointments",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.2,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "45020916",
+"raw_title": "Triumph, tragedy and Alan Jones's drive to survive F1's deadliest era",
+"raw_summary": "",
+"event_type": "severe_weather",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "REFERENCE",
+"operational_relevance": 0.55,
+"expect_any": []
+},
+{
+"case": "ordinary_sample",
+"event_id": "1909a56c",
+"raw_title": "'The Meeting is the Message': Ex-CIA Official on Trilateral's Symbolism",
+"raw_summary": "",
+"event_type": "other",
+"risk_rating": "LOW",
+"customer_impact": "low",
+"disposition": "WATCH",
+"operational_relevance": 0.2,
+"expect_any": []
+}
+]

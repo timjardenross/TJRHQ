@@ -1,0 +1,50 @@
+{
+ "FW-1": {
+  "096a8d2a-748f-459c-93c9-648f54b860c3": "material",
+  "1a284e35-95f1-42e0-88ef-14c4f5803af6": "not_material",
+  "335b077a-0a0e-4441-ae78-ea6c3ba9bfce": "not_material",
+  "346aed4b-29a7-4a8b-ba63-80deb34e4183": "not_material",
+  "63c7702d-68be-4682-b5d5-eea65522919e": "unclear",
+  "7763f981-4fb8-4056-842d-6caa7840466f": "unclear",
+  "7e761033-4096-48cd-b5d8-bde8a1c09a99": "material",
+  "9f6095db-db1d-4ad5-bfe0-c56010fe02c4": "not_material",
+  "c3f73811-c322-42db-9417-bb1db3a4fa1e": "not_material",
+  "cd9491d1-b9ac-42f3-a8ee-472f31ff341d": "material",
+  "e513035f-367e-4698-a2d1-da327cd1a4a3": "material",
+  "ec0b8b40-88e2-4206-ba6b-62317c71ae65": "unclear"
+ },
+ "FW-2": {
+  "0f8391d3-eb35-473d-b73a-aca2470b37c9": "unclear",
+  "1072abc0-3fe5-4047-91b1-7a718f08759b": "unclear",
+  "11165095-6931-491b-bef3-3c30b49b0c1c": "unclear",
+  "1b8119c8-161f-47f7-baf5-2b952cda2ece": "unclear",
+  "42b67bd4-2943-421c-b7c8-e328c82316ce": "unclear",
+  "60927487-af09-47fa-ae45-96e06c5eba6b": "unclear",
+  "9978c17f-59f7-4e38-ae3e-88f6046320ff": "unclear",
+  "9fdf54a4-49c8-43ca-aa32-effd1618e93a": "unclear",
+  "aa25f44c-e57e-4b61-ab64-cc7761145a85": "unclear",
+  "cc559280-2e87-484b-9e12-95ea20abea04": "unclear",
+  "e81463e6-ffd2-46d0-8cc8-5cca010b455e": "unclear",
+  "eada80f1-9ef2-4627-a2a0-457687fb2f25": "unclear",
+  "ed897855-c00e-4752-b81a-a1c30da126c2": "not_material"
+ },
+ "SR-1": {
+  "microsoft:2026-11-12": "material",
+  "optus:2026-09-11": "material",
+  "telstra:2026-09-20": "material"
+ },
+ "_note": "Development labels by a single annotator (the WP6 engineer) after inspecting the same data the rules were designed on. NOT independent evidence. Judgement basis per rule is in the WP6 report.",
+ "expected": {
+  "FW-1": [
+   "096a8d2a-748f-459c-93c9-648f54b860c3",
+   "7e761033-4096-48cd-b5d8-bde8a1c09a99",
+   "cd9491d1-b9ac-42f3-a8ee-472f31ff341d",
+   "e513035f-367e-4698-a2d1-da327cd1a4a3"
+  ],
+  "SR-1": [
+   "microsoft:2026-11-12",
+   "optus:2026-09-11",
+   "telstra:2026-09-20"
+  ]
+ }
+}
