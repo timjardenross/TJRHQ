@@ -141,7 +141,11 @@ with r(id, rx, f, t) as (values
   from r left join intelligence_briefs b on b.generated_at::date >= r.f - 1 and b.generated_at::date <= r.t + 7 group by r.id
 ), ip as (
   select r.id, count(p.product_key) filter (where (coalesce(p.body_md,'') || coalesce(p.summary,'')) ~* r.rx) n_prod
-  from r left join intelligence_products p on p.generated_for >= r.f - 1 and p.generated_for <= r.t + 7 group by r.id
+  from r left join (
+    -- one row per product per day: with several stored generations per day, count only the newest (never inflate the count)
+    select distinct on (product_key, generated_for) * from intelligence_products
+    order by product_key, generated_for, as_of desc, created_at desc
+  ) p on p.generated_for >= r.f - 1 and p.generated_for <= r.t + 7 group by r.id
 )
 select json_build_array(c.id, c.n, c.first_date, coalesce(i.n_fw,0), coalesce(i.n_other,0), i.first_date, coalesce(p.n_prod,0)) as row
 from cdb c join ib i using (id) join ip p using (id) order by c.id"""

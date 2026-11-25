@@ -38,7 +38,7 @@ export default function IntelligenceProducts() {
             {p.title}
           </h2>
           <p className="mt-1 text-wb-body text-wb-ink2">
-            Generated for {p.generated_for}. {p.summary}
+            Generated for {p.reporting_date ?? p.generated_for}. {p.summary}
           </p>
           {PRODUCT_SECTIONS.map(([key, label]) => (
             <div key={key} className="mt-3">

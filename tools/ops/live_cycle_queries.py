@@ -202,7 +202,7 @@ def collect_results(get: Getter, now: datetime, *, sweep_hour: int, deployed_at:
     res["external_fetch_usage"] = ext
 
     prods, _ = fetch(get, "intelligence_products",
-                     f"select=product_key,generated_for,as_of,title,summary,sections,exceptions,body_md&generated_for=gte.{(now - timedelta(days=1)).date()}&order=generated_for.desc,product_key.asc", 12)
+                     f"select=product_key,generated_for,as_of,title,summary,sections,exceptions,body_md&generated_for=gte.{(now - timedelta(days=1)).date()}&order=generated_for.desc,as_of.desc,product_key.asc", 60)
     res["products_today"] = [{"product_key": p["product_key"], "generated_for": p["generated_for"], "as_of": p.get("as_of"), "title": (p.get("title") or "")[:80],
                               "summary": (p.get("summary") or "")[:120],
                               "sections_type": "array" if isinstance(p.get("sections"), list) else "object" if isinstance(p.get("sections"), dict) else None,
