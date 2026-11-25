@@ -139,6 +139,155 @@ def _send_telegram(text: str) -> bool:
     return result.ok
 
 
+# ── Production status and delivery truth (BRIEF_STATUS_V1 / BRIEF_DELIVERY_RECORD_V1, both default OFF) ──
+# With both flags off none of this runs and send_brief() is exactly the legacy path.
+
+_DELIVERY_CHANNEL = "telegram"
+
+
+def _status_or_delivery_enabled() -> bool:
+    try:
+        from intelligence import delivery_record as dr
+        from intelligence import production_status as ps
+        return bool(ps.enabled() or dr.enabled())
+    except Exception:  # noqa: BLE001 - optional feature must never affect persistence
+        return False
+
+
+def _delivery_store():
+    from intelligence import delivery_record as dr
+    if _SUPABASE_URL and _SUPABASE_KEY:
+        return dr.PostgrestAttemptStore(_SUPABASE_URL, _SUPABASE_KEY)
+    log.warning("[delivery-record] Supabase not configured: attempt records are in memory only")
+    return dr.InMemoryAttemptStore()
+
+
+def _patch_brief_row(brief_id: str | None, fields: dict) -> bool:
+    """Best-effort PATCH of the additive status/delivery columns on the stored brief row. Never raises."""
+    if not brief_id or not _SUPABASE_URL or not _SUPABASE_KEY or not fields:
+        return False
+    try:
+        req = urllib.request.Request(
+            f"{_SUPABASE_URL}/rest/v1/captains_daily_briefs?id=eq.{urllib.parse.quote(str(brief_id), safe='')}",
+            data=json.dumps(fields).encode(), method="PATCH",
+            headers={"apikey": _SUPABASE_KEY, "Authorization": f"Bearer {_SUPABASE_KEY}",
+                     "Content-Type": "application/json", "Prefer": "return=minimal"})
+        with urllib.request.urlopen(req, timeout=8):  # nosec B310 - SUPABASE_URL env, https
+            return True
+    except Exception as exc:  # noqa: BLE001 - columns arrive with a separately approved migration; the brief is unaffected
+        log.warning("[brief-status] row patch failed: %s", exc)
+        return False
+
+
+def _record_production_status(brief_id: str | None, text: str, collection_caveat: str | None, brief_type: str = "morning") -> None:
+    """BRIEF_STATUS_V1: compute from content+collection only and store on the row. Delivery is not an input. The status is built from
+    the narrative COMPONENT (for the morning brief: the canonical ORI brief, its age and its own production status) and per-section
+    placeholder checks, never from the length of the composed text."""
+    from intelligence import production_status as ps
+    if not ps.enabled():
+        return
+    try:
+        ori = _get_latest_ori_brief() if brief_type == "morning" else None
+        res = ps.compute_captains_brief_status(brief_type=brief_type, text=text, brief_id=brief_id,
+                                               collection_caveat=collection_caveat, ori_brief=ori)
+    except Exception as exc:  # noqa: BLE001 - status is additive; a failure to compute is itself recorded as not NORMAL
+        log.warning("[brief-status] could not compute (recorded as DEGRADED): %s", exc)
+        res = ps.StatusResult(ps.ProductionStatus.DEGRADED, [f"status_unavailable:{type(exc).__name__}"])
+    _patch_brief_row(brief_id, {"production_status": res.status.value, "production_status_reasons": res.reasons})
+
+
+def _deliver_recorded(brief_type: str, text: str, brief_id: str | None, *, store=None, send_chunk=None) -> bool:
+    """BRIEF_DELIVERY_RECORD_V1: one recorded Telegram delivery. True only when every chunk is CONFIRMED.
+    Never claims exactly-once; an ambiguous send is recorded UNKNOWN and, only when BRIEF_DELIVERY_AUTO_RESEND_V1 is
+    also on, followed by ONE marked authorised recovery resend.
+
+    The audit store never stops a valid brief: if it cannot be used (store down at the start, failing mid-send, or no store could be built)
+    ``delivery_degraded.deliver_resilient`` sends once through the degraded path (local ledger as the duplicate control, uncertainty footer,
+    structured alert) and the brief row says the record is unavailable. Nothing here raises."""
+    from intelligence import delivery_adapter as da
+    from intelligence import delivery_degraded as dd
+    from intelligence import delivery_record as dr
+    try:
+        store = store or _delivery_store()
+    except Exception as exc:  # noqa: BLE001 - no store could be built: degraded path (store=None)
+        log.error("[delivery-record] attempt store unavailable (%s): degraded path", type(exc).__name__)
+        store = None
+    send_chunk = send_chunk or da.make_telegram_sender()
+    if brief_id:
+        table, ref = "captains_daily_briefs", str(brief_id)
+    else:
+        table, ref = "ref", f"{brief_type}:{datetime.now(_AEST).date().isoformat()}:{dr.content_hash(text)[:12]}"
+    res = dd.deliver_resilient(table, ref, text, channel=_DELIVERY_CHANNEL, store=store, split=da.split_for_telegram, send_chunk=send_chunk,
+                               brief_type=brief_type)
+    roll = res.roll
+    if res.refused_reason:
+        log.warning("[delivery-record] send refused (%s): no duplicate primary sent", res.refused_reason)
+    elif (not res.degraded and dr.auto_resend_enabled() and roll and roll.outcome in (dr.DeliveryOutcome.UNKNOWN, dr.DeliveryOutcome.PARTIAL)
+          and roll.ambiguous_chunks):
+        res2 = dd.deliver_resilient(table, ref, text, channel=_DELIVERY_CHANNEL, store=store, split=da.split_for_telegram, send_chunk=send_chunk,
+                                    brief_type=brief_type, kind=dr.AttemptKind.AUTHORISED_RECOVERY_RESEND, authorised_by=dr.POLICY_AUTHORISER)
+        if res2.roll is not None:
+            roll = res2.roll
+            res = res2
+    if roll is not None:
+        disclosure = roll.disclosure
+        if res.disclosure:
+            disclosure = f"{res.disclosure} | {disclosure}" if disclosure else res.disclosure
+        _patch_brief_row(brief_id, {"telegram_status": roll.outcome.value, "telegram_at": dr.utcnow(), "delivery_disclosure": disclosure})
+        _note_delivery_outcome(brief_type, roll.outcome.value)
+        if roll.outcome is not dr.DeliveryOutcome.CONFIRMED:
+            log.error("[delivery-record] %s brief delivery %s (confirmed chunks %s of %s)", brief_type, roll.outcome.value, roll.confirmed_chunks, roll.chunks_total)
+    return bool(roll and roll.outcome is dr.DeliveryOutcome.CONFIRMED)
+
+
+def _note_delivery_outcome(brief_type: str, outcome: str) -> None:
+    """Tell the deadman (same process) the delivery OUTCOME, so ambiguous delivery is worded as unconfirmed, not failed."""
+    try:
+        from intelligence import brief_reliability as br
+        br.record_delivery_outcome(brief_type, br.brief_date_aest(), outcome)
+    except Exception:  # noqa: BLE001 - wording only
+        pass
+
+
+def _ori_for_shadow(row: dict | None) -> dict | None:
+    """BRIEF_STATUS_V1: a stale canonical brief must not make the layered shadow read FULL coverage / NORMAL status / GREEN posture. A row
+    older than the usable-age limit (or with no usable timestamp) is passed on with its coverage marked degraded and the reason stated.
+    With the flag off the row is passed through unchanged."""
+    try:
+        from intelligence import production_status as ps
+        if not ps.enabled() or not row or not ps.ori_brief_stale(row):
+            return row
+        age = ps.ori_brief_age_hours(row)
+        cov = dict(row.get("coverage") or {}) if isinstance(row.get("coverage"), dict) else {}
+        cov["degraded"] = True
+        cov["reason"] = ("canonical brief is " + (f"{age:.0f} h old" if age is not None else "of unknown age") + "; it does not describe this morning")
+        cov["stale_canonical_brief"] = True
+        return {**row, "coverage": cov}
+    except Exception:  # noqa: BLE001 - shadow only
+        return row
+
+
+def _layered_shadow_health(health: dict | None, text: str, collection_caveat: str | None) -> dict | None:
+    """BRIEF_LAYERED_V1 (default off): add the layered-brief shadow under ``shadow_v1`` to the jsonb that is already being stored. The
+    delivered text is never touched and any failure returns ``health`` unchanged. With the flag off nothing is imported or read."""
+    if os.getenv("BRIEF_LAYERED_V1", "").strip().lower() not in ("1", "true", "yes", "on"):
+        return health
+    try:
+        from intelligence.brief import layered_shadow as ls
+        return ls.attach_to_health(health, text=text, collection_caveat=collection_caveat, sb_get=_sb_get, ori_brief=_ori_for_shadow(_get_latest_ori_brief()))
+    except Exception as exc:  # noqa: BLE001 - shadow only
+        log.warning("[layered-shadow] skipped: %s", exc)
+        return health
+
+
+def _send_brief_v1(brief_type: str, text: str, brief_id: str | None, collection_caveat: str | None) -> bool:
+    from intelligence import delivery_record as dr
+    _record_production_status(brief_id, text, collection_caveat, brief_type)
+    if dr.enabled() and _TELEGRAM_TOKEN and _TELEGRAM_CHAT:
+        return _deliver_recorded(brief_type, text, brief_id)
+    return _send_telegram(text)
+
+
 # ── Data fetchers ─────────────────────────────────────────────────────────────
 
 def _get_latest_ori_brief() -> dict | None:
@@ -263,11 +412,11 @@ def _persist_brief(
 ) -> str | None:
     """Persist a generated brief to captains_daily_briefs for historical retrieval.
 
-    Returns the inserted row's id, only when CAPTAINS_BRIEF_RECORD_EVENTS is on (the insert then asks for the row back);
+    Returns the inserted row's id, only when CAPTAINS_BRIEF_RECORD_EVENTS, BRIEF_STATUS_V1 or BRIEF_DELIVERY_RECORD_V1 is on (the insert then asks for the row back);
     otherwise, or when the insert fails, returns None. With the flag off the request is exactly the legacy one."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         return None
-    want_id = _record_events_enabled()
+    want_id = _record_events_enabled() or _status_or_delivery_enabled()
     url = f"{_SUPABASE_URL}/rest/v1/captains_daily_briefs"
     headers = {
         "apikey": _SUPABASE_KEY,
@@ -778,6 +927,39 @@ def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) 
     return None
 
 
+# ── Generated-text surfaces and the claim gate (BRIEF_CLAIM_GATE_V1: off | shadow | enforce) ─────────────────────────────────────
+# Every piece of model-written analytical text that reaches the Captain is governed: shadow records an outcome, enforce publishes only text
+# that passed the gate or an evidence-only/deterministic replacement. Off leaves each surface exactly as it was. The surfaces are listed in
+# the Batch 1 logic engineering report (so_what and the ORI narrative: brief_generator; the platform digest and the two weekly summaries: here).
+
+def _gate_mode() -> str:
+    try:
+        from intelligence import claim_gate
+        return claim_gate.gate_mode()
+    except Exception:  # noqa: BLE001 - an unreadable flag must not publish ungated text silently: treat as enforce-safe
+        return "enforce"
+
+
+def _govern_generated_summary(summary: str | None, evidence: list[dict], surface: str, *, context: dict | None = None) -> str | None:
+    """Gate one generated summary against the evidence it was written from. Returns the summary, or None (the caller falls back to its
+    evidence-only display) when enforce rejects it."""
+    if not summary:
+        return summary
+    mode = _gate_mode()
+    if mode == "off":
+        return summary
+    try:
+        from intelligence import claim_gate
+        res = claim_gate.validate_text(summary, evidence, field="executive_snapshot", mode=mode if mode in ("shadow", "enforce") else "enforce", context=context or {})
+        passed, kinds = res.passed, sorted({f.kind for f in res.failures})
+    except Exception as exc:  # noqa: BLE001 - fail closed
+        passed, kinds = False, [f"gate_error:{type(exc).__name__}"]
+    log.info("[claim-gate-surface] %s", json.dumps({"surface": surface, "mode": mode, "passed": passed, "failure_kinds": kinds, "published": bool(passed or mode != "enforce")}))
+    if mode == "enforce" and not passed:
+        return None
+    return summary
+
+
 def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> str | None:
     """LLM exec summary for the weekly Tech OSINT block, built from real event
     data (title, sector, source, severity) — not just the bucket counts. None
@@ -796,6 +978,9 @@ def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> str | Non
         f"the {min(limit, len(rows))} highest-ranked):\n" + "\n".join(events)
     )
     summary = _call_weekly_summary_providers(_TECH_OSINT_SUMMARY_SYSTEM_PROMPT, prompt, "Tech OSINT")
+    evidence = [{"id": f"E{i + 1}", "title": r.get("raw_title") or "", "summary": f"sector: {r.get('sector') or ''}",
+                 "source": (r.get("intelligence_source_registry") or {}).get("source_name") or ""} for i, r in enumerate(rows[:limit])]
+    summary = _govern_generated_summary(summary, evidence, "weekly_tech_osint_summary", context={"sources_checked": len(rows)})
     return _truncate_clean(summary, 700) if summary else None
 
 
@@ -816,6 +1001,9 @@ def _generate_health_osint_summary(rows: list[dict], limit: int = 40) -> str | N
         f"showing the {min(limit, len(rows))} highest-ranked):\n" + "\n".join(events)
     )
     summary = _call_weekly_summary_providers(_HEALTH_OSINT_SUMMARY_SYSTEM_PROMPT, prompt, "Health OSINT")
+    evidence = [{"id": f"E{i + 1}", "title": r.get("title") or "", "summary": f"domain: {r.get('health_domain') or ''}",
+                 "source": (r.get("health_source_registry") or {}).get("source_name") or ""} for i, r in enumerate(rows[:limit])]
+    summary = _govern_generated_summary(summary, evidence, "weekly_health_osint_summary", context={"sources_checked": len(rows)})
     return _truncate_clean(summary, 700) if summary else None
 
 
@@ -937,6 +1125,22 @@ def _truncate_clean(text: str, limit: int) -> str:
     return cut + "…"
 
 
+_INFRA_FALLBACK = re.compile(r"^(\d{1,3}) domain\(s\) degraded: (.{1,400}?)\. \(Narrative generation unavailable — see raw domain list\.\)$", re.DOTALL)
+
+
+def _deterministic_infra_text(narrative: str) -> str | None:
+    """The platform's own non-model fallback line ("N domain(s) degraded: A, B. (Narrative generation unavailable ...)") rebuilt from sanitised
+    parts, or None when the text is anything else (model-written)."""
+    m = _INFRA_FALLBACK.match(narrative.strip())
+    if not m:
+        return None
+    from intelligence import claim_gate
+    names = [claim_gate.sanitize_untrusted(x, 60) for x in m.group(2).split(", ")][:12]
+    if not names or any(not x for x in names):
+        return None
+    return f"{m.group(1)} domain(s) degraded: " + ", ".join(names) + ". (Narrative generation unavailable — see raw domain list.)"
+
+
 def _format_infra_block(infra: dict | None, morning_text: str | None = None) -> list[str]:
     """Shared Platform Health renderer (Part 1 item 2: de-dupe the block that
     was copy-pasted verbatim between generate_morning_brief() and
@@ -946,6 +1150,24 @@ def _format_infra_block(infra: dict | None, morning_text: str | None = None) -> 
     morning)" instead of silently re-rendering the identical warning."""
     if not infra or infra.get("state") != "unsure":
         return []
+    if _gate_mode() == "enforce":
+        # The platform-health explanation is model-written from heartbeat data this module cannot see, so its content cannot be checked here.
+        # In enforce mode the model text is NOT shown. Two deterministic forms are: the platform's own fallback line (names come from the domain
+        # registry, no model involved) and a count-only disclosure. Neither is worded as an all-clear.
+        try:
+            from intelligence import claim_gate
+            det = _deterministic_infra_text(str(infra.get("narrative") or ""))
+            if det is None:
+                n = infra.get("degraded_count")
+                count = f"{int(n)} domain(s) " if isinstance(n, int) and not isinstance(n, bool) and n > 0 else "One or more domains "
+                log.info("[claim-gate-surface] platform_health narrative withheld in enforce (content cannot be checked)")
+                return ["<b>🛰 PLATFORM HEALTH</b>",
+                        f"  ⚠️ {count}reported degraded or unconfirmed by the platform verification state. The generated explanation is withheld "
+                        "because it cannot be checked against the underlying heartbeat data. This is not an all-clear; see the Agent/Job dashboard.",
+                        ""]
+            infra = {**infra, "narrative": claim_gate.strip_control_chars(det)}
+        except Exception:  # noqa: BLE001 - the check itself failed: show nothing generated
+            return ["<b>🛰 PLATFORM HEALTH</b>", "  ⚠️ Platform health is unconfirmed; the generated explanation was withheld. See the portal.", ""]
     # Escaped before the comparison: this morning's persisted text holds the escaped form.
     narrative = _esc(_truncate_clean(infra["narrative"], 700))
     unchanged = bool(morning_text) and narrative in morning_text
@@ -1266,6 +1488,19 @@ def _format_weekly_capacity_block_v1(capacity: dict, days: int = 7) -> list[str]
 
 # ── Brief generators ──────────────────────────────────────────────────────────
 
+def _stale_canonical_note(brief: dict | None) -> str | None:
+    """BRIEF_STATUS_V1 only: wording when the canonical brief row is older than the usable-age limit, else None."""
+    try:
+        from intelligence import production_status as ps
+        if not ps.enabled() or not brief or not ps.ori_brief_stale(brief):
+            return None
+        age = ps.ori_brief_age_hours(brief)
+        how = f"{age:.0f} hours old" if age is not None else "of unknown age"
+        return f"The latest canonical brief is {how} and is not shown as today's posture. No current posture is available; this is not an all-clear."
+    except Exception:  # noqa: BLE001 - wording only
+        return None
+
+
 # Marker brief_evidence.morning_view puts at the start of its first line when there are zero recent incidents (coverage insufficient).
 _EVIDENCE_INSUFFICIENT_MARKER = "EVIDENCE COVERAGE INSUFFICIENT"
 
@@ -1300,6 +1535,10 @@ def _format_intelligence_posture_block(brief: dict | None, *, evidence_authorita
             "  Today's canonical brief has not been generated yet.",
             "",
         ]
+    stale_note = _stale_canonical_note(brief)
+    if stale_note:
+        # BRIEF_STATUS_V1: an old canonical brief is not today's posture. Say so instead of presenting its rating as current.
+        return [f"<b>{heading}</b>", f"  <i>⚠️ {_esc(stale_note)}</i>", ""]
 
     lines = [
         f"<b>{heading}</b>",
@@ -1518,6 +1757,15 @@ def generate_morning_brief(gap=None, collection_caveat: str | None = None, catch
             log.warning("Daily digest synthesis failed: %s", exc)
             digest_text = None
 
+    if digest_text and _gate_mode() != "off":
+        # The platform digest is model-written analysis over signals AND platform-domain events whose evidence this module cannot see, so
+        # it cannot be checked against its evidence here. Shadow records that it was shown ungated; enforce withholds it and shows the
+        # evidence-only signal list instead (the owner of daily_digest must expose its evidence before it can be gated and restored).
+        log.info("[claim-gate-surface] %s", json.dumps({"surface": "platform_digest", "mode": _gate_mode(), "gated": False,
+                                                        "published": _gate_mode() != "enforce"}))
+        if _gate_mode() == "enforce":
+            digest_text = None
+            lines += ["<i>Platform narrative withheld: it cannot be checked against its evidence. Evidence-only signals are listed instead.</i>", ""]
     if digest_text:
         lines += [
             "<b>🌐 PLATFORM, TODAY</b>",
@@ -1885,8 +2133,11 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     else:
         log.error("Unknown brief type: %s", brief_type)
         return False
+    health = _get_capacity_today()
+    if brief_type == "morning":
+        health = _layered_shadow_health(health, text, collection_caveat)   # BRIEF_LAYERED_V1 (default off): returns ``health`` itself when off
     brief_id = _persist_brief(
-        brief_type, text, signals_count=len(signals), health=_get_capacity_today(),
+        brief_type, text, signals_count=len(signals), health=health,
         evidence_window_hours=evidence_window_hours, collection_caveat=collection_caveat,
     )
     _record_brief_events(brief_type, brief_id)
@@ -1899,6 +2150,8 @@ def send_brief(brief_type: str, **kwargs) -> bool:
             _email_morning_brief(text)
         except Exception as exc:  # noqa: BLE001 - best-effort email delivery, already logged as non-blocking; Telegram is the real delivery/failure signal per this function's contract
             log.warning("Morning brief email failed (non-blocking): %s", exc)
+    if _status_or_delivery_enabled():
+        return _send_brief_v1(brief_type, text, brief_id, collection_caveat)
     return _send_telegram(text)
 
 
