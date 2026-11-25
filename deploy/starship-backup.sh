@@ -215,6 +215,9 @@ LIST="$STAGE/paths.txt"
     /etc/sysstat \
     /etc/systemd/journald.conf.d \
     /root/private-knowledge \
+    /root/private-security \
+    /var/log/infisical-requests \
+    /usr/local/sbin/infisical-request-archive \
     /var/spool/cron/crontabs \
     /root/starship-branches-*.bundle; do
     if [ -e "$p" ]; then echo "$p"; else log "note: $p does not exist, skipped"; fi
