@@ -21,7 +21,9 @@
       "test/**": false,
       "tmp/**": false,
       "review/**": false,
-      "wip/**": false
+      "wip/**": false,
+      "state/**": false,
+      "mistral/**": false
     }
   }
 }
