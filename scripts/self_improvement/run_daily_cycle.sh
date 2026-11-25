@@ -60,6 +60,11 @@ elif ! git merge --no-edit origin/main; then
   git merge --abort || true
 fi
 
+# 2026-11-25 (#757): live state no longer rides on main (the sync job publishes it to the state branch), so take the
+# allowlisted state paths from there, path-scoped, after the main merge. Never blocks the cycle.
+bash "$WORKTREE/scripts/self_improvement/pull_state_branch.sh" "$WORKTREE" \
+  || echo "WARNING: pull_state_branch.sh failed in $WORKTREE -- live state may be stale this cycle" >&2
+
 exec "$VENV_PYTHON" "$WORKTREE/scripts/self_improvement/orchestrator.py" \
   --repo-root "$WORKTREE" \
   --data-root "$WORKTREE/data/self-improvement" \
