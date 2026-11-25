@@ -59,7 +59,7 @@ def test_sample_branches_are_covered():
 
 def test_mistral_prefix_matches_github_pr_code():
     src = (ROOT / "core" / "engineering" / "providers" / "github_pr.py").read_text(encoding="utf-8")
-    prefix = re.search(r'^_BRANCH_PREFIX\s*=\s*"([^"]+)"', src, re.M).group(1)
+    prefix = re.search(r'^_BRANCH_PREFIX\s*=\s*"([^"]+)"', src, re.MULTILINE).group(1)
     assert _guarded(prefix + "x"), prefix
 
 
