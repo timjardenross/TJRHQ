@@ -36,7 +36,7 @@ L1_TARGET_CHARS = 1200
 AUDIO_DEFAULT_MINUTES = 3.0
 AUDIO_WORDS_PER_MINUTE = 150
 SHADOW_KEY = "shadow_v1"
-SHADOW_MAX_BYTES = 24 * 1024
+SHADOW_MAX_BYTES = 64 * 1024   # was 24 KB: real days (~900 incidents) exceed it even at compact level 5, so nothing was stored (#753)
 STORED_RECON_HEADROOM = 900
 SHADOW_BLOCKED_DOMAINS = frozenset({"health", "capacity", "personal", "wellbeing"})
 
@@ -836,7 +836,7 @@ def compact_layers(r: dict, level: int = 1) -> dict:
 def build_shadow_payload(r: dict, *, kind: str = "layered_brief", generated_at: datetime | None = None, blocked_ids: set[str] | None = None,
                          meta: dict | None = None) -> dict:
     """``shadow_v1`` payload: {schema, published=False, kind, generated_at, ...}. Health/personal-domain content is excluded by the caller
-    via ``blocked_ids``. Bound: the whole value INCLUDING ``meta`` is at most 24 KB (contract). Over the bound the layers are COMPACTED in up
+    via ``blocked_ids``. Bound: the whole value INCLUDING ``meta`` is at most SHADOW_MAX_BYTES. Over the bound the layers are COMPACTED in up
     to five steps (``compact_layers``), never discarded: every layer L1-L7 and the id of every incident are kept, only prose and then
     title length shrink, and ``compact_level`` records the step. Only if level 5 still exceeds the bound is the payload refused
     (ValueError), never silently reduced further."""
@@ -855,7 +855,7 @@ def build_shadow_payload(r: dict, *, kind: str = "layered_brief", generated_at: 
             payload["reduced"] = True
         if _size(payload) <= limit:
             return payload
-    raise ValueError("shadow payload exceeds 24 KB even at compact level 5")
+    raise ValueError("shadow payload exceeds the size bound even at compact level 5")
 
 
 def _size(o) -> int:
