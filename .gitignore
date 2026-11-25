@@ -203,3 +203,6 @@ core/mission-control/registry/mission-index.txt
 
 # Graphify generated output
 graphify-out/
+
+# Generated tool/audit reports are kept in private storage, not in this public repo (2026-11-25).
+/reports/
