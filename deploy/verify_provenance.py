@@ -27,8 +27,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 VERIFIED = "verified"
 UNVERIFIED = "unverified-direct-push"
@@ -58,7 +58,7 @@ class Unavailable(Exception):
 
 
 class Client:
-    def __init__(self, repo: str, token: Optional[str] = None, transport: Optional[Transport] = None):
+    def __init__(self, repo: str, token: str | None = None, transport: Transport | None = None):
         self.repo, self.token, self.transport = repo, token, transport or urllib_transport
         self.calls = 0
         self.last_rate: dict = {}
@@ -114,7 +114,7 @@ def _checks(client: Client, sha: str, required, bind_app):
     return (not missing and not red), missing, red, sha
 
 
-def verify_sha(sha: str, client: Client, *, main: str = "main", required_checks=("merge-gate",), bind_app: Optional[str] = "github-actions") -> dict:
+def verify_sha(sha: str, client: Client, *, main: str = "main", required_checks=("merge-gate",), bind_app: str | None = "github-actions") -> dict:
     start = client.calls
     try:
         status, prs = client.get(f"/repos/{client.repo}/commits/{sha}/pulls?per_page=100")
@@ -137,18 +137,17 @@ def verify_sha(sha: str, client: Client, *, main: str = "main", required_checks=
         info = {"pr": pr.get("number") if pr else None, "pr_method": method if pr else None, "checks_green": green,
                 "checks_sha": checked, "checks_missing": missing, "checks_not_success": red, "api_calls": client.calls - start}
         if pr is None:
-            return _result(sha, UNVERIFIED, "no merged PR into %s is associated with this commit (checks %s do not substitute for PR provenance)"
-                           % (main, "green" if green else "not green"), **info)
+            return _result(sha, UNVERIFIED, "no merged PR into {} is associated with this commit (checks {} do not substitute for PR provenance)".format(main, "green" if green else "not green"), **info)
         if not green:
-            return _result(sha, UNVERIFIED, "merged PR #%s but required checks not green (missing=%s not_success=%s)" % (pr.get("number"), missing, red), **info)
-        return _result(sha, VERIFIED, "merged PR #%s into %s (%s), required checks green" % (pr.get("number"), main, method), **info)
+            return _result(sha, UNVERIFIED, "merged PR #{} but required checks not green (missing={} not_success={})".format(pr.get("number"), missing, red), **info)
+        return _result(sha, VERIFIED, "merged PR #{} into {} ({}), required checks green".format(pr.get("number"), main, method), **info)
     except Unavailable as e:
         return _result(sha, UNKNOWN, str(e), pr=None, checks_green=None, api_calls=client.calls - start)
 
 
 class Cache:
     """Per-SHA file cache. verified is immutable and kept; unverified for `neg_ttl`; unknown is never cached."""
-    def __init__(self, directory: Optional[Path], neg_ttl: int = 900, now: Callable[[], float] = time.time):
+    def __init__(self, directory: Path | None, neg_ttl: int = 900, now: Callable[[], float] = time.time):
         self.dir, self.neg_ttl, self.now = directory, neg_ttl, now
 
     def get(self, sha):
@@ -179,7 +178,7 @@ def verify_cached(sha, client, cache: Cache, **kw) -> dict:
     return res
 
 
-def decide(current_head: str, target: str, results: "list[dict]", mode: str = "audit") -> dict:
+def decide(current_head: str, target: str, results: list[dict], mode: str = "audit") -> dict:
     """Fail-closed deployment decision for NEW code. `results` = verification result for every new commit in (current_head, target].
     Never returns an action that stops or restarts services. mode='audit': report only, deployment allowed."""
     bad = [r for r in results if r["verdict"] != VERIFIED] or ([] if results else [{"sha": target, "verdict": UNKNOWN, "reason": "no verification result"}])
@@ -187,7 +186,7 @@ def decide(current_head: str, target: str, results: "list[dict]", mode: str = "a
     worst = UNKNOWN if any(r["verdict"] == UNKNOWN for r in bad) else UNVERIFIED
     intent = None
     if would_hold:
-        intent = ("NOTIFY-INTENT (text only, nothing sent): deployment of %s HELD, staying on verified %s; %d commit(s) not verified, first %s: %s"
+        intent = ("NOTIFY-INTENT (text only, nothing sent): deployment of %s HELD, staying on verified %s; %d commit(s) not verified, first %s: %s"  # noqa: UP031
                   % (target[:9], current_head[:9], len(bad), bad[0]["sha"][:9], bad[0]["reason"]))
     return {
         "mode": mode,
@@ -196,7 +195,7 @@ def decide(current_head: str, target: str, results: "list[dict]", mode: str = "a
         "stay_on": current_head if (would_hold and mode != "audit") else target,
         "verdict": VERIFIED if not would_hold else worst,
         "services_action": "none",            # invariant: provenance never stops, restarts or reloads healthy running services
-        "log": "provenance %s: %s -> %s %s" % ("hold" if would_hold else "ok", current_head[:9], target[:9], "(audit: not blocking)" if would_hold and mode == "audit" else ""),
+        "log": "provenance {}: {} -> {} {}".format("hold" if would_hold else "ok", current_head[:9], target[:9], "(audit: not blocking)" if would_hold and mode == "audit" else ""),
         "notify_intent": intent,
     }
 

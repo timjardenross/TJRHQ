@@ -1,6 +1,5 @@
 """Unit tests for deploy/provenance_audit.py (#757 step 4): observe-only, anonymous by default, bounded records. No network."""
 import json
-import os
 import subprocess
 import sys
 import time
@@ -8,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "deploy"))
-import provenance_audit as pa  # noqa: E402
+import provenance_audit as pa
 
 TOKEN = "github_pat_" + "A1b2C3d4" * 4
 
@@ -158,5 +157,5 @@ def test_secrets_are_redacted_from_reasons():
 
 def test_cli_always_exits_zero_even_on_internal_error(tmp_path):
     out = subprocess.run([sys.executable, str(ROOT / "deploy" / "provenance_audit.py"), "--repo-root", str(tmp_path / "missing"),
-                          "--old", "a" * 40, "--new", "b" * 40, "--dir", str(tmp_path / "p")], capture_output=True, text=True)
+                          "--old", "a" * 40, "--new", "b" * 40, "--dir", str(tmp_path / "p")], capture_output=True, text=True, check=False)
     assert out.returncode == 0 and "internal error" in out.stderr

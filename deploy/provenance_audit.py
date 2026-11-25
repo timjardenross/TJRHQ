@@ -36,7 +36,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import verify_provenance as vp  # noqa: E402  (stdlib-only sibling module)
+import verify_provenance as vp
 
 CLASS = {vp.VERIFIED: "verified", vp.UNVERIFIED: "unverified-direct-push", vp.UNKNOWN: "unavailable"}
 UNVERIFIED_LOOKS = 3
@@ -139,7 +139,7 @@ def run_audit(repo_root, old, new, directory, *, final_run=False, transport=None
     env = os.environ if env is None else env
     d = Path(directory)
     d.mkdir(parents=True, exist_ok=True)
-    lock = open(d / "lock", "a")
+    lock = open(d / "lock", "a")  # noqa: SIM115
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
@@ -161,7 +161,7 @@ def run_audit(repo_root, old, new, directory, *, final_run=False, transport=None
     counts = {"verified": 0, "unverified-direct-push": 0, "unavailable": 0, "pending": 0}
     stop = ""
     if todo and st.get("backoff_until", 0) > t0:
-        stop = "backoff until +%ds" % (st["backoff_until"] - t0)
+        stop = "backoff until +%ds" % (st["backoff_until"] - t0)  # noqa: UP031
     for sha in todo:
         e = st["shas"].setdefault(sha, {"attempts": 0, "first_ts": t0})
         res = None
@@ -200,9 +200,9 @@ def run_audit(repo_root, old, new, directory, *, final_run=False, transport=None
     st["last_run"] = t0
     save_state(state_path, st)
     fcntl.flock(lock, fcntl.LOCK_UN)
-    msg = "provenance-audit: range=%d new=%d verified=%d unverified=%d unavailable=%d pending=%d api_calls=%d auth=%s" % (
+    msg = "provenance-audit: range=%d new=%d verified=%d unverified=%d unavailable=%d pending=%d api_calls=%d auth=%s" % (  # noqa: UP031
         len(shas), len(todo), counts["verified"], counts["unverified-direct-push"], counts["unavailable"], counts["pending"], client.calls, auth)
-    return msg + (" stop=%s" % stop if stop else "")
+    return msg + (f" stop={stop}" if stop else "")
 
 
 def main(argv=None):
@@ -215,8 +215,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     try:
         print("[auto-deploy] " + run_audit(a.repo_root, a.old, a.new, a.dir, final_run=a.final_run))
-    except BaseException as e:                      # observe-only: nothing may escape
-        print("[auto-deploy] provenance-audit: internal error (%s) - ignored" % clean(type(e).__name__), file=sys.stderr)
+    except BaseException as e:                      # observe-only: nothing may escape  # noqa: BLE001
+        print(f"[auto-deploy] provenance-audit: internal error ({clean(type(e).__name__)}) - ignored", file=sys.stderr)
     return 0
 
 
