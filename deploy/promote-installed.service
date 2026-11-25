@@ -1,0 +1,11 @@
+[Unit]
+Description=Promote verified repo copies of root-executed scripts to their installed locations
+OnFailure=alert-on-failure@%n.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/opt/deploy-guard/promote-installed.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=promote-installed
