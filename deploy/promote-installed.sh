@@ -26,6 +26,11 @@ API="${PROMOTE_API:-https://api.github.com}"
 CURL="${PROMOTE_CURL:-curl}"
 PAIRS=("${PROMOTE_PAIRS:-deploy/starship-backup.sh|${PROMOTE_DEST:-/opt/starship-backup/backup.sh}|700}")
 say() { echo "[promote-installed] $*"; }
+# Dormant by default: promotion stays OFF until a root creates this file. Do not create it until the deployment
+# provenance controls (#757: ruleset on main requiring a PR and merge-gate, protected workflow files) are in place,
+# because the trust decision below rests on GitHub check runs for a commit on main.
+ENABLE_FILE="${PROMOTE_ENABLE_FILE:-/opt/deploy-guard/promote-installed.enabled}"
+[ -e "$ENABLE_FILE" ] || { echo "[promote-installed] disabled (no $ENABLE_FILE); nothing done"; exit 0; }
 git_() { git -c safe.directory="$REPO" -C "$REPO" "$@"; }
 
 HEAD_SHA="$(git_ rev-parse HEAD)"
