@@ -119,3 +119,43 @@ def run_check(now: datetime | None = None, notify_fn: Callable | None = None,
     except Exception as exc:  # noqa: BLE001 - scheduled-job boundary, already logged
         log.error("credential expiry check failed: %s", exc)
         return []
+
+
+def set_entry(name: str, expires_at: str, hint: str | None = None, registry: Path | None = None) -> None:
+    """Create or update one registry entry (used after every rotation so the monitor tracks the new expiry)."""
+    registry = registry or REGISTRY_PATH
+    _parse(expires_at)  # validate
+    entries = _load_json(registry, [])
+    entries = [e for e in entries if e.get("name") != name]
+    old = next((e for e in _load_json(registry, []) if e.get("name") == name), {})
+    entries.append({"name": name, "expires_at": expires_at, "renewal_hint": hint or old.get("renewal_hint", "")})
+    registry.parent.mkdir(parents=True, exist_ok=True)
+    tmp = registry.with_suffix(".tmp")
+    tmp.write_text(json.dumps(entries, indent=1))
+    os.replace(tmp, registry)
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description="Credential expiry registry (non-secret metadata only)")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("list")
+    s = sub.add_parser("set", help="record a new expiry after a rotation")
+    s.add_argument("name")
+    s.add_argument("expires_at", help="ISO 8601, e.g. 2027-02-22T23:57:00Z")
+    s.add_argument("--hint")
+    sub.add_parser("check", help="run the check now")
+    a = ap.parse_args(argv)
+    if a.cmd == "set":
+        set_entry(a.name, a.expires_at, a.hint)
+        print(f"recorded {a.name} expires {a.expires_at}")
+    elif a.cmd == "list":
+        for e in _load_json(REGISTRY_PATH, []):
+            print(f"{e['name']}  {e['expires_at']}")
+    else:
+        print(run_check())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

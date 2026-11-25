@@ -7,7 +7,7 @@ SCRIPT="$HERE/deploy/promote-installed.sh"
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); echo "ok   - $1"; }
 bad()  { FAIL=$((FAIL+1)); echo "FAIL - $1"; }
-T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+T="$(mktemp -d)"; touch "$T/enabled"; trap 'rm -rf "$T"' EXIT
 
 fake_curl() { cat > "$T/curl" <<'EOS'
 #!/usr/bin/env bash
@@ -30,7 +30,7 @@ new_repo() { # $1 name; installs v1 at dest, commits v2 at HEAD
 }
 GREEN='{"check_runs":[{"name":"merge-gate","status":"completed","conclusion":"success"},{"name":"test","status":"completed","conclusion":"skipped"}]}'
 run() { # $1 repo name
-  FAKE_LOG="$T/$1.log" FAKE_RUNS="$T/runs.json" PROMOTE_REPO="$T/$1" PROMOTE_CURL="$T/curl" PROMOTE_DEST="$T/$1.installed" bash "$SCRIPT" >"$T/$1.out" 2>&1; echo $?; }
+  FAKE_LOG="$T/$1.log" FAKE_RUNS="$T/runs.json" PROMOTE_ENABLE_FILE="${ENABLE_OVERRIDE:-$T/enabled}" PROMOTE_REPO="$T/$1" PROMOTE_CURL="$T/curl" PROMOTE_DEST="$T/$1.installed" bash "$SCRIPT" >"$T/$1.out" 2>&1; echo $?; }
 
 new_repo a; echo "$GREEN" > "$T/runs.json"
 [ "$(cat "$T/a.installed")" = 'echo v1' ] && : ; rc=$(run a)
@@ -62,5 +62,9 @@ new_repo h; echo "$GREEN" > "$T/runs.json"; rc=$(FAKE_FAIL=1 run h)
 
 new_repo i; echo 'if then fi (' > "$T/i/deploy/starship-backup.sh"; git -C "$T/i" commit -qam broken
 echo "$GREEN" > "$T/runs.json"; rc=$(run i); [ "$rc" = 1 ] && [ "$(cat "$T/i.installed")" = 'echo v1' ] && ok "syntax error in commit: refused" || bad "bad syntax case (rc=$rc)"
+
+new_repo j; echo "$GREEN" > "$T/runs.json"; : > "$T/j.log"
+rc=$(ENABLE_OVERRIDE="$T/not-there" run j)
+[ "$rc" = 0 ] && [ "$(cat "$T/j.installed")" = 'echo v1' ] && [ ! -s "$T/j.log" ] && ok "dormant without the enable file: no GitHub call, nothing installed" || bad "dormant gate (rc=$rc)"
 
 echo; echo "$PASS passed, $FAIL failed"; [ "$FAIL" = 0 ]

@@ -77,3 +77,21 @@ def test_message_contains_no_secret_material(tmp_path):
     reg, st, sent, fn = _setup(tmp_path)
     _run(tmp_path, 1, fn, reg, st)
     assert "renew it" in sent[0][2]
+
+
+def test_set_entry_after_rotation_starts_a_fresh_series_and_keeps_hint(tmp_path):
+    reg, st, sent, fn = _setup(tmp_path)
+    _run(tmp_path, 7, fn, reg, st)
+    new = EXP + timedelta(days=90)
+    ce.set_entry("idp", new.isoformat(), registry=reg)
+    entry = json.loads(reg.read_text())[0]
+    assert entry["expires_at"] == new.isoformat() and entry["renewal_hint"] == "renew it"
+    ce.run_check(now=new - timedelta(days=7), notify_fn=fn, registry=reg, state_path=st)
+    assert len(sent) == 2
+
+
+def test_set_entry_rejects_a_bad_date(tmp_path):
+    import pytest
+    reg, _st, _sent, _fn = _setup(tmp_path)
+    with pytest.raises(ValueError):
+        ce.set_entry("idp", "not-a-date", registry=reg)
