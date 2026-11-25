@@ -114,3 +114,19 @@ def test_a_denied_check_revokes_an_earlier_ticket(tmp_path, monkeypatch):
     full = [_d(i * 0.1) for i in range(10)]
     assert vb.issue_ticket(full, "preview", now_ms=NOW + 1000)[0] is False
     assert vb.consume_ticket("preview", now_ms=NOW + 2000)[0] is False
+
+
+def test_push_guard_refuses_an_unguarded_branch_name(tmp_path, monkeypatch):
+    sys.path.insert(0, str(_REPO / ".claude" / "hooks"))
+    import vercel_deploy_gate as gate
+    (tmp_path / "lcars-portal").mkdir()
+    (tmp_path / "lcars-portal" / "vercel.json").write_text(
+        '{"git": {"deploymentEnabled": {"claude/**": false, "fix/**": false}}}', encoding="utf-8")
+    monkeypatch.setattr(gate, "current_branch", lambda d: "claude/topic-1")
+    assert gate.push_guard_missing(str(tmp_path)) is None
+    monkeypatch.setattr(gate, "current_branch", lambda d: "fix/oaic-sources")
+    assert gate.push_guard_missing(str(tmp_path)) is None                       # guarded prefix
+    monkeypatch.setattr(gate, "current_branch", lambda d: "oaic-sources")
+    assert "not covered" in gate.push_guard_missing(str(tmp_path))              # unguarded name is refused
+    monkeypatch.setattr(gate, "current_branch", lambda d: "main")
+    assert gate.push_guard_missing(str(tmp_path)) is None

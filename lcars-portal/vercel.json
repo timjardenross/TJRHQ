@@ -7,7 +7,23 @@
       "self-improvement": false,
       "claude/**": false,
       "worktree-*": false,
-      "archive/**": false
+      "archive/**": false,
+      "fix/**": false,
+      "feat/**": false,
+      "feature/**": false,
+      "chore/**": false,
+      "docs/**": false,
+      "hotfix/**": false,
+      "bugfix/**": false,
+      "codex/**": false,
+      "agent/**": false,
+      "bot/**": false,
+      "test/**": false,
+      "tmp/**": false,
+      "review/**": false,
+      "wip/**": false,
+      "state/**": false,
+      "mistral/**": false
     }
   }
 }
