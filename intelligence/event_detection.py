@@ -558,8 +558,17 @@ _PLACE_RX = re.compile(r"\b(" + "|".join(re.escape(p) for p in sorted(_PLACES, k
 _PLACE_ALIAS = {"victorian": "victoria", "tasmanian": "tasmania", "new south wales": "nsw"}
 
 
+# State abbreviations as headlines write them ("SA Health ...", "Vic Police ..."). Case-sensitive on purpose: "sa"/"vic" as ordinary
+# words are not places. Before 2026-11-25 a South Australian story ("SA Health denies using blackout as smokescreen") named no place
+# the guards could see, so it was attached to a Canberra outage and gave it South Australian sectors.
+_PLACE_ABBREV_RX = re.compile(r"\b(SA|Qld|QLD|Vic|VIC|Tas|TAS)\b")
+_PLACE_ABBREV = {"SA": "south australia", "Qld": "queensland", "QLD": "queensland", "Vic": "victoria", "VIC": "victoria", "Tas": "tasmania", "TAS": "tasmania"}
+
+
 def _places(title: str) -> frozenset:
-    return frozenset(_PLACE_ALIAS.get(m.lower(), m.lower()) for m in _PLACE_RX.findall(title))
+    named = {_PLACE_ALIAS.get(m.lower(), m.lower()) for m in _PLACE_RX.findall(title)}
+    named |= {_PLACE_ABBREV[m] for m in _PLACE_ABBREV_RX.findall(title)}
+    return frozenset(named)
 
 
 def _location_conflict(a: Candidate, b: Candidate) -> bool:
@@ -634,6 +643,7 @@ def correlate(cands: list[Candidate]) -> list[Group]:
         targets = [kk for kk, vv in enumerate(clusters) if kk != k and vv and any(
             (not cands[m].commentary) and cands[m].status == "stated" and cands[m].published
             and set(cands[m].sectors) & set(f.sectors) and set(cands[m].types) & set(f.types)
+            and not _location_conflict(f, cands[m])        # a story about one place never follows an incident in another
             and abs(f.published - cands[m].published) <= timedelta(hours=96) for m in vv)]
         if len(targets) == 1:
             followups[v[0]] = (targets[0], "probable follow-up: same sector and event class, only one active incident within 96 h")
