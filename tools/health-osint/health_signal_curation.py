@@ -59,6 +59,8 @@ sys.path.insert(0, str(_REPO_ROOT))
 # as plain top-level names instead.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import curation_guard
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("health_signal_curation")
 
@@ -196,6 +198,18 @@ def _parse_classification(raw: str, name: str) -> dict[str, Any] | None:
     can't drift on validation rules."""
     if not raw:
         return None
+    if curation_guard.guard_enabled():
+        # HEALTH_CURATION_GUARD_V1: strict schema validation. A malformed or
+        # object-less response falls through to the next provider (raises);
+        # any other schema violation escalates instead of guessing.
+        try:
+            return curation_guard.validate_model_output(raw)
+        except curation_guard.SchemaError as exc:
+            code = str(exc)
+            log.warning("[curation] %s output failed schema validation (%s) — escalating", name, code)
+            if code in ("malformed_json", "no_object"):
+                raise
+            return _fallback_classification(f"model output failed schema validation ({code}) via {name}")
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     data = json.loads(match.group() if match else raw)
     decision = str(data.get("decision", "")).upper().strip()
@@ -255,6 +269,21 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
     from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
     priority_tag = "PRIORITY AREA" if is_priority_domain(signal.get("health_domain")) else "not a priority area"
+
+    if curation_guard.guard_enabled():
+        # HEALTH_CURATION_GUARD_V1: untrusted fields are stripped of hidden/
+        # control characters and markup and length-capped before prompting.
+        _clean = curation_guard.sanitise_text
+        signal = {
+            **signal,
+            "title": _clean(signal.get("title"), 500),
+            "description": _clean(signal.get("description"), 4000),
+            "contributing_factor_type": _clean(signal.get("contributing_factor_type"), 200),
+            "population_description": _clean(signal.get("population_description"), 1000),
+            "study_design": _clean(signal.get("study_design"), 200),
+            "adverse_event_text": _clean(signal.get("adverse_event_text"), 2000),
+            "canonical_url": _clean(signal.get("canonical_url"), 500),
+        }
 
     prompt = (
         f"Title: {signal.get('title')}\n"
@@ -351,7 +380,8 @@ class HealthSignalCurator:
                 "signal_id, title, description, signal_type, health_domain, "
                 "contributing_factor_type, source_id, canonical_url, "
                 "population_description, study_design, fda_flagged, adverse_event_text, "
-                "health_source_registry(source_name)"
+                + ("severity, " if curation_guard.guard_enabled() else "")
+                + "health_source_registry(source_name)"
             )
             .eq("auto_ingested", True)
             .eq("auto_ingest_reviewed", False)
@@ -387,7 +417,12 @@ class HealthSignalCurator:
             r["source_name"] = (r.get("health_source_registry") or {}).get("source_name")
         return rows
 
-    def _apply(self, signal_id: str, classification: dict[str, Any]) -> None:
+    def _apply(self, signal_id: str, classification: dict[str, Any], signal: dict[str, Any] | None = None) -> None:
+        if curation_guard.guard_enabled():
+            # HEALTH_CURATION_GUARD_V1: last gate before any write. Idempotent
+            # with the per-signal guard in run(); with no source context a
+            # REJECT fails closed to ESCALATE.
+            classification, _codes = curation_guard.apply_guard(signal, classification)
         decision = classification["decision"]
         # Additive metadata (mission Phase 4/7) is written regardless of
         # decision, including ESCALATE — a human curator benefits from
@@ -473,6 +508,24 @@ class HealthSignalCurator:
                 reason = classification["reason"]
 
             for signal in group:
+                if curation_guard.guard_enabled():
+                    # Per member, not per group: near-duplicate grouping is by
+                    # title only, so source fields differ within a group.
+                    member_cls, guard_codes = curation_guard.apply_guard(signal, classification)
+                    member_decision, member_reason = member_cls["decision"], member_cls["reason"]
+                    if guard_codes:
+                        log.warning("[curation] integrity guard escalated signal %s [%s]", signal["signal_id"], ",".join(guard_codes))
+                    counts[member_decision] += 1
+                    self._apply(signal["signal_id"], member_cls, signal=signal)
+                    details.append({
+                        "signal_id": signal["signal_id"],
+                        "title": signal.get("title"),
+                        "decision": member_decision,
+                        "reason": member_reason,
+                        "mission_relevance": member_cls.get("mission_relevance"),
+                        "evidence_contribution": member_cls.get("evidence_contribution"),
+                    })
+                    continue
                 counts[decision] += 1
                 self._apply(signal["signal_id"], classification)
                 details.append({
