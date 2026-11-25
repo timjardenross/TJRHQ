@@ -243,3 +243,28 @@ def test_replay_against_frozen_reference_set_v1():
     assert sc["duplicate_alert_records"] == []
     # partial restorations ("being restored") are never counted as false restoration; a full 'recovers' claim 12.6 h early is
     assert [f["event_id"] for f in sc["false_restoration"]] == ["itnrec01"]
+
+
+# ── Canberra/South Australia mis-association (2026-11-25, production evidence) ─────────────────────────────────────────
+def _loc_ev(eid, title, source, published):
+    return {"id": eid, "title": title, "source": source, "published_at": published, "collected_at": published}
+
+
+def test_sa_story_is_not_attached_to_a_canberra_outage():
+    """Real events from the 25 Nov brief: an ABC story on SA Health and a blackout in South Australia was attached as a 'probable
+    follow-up' to the Canberra Triple Zero outage, giving the Canberra incident South Australian sectors (energy, health)."""
+    events = [
+        _loc_ev("da1ecde8", "Still no answers on what caused Triple Zero outage to ambulance, fire services - Region Canberra",
+                "Google News - Telstra", "2026-11-24T13:44:43+00:00"),
+        _loc_ev("8ff504ec", "SA Health denies using blackout as smokescreen for apology and backflip", "ABC News", "2026-11-22T23:53:28+00:00"),
+    ]
+    incidents = ic.cluster_incidents(events, now=datetime(2026, 11, 25, 1, 0, tzinfo=timezone.utc), force=True)
+    members = [{m.event_id for m in i.group.members} for i in incidents]
+    assert {"da1ecde8", "8ff504ec"} not in members and all(len(m) == 1 for m in members)
+
+
+def test_state_abbreviations_are_recognised_as_places():
+    from intelligence import event_detection as ed
+    assert ed._places("SA Health denies using blackout") == frozenset({"south australia"})
+    assert ed._places("Vic Police probe outage in Qld") == frozenset({"victoria", "queensland"})
+    assert ed._places("sa vic tas are ordinary lowercase words here") == frozenset()
