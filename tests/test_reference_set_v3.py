@@ -147,3 +147,12 @@ def test_v3_passes_the_scoring_gate_and_measurements_cover_every_record_with_a_p
     assert ids <= set(BY) | {"RS-042#dev"}
     for r in V3["incidents"]:
         assert r["tjr_detection"]["appeared"] == (r["id"] in ids or r["id"] == "RS-051"), r["id"]
+
+
+def test_conversion_sql_counts_one_product_row_per_day():
+    """Several stored generations per product-day must not inflate n_prod (history-preserving products table)."""
+    from tools.intelligence import reference_set_v3_measure as m
+    sql = m.conversion_sql()
+    assert "distinct on (product_key, generated_for)" in sql
+    assert "order by product_key, generated_for, as_of desc" in sql
+    assert "select" in sql.lower() and "insert " not in sql.lower() and "update " not in sql.lower()
