@@ -216,15 +216,16 @@ def register_jobs(scheduler, tz):
     )
     log.info("Intel products weekly job registered (Mon 07:20)")
     if enabled("INTEL_PRODUCTS_DAILY", default="1"):
-        # 10:30: after the 06:00 collection and clear of the 06:55-07:10 / 12:25-12:40 brief windows. Same table, same
-        # upsert key (product_key, generated_for), so a re-run on the same day replaces rather than duplicates.
+        # 06:20: the 06:00 collection heartbeat lands about 06:02 and generation takes about 2 minutes (57 s event read, rest
+        # compute), so the products the 07:00 brief reads are from this morning and finish before the 06:55 brief window.
+        # Same table, same upsert key (product_key, generated_for): a re-run on the same day replaces, never duplicates.
         scheduler.add_job(
             job_daily,
-            CronTrigger(hour=10, minute=30, timezone=tz),
+            CronTrigger(hour=6, minute=20, timezone=tz),
             id="intel_products_daily",
             name="Intelligence products (daily refresh)",
             replace_existing=True,
             misfire_grace_time=3600,
             coalesce=True,
         )
-        log.info("Intel products daily refresh registered (10:30)")
+        log.info("Intel products daily refresh registered (06:20)")
