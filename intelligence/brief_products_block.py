@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 FLAG = "INTEL_PRODUCTS_IN_BRIEF"
 MAX_LINES = 4
-MAX_AGE_DAYS = 8
+MAX_AGE_DAYS = 2   # products refresh daily at 06:20; a finding from a product older than this is omitted rather than shown stale
 ORDER = ("forward_watch", "recurring_provider", "systemic_risk")
 LABELS = {
     "forward_watch": "Forward watch",
