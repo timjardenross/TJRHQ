@@ -61,6 +61,8 @@ _WORKER = Path(__file__).parent / "_llmsec_worker.py"
 # unavailable guard should block the cloud call, not wave it through
 # unredacted. Only ever meant for a documented, deliberate rollback.
 _FAIL_OPEN = os.environ.get("LLM_GUARDRAILS_FAIL_OPEN", "").strip().lower() in ("1", "true", "yes")
+# The only types any caller may ask to leave in place (Production Operations review, 26 Nov 2026).
+_PRESERVABLE = frozenset({"ORGANIZATION", "NRP", "LOCATION", "DATE_TIME"})
 
 # 45s was too short: this VM runs gemma3:4b CPU-only (no GPU, confirmed via
 # `ollama ps` size_vram=0), and a single check_input/check_output call
@@ -190,7 +192,7 @@ def _invoke_worker_inner(command: str, payload: dict[str, Any]) -> dict[str, Any
     return result
 
 
-def redact_pii(text: str) -> RedactionResult:
+def redact_pii(text: str, *, preserve_entities: frozenset[str] | None = None) -> RedactionResult:
     """Run `text` through Presidio (built-in recognizers + the TJR-specific
     mission-codename/officer-clearance recognizers in
     core/security/guardrails/recognizers.py) and return the redacted text
@@ -198,10 +200,15 @@ def redact_pii(text: str) -> RedactionResult:
     returns the original text) if the isolated venv can't be reached and
     LLM_GUARDRAILS_FAIL_OPEN isn't set.
     """
+    payload: dict[str, Any] = {"text": text}
+    if preserve_entities:
+        if not preserve_entities <= _PRESERVABLE:
+            raise ValueError(f"entity types may not be preserved: {sorted(preserve_entities - _PRESERVABLE)}")
+        payload["preserve"] = sorted(preserve_entities)
     try:
-        result = _invoke_worker("redact", {"text": text})
+        result = _invoke_worker("redact", payload)
     except GuardrailsUnavailableError:
-        if _FAIL_OPEN:
+        if _FAIL_OPEN and not preserve_entities:
             log.error("llm_guardrails: redact_pii unavailable, FAIL_OPEN set — sending prompt UNREDACTED")
             return RedactionResult(redacted_text=text, findings=[])
         raise

@@ -71,8 +71,11 @@ log = logging.getLogger("model-router")
 # picture. glm-*:cloud (Ollama Cloud) is covered too since USS-TJR-MSN-0412
 # Stream 5: _run_task guards any model whose tag ends in ":cloud".
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from core.security import public_judgement_route as _judgement_route
 from core.security.llm_guardrails import (
+    check_input_rail,
     check_output_rail,
+    redact_pii,
     secure_outbound_prompt,
 )
 
@@ -232,6 +235,9 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # that the two have different provider shapes.
     "intelligence-brief":    {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
+    # Public-source judgements only. Deliberately NOT in TASK_ROUTES: it never takes a bare prompt (own handler, own boundary).
+    "intelligence-judgement": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low",
+                               "public_source_boundary": True},
     # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine.
     # Same tier as intelligence-brief: infrequent, quality-sensitive, not
     # latency-sensitive. Per the Captain's resolved hybrid design, this
@@ -746,7 +752,17 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             # unreachable guardrails venv — either way, nothing reaches
             # Gemini until the prompt has been checked and redacted.
             with _OLLAMA_LOCK:
-                safe_prompt, _redaction = secure_outbound_prompt(prompt)
+                if policy.get("public_source_boundary"):
+                    check_input_rail(prompt)
+                    # redact_pii directly, preserving exactly the four reviewed types; no fail-open on this route
+                    _redaction = redact_pii(prompt, preserve_entities=_judgement_route.PRESERVE)
+                    safe_prompt = _redaction.redacted_text
+                    payload_id = _judgement_route.audit(extra["event_ids"], safe_prompt, _redaction.findings)   # no record, no send
+                else:
+                    safe_prompt, _redaction = secure_outbound_prompt(prompt)
+            if policy.get("public_source_boundary"):
+                # outside the lock: a held payload must not stall other router work. Raises unless this payload is released.
+                _judgement_route.await_release(payload_id, safe_prompt)
             raw = _gemini_generate(
                 model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"),
                 policy.get("thinking_level"),
@@ -962,6 +978,9 @@ class RouterHandler(BaseHTTPRequestHandler):
         if path == "/api/model/adhd-decompose":
             self._handle_adhd_decompose()
             return
+        if path == "/api/model/intelligence-judgement":
+            self._handle_judgement()
+            return
 
         task_type = TASK_ROUTES.get(path)
         if task_type is None:
@@ -975,6 +994,33 @@ class RouterHandler(BaseHTTPRequestHandler):
         result = _run_task(task_type, prompt, body)
         code = 200 if result.get("success") else 500
         self._send_json(code, result)
+
+    def _handle_judgement(self) -> None:
+        """Root callers only, identifiers only; the router reads the records itself. See core/security/public_judgement_route.py."""
+        uid = _judgement_route.caller_uid(self.client_address, self.connection.getsockname())
+        if uid != 0:
+            log.warning("judgement route refused a caller (uid=%s)", uid)
+            self.close_connection = True                 # the body is not read for a refused caller
+            self._send_json(403, {"error": "caller not permitted"})
+            return
+        body = self._read_body()                      # over the size cap reads as empty and is rejected below
+        if not _judgement_route.enabled():
+            self._send_json(403, {"error": "judgement route is off"})
+            return
+        try:
+            prepared = _judgement_route.prepare(body)
+        except Exception as exc:  # noqa: BLE001 - anything that prevents preparation refuses the request
+            reason = str(exc) if isinstance(exc, _judgement_route.Rejected) else f"could not prepare ({type(exc).__name__})"
+            log.warning("judgement route rejected a request: %s", reason)
+            self._send_json(400, {"error": reason})
+            return
+        prompt, refs = _judgement_route.build_prompt(prepared)
+        result = _run_task(_judgement_route.TASK, prompt, {"event_ids": list(refs.values())})
+        if result.get("success"):
+            _judgement_route.record_outputs(result.get("response", ""))
+            result["refs"] = refs
+            result["dropped"] = prepared["dropped"]
+        self._send_json(200 if result.get("success") else 500, result)
 
     def _authorised(self) -> bool:
         if not _AUTH_TOKEN:

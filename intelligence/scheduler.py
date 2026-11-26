@@ -700,6 +700,22 @@ def _start_scheduler() -> None:
         _PRIORITY_TIERED_INTERVAL_MINUTES, SCHEDULE_TZ, SCHEDULE_TZ,
     )
 
+    # ── PDB judgements (evaluation product): default OFF, registers only when PDB_JUDGEMENTS_V1 is set. After the 07:00 brief.
+    try:
+        from intelligence import judgements as _judgements
+
+        if _judgements.enabled():
+            scheduler.add_job(
+                _judgements_job,
+                CronTrigger(hour=7, minute=12, timezone=tz),
+                id="pdb_judgements_daily",
+                replace_existing=True,
+                misfire_grace_time=3600,
+                coalesce=True,
+            )
+    except Exception as exc:  # noqa: BLE001 - optional job; registration failure is non-blocking
+        log.warning("PDB judgements failed to register (non-blocking): %s", exc)
+
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
@@ -1834,6 +1850,16 @@ def _attention_drill_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Attention drill job failed: %s", exc)
         _record_heartbeat("attention_engine_drill", "failed", error_message=str(exc))
+
+
+def _judgements_job() -> None:
+    """Daily PDB judgement cycle (evaluation product only). Never raises into the scheduler."""
+    try:
+        from intelligence.judgements import run_live
+
+        run_live()
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary - a job must never crash the shared APScheduler process
+        log.error("PDB judgements job failed: %s", exc)
 
 
 def _credential_expiry_job() -> None:
