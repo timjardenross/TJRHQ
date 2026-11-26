@@ -267,3 +267,14 @@ def test_live_run_sends_only_with_send_flag(tmp_path, monkeypatch):
 def test_malformed_reply_is_recorded_not_raised(tmp_path, text):
     result = run(tmp_path, two_publishers(), lambda r: (text, {}))
     assert result["status"] == "drafting_unavailable" and "malformed" in result["text"]
+
+
+@pytest.mark.parametrize("drafter", [reply_for, nothing, "down"])
+def test_every_product_states_the_screening_and_telstra_limitations(tmp_path, drafter):
+    if drafter == "down":
+        def drafter(_):
+            raise jd.DraftUnavailable("router: HTTPError")
+    result = run(tmp_path, two_publishers(), drafter)
+    assert ("Information screening is pattern-based and may exclude legitimate reporting or fail to detect some sensitive details. "
+            "Excluded records may reduce intelligence coverage.") in result["text"]
+    assert "Reduced Telstra coverage" in result["text"]

@@ -74,6 +74,11 @@ def enabled(env: dict | None = None) -> bool:
     return str((env if env is not None else os.environ).get(FLAG, "")).strip().lower() in ("1", "true", "yes", "on")
 
 
+# printed on every evaluation product (Captain's wording, 26 Nov 2026)
+SCREENING_LIMITATION = ("Information screening is pattern-based and may exclude legitimate reporting or fail to detect some sensitive "
+                        "details. Excluded records may reduce intelligence coverage.")
+
+
 # ── eligibility and candidates ────────────────────────────────────────────────
 
 def public_source(report: dict) -> tuple[bool, str]:
@@ -458,7 +463,7 @@ def render(today: date, run: dict, issued: list[dict], standing: list[dict], ret
 
 
 def collection_limits(coverage: dict | None, excluded: dict[str, int], candidates: list[dict], open_: dict[str, dict]) -> list[str]:
-    limits = route.limitations()                                  # standing gaps of the approved source list
+    limits = [SCREENING_LIMITATION, *route.limitations()]         # screening, then standing gaps of the approved source list
     if not coverage:
         limits.append("No coverage record: collection state unknown.")
     elif coverage.get("degraded"):
