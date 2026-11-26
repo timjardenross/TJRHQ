@@ -1,67 +1,21 @@
 {
-  "collection_timestamp": "2026-11-25T17:31:07.871233+00:00",
+  "collection_timestamp": "2026-11-26T17:33:09.142880+00:00",
   "repository_state": {
     "branch": "self-improvement",
-    "commit": "0d051059b4c8d665834c00f2684daf5d79374b3b",
+    "commit": "45d63644d925a0c8a88812b11ff49e8d87f25125",
     "commit_message": "Merge remote-tracking branch 'origin/main' into self-improvement",
     "dirty": true,
     "uncommitted_files": [
+      ".id-counters.json",
       "data/self-improvement/review/evolution_summary.json",
-      "data/self-improvement/runs/2026-09-14-230737/evidence.json",
-      "data/self-improvement/runs/2026-09-17-173145/evidence.json",
-      "data/self-improvement/runs/2026-09-17-173908/evidence.json",
-      "data/self-improvement/runs/2026-09-17-174521/evidence.json",
-      "data/self-improvement/runs/2026-09-17-175121/evidence.json",
-      "data/self-improvement/runs/2026-09-17-181658/evidence.json",
-      "data/self-improvement/runs/2026-09-17-181658/findings_classified.json",
-      "data/self-improvement/runs/2026-09-17-181658/findings_raw.json",
-      "data/self-improvement/runs/2026-09-17-210101/evidence.json",
-      "data/self-improvement/runs/2026-09-17-210828/evidence.json",
-      "data/self-improvement/runs/2026-09-17-211550/evidence.json",
-      "data/self-improvement/runs/2026-09-17-211550/findings_classified.json",
-      "data/self-improvement/runs/2026-09-17-211550/findings_raw.json",
-      "data/self-improvement/runs/2026-09-17-213846/evidence.json",
-      "data/self-improvement/runs/2026-09-17-214608/evidence.json",
-      "data/self-improvement/runs/2026-09-17-214608/findings_classified.json",
-      "data/self-improvement/runs/2026-09-17-214608/findings_raw.json",
-      "data/self-improvement/runs/2026-09-18-210150/evidence.json",
-      "data/self-improvement/runs/2026-09-18-210911/evidence.json",
-      "data/self-improvement/runs/2026-09-18-211632/evidence.json",
-      "data/self-improvement/runs/2026-09-18-212355/evidence.json",
-      "data/self-improvement/runs/2026-09-18-213123/evidence.json",
-      "data/self-improvement/runs/2026-09-18-222219/evidence.json",
-      "data/self-improvement/runs/2026-09-18-222219/findings_classified.json",
-      "data/self-improvement/runs/2026-09-18-222219/findings_raw.json",
-      "data/self-improvement/runs/2026-09-19-210340/evidence.json",
-      "data/self-improvement/runs/2026-09-19-211114/evidence.json",
-      "data/self-improvement/runs/2026-09-19-211114/findings_classified.json",
-      "data/self-improvement/runs/2026-09-19-211114/findings_raw.json",
-      "data/self-improvement/runs/2026-09-20-210028/evidence.json",
-      "data/self-improvement/runs/2026-09-20-210545/evidence.json",
-      "data/self-improvement/runs/2026-09-20-211102/evidence.json",
-      "data/self-improvement/runs/2026-09-20-211618/evidence.json",
-      "data/self-improvement/runs/2026-09-20-212340/evidence.json",
-      "data/self-improvement/runs/2026-09-20-212340/findings_classified.json",
-      "data/self-improvement/runs/2026-09-20-212340/findings_raw.json",
-      "data/self-improvement/runs/2026-09-21-210108/evidence.json",
-      "data/self-improvement/runs/2026-09-21-210848/evidence.json",
-      "data/self-improvement/runs/2026-09-21-211615/evidence.json",
-      "data/self-improvement/runs/2026-09-21-211615/findings_classified.json",
-      "data/self-improvement/runs/2026-09-21-211615/findings_raw.json",
-      "data/self-improvement/runs/2026-09-21-231352/evidence.json",
-      "data/self-improvement/runs/2026-09-21-232129/evidence.json",
-      "data/self-improvement/runs/2026-09-21-232909/evidence.json",
-      "data/self-improvement/runs/2026-09-21-233627/evidence.json",
-      "data/self-improvement/runs/2026-09-21-233627/findings_classified.json",
-      "data/self-improvement/runs/2026-09-21-233627/findings_raw.json",
-      "data/self-improvement/runs/2026-09-22-210205/evidence.json",
-      "data/self-improvement/runs/2026-09-22-210205/findings_classified.json",
-      "... and 211 more uncommitted files (truncated)"
+      "data/self-improvement/runs/2026-11-25-173107/evidence.json",
+      "data/self-improvement/runs/2026-11-25-173107/findings_classified.json",
+      "data/self-improvement/runs/2026-11-25-173107/findings_raw.json"
     ],
     "repo_root": "/opt/starship-endeavour-self-improvement"
   },
   "filesystem_audit": {
-    "python_files": 1388,
+    "python_files": 1393,
     "test_files": [
       "core/capture/test_dedup.py",
       "core/capture/test_enrichment_worker.py",
@@ -276,6 +230,7 @@
       "tests/test_dashboard_write_matrix.py",
       "tests/test_dated_events.py",
       "tests/test_db_size.py",
+      "tests/test_delivery_alert_consumer.py",
       "tests/test_delivery_reconciler.py",
       "tests/test_dependency_acquisition.py",
       "tests/test_dependency_evidence.py",
@@ -365,6 +320,7 @@
       "tests/test_intelligence_store_batched_dedup.py",
       "tests/test_intelligence_workflow.py",
       "tests/test_interrupt_dispatcher.py",
+      "tests/test_judgements.py",
       "tests/test_kimi_qwen_providers.py",
       "tests/test_layered_render.py",
       "tests/test_layered_shadow.py",
@@ -440,6 +396,7 @@
       "tests/test_provenance_v1.py",
       "tests/test_provider_chain_guardrails.py",
       "tests/test_provider_involvement.py",
+      "tests/test_public_judgement_route.py",
       "tests/test_publisher_identity_669.py",
       "tests/test_publisher_verification_ingest.py",
       "tests/test_qld_fire_adapter.py",
@@ -559,20 +516,21 @@
       ]
     },
     "config_files": [
-      "package-lock.json",
-      "config/evolution_watchlist.json",
-      "core/infrastructure/vm-processing/config.example.yaml",
       "config/osint_intelligence_missions.json",
-      "audit_results.json",
-      "config/self_improvement_policy.json",
       "core/infrastructure/mac-collector/config.example.yaml",
-      "core/infrastructure/vm-transfer/config.example.yaml",
-      "week2_full_audit.json",
-      "config/health_watchlist.json",
-      "config/intelligence_requirements.json",
-      "config/theme_watchlist.json",
       "package.json",
-      "config/source_effectiveness.json"
+      "config/self_improvement_policy.json",
+      "config/source_effectiveness.json",
+      "package-lock.json",
+      "core/infrastructure/vm-processing/config.example.yaml",
+      "config/health_watchlist.json",
+      "week2_full_audit.json",
+      "config/theme_watchlist.json",
+      "audit_results.json",
+      "config/intelligence_requirements.json",
+      "config/judgement_source_allowlist.json",
+      "core/infrastructure/vm-transfer/config.example.yaml",
+      "config/evolution_watchlist.json"
     ],
     "schema_files": [
       "self_improvement_run.schema.json",
@@ -591,6 +549,8 @@
         "xo-response",
         "intelligence-brief",
         "intelligence-signals",
+        "intelligence-judgement",
+        "public_source_boundary",
         "captain-insight-synthesis",
         "captain-reasoning-synthesis",
         "embed",
@@ -608,7 +568,7 @@
         "health-signal-curation",
         "adhd-decompose"
       ],
-      "count": 23
+      "count": 25
     },
     "router_reachable": true,
     "router_status": {
@@ -634,8 +594,8 @@
       ],
       "router_port": 8891,
       "log_file": "/opt/starship-endeavour/core/model-router/call_log.jsonl",
-      "recent_avg_ms": 110722,
-      "recent_failed": 1,
+      "recent_avg_ms": 95809,
+      "recent_failed": 0,
       "routing_policy": [
         {
           "task_type": "classify-capture",
@@ -785,7 +745,7 @@
   },
   "evidence_window": {
     "since_commit": null,
-    "collection_timestamp": "2026-11-25T17:31:07.871233+00:00"
+    "collection_timestamp": "2026-11-26T17:33:09.142880+00:00"
   },
-  "collection_duration_ms": 2416
+  "collection_duration_ms": 4009
 }

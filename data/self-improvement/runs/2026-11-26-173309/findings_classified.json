@@ -1,0 +1,102 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and placeholder anomalies in platform-runtime",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO comment indicating missing query to quality_anomalies table",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "TODO comments indicating unimplemented Phase 5 Supabase auth and event bus integration",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement database query for quality_anomalies and complete Phase 5 authorization and event bus integration."
+      },
+      "expected_benefit": "Eliminates empty stub lists and incomplete command authorization/integration logic in platform runtime.",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct call to external Gemini API bypassing model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini using GEMINI_API_KEY environment variable rather than delegating through model-router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM inference through the centralized model router endpoint."
+      },
+      "expected_benefit": "Centralizes model routing, observability, and fallback behavior for emergency alert generation.",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Router bypasses must be corrected by design review"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is absent",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Configured call_log.jsonl does not exist (call_log_exists is false)",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Ensure the model router service creates and writes to call_log.jsonl upon startup and request routing."
+      },
+      "expected_benefit": "Restores visibility into router latencies, failure rates, and model call metrics.",
+      "finding_id": "FND-003",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.95; Risk: low; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "route_policy_drift",
+      "title": "Missing routing policy mappings for configured router task types",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Router lists 25 configured task types (including public_source_boundary and intelligence-judgement), but routing_policy only defines rules for 23 task types",
+          "location": "model_router_audit.configured_routes"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Add explicit routing policy entries for public_source_boundary and intelligence-judgement."
+      },
+      "expected_benefit": "Prevents unhandled routing requests or silent fallback behavior for missing task types.",
+      "finding_id": "FND-004",
+      "evidence_strength": "strong",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: route_policy_drift; Evidence strength: strong; Confidence: 0.85; Risk: medium; Automation: needs_signoff"
+    }
+  ],
+  "errors": []
+}
