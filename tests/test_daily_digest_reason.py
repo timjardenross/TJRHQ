@@ -151,7 +151,7 @@ def test_digest_never_reaches_a_cloud_tier(monkeypatch):
     doc = _doc(engineering=[_item(description="Deploy of service X failed")])
     with patch.object(dd, "poll_events", return_value=[object()]), \
          patch.object(dd, "assemble_captain_brief_document", return_value=doc):
-        out = dd.build_daily_digest(signals=[{"risk_rating": "HIGH", "raw_title": "T", "raw_summary": "S"}])
+        out = dd.build_daily_digest(signals=[])
     assert out == "Local summary of the day."
     assert called == [] and len(prompts) == 1  # only the local model saw the prompt
 
@@ -173,6 +173,7 @@ def test_digest_passes_local_only_to_the_provider():
 
 @pytest.mark.parametrize("exc", [TimeoutError("timed out"), OSError("connection refused")])
 def test_local_timeout_or_error_falls_back_to_the_escaped_signals_block(monkeypatch, exc):
+    monkeypatch.setenv("BRIEF_SIGNAL_NARRATIVE_CLOUD", "0")  # kill switch: signals stay local too
     called = _cloud_tripwires(monkeypatch)
 
     def failing(self, prompt):
@@ -216,3 +217,60 @@ def test_local_model_output_is_escaped_in_the_brief(monkeypatch):
     assert set(p.tags) <= {"b", "i", "code"}
     assert "<NRP>" not in text and "<ORGANIZATION>" not in text
     assert "&lt;NRP&gt;" in text and "&amp;" in text
+
+
+# ── Public-source signals may use the cloud tier; platform-domain events never do ──
+
+_DOMAIN_SECRET = "PRIVATE-DOMAIN-EVENT-TEXT"
+
+
+def _split_run(monkeypatch, signals, router=None):
+    """Run build_daily_digest with one signal + one domain event; return (out, cloud_prompts, local_prompts)."""
+    cloud, local = [], []
+
+    def fake_router(self, p):
+        cloud.append(p)
+        if router is not None:
+            return router(p)
+        return "Cloud news narrative."
+
+    monkeypatch.setattr(lp.LLMProvider, "_model_router", fake_router)
+    monkeypatch.setattr(lp.LLMProvider, "_ollama", lambda self, p: local.append(p) or "Local platform narrative.")
+    doc = _doc(engineering=[_item(description=_DOMAIN_SECRET)])
+    with patch.object(dd, "poll_events", return_value=[object()]), \
+         patch.object(dd, "assemble_captain_brief_document", return_value=doc):
+        out = dd.build_daily_digest(signals=signals)
+    return out, cloud, local
+
+
+def test_public_signals_use_cloud_and_domain_events_stay_local(monkeypatch):
+    sig = [{"risk_rating": "HIGH", "raw_title": "Port strike widens", "raw_summary": "Freight delays"}]
+    out, cloud, local = _split_run(monkeypatch, sig)
+    assert out == "Cloud news narrative.\n\nLocal platform narrative."
+    assert len(cloud) == 1 and "Port strike widens" in cloud[0] and _DOMAIN_SECRET not in cloud[0]
+    assert len(local) == 1 and _DOMAIN_SECRET in local[0] and "Port strike widens" not in local[0]
+
+
+def test_cloud_failure_keeps_the_local_part_and_never_raises(monkeypatch):
+    def boom(p):
+        raise RuntimeError("cloud down")
+
+    monkeypatch.setattr(lp.LLMProvider, "_gemini", lambda self, p: (_ for _ in ()).throw(RuntimeError("down")))
+    monkeypatch.setattr(lp.LLMProvider, "_mistral", lambda self, p: (_ for _ in ()).throw(RuntimeError("down")))
+    sig = [{"risk_rating": "HIGH", "raw_title": "Port strike widens", "raw_summary": ""}]
+    out, _cloud, _local = _split_run(monkeypatch, sig, router=boom)
+    assert out and "Local platform narrative." in out and "Cloud" not in out  # chain ends at the local model
+
+
+def test_personal_health_signal_text_never_reaches_cloud(monkeypatch):
+    monkeypatch.setattr(lp, "_may_use_external", lambda *t: False)  # detector says personal
+    sig = [{"risk_rating": "HIGH", "raw_title": "x", "raw_summary": "y"}]
+    _out, cloud, local = _split_run(monkeypatch, sig)
+    assert cloud == [] and len(local) == 2
+
+
+def test_kill_switch_restores_local_only_for_signals(monkeypatch):
+    monkeypatch.setenv("BRIEF_SIGNAL_NARRATIVE_CLOUD", "0")
+    sig = [{"risk_rating": "HIGH", "raw_title": "Port strike widens", "raw_summary": ""}]
+    _out, cloud, local = _split_run(monkeypatch, sig)
+    assert cloud == [] and len(local) == 2

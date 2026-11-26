@@ -12,7 +12,7 @@ The result is a ``shadow_v1`` payload (``published: false``) merged into the jso
 (``captains_daily_briefs.health_snapshot``): exactly one key is added, every existing key is kept, and the delivered text is never
 touched. Convention for several shadow producers (documented decision): the layered payload owns ``shadow_v1``; the WP5 PIR payload
 nests under ``shadow_v1.companions['pir_tagging']`` (WP5's own ``merge_shadow``), added only when ``PIR_TAGGING_SHADOW_V1`` is on and
-only while the whole value stays within the 24 KB bound.
+only while the whole value stays within the SHADOW_MAX_BYTES bound.
 
 The audio alternative (``BRIEF_LAYERED_V1_AUDIO``, default OFF) reads the stored layered payload back and speaks L1, L2 and L6; it is
 only a text source for the existing audio pre-generation and never alters the written brief.
@@ -326,7 +326,7 @@ def _with_companion(merged: dict, companion: dict) -> dict:
 def attach_shadow(existing: dict | None, layered_result: dict, *, pir_items: list[dict] | None = None, meta: dict | None = None,
                   pirs: list[dict] | None = None, now: datetime | None = None, env: dict | None = None) -> dict:
     """Return a copy of ``existing`` with ONLY ``shadow_v1`` added (layered payload; PIR payload under ``companions`` when its flag is on
-    and the whole value fits 24 KB). No other key is touched; ``existing`` is not mutated."""
+    and the whole value fits SHADOW_MAX_BYTES). No other key is touched; ``existing`` is not mutated."""
     in_ids = [e["incident_id"] for e in layered_result.get("L7", [])]       # the render input set
     smeta = None
     if meta:
@@ -336,7 +336,7 @@ def attach_shadow(existing: dict | None, layered_result: dict, *, pir_items: lis
     if meta:       # checked against the STORED (possibly compact) layers, after compaction
         payload["meta"]["reconciliation_stored"] = {k: v for k, v in lr.reconcile(in_ids, payload["layers"]).items() if k != "extra_not_in_input"}
         if lr._size(payload) > lr.SHADOW_MAX_BYTES:
-            raise ValueError("shadow_v1 exceeds 24 KB")
+            raise ValueError("shadow_v1 exceeds the size bound")
     merged = lr.merge_shadow(existing, payload)
     if pir_items is not None and req.shadow_enabled(env):
         try:
@@ -349,7 +349,7 @@ def attach_shadow(existing: dict | None, layered_result: dict, *, pir_items: lis
         except Exception as exc:  # noqa: BLE001 - shadow companion is optional
             log.warning("[layered-shadow] PIR companion skipped: %s", exc)
     if _size(merged[SHADOW_KEY]) > lr.SHADOW_MAX_BYTES:
-        raise ValueError("shadow_v1 exceeds 24 KB")
+        raise ValueError("shadow_v1 exceeds the size bound")
     return merged
 
 

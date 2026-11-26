@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -38,6 +39,8 @@ from intelligence.brief.domains_view import _readable_text
 from intelligence.brief.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
+
+_OFF = {"0", "false", "no", "off"}
 
 _llm = LLMProvider()
 
@@ -162,27 +165,51 @@ def build_daily_digest(hours: int = 24, signals: list[dict] | None = None) -> st
     if not domain_text and not signal_text:
         return None
 
-    prompt = (
-        "Write today's educational daily digest for Captain TJR, combining the inputs "
-        "below into one cohesive narrative — a few short paragraphs, plain language, "
-        "explain why things matter, not just what happened. Cover every domain actually "
-        "present below; don't force a section for a domain with no input. If individual "
-        "news signals are included, weave the notable ones into the narrative by what "
-        "they mean for the Captain rather than listing them as a separate section.\n\n"
-        f"{signal_text}\n\n{domain_text}".strip()
-    )
+    parts: list[str] = []
 
+    # Public-source news signals: the one input that may use the cloud tier (Gemini Flash-Lite via
+    # the normal chain, Mistral pipeline skipped). generate() still keeps any prompt that looks like
+    # personal health content on this host. BRIEF_SIGNAL_NARRATIVE_CLOUD=0 restores local-only.
+    if signal_text:
+        cloud_ok = os.getenv("BRIEF_SIGNAL_NARRATIVE_CLOUD", "1").strip().lower() not in _OFF
+        part = _synthesise(
+            "Write today's educational news digest for Captain TJR from the individual news "
+            "signals below — a few short paragraphs, plain language, explain why the notable "
+            "ones matter for the Captain rather than listing them.\n\n" + signal_text,
+            local_only=not cloud_ok,
+            use_mistral_pipeline=False,
+        )
+        if part:
+            parts.append(part)
+
+    # Platform-domain events (health, capacity, engineering...) never leave this host.
+    if domain_text:
+        part = _synthesise(
+            "Write today's educational platform digest for Captain TJR from the platform events "
+            "below — a few short paragraphs, plain language, explain why things matter, not just "
+            "what happened. Cover every domain actually present; don't force a section for a "
+            "domain with no input.\n\n" + domain_text,
+            local_only=True,
+        )
+        if part:
+            parts.append(part)
+
+    if not parts:
+        return None
+    log.info("[daily_digest] narrative generated (%d part(s))", len(parts))
+    return "\n\n".join(parts)
+
+
+def _synthesise(prompt: str, *, local_only: bool, use_mistral_pipeline: bool = True) -> str | None:
+    """One LLM call; None on any failure so the caller falls back to the deterministic block."""
     try:
-        # Local model only: this prompt carries platform-domain event text and must not reach a cloud tier.
-        text, provider = _llm.generate(prompt, local_only=True)
+        text, provider = _llm.generate(prompt, use_mistral_pipeline=use_mistral_pipeline, local_only=local_only)
     except Exception as exc:  # noqa: BLE001 - best-effort LLM synthesis, already logged; caller treats None as 'digest unavailable'
         log.warning("[daily_digest] LLM synthesis failed: %s", exc)
         return None
-
     if not text:
         return None
-
     text = _unwrap_if_json(text)
     if text:
-        log.info("[daily_digest] narrative generated via %s", provider)
+        log.info("[daily_digest] narrative part generated via %s", provider)
     return text or None

@@ -295,3 +295,8 @@ def test_nov24_degraded_collection_is_not_rendered_as_disruption_or_all_clear():
     assert result["axes"]["posture"]["value"] == "UNKNOWN"
     assert "Production status" in result["L1"]["text"]            # empty text => WP2 status DEGRADED/FAILED shown, not hidden
     assert "OAIC Breach Notifications" in json.dumps(result["axes"]["coverage"])
+
+
+def test_production_bound_holds_a_real_sized_day():
+    """26 Nov production day (~900 incidents) was 28.5 KB at the most compact level: the bound must hold it with room to keep evidence ids."""
+    assert lr.SHADOW_MAX_BYTES == 64 * 1024

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -118,6 +119,50 @@ def _write_state(state: dict[str, Any]) -> None:
         pass  # best-effort - a failed debounce write must not crash the switch
 
 
+_DELIVERY_STATE_FILE = _REPO_ROOT / "outputs" / "delivery_alert_consumer_state.json"
+_DELIVERY_ALERT_PREFIX = "[brief-delivery-degraded]"      # intelligence/delivery_degraded.ALERT_PREFIX (duplicated on purpose: no shared code)
+_DELIVERY_ALERT_UNIT = "intelligence-scheduler.service"
+
+
+def _read_delivery_alerts(since_epoch: int) -> list[str]:
+    """Journal lines carrying the degraded-delivery prefix since ``since_epoch``. Raises if the journal cannot be read."""
+    out = subprocess.run(          # fixed argv, no shell
+        ["/usr/bin/journalctl", "-u", _DELIVERY_ALERT_UNIT, f"--since=@{since_epoch}", "--no-pager", "-o", "cat"],
+        capture_output=True, text=True, check=True, timeout=30,
+    ).stdout
+    return [line for line in out.splitlines() if _DELIVERY_ALERT_PREFIX in line]
+
+
+def check_delivery_alerts(read=_read_delivery_alerts, send=None, now_epoch: int | None = None) -> dict[str, Any]:
+    """Consume the delivery audit-store failure alerts: one Telegram notice per batch of new alerts (count only, never content).
+    ``checked_at`` is the consumer heartbeat that verification_engine watches; it is written only when the journal was read and any
+    notice was delivered, so a broken consumer goes stale instead of looking healthy. Never raises."""
+    from datetime import datetime, timezone
+
+    send = send or _send_telegram
+    now_epoch = now_epoch or int(datetime.now(timezone.utc).timestamp())
+    try:
+        state = json.loads(_DELIVERY_STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - first run or unreadable state: look back one hour
+        state = {}
+    since = int(state.get("since_epoch") or now_epoch - 3600)
+    try:
+        alerts = read(since)
+    except Exception as exc:  # noqa: BLE001 - reported to the caller; heartbeat is deliberately not advanced
+        return {"ok": False, "alerts": 0, "reason": type(exc).__name__}
+    if alerts:
+        ok, err = send(f"Brief delivery assurance: {len(alerts)} degraded-delivery alert(s) from the scheduler. "
+                       "Delivery records may be incomplete. Check: journalctl -u intelligence-scheduler | grep brief-delivery-degraded")
+        if not ok:
+            return {"ok": False, "alerts": len(alerts), "reason": f"notice not sent: {err}"}
+    try:
+        _DELIVERY_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _DELIVERY_STATE_FILE.write_text(json.dumps({"since_epoch": now_epoch, "checked_at": now_epoch}), encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001 - heartbeat not written: verification_engine will report the consumer as stale
+        return {"ok": False, "alerts": len(alerts), "reason": type(exc).__name__}
+    return {"ok": True, "alerts": len(alerts), "reason": None}
+
+
 def check() -> dict[str, Any]:
     """Returns a report dict. Never raises - a switch that crashes silently
     defeats its own purpose, so every failure path is an explicit 'blind'
@@ -178,5 +223,6 @@ def check() -> dict[str, Any]:
 
 if __name__ == "__main__":
     report = check()
+    report["delivery_alerts"] = check_delivery_alerts()
     print(json.dumps(report, indent=2))
     raise SystemExit(1 if report.get("blind") else 0)

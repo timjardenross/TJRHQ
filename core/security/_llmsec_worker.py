@@ -70,6 +70,10 @@ def _cmd_redact(payload: dict[str, Any]) -> dict[str, Any]:
         analyzer.registry.add_recognizer(recognizer)
 
     results = analyzer.analyze(text=text, language="en")
+    # additive, absent on every existing call: entity types a reviewed route leaves in place (public_judgement_route)
+    preserve = set(payload.get("preserve") or ())
+    if preserve:
+        results = [r for r in results if r.entity_type not in preserve]
     anonymizer = AnonymizerEngine()
     anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
 
