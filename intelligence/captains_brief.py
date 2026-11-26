@@ -1804,8 +1804,49 @@ def generate_midday_update(signals: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _get_todays_morning_record() -> dict | None:
+    """The stored morning brief for today: text, time and coverage caveat only (health_snapshot holds capacity data and is not read)."""
+    today = datetime.now(_AEST).date().isoformat()
+    rows = _sb_get("captains_daily_briefs",
+                   f"brief_date=eq.{today}&brief_type=eq.morning&order=generated_at.desc&limit=1&select=brief_text,generated_at,collection_caveat")
+    return rows[0] if rows else None
+
+
+def _eod_assessment_text(now: datetime) -> str | None:
+    """Enriched end-of-day assessment (flag BRIEF_EOD_ASSESSMENT_V1, default off). None means use the legacy summary: flag off, or
+    the assessment could not be built. ``failed`` is signalled by an empty string so the legacy summary can say so."""
+    try:
+        from intelligence import eod_assessment as ea
+        if not ea.enabled():
+            return None
+        from intelligence import brief_evidence as be
+        events = be.load_events(_sb_get, hours=ea.WINDOW_HOURS)
+        if not events:
+            log.warning("[eod-assessment] no evidence loaded; using the legacy summary")
+            return ""
+        coverage: list[str] = []
+        try:
+            from intelligence import brief_coverage as bc
+            from intelligence.persistence import intelligence_store as store
+            if bc.enabled():
+                coverage = [x for x in bc.coverage_lines(_sb_get, store.load_active_emergency_alerts) if x.strip()]
+        except Exception as exc:  # noqa: BLE001 - coverage detail is optional
+            log.warning("[eod-assessment] coverage unavailable: %s", exc)
+        sections = ea.assess(events, _get_todays_morning_record(), now=now, caveat=_collection_coverage_caveat("intelligence_collection"),
+                             coverage=coverage, limitations=ea.source_limitations())
+        lines = [f"<b>🌙 END-OF-DAY ASSESSMENT — {now.strftime('%A %d %B')}</b>",
+                 f"<i>{_clock_label(now)} · what changed since this morning, and what matters overnight and tomorrow</i>", ""]
+        for heading, body in sections:
+            lines += [f"<b>{_esc(heading)}</b>", *[_esc(x) for x in body], ""]
+        return "\n".join(lines)
+    except Exception as exc:  # noqa: BLE001 - additive assessment; the legacy summary must still be produced
+        log.warning("[eod-assessment] unavailable: %s", exc)
+        return ""
+
+
 def generate_eod_summary() -> str:
     now = _now_aest()
+    assessment = _eod_assessment_text(now)
     capacity = _get_capacity_today()
     infra = _get_infra_verification()
     # 2026-08-13: EOD previously carried no intelligence section at all —
@@ -1820,11 +1861,20 @@ def generate_eod_summary() -> str:
     # silently re-rendering identically.
     morning_text = _get_todays_morning_brief_text()
 
+    if assessment:
+        # Capacity is appended after the public-source assessment and is never an input to it.
+        lines = [assessment, "<b>10. PERSONAL CAPACITY</b>", *_format_capacity_block(capacity)]
+        lines += _format_infra_block(infra, morning_text)
+        lines.append("🤖 <i>XO · Starship Endeavour</i>")
+        return "\n".join(lines)
+
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
         f"<i>{_clock_label(now)}</i>",
         "",
     ]
+    if assessment == "":
+        lines += ["<i>⚠️ The end-of-day assessment could not be produced; the headline summary follows. This is not an all-clear.</i>", ""]
 
     lines += _format_capacity_block(capacity)
     lines += _format_signals_block(todays_signals, "🌙 TODAY'S INTELLIGENCE")
