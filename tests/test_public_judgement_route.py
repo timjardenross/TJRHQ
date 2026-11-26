@@ -325,16 +325,18 @@ def test_unknown_identity_is_refused(tmp_path):
         assert route.caller_uid(("127.0.0.1", 1), ("127.0.0.1", 2), tables=(str(table),)) == expect
 
 
-def test_root_caller_cannot_submit_text(server):
-    url, sent, _ = server
+def test_root_caller_cannot_submit_text(server, monkeypatch):
+    url, sent, app = server
+    monkeypatch.setattr(app._judgement_route, "caller_uid", lambda *a: 0)   # CI is not root: simulate the authorised caller
     for body in ({"prompt": FABRICATED[1]}, ask(records=[{"title": FABRICATED[0]}])):
         status, reply = post(url, body)
         assert status == 400, reply
     assert sent == []
 
 
-def test_nothing_is_sent_while_held_and_exactly_the_inspected_payload_after_release(server, state):
-    url, sent, _ = server
+def test_nothing_is_sent_while_held_and_exactly_the_inspected_payload_after_release(server, state, monkeypatch):
+    url, sent, app = server
+    monkeypatch.setattr(app._judgement_route, "caller_uid", lambda *a: 0)   # CI is not root: simulate the authorised caller
     result = {}
     t = threading.Thread(target=lambda: result.update(zip(("status", "reply"), post(url, ask()))))
     t.start()
@@ -351,7 +353,8 @@ def test_nothing_is_sent_while_held_and_exactly_the_inspected_payload_after_rele
 
 
 def test_unreleased_request_sends_nothing(server, monkeypatch):
-    url, sent, _ = server
+    url, sent, app = server
+    monkeypatch.setattr(app._judgement_route, "caller_uid", lambda *a: 0)   # CI is not root: simulate the authorised caller
     monkeypatch.setenv(route.HOLD_SECONDS_ENV, "3")
     status, reply = post(url, ask())
     assert status == 500 and "not released" in reply["error"] and sent == []
