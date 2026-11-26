@@ -32,7 +32,7 @@ WINDOW_HOURS = 72
 CHANGE_LIMIT = 6
 SECTION_LIMIT = 4
 WATCH_LIMIT = 6
-POLICY_LIMIT = 4
+POLICY_LIMIT = 6              # a lower limit hid a rates-and-lending decision behind two repeats of other stories
 
 NEW = "NEW"
 ESCALATING = "ESCALATING"
@@ -43,6 +43,7 @@ STRENGTHENED = "CONFIRMATION STRENGTHENED"
 UPDATED = "CONTINUING, further reporting"
 UNCHANGED = "CONTINUING, no new reporting"
 NOT_COMPARED = "NOT COMPARED"
+REPORTING = "NEW REPORTING, currency not verified"   # never counted as a change: the event may be old
 CHANGE_STATES = (DETERIORATING, ESCALATING, NEW, RESOLVED, IMPROVING, STRENGTHENED)
 
 _PRIORITY_RANK = {"REFERENCE": 0, "WATCH": 1, "VERIFY": 2, "ESCALATE": 3}
@@ -82,6 +83,16 @@ _POLICY_KINDS = (
 _ACTOR_RX = [(rank, label, re.compile(rf"\b({_REGULATORS})\b(?!'s )[^,;:|]{{0,40}}?\b(?:{verbs})\b", re.IGNORECASE)) for rank, label, verbs in _POLICY_KINDS]
 _GUIDANCE_RX = re.compile(r"\bguidance\b", re.IGNORECASE)
 _FILLER = frozenset(["the", "a", "an", "to", "of", "for", "on", "in", "and", "with", "as", "at", "by", "its", "new", "over", "after", "despite", "more", "australia", "australian", "s", "apra", "asic", "acma", "oaic", "rba", "accc", "austrac", "aemo", "acsc", "treasury", "sues", "sued", "finalises", "finalizes", "sets", "keeps", "kept", "retains", "holds", "releases", "released", "publishes", "issues", "says", "rules", "requirements"])
+# A disruption announced for later is not one in progress.
+_PLANNED_RX = re.compile(r"\b(?:to be|could be|will be|set to be|are to be)\b[^.]{0,40}\b(?:disrupted|cancelled|offline|replaced|suspended|shut)\b"
+                         r"|\bfrom (?:next )?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.IGNORECASE)
+# Consequences that, appearing for the first time after the morning brief, make an incident worse rather than merely re-reported.
+_CONSEQUENCE_RX = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"\b(?:destroy\w*|homes? lost|damaged)\b", r"\b(?:killed|dead|deaths?|injur\w+)\b", r"\bevacuat\w+\b",
+    r"\b(?:cancel\w*|replaced by|suspended)\b", r"\b(?:passport\w*|customer (?:data|records)|stolen data)\b"))
+# Words that cannot by themselves show two reports are about the same thing.
+_LINK_GENERIC = frozenset(["service", "services", "outage", "disruption", "disrupted", "after", "could", "from", "week", "with", "that", "this", "have",
+                           "been", "will", "their", "says", "more", "australia", "australian", "customer", "customers", "major", "decision"])
 _HAZARD_OUTLOOK_RX = re.compile(r"\b(?:risk|outlook|forecast|expected|could|may|season|prepar\w+|warning of)\b", re.IGNORECASE)
 
 
@@ -149,6 +160,8 @@ class Item:
     carried: bool            # shown in this morning's brief
     known_before: bool       # collected before this morning's brief
     area: str                # national | professional | international | other
+    linked: tuple = ()       # morning report ids this item continues although clustering kept them apart
+    continues: str = ""      # the morning headline, when linked
 
     @property
     def sectors(self) -> list[str]:
@@ -161,13 +174,25 @@ class Item:
         return self.view.impact_status in ("warning", "forecast")
 
     @property
+    def planned(self) -> bool:
+        if self.view.event_type != "outage" or self.restoration in ("restored", "partially_restored"):
+            return False
+        text = " ".join([self.view.headline] + [str(r.get("title") or "") for r in self.view.reports])
+        return bool(_PLANNED_RX.search(text))
+
+    @property
+    def currency_unverified(self) -> bool:
+        """An outage seen only through aggregators: the article date does not show the disruption is happening now."""
+        return self.view.event_type == "outage" and self.view.evidence_status == "unverified"
+
+    @property
     def is_disruption(self) -> bool:
         """A stated service disruption. Cyber compromise, hazards and vulnerabilities are described as what they are, not as outages."""
-        return self.view.impact_status == "stated" and self.view.event_type == "outage"
+        return self.view.impact_status == "stated" and self.view.event_type == "outage" and not self.planned and not self.currency_unverified
 
     @property
     def unresolved(self) -> bool:
-        return self.restoration in ed.CURRENT_DISRUPTION
+        return self.restoration in ed.CURRENT_DISRUPTION and not self.planned and not self.currency_unverified
 
 
 def _when(value) -> datetime | None:
@@ -193,6 +218,8 @@ def _area(view: be.IncidentView) -> str:
 def _material(i: Item) -> bool:
     v = i.view
     if i.area == "other" or v.impact_status == "retrospective" and not i.carried:
+        return False
+    if i.state == UNCHANGED and i.restoration == "restored" and not i.carried:   # an old, closed event is not part of today's picture
         return False
     if v.event_type == "vulnerability" and v.materiality == "low":
         return False
@@ -250,6 +277,42 @@ def _restoration_of(view, by_report: dict) -> str:
     return view.record.get("restoration_status") or "unknown"
 
 
+def _text(report: dict) -> str:
+    return f"{report.get('title') or ''} {report.get('summary') or ''}"
+
+
+def _words(view) -> set:
+    found = re.findall(r"[a-z]{4,}", " ".join(_text(r) for r in view.reports).lower())
+    return {w.rstrip("s") for w in found if w not in _LINK_GENERIC and w.rstrip("s") not in _LINK_GENERIC}
+
+
+def _worse(view, morning: MorningRecord, collected: dict, headline: str = "") -> bool:
+    """A consequence stated since the morning brief that neither the brief's headline nor earlier reporting stated."""
+    def after(r):
+        t = collected.get(str(r.get("report_id")))
+        return bool(t and t > morning.generated_at)
+    new = " ".join(_text(r) for r in view.reports if after(r))
+    old = " ".join([headline] + [_text(r) for r in view.reports if not after(r)])
+    return any(rx.search(new) and not rx.search(old) for rx in _CONSEQUENCE_RX)
+
+
+def _link_continuations(items: list[Item], morning: MorningRecord, collected: dict) -> list[Item]:
+    """Clustering can keep a follow-up apart from the incident the morning brief carried. Join them in this product only, when they share a
+    service sector and at least three specific words, so one disruption is not reported both as new and as unchanged."""
+    dropped: set = set()
+    for new in [i for i in items if i.state == NEW]:
+        for old in items:
+            if (old.carried and old.state == UNCHANGED and id(old) not in dropped and set(old.sectors) & set(new.sectors)
+                    and len(_words(old.view) & _words(new.view)) >= 3):
+                headline = old.view.headline
+                new.carried, new.known_before, new.continues = True, True, headline
+                new.linked = tuple(str(r) for r in old.view.report_ids)
+                new.state = ESCALATING if _worse(new.view, morning, collected, headline) else UPDATED
+                dropped.add(id(old))
+                break
+    return [i for i in items if id(i) not in dropped]
+
+
 def build_items(events: list[dict], morning: MorningRecord | None, now: datetime) -> list[Item]:
     views, restoration = _views(events, now)
     before: dict = {}
@@ -272,7 +335,14 @@ def build_items(events: list[dict], morning: MorningRecord | None, now: datetime
         fresh = any((t := collected.get(r)) and t > morning.generated_at for r in ids)
         prior = next((before[r] for r in ids if r in before), None)
         state = _lifecycle(v, rest, known, fresh, prior, morning.entries.get(v.incident_id))
+        if state == UPDATED and _worse(v, morning, collected):
+            state = ESCALATING
         items.append(Item(v, state, rest, carried, known, _area(v)))
+    if morning:
+        items = _link_continuations(items, morning, collected)
+        for i in items:
+            if i.currency_unverified and i.state in CHANGE_STATES:
+                i.state = REPORTING
     items.sort(key=_rank)
     return items
 
@@ -280,7 +350,7 @@ def build_items(events: list[dict], morning: MorningRecord | None, now: datetime
 def _rank(i: Item):
     """Materiality and decision value, not headline severity."""
     v = i.view
-    return (0 if i.state in CHANGE_STATES else 1, 0 if i.unresolved else 1, -_PRIORITY_RANK[v.priority],
+    return (0 if i.state in CHANGE_STATES else 1, 0 if i.carried else 1, 0 if i.unresolved or i.planned else 1, -_PRIORITY_RANK[v.priority],
             -_EVIDENCE_RANK[v.evidence_status], v.sector_tier or 9, -(v.last_seen.timestamp() if v.last_seen else 0), v.incident_id)
 
 
@@ -307,6 +377,10 @@ def _kind(i: Item) -> str:
         return "warning or forecast, not an incident"
     if i.view.event_type == "vulnerability" or i.view.impact_status == "potential":
         return "potential exposure, no disruption established"
+    if i.planned:
+        return "announced disruption, not reported as started"
+    if i.currency_unverified:
+        return "disruption reported, but not verified as current; may be historical"
     if i.is_disruption:
         return "actual service disruption"
     if i.view.event_type == "cyber_incident":
@@ -336,6 +410,10 @@ def _why(i: Item) -> str:
 
 
 def _decision(i: Item) -> str:
+    if i.planned:
+        return "prepare: check the operator's timetable and own travel or freight exposure from the stated start; confirm with a second source"
+    if i.currency_unverified:
+        return "investigate: establish whether it is happening now before any action"
     if i.view.evidence_status not in _FIRM:
         return "investigate: confirm with a primary or second source before acting"
     if i.restoration == "restored":
@@ -350,24 +428,29 @@ def _decision(i: Item) -> str:
 def _detail(i: Item) -> list[str]:
     flag = "" if i.carried or i.state in (NEW, NOT_COMPARED) or not i.known_before else " (known at 07:00, not in the morning brief)"
     state = "" if i.state == NOT_COMPARED else f"[{i.state}]{flag} "
-    restore = "" if i.is_forecast or i.restoration == "unknown" else f"; {_STATE_WORDS[i.restoration]}"
-    return [f"- {state}{_short_headline(i.view.headline, 150)}",
+    restore = "" if i.is_forecast or i.planned or i.currency_unverified or i.restoration == "unknown" else f"; {_STATE_WORDS[i.restoration]}"
+    follows = [f"    Continues this morning's item: {_short_headline(i.continues, 90)}"] if i.continues else []
+    return [f"- {state}{_short_headline(i.view.headline, 150)}", *follows,
             f"    {_claim(i)}{restore} {be._cite(i.view)}",
             f"    ASSESSMENT: {_why(i)}. Decision: {_decision(i)}."]
 
 
 def _brief_line(i: Item) -> str:
-    restore = "" if i.restoration == "unknown" else f", {_STATE_WORDS[i.restoration]}"
+    restore = "" if i.planned or i.currency_unverified or i.restoration == "unknown" else f", {_STATE_WORDS[i.restoration]}"
     return f"- Continuing, no new reporting since 07:00{restore}: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]"
+
+
+def _area_shown(items: list[Item], area: str) -> list[Item]:
+    pool = [i for i in items if i.area == area]
+    return [i for i in pool if i.state != UNCHANGED][:SECTION_LIMIT] + [i for i in pool if i.state == UNCHANGED][:3]
 
 
 def _area_section(items: list[Item], area: str, empty: str) -> list[str]:
     pool = [i for i in items if i.area == area]
     detailed = [i for i in pool if i.state != UNCHANGED]
     lines: list[str] = []
-    for i in detailed[:SECTION_LIMIT]:
-        lines += _detail(i)
-    lines += [_brief_line(i) for i in [x for x in pool if x.state == UNCHANGED][:3]]
+    for i in _area_shown(items, area):
+        lines += _brief_line(i).splitlines() if i.state == UNCHANGED else _detail(i)
     if len(detailed) > SECTION_LIMIT:
         lines.append(f"- {len(detailed) - SECTION_LIMIT} further item(s) in this area not shown.")
     return lines or [f"- {empty}"]
@@ -455,23 +538,64 @@ def dependency_lines(items: list[Item]) -> list[str]:
             lines.append(f"- ASSESSMENT: {len(ids)} separate items involve {subject.replace('_', ' ')} [{', '.join(ids[:3])}]. "
                          "A shared provider is a possible concentration point; no link between them is established.")
     for i in items:
+        if i.view.event_type == "hazard" and i.sectors and not i.is_forecast:
+            lines.append(f"- REPORTED: hazard reporting involves {', '.join(_SECTOR_NAMES[s] for s in i.sectors)}: "
+                         f"{_short_headline(i.view.headline, 80)} [{i.view.incident_id}]. Extent of any service effect is not established.")
+    for i in items:
         if i.is_disruption and i.restoration != "restored" and len(i.sectors) > 1:
             lines.append(f"- REPORTED: one disruption touches {', '.join(_SECTOR_NAMES[s] for s in i.sectors)}: "
                          f"{_short_headline(i.view.headline, 80)} [{i.view.incident_id}]. Cascade beyond what is reported is not established.")
     return lines[:4] or ["- No dependency, concentration or cascading effect is supported by the evidence collected."]
 
 
-def _carried_unmatched(items: list[Item], morning: MorningRecord | None) -> list[str]:
+def _morning_open(morning: MorningRecord) -> list[tuple[str, str, str, set]]:
+    """The morning brief's incident entries above its background section: (incident id, headline, class, report ids)."""
+    text = morning.text.split("WORTH KNOWING")[0]
+    entries = _entries(text)
+    kinds, reports, kind, current = {}, {}, "open", None
+    for line in text.splitlines():
+        upper = line.strip()
+        if upper.startswith(("MATERIAL INCIDENTS", "EMERGING EXPOSURES", "MONITORING")):
+            kind = "exposure" if upper.startswith("EMERGING") else "watch" if upper.startswith("MONITORING") else "open"
+        found = re.search(r"inc-[0-9a-f]{10}", line)
+        if line.startswith("- "):
+            current = found.group(0) if found else None
+        inc = found.group(0) if found else current
+        if not inc:
+            continue
+        kinds.setdefault(inc, kind)
+        if "retrospective" in line:
+            kinds[inc] = "retrospective"
+        elif "emerging exposure" in line:
+            kinds[inc] = "exposure"
+        reports.setdefault(inc, set()).update(re.findall(r"#([0-9a-f]{8})", line) + re.findall(r"\[([0-9a-f]{8})\]", line))
+    return [(inc, h, kinds.get(inc, "open"), reports.get(inc, set())) for inc, (h, _state) in entries.items()]
+
+
+_OPEN_WORDS = (("open", "Reported this morning, no further reporting matched"),
+               ("exposure", "Technology exposure still open, no update on exploitation or patching"),
+               ("retrospective", "Regulatory finding about a past incident, not a current disruption"),
+               ("watch", "Still unverified from this morning"))
+
+
+def _carried_unmatched(shown: list[Item], morning: MorningRecord | None) -> list[str]:
+    """Every morning incident that the sections above do not cover. Silence is never read as resolution, whatever state it had."""
     if not morning:
         return []
-    present = {i.view.incident_id for i in items} | {be._incident_id(i.view.report_ids) for i in items}
-    headlines = {" ".join(i.view.headline.split()) for i in items}
-    return [f"- CARRIED FORWARD, no current reporting matched: {_short_headline(h, 90)} (morning: {state}) [{inc}]. Not treated as resolved."
-            for inc, (h, state) in sorted(morning.entries.items()) if inc not in present and " ".join(h.split()) not in headlines and state in ("ongoing", "partially restored")]
+    ids = {str(r)[:8] for i in shown for r in (*i.view.report_ids, *i.linked)}
+    incidents = {i.view.incident_id for i in shown} | {be._incident_id(i.view.report_ids) for i in shown}
+    headlines = {" ".join(i.view.headline.split()) for i in shown}
+    left = [(kind, inc, h) for inc, h, kind, reports in _morning_open(morning)
+            if inc not in incidents and not reports & ids and " ".join(h.split()) not in headlines]
+    return [f"- {words}: {_short_headline(h, 90)} [{inc}]. Not treated as resolved."
+            for key, words in _OPEN_WORDS for kind, inc, h in left if kind == key]
 
 
 def watch_lines(items: list[Item], events: list[dict], now: datetime) -> list[str]:
     lines = []
+    for i in [x for x in items if x.planned][:2]:
+        lines.append(f"- Announced disruption: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]. Next check: operator timetable and "
+                     "any industrial or regulatory decision before the stated start")
     for i in [x for x in items if x.view.event_type in ("hazard", "cyber_incident") and not x.is_forecast and x.state != UNCHANGED][:2]:
         label = "Hazard" if i.view.event_type == "hazard" else "Cyber follow-up"
         lines.append(f"- {label}: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]. Next check: {i.view.record['next_verification_action']}")
@@ -521,8 +645,11 @@ def _bottom_line(material: list[Item], morning, since_count: int, carried_forwar
             lines = [f"- NO MATERIAL CHANGE since the morning brief across {since_count} report(s) collected since then."]
     open_au = [i for i in material if i.unresolved and i.area in ("national", "professional")]
     unconfirmed = sum(1 for i in open_au if i.view.evidence_status not in _FIRM)
-    lines.append(f"- Australian service disruptions still open: {len(open_au)}" + (f" ({unconfirmed} not yet confirmed)" if unconfirmed else "")
-                 + (f"; {carried_forward} carried from this morning without an update" if carried_forward else "") + ".")
+    local = [i for i in material if i.area in ("national", "professional")]
+    pending = [f"{n} {words}" for n, words in ((sum(1 for i in local if i.planned), "announced and not yet started"),
+                                             (sum(1 for i in local if i.currency_unverified), "reported but not verified as current")) if n]
+    lines.append(f"- Australian service disruptions still open: {len(open_au)}" + (f" ({unconfirmed} not yet confirmed)" if unconfirmed else "") + (f"; also {', '.join(pending)}" if pending else "")
+                 + (f"; {carried_forward} item(s) from this morning not otherwise covered (section 6)" if carried_forward else "") + ".")
     if decisions:
         lines.append(f"- Regulatory: {_short_headline(decisions[0].title, 100)}"
                      + (f" (+{len(decisions) - 1} more, section 4)." if len(decisions) > 1 else "."))
@@ -543,7 +670,8 @@ def assess(events: list[dict], morning_row: dict | None, *, now: datetime | None
     material = [i for i in items if _material(i)]
     since = morning.generated_at if morning else now - timedelta(hours=24)
     since_count = sum(1 for e in events if (t := _when(e.get("collected_at"))) and t > since)
-    carried_forward = _carried_unmatched(items, morning)
+    shown = [i for area in ("national", "professional", "international") for i in _area_shown(material, area)]
+    carried_forward = _carried_unmatched(shown, morning)
     confidence = _confidence(material, morning, since_count, caveat)
     policy = [p for p in policy_items(events, since) if not (morning and p.ref.rsplit("#", 1)[1] in morning.report_ids)]
     if morning:
@@ -568,10 +696,10 @@ def assess(events: list[dict], morning_row: dict | None, *, now: datetime | None
 
     lifecycle = []
     if morning:
-        for s in (NEW, ESCALATING, DETERIORATING, IMPROVING, RESOLVED, STRENGTHENED, UPDATED, UNCHANGED):
+        for s in (NEW, ESCALATING, DETERIORATING, IMPROVING, RESOLVED, STRENGTHENED, UPDATED, REPORTING, UNCHANGED):
             group = [i for i in material if i.state == s]
             if group:
-                lifecycle.append(f"- {s.capitalize()}: {len(group)} [{', '.join(i.view.incident_id for i in group[:4])}{' …' if len(group) > 4 else ''}]")
+                lifecycle.append(f"- {s[0] + s[1:].lower()}: {len(group)} [{', '.join(i.view.incident_id for i in group[:4])}{' …' if len(group) > 4 else ''}]")
     else:
         for state, words in _STATE_WORDS.items():
             group = [i for i in material if i.view.event_type == "outage" and i.restoration == state and not i.is_forecast]
@@ -580,6 +708,8 @@ def assess(events: list[dict], morning_row: dict | None, *, now: datetime | None
         other = [i for i in material if i.view.event_type != "outage" or i.is_forecast]
         if other:
             lifecycle.append(f"- Cyber, hazard and other items (no restoration state): {len(other)}")
+    if morning and not any(i.state == RESOLVED for i in material):
+        lifecycle.append("- No incident is confirmed resolved since the morning brief.")
     lifecycle += carried_forward
 
     gaps = [f"- Overall confidence: {confidence}."]

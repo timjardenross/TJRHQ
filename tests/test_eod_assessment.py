@@ -99,14 +99,14 @@ def test_no_material_change_is_stated_only_when_something_was_collected():
 def test_unmatched_open_morning_item_is_carried_forward_not_resolved():
     row = morning_row("- Water supply failure in Hobart (ongoing; 3 reports; inc-0123456789)")
     sections = ea.assess([event(4, "Council opens new library", NOW - timedelta(hours=1))], row, now=NOW)
-    assert "CARRIED FORWARD" in section(sections, 6) and "Not treated as resolved" in section(sections, 6)
+    assert "Reported this morning, no further reporting matched" in section(sections, 6) and "Not treated as resolved" in section(sections, 6)
 
 
 def test_untiered_morning_lines_are_carried_forward_too():
     row = morning_row("- [ESCALATE · reported] Water supply failure in Hobart — impact stated in headline, ongoing; "
                       "moderate confidence [inc-0123456789; 1 report(s); evidence: ABC News #aaaaaaaa]")
     sections = ea.assess([event(4, "Council opens new library", NOW - timedelta(hours=1))], row, now=NOW)
-    assert "CARRIED FORWARD" in section(sections, 6)
+    assert "Reported this morning, no further reporting matched" in section(sections, 6)
 
 
 def test_improving_needs_an_established_worse_state():
@@ -200,3 +200,35 @@ def test_failure_falls_back_to_the_legacy_summary_and_says_so(monkeypatch, failu
         monkeypatch.setattr(ea, "assess", lambda *a, **k: (_ for _ in ()).throw(ValueError("x")))
     text = cb.generate_eod_summary()
     assert "END-OF-DAY SUMMARY" in text and "could not be produced" in text
+
+
+def test_morning_exposure_with_unknown_status_is_never_dropped():
+    row = morning_row("EMERGING EXPOSURES\n- Vendor adds exploited flaw (current status unknown; 1 reports; inc-0123456789) - emerging exposure")
+    text = section(ea.assess([OUTAGE], row, now=NOW), 6)
+    assert "Technology exposure still open" in text and "Vendor adds exploited flaw" in text
+
+
+def test_announced_disruption_is_not_an_open_outage_and_a_follow_up_is_not_new():
+    first = event(41, "NSW regional and interstate trains could be offline for a week from Friday", MORNING - timedelta(hours=8))
+    later = event(42, "Train services to be disrupted after commission delays ruling", NOW - timedelta(hours=2),
+                  summary="NSW regional and interstate passenger train services are to be cancelled or replaced by coaches.")
+    inc = ea.build_items([first], None, MORNING)[0].view.incident_id
+    sections = ea.assess([first, later], morning_row(f"- {first['title']} (ongoing; 1 reports; {inc})\n    NEW x: y [00000029]"), now=NOW)
+    assert "[ESCALATING]" in section(sections, 3) and "Continues this morning's item" in section(sections, 3)
+    assert "[NEW]" not in section(sections, 3)
+    assert "still open: 0" in section(sections, 1) and "1 announced and not yet started" in section(sections, 1)
+
+
+def test_aggregator_only_outage_is_not_stated_as_current():
+    old = event(51, "Telstra outage leaves town without phones - Local Paper", NOW - timedelta(hours=3), source="Google News: Telstra", geography="")
+    row = morning_row("Nothing material.")
+    sections = ea.assess([old], row, now=NOW)
+    text = "\n".join(line for _, body in sections for line in body)
+    assert "not verified as current" in text and "[NEW]" not in text and "; ongoing" not in text
+
+
+def test_new_consequence_in_later_reporting_is_escalation():
+    first = event(61, "Large bushfire threatens homes and properties on remote island off Tasmania", MORNING - timedelta(hours=8), source="Guardian Australia")
+    later = event(62, "Large bushfire on remote island off Tasmania destroys at least six homes and properties", NOW - timedelta(hours=2), source="Guardian Australia")
+    items = ea.build_items([first, later], ea.parse_morning(morning_row("x [0000003d]")), NOW)
+    assert [i.state for i in items] == [ea.ESCALATING]
