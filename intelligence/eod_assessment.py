@@ -110,7 +110,7 @@ _STOOD_DOWN_RX = re.compile(
     rf"|\b(?:suspends|calls off|halts|blocks|averts|ends) (?:the |a |planned )?(?:[a-z]+ ){{0,2}}?{_ACTION}\b", re.IGNORECASE)
 _HEDGE_RX = re.compile(r"\?|\b(?:could|may|might|bid|seek\w*|asks?|asked|appl\w+|not|refus\w+|reject\w+|whether|unless|if|calls? for|push\w*|"
                        r"part(?:ly|ial\w*)|one|some)\b", re.IGNORECASE)
-_INDUSTRIAL_RX = re.compile(r"\b(?:strikes?|industrial|stoppage|walk[- ]?out)\b", re.IGNORECASE)
+_INDUSTRIAL_RX = re.compile(r"\b(?:strikes?|industrial|stoppage|walk[- ]?out|fair work commission)\b", re.IGNORECASE)
 _PLACE_RX = re.compile(r"\b(?:nsw|new south wales|sydney|victoria|melbourne|queensland|brisbane|western australia|perth|south australia|"
                        r"adelaide|tasmania|hobart|act|canberra|northern territory|darwin)\b", re.IGNORECASE)
 _PLACES = {"new south wales": "nsw", "sydney": "nsw", "melbourne": "victoria", "brisbane": "queensland", "perth": "western australia",
@@ -149,7 +149,7 @@ class MorningRecord:
     caveat: str | None = None
 
 
-_ENTRY_RX = re.compile(r"^- (.+) \((ongoing|partially restored|restored|current status unknown|announced, not started|action suspended|forecast, not an incident|currency not verified|no restoration status); \d+ reports; (inc-[0-9a-f]{10})\)", re.MULTILINE)
+_ENTRY_RX = re.compile(r"^- (.+) \((ongoing|partially restored|restored|current status unknown|announced, not started|action suspended|suspension unverified|forecast, not an incident|currency not verified|no restoration status); \d+ reports; (inc-[0-9a-f]{10})\)", re.MULTILINE)
 
 
 # The untiered Morning V1 line: "- [TAG] headline — facts; confidence [inc-xxxxxxxxxx; ...]".
@@ -206,7 +206,7 @@ class Item:
     def status_words(self) -> str:
         """Lifecycle words that agree with the rest of the entry: restoration is claimed only for a current outage."""
         if self.stood_down:
-            return "action suspended"
+            return "suspension unverified" if self.view.evidence_status == "unverified" else "action suspended"
         if self.planned:
             return "announced, not started"
         if self.is_forecast:
@@ -437,7 +437,7 @@ def _reconcile_stand_downs(items: list[Item], times: dict) -> list[Item]:
     notices that have not started and are older than the suspension are replaced; an actual disruption is never closed this way."""
     def stand(i: Item):
         reports = [(times.get(str(r.get("report_id")), _reported_at(r)), r) for r in i.view.reports]
-        if not reports or i.view.evidence_status == "unverified":
+        if not reports:
             return None
         at, report = max(reports, key=lambda x: x[0])
         return (at, report) if _stand_down_text(report) else None
@@ -547,6 +547,8 @@ def _kind(i: Item) -> str:
     if i.view.event_type == "vulnerability" or i.view.impact_status == "potential":
         return "potential exposure, no disruption established"
     if i.stood_down:
+        if i.view.evidence_status == "unverified":
+            return "industrial action reported suspended but not verified; the earlier notice may still apply"
         return "industrial action reported suspended or called off; resumption of services not established"
     if i.planned:
         return "announced disruption, not reported as started"
@@ -587,6 +589,8 @@ def _why(i: Item) -> str:
 
 def _decision(i: Item) -> str:
     if i.stood_down:
+        if i.view.evidence_status == "unverified":
+            return "check: confirm with the operator whether the announced disruption still applies"
         return "check: confirm with the operator that services are running before relying on them"
     if i.planned:
         return "prepare: check the operator's timetable and own travel or freight exposure from the stated start; confirm with a second source"
@@ -604,7 +608,9 @@ def _decision(i: Item) -> str:
 
 
 def _supersedes_lines(i: Item) -> list[str]:
-    return [f"    Replaces earlier notice (no longer current): {_short_headline(h, 90)}" for h in i.supersedes[:3]]
+    label = ("Earlier notice, may no longer be current (suspension unverified)" if i.view.evidence_status == "unverified"
+             else "Replaces earlier notice (no longer current)")
+    return [f"    {label}: {_short_headline(h, 90)}" for h in i.supersedes[:3]]
 
 
 def _detail(i: Item) -> list[str]:
@@ -622,7 +628,8 @@ def _brief_line(i: Item) -> str:
     words = "" if i.status_words in ("no restoration status", "current status unknown") else f", {i.status_words}"
     if i.status_words == "restored":
         return f"- Restored earlier, no new reporting since 07:00: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]"
-    return f"- Continuing, no new reporting since 07:00{words}: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]"
+    line = f"- Continuing, no new reporting since 07:00{words}: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]"
+    return "\n".join([line, *_supersedes_lines(i)])
 
 
 def _area_shown(items: list[Item], area: str) -> list[Item]:
@@ -789,8 +796,9 @@ def _carried_unmatched(shown: list[Item], morning: MorningRecord | None) -> list
 def watch_lines(items: list[Item], events: list[dict], now: datetime) -> list[str]:
     lines = []
     for i in [x for x in items if x.stood_down][:2]:
-        lines.append(f"- Resumption: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]. Next check: operator confirmation that "
-                     "services are running, and any notice of further action")
+        check = ("whether the announced disruption still applies" if i.view.evidence_status == "unverified"
+                 else "operator confirmation that services are running, and any notice of further action")
+        lines.append(f"- Resumption: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]. Next check: {check}")
     for i in [x for x in items if x.planned][:2]:
         lines.append(f"- Announced disruption: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]. Next check: operator timetable and "
                      "any industrial or regulatory decision before the stated start")
