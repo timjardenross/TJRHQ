@@ -31,6 +31,8 @@ import os
 import urllib.error
 import urllib.request
 
+from core.llm.provider_chain import screen_outbound
+
 log = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "glm-5.3"
@@ -82,6 +84,9 @@ def call(prompt: str, model: str | None = None, system: str | None = None) -> tu
 
     resolved_model = _resolved_model(model)
     url = f"{_base_url()}/chat/completions"
+
+    # Existing cloud screening; raises (nothing sent) if blocked or the guard is unavailable.
+    system, prompt = screen_outbound(system or "", prompt)
 
     messages = []
     if system:

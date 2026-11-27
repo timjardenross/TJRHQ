@@ -8,9 +8,17 @@ pytest or directly: `python3 tests/test_oai_continuation.py` from the repo root.
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.engineering.providers import _oai_compat as oai
+
+
+@pytest.fixture(autouse=True)
+def _stub_screening(monkeypatch):
+    """Continuation mechanics only; screening is covered in tests/test_private_egress.py."""
+    monkeypatch.setattr(oai, "screen_outbound", lambda system, prompt: (system, prompt))
 
 
 def _resp(content, finish_reason, model="m"):

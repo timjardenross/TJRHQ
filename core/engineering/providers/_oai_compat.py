@@ -16,6 +16,8 @@ import logging
 import urllib.error
 import urllib.request
 
+from core.llm.provider_chain import screen_outbound
+
 log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 120  # seconds for generation
@@ -78,6 +80,8 @@ def chat(
         raise RuntimeError(f"[{label}] API key is not set. Add it to .env and restart.")
 
     url = f"{base_url.rstrip('/')}/chat/completions"
+    # Existing cloud screening; raises (nothing sent) if blocked or the guard is unavailable.
+    system, prompt = screen_outbound(system or "", prompt)
     messages = []
     if system:
         messages.append({"role": "system", "content": system})

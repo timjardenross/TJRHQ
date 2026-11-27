@@ -614,6 +614,10 @@ class TestVMOllamaProvider:
 # ─── Gemini provider unit tests ───────────────────────────────────────────────
 
 class TestGeminiProvider:
+    @pytest.fixture(autouse=True)
+    def _stub_screening(self, monkeypatch):
+        monkeypatch.setattr("core.engineering.providers.gemini.screen_outbound", lambda system, prompt: (system, prompt))
+
     def test_raises_without_api_key(self):
         from core.engineering.providers import gemini
         with patch.dict(os.environ, {}, clear=False):
