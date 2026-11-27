@@ -91,14 +91,21 @@ def test_model_abstention_is_explicit(tmp_path):
 
 def test_unchecked_model_text_is_not_printed(tmp_path):
     expired = {"type": "retire", "id": "jdg-synbbb", "status": "expired", "by": "code", "run_date": "2026-11-27", "reason": "UNCHECKED"}
-    closed = {"type": "retire", "id": "jdg-synccc", "status": "closed", "by": "drafter", "run_date": "2026-11-27", "reason": "UNCHECKED"}
+    proposal = {"type": "retire_proposal", "id": "jdg-synccc", "status": "closed", "by": "drafter", "run_date": "2026-11-27",
+                "reason": "UNCHECKED"}
     out = lines(tmp_path, judgement(change="weakened", change_reason="Optus lost 4000 services in Perth since Tuesday."), passed(),
-                judgement("jdg-synbbb"), passed("jdg-synbbb"), expired, judgement("jdg-synccc"), passed("jdg-synccc"), closed,
+                judgement("jdg-synbbb"), passed("jdg-synbbb"), expired, judgement("jdg-synccc"), passed("jdg-synccc"), proposal,
                 judgement("jdg-synddd"), {**expired, "id": "jdg-synddd"}, run_record(issued=["jdg-synaaa"]))
     assert "Change: weakened." in out and "4000" not in out and "UNCHECKED" not in out
     assert "No longer carried, review date passed: SYNTHETIC assessment jdg-synbbb." in out
-    assert "assessment jdg-synccc" not in out and "1 earlier judgement(s) closed by the drafter" in out
+    assert "assessment jdg-synccc" in out and "Retirement proposed and awaiting review for: jdg-synccc." in out   # still carried
     assert "assessment jdg-synddd" not in out                                                     # never reviewed
+
+
+def test_confirmed_retirement_is_reported(tmp_path):
+    confirmed = {"type": "retire", "id": "jdg-synaaa", "status": "closed", "by": "reviewer", "run_date": "2026-11-27", "reason": "x"}
+    out = lines(tmp_path, judgement(), passed(), confirmed, run_record(status="abstained", outcome="model_abstention"))
+    assert "retirement confirmed by review: SYNTHETIC assessment jdg-synaaa." in out and "Assessment (judgement)" not in out
 
 
 def test_records_written_by_the_real_producer_render(tmp_path):

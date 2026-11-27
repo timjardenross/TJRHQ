@@ -24,8 +24,13 @@ def evidence(*events):
     return be.build_evidence(list(events), now=NOW, window_hours=72)
 
 
+# a second publisher's own reporting, not a copy of the first: duplicated text would count as one origin
+SECOND = ("Canberra emergency callers stranded as Telstra network fails",
+          "Residents could not reach Triple Zero for several hours, ambulance dispatchers said, while engineers examined mobile towers.")
+
+
 def two_publishers():
-    return evidence(event(1), event(2, source="Guardian Australia"))
+    return evidence(event(1), event(2, source="Guardian Australia", title=SECOND[0], summary=SECOND[1]))
 
 
 def payload(request, **override):
@@ -33,7 +38,7 @@ def payload(request, **override):
     refs = {f"src-{'abcdefghij'[n]}": e for n, e in enumerate(request["event_ids"])}
     j = {"id": None, "area": "sector", "assessment": "The Telstra outage is a live threat to Triple Zero calls in Canberra.",
          "facts": [{"text": TITLE + ".", "refs": list(refs)}],
-         "reasoning": "Disrupted Triple Zero calls in Canberra mean the outage reaches emergency calling.",
+         "reasoning": "Disrupted Triple Zero calls in Canberra mean the outage could reach emergency calling.",
          "key_assumption": "The reported disruption is still current.", "connection": {"statement": "", "refs": []},
          "australian_relevance": "", "implications": "Triple Zero calls in Canberra may need another path.",
          "uncertainty": "Restoration time is not reported.", "competing_explanation": "The disruption may already be over.",
@@ -45,11 +50,19 @@ def payload(request, **override):
 
 def reply_for(request, **override):
     j, refs = payload(request, **override)
-    return json.dumps({"judgements": [j]}), refs
+    return answer(j), refs
+
+
+def answer(*judgements, retire=(), abstentions=()):
+    """A reply in the contract's shape."""
+    return json.dumps({"judgements": list(judgements), "retire": list(retire), "abstentions": list(abstentions)})
+
+
+NOTHING_NEW = {"topic": "the outage", "reason": "nothing new beyond what was already assessed"}
 
 
 def nothing(request):
-    return '{"judgements": []}', {}
+    return answer(abstentions=[NOTHING_NEW]), {}
 
 
 def run(tmp_path, ev, drafter, now=NOW, **kw):
@@ -84,7 +97,7 @@ def test_request_carries_identifiers_only(tmp_path):
 
 
 def test_boundary_exclusions_and_telstra_gap_are_disclosed(tmp_path):
-    result = run(tmp_path, two_publishers(), lambda r: ('{"judgements": []}', {}, {"x": "personal identifier"}))
+    result = run(tmp_path, two_publishers(), lambda r: (*nothing(r), {"x": "personal identifier"}))
     assert "Left out at the outbound boundary: 1 item(s) - personal identifier." in result["text"]
     assert "Reduced Telstra coverage" in result["text"]
 
@@ -123,7 +136,7 @@ def test_single_unofficial_source_is_insufficient(tmp_path):
 def test_at_most_three_a_day(tmp_path):
     def many(request):
         j, refs = payload(request)
-        return json.dumps({"judgements": [j] * 5}), refs
+        return answer(*[j] * 5), refs
     result = run(tmp_path, two_publishers(), many)
     assert len(result["run"]["issued"]) == 3
 
@@ -147,22 +160,26 @@ def test_several_incidents_are_not_systemic_evidence(tmp_path):
 
 def test_one_reported_connection_supports_a_systemic_claim(tmp_path):
     title = "Banks depend on shared supplier Cuscal for card payments"
-    ev = evidence(event(1, title=title), event(2, source="Guardian Australia", title=title))
+    ev = evidence(event(1, title=title), event(2, source="Guardian Australia", title="Cuscal card payment role draws scrutiny from banks",
+                                               summary="Several lenders route card payments through Cuscal, industry figures show."))
     result = run(tmp_path, ev, lambda p: reply_for(
         p, assessment="Card payments carry concentration exposure through one shared supplier.",
         facts=[{"text": title + ".", "refs": ["src-a", "src-b"]}], connection={"statement": title + ".", "refs": ["src-a"]},
-        reasoning="Banks depend on the shared supplier for card payments.", implications="Card payments of banks share one point.",
+        reasoning="Banks depend on the shared supplier, so card payments could stop together.",
+        implications="Card payments of banks may share one point.",
         key_assumption="The dependency on Cuscal is current.", competing_explanation="Banks may hold a second route."))
     assert result["status"] == "ok", result["run"]["abstentions"]
 
 
 def test_international_indicator_is_eligible_when_relevance_is_stated(tmp_path):
     title = "London cloud region outage halts payments at British banks"
-    ev = evidence(*(event(i, source=s, title=title, geography="UK", url=f"https://example{i}.co.uk/a")
+    own = {1: (title, title), 2: ("British lenders hit as hosting zone fails",
+                                  "Card transactions stalled for hours after a London data centre problem, lenders told the paper.")}
+    ev = evidence(*(event(i, source=s, title=own[i][0], summary=own[i][1], geography="UK", url=f"https://example{i}.co.uk/a")
                     for i, s in ((1, "BBC News"), (2, "Financial Times"))))
     fields = {"assessment": "A cloud region outage can halt bank payments and is a warning for local banks.",
               "facts": [{"text": title + ".", "refs": ["src-a", "src-b"]}],
-              "reasoning": "The outage halts payments at British banks, so a cloud region can stop bank payments.",
+              "reasoning": "The outage halts payments at British banks, so a cloud region could stop bank payments.",
               "implications": "Bank payments that sit in one cloud region may halt.", "key_assumption": "The outage is as reported.",
               "competing_explanation": "The cause may be local to British banks."}
     withheld = run(tmp_path / "a", ev, lambda p: reply_for(p, **fields))
@@ -212,14 +229,23 @@ def test_adjudication_review_and_miss_records(tmp_path, monkeypatch):
     assert kinds.count("adjudication") == kinds.count("review") == kinds.count("miss") == 1
 
 
-def test_retire_needs_reason_and_evidence(tmp_path):
+def test_drafter_cannot_retire_a_judgement_only_propose_it(tmp_path, monkeypatch):
+    monkeypatch.setenv(jd.DIR_ENV, str(tmp_path))
     reg = jd.Register(tmp_path)
     run(tmp_path, two_publishers(), reply_for)
     (jid,) = reg.state()[0]
-    run(tmp_path, two_publishers(),
-        lambda p: (json.dumps({"retire": [{"id": jid, "status": "closed", "reason": "done", "refs": []}]}), {}),
-        now=NOW + timedelta(days=1))
-    assert jid in reg.state()[0]
+
+    def retire(refs):
+        def drafter(request):
+            return answer(retire=[{"id": jid, "status": "withdrawn", "reason": "done", "refs": refs}]), reply_for(request)[1]
+        return drafter
+
+    result = run(tmp_path, two_publishers(), retire([]), now=NOW + timedelta(days=1))          # no cited evidence: not even a proposal
+    assert jid in reg.state()[0] and not [r for r in reg.records() if r["type"].startswith("retire")]
+    assert jd.main(["confirm-retirement", jid]) == 1
+    result = run(tmp_path, two_publishers(), retire(["src-a"]), now=NOW + timedelta(days=2))
+    assert jid in reg.state()[0] and "RETIREMENT PROPOSED, NOT APPLIED" in result["text"] and "STANDING" in result["text"]
+    assert jd.main(["confirm-retirement", jid]) == 0 and reg.state()[0] == {}
 
 
 def test_one_completed_run_per_melbourne_day(tmp_path):
@@ -292,7 +318,7 @@ def test_each_failure_is_reported_as_what_it_was(tmp_path, outcome):
 
 
 def test_model_abstention_and_completion_are_distinct(tmp_path):
-    empty = run(tmp_path / "a", two_publishers(), lambda p: (json.dumps({"judgements": []}), {}))
+    empty = run(tmp_path / "a", two_publishers(), nothing)
     assert empty["run"]["outcome"] == "model_abstention" and "Valid model abstention" in empty["text"]
     done = run(tmp_path / "b", two_publishers(), lambda p: reply_for(p))
     assert done["run"]["outcome"] == "completed" and "Assessment completed." in done["text"]
@@ -314,15 +340,16 @@ def test_router_error_body_is_read(monkeypatch, code, body, expected):
     assert caught.value.outcome == expected
 
 
-def test_a_draft_is_checked_against_the_same_text_and_date_the_model_was_given():
+def test_a_draft_is_checked_against_the_same_text_and_never_treats_publication_as_event_date():
     from core.security import public_judgement_route as route
 
     record = jd._source_record("inc", {"report_id": "r", "title": "t" * 400, "summary": "word " * 200, "source": "ABC News",
                                        "url": "https://example.com.au/a", "published_at": "2026-11-24T01:00:00+00:00"})
     assert len(record["title"]) == route.TITLE_CHARS and len(record["summary"]) == route.SUMMARY_CHARS
     source = {**record, "title": "Bank payments outage", "summary": "Payments were disrupted."}
-    assert jd._gate("Payments were disrupted on 24 November.", [source], "digest")
-    assert not jd._gate("Payments were disrupted on 19 November.", [source], "digest")
+    assert not jd._gate("Payments were disrupted on 24 November.", [source], "digest")      # that is when it was published
+    assert jd._gate("The payments disruption was reported on 24 November.", [source], "digest")
+    assert not jd._gate("The payments disruption was reported on 19 November.", [source], "digest")
 
 
 def test_a_rejected_draft_is_kept_in_the_register_but_not_in_the_product(tmp_path):
