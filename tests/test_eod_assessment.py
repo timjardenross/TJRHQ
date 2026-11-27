@@ -54,9 +54,9 @@ def carried(state="ongoing"):
     return inc, morning_row(f"- {OUTAGE['title']} ({state}; 1 reports; {inc})\n    NEW 25 Nov 18:00Z: x [00000001]")
 
 
-def test_all_nine_sections_in_order():
+def test_all_eight_sections_in_order():
     sections = ea.assess([OUTAGE], None, now=NOW)
-    assert [h.split(".")[0] for h, _ in sections] == [str(n) for n in range(1, 10)]
+    assert [h.split(".")[0] for h, _ in sections] == [str(n) for n in range(1, 9)]
 
 
 def test_no_morning_record_claims_no_change():
@@ -155,7 +155,7 @@ def test_outlook_and_patch_notices_are_not_disruptions():
 def test_source_reference_and_coverage_limits_are_retained():
     sections = ea.assess([OUTAGE], None, now=NOW, caveat="collection lagged", limitations=ea.source_limitations())
     assert "#00000001" in whole(sections)
-    gaps = section(sections, 9)
+    gaps = section(sections, 8)
     assert "collection lagged" in gaps and "Telstra coverage" in gaps and "rule-based" in gaps
 
 
@@ -188,7 +188,7 @@ def test_flag_on_renders_assessment_with_capacity_last_and_escaped(monkeypatch):
     _stub_brief(monkeypatch, [event(12, "Telstra <NRP> outage leaves customers without service", now - timedelta(hours=1))])
     text = cb.generate_eod_summary()
     assert "END-OF-DAY ASSESSMENT" in text and "&lt;NRP&gt;" in text and "<NRP>" not in text
-    assert text.index("private-marker") > text.index("10. PERSONAL CAPACITY") > text.index("9. GAPS")
+    assert text.index("private-marker") > text.index("PERSONAL CAPACITY") > text.index("8. OUTSTANDING UNCERTAINTY")
     assert text.count("private-marker") == 1
 
 

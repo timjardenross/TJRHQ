@@ -24,7 +24,9 @@ from datetime import datetime, timedelta, timezone
 
 from intelligence import brief_evidence as be
 from intelligence import event_detection as ed
+from intelligence import freshness as fr
 from intelligence import incident_clustering as ic
+from intelligence import requirements as req
 from intelligence import tiered_brief as tb
 
 FLAG = "BRIEF_EOD_ASSESSMENT_V1"
@@ -67,6 +69,20 @@ _SECTOR_NAMES = {"telecom": "telecommunications", "finance": "banking and financ
                  "health": "health", "aviation": "aviation", "transport_water": "transport and water", "government": "government services",
                  "emergency_services": "emergency services", "retail_food": "retail and food supply", "consumer_service": "consumer services"}
 _PROFESSIONAL = ("finance", "telecom")
+# The stored sector ``transport_water`` covers two services. Water is claimed only when the reporting names it.
+_WATER_RX = re.compile(r"\b(?:water|sewage|sewerage|wastewater|dams?|desalination)\b", re.IGNORECASE)
+_TRANSPORT_RX = re.compile(r"\b(?:rail\w*|trains?|trams?|bus(?:es)?|ferr(?:y|ies)|ports?|freight|roads?|highway|tunnel|bridge|transport)\b", re.IGNORECASE)
+
+
+def _sector_words(sector: str, text: str) -> tuple[str, str | None]:
+    """(name, potential effect) for a sector, narrowed for transport and water."""
+    if sector == "transport_water":
+        water, transport = bool(_WATER_RX.search(text)), bool(_TRANSPORT_RX.search(text))
+        if transport and not water:
+            return "transport", "could affect movement of people and goods"
+        if water and not transport:
+            return "water", "could affect water supply"
+    return _SECTOR_NAMES[sector], _SECTOR_EFFECT.get(sector)
 
 # Australian regulators and agencies. A headline counts as a regulatory item when one of them is the actor (name followed by what it
 # did), or when the report comes from the body's own feed.
@@ -118,7 +134,7 @@ class MorningRecord:
     caveat: str | None = None
 
 
-_ENTRY_RX = re.compile(r"^- (.+) \((ongoing|partially restored|restored|current status unknown); \d+ reports; (inc-[0-9a-f]{10})\)", re.MULTILINE)
+_ENTRY_RX = re.compile(r"^- (.+) \((ongoing|partially restored|restored|current status unknown|announced, not started|forecast, not an incident|currency not verified|no restoration status); \d+ reports; (inc-[0-9a-f]{10})\)", re.MULTILINE)
 
 
 # The untiered Morning V1 line: "- [TAG] headline — facts; confidence [inc-xxxxxxxxxx; ...]".
@@ -166,6 +182,21 @@ class Item:
     @property
     def sectors(self) -> list[str]:
         return [s for s in self.view.record.get("critical_service_dependencies") or [] if s in _SECTOR_NAMES]
+
+    foreign_indicator: bool = False
+
+    @property
+    def status_words(self) -> str:
+        """Lifecycle words that agree with the rest of the entry: restoration is claimed only for a current outage."""
+        if self.planned:
+            return "announced, not started"
+        if self.is_forecast:
+            return "forecast, not an incident"
+        if self.currency_unverified:
+            return "currency not verified"
+        if self.view.event_type != "outage":
+            return "no restoration status"
+        return _STATE_WORDS.get(self.restoration, "current status unknown")
 
     @property
     def is_forecast(self) -> bool:
@@ -215,8 +246,44 @@ def _area(view: be.IncidentView) -> str:
     return "other"
 
 
+_LEADING_SECTORS = frozenset(["telecom", "finance", "energy", "cloud_platform", "transport_water", "government", "aviation", "health"])
+
+
+def _leading_indicator(view: be.IncidentView) -> bool:
+    """A material development abroad that is worth watching although no direct Australian dependency is established: an officially
+    confirmed vulnerability, or a reported outage or cyber incident affecting a critical service. Aggregator-only reports and
+    reference-grade news do not qualify."""
+    if be._wk_au(view) or any((r.get("geography") or "").upper() == "AU" for r in view.reports) or be._relevance_class(view) != "editorial":
+        return False
+    if not (view.priority in ("ESCALATE", "WATCH") or (view.priority == "VERIFY" and view.materiality == "high")):
+        return False
+    if view.event_type == "vulnerability":
+        return view.evidence_status == "officially_confirmed" and view.materiality != "low"
+    return (view.event_type in ("outage", "cyber_incident") and view.evidence_status != "unverified"
+            and bool(set(view.record.get("critical_service_dependencies") or []) & _LEADING_SECTORS))
+
+
+# Reporting about one person's alleged conduct, and sport, is not resilience intelligence unless an essential service is affected.
+# Headline wording only: a narrow exclusion that will miss other phrasings, not a relevance or privacy control.
+_PERSON_ROLE_RX = re.compile(r"\b(?:teacher|principal|doctor|nurse|paramedic|officer|worker|employee|coach|player|priest|councillor|man|woman)(?:'s)?\b",
+                             re.IGNORECASE)
+_CONDUCT_RX = re.compile(r"\b(?:alleg\w+|charged|investigation|court|offences?|offending|abuse|assault\w*|jail\w*|sentenced|misconduct)\b", re.IGNORECASE)
+_SPORT_RX = re.compile(r"\b(?:cricket|ball.tampering|sandpapergate|footy|afl|nrl|rugby|tennis|golf|olympi\w+)\b", re.IGNORECASE)
+
+
+def _out_of_scope(view) -> bool:
+    sectors = set(view.record.get("critical_service_dependencies") or []) & set(_SECTOR_NAMES)
+    headline = view.headline
+    if _PERSON_ROLE_RX.search(headline) and _CONDUCT_RX.search(headline):
+        # "police", "hospital" and the like name the person's setting, not an affected service, so they do not keep the item in.
+        return not sectors - {"emergency_services", "health"}
+    return bool(not sectors and _SPORT_RX.search(headline))
+
+
 def _material(i: Item) -> bool:
     v = i.view
+    if _out_of_scope(v):
+        return False
     if i.area == "other" or v.impact_status == "retrospective" and not i.carried:
         return False
     if i.state == UNCHANGED and i.restoration == "restored" and not i.carried:   # an old, closed event is not part of today's picture
@@ -313,6 +380,12 @@ def _link_continuations(items: list[Item], morning: MorningRecord, collected: di
     return [i for i in items if id(i) not in dropped]
 
 
+def _item(view, state: str, restoration: str, carried: bool, known_before: bool) -> Item:
+    area = _area(view)
+    indicator = area == "other" and _leading_indicator(view)
+    return Item(view, state, restoration, carried, known_before, "international" if indicator else area, foreign_indicator=indicator)
+
+
 def build_items(events: list[dict], morning: MorningRecord | None, now: datetime) -> list[Item]:
     views, restoration = _views(events, now)
     before: dict = {}
@@ -327,7 +400,7 @@ def build_items(events: list[dict], morning: MorningRecord | None, now: datetime
     for v in views:
         rest = _restoration_of(v, restoration)
         if not morning:
-            items.append(Item(v, NOT_COMPARED, rest, False, False, _area(v)))
+            items.append(_item(v, NOT_COMPARED, rest, False, False))
             continue
         ids = [str(r) for r in v.report_ids]
         carried = v.incident_id in morning.incident_ids or any(r[:8] in morning.report_ids for r in ids)
@@ -337,7 +410,7 @@ def build_items(events: list[dict], morning: MorningRecord | None, now: datetime
         state = _lifecycle(v, rest, known, fresh, prior, morning.entries.get(v.incident_id))
         if state == UPDATED and _worse(v, morning, collected):
             state = ESCALATING
-        items.append(Item(v, state, rest, carried, known, _area(v)))
+        items.append(_item(v, state, rest, carried, known))
     if morning:
         items = _link_continuations(items, morning, collected)
         for i in items:
@@ -392,13 +465,16 @@ def _kind(i: Item) -> str:
 
 def _why(i: Item) -> str:
     sectors = sorted(i.sectors, key=lambda s: ed.SECTOR_TIER.get(s, 9))
-    effect = next((_SECTOR_EFFECT[s] for s in sectors if s in _SECTOR_EFFECT), None)
+    words = [_sector_words(s, i.view.headline) for s in sectors]
+    effect = next((e for _, e in words if e), None)
     if effect:
         effect = ("if it persists it " if i.is_disruption else "potential only: it ") + effect
     if i.view.event_type == "cyber_incident" and not i.is_disruption:
         effect = "watch for confirmation of what data or systems were affected, regulator involvement and follow-on fraud"
-    where = " / ".join(_SECTOR_NAMES[s] for s in sectors[:2]) or "no recognised essential service"
+    where = " / ".join(n for n, _ in words[:2]) or "no recognised essential service"
     bits = [f"{where}; {_kind(i)}"]
+    if i.foreign_indicator:
+        bits.append("international leading indicator; no direct Australian dependency established")
     customers = i.view.record.get("affected_customers")
     if customers:
         bits.append(f"{customers:,} customers reported affected")
@@ -436,8 +512,10 @@ def _detail(i: Item) -> list[str]:
 
 
 def _brief_line(i: Item) -> str:
-    restore = "" if i.planned or i.currency_unverified or i.restoration == "unknown" else f", {_STATE_WORDS[i.restoration]}"
-    return f"- Continuing, no new reporting since 07:00{restore}: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]"
+    words = "" if i.status_words in ("no restoration status", "current status unknown") else f", {i.status_words}"
+    if i.status_words == "restored":
+        return f"- Restored earlier, no new reporting since 07:00: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]"
+    return f"- Continuing, no new reporting since 07:00{words}: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]"
 
 
 def _area_shown(items: list[Item], area: str) -> list[Item]:
@@ -479,6 +557,15 @@ _GENERIC_WORDS = frozenset(["insurer", "insurers", "bank", "banks", "licence", "
                             "former", "director", "court", "action", "takes", "against", "data"])
 
 
+# Words that name the same subject in one regulator's headlines. Kept per regulator: "director" is not one subject elsewhere.
+_SUBJECT = {"APRA": {"board": "governance", "tenure": "governance", "director": "governance"}}
+
+
+def _stem(word: str, actor: str) -> str:
+    word = word[:-1] if len(word) > 4 and word.endswith("s") and not word.endswith("ss") else word
+    return _SUBJECT.get(actor, {}).get(word, word)
+
+
 def _same_story(a: set, b: set) -> bool:
     shared = a & b
     return bool(shared - _GENERIC_WORDS) or len(shared) >= 3
@@ -504,7 +591,8 @@ def policy_items(events: list[dict], since: datetime) -> list[PolicyItem]:
                 continue
             hit = (2, "publication, nature not established from the headline", _REGULATOR_SOURCE_RX.search(source).group(0))
         rank, kind, actor = hit
-        words = {w for w in re.findall(r"[a-z]+", core.lower()) if len(w) > 2 and w not in _FILLER}
+        words = {_stem(w, actor) for w in re.findall(r"[a-z]+", core.lower()) if len(w) > 2 and w not in _FILLER}
+        words -= {"rule", "requirement"}
         outlet = title[len(core):].strip(" -–|") or source
         same = next((p for p in items if p.actor == actor and _same_story(p.words, words)), None)
         if same:
@@ -663,7 +751,7 @@ def _bottom_line(material: list[Item], morning, since_count: int, carried_forwar
 
 def assess(events: list[dict], morning_row: dict | None, *, now: datetime | None = None, caveat: str | None = None,
            coverage: list[str] | None = None, limitations: list[str] | None = None) -> list[tuple[str, list[str]]]:
-    """Return [(heading, lines)] for sections 1 to 9. Plain text (the caller escapes). ``events`` as ``brief_evidence.load_events``."""
+    """Return [(heading, lines)] for sections 1 to 8. Plain text (the caller escapes). ``events`` as ``brief_evidence.load_events``."""
     now = now or datetime.now(timezone.utc)
     morning = parse_morning(morning_row)
     items = build_items(events, morning, now)
@@ -696,8 +784,11 @@ def assess(events: list[dict], morning_row: dict | None, *, now: datetime | None
 
     lifecycle = []
     if morning:
+        restored_earlier = [i for i in material if i.state == UNCHANGED and i.status_words == "restored"]
+        if restored_earlier:
+            lifecycle.append(f"- Restored earlier, no new reporting: {len(restored_earlier)} [{', '.join(i.view.incident_id for i in restored_earlier[:4])}]")
         for s in (NEW, ESCALATING, DETERIORATING, IMPROVING, RESOLVED, STRENGTHENED, UPDATED, REPORTING, UNCHANGED):
-            group = [i for i in material if i.state == s]
+            group = [i for i in material if i.state == s and i not in restored_earlier]
             if group:
                 lifecycle.append(f"- {s[0] + s[1:].lower()}: {len(group)} [{', '.join(i.view.incident_id for i in group[:4])}{' …' if len(group) > 4 else ''}]")
     else:
@@ -730,10 +821,160 @@ def assess(events: list[dict], morning_row: dict | None, *, now: datetime | None
         ("1. EXECUTIVE BOTTOM LINE", _bottom_line(material, morning, since_count, len(carried_forward), confidence, decisions)),
         ("2. MATERIAL CHANGES SINCE THE MORNING BRIEF", changes),
         ("3. NATIONAL AND SYSTEMIC RESILIENCE (Australia)", _area_section(material, "national", "No material national development identified.")),
-        ("4. BANKING, TELECOMMUNICATIONS AND REGULATED SECTORS", professional),
-        ("5. INTERNATIONAL AND LEADING INDICATORS", _area_section(material, "international", "No international development with a plausible Australian dependency identified.")),
-        ("6. INCIDENT LIFECYCLE", lifecycle or ["- No material incident to track."]),
-        ("7. DEPENDENCIES, CONCENTRATION AND CASCADE", dependency_lines(material)),
-        ("8. OVERNIGHT AND TOMORROW", watch_lines(material, events, now)),
-        ("9. GAPS, UNCERTAINTY AND CONFIDENCE", gaps),
+        ("4. PROFESSIONAL AND SECTOR DEVELOPMENTS (banking, telecommunications, regulation)", professional),
+        ("5. INTERNATIONAL LEADING INDICATORS", _area_section(material, "international", "No material international development identified in collected reporting.")),
+        ("6. INCIDENT CONTINUITY AND SYSTEMIC EXPOSURE", (lifecycle or ["- No material incident to track."]) + ["Systemic exposure:", *dependency_lines(material)]),
+        ("7. OVERNIGHT WATCH", watch_lines(material, events, now)),
+        ("8. OUTSTANDING UNCERTAINTY AND INTELLIGENCE GAPS", gaps),
+    ]
+
+
+# ── morning product (flag BRIEF_MORNING_PDB_V1, default OFF) ──────────────────
+# The same evidence, rules and wording as the evening assessment, ordered for strategic orientation. Incident lines keep the
+# form ``_entries`` reads, so the evening assessment can compare itself against this product.
+
+MORNING_FLAG = "BRIEF_MORNING_PDB_V1"
+MORNING_SECTION_LIMIT = 5
+
+
+def morning_enabled() -> bool:
+    return os.getenv(MORNING_FLAG, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _requirement(view, pirs: list) -> str:
+    """Standing requirement the item matches (strong matches only). An annotation: it never selects or removes an item."""
+    if not pirs:
+        return ""
+    originals = [r for r in view.reports if r.get("role") == "original"] or view.reports
+    item = {"id": view.incident_id, "title": " . ".join([view.headline] + [str(r.get("title") or "") for r in originals[:4]]),
+            "summary": str(originals[0].get("summary") or "")[:600] if originals else "", "materiality": view.materiality}
+    ids = sorted({m.pir_id for m in req.tag_item(item, pirs).strong_matches})
+    return f" Requirement: {', '.join(ids[:3])}." if ids else ""
+
+
+def _morning_pool(items: list[Item], now: datetime) -> list[Item]:
+    """Material items still current for this morning: recent reporting, or an open or announced disruption already carried."""
+    cutoff = now - fr.brief_window()
+    return [i for i in items if _material(i) and ((i.view.last_seen and i.view.last_seen >= cutoff) or (i.carried and (i.unresolved or i.planned)))]
+
+
+def _morning_entry(i: Item, pirs: list) -> list[str]:
+    v = i.view
+    change = "" if i.state == NOT_COMPARED else "no new reporting since the previous brief; " if i.state == UNCHANGED else f"{i.state}; "
+    extra = ("; emerging exposure" if v.event_type == "vulnerability" else "") + ("; retrospective" if v.impact_status == "retrospective" else "")
+    if i.state == UNCHANGED and i.status_words == "restored":
+        change = "restored earlier; no new reporting since the previous brief; "
+    return [f"- {_short_headline(v.headline, 150)} ({i.status_words}; {len(v.report_ids)} reports; {v.incident_id})",
+            f"    {change}{_claim(i)}{extra} {be._cite(v)}",
+            f"    ASSESSMENT: {_why(i)}. Decision: {_decision(i)}.{_requirement(v, pirs)}"]
+
+
+def _morning_area(pool: list[Item], area: str, pirs: list, empty: str) -> list[str]:
+    found = [i for i in pool if i.area == area]
+    lines = [x for i in found[:MORNING_SECTION_LIMIT] for x in _morning_entry(i, pirs)]
+    if len(found) > MORNING_SECTION_LIMIT:
+        lines.append(f"- {len(found) - MORNING_SECTION_LIMIT} further item(s) in this area not shown.")
+    return lines or [f"- {empty}"]
+
+
+def _patterns(pool: list[Item]) -> list[str]:
+    """Counts of items sharing a service sector. A count is not a trend or a common cause, and is worded that way."""
+    lines = []
+    for sector, name in _SECTOR_NAMES.items():
+        group = [i for i in pool if sector in i.sectors]
+        if sector == "transport_water" and group:
+            names = {_sector_words(sector, i.view.headline)[0] for i in group}
+            name = names.pop() if len(names) == 1 else name
+        if len(group) >= 2:
+            ids = ", ".join(i.view.incident_id for i in group[:4])
+            lines.append(f"- {len(group)} current items involve {name} [{ids}]. A common cause or trend is not established.")
+    return lines or ["- No sector has more than one current material item."]
+
+
+def assess_morning(events: list[dict], previous_row: dict | None, *, now: datetime | None = None, caveat: str | None = None,
+                   coverage: list[str] | None = None, limitations: list[str] | None = None,
+                   retained: list[str] | None = None) -> list[tuple[str, list[str]]]:
+    """Return [(heading, lines)] for the morning product. ``previous_row``: the last stored morning brief before today, or None.
+    Deterministic: no model call, no capacity input."""
+    now = now or datetime.now(timezone.utc)
+    previous = parse_morning(previous_row)
+    items = build_items(events, previous, now)
+    pool = _morning_pool(items, now)
+    pirs = req.load_pirs()
+    shown = [i for area in ("national", "professional", "international") for i in [x for x in pool if x.area == area][:MORNING_SECTION_LIMIT]]
+    since = previous.generated_at if previous else now - timedelta(hours=24)
+    policy = policy_items(events, since)
+    if previous:
+        earlier = policy_items([e for e in events if (t := _when(e.get("collected_at"))) and t <= since], datetime.min.replace(tzinfo=timezone.utc))
+        for p in policy:
+            p.seen_before = p.ref.rsplit("#", 1)[1] in previous.report_ids or any(q.actor == p.actor and q.words & p.words for q in earlier)
+    decisions = [p for p in policy if p.rank == 0 and not p.seen_before]
+
+    firm = sum(1 for i in shown if i.view.evidence_status in _FIRM)
+    if caveat:
+        confidence = "LOW (collection was degraded)"
+    elif not shown:
+        confidence = "LOW (no material item identified; this describes collected sources only and is not an all-clear)"
+    elif firm == len(shown):
+        confidence = f"MODERATE TO HIGH (all {firm} item(s) shown officially confirmed or corroborated)"
+    elif firm:
+        confidence = f"MODERATE ({firm} of {len(shown)} item(s) shown officially confirmed or corroborated)"
+    else:
+        confidence = "LOW TO MODERATE (no item shown is officially confirmed or corroborated)"
+
+    local = [i for i in pool if i.area in ("national", "professional")]
+    open_au = [i for i in local if i.unresolved]
+    unconfirmed = sum(1 for i in open_au if i.view.evidence_status not in _FIRM)
+    planned = sum(1 for i in local if i.planned)
+    unverified = sum(1 for i in local if i.currency_unverified)
+    bluf = [f"- Material items: {len(local)} Australian, {sum(1 for i in pool if i.area == 'international')} international.",
+            f"- Australian service disruptions open: {len(open_au)}" + (f" ({unconfirmed} not yet confirmed)" if unconfirmed else "")
+            + (f"; {planned} announced and not yet started" if planned else "") + (f"; {unverified} reported but not verified as current" if unverified else "") + "."]
+    lead = min([i for i in local if not i.is_forecast], key=lambda i: (0 if i.is_disruption else 1, _rank(i)), default=None)
+    if lead:
+        bluf.append(f"- Most decision-relevant: {_short_headline(lead.view.headline, 100)} ({_claim(lead).lower()}). {_decision(lead).capitalize()}.")
+    else:
+        bluf.append("- No Australian development met the materiality bar in collected reporting. This is not an all-clear.")
+    if decisions:
+        bluf.append(f"- Regulatory: {_short_headline(decisions[0].title, 100)}" + (f" (+{len(decisions) - 1} more, section 4)." if len(decisions) > 1 else "."))
+    bluf.append(f"- Confidence: {confidence}.")
+
+    professional = _morning_area(pool, "professional", pirs, "No material banking or telecommunications development identified.")
+    professional += ["Regulation and policy since " + ("the previous brief:" if previous else "24 hours ago:")]
+    professional += policy_lines(policy) or ["- No regulatory development identified in collected reporting."]
+
+    if not previous:
+        changes = ["- Change cannot be assessed: there is no previous morning brief to compare against."]
+    else:
+        changed = [i for i in pool if i.state in CHANGE_STATES]
+        changes = [f"- {i.state}: {_short_headline(i.view.headline, 100)} [{i.view.incident_id}]" for i in changed[:CHANGE_LIMIT]]
+        if len(changed) > CHANGE_LIMIT:
+            changes.append(f"- {len(changed) - CHANGE_LIMIT} further change(s) not shown.")
+        changes = changes or ["- No material change identified since the previous brief."]
+    changes += ["Patterns:", *_patterns(pool), "Dependencies and concentration:", *dependency_lines(pool)]
+    if retained:
+        changes += ["From the standing intelligence products and theme watch:", *retained]
+
+    gaps = [f"- Confidence: {confidence}."]
+    if caveat:
+        gaps.append(f"- Collection: {caveat}.")
+    gaps.append(f"- {len(shown) - firm} of {len(shown)} item(s) shown rest on a single or unverified source.")
+    gaps += [f"- {x}" for x in limitations or []]
+    gaps.append("- Assessment lines are rule-based from headline and summary evidence; they are not analyst or model judgement and can miss "
+                "connections or misread wording.")
+    supporting = [f"- {len(items)} incident(s) formed from {len(events)} report(s) in {WINDOW_HOURS} h; {len(items) - len(pool)} not material or not current."]
+    supporting += list(coverage or [])
+
+    return [
+        ("1. EXECUTIVE BOTTOM LINE", bluf),
+        ("2. KEY INTELLIGENCE JUDGEMENTS", [("- NOT AVAILABLE. No analytical judgement capability is operating yet (planned: Milestone 3). "
+                                            "Nothing in this brief is an analyst or model judgement.")]),
+        ("3. NATIONAL AND SYSTEMIC RESILIENCE", _morning_area(pool, "national", pirs, "No material national development identified.")),
+        ("4. PROFESSIONAL AND SECTOR INTELLIGENCE", professional),
+        ("5. INTERNATIONAL LEADING INDICATORS",
+         _morning_area(pool, "international", pirs, "No material international development identified in collected reporting.")),
+        ("6. MATERIAL CHANGES AND EMERGING PATTERNS", changes),
+        ("7. FORWARD WATCH AND MONITORING PRIORITIES", watch_lines(pool, events, now)),
+        ("8. INTELLIGENCE GAPS, EVIDENCE LIMITATIONS AND CONFIDENCE", gaps),
+        ("SUPPORTING DETAIL: collection", supporting),
     ]
