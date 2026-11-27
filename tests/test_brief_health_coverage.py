@@ -430,5 +430,10 @@ def test_retained_and_generic_levels_are_reported_as_degraded():
     assert lines == [expected]
 
 
+def test_the_first_failed_night_shows_in_the_morning_brief():
+    assert _calibration([_level("A", hours=26)])
+    assert _calibration([_level("A", hours=2)]) == [] and _calibration([_level("A", hours=24)]) == []
+
+
 def test_unreadable_calibration_state_is_not_silence():
     assert _calibration([]) == ["- Outage report detection: calibration state could not be checked."]

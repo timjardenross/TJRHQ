@@ -169,7 +169,7 @@ def warnings_line(load_alerts) -> str:
     return f"- Official warnings are active{where}. {most}{tail}"
 
 
-CALIBRATION_STALE_HOURS = 36   # calibration is nightly; an older learned row means it has not been redone
+CALIBRATION_STALE_HOURS = 25   # nightly at 05:00, so by the 07:00 brief a row from the night before (26 h) was not redone
 _CALIBRATION_FAILED = frozenset({"bootstrap_default_llm_unavailable", "bootstrap_default_after_llm_reject"})
 
 
