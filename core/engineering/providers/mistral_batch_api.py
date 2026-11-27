@@ -31,6 +31,7 @@ from typing import Any
 # per-request prompt construction lives in core.engineering.batch_coding,
 # not here, so there is no single "the prompt" to redact/check at this
 # call site for that path.
+from core.security import personal_data_policy
 from core.security.llm_guardrails import check_output_rail, secure_outbound_prompt
 
 log = logging.getLogger(__name__)
@@ -78,6 +79,7 @@ def complete(prompt: str, model: str = DEFAULT_MODEL, max_tokens: int = 4096,
 
     Works on the standard (non-batch) tier. Returns the response text.
     """
+    personal_data_policy.assert_authorised_workload("engineering")
     safe_prompt, _redaction = secure_outbound_prompt(prompt)
     client = client or make_client()
     resp = client.chat.complete(
@@ -102,6 +104,7 @@ def submit(requests: list[dict[str, Any]], model: str = DEFAULT_MODEL,
     """
     if not requests:
         raise MistralBatchError("No requests to submit.")
+    personal_data_policy.assert_authorised_workload("engineering")
     client = client or _client()
 
     jsonl = "\n".join(json.dumps(r, ensure_ascii=False) for r in requests).encode("utf-8")

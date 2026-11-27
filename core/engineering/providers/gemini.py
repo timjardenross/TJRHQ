@@ -16,6 +16,9 @@ from __future__ import annotations
 import logging
 import os
 
+from core.llm.provider_chain import screen_outbound
+from core.security import personal_data_policy
+
 log = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
@@ -59,6 +62,11 @@ def call(prompt: str, model: str | None = None) -> tuple[str, str]:
         ) from exc
 
     resolved_model = model or os.getenv("GEMINI_ENGINEERING_MODEL", DEFAULT_MODEL)
+
+    # Engineering text is not public-source material: refused unless this workload is authorised.
+    personal_data_policy.assert_authorised_workload("engineering")
+    # Existing cloud screening; raises (nothing sent) if blocked or the guard is unavailable.
+    _, prompt = screen_outbound("", prompt)
 
     log.info("[gemini] model=%s prompt_len=%d", resolved_model, len(prompt))
 

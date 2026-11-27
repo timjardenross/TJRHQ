@@ -22,6 +22,7 @@ import os
 # found via `grep -rn "from mistralai import"` per that mission's scope.
 # Same gate as core/model-router/app.py's Gemini branch — see
 # docs/decisions/ADR-llm-application-security-baseline.md.
+from core.security import personal_data_policy
 from core.security.llm_guardrails import check_output_rail, secure_outbound_prompt
 
 log = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def call(prompt: str, model: str | None = None) -> tuple[str, str]:
     # GuardrailsUnavailableError, both subclasses) on a blocked prompt or an
     # unreachable guardrails venv — propagates to this function's own
     # caller exactly like the "Mistral API call failed" RuntimeError below.
+    personal_data_policy.assert_authorised_workload("engineering")
     safe_prompt, _redaction = secure_outbound_prompt(prompt)
 
     client = Mistral(api_key=api_key)

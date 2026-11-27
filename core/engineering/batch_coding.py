@@ -54,6 +54,7 @@ from core.engineering.schemas import (
     MissionContext,
     RouterRequest,
 )
+from core.security import personal_data_policy
 
 log = logging.getLogger(__name__)
 
@@ -575,6 +576,13 @@ def _maybe_open_pr(custom_id: str, text: str, fields: dict[str, str]) -> dict[st
 
 # ─── public steps ───────────────────────────────────────────────────────────────
 
+NOT_AUTHORISED = "hosted engineering processing is not authorised: left PENDING"
+
+
+def _hosted_authorised() -> bool:
+    return personal_data_policy.is_authorised_workload("engineering")
+
+
 def submit_pending(base: Path | None = None, model: str = batch_api.DEFAULT_MODEL,
                    limit: int | None = None, dry_run: bool = False,
                    client=None) -> dict[str, Any]:
@@ -601,6 +609,10 @@ def submit_pending(base: Path | None = None, model: str = batch_api.DEFAULT_MODE
             "handoffs": stems, "model": model,
             "preview_request_bytes": len(json.dumps(requests)),
         }
+
+    if not _hosted_authorised():
+        # Not a failure of the work: leave every handoff PENDING.
+        return {"submitted": 0, "job_id": None, "handoffs": stems, "note": NOT_AUTHORISED}
 
     job_id = batch_api.submit(requests, model=model,
                               metadata={"purpose": "engineering_batch_coding"}, client=client)
@@ -679,6 +691,9 @@ def run_sync(base: Path | None = None, model: str = batch_api.DEFAULT_MODEL,
         return {"processed": 0, "dry_run": True,
                 "handoffs": [p.stem for p, _ in pending], "model": model}
 
+    if not _hosted_authorised():
+        return {"processed": 0, "delivered": [], "failed": [], "note": NOT_AUTHORISED}
+
     client = client or batch_api.make_client()
     delivered: list[str] = []
     failed: list[str] = []
@@ -746,6 +761,9 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
         # Already SUBMITTED/DELIVERED/FAILED — don't reprocess on a re-approval.
         result["status"] = "skipped"
         result["error"] = f"not PENDING (batch status: {fields.get('batch_status', '?')})"
+        return result
+    if not _hosted_authorised():
+        result["status"], result["error"] = "skipped", NOT_AUTHORISED   # stays PENDING
         return result
 
     client = client or batch_api.make_client()

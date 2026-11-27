@@ -14,12 +14,26 @@ from unittest.mock import MagicMock, patch
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+import pytest
+
 from core.coordination import engineering_handoff_reader as reader
 from core.engineering import batch_coding
 from tests.test_batch_coding_pr_error import (
     _FILE_RESPONSE,
     write_pending_handoff,
 )
+
+
+@pytest.fixture(autouse=True)
+def _workload_authorised(monkeypatch):
+    """These tests exercise behaviour behind workload authorisation."""
+    from core.security import personal_data_policy
+
+    class _Every(frozenset):
+        def __contains__(self, item):
+            return True
+
+    monkeypatch.setattr(personal_data_policy, "AUTHORISED_HOSTED_WORKLOADS", _Every())
 
 
 class TestXoHoldStamping(unittest.TestCase):

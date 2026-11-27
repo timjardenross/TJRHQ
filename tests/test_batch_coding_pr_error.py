@@ -39,6 +39,21 @@ _FILE_RESPONSE = (
 )
 
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _workload_authorised(monkeypatch):
+    """These tests exercise behaviour behind workload authorisation."""
+    from core.security import personal_data_policy
+
+    class _Every(frozenset):
+        def __contains__(self, item):
+            return True
+
+    monkeypatch.setattr(personal_data_policy, "AUTHORISED_HOSTED_WORKLOADS", _Every())
+
+
 def write_pending_handoff(handoffs_dir: Path, handoff_id: str) -> Path:
     handoffs_dir.mkdir(parents=True, exist_ok=True)
     path = handoffs_dir / f"{handoff_id}.md"
