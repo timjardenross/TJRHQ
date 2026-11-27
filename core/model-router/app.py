@@ -237,7 +237,7 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
     # Public-source judgements only. Deliberately NOT in TASK_ROUTES: it never takes a bare prompt (own handler, own boundary).
     "intelligence-judgement": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low",
-                               "public_source_boundary": True},
+                               "public_source_boundary": True, "store": False},   # not kept in the provider's project logs
     # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine.
     # Same tier as intelligence-brief: infrequent, quality-sensitive, not
     # latency-sensitive. Per the Captain's resolved hybrid design, this
@@ -535,6 +535,7 @@ def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) ->
 
 def _gemini_generate(
     model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY", thinking_level: str | None = None,
+    store: bool | None = None,
 ) -> dict[str, Any]:
     """POST /v1beta/models/{model}:generateContent. Returns parsed response dict.
 
@@ -555,6 +556,8 @@ def _gemini_generate(
     body: dict[str, Any] = {"contents": [{"parts": [{"text": prompt}]}]}
     if thinking_level:
         body["generationConfig"] = {"thinkingConfig": {"thinking_level": thinking_level}}
+    if store is not None:                     # request-level logging setting; takes precedence over the project's
+        body["store"] = store
     payload = json.dumps(body).encode()
     req = urllib.request.Request(
         url, data=payload,
@@ -774,7 +777,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                 dispatched = True
             raw = _gemini_generate(
                 model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"),
-                policy.get("thinking_level"),
+                policy.get("thinking_level"), **({"store": policy["store"]} if "store" in policy else {}),
             )
             candidates = raw.get("candidates", [])
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []

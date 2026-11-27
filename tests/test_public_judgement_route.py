@@ -560,3 +560,22 @@ def test_children_and_victims_are_left_out_but_public_roles_are_not(title, sent)
     people = lambda text: [(m.start(), m.end()) for m in re.finditer(r"Jack Example|Jane Example", text)]
     out, dropped, _ = route.minimise({EV: {"title": title, "summary": title}}, people)
     assert (EV in out and out[EV]["title"] == title) is sent, (out, dropped)
+
+
+def test_judgement_request_is_marked_not_to_be_stored_and_other_tasks_are_unchanged(monkeypatch):
+    spec = importlib.util.spec_from_file_location("router_store_check", ROOT / "core" / "model-router" / "app.py")
+    app = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(app)
+    bodies = []
+
+    def capture(request, timeout=None):
+        bodies.append(json.loads(request.data))
+        raise OSError("not sent")
+
+    monkeypatch.setenv("GEMINI_API_KEY", "synthetic")
+    monkeypatch.setattr(app.urllib.request, "urlopen", capture)
+    for policy in (app.TASK_POLICY[route.TASK], app.TASK_POLICY["intelligence-brief"]):
+        with pytest.raises(OSError):
+            app._gemini_generate(policy["model"], "synthetic", 1, store=policy.get("store"))
+    assert bodies[0]["store"] is False and "store" not in bodies[1]
+    assert [name for name, p in app.TASK_POLICY.items() if "store" in p] == [route.TASK]
