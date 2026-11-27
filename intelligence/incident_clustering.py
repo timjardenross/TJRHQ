@@ -142,17 +142,52 @@ def restoration_signal(m: ed.Candidate, now: datetime | None = None) -> bool:
 _PARTIAL_RX = re.compile(r"\bbroad recovery\b|\bbeing restored\b|\brecovering\b|\bgradually\b|\bslowly\b", re.IGNORECASE)
 
 
+# An explicit statement that a disruption has come back. Requires the disruption itself to be the subject ('outage returns', 'down
+# again'): 'service returns' and 'power returns' are restorations.
+_RECURRENCE_RX = re.compile(r"\b(?:outage|blackout|disruption|fault)s?\s+(?:has\s+|have\s+)?(?:returns|returned|recurs|recurred|resumes|resumed)\b"
+                            r"|\b(?:down|offline|without(?:\s+\w+){0,3}?\s+(?:service|power|water|internet|coverage))\s+again\b", re.IGNORECASE)
+
+
+# Recurrence reopens a service only when it is affirmed. A denial or doubt before the statement, or attached after it, does not.
+_RECURRENCE_DOUBT_RX = re.compile(r"\b(?:no|not|never|nothing|den(?:y|ies|ied|ying)|dismiss\w*|reject\w*|refut\w*|rul(?:e|es|ed|ing) out|false|"
+                                  r"incorrect|untrue|unconfirmed|rumou?r\w*|hoax|if|whether|could|may|might|would|will|fear\w*|risk\w*|"
+                                  r"concern\w*|warn\w*|possib\w+|potential\w*|unlikely|prevent\w*|avoid\w*|check\w*|investigat\w+|"
+                                  r"reportedly|allegedly|apparently|claims?)\b|n[’']t\b", re.IGNORECASE)
+_RECURRENCE_RETRACTED_RX = re.compile(r"^[^.;:!]{0,60}?\b(?:den(?:ied|ies)|dismissed|rejected|false|untrue|incorrect|not true|unconfirmed|"
+                                      r"rumou?r\w*|reportedly|allegedly|apparently)\b", re.IGNORECASE)
+_CLAUSE_BREAK_RX = re.compile(r"[.;:!]|\s[–—-]\s|\b(?:as|but)\b", re.IGNORECASE)
+
+
+def _affirms_recurrence(title: str) -> bool:
+    found = _RECURRENCE_RX.search(title)
+    if not found or "?" in title or _RECURRENCE_RETRACTED_RX.search(title[found.end():]):
+        return False
+    # the clause leading up to the statement, and the statement itself
+    return not _RECURRENCE_DOUBT_RX.search(_CLAUSE_BREAK_RX.split(title[:found.start()])[-1] + " " + found.group(0))
+
+
+def _same_operator(title: str, earlier: list[str]) -> bool:
+    """False only when the headline names a known operator and the incident's earlier headlines name only others."""
+    named = {m.group(0).lower() for m in ed._ORG_LEX.finditer(title)}
+    known = {m.group(0).lower() for t in earlier for m in ed._ORG_LEX.finditer(t)}
+    return not named or not known or bool(named & known)
+
+
 def resolve_restoration(reports: list[ClassifiedReport], base: str, now: datetime | None = None) -> str:
     """Incident restoration state from report ROLES in time order (``reports`` is chronological): a RESTORATION_UPDATE sets restored
     (full) or partially_restored; a factual report with an unresolved cue reopens to ongoing; a cause or scale update after a
     restoration changes nothing. ``event_detection`` only recognises the verb form "restored", so "restores" / "recovers" headlines
     were read as ongoing. Live states need a verified report within CUE_MAX_AGE_HOURS of ``now``, else "unknown" (never a stale 'ongoing')."""
     state = None
-    for r in reports:
+    for n, r in enumerate(reports):
         if r.relation == RESTORATION_UPDATE:
             state = "restored" if r.restoration == "full" else "partially_restored"
-        elif r.relation in (NEW, SUBSEQUENT) and (state is None or ed._report_state(r.candidate, now) == "ongoing"):
-            state = "ongoing"
+        else:
+            reported = r.relation in (NEW, SUBSEQUENT) and (state is None or ed._report_state(r.candidate, now) == "ongoing")
+            recurred = (state == "restored" and _affirms_recurrence(r.candidate.title) and ed._live(r.candidate, now)
+                        and _same_operator(r.candidate.title, [x.candidate.title for x in reports[:n]]))
+            if reported or recurred:
+                state = "ongoing"
     if state is None:
         return base
     if state in ed.CURRENT_DISRUPTION and now is not None:

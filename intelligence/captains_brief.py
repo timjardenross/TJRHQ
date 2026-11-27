@@ -1648,6 +1648,14 @@ def _get_previous_morning_record() -> dict | None:
     return rows[0] if rows else None
 
 
+def _get_previous_evening_record() -> dict | None:
+    """The last stored evening brief before today, so what it reported is not presented as new this morning."""
+    today = datetime.now(_AEST).date().isoformat()
+    rows = _sb_get("captains_daily_briefs",
+                   f"brief_date=lt.{today}&brief_type=eq.eod&order=generated_at.desc&limit=1&select=brief_text,generated_at,collection_caveat")
+    return rows[0] if rows else None
+
+
 def _criticality_lines() -> list[str]:
     """Failed or missing critical sources for standing requirements, from the existing coverage-criticality rules over the latest
     stored coverage record. [] when its flag is off or nothing is recorded."""
@@ -1711,7 +1719,7 @@ def _morning_pdb_lines(collection_caveat: str | None) -> list[str] | None:
             log.warning("[morning-pdb] coverage unavailable: %s", exc)
         sections = ea.assess_morning(events, _get_previous_morning_record(), caveat=collection_caveat, coverage=coverage,
                                      limitations=ea.source_limitations(), retained=_retained_product_lines(),
-                                     judgements=_judgement_lines())
+                                     judgements=_judgement_lines(), evening_row=_get_previous_evening_record())
         lines: list[str] = []
         for heading, body in sections:
             lines += [f"<b>{_esc(heading)}</b>", *[_esc(x) for x in body], ""]
