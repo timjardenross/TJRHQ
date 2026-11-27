@@ -87,6 +87,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import dedup  # sibling-directory import, needs the sys.path insert above first (this repo's ruff config doesn't enable E402)
 
+from core.security import personal_data_policy
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [enrichment] %(levelname)s %(message)s",
@@ -102,11 +104,10 @@ load_dotenv(_REPO_ROOT / ".env")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-# Cloud target. Not OLLAMA_BASE_URL / OLLAMA_MODEL: those are the platform-wide LOCAL Ollama settings
-# (localhost, a local model), which silently turned this call into a local CPU generation.
-OLLAMA_BASE  = os.environ.get("OLLAMA_CLOUD_BASE_URL", "https://ollama.com").rstrip("/")
-OLLAMA_MODEL = os.environ.get("OLLAMA_CLOUD_MODEL", "glm-5.2")
-OLLAMA_KEY   = os.environ.get("OLLAMA_API_KEY", "")
+# Local target only: captured text is private or unclassified. The OLLAMA_CLOUD_* settings are
+# deliberately not read here.
+OLLAMA_BASE  = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:12b")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 
@@ -239,22 +240,20 @@ def _sb_insert(table: str, record: dict) -> dict:
 
 def _call_llm(text: str) -> dict:
     """Call Ollama and return parsed suggestion dict. Raises on failure."""
+    personal_data_policy.assert_local_target(OLLAMA_BASE, OLLAMA_MODEL, route="capture classification")
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user",   "content": text[:2000]},
     ]
     payload = json.dumps({"model": OLLAMA_MODEL, "messages": messages, "stream": False}).encode()
     headers = {"Content-Type": "application/json", "Content-Length": str(len(payload))}
-    if OLLAMA_KEY:
-        headers["Authorization"] = f"Bearer {OLLAMA_KEY}"
-
     req = urllib.request.Request(
         f"{OLLAMA_BASE}/api/chat",
         data=payload,
         method="POST",
         headers=headers,
     )
-    with urllib.request.urlopen(req, timeout=25) as resp:  # nosec B310 - url built from OLLAMA_BASE env var, fixed local/internal endpoint - reviewed 2026-09-12
+    with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310 - url built from OLLAMA_BASE env var, fixed local/internal endpoint - reviewed 2026-09-12
         body = json.loads(resp.read())
 
     content = (body.get("message") or {}).get("content", "").strip()
@@ -660,7 +659,7 @@ def enrich_item(item: dict, dry_run: bool = False, dedup_index: object | None = 
         })
         return True
 
-    log.info("[%s] Enriching: %s…", item_id[:8], text[:60])
+    log.info("[%s] Enriching (%d chars)", item_id[:8], len(text))
 
     if not dry_run:
         _sb_patch("captured_items", {"id": item_id}, {"ai_enrichment_status": "queued"})
@@ -668,11 +667,11 @@ def enrich_item(item: dict, dry_run: bool = False, dedup_index: object | None = 
     try:
         suggestion = _call_llm(text)
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
-        log.error("[%s] LLM call failed: %s", item_id[:8], exc)
+        log.error("[%s] Local classification unavailable, left queued: %s", item_id[:8], exc)
         if not dry_run:
             existing = _safe_parse_summary(item.get("summary"))
             _sb_patch("captured_items", {"id": item_id}, {
-                "ai_enrichment_status": "failed",
+                "ai_enrichment_status": "not_enriched",
                 "summary": json.dumps({**existing, "ai_error": str(exc), "enriched_at": _now()}),
             })
         return False

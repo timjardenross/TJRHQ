@@ -1,4 +1,4 @@
-"""The cloud tier reads OLLAMA_CLOUD_* only; the platform-wide local OLLAMA_BASE_URL/OLLAMA_MODEL must not leak in."""
+"""The Telegram cloud tier reads OLLAMA_CLOUD_* only; the capture worker is local and reads neither."""
 import importlib
 import os
 import sys
@@ -29,24 +29,16 @@ class TelegramLlmCloudEnvTests(unittest.TestCase):
             self.assertEqual(llm._cloud_model(), "glm-9")
 
 
-class EnrichmentWorkerCloudEnvTests(unittest.TestCase):
-    def _load(self, env):
+class EnrichmentWorkerLocalOnlyTests(unittest.TestCase):
+    """Captured text is private: the worker reads the local settings and ignores the cloud ones."""
+
+    def test_cloud_settings_are_ignored(self):
+        env = {**LOCAL, "OLLAMA_CLOUD_BASE_URL": "https://cloud.example", "OLLAMA_CLOUD_MODEL": "glm-9"}
         with patch.dict(os.environ, env, clear=False):
-            for k in ("OLLAMA_CLOUD_BASE_URL", "OLLAMA_CLOUD_MODEL"):
-                if k not in env:
-                    os.environ.pop(k, None)
             sys.modules.pop("core.capture.enrichment_worker", None)
-            return importlib.import_module("core.capture.enrichment_worker")
-
-    def test_local_settings_do_not_leak(self):
-        mod = self._load(LOCAL)
-        self.assertEqual(mod.OLLAMA_BASE, "https://ollama.com")
-        self.assertEqual(mod.OLLAMA_MODEL, "glm-5.2")
-
-    def test_cloud_settings_are_used(self):
-        mod = self._load({**LOCAL, "OLLAMA_CLOUD_BASE_URL": "https://cloud.example", "OLLAMA_CLOUD_MODEL": "glm-9"})
-        self.assertEqual(mod.OLLAMA_BASE, "https://cloud.example")
-        self.assertEqual(mod.OLLAMA_MODEL, "glm-9")
+            mod = importlib.import_module("core.capture.enrichment_worker")
+        self.assertEqual(mod.OLLAMA_BASE, "http://localhost:11434")
+        self.assertEqual(mod.OLLAMA_MODEL, "gemma4:12b")
 
 
 if __name__ == "__main__":
