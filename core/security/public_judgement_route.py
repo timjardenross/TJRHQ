@@ -55,6 +55,9 @@ _PRIVATE_DOMAINS = ("sslip.io", "nip.io", "vercel.app", "supabase.co", "local", 
 _OWN_MARKERS = ("usstjros", "timjardenross")                                                          # our own names, anywhere
 
 
+TITLE_CHARS, SUMMARY_CHARS = 300, 600      # per record; the producer checks drafts against the same lengths
+
+
 class Rejected(ValueError):
     """The request may not use this route."""
 
@@ -204,7 +207,7 @@ def resolve(event_ids: list[str], reader) -> tuple[dict[str, dict], dict[str, st
             left_out[event_id] = "no public url"
         else:
             records[event_id] = {"event_id": event_id, "publisher": str(source.get("source_name") or ""),
-                                 "title": _clean(e.get("raw_title"))[:300], "summary": _clean(e.get("raw_summary"))[:600],
+                                 "title": _clean(e.get("raw_title"))[:TITLE_CHARS], "summary": _clean(e.get("raw_summary"))[:SUMMARY_CHARS],
                                  "published": str(e.get("published_at") or "")[:10]}
     return records, left_out
 
