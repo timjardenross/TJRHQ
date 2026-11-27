@@ -114,6 +114,15 @@ _MIN_HISTORY_DAYS = 21
 _SANITY_SPIKE_MULTIPLIER = 3
 _SANITY_NO_SPIKE_MULTIPLIER = 20
 
+# How long a previously learned threshold may stand in for a calibration that
+# cannot be redone. A retained row is left untouched, so its computed_at keeps
+# the age of the last real calibration.
+_RETAINED_MAX_AGE_DAYS = 30
+
+
+# In-memory result marker only; never persisted (migration 0121 constrains the stored values).
+RETAINED = "retained_previous"
+
 
 @dataclass(frozen=True)
 class HistorySummary:
@@ -345,6 +354,33 @@ def sanity_check(
     )
 
 
+# ─── Retention of the last valid threshold ───────────────────────────────────
+
+def retention_check(
+    prior: dict | None, sector: str, summary: HistorySummary, bootstrap: int,
+    now: datetime, *, max_age_days: int = _RETAINED_MAX_AGE_DAYS,
+) -> tuple[bool, str]:
+    """Whether the stored row may be kept when a new calibration fails. Only a
+    learned value, for the same sector, young enough, that still passes the
+    sanity guard against current history. Returns (keep, reason)."""
+    if not prior or prior.get("threshold_source") != "llm_learned":
+        return False, "no previously learned threshold"
+    if prior.get("sector") != sector:
+        return False, "sector changed since it was learned"
+    try:
+        computed = datetime.fromisoformat(str(prior.get("computed_at")).replace("Z", "+00:00"))
+        age = now - computed
+        value = int(prior["threshold_value"])
+    except (KeyError, TypeError, ValueError):
+        return False, "stored value or date is unreadable"
+    if age > timedelta(days=max_age_days):
+        return False, f"older than {max_age_days} days"
+    passed, reason = sanity_check(value, summary, bootstrap)
+    if not passed:
+        return False, reason
+    return True, f"learned {age.days} day(s) ago and still within current history"
+
+
 # ─── Orchestration ───────────────────────────────────────────────────────────
 
 def recompute_threshold_for_source(
@@ -440,7 +476,13 @@ def recompute_all(
     )
     from intelligence.persistence import intelligence_store as store
 
-    since = (datetime.now(timezone.utc) - timedelta(days=days_lookback)).isoformat()
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(days=days_lookback)).isoformat()
+    try:
+        priors: dict | None = store.load_downdetector_thresholds_strict()
+    except Exception as exc:  # noqa: BLE001 - without the stored rows, only a newly learned value is safe to write
+        log.warning("[downdetector-threshold] stored thresholds unreadable, keeping them unchanged: %s", exc)
+        priors = None
 
     all_sources = [
         s for s in store.load_source_registry_all()
@@ -458,6 +500,27 @@ def recompute_all(
             result = recompute_threshold_for_source(
                 source_name, sector, observations, min_history_days=min_history_days,
             )
+            if result.threshold_source != "llm_learned":
+                if priors is None:
+                    continue  # nothing written: a valid stored value must not be overwritten blind
+                prior = priors.get(source_name)
+                keep, why = retention_check(
+                    prior, sector, summarize_history(observations), bootstrap_default(sector), now,
+                )
+                if keep:
+                    log.warning(
+                        "[downdetector-threshold] %s: calibration failed (%s) -- retaining %d (%s)",
+                        source_name, result.threshold_source, int(prior["threshold_value"]), why,
+                    )
+                    # Not saved, so computed_at still dates the last real calibration.
+                    results.append(ThresholdResult(
+                        source_name=source_name, sector=sector,
+                        threshold_value=int(prior["threshold_value"]),
+                        threshold_source=RETAINED, reasoning=why,
+                        history_days_used=result.history_days_used,
+                        llm_provider=prior.get("llm_provider"),
+                    ))
+                    continue
             store.save_downdetector_threshold(
                 source_name=result.source_name,
                 sector=result.sector,

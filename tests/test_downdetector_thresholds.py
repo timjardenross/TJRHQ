@@ -17,14 +17,18 @@ required, no 30-day wait):
 import os
 import sys
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from intelligence.ingestion.downdetector_thresholds import (
+    RETAINED,
     HistorySummary,
     bootstrap_default,
+    recompute_all,
     recompute_threshold_for_source,
+    retention_check,
     sanity_check,
     summarize_history,
 )
@@ -205,6 +209,73 @@ class TestRecomputeThresholdForSource(unittest.TestCase):
             recompute_threshold_for_source("X", "other", [{"observed_at": "bad", "status": "no_problems"}])
         except Exception as exc:  # noqa: BLE001 - test asserts the function never raises on malformed input, must catch any error type  # pragma: no cover
             self.fail(f"recompute_threshold_for_source raised: {exc}")
+
+
+_NOW = datetime(2026, 8, 1, tzinfo=timezone.utc)
+_NAME = "Downdetector AU — NAB"
+
+
+def _prior(**over):
+    row = {"source_name": _NAME, "sector": "banking", "threshold_value": 60, "threshold_source": "llm_learned",
+           "computed_at": (_NOW - timedelta(days=1)).isoformat(), "llm_provider": "x"}
+    row.update(over)
+    return row
+
+
+class TestRetentionCheck(unittest.TestCase):
+    def _check(self, prior, history=None):
+        summary = summarize_history(history or _quiet_history(25, count=3))
+        return retention_check(prior, "banking", summary, bootstrap_default("banking"), _NOW)[0]
+
+    def test_recent_learned_value_is_kept(self):
+        self.assertTrue(self._check(_prior()))
+
+    def test_not_kept_when_missing_generic_stale_unreadable_or_other_sector(self):
+        self.assertFalse(self._check(None))
+        self.assertFalse(self._check(_prior(threshold_source="bootstrap_default_llm_unavailable")))
+        self.assertFalse(self._check(_prior(computed_at=(_NOW - timedelta(days=31)).isoformat())))
+        self.assertFalse(self._check(_prior(computed_at=None)))
+        self.assertFalse(self._check(_prior(sector="telecom")))
+
+    def test_not_kept_when_quiet_days_have_reached_it(self):
+        self.assertFalse(self._check(_prior(), _quiet_history(25, count=80)))
+
+
+class TestRecomputeAllRetention(unittest.TestCase):
+    def _run(self, priors, answer=(None, None, None), days=25):
+        from intelligence.persistence import intelligence_store as store
+        source = {"source_name": _NAME, "source_type": "downdetector",
+                  "url": "https://downdetector.com.au/status/national-australia-bank/"}
+        read = {"side_effect": priors} if isinstance(priors, Exception) else {"return_value": priors}
+        with mock.patch.object(store, "load_source_registry_all", return_value=[source]), \
+             mock.patch.object(store, "load_downdetector_history", return_value=_quiet_history(days, count=3)), \
+             mock.patch.object(store, "load_downdetector_thresholds_strict", **read), \
+             mock.patch.object(store, "save_downdetector_threshold") as save, \
+             mock.patch("intelligence.ingestion.downdetector_thresholds._call_threshold_llm", return_value=answer):
+            return recompute_all(), save
+
+    def _fresh(self):
+        return {_NAME: _prior(computed_at=(datetime.now(timezone.utc) - timedelta(days=2)).isoformat())}
+
+    def test_failed_calibration_does_not_overwrite_a_valid_value(self):
+        for answer, days in (((None, None, None), 25), ((999999, "ollama", "r"), 25), ((None, None, None), 0)):
+            results, save = self._run(self._fresh(), answer, days)
+            save.assert_not_called()
+            self.assertEqual((results[0].threshold_source, results[0].threshold_value), (RETAINED, 60))
+
+    def test_generic_value_written_when_nothing_suitable_is_stored(self):
+        results, save = self._run({})
+        self.assertEqual(save.call_args.kwargs["threshold_value"], bootstrap_default("banking"))
+        self.assertEqual(results[0].threshold_source, "bootstrap_default_llm_unavailable")
+
+    def test_new_learned_value_still_replaces_the_stored_one(self):
+        _, save = self._run(self._fresh(), (45, "ollama", "r"))
+        self.assertEqual(save.call_args.kwargs["threshold_value"], 45)
+
+    def test_nothing_written_when_stored_values_cannot_be_read(self):
+        results, save = self._run(RuntimeError("down"))
+        save.assert_not_called()
+        self.assertEqual(results, [])
 
 
 if __name__ == "__main__":

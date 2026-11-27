@@ -406,3 +406,29 @@ def test_normal_thin_and_cannot_judge_are_three_different_outputs(monkeypatch):
     thin = cov(monkeypatch, TWO, [ev(s, 30 + 10 * i) for s in "ab" for i in range(6)] * 3 + [ev("a", 3)], GOOD)[1]
     cannot = cov(monkeypatch, TWO, [ev("a", 2)], GOOD)[1]
     assert len({normal, thin, cannot}) == 3 and normal == NORMAL and "thin" in thin and cannot == NO_HISTORY
+
+
+# ── outage-report calibration state ──────────────────────────────────────────────────────────────────────────────
+def _calibration(rows, active=("Downdetector AU — A", "Downdetector AU — B", "Downdetector AU — C")):
+    tables = {"intelligence_source_registry": [{"source_name": n} for n in active], "downdetector_learned_thresholds": rows}
+    return bc.calibration_lines(fake_sb(tables), NOW)
+
+
+def _level(name, source="llm_learned", hours=2):
+    return {"source_name": f"Downdetector AU — {name}", "threshold_source": source, "computed_at": ago(hours)}
+
+
+def test_current_or_cold_start_calibration_says_nothing():
+    assert _calibration([_level("A"), _level("B", "bootstrap_default_insufficient_history", 500), _level("Z", "bootstrap_default_llm_unavailable")]) == []
+    assert _calibration([], active=()) == []
+
+
+def test_retained_and_generic_levels_are_reported_as_degraded():
+    lines = _calibration([_level("A", hours=40), _level("B", "bootstrap_default_llm_unavailable"), _level("C")])
+    expected = ("- Outage report detection: calibration degraded for 2 of 3 monitored services "
+                "(1 on an earlier retained level, 1 on the generic level).")
+    assert lines == [expected]
+
+
+def test_unreadable_calibration_state_is_not_silence():
+    assert _calibration([]) == ["- Outage report detection: calibration state could not be checked."]
