@@ -63,6 +63,12 @@ async def _build_graphiti():
     isn't set — never silently no-ops, unlike this platform's LLM fallback
     chains elsewhere, since there's no fallback provider wired for this
     yet and a silent no-op here would look identical to "nothing to add"."""
+    from core.security import personal_data_policy
+
+    # Everything written to or searched in the graph is private platform or Captain content, and
+    # there is no local extraction/embedding backend: refuse before any client is built.
+    personal_data_policy.assert_external_eligible(False, route="memory graph (Gemini extraction and embeddings)")
+
     from graphiti_core import Graphiti
     from graphiti_core.cross_encoder.gemini_reranker_client import GeminiRerankerClient
     from graphiti_core.driver.falkordb_driver import FalkorDriver

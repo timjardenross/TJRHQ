@@ -4,24 +4,16 @@ ADHD Task Decomposition — break overwhelming tasks into tiny first steps.
 Issue 23: Decompose a captured task into a single, concrete micro-action.
 Uses grounded LLM call following the same "only use provided text" discipline as brief_generator.
 
-Provider chain (same as brief_generator):
-  0. Model Router (local, preferred)
-  1. Mistral (cloud)
-  2. Gemini (cloud fallback)
-  3. Ollama (local last resort)
+Local model only: task text is private or unclassified, so there is no router, cloud provider or
+cloud fallback in this component.
 
 On failure: returns None (UI degrades gracefully, no micro-action suggested).
 """
 
-import json
 import logging
-import urllib.request
 
-from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
+from core.llm.provider_chain import call_ollama
 from intelligence.config import (
-    GEMINI_API_KEY,
-    MISTRAL_API_KEY,
-    MODEL_ROUTER_URL,
     OLLAMA_BASE_URL,
     OLLAMA_MODEL,
 )
@@ -65,11 +57,7 @@ class TaskDecomposer:
 
         text = task_text.strip()[:2000]  # Bound to 2k chars like brief_generator
 
-        # Try providers in preference order
         providers = [
-            ("model-router", self._model_router),
-            ("mistral", self._mistral),
-            ("gemini", self._gemini),
             (OLLAMA_MODEL, self._ollama),
         ]
 
@@ -87,57 +75,6 @@ class TaskDecomposer:
 
     # ─── Model Router (tier-0 — local, preferred) ────────────────────────────
 
-    def _model_router(self, task_text: str) -> str | None:
-        """Call local Model Router at :8891/api/model/adhd-decompose."""
-        url = f"{MODEL_ROUTER_URL.rstrip('/')}/api/model/adhd-decompose"
-        body = json.dumps({"task": task_text}).encode()
-        req = urllib.request.Request(
-            url, data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL config constant, not user input - reviewed 2026-09-12
-                data = json.loads(resp.read())
-        except Exception as exc:
-            raise RuntimeError(f"Model Router unavailable: {exc}") from exc
-
-        result = (data.get("action") or data.get("response") or "").strip()
-        if not result:
-            raise RuntimeError("Model Router returned empty action")
-        return result
-
-    # ─── Mistral ─────────────────────────────────────────────────────────────
-
-    def _mistral(self, task_text: str) -> str | None:
-        """Call Mistral Small for decomposition."""
-        if not MISTRAL_API_KEY:
-            raise RuntimeError("MISTRAL_API_KEY not set")
-        return call_mistral(
-            system_prompt=_SYSTEM_PROMPT,
-            prompt=f"Task: {task_text}",
-            api_key=MISTRAL_API_KEY,
-            model="mistral-small-latest",
-            max_tokens=256,
-            temperature=0.5,
-            timeout=15,
-        ).text
-
-    # ─── Gemini ──────────────────────────────────────────────────────────────
-
-    def _gemini(self, task_text: str) -> str | None:
-        """Call Gemini 2.5 Flash for decomposition."""
-        if not GEMINI_API_KEY:
-            raise RuntimeError("GEMINI_API_KEY not set")
-        return call_gemini(
-            system_prompt=_SYSTEM_PROMPT,
-            prompt=f"Task: {task_text}",
-            api_key=GEMINI_API_KEY,
-            max_output_tokens=256,
-            temperature=0.5,
-            timeout=15,
-        ).text
-
     # ─── Ollama (local) ──────────────────────────────────────────────────────
 
     def _ollama(self, task_text: str) -> str | None:
@@ -145,6 +82,7 @@ class TaskDecomposer:
         if not OLLAMA_BASE_URL or not OLLAMA_MODEL:
             raise RuntimeError("OLLAMA_BASE_URL or OLLAMA_MODEL not set")
         return call_ollama(
+            local_only=True,
             system_prompt=_FALLBACK_SYSTEM_PROMPT,
             prompt=f"Task: {task_text}",
             base_url=OLLAMA_BASE_URL,

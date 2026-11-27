@@ -137,13 +137,23 @@ async def consolidate_conversation_turns(db) -> dict[str, int]:
                 chat_id, len(turns),
             )
             continue
+        written = 0
         for fact in facts:
             result = remember(
                 MemoryType.RELATIONSHIPS, fact, user_id="captain",
                 metadata={"workbench": "xo"},
             )
             if result:
-                facts_written += 1
+                written += 1
+        facts_written += written
+        if facts and not written:
+            # The memory backend stored nothing (blocked or unavailable): keep the turns queued.
+            chats_failed += 1
+            log.warning(
+                "[nightly-consolidation] memory backend unavailable for chat_id=%s - leaving %d turns unconsolidated",
+                chat_id, len(turns),
+            )
+            continue
         ids = [t["id"] for t in turns]
         try:
             db.table("conversation_turns").update({"consolidated_at": now_iso}).in_("id", ids).execute()

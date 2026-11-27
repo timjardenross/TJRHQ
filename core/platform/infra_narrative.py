@@ -28,12 +28,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from heartbeat import supabase_get
 
-from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
+from core.llm.provider_chain import call_ollama
 
 log = logging.getLogger("infra-narrative")
 
-_GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
-_MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 _OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 _OLLAMA_MODEL    = os.getenv("OLLAMA_INFRA_MODEL") or os.getenv("OLLAMA_MODEL", "qwen3:8b")
 
@@ -116,12 +114,11 @@ def _degraded_domain_detail(degraded_domains: list[dict]) -> list[dict]:
 
 
 def _generate(prompt: str) -> str | None:
-    """Try the shared provider chain in order. Never raises — returns None on
-    total failure, matching every other narrative generator's fail-open contract."""
+    """Local model only: platform health records are internal. Never raises — returns None on
+    failure and the caller uses its deterministic domain list."""
     providers = [
-        ("gemini-3.5-flash-lite", lambda p: call_gemini(_SYSTEM_PROMPT, p, api_key=_GEMINI_API_KEY, max_output_tokens=512).text),
-        ("mistral-small",    lambda p: call_mistral(_SYSTEM_PROMPT, p, api_key=_MISTRAL_API_KEY, max_tokens=512).text),
-        (_OLLAMA_MODEL,      lambda p: call_ollama(_SYSTEM_PROMPT, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL, num_predict=400).text),
+        (_OLLAMA_MODEL,      lambda p: call_ollama(_SYSTEM_PROMPT, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL,
+                                                   num_predict=400, local_only=True).text),
     ]
     for name, fn in providers:
         try:
