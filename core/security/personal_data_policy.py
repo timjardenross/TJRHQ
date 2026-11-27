@@ -86,11 +86,28 @@ class ExternalEgressBlockedError(PersonalDataBlockedError):
     """Private or unclassified content was about to leave this machine."""
 
 
+# Hosted processing is permitted only for a workload listed here, by a reviewed code change. Screening and a caller's
+# "this is public" are necessary but never sufficient. Empty: nothing on these paths is authorised. (The judgement
+# route has its own record-based boundary in core/security/public_judgement_route.py.)
+AUTHORISED_HOSTED_WORKLOADS: frozenset = frozenset()
+
+
+def is_authorised_workload(workload: str) -> bool:
+    return workload in AUTHORISED_HOSTED_WORKLOADS
+
+
+def assert_authorised_workload(workload: str) -> None:
+    if not is_authorised_workload(workload):
+        raise ExternalEgressBlockedError(f"blocked: no authorised public-source workload for {workload}")
+
+
 def assert_external_eligible(public_source: bool, *, route: str) -> None:
-    """Raise unless the caller states, with the literal True, that the input is public-source material."""
+    """Raise unless the route is an authorised workload AND the caller states, with the literal True, that the input
+    is public-source material."""
     if public_source is not True:
         raise ExternalEgressBlockedError(
             f"blocked from {route}: private or unclassified content is processed on this host only")
+    assert_authorised_workload(route)
 
 
 def is_local_target(base_url: str, model: str = "") -> bool:

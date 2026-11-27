@@ -42,6 +42,18 @@ MISTRAL_RESPONSE = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _workload_authorised(monkeypatch):
+    """These tests exercise behaviour behind workload authorisation (screening, fallback, parsing)."""
+    from core.security import personal_data_policy
+
+    class _Every(frozenset):
+        def __contains__(self, item):
+            return True
+
+    monkeypatch.setattr(personal_data_policy, "AUTHORISED_HOSTED_WORKLOADS", _Every())
+
+
 class _Resp(io.BytesIO):
     def __enter__(self):
         return self

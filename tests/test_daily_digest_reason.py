@@ -17,6 +17,21 @@ NRP = "regarding <NRP> imports"
 ORG = "and <ORGANIZATION> obligations & more"
 
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _workload_authorised(monkeypatch):
+    """These tests exercise behaviour behind workload authorisation (screening, fallback, parsing)."""
+    from core.security import personal_data_policy
+
+    class _Every(frozenset):
+        def __contains__(self, item):
+            return True
+
+    monkeypatch.setattr(personal_data_policy, "AUTHORISED_HOSTED_WORKLOADS", _Every())
+
+
 def _item(**kw) -> CaptainBriefItem:
     base = {
         "event_id": "e1",
@@ -108,7 +123,6 @@ def test_fallback_when_digest_fails_has_no_unescaped_angle_brackets_or_ampersand
 
 # ── "PLATFORM, TODAY" uses the local model only (no cloud tier) ───────────────
 
-import pytest
 
 from intelligence.brief import llm_provider as lp
 

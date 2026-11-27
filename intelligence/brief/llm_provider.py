@@ -65,6 +65,9 @@ from intelligence.config import (
 log = logging.getLogger(__name__)
 
 
+BRIEF_WORKLOAD = "intelligence-brief"
+
+
 def _may_use_external(*texts: str) -> bool:
     """False when any text carries personal health content (or cannot be classified) and the Captain has not opted in.
     Fails closed: a detector error is treated as 'personal'."""
@@ -117,6 +120,8 @@ class LLMProvider:
         returns, it never withholds or modifies the brief. Returns None if
         unconfigured or the call fails — never raises.
         """
+        if not personal_data_policy.is_authorised_workload(BRIEF_WORKLOAD):
+            return None
         if not MISTRAL_API_KEY or not MISTRAL_QA_AGENT_ID:
             return None
         if not _may_use_external(brief_text):
@@ -152,6 +157,8 @@ class LLMProvider:
         above (framing/tone), this checks whether overall_risk is actually
         earned by the events. Non-blocking, log-only. Never raises.
         """
+        if not personal_data_policy.is_authorised_workload(BRIEF_WORKLOAD):
+            return None
         if not MISTRAL_API_KEY or not MISTRAL_CHALLENGE_AGENT_ID:
             return None
         if not _may_use_external(brief_text):
@@ -208,6 +215,8 @@ class LLMProvider:
             ("mistral-small",           self._mistral),
             (OLLAMA_MODEL,              self._ollama),
         ]
+        if not local_only and not personal_data_policy.is_authorised_workload(BRIEF_WORKLOAD):
+            local_only = True
         if not local_only and not _may_use_external(prompt):
             log.warning("LLM prompt contains personal health content: routing local-only (no Model Router, Gemini or Mistral)")
             local_only = True
@@ -237,6 +246,7 @@ class LLMProvider:
         Call Model Router :8891/api/model/intelligence-brief.
         Logs WARNING when falling through so the Captain can see local vs cloud usage.
         """
+        personal_data_policy.assert_authorised_workload(BRIEF_WORKLOAD)
         personal_data_policy.assert_may_leave_host(prompt, route="Model Router (cloud)")
         url = f"{MODEL_ROUTER_URL.rstrip('/')}/api/model/intelligence-brief"
         body = json.dumps({"prompt": prompt}).encode()
@@ -284,6 +294,7 @@ class LLMProvider:
         if not MISTRAL_RESEARCH_AGENT_ID or not MISTRAL_BRIEFING_AGENT_ID:
             raise RuntimeError("MISTRAL_RESEARCH_AGENT_ID or MISTRAL_BRIEFING_AGENT_ID not configured")
 
+        personal_data_policy.assert_authorised_workload(BRIEF_WORKLOAD)
         personal_data_policy.assert_may_leave_host(prompt, route="Mistral brief pipeline")
         log.info("[pipeline] Starting Mistral brief pipeline")
 
@@ -511,6 +522,7 @@ class LLMProvider:
         """
         # Existing cloud screening (health gate, input rail, redaction). Raises, so nothing is sent,
         # when content is blocked or the guard is unavailable. Only the screened text is used below.
+        personal_data_policy.assert_authorised_workload(BRIEF_WORKLOAD)
         _, prompt = screen_outbound("", prompt)
         if client is None:
             from mistralai import Mistral
@@ -626,6 +638,7 @@ class LLMProvider:
     # ─── Gemini 2.5 Flash ─────────────────────────────────────────────────────
 
     def _gemini(self, prompt: str) -> str | None:
+        personal_data_policy.assert_authorised_workload(BRIEF_WORKLOAD)
         personal_data_policy.assert_may_leave_host(prompt, route="Gemini")
         result = call_gemini(
             _SYSTEM_PROMPT, prompt,
@@ -637,6 +650,7 @@ class LLMProvider:
     # ─── Mistral Small ────────────────────────────────────────────────────────
 
     def _mistral(self, prompt: str) -> str | None:
+        personal_data_policy.assert_authorised_workload(BRIEF_WORKLOAD)
         personal_data_policy.assert_may_leave_host(prompt, route="Mistral Small")
         result = call_mistral(
             _SYSTEM_PROMPT, prompt,

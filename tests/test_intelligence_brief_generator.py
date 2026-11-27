@@ -11,6 +11,7 @@ Covers:
 - narrative_available=True when LLM succeeds
 """
 
+import pytest
 import json
 import os
 import sys
@@ -26,6 +27,18 @@ from intelligence.models import (
     RankedEvent,
     ResilienceBrief,
 )
+
+
+@pytest.fixture(autouse=True)
+def _workload_authorised(monkeypatch):
+    """These tests exercise behaviour behind workload authorisation (screening, fallback, parsing)."""
+    from core.security import personal_data_policy
+
+    class _Every(frozenset):
+        def __contains__(self, item):
+            return True
+
+    monkeypatch.setattr(personal_data_policy, "AUTHORISED_HOSTED_WORKLOADS", _Every())
 
 
 def _make_ranked_event(title: str = "Test event", rank: int = 1) -> RankedEvent:
