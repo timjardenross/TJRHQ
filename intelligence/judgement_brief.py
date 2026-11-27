@@ -1,7 +1,7 @@
 """Section 2 of the morning brief: current judgements from the existing register (flag ``BRIEF_JUDGEMENTS_V1``, default OFF).
 
-Read only. No model call, no register write, no principal input shown. A judgement appears only if it is open (not retired or
-rejected), has not failed evidence review, and is not past its review date. Anything else is stated as an abstention or as not
+Read only. No model call, no register write, no principal input shown. A judgement appears only if its current version PASSED
+evidence review, it is open (not retired or rejected) and it is not past its review date. Anything else is stated as an abstention or as not
 available; neither is a finding of low risk.
 """
 from __future__ import annotations
@@ -40,7 +40,7 @@ def _failed_reviews(records: list[dict]) -> tuple[set[str], set[str]]:
     return failed, passed
 
 
-def _entry(n: int, j: dict, *, new_today: bool, reviewed: bool) -> list[str]:
+def _entry(n: int, j: dict, *, new_today: bool) -> list[str]:
     sources = {s["ref"]: s for s in j.get("evidence", [])}
     why = str(j.get("change_reason") or "")
     shown_why = why and jd._gate(jd._unscoped(why), j.get("evidence", []), "so_what")       # the producer does not check this text
@@ -61,7 +61,7 @@ def _entry(n: int, j: dict, *, new_today: bool, reviewed: bool) -> list[str]:
     lines += [f"- Implications (forecast, not fact): {j['implications']}",
               f"- Change: {change}.",
               *[f"- Watch: {i['indicator']}; trigger: {i['threshold']}; check by {i['check_by']}." for i in j.get("indicators", [])],
-              f"- Review by {j['review_by']}. First issued {j['first_issued']}. Evidence review: {'passed' if reviewed else 'pending'}."]
+              f"- Review by {j['review_by']}. First issued {j['first_issued']}. Evidence review: passed."]
     cited = list(dict.fromkeys([r for f in j["facts"] for r in f["refs"]] + list((j.get("connection") or {}).get("refs", []))))
     lines += [f"- Evidence: {sources[r]['source']}: {urldefrag(sources[r]['url'])[0]}" for r in cited if r in sources]
     return lines
@@ -79,7 +79,8 @@ def section_lines(today: date, register: jd.Register) -> list[str]:
     open_, _rejected = register.state()
     failed, passed = _failed_reviews(records)
     current = [j for j in open_.values() if str(j.get("review_by") or "") >= today.isoformat()]
-    usable = [j for j in current if j["id"] not in failed]
+    usable = [j for j in current if j["id"] in passed]
+    pending = sum(1 for j in current if j["id"] not in passed and j["id"] not in failed)
     issued = set(run.get("issued") or [])
     usable.sort(key=lambda j: (j["id"] not in issued, j.get("confidence") != "high", j["id"]))
     outcome = run.get("outcome")
@@ -87,26 +88,34 @@ def section_lines(today: date, register: jd.Register) -> list[str]:
     if run.get("status") == "drafting_unavailable":
         status += " This is not an abstention or a finding of low risk."
     lines = [f"Assessment run {run['run_date']}: {status}",
-             "Model-drafted from public-source reports, checked by code; for your adjudication. Not established fact."]
+             "Model-drafted from public-source reports, checked by code and evidence review; for your adjudication. Not established fact."]
     if not usable:
-        if run.get("status") == "drafting_unavailable":
+        if pending:
+            lines.append("- NOT AVAILABLE. No judgement has passed evidence review yet. This is not an abstention or a finding of "
+                         "low risk.")
+        elif run.get("status") == "drafting_unavailable":
             lines.append("- NOT AVAILABLE. No judgement is open.")
         else:
             lines.append("- ABSTAINED. No judgement is offered: the evidence did not support one that passed the checks. "
                          "This is not a finding of low risk.")
     for n, j in enumerate(usable[:MAX_SHOWN], 1):
-        lines += ["", *_entry(n, j, new_today=j["id"] in issued, reviewed=j["id"] in passed)]
+        lines += ["", *_entry(n, j, new_today=j["id"] in issued)]
     notes = []
     if len(usable) > MAX_SHOWN:
         notes.append(f"- {len(usable) - MAX_SHOWN} further open judgement(s) not shown.")
+    if pending:
+        notes.append(f"- {pending} judgement(s) awaiting evidence review are not shown.")
     if held := sum(1 for j in current if j["id"] in failed):
         notes.append(f"- {held} judgement(s) withheld after failing evidence review.")
-    # Only text that passed the producer's checks is printed: a retirement shows the judgement as it was issued, and rejected
-    # drafts and the model's own abstention notes are counted, never quoted. Their detail stays in the evaluation record.
+    # Only reviewed text is printed: a retirement is shown when it is the code's own expiry of a reviewed judgement. The
+    # drafter's retirements are unreviewed, and rejected drafts and abstention notes are never quoted: all are only counted.
     since = {r.get("run_date") for r in recent}
     issued_text = {r["id"]: r["assessment"] for r in records if r.get("type") == "judgement"}
-    notes += [f"- Retired since the previous brief ({r['status']}): {issued_text[r['id']]}" for r in records
-              if r.get("type") == "retire" and r.get("run_date") in since and r.get("id") in issued_text]
+    retired = [r for r in records if r.get("type") == "retire" and r.get("run_date") in since and r.get("id") in passed]
+    notes += [f"- No longer carried, review date passed: {issued_text[r['id']]}" for r in retired
+              if r.get("by") == "code" and r.get("id") in issued_text]
+    if proposed := sum(1 for r in retired if r.get("by") != "code"):
+        notes.append(f"- {proposed} earlier judgement(s) closed by the drafter, not yet reviewed; see the evaluation record.")
     if declined := len(run.get("abstentions") or []):
         notes.append(f"- {declined} further topic(s) not offered as judgements; reasons are in the evaluation record.")
     return [*lines, *([""] if notes else []), *notes, "", f"- {jd.SCREENING_LIMITATION}"]

@@ -237,14 +237,37 @@ def register_open() -> dict[str, dict]:
     return open_
 
 
+def cleared_for_external() -> set[str]:
+    """Judgements whose CURRENT version passed evidence review and was explicitly cleared. A new version or a later review without
+    clearance removes it."""
+    path = state_dir() / "register.jsonl"
+    cleared: set[str] = set()
+    if not path.exists():
+        return cleared
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(line)
+            if r.get("type") == "judgement":
+                cleared.discard(r["id"])
+            elif r.get("type") == "review":
+                ok = r.get("facts") == "pass" and r.get("reasoning") == "pass" and r.get("cleared_external") is True
+                (cleared.add if ok else cleared.discard)(r["id"])
+        except (ValueError, KeyError, AttributeError, TypeError):
+            continue
+    return cleared
+
+
 def standing_entries(standing_ids: list[str]) -> tuple[list[dict], dict[str, str]]:
     """([{id, area, assessment, indicators, evidence}], {id: why left out}). An id that is not an open judgement refuses."""
-    open_, seen = register_open(), known_outputs()
+    open_, seen, cleared = register_open(), known_outputs(), cleared_for_external()
     out, left_out = [], {}
     for jid in standing_ids:
         j = open_.get(jid)
         if j is None:
             raise Rejected("a standing identifier is not an open judgement")
+        if jid not in cleared:
+            left_out[jid] = "not reviewed and cleared for external processing"
+            continue
         try:
             indicators = [{"indicator": str(i["indicator"]), "threshold": str(i["threshold"]),
                            "check_by": date.fromisoformat(str(i["check_by"])).isoformat()} for i in j.get("indicators", [])]
@@ -352,6 +375,10 @@ _CONNECTION = re.compile(
     r"systemic|(?:system|service|control|compliance|governance|network)s? (?:failures?|breakdowns?)|response times?|"
     r"data breach(?:es)?|cyber[- ]?attacks?|ransomware|compromis\w*|vulnerabilit\w*|evacuat\w*|bushfires?|floods?|flooding|"
     r"cyclones?|power (?:cuts?|outages?)|critical infrastructure|essential services?)\b", re.IGNORECASE)
+# singular only; "child care" and similar are services, not a child
+_CHILD_OR_VICTIM = re.compile(
+    r"\b(?:(?:child|boy|girl|teenager|toddler|infant|baby|schoolboy|schoolgirl|victim)(?:['’]s)?(?![ -](?:care|protection|safety))"
+    r"|(?:[1-9]|1[0-7])[- ](?:year|month|week)[- ]old)\b", re.IGNORECASE)
 NOT_RELEVANT = "individual matter without a reported operational or systemic connection"
 
 
@@ -387,10 +414,12 @@ def minimise(records: dict[str, dict], detector) -> tuple[dict[str, dict], dict[
         sentences = [(s, person or any(re.search(rf"\b{re.escape(n)}\b", s) for n in surnames.get(key, ())))
                      for s, person in marked.get(key, [])]
         individual = any(person for _, person in sentences) and any(_CONDUCT.search(s) or _HEALTH.search(s) for s, _ in sentences)
+        individual = individual or any(person and _CHILD_OR_VICTIM.search(s) for s, person in sentences)
         if not individual:
             out[key] = record
             continue
-        kept = [s for s, person in sentences if not person and not _CONDUCT.search(s) and _CONNECTION.search(s)]
+        kept = [s for s, person in sentences
+                if not person and not _CONDUCT.search(s) and not _CHILD_OR_VICTIM.search(s) and _CONNECTION.search(s)]
         if not kept:
             dropped[key] = NOT_RELEVANT
             continue
@@ -458,11 +487,9 @@ def build_prompt(prepared: dict) -> tuple[str, dict[str, str]]:
                                               ensure_ascii=False))
     lines.append(token + "|END")
     evidence = "\n".join(lines)
-    prompt = f"""You draft intelligence judgements for an Australian operational-resilience principal. Date: {prepared['as_of']}.
+    prompt = f"""You draft intelligence judgements on operational resilience in Australia. Date: {prepared['as_of']}.
 Areas: national_systemic (Australian national and systemic resilience), sector (professional and sector resilience),
 emerging_cascading (material emerging and cascading risks).
-Core requirements (use these words): essential-services, concentration, policy-change, emerging-threats, banking-payments,
-telecoms-digital, obligations-enforcement.
 
 Return at most 3 substantive judgements. Fewer, or none, is correct when the evidence does not support more.
 A judgement is a claim about what is happening or likely to matter that could turn out wrong. A restated headline is not a judgement.
@@ -488,7 +515,7 @@ Reply with JSON only:
 {{"judgements":[{{"id":null,"area":"","assessment":"","facts":[{{"text":"","refs":["src-..."]}}],"reasoning":"","key_assumption":"",
 "connection":{{"statement":"","refs":[]}},"australian_relevance":"","implications":"","uncertainty":"","competing_explanation":"",
 "change":"new|unchanged|strengthened|weakened","change_reason":"",
-"indicators":[{{"indicator":"","threshold":"","check_by":"YYYY-MM-DD"}}],"review_by":"YYYY-MM-DD","requirements":["essential-services"]}}],
+"indicators":[{{"indicator":"","threshold":"","check_by":"YYYY-MM-DD"}}],"review_by":"YYYY-MM-DD"}}],
 "retire":[{{"id":"","status":"closed|withdrawn","reason":"","refs":["src-..."]}}],"abstentions":[{{"topic":"","reason":""}}]}}"""
     return prompt, refs
 

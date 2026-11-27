@@ -3,6 +3,7 @@ hold before dispatch, unchanged redaction for everything else. Real loopback soc
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -153,6 +154,9 @@ JUDGEMENT = {"type": "judgement", "id": "jdg-abcdef", "area": "sector", "assessm
              "indicators": [{"indicator": "More failures", "threshold": "any", "check_by": "2026-11-28"}], "evidence": [{"event_id": EV}]}
 
 
+CLEARED = {"type": "review", "id": "jdg-abcdef", "facts": "pass", "reasoning": "pass", "cleared_external": True}
+
+
 def register(state, *records):
     (state / "register.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records))
 
@@ -163,7 +167,7 @@ def standing():
 
 def test_validated_and_returned_judgement_is_carried(state):
     route.record_outputs(json.dumps({"judgements": [JUDGEMENT]}))
-    register(state, JUDGEMENT, {"type": "adjudication", "id": "jdg-abcdef", "rejected": False, "note": "private zebra"})
+    register(state, JUDGEMENT, CLEARED, {"type": "adjudication", "id": "jdg-abcdef", "rejected": False, "note": "private zebra"})
     prepared = prepare(standing())
     assert [s["id"] for s in prepared["standing"]] == ["jdg-abcdef"] and "zebra" not in route.build_prompt(prepared)[0]
 
@@ -175,9 +179,24 @@ def test_unvalidated_model_output_cannot_stand(state):
 
 
 def test_register_text_the_route_never_returned_cannot_stand(state):
-    register(state, JUDGEMENT)
+    register(state, JUDGEMENT, CLEARED)
     prepared = prepare(standing())
     assert prepared["standing"] == [] and prepared["dropped"]["jdg-abcdef"] == "text was not returned by this route"
+
+
+@pytest.mark.parametrize("records", [
+    [JUDGEMENT],                                                                                  # never reviewed
+    [JUDGEMENT, {**CLEARED, "cleared_external": False}],                                          # reviewed, not cleared
+    [JUDGEMENT, {**CLEARED, "facts": "fail"}],                                                    # failed
+    [JUDGEMENT, CLEARED, JUDGEMENT],                                                              # new version after clearance
+    [JUDGEMENT, CLEARED, {**CLEARED, "cleared_external": False}],                                 # clearance withdrawn
+])
+def test_standing_judgement_needs_review_and_clearance_of_its_current_version(state, records):
+    route.record_outputs(json.dumps({"judgements": [JUDGEMENT]}))
+    register(state, *records)
+    prepared = prepare(standing())
+    assert prepared["standing"] == [] and prepared["dropped"]["jdg-abcdef"] == "not reviewed and cleared for external processing"
+    assert "Payments are exposed" not in route.build_prompt(prepared)[0]
 
 
 @pytest.mark.parametrize("closing", [{"type": "retire", "id": "jdg-abcdef"},
@@ -193,7 +212,7 @@ def test_standing_judgement_loses_its_place_when_evidence_is_no_longer_eligible(
     other = "00000002-0000-0000-0000-000000000000"
     judgement = {**JUDGEMENT, "evidence": [{"event_id": other}]}
     route.record_outputs(json.dumps({"judgements": [judgement]}))
-    register(state, judgement)
+    register(state, judgement, CLEARED)
     prepared = prepare(standing(), reader=store(row(), row(event_id=other, source_id=NEWS_SEARCH)))
     assert prepared["standing"] == [] and prepared["dropped"]["jdg-abcdef"] == "evidence no longer eligible"
 
@@ -427,7 +446,8 @@ def test_the_routes_own_wording_survives_redaction():
     prompt, refs = route.build_prompt(prepare(ask()))
     out = guard.redact_pii(prompt, preserve_entities=route.PRESERVE).redacted_text
     template = out.split("Sources (each line starts")[0]
-    for word in ("essential-services", "banking-payments", "telecoms-digital", "emerging_cascading", "src-"):
+    assert "essential-services" not in prompt and "principal" not in prompt.split("Sources (")[0]
+    for word in ("emerging_cascading", "src-"):
         assert word in out, word
     assert "<US_DRIVER_LICENSE>" not in template and all(ref in out for ref in refs)
 
@@ -528,3 +548,15 @@ def test_cve_identifiers_survive_and_real_numbers_do_not():
 def test_a_passenger_counts_as_a_person():
     records, dropped, _ = minimised("A passenger was hospitalised on Tuesday")
     assert records == {} and dropped == {EV: route.NOT_RELEVANT}
+
+
+@pytest.mark.parametrize("title,sent", [
+    ("Search continues for missing boy Jack Example after Shepparton floods", False),
+    ("Jack Example, 9-year-old, rescued as floods cut power", False),
+    ("Child care outages disrupt services across Victoria", True),
+    ("Minister Jane Example says power outage response was too slow", True),
+])
+def test_children_and_victims_are_left_out_but_public_roles_are_not(title, sent):
+    people = lambda text: [(m.start(), m.end()) for m in re.finditer(r"Jack Example|Jane Example", text)]
+    out, dropped, _ = route.minimise({EV: {"title": title, "summary": title}}, people)
+    assert (EV in out and out[EV]["title"] == title) is sent, (out, dropped)

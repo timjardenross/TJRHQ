@@ -17,7 +17,7 @@ principal, not by this module.
 CLI:  python -m intelligence.judgements run [--force]
       python -m intelligence.judgements adjudicate <id> --relevant y|n --useful y|n
              --decision none|action|monitoring|investigation|preparedness|non-action [--reject] [--note TEXT]
-      python -m intelligence.judgements review <id> --facts pass|fail --reasoning pass|fail [--note TEXT]
+      python -m intelligence.judgements review <id> --facts pass|fail --reasoning pass|fail [--note TEXT] [--clear-external]
       python -m intelligence.judgements miss "<what>" --materiality critical|material|minor --consequence TEXT --cause TEXT
 """
 from __future__ import annotations
@@ -610,6 +610,7 @@ def main(argv: list[str] | None = None) -> int:
     rev.add_argument("--facts", choices=("pass", "fail"), required=True)
     rev.add_argument("--reasoning", choices=("pass", "fail"), required=True)
     rev.add_argument("--note", default="")
+    rev.add_argument("--clear-external", action="store_true", help="allow this reviewed version to be sent as a standing judgement")
     miss = sub.add_parser("miss")
     miss.add_argument("text")
     miss.add_argument("--materiality", choices=MATERIALITY, required=True)
@@ -628,7 +629,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"unknown judgement id: {args.id}")
         return 1
     if args.command == "review":
-        register.append([{"type": "review", "id": args.id, "facts": args.facts, "reasoning": args.reasoning, "note": args.note}])
+        if args.clear_external and (args.facts, args.reasoning) != ("pass", "pass"):
+            print("not recorded: only a judgement that passed both reviews can be cleared")
+            return 1
+        register.append([{"type": "review", "id": args.id, "facts": args.facts, "reasoning": args.reasoning, "note": args.note,
+                          "cleared_external": args.clear_external}])
         return 0
     register.append([{"type": "adjudication", "id": args.id, "relevant": args.relevant == "y", "useful": args.useful == "y",
                       "decision": args.decision, "rejected": args.reject, "note": args.note}])
