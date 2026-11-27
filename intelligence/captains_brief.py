@@ -1640,6 +1640,90 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
         return []
 
 
+def _get_previous_morning_record() -> dict | None:
+    """The last stored morning brief before today (text, time and coverage caveat only; health_snapshot is not read)."""
+    today = datetime.now(_AEST).date().isoformat()
+    rows = _sb_get("captains_daily_briefs",
+                   f"brief_date=lt.{today}&brief_type=eq.morning&order=generated_at.desc&limit=1&select=brief_text,generated_at,collection_caveat")
+    return rows[0] if rows else None
+
+
+def _criticality_lines() -> list[str]:
+    """Failed or missing critical sources for standing requirements, from the existing coverage-criticality rules over the latest
+    stored coverage record. [] when its flag is off or nothing is recorded."""
+    try:
+        from intelligence import coverage_criticality as cc
+        from intelligence import production_status as ps
+        from intelligence.brief import layered_shadow as ls
+        latest = _get_latest_ori_brief()
+        if not cc.enabled() or not latest or ps.ori_brief_stale(latest) or not isinstance(latest.get("coverage"), dict):
+            return []                                    # an old record would describe another day's sources
+        record = latest["coverage"]
+        registry, health = ls.load_source_state(_sb_get)
+        found = cc.evaluate(record, registry=registry, health=health)
+        lines = [f"- Critical source(s) {words}: {', '.join(found[key][:6])}."
+                 for key, words in (("critical_sources_failed", "failed"), ("critical_missing", "not collected")) if found[key]]
+        under = sorted({g["pir"] for g in found["pir_coverage_gaps"]})
+        return lines + ([f"- Under-served requirements: {', '.join(under)}."] if under else [])
+    except Exception as exc:  # noqa: BLE001 - supporting detail only
+        log.warning("[morning-pdb] coverage criticality unavailable: %s", exc)
+        return []
+
+
+def _retained_product_lines() -> list[str]:
+    """Findings from the existing theme lane and intelligence products (each under its own flag, plain text, fail-soft)."""
+    lines: list[str] = []
+    try:
+        from intelligence import brief_themes as bt
+        if bt.enabled():
+            lines += [x for x in bt.theme_lines(_sb_get) if x.strip()]
+    except Exception as exc:  # noqa: BLE001 - additive block
+        log.warning("[morning-pdb] theme lane unavailable: %s", exc)
+        lines.append("- Theme watch unavailable this morning.")
+    try:
+        from intelligence.brief_products_block import brief_lines
+        lines += [x for x in brief_lines() if x.strip()]
+    except Exception as exc:  # noqa: BLE001 - additive block
+        log.warning("[morning-pdb] intelligence products unavailable: %s", exc)
+        lines.append("- Intelligence products unavailable this morning.")
+    return lines
+
+
+def _morning_pdb_lines(collection_caveat: str | None) -> list[str] | None:
+    """Morning product (flag BRIEF_MORNING_PDB_V1, default off). None means use the legacy brief: flag off, or the product could not
+    be built. ``failed`` is signalled by an empty list so the legacy brief can say so."""
+    try:
+        from intelligence import eod_assessment as ea
+        if not ea.morning_enabled():
+            return None
+        from intelligence import brief_evidence as be
+        events = be.load_events(_sb_get, hours=ea.WINDOW_HOURS)
+        if not events:
+            log.warning("[morning-pdb] no evidence loaded; using the legacy brief")
+            return []
+        coverage = _criticality_lines()
+        try:
+            from intelligence import brief_coverage as bc
+            from intelligence.persistence import intelligence_store as store
+            if bc.enabled():
+                coverage += [x for x in bc.coverage_lines(_sb_get, store.load_active_emergency_alerts) if x.strip()]
+        except Exception as exc:  # noqa: BLE001 - coverage detail is optional
+            log.warning("[morning-pdb] coverage unavailable: %s", exc)
+        sections = ea.assess_morning(events, _get_previous_morning_record(), caveat=collection_caveat, coverage=coverage,
+                                     limitations=ea.source_limitations(), retained=_retained_product_lines())
+        lines: list[str] = []
+        for heading, body in sections:
+            lines += [f"<b>{_esc(heading)}</b>", *[_esc(x) for x in body], ""]
+        from intelligence import brief_event_links as bel
+        if bel.enabled():
+            text = "\n".join(lines)
+            bel.note("morning", [str(e.get("id")) for e in events if f"#{str(e.get('id'))[:8]}" in text])
+        return lines
+    except Exception as exc:  # noqa: BLE001 - the legacy brief must still be produced
+        log.warning("[morning-pdb] unavailable: %s", exc)
+        return []
+
+
 def _theme_lines() -> list[str]:
     """Topic & Theme lane for the morning brief (flag BRIEF_THEMES_V1[_MORNING], default off): developments and running themes in the
     watched topics. [] when off; never raises, so the legacy brief always renders."""
@@ -1702,10 +1786,21 @@ def generate_morning_brief(gap=None, collection_caveat: str | None = None, catch
     note = br.coverage_note(gap, collection_caveat)
     if catch_up:
         note.insert(0, "⚠️ LATE BRIEF: generated after a scheduler restart past the usual 07:00 time (catch-up).")
+    product = _morning_pdb_lines(collection_caveat)
     if gap.missed:
-        note.append(f"⚠️ The evidence section below lists incidents seen in the last 24h only; use the {gap.lookback_hours}h signal list for the gap.")
+        note.append("⚠️ The product below lists current incidents only; it may not cover the whole gap since the last brief." if product else
+                    f"⚠️ The evidence section below lists incidents seen in the last 24h only; use the {gap.lookback_hours}h signal list for the gap.")
     if note:
         lines += [_esc(x) for x in note] + [""]
+
+    if product:
+        lines[1] = f"<i>{_clock_label(now)}</i>"                  # the title carries the date; no Stardate
+        # Capacity is appended after the public-source product and is never an input to it. No model narrative is included.
+        lines += product + _format_capacity_block(capacity) + _format_infra_block(infra)
+        lines.append("🤖 <i>TJRHQ</i>")
+        return "\n".join(lines)
+    if product == []:
+        lines += ["<i>⚠️ The improved morning brief could not be produced; the previous format follows. This is not an all-clear.</i>", ""]
 
     lines += _format_capacity_block(capacity)
 
@@ -1804,8 +1899,49 @@ def generate_midday_update(signals: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _get_todays_morning_record() -> dict | None:
+    """The stored morning brief for today: text, time and coverage caveat only (health_snapshot holds capacity data and is not read)."""
+    today = datetime.now(_AEST).date().isoformat()
+    rows = _sb_get("captains_daily_briefs",
+                   f"brief_date=eq.{today}&brief_type=eq.morning&order=generated_at.desc&limit=1&select=brief_text,generated_at,collection_caveat")
+    return rows[0] if rows else None
+
+
+def _eod_assessment_text(now: datetime) -> str | None:
+    """Enriched end-of-day assessment (flag BRIEF_EOD_ASSESSMENT_V1, default off). None means use the legacy summary: flag off, or
+    the assessment could not be built. ``failed`` is signalled by an empty string so the legacy summary can say so."""
+    try:
+        from intelligence import eod_assessment as ea
+        if not ea.enabled():
+            return None
+        from intelligence import brief_evidence as be
+        events = be.load_events(_sb_get, hours=ea.WINDOW_HOURS)
+        if not events:
+            log.warning("[eod-assessment] no evidence loaded; using the legacy summary")
+            return ""
+        coverage: list[str] = []
+        try:
+            from intelligence import brief_coverage as bc
+            from intelligence.persistence import intelligence_store as store
+            if bc.enabled():
+                coverage = [x for x in bc.coverage_lines(_sb_get, store.load_active_emergency_alerts) if x.strip()]
+        except Exception as exc:  # noqa: BLE001 - coverage detail is optional
+            log.warning("[eod-assessment] coverage unavailable: %s", exc)
+        sections = ea.assess(events, _get_todays_morning_record(), now=now, caveat=_collection_coverage_caveat("intelligence_collection"),
+                             coverage=coverage, limitations=ea.source_limitations())
+        lines = [f"<b>🌙 END-OF-DAY ASSESSMENT — {now.strftime('%A %d %B %Y')}</b>",
+                 f"<i>{_clock_label(now)} · what changed since this morning, and what matters overnight and tomorrow</i>", ""]
+        for heading, body in sections:
+            lines += [f"<b>{_esc(heading)}</b>", *[_esc(x) for x in body], ""]
+        return "\n".join(lines)
+    except Exception as exc:  # noqa: BLE001 - additive assessment; the legacy summary must still be produced
+        log.warning("[eod-assessment] unavailable: %s", exc)
+        return ""
+
+
 def generate_eod_summary() -> str:
     now = _now_aest()
+    assessment = _eod_assessment_text(now)
     capacity = _get_capacity_today()
     infra = _get_infra_verification()
     # 2026-08-13: EOD previously carried no intelligence section at all —
@@ -1820,11 +1956,20 @@ def generate_eod_summary() -> str:
     # silently re-rendering identically.
     morning_text = _get_todays_morning_brief_text()
 
+    if assessment:
+        # Capacity is appended after the public-source assessment and is never an input to it.
+        lines = [assessment, "<b>PERSONAL CAPACITY (separate; not an input to the assessment)</b>", *_format_capacity_block(capacity)]
+        lines += _format_infra_block(infra, morning_text)
+        lines.append("🤖 <i>TJRHQ</i>")
+        return "\n".join(lines)
+
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
         f"<i>{_clock_label(now)}</i>",
         "",
     ]
+    if assessment == "":
+        lines += ["<i>⚠️ The end-of-day assessment could not be produced; the headline summary follows. This is not an all-clear.</i>", ""]
 
     lines += _format_capacity_block(capacity)
     lines += _format_signals_block(todays_signals, "🌙 TODAY'S INTELLIGENCE")
@@ -2065,7 +2210,8 @@ def _email_morning_brief(text: str) -> None:
         log.warning("Morning brief email withheld: personal health content still present (%s)", ", ".join(leftover))
         return
     html = text.replace("\n", "<br>\n")
-    subject = f"USS TJR — Morning Brief — {datetime.now(_AEST).date().isoformat()}"
+    brand = "TJRHQ" if "EXECUTIVE BOTTOM LINE" in text else "USS TJR"      # the previous format keeps its previous subject
+    subject = f"{brand} — Morning Brief — {datetime.now(_AEST).date().isoformat()}"
     ok = send_email(_MORNING_BRIEF_EMAIL_TO, subject, html)
     if not ok:
         log.warning("Morning brief email to %s failed (non-blocking)", _MORNING_BRIEF_EMAIL_TO)
