@@ -18,6 +18,7 @@ CLI:  python -m intelligence.judgements run [--force]
       python -m intelligence.judgements adjudicate <id> --relevant y|n --useful y|n
              --decision none|action|monitoring|investigation|preparedness|non-action [--reject] [--note TEXT]
       python -m intelligence.judgements review <id> --facts pass|fail --reasoning pass|fail [--note TEXT] [--clear-external]
+      python -m intelligence.judgements confirm-retirement <id>
       python -m intelligence.judgements miss "<what>" --materiality critical|material|minor --consequence TEXT --cause TEXT
 """
 from __future__ import annotations
@@ -40,6 +41,7 @@ from zoneinfo import ZoneInfo
 
 from core.security import public_judgement_route as route
 from intelligence import claim_gate
+from intelligence import judgement_checks as checks
 from intelligence.weekly_evidence import PRIMARY, publisher_family, source_kind
 
 log = logging.getLogger("judgements")
@@ -64,9 +66,6 @@ DECISIONS = ("none", "action", "monitoring", "investigation", "preparedness", "n
 MATERIALITY = ("critical", "material", "minor")
 
 _EXCLUDED_SOURCE = ("direct probe", "uptime kuma", "changedetection")     # our own monitoring or uncertain provenance
-# wording that reports an actual link or structural exposure (a count of simultaneous incidents is not one)
-_LINK = re.compile(r"\b(depend\w*|reli(es|ed|ance|ant)|supplier|third[- ]part\w*|shared|concentrat\w*|caused (by|a|the)|because|due to|"
-                   r"knock[- ]on|flow[- ]on|spread\w*|single point|downstream|upstream|interconnect\w*|sole provider)\b", re.IGNORECASE)
 _SYSTEMIC = re.compile(r"\b(concentrat\w*|cascad\w*|systemic\w*|single point of failure|shared (provider|dependency|supplier)|contagion|"
                        r"common[- ]mode|knock[- ]on|domino)\b", re.IGNORECASE)
 
@@ -110,7 +109,8 @@ def _source_record(incident_id: str, report: dict) -> dict:
     return {"ref": event_id, "event_id": event_id, "incident_id": incident_id, "source": name,
             "publisher": publisher_family(name, title), "official": source_kind(name) == PRIMARY, "title": title,
             "summary": claim_gate.sanitize_untrusted(report.get("summary"), route.SUMMARY_CHARS), "url": str(report.get("url") or ""),
-            "published_at": str(report.get("published_at") or "")[:40], "geography": str(report.get("geography") or "")}
+            "published_at": str(report.get("published_at") or "")[:40], "geography": str(report.get("geography") or ""),
+            "role": str(report.get("role") or "")}
 
 
 def build_candidates(evidence_set, *, pirs: list | None = None) -> tuple[list[dict], dict]:
@@ -133,8 +133,7 @@ def build_candidates(evidence_set, *, pirs: list | None = None) -> tuple[list[di
         score = ({"high": 4, "medium": 2}.get(inc.materiality, 0) + {"ESCALATE": 3, "VERIFY": 2, "WATCH": 1}.get(inc.priority, 0)
                  + (2 if tags else 0) + min(inc.independent_publishers, 3))
         # incidents that can support a judgement on their own go first: the rest are context only
-        sources = [{"official": source_kind(r.get("source_name") or "") == PRIMARY,
-                    "publisher": publisher_family(r.get("source_name") or "", r.get("title") or "")} for r in inc.reports]
+        sources = [_source_record(inc.incident_id, r) for r in inc.reports]
         score += 5 if confidence_for(sources)[0] else 0
         ranked.append((score, inc.last_seen.timestamp() if inc.last_seen else 0.0, inc, tags))
     ranked.sort(key=lambda t: (-t[0], -t[1]))
@@ -203,6 +202,7 @@ OUTCOMES = {
     "hold_expired": "No assessment: payload hold expired without release. Nothing was sent.",
     "not_sent": "No assessment: the request was refused or failed before sending. Nothing was sent.",
     "provider_failure": "No assessment: provider or inference failure after the payload was released.",
+    "malformed_reply": "No assessment: the model's reply did not follow the required format.",
     "no_reply": "No assessment: no reply from the router. Whether anything was sent is not known; check the outbound audit.",
     "no_eligible_evidence": "No assessment: no eligible evidence, so no model was asked.",
     "model_abstention": "Valid model abstention: the model returned no judgement on the evidence it was given.",
@@ -224,8 +224,9 @@ def build_request(candidates: list[dict], open_: dict[str, dict], today: date) -
     return {"as_of": today.isoformat(), "event_ids": event_ids[:route.MAX_RECORDS], "standing_ids": list(open_)[:route.MAX_STANDING]}
 
 
-def draft_via_router(request_body: dict) -> tuple[str, dict[str, str], dict[str, str]]:
-    """(reply text, {model ref: event id}, {id: why the router left it out}). Any failure is DraftUnavailable; no fallback."""
+def draft_via_router(request_body: dict) -> tuple[str, dict[str, str], dict[str, str], dict]:
+    """(reply text, {model ref: event id}, {id: why the router left it out}, what the model was shown). Any failure is
+    DraftUnavailable; no fallback."""
     base = os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:8891").rstrip("/")
     if urlsplit(base).hostname not in ("127.0.0.1", "localhost"):
         raise DraftUnavailable("router is not local; not sent", "not_sent")
@@ -250,10 +251,12 @@ def draft_via_router(request_body: dict) -> tuple[str, dict[str, str], dict[str,
         refused = isinstance(getattr(exc, "reason", None), ConnectionRefusedError)
         raise DraftUnavailable(f"router: {type(exc).__name__}", "not_sent" if refused else "no_reply") from exc
     text = str(data.get("response") or "").strip()
-    refs = data.get("refs")
-    if not text or not isinstance(refs, dict):
-        raise DraftUnavailable("router returned nothing usable")
-    return text, refs, dict(data.get("dropped") or {})
+    refs, shown = data.get("refs"), data.get("projection")
+    if not isinstance(refs, dict) or not isinstance(shown, dict) or not shown.get("records"):
+        raise DraftUnavailable("router returned no record of what the model was shown")   # nothing can be checked: fail closed
+    if not text:
+        raise DraftUnavailable("router returned an empty reply", "malformed_reply")
+    return text, refs, dict(data.get("dropped") or {}), shown
 
 
 def translate_refs(reply: dict, refs: dict[str, str]) -> dict:
@@ -271,27 +274,43 @@ def translate_refs(reply: dict, refs: dict[str, str]) -> dict:
     return reply
 
 
+def _malformed(why: str) -> DraftUnavailable:
+    return DraftUnavailable(f"malformed reply: {why}", "malformed_reply")
+
+
 def parse_reply(text: str) -> dict:
+    """The reply must follow the contract. Anything else is a malformed reply, never an abstention."""
     body = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
     try:
         out = json.loads(body)
     except json.JSONDecodeError as exc:
-        raise DraftUnavailable("reply was not JSON") from exc
-    if not isinstance(out, dict) or not isinstance(out.get("judgements", []), list):
-        raise DraftUnavailable("reply had the wrong shape")
+        raise _malformed("not JSON") from exc
+    if not isinstance(out, dict) or any(not isinstance(out.get(k), list) for k in ("judgements", "retire", "abstentions")):
+        raise _malformed("judgements, retire and abstentions must all be lists")
+    if not all(isinstance(x, dict) for k in ("judgements", "retire", "abstentions") for x in out[k]):
+        raise _malformed("list entries must be objects")
+    if not all(str(a.get("topic") or "").strip() and str(a.get("reason") or "").strip() for a in out["abstentions"]):
+        raise _malformed("an abstention needs a topic and a reason")
+    for j in out["judgements"]:
+        facts, indicators = j.get("facts"), j.get("indicators")
+        if not isinstance(j.get("assessment"), str) or not isinstance(facts, list) or not isinstance(indicators, list) \
+                or not all(isinstance(f, dict) and isinstance(f.get("refs"), list) for f in facts) \
+                or not all(isinstance(i, dict) for i in indicators):
+            raise _malformed("a judgement is missing assessment, facts or indicators in the required shape")
+    if not (out["judgements"] or out["retire"] or out["abstentions"]):
+        raise _malformed("nothing returned and no reason given")
     return out
 
 
 # ── validation (code, not model) ──────────────────────────────────────────────
 
 def confidence_for(sources: list[dict]) -> tuple[str | None, str]:
-    """(level, basis). None = insufficient to issue a judgement."""
-    official = any(s["official"] for s in sources)
-    publishers = {s["publisher"] for s in sources if s["publisher"] != "aggregator"}
-    basis = f"{len(publishers)} independent publisher(s), {'official source present' if official else 'no official source'}"
-    if official and len(publishers) >= 2:
+    """(level, basis). None = insufficient to issue a judgement. Counts independent origins, not publisher labels."""
+    origins, official = checks.independent_origins(sources)
+    basis = f"{origins} independent origin(s), {'official source present' if official else 'no official source'}"
+    if official and origins >= 2:
         return "high", basis
-    if official or len(publishers) >= 2:
+    if official or origins >= 2:
         return "moderate", basis
     return None, basis
 
@@ -314,9 +333,7 @@ def _unscoped(text: str) -> str:
 
 
 def _gate(text: str, sources: list[dict], field: str) -> bool:
-    evidence = [{"id": s["ref"], "title": s["title"], "summary": s["summary"], "source": s["source"], "canonical_url": s["url"],
-                 "published_at": s.get("published_at") or ""} for s in sources]
-    return claim_gate.validate_text(text, evidence, field=field, mode="enforce").passed
+    return not checks.gate(text, sources, field)
 
 
 def validate_one(raw: dict, sources_by_ref: dict[str, dict], prior: dict | None, today: date) -> tuple[dict | None, str]:
@@ -335,6 +352,8 @@ def validate_one(raw: dict, sources_by_ref: dict[str, dict], prior: dict | None,
         sentence = str(fact.get("text") or "").strip()
         if not sentence or not cited or len(cited) != len(fact.get("refs") or []):
             return None, "a fact has no valid source reference"
+        if checks.contradiction(sentence, [sources_by_ref[r] for r in cited]):
+            return None, "a fact contradicts its cited sources"
         if not _gate(sentence, [sources_by_ref[r] for r in cited], "digest"):
             return None, "a fact is not supported by its cited sources (claim gate)"
         facts.append({"text": sentence, "refs": cited})
@@ -342,45 +361,55 @@ def validate_one(raw: dict, sources_by_ref: dict[str, dict], prior: dict | None,
     if not facts:
         return None, "no supporting facts"
     cited_sources = [sources_by_ref[r] for r in dict.fromkeys(refs)]
-    pool = cited_sources + [s for s in (prior or {}).get("evidence", []) if s["ref"] not in refs]
-    level, basis = confidence_for(pool)
-    if level is None:
-        return None, f"insufficient evidence ({basis})"
-    for key in ("assessment", "reasoning", "implications"):
-        if not _gate(_unscoped(text(key)), pool, "so_what"):
-            return None, f"{key} introduces unsupported entity, figure, date or causal claim (claim gate)"
-    words = _words(text("assessment"))
-    if any(len(words & _words(s["title"])) / max(len(words | _words(s["title"])), 1) > 0.8 for s in pool):
-        return None, "assessment only restates a headline"
-    if len(words & _words(" ".join(f["text"] for f in facts))) < 2:
-        return None, "assessment is not connected to the facts offered for it"
-    # a systemic or cascading claim needs a REPORTED connection or structural exposure; several incidents are not one
+    # only evidence the model was actually given this time: an earlier record that was not sent again cannot be leaned on
+    carried = [sources_by_ref[s["ref"]] for s in (prior or {}).get("evidence", []) if s["ref"] not in refs and s["ref"] in sources_by_ref]
+    pool = cited_sources + carried
+    # a systemic or exposure claim needs a REPORTED connection about the same exposure; a supplied connection must support it
+    assessment = text("assessment")
     connection = None
     raw_link = raw.get("connection") if isinstance(raw.get("connection"), dict) else {}
     statement = str(raw_link.get("statement") or "").strip()
     link_refs = raw_link.get("refs") or []
-    linked = [sources_by_ref[r] for r in link_refs if r in sources_by_ref]
-    if statement and linked and len(linked) == len(link_refs) and _LINK.search(statement) \
-            and _LINK.search(" ".join(f"{s['title']} {s['summary']}" for s in linked)) and _gate(statement, linked, "digest"):
+    if statement or link_refs:
+        linked = [sources_by_ref[r] for r in link_refs if r in sources_by_ref]
+        if len(linked) != len(link_refs) or not checks.connection_supports(statement, linked, assessment):
+            return None, "connection does not support the exposure assessed"
         connection = {"statement": statement, "refs": link_refs}
         pool = pool + [s for s in linked if s not in pool]
-    if connection is None and _SYSTEMIC.search(" ".join(text(k) for k in ("assessment", "reasoning", "implications"))):
+    systemic = _SYSTEMIC.search(" ".join(text(k) for k in ("assessment", "reasoning", "implications")))
+    if connection is None and (systemic or checks.claims_exposure(assessment)):
         return None, "systemic or cascading claim without a reported connection or structural exposure"
+    level, basis = confidence_for(pool)
+    if level is None:
+        return None, f"insufficient evidence ({basis})"
+    for key in ("assessment", "reasoning", "key_assumption", "implications", "uncertainty", "competing_explanation",
+                "australian_relevance"):
+        if why := checks.analytic_problem(key, text(key), pool):
+            return None, f"{key} {why}"
+    for ind in raw.get("indicators") or []:
+        for key in ("indicator", "threshold"):
+            if why := checks.analytic_problem(key, str((ind or {}).get(key) or ""), pool):
+                return None, f"{key} {why}"
+    words = _words(assessment)
+    if any(len(words & _words(s["title"])) / max(len(words | _words(s["title"])), 1) > 0.8 for s in pool):
+        return None, "assessment only restates a headline"
+    if len(words & _words(" ".join(f["text"] for f in facts))) < 2:
+        return None, "assessment is not connected to the facts offered for it"
     # international indicators are eligible; the route to Australian resilience has to be stated
     relevance = text("australian_relevance")
     international = not any(s.get("geography", "").upper().startswith("AU") for s in pool)
-    if international and (len(relevance) < 15 or not _gate(_unscoped(relevance), pool, "so_what")):
+    if international and len(relevance) < 15:
         return None, "international evidence without a supported statement of Australian relevance"
     indicators = []
     for ind in raw.get("indicators") or []:
-        check_by = _date(ind.get("check_by"), today, max_days=90)
+        check_by = _date(ind.get("check_by"), today, max_days=route.INDICATOR_DAYS)
         if str(ind.get("indicator") or "").strip() and str(ind.get("threshold") or "").strip() and check_by:
             indicators.append({"indicator": str(ind["indicator"]).strip(), "threshold": str(ind["threshold"]).strip(), "check_by": check_by})
     if not indicators:
         return None, "no warning indicator with threshold and date"
-    review_by = _date(raw.get("review_by"), today, max_days=30)
+    review_by = _date(raw.get("review_by"), today, max_days=route.REVIEW_DAYS)
     if not review_by:
-        return None, "no review date within 30 days"
+        return None, f"no review date within {route.REVIEW_DAYS} days"
     change = raw.get("change") if raw.get("change") in CHANGES else "unchanged"
     reason = text("change_reason")
     if prior is None:
@@ -389,6 +418,8 @@ def validate_one(raw: dict, sources_by_ref: dict[str, dict], prior: dict | None,
         known = {s["event_id"] for s in prior.get("evidence", [])}
         if change == "new" or not any(s["event_id"] not in known for s in cited_sources):
             change, reason = "unchanged", "no new evidence"
+        elif checks.analytic_problem("australian_relevance", reason, pool):
+            reason = ""                                             # an unsupported explanation of the change is not kept
     return {"area": raw["area"], "assessment": text("assessment"), "facts": facts, "implications": text("implications"),
             "reasoning": text("reasoning"), "key_assumption": text("key_assumption"), "connection": connection,
             "australian_relevance": relevance,
@@ -400,30 +431,30 @@ def validate_one(raw: dict, sources_by_ref: dict[str, dict], prior: dict | None,
 
 
 def apply_reply(reply: dict, candidates: list[dict], open_: dict[str, dict], today: date,
-                rejected: list[set[str]] | None = None) -> tuple[list[dict], list[dict]]:
-    """(register records, abstentions)."""
-    sources = {s["ref"]: s for c in candidates for s in c["sources"]}
-    for j in open_.values():
-        sources.update({s["ref"]: s for s in j.get("evidence", [])})
+                rejected: list[set[str]] | None = None, sources: dict[str, dict] | None = None) -> tuple[list[dict], list[dict]]:
+    """(register records, abstentions). ``sources`` is what the model was shown, by event id; ``open_`` the judgements it was shown."""
+    if sources is None:
+        sources = {s["ref"]: s for c in candidates for s in c["sources"]}
+        for j in open_.values():
+            sources.update({s["ref"]: s for s in j.get("evidence", [])})
     records, abstained, issued, touched = [], [], 0, set()
     for item in reply.get("retire") or []:
-        jid, status = item.get("id"), item.get("status")
+        jid, status, refs = item.get("id"), item.get("status"), item.get("refs") or []
         if jid in open_ and status in ("closed", "withdrawn") and str(item.get("reason") or "").strip() \
-                and any(r in sources for r in item.get("refs") or []):
-            records.append({"type": "retire", "id": jid, "status": status, "reason": str(item["reason"]).strip(), "by": "drafter",
-                            "refs": [sources[r] for r in item["refs"] if r in sources], "run_date": today.isoformat()})
-            touched.add(jid)
+                and refs and all(r in sources for r in refs):
+            # a drafter cannot close a judgement: the proposal waits for a reviewer and the judgement stays open
+            records.append({"type": "retire_proposal", "id": jid, "status": status, "reason": str(item["reason"]).strip(),
+                            "by": "drafter", "refs": [sources[r] for r in refs], "run_date": today.isoformat()})
+        else:
+            abstained.append({"topic": f"retirement of {str(jid)[:20]}", "reason": "retirement proposal without valid cited evidence",
+                              "draft": item})
     for raw in reply.get("judgements") or []:
-        if not isinstance(raw, dict):
-            continue
         prior = open_.get(raw.get("id"))
         topic = str(raw.get("assessment") or "")[:90]
-        if prior and prior["id"] in touched:
-            continue
         if issued >= MAX_DAILY:
             abstained.append({"topic": topic, "reason": f"over the limit of {MAX_DAILY} a day"})
             continue
-        if prior is None and len(open_) - len(touched & set(open_)) >= MAX_OPEN:
+        if prior is None and len(open_) >= MAX_OPEN:
             abstained.append({"topic": topic, "reason": "too many open judgements; retire some first"})
             continue
         judgement, why = validate_one(raw, sources, prior, today)
@@ -443,6 +474,20 @@ def apply_reply(reply: dict, candidates: list[dict], open_: dict[str, dict], tod
     return records, abstained
 
 
+def shown_sources(shown: dict, refs: dict[str, str], candidates: list[dict], open_: dict[str, dict]) -> dict[str, dict]:
+    """{event id: source} built from what the model was shown. Text and publication date are the model's copy; publisher, official
+    status and provenance come from our own record. A record that was not shown does not exist for validation."""
+    known = {s["ref"]: s for j in open_.values() for s in j.get("evidence", [])}
+    known.update({s["ref"]: s for c in candidates for s in c["sources"]})
+    out = {}
+    for ref, seen in (shown.get("records") or {}).items():
+        event_id = refs.get(ref)
+        if event_id in known:
+            out[event_id] = {**known[event_id], "title": seen.get("title", ""), "summary": seen.get("summary", ""),
+                             "published_at": seen.get("published", "")}
+    return out
+
+
 def expire(open_: dict[str, dict], touched: set[str], today: date) -> list[dict]:
     return [{"type": "retire", "id": j["id"], "status": "expired", "by": "code", "run_date": today.isoformat(),
              "reason": f"review date {j['review_by']} passed with no supported update"}
@@ -451,7 +496,7 @@ def expire(open_: dict[str, dict], touched: set[str], today: date) -> list[dict]
 
 # ── evaluation product ────────────────────────────────────────────────────────
 
-def render(today: date, run: dict, issued: list[dict], standing: list[dict], retired: list[dict]) -> str:
+def render(today: date, run: dict, issued: list[dict], standing: list[dict], retired: list[dict], proposals: list[dict] | None = None) -> str:
     out = [f"EVALUATION ONLY - PDB judgements for {today.isoformat()}. Not part of the daily brief.", ""]
     outcome = run["outcome"]
     line = OUTCOMES[outcome]
@@ -483,6 +528,9 @@ def render(today: date, run: dict, issued: list[dict], standing: list[dict], ret
                 f"({j['confidence']}; review by {j['review_by']})" for j in standing] + [""]
     if retired:
         out += ["RETIRED TODAY"] + [f"- {r['id']}: {r['status']} - {r['reason']}" for r in retired] + [""]
+    if proposals:
+        out += ["RETIREMENT PROPOSED, NOT APPLIED (confirm with: judgements confirm-retirement <id>)"]
+        out += [f"- {r['id']}: {r['status']} proposed - {r['reason']}" for r in proposals] + [""]
     if run.get("abstentions"):
         out += ["ABSTAINED"] + [f"- {a['topic']}: {a['reason']}" for a in run["abstentions"]] + [""]
     out.append("WHAT WE CANNOT SEE")
@@ -531,21 +579,25 @@ def run(evidence_set, *, coverage: dict | None, register: Register | None = None
         return {"status": "skipped", "text": "", "run": None}
     open_, rejected = register.state()
     candidates, excluded = build_candidates(evidence_set, pirs=pirs)
-    records, abstained, status, detail, dropped = [], [], "ok", "", {}
+    records, abstained, status, detail, dropped, raw_reply = [], [], "ok", "", {}, ""
     outcome, drafted = "no_eligible_evidence", False
     if candidates or open_:
         try:
             text, refs, *rest = drafter(build_request(candidates, open_, today))
             dropped = rest[0] if rest else {}
+            shown = rest[1] if len(rest) > 1 else None      # the router client always supplies it; only test stubs omit it
+            raw_reply = text
             reply = parse_reply(text)
-            drafted = bool(reply.get("judgements"))
-            records, abstained = apply_reply(translate_refs(reply, refs), candidates, open_, today, rejected)
+            drafted = bool(reply.get("judgements") or reply.get("retire"))
+            visible = open_ if shown is None else {k: v for k, v in open_.items() if k in set(shown.get("standing") or [])}
+            sources = None if shown is None else shown_sources(shown, refs, candidates, open_)
+            records, abstained = apply_reply(translate_refs(reply, refs), candidates, visible, today, rejected, sources)
             outcome = "drafts_rejected" if drafted else "model_abstention"
         except DraftUnavailable as exc:
             status, detail, outcome = "drafting_unavailable", str(exc), exc.outcome
         except (AttributeError, TypeError, KeyError, ValueError) as exc:    # wrong shapes inside otherwise valid JSON
             records, abstained = [], []
-            status, detail, outcome = "drafting_unavailable", f"malformed reply ({type(exc).__name__})", "provider_failure"
+            status, detail, outcome = "drafting_unavailable", f"malformed reply ({type(exc).__name__})", "malformed_reply"
     else:
         detail = "no eligible evidence"
     issued = [r for r in records if r["type"] == "judgement"]
@@ -553,16 +605,18 @@ def run(evidence_set, *, coverage: dict | None, register: Register | None = None
         status = "abstained"
     if issued:
         outcome = "completed"
-    touched = {r["id"] for r in records}
+    proposals = [r for r in records if r["type"] == "retire_proposal"]
+    touched = {r["id"] for r in records if r["type"] != "retire_proposal"}
     # a day without drafting is not a day without support: nothing expires on it
     if status != "drafting_unavailable":
         records += expire(open_, touched, today)
     retired = [r for r in records if r["type"] == "retire"]
-    standing = [j for j in open_.values() if j["id"] not in {r["id"] for r in records}]
+    standing = [j for j in open_.values() if j["id"] not in touched]
     run_record = {"type": "run", "run_date": today.isoformat(), "status": status, "outcome": outcome,
                   "detail": detail, "candidates": len(candidates), "excluded": excluded, "issued": [j["id"] for j in issued],
-                  "abstentions": abstained, "limits": collection_limits(coverage, excluded, candidates, open_) + router_limits(dropped)}
-    text = render(today, run_record, issued, standing, retired)
+                  "abstentions": abstained, "limits": collection_limits(coverage, excluded, candidates, open_) + router_limits(dropped),
+                  **({"malformed_reply": raw_reply[:20000]} if outcome == "malformed_reply" and raw_reply else {})}
+    text = render(today, run_record, issued, standing, retired, proposals)
     register.append(records + [run_record])
     (register.dir / f"evaluation-{today.isoformat()}.txt").write_text(text, encoding="utf-8")
     return {"status": status, "text": text, "run": run_record}
@@ -621,6 +675,7 @@ def main(argv: list[str] | None = None) -> int:
     rev.add_argument("--reasoning", choices=("pass", "fail"), required=True)
     rev.add_argument("--note", default="")
     rev.add_argument("--clear-external", action="store_true", help="allow this reviewed version to be sent as a standing judgement")
+    sub.add_parser("confirm-retirement").add_argument("id")
     miss = sub.add_parser("miss")
     miss.add_argument("text")
     miss.add_argument("--materiality", choices=MATERIALITY, required=True)
@@ -638,6 +693,17 @@ def main(argv: list[str] | None = None) -> int:
     if not any(r.get("type") == "judgement" and r.get("id") == args.id for r in register.records()):
         print(f"unknown judgement id: {args.id}")
         return 1
+    if args.command == "confirm-retirement":
+        latest = None
+        for r in register.records():
+            if r.get("id") == args.id and r.get("type") in ("judgement", "retire", "retire_proposal"):
+                latest = r
+        if not latest or latest["type"] != "retire_proposal":
+            print("no retirement proposal is waiting for this judgement")
+            return 1
+        register.append([{**{k: latest[k] for k in ("id", "status", "reason", "refs")}, "type": "retire", "by": "reviewer",
+                          "run_date": datetime.now(TZ).date().isoformat()}])
+        return 0
     if args.command == "review":
         if args.clear_external and (args.facts, args.reasoning) != ("pass", "pass"):
             print("not recorded: only a judgement that passed both reviews can be cleared")
