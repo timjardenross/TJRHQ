@@ -1,6 +1,8 @@
 """Targeted tests for the judgement producer: boundary, evidence rules, continuity. No network; the drafter is a stub."""
+import io
 import json
 import re
+import urllib.error
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -278,3 +280,35 @@ def test_every_product_states_the_screening_and_telstra_limitations(tmp_path, dr
     assert ("Information screening is pattern-based and may exclude legitimate reporting or fail to detect some sensitive details. "
             "Excluded records may reduce intelligence coverage.") in result["text"]
     assert "Reduced Telstra coverage" in result["text"]
+
+
+@pytest.mark.parametrize("outcome", ["withheld_security_review", "hold_expired", "not_sent", "provider_failure", "no_reply"])
+def test_each_failure_is_reported_as_what_it_was(tmp_path, outcome):
+    def fail(_):
+        raise jd.DraftUnavailable("detail", outcome)
+    result = run(tmp_path, two_publishers(), fail)
+    assert result["run"]["outcome"] == outcome and result["status"] == "drafting_unavailable"
+    assert jd.OUTCOMES[outcome] in result["text"] and "not an abstention or a finding of low risk" in result["text"]
+
+
+def test_model_abstention_and_completion_are_distinct(tmp_path):
+    empty = run(tmp_path / "a", two_publishers(), lambda p: (json.dumps({"judgements": []}), {}))
+    assert empty["run"]["outcome"] == "model_abstention" and "Valid model abstention" in empty["text"]
+    done = run(tmp_path / "b", two_publishers(), lambda p: reply_for(p))
+    assert done["run"]["outcome"] == "completed" and "Assessment completed." in done["text"]
+
+
+@pytest.mark.parametrize("code,body,expected", [
+    (500, {"error": "payload withheld by security review", "outcome": "withheld_security_review"}, "withheld_security_review"),
+    (500, {"error": "held payload was not released in time", "outcome": "hold_expired"}, "hold_expired"),
+    (500, {"error": "HTTP Error 503", "outcome": "provider_failure"}, "provider_failure"),
+    (400, {"error": "no eligible record"}, "not_sent"),
+    (500, {}, "no_reply"),
+])
+def test_router_error_body_is_read(monkeypatch, code, body, expected):
+    def refuse(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, code, "x", {}, io.BytesIO(json.dumps(body).encode()))
+    monkeypatch.setattr(jd.urllib.request, "urlopen", refuse)
+    with pytest.raises(jd.DraftUnavailable) as caught:
+        jd.draft_via_router({"as_of": "2026-11-28", "event_ids": [], "standing_ids": []})
+    assert caught.value.outcome == expected
