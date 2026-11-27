@@ -36,6 +36,8 @@ from core.llm.provider_chain import (
     call_gemini,
     call_mistral,
     call_ollama,
+    screen_inbound,
+    screen_outbound,
 )
 from core.security import personal_data_policy
 from intelligence.config import (
@@ -210,6 +212,9 @@ class LLMProvider:
             log.warning("LLM prompt contains personal health content: routing local-only (no Model Router, Gemini or Mistral)")
             local_only = True
         if local_only:
+            if not personal_data_policy.is_local_target(OLLAMA_BASE_URL, OLLAMA_MODEL):
+                log.warning("LLM local-only request refused: the configured Ollama target is not local")
+                return None, None
             providers = [(OLLAMA_MODEL, self._ollama)]
         elif not use_mistral_pipeline:
             providers = [(name, fn) for name, fn in providers if name != "mistral-4stage-pipeline"]
@@ -504,7 +509,9 @@ class LLMProvider:
         outside the pipeline (check_brief_quality/check_risk_rating, each a
         single one-off call) can omit it and get a fresh one as before.
         """
-        personal_data_policy.assert_may_leave_host(prompt, route=f"Mistral agent ({stage})")
+        # Existing cloud screening (health gate, input rail, redaction). Raises, so nothing is sent,
+        # when content is blocked or the guard is unavailable. Only the screened text is used below.
+        _, prompt = screen_outbound("", prompt)
         if client is None:
             from mistralai import Mistral
             client = Mistral(api_key=MISTRAL_API_KEY)
@@ -524,6 +531,7 @@ class LLMProvider:
                 )
                 text = self._extract_text(response)
                 if text:
+                    screen_inbound(text)
                     return text
 
                 # Agent used tools but conversations API returned no final message.
@@ -583,6 +591,7 @@ class LLMProvider:
             with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - req.url is the hardcoded https://api.mistral.ai/v1/chat/completions literal, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
             text = data["choices"][0]["message"]["content"].strip()
+            screen_inbound(text)
             log.info("[pipeline] %s direct completions fallback succeeded (%d chars)", stage, len(text))
             return text
         except Exception as exc:  # noqa: BLE001 - direct-completions fallback, already logged; caller treats None as 'pipeline unavailable'
