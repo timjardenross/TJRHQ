@@ -11,13 +11,14 @@ Covers:
 - narrative_available=True when LLM succeeds
 """
 
-import pytest
 import json
 import os
 import sys
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
