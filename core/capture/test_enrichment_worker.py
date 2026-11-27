@@ -168,14 +168,13 @@ class TestEnrichItem:
         result = ew.enrich_item(item, dry_run=True)
         assert result is False
 
-    def test_llm_failure_sets_failed_status(self):
+    def test_llm_failure_leaves_item_queued(self):
         with patch("urllib.request.urlopen", side_effect=Exception("timeout")), \
              patch.object(ew, "_sb_patch") as mock_patch:
             result = ew.enrich_item(self._item())
         assert result is False
-        # second call sets failed status
-        calls = [str(c) for c in mock_patch.call_args_list]
-        assert any("failed" in c for c in calls)
+        # the item goes back to the queue, it is not marked failed
+        assert mock_patch.call_args_list[-1].args[2]["ai_enrichment_status"] == "not_enriched"
 
     def test_successful_enrichment_writes_summary(self):
         suggestion_json = json.dumps({

@@ -264,10 +264,10 @@ class TestFailureAndRetryPaths:
              patch.object(ew, "_sb_patch") as mock_patch:
             ok = ew.enrich_item(self._item())
         assert ok is False
-        # capture is marked failed, never deleted or mutated destructively
-        failed_calls = [c for c in mock_patch.call_args_list if c.args[2].get("ai_enrichment_status") == "failed"]
-        assert len(failed_calls) == 1
-        assert "processing_status" not in failed_calls[0].args[2], "a failed enrichment must not force a routing decision"
+        # capture stays queued for the next run, never failed, deleted or mutated destructively
+        last = mock_patch.call_args_list[-1].args[2]
+        assert last["ai_enrichment_status"] == "not_enriched"
+        assert "processing_status" not in last, "an unavailable model must not force a routing decision"
 
     def test_worker_restart_reprocessing_same_pending_item_is_safe(self):
         """Simulates a worker crash right after LLM classification but
