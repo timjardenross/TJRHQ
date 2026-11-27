@@ -488,7 +488,7 @@ def build_prompt(prepared: dict) -> tuple[str, dict[str, str]]:
     lines.append(token + "|END")
     evidence = "\n".join(lines)
     prompt = f"""You draft intelligence judgements on operational resilience in Australia. Date: {prepared['as_of']}.
-Areas: national_systemic (Australian national and systemic resilience), sector (professional and sector resilience),
+Areas: national_systemic (Australian national and systemic resilience), sector (industry and sector resilience),
 emerging_cascading (material emerging and cascading risks).
 
 Return at most 3 substantive judgements. Fewer, or none, is correct when the evidence does not support more.
