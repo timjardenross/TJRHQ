@@ -74,8 +74,9 @@ import re
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
+from zoneinfo import ZoneInfo
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS
 from intelligence.ingestion import brightdata_fetch, firecrawl_client
@@ -100,8 +101,11 @@ _TOP_TIER = "problems"
 # westpac, bendigo, ubank, mygov, centrelink, myid) — all present and
 # correctly shaped, via `firecrawl scrape --format html` (see module
 # docstring re: plain-fetch blocking).
+# At the top tier the page says "experiencing problems", and counts of 1,000 or
+# more carry a thousands separator (archived pages, July 2026).
 _STATUS_COUNT_PATTERN = re.compile(
-    r"peak of (\d+)\s+reports?,\s*status:\s*(no problems|possible problems|problems)",
+    r"peak of (\d{1,3}(?:,\d{3})+|\d+)\s+reports?,\s*status:\s*"
+    r"(no problems|possible problems|(?:experiencing )?problems)",
     re.IGNORECASE,
 )
 
@@ -227,6 +231,40 @@ def get_report_count_floor(source_name: str, sector: str) -> int:
     return bootstrap_default(sector)
 
 
+# ─── Outage episode identity ──────────────────────────────────────────────
+# One stored item per outage episode, taken from the observation ledger. The
+# page address alone cannot identify an outage (it never changes), and a date
+# would split an outage that crosses midnight and merge two in one day.
+# An episode ends when the page reports "no problems", or when no observation
+# at all was recorded for longer than _EPISODE_MAX_GAP. A dip to "possible
+# problems" does not end it, so a wavering page does not raise a second item.
+_EPISODE_LOOKBACK = timedelta(days=14)
+_EPISODE_MAX_GAP = timedelta(hours=36)
+
+
+def episode_start(observations: list[dict], now: datetime) -> datetime | None:
+    """When the current top-tier episode was first observed. None when there is
+    no readable history (the ledger always holds at least the current check, so
+    nothing at all means it could not be read)."""
+    seen = []
+    for row in observations:
+        try:
+            when = datetime.fromisoformat(str(row.get("observed_at")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        seen.append((when, row.get("status")))
+    if not seen:
+        return None
+    start = last = now
+    for when, status in sorted(seen, key=lambda pair: pair[0], reverse=True):
+        if status == "no_problems" or last - when > _EPISODE_MAX_GAP:
+            break
+        if status == _TOP_TIER:
+            start = when
+        last = when
+    return start
+
+
 class DowndetectorAdapter(BaseSourceAdapter):
 
     def collect(self) -> list[IntelligenceItem]:
@@ -266,7 +304,25 @@ class DowndetectorAdapter(BaseSourceAdapter):
 
         company = self._company_name(html) or self.source.source_name
         title, summary = self._build_item_text(company, status, report_count)
-        return [self._make_item(title, summary, self.source.url, datetime.now(timezone.utc))]
+        now = datetime.now(timezone.utc)
+        start = self._episode_start(now)
+        if start is None:
+            # History unreadable: at most one item per day rather than one per check.
+            return [self._make_item(title, summary, f"{self.source.url}#{now:%Y-%m-%d}", now)]
+        local = start.astimezone(ZoneInfo("Australia/Melbourne"))
+        return [self._make_item(
+            f"{title} — first seen {local:%d %b %H:%M}", summary,
+            f"{self.source.url}#episode-{start.astimezone(timezone.utc):%Y%m%dT%H%MZ}", start,
+        )]
+
+    def _episode_start(self, now: datetime) -> datetime | None:
+        try:
+            from intelligence.persistence import intelligence_store as store
+            rows = store.load_downdetector_history(self.source.source_name, (now - _EPISODE_LOOKBACK).isoformat())
+        except Exception as exc:  # noqa: BLE001 - identity lookup must never stop a real outage item being raised
+            log.warning("[%s] outage history unreadable: %s", self.source.source_name, exc)
+            return None
+        return episode_start(rows, now)
 
     def _log_observation(self, status: str, report_count: int | None) -> None:
         try:
@@ -477,7 +533,7 @@ def parse_status_and_count(html: str) -> tuple[str | None, int | None]:
     prose fallback matched (no atomic count available in that shape)."""
     m = _STATUS_COUNT_PATTERN.search(html)
     if m:
-        count = int(m.group(1))
+        count = int(m.group(1).replace(",", ""))
         return _normalise_tier(m.group(2).lower()), count
 
     m2 = _STATUS_PROSE_PATTERN.search(html)
