@@ -11,10 +11,18 @@ from intelligence import claim_gate as cg
 
 # a sentence carrying one of these is offered as inference, forecast or open question rather than as reported fact
 _FRAME = re.compile(r"\b(?:may|might|could|would|should|can|likely|unlikely|possibly|potential(?:ly)?|if|unless|whether|assum\w+|"
-                    r"unclear|unknown|uncertain|not (?:yet )?(?:been )?(?:reported|known|stated|established|disclosed|clear))\b", re.IGNORECASE)
+                    r"unclear|unknown|uncertain|not (?:yet )?(?:been )?(?:reported|known|stated|established|disclosed|clear)|"
+                    r"plausibl[ey]|probabl[ey]|possible|possibility|suggests?|appears?|seems?)\b", re.IGNORECASE)
 # wording that asserts something already true; it needs support even inside an inference or an assumption
 _ASSERTS = re.compile(r"\b(?:has|have|had|was|were|previously|already|again|before|last (?:week|month|year)|only|sole|largest|biggest|"
-                      r"first|never|always)\b(?<!not only)(?<!only if)", re.IGNORECASE)
+                      r"first|never|always|admitted|confirmed|revoked|fined|sued|breached|warned|announced|ordered|banned)\b(?<!not only)(?<!only if)",
+                      re.IGNORECASE)
+# a forward-looking effect ("could cause", "may lead to") is a forecast; "because", "due to" and "caused by" explain what happened
+_FORECAST_EFFECT = re.compile(r"\b(?:may|might|could|would|can)\s+(?:\w+\s+){0,2}?(?:cause|lead to|result in|trigger|prompt|spread to)\b",
+                              re.IGNORECASE)
+_EXPLAINS_PAST = re.compile(r"\b(?:because|due to|owing to|caused by|resulted from|blamed on|attributed to|has|have|had|was|were)\b", re.IGNORECASE)
+_NO_DEPENDENCE = re.compile(r"\b(?:no|without|not any)\s+(?:\w+\s+){0,2}?(?:exposure|dependen\w*|concentration|reliance)\b|"
+                            r"\b(?:do|does) not (?:depend|rely|share)\b|\bindependent of\b", re.IGNORECASE)
 _HYPOTHETICAL = re.compile(r"^\s*(?:if|unless|whether|should|were)\b", re.IGNORECASE)
 _NEGATOR = re.compile(r"\b(?:not(?!\s+(?:to|only|just|simply|merely|necessarily)\b)|never|no longer|cannot|can't|didn't|doesn't|don't|isn't|"
                       r"aren't|wasn't|weren't|won't)\b", re.IGNORECASE)
@@ -109,6 +117,8 @@ def contradiction(text: str, sources: list[dict]) -> bool:
             shared = words & theirs
             if len(shared) < 2:
                 continue
+            if _NO_DEPENDENCE.search(clause) and _LINKING.search(other) and not _FRAME.search(clause) and not _NO_DEPENDENCE.search(other):
+                return True
             if head_stem and head_stem in every and not _NEGATOR.search(other) and (not _subject(clause) or _subject(clause) & theirs):
                 return True
             if denial and len(shared) >= 3 and not _NEGATOR.search(other):
@@ -144,6 +154,18 @@ def unsupported_assertion(text: str, sources: list[dict], *, field: str = "botto
     return bool(gate(text, sources, field))
 
 
+def _analysis_failures(text: str, sources: list[dict]) -> list:
+    """Claim-gate failures sentence by sentence. A conditional or modal statement of a possible future effect is not a claim that
+    anything caused anything, so the reported-cause rule does not apply to it; every other rule still does."""
+    out = []
+    for sentence in cg._sentences(text) or [text]:
+        failures = gate(sentence, sources, "so_what")
+        if _FORECAST_EFFECT.search(sentence) and not _EXPLAINS_PAST.search(sentence):
+            failures = [f for f in failures if getattr(f, "kind", "") != "unsupported_causal"]
+        out += failures
+    return out
+
+
 def analytic_problem(field: str, text: str, sources: list[dict]) -> str:
     """"" when acceptable, else what is wrong. Reported fact must be supported; inference, assumptions and watch items may go beyond
     the sources but may not introduce facts, causes or contradictions."""
@@ -153,7 +175,7 @@ def analytic_problem(field: str, text: str, sources: list[dict]) -> str:
         return "contradicts the cited evidence"
     scoped = re.sub(r"\bAustralia(n|ns|'s)?\b", "local", text)              # the reader's scope word is not a claim
     scoped = re.sub(r"\b(?:the )?(?:reported|stated) cause\b", "the account", scoped, flags=re.IGNORECASE)   # refers, does not assert
-    failures = gate(scoped, sources, "so_what")
+    failures = _analysis_failures(scoped, sources)
     if field in _CONDITION_FIELDS:
         failures = [f for f in failures if getattr(f, "kind", "") in _FACT_KINDS]
         if field == "threshold":                                           # a trigger level is chosen, not reported
