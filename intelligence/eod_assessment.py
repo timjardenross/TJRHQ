@@ -19,8 +19,9 @@ from __future__ import annotations
 import html
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 from intelligence import brief_evidence as be
 from intelligence import event_detection as ed
@@ -102,6 +103,20 @@ _FILLER = frozenset(["the", "a", "an", "to", "of", "for", "on", "in", "and", "wi
 # A disruption announced for later is not one in progress.
 _PLANNED_RX = re.compile(r"\b(?:to be|could be|will be|set to be|are to be)\b[^.]{0,40}\b(?:disrupted|cancelled|offline|replaced|suspended|shut)\b"
                          r"|\bfrom (?:next )?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.IGNORECASE)
+# Industrial action affirmed as stopped: the subject and the verb must be adjacent, so "trains suspended due to strike" does not match.
+_ACTION = r"(?:strikes?|industrial action|stoppage|walk[- ]?out)"
+_STOOD_DOWN_RX = re.compile(
+    rf"\b{_ACTION}(?: action)? (?:(?:has|have) been |was |is |are )?(?:suspended|called off|cancelled|averted|abandoned|scrapped|halted)\b"
+    rf"|\b(?:suspends|calls off|halts|blocks|averts|ends) (?:the |a |planned )?(?:[a-z]+ ){{0,2}}?{_ACTION}\b", re.IGNORECASE)
+_HEDGE_RX = re.compile(r"\?|\b(?:could|may|might|bid|seek\w*|asks?|asked|appl\w+|not|refus\w+|reject\w+|whether|unless|if|calls? for|push\w*|"
+                       r"part(?:ly|ial\w*)|one|some)\b", re.IGNORECASE)
+_INDUSTRIAL_RX = re.compile(r"\b(?:strikes?|industrial|stoppage|walk[- ]?out)\b", re.IGNORECASE)
+_PLACE_RX = re.compile(r"\b(?:nsw|new south wales|sydney|victoria|melbourne|queensland|brisbane|western australia|perth|south australia|"
+                       r"adelaide|tasmania|hobart|act|canberra|northern territory|darwin)\b", re.IGNORECASE)
+_PLACES = {"new south wales": "nsw", "sydney": "nsw", "melbourne": "victoria", "brisbane": "queensland", "perth": "western australia",
+           "adelaide": "south australia", "hobart": "tasmania", "canberra": "act", "darwin": "northern territory"}
+_ACTION_GENERIC = frozenset(["strike", "industrial", "action", "suspended", "fair", "work", "commission", "hearing", "decision", "union",
+                             "planned", "friday", "week", "rail"])
 # Consequences that, appearing for the first time after the morning brief, make an incident worse rather than merely re-reported.
 _CONSEQUENCE_RX = tuple(re.compile(p, re.IGNORECASE) for p in (
     r"\b(?:destroy\w*|homes? lost|damaged)\b", r"\b(?:killed|dead|deaths?|injur\w+)\b", r"\bevacuat\w+\b",
@@ -134,7 +149,7 @@ class MorningRecord:
     caveat: str | None = None
 
 
-_ENTRY_RX = re.compile(r"^- (.+) \((ongoing|partially restored|restored|current status unknown|announced, not started|forecast, not an incident|currency not verified|no restoration status); \d+ reports; (inc-[0-9a-f]{10})\)", re.MULTILINE)
+_ENTRY_RX = re.compile(r"^- (.+) \((ongoing|partially restored|restored|current status unknown|announced, not started|action suspended|forecast, not an incident|currency not verified|no restoration status); \d+ reports; (inc-[0-9a-f]{10})\)", re.MULTILINE)
 
 
 # The untiered Morning V1 line: "- [TAG] headline — facts; confidence [inc-xxxxxxxxxx; ...]".
@@ -184,10 +199,14 @@ class Item:
         return [s for s in self.view.record.get("critical_service_dependencies") or [] if s in _SECTOR_NAMES]
 
     foreign_indicator: bool = False
+    stood_down: bool = False     # the latest reporting says the announced industrial action was suspended or called off
+    supersedes: tuple = ()       # headlines of the earlier notices this reporting replaces
 
     @property
     def status_words(self) -> str:
         """Lifecycle words that agree with the rest of the entry: restoration is claimed only for a current outage."""
+        if self.stood_down:
+            return "action suspended"
         if self.planned:
             return "announced, not started"
         if self.is_forecast:
@@ -200,13 +219,15 @@ class Item:
 
     @property
     def is_forecast(self) -> bool:
+        if self.stood_down:
+            return False
         if self.view.event_type == "hazard" and _HAZARD_OUTLOOK_RX.search(self.view.headline):
             return True
         return self.view.impact_status in ("warning", "forecast")
 
     @property
     def planned(self) -> bool:
-        if self.view.event_type != "outage" or self.restoration in ("restored", "partially_restored"):
+        if self.stood_down or self.view.event_type != "outage" or self.restoration in ("restored", "partially_restored"):
             return False
         text = " ".join([self.view.headline] + [str(r.get("title") or "") for r in self.view.reports])
         return bool(_PLANNED_RX.search(text))
@@ -214,16 +235,17 @@ class Item:
     @property
     def currency_unverified(self) -> bool:
         """An outage seen only through aggregators: the article date does not show the disruption is happening now."""
-        return self.view.event_type == "outage" and self.view.evidence_status == "unverified"
+        return not self.stood_down and self.view.event_type == "outage" and self.view.evidence_status == "unverified"
 
     @property
     def is_disruption(self) -> bool:
         """A stated service disruption. Cyber compromise, hazards and vulnerabilities are described as what they are, not as outages."""
-        return self.view.impact_status == "stated" and self.view.event_type == "outage" and not self.planned and not self.currency_unverified
+        return (self.view.impact_status == "stated" and self.view.event_type == "outage" and not self.planned and not self.currency_unverified
+                and not self.stood_down)
 
     @property
     def unresolved(self) -> bool:
-        return self.restoration in ed.CURRENT_DISRUPTION and not self.planned and not self.currency_unverified
+        return self.restoration in ed.CURRENT_DISRUPTION and not self.planned and not self.currency_unverified and not self.stood_down
 
 
 def _when(value) -> datetime | None:
@@ -284,6 +306,8 @@ def _material(i: Item) -> bool:
     v = i.view
     if _out_of_scope(v):
         return False
+    if i.supersedes and i.area != "other":     # replaces a notice that would otherwise have been shown
+        return True
     if i.area == "other" or v.impact_status == "retrospective" and not i.carried:
         return False
     if i.state == UNCHANGED and i.restoration == "restored" and not i.carried:   # an old, closed event is not part of today's picture
@@ -380,6 +404,72 @@ def _link_continuations(items: list[Item], morning: MorningRecord, collected: di
     return [i for i in items if id(i) not in dropped]
 
 
+def _stand_down_text(report: dict) -> str | None:
+    """The report's wording if it affirms the action stopped: its headline, or the headline slug of its address (publishers rewrite
+    an article in place and the stored title can lag)."""
+    slug = urlsplit(str(report.get("url") or "")).path.rstrip("/").split("/")
+    for text in (str(report.get("title") or ""), " ".join(slug[-2:]).replace("-", " ")):
+        found = _STOOD_DOWN_RX.search(text)
+        if found and not _HEDGE_RX.search(text[:found.end()]):
+            return text
+    return None
+
+
+def _reported_at(report: dict) -> datetime:
+    return (_when(report.get("published_at")) or _when(report.get("collected_at")) or _when(report.get("first_seen"))
+            or datetime.min.replace(tzinfo=timezone.utc))
+
+
+def _places(view) -> set:
+    found = _PLACE_RX.findall(" ".join(_text(r) for r in view.reports))
+    return {_PLACES.get(x.lower(), x.lower()) for x in found}
+
+
+def _same_action(old: Item, new: Item) -> bool:
+    evidence = " ".join(f"{_text(r)} {urlsplit(str(r.get('url') or '')).path.replace('-', ' ').replace('/', ' ')}" for r in old.view.reports)
+    a, b = _places(old.view), _places(new.view)
+    return bool(_INDUSTRIAL_RX.search(evidence) and set(old.sectors) & set(new.sectors) and (not a or not b or a & b)
+                and (_words(old.view) & _words(new.view)) - _ACTION_GENERIC)
+
+
+def _reconcile_stand_downs(items: list[Item], times: dict) -> list[Item]:
+    """An announced disruption and the later suspension of the action behind it are one story, told with its latest state. Only
+    notices that have not started and are older than the suspension are replaced; an actual disruption is never closed this way."""
+    def stand(i: Item):
+        reports = [(times.get(str(r.get("report_id")), _reported_at(r)), r) for r in i.view.reports]
+        if not reports or i.view.evidence_status == "unverified":
+            return None
+        at, report = max(reports, key=lambda x: x[0])
+        return (at, report) if _stand_down_text(report) else None
+
+    def latest(i: Item) -> datetime:
+        return max((times.get(str(r.get("report_id")), _reported_at(r)) for r in i.view.reports), default=_reported_at({}))
+
+    stands = sorted([(i, s) for i in items if (s := stand(i))], key=lambda x: x[1][0], reverse=True)
+    dropped: set = set()
+    for new, (at, report) in stands:
+        if id(new) in dropped:
+            continue
+        olds = [o for o in items if o is not new and id(o) not in dropped and not stand(o) and o.planned and latest(o) <= at
+                and _same_action(o, new)]
+        earlier = [o.view.headline for o in olds]
+        earlier += [h for h in (new.continues, new.view.headline) if h and not _STOOD_DOWN_RX.search(h)]
+        title = str(report.get("title") or "")
+        if _STOOD_DOWN_RX.search(title):
+            new.view = replace(new.view, headline=title)
+        elif earlier:                                      # only the address carries the change: say so in the headline
+            new.view = replace(new.view, headline="Industrial action behind an announced disruption reported suspended")
+        new.stood_down, new.supersedes, new.continues = True, tuple(dict.fromkeys(earlier)), ""
+        for old in olds:
+            new.carried, new.known_before = new.carried or old.carried, new.known_before or old.known_before
+            new.linked = tuple(new.linked) + tuple(str(r) for r in old.view.report_ids) + tuple(old.linked)
+            new.area = old.area if new.area == "other" else new.area
+            dropped.add(id(old))
+        if new.state in (ESCALATING, DETERIORATING, UPDATED):          # a suspension is not a worsening
+            new.state = IMPROVING
+    return [i for i in items if id(i) not in dropped]
+
+
 def _item(view, state: str, restoration: str, carried: bool, known_before: bool) -> Item:
     area = _area(view)
     indicator = area == "other" and _leading_indicator(view)
@@ -416,6 +506,7 @@ def build_items(events: list[dict], morning: MorningRecord | None, now: datetime
         for i in items:
             if i.currency_unverified and i.state in CHANGE_STATES:
                 i.state = REPORTING
+    items = _reconcile_stand_downs(items, {str(e.get("id")): _reported_at(e) for e in events})
     items.sort(key=_rank)
     return items
 
@@ -450,6 +541,8 @@ def _kind(i: Item) -> str:
         return "warning or forecast, not an incident"
     if i.view.event_type == "vulnerability" or i.view.impact_status == "potential":
         return "potential exposure, no disruption established"
+    if i.stood_down:
+        return "industrial action reported suspended or called off; resumption of services not established"
     if i.planned:
         return "announced disruption, not reported as started"
     if i.currency_unverified:
@@ -478,7 +571,9 @@ def _why(i: Item) -> str:
     customers = i.view.record.get("affected_customers")
     if customers:
         bits.append(f"{customers:,} customers reported affected")
-    if i.restoration == "restored":
+    if i.stood_down:
+        pass
+    elif i.restoration == "restored":
         bits.append("service reported restored, so the remaining questions are cause and recurrence")
     elif effect:
         bits.append(effect)
@@ -486,6 +581,8 @@ def _why(i: Item) -> str:
 
 
 def _decision(i: Item) -> str:
+    if i.stood_down:
+        return "check: confirm with the operator that services are running before relying on them"
     if i.planned:
         return "prepare: check the operator's timetable and own travel or freight exposure from the stated start; confirm with a second source"
     if i.currency_unverified:
@@ -501,12 +598,17 @@ def _decision(i: Item) -> str:
     return "monitor"
 
 
+def _supersedes_lines(i: Item) -> list[str]:
+    return [f"    Replaces earlier notice (no longer current): {_short_headline(h, 90)}" for h in i.supersedes[:3]]
+
+
 def _detail(i: Item) -> list[str]:
     flag = "" if i.carried or i.state in (NEW, NOT_COMPARED) or not i.known_before else " (known at 07:00, not in the morning brief)"
     state = "" if i.state == NOT_COMPARED else f"[{i.state}]{flag} "
-    restore = "" if i.is_forecast or i.planned or i.currency_unverified or i.restoration == "unknown" else f"; {_STATE_WORDS[i.restoration]}"
+    restore = ("" if i.is_forecast or i.planned or i.stood_down or i.currency_unverified or i.restoration == "unknown"
+               else f"; {_STATE_WORDS[i.restoration]}")
     follows = [f"    Continues this morning's item: {_short_headline(i.continues, 90)}"] if i.continues else []
-    return [f"- {state}{_short_headline(i.view.headline, 150)}", *follows,
+    return [f"- {state}{_short_headline(i.view.headline, 150)}", *follows, *_supersedes_lines(i),
             f"    {_claim(i)}{restore} {be._cite(i.view)}",
             f"    ASSESSMENT: {_why(i)}. Decision: {_decision(i)}."]
 
@@ -681,6 +783,9 @@ def _carried_unmatched(shown: list[Item], morning: MorningRecord | None) -> list
 
 def watch_lines(items: list[Item], events: list[dict], now: datetime) -> list[str]:
     lines = []
+    for i in [x for x in items if x.stood_down][:2]:
+        lines.append(f"- Resumption: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]. Next check: operator confirmation that "
+                     "services are running, and any notice of further action")
     for i in [x for x in items if x.planned][:2]:
         lines.append(f"- Announced disruption: {_short_headline(i.view.headline, 90)} [{i.view.incident_id}]. Next check: operator timetable and "
                      "any industrial or regulatory decision before the stated start")
@@ -864,7 +969,7 @@ def _morning_entry(i: Item, pirs: list) -> list[str]:
     extra = ("; emerging exposure" if v.event_type == "vulnerability" else "") + ("; retrospective" if v.impact_status == "retrospective" else "")
     if i.state == UNCHANGED and i.status_words == "restored":
         change = "restored earlier; no new reporting since the previous brief; "
-    return [f"- {_short_headline(v.headline, 150)} ({i.status_words}; {len(v.report_ids)} reports; {v.incident_id})",
+    return [f"- {_short_headline(v.headline, 150)} ({i.status_words}; {len(v.report_ids)} reports; {v.incident_id})", *_supersedes_lines(i),
             f"    {change}{_claim(i)}{extra} {be._cite(v)}",
             f"    ASSESSMENT: {_why(i)}. Decision: {_decision(i)}.{_requirement(v, pirs)}"]
 
