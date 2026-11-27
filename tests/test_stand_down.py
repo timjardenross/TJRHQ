@@ -90,3 +90,10 @@ def test_a_later_announcement_is_not_closed_by_an_older_suspension():
                   ABC + "27/new-strike-nsw/107431000")
     out = text(ea.assess_morning([S, later], None, now=EVENING))
     assert "announced, not started" in out and "Replaces earlier notice" not in out
+
+
+def test_replaced_notices_are_not_offered_to_judgement_drafting():
+    from intelligence import judgements as jd
+
+    assert [e["id"] for e in jd.current_events([A, B, S], EVENING)] == [S["id"]]
+    assert jd.current_events([A, B], EVENING) == [A, B] and jd.current_events([], EVENING) == []

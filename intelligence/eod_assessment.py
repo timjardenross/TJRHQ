@@ -470,6 +470,11 @@ def _reconcile_stand_downs(items: list[Item], times: dict) -> list[Item]:
     return [i for i in items if id(i) not in dropped]
 
 
+def superseded_report_ids(events: list[dict], now: datetime) -> set[str]:
+    """Reports of announced disruptions that later reporting replaced. Other consumers of the evidence must not treat them as current."""
+    return {str(r) for i in build_items(events, None, now) if i.stood_down for r in i.linked}
+
+
 def _item(view, state: str, restoration: str, carried: bool, known_before: bool) -> Item:
     area = _area(view)
     indicator = area == "other" and _leading_indicator(view)

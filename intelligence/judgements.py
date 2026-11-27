@@ -566,13 +566,21 @@ def run(evidence_set, *, coverage: dict | None, register: Register | None = None
     return {"status": status, "text": text, "run": run_record}
 
 
+def current_events(events: list[dict], now: datetime) -> list[dict]:
+    from intelligence import eod_assessment as ea
+
+    replaced = ea.superseded_report_ids(events, now) if events else set()
+    return [e for e in events if str(e.get("id")) not in replaced]
+
+
 def run_live() -> dict:
     """Scheduler entry point: reads the same evidence as the morning brief; writes only the register and evaluation file."""
     from intelligence import brief_evidence as be
     from intelligence import captains_brief as cb
     from intelligence import requirements as req
 
-    events = be.load_events(cb._sb_get, hours=72)
+    # lifecycle is settled by code before drafting: a notice that later reporting replaced is never offered to the model
+    events = current_events(be.load_events(cb._sb_get, hours=72), datetime.now(timezone.utc))
     evidence_set = be.build_evidence(events, window_hours=72) if events else be.EvidenceSet(
         be.ed.METHOD_VERSION, datetime.now(timezone.utc), 72, 0, [])
     ori = cb._get_latest_ori_brief()
