@@ -37,12 +37,12 @@ def morning_row(events):
 
 
 def assert_reconciled(out):
-    assert "action suspended" in out or "reported suspended or called off" in out
+    assert any(w in out for w in ("action suspended", "suspension unverified", "reported suspended"))
     assert "announced, not started" not in out and "Announced disruption" not in out and "announced and not yet started" not in out
     assert "actual service disruption" not in out
     for line in out.splitlines():                          # earlier notices appear only when labelled as replaced
         if PLANNED_A in line or PLANNED_B in line:
-            assert "Replaces earlier notice" in line, line
+            assert "Replaces earlier notice" in line or "Earlier notice, may no longer be current" in line, line
 
 
 def test_evening_after_the_morning_carried_the_disruption():
@@ -90,3 +90,27 @@ def test_a_later_announcement_is_not_closed_by_an_older_suspension():
                   ABC + "27/new-strike-nsw/107431000")
     out = text(ea.assess_morning([S, later], None, now=EVENING))
     assert "announced, not started" in out and "Replaces earlier notice" not in out
+
+
+# The exact 27 November evening entries, including the production misspelling. The earlier notice is given without a summary.
+PRODUCTION = "NSW train strike suspended at eleveth hour"
+
+
+@pytest.mark.parametrize("source,summary,words", [
+    ("ABC News", B["summary"], "action suspended"),
+    ("ABC News", "", "action suspended"),
+    ("Google News: transport", "", "suspension unverified"),
+])
+def test_production_entries_of_27_november(source, summary, words):
+    suspension = {**event(8, PRODUCTION, datetime(2026, 11, 26, 11, 0, tzinfo=timezone.utc), "https://example.com.au/rail"),
+                  "source": source}
+    events = [A, {**B, "summary": summary}, suspension]
+    sections = dict(ea.assess(events, morning_row(events), now=EVENING))
+    out = text(sections.items())
+    assert_reconciled(out)
+    national = "\n".join(sections["3. NATIONAL AND SYSTEMIC RESILIENCE (Australia)"])
+    assert f"{words}: {PRODUCTION}" in national and PLANNED_A in national and PLANNED_B in national
+    assert [w for w in sections["7. OVERNIGHT WATCH"] if "train" in w.lower() and not w.startswith("- Resumption:")] == []
+    if words == "suspension unverified":
+        assert "may no longer be current" in out and "no longer current):" not in out
+        assert "whether the announced disruption still applies" in out
