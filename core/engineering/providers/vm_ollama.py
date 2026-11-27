@@ -18,6 +18,8 @@ import os
 import urllib.error
 import urllib.request
 
+from core.security import personal_data_policy
+
 log = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "qwen2.5-coder:7b"
@@ -53,6 +55,7 @@ def call(prompt: str, model: str | None = None) -> tuple[str, str]:
     """
     resolved_model = model or os.getenv("OLLAMA_ENGINEERING_MODEL", DEFAULT_MODEL)
     base = _base_url()
+    personal_data_policy.assert_local_target(base, resolved_model, route="engineering (VM Ollama)")
     url = f"{base}/api/generate"
 
     payload = json.dumps({

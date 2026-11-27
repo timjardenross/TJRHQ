@@ -68,6 +68,18 @@ SAMPLE_WORK_QUEUE = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _workload_authorised(monkeypatch):
+    """These tests exercise provider behaviour behind workload authorisation."""
+    from core.security import personal_data_policy
+
+    class _Every(frozenset):
+        def __contains__(self, item):
+            return True
+
+    monkeypatch.setattr(personal_data_policy, "AUTHORISED_HOSTED_WORKLOADS", _Every())
+
+
 def _make_context(mission_id: str = "USS-TJR-MSN-0048") -> MissionContext:
     item = next((i for i in SAMPLE_WORK_QUEUE["items"] if i["mission_id"] == mission_id), None)
     if item is None:

@@ -561,3 +561,47 @@ def test_shared_provider_chain_refuses_without_authorisation(nothing_authorised,
     with pytest.raises(pdp.ExternalEgressBlockedError):
         provider_chain.screen_outbound("", PUBLIC)
     assert out.external == []
+
+
+
+# ── Engineering providers ────────────────────────────────────────────────────
+
+def test_engineering_providers_are_screened_and_fail_closed(monkeypatch, out):
+    from core.engineering.providers import _oai_compat, gemini, glm
+
+    glm.call(PUBLIC)
+    gemini.call(PUBLIC)
+    _oai_compat.chat("https://provider.example/v1", "synthetic", "m", PUBLIC)
+    assert len(out.external) == 3 and "Jane Public" not in out.text()
+    out.external.clear()
+    _guard_down(monkeypatch)
+    for call in (lambda: glm.call(PUBLIC), lambda: gemini.call(PUBLIC),
+                 lambda: _oai_compat.chat("https://provider.example/v1", "synthetic", "m", PUBLIC)):
+        with pytest.raises(GuardrailsUnavailableError):
+            call()
+    assert out.external == []
+
+def test_engineering_text_is_never_sent_without_authorisation(nothing_authorised, out, monkeypatch):
+    from core.engineering.providers import _oai_compat, gemini, glm, mistral_batch, mistral_batch_api
+    monkeypatch.setenv("GEMINI_API_KEY", "synthetic")
+    monkeypatch.setenv("GLM_API_KEY", "synthetic")
+    monkeypatch.setenv("MISTRAL_API_KEY", "synthetic")
+    attempts = [
+        lambda: gemini.call(GOVERNANCE),
+        lambda: glm.call(GOVERNANCE),
+        lambda: mistral_batch_api.complete(GOVERNANCE),
+        lambda: mistral_batch.call(GOVERNANCE),
+        lambda: mistral_batch_api.submit([{"custom_id": "1", "body": {"messages": [{"role": "user", "content": GOVERNANCE}]}}],
+                                         client=object()),
+    ]
+    for attempt in attempts:
+        with pytest.raises(Exception, match="authorised|blocked|Blocked"):
+            attempt()
+    assert out.external == []
+
+
+def test_vm_ollama_refuses_a_cloud_tagged_model(out):
+    from core.engineering.providers import vm_ollama
+    with pytest.raises(pdp.ExternalEgressBlockedError):
+        vm_ollama.call(GOVERNANCE, model="synthetic:cloud")
+    assert out.external == []
