@@ -977,6 +977,22 @@ def _morning_pool(items: list[Item], now: datetime) -> list[Item]:
     return [i for i in items if _material(i) and ((i.view.last_seen and i.view.last_seen >= cutoff) or (i.carried and (i.unresolved or i.planned)))]
 
 
+def _already_reported(items: list[Item], evening: MorningRecord, events: list[dict]) -> None:
+    """The evening brief is the last thing put before the reader. An item it already named is not new or newly changed this morning:
+    without later reporting it is unchanged, and an item it introduced that has later reporting is an update."""
+    collected = {str(e.get("id")): _when(e.get("collected_at")) for e in events}
+    for i in items:
+        ids = [str(r) for r in i.view.report_ids]
+        if i.state not in CHANGE_STATES + (REPORTING,) or not (i.view.incident_id in evening.incident_ids
+                                                              or any(r[:8] in evening.report_ids for r in ids)):
+            continue
+        if not any((t := collected.get(r)) and t > evening.generated_at for r in ids):
+            i.state = UNCHANGED
+        elif i.state == NEW:
+            i.state = ESCALATING if _worse(i.view, evening, collected) else UPDATED
+        i.carried = i.known_before = True
+
+
 def _morning_entry(i: Item, pirs: list) -> list[str]:
     v = i.view
     change = "" if i.state == NOT_COMPARED else "no new reporting since the previous brief; " if i.state == UNCHANGED else f"{i.state}; "
@@ -1012,13 +1028,19 @@ def _patterns(pool: list[Item]) -> list[str]:
 
 def assess_morning(events: list[dict], previous_row: dict | None, *, now: datetime | None = None, caveat: str | None = None,
                    coverage: list[str] | None = None, limitations: list[str] | None = None,
-                   retained: list[str] | None = None, judgements: list[str] | None = None) -> list[tuple[str, list[str]]]:
+                   retained: list[str] | None = None, judgements: list[str] | None = None,
+                   evening_row: dict | None = None) -> list[tuple[str, list[str]]]:
     """Return [(heading, lines)] for the morning product. ``previous_row``: the last stored morning brief before today, or None.
     Deterministic: no model call, no capacity input.
+    ``evening_row``: the last stored evening brief; used only when it is later than ``previous_row``.
     ``judgements``: ready-made section 2 lines (intelligence.judgement_brief); None keeps the "not available" statement."""
     now = now or datetime.now(timezone.utc)
     previous = parse_morning(previous_row)
     items = build_items(events, previous, now)
+    evening = parse_morning(evening_row)
+    if previous and evening and evening.generated_at > previous.generated_at:
+        _already_reported(items, evening, events)
+        items.sort(key=_rank)
     pool = _morning_pool(items, now)
     pirs = req.load_pirs()
     shown = [i for area in ("national", "professional", "international") for i in [x for x in pool if x.area == area][:MORNING_SECTION_LIMIT]]
@@ -1053,6 +1075,10 @@ def assess_morning(events: list[dict], previous_row: dict | None, *, now: dateti
     lead = min([i for i in local if not i.is_forecast], key=lambda i: (0 if i.is_disruption else 1, _rank(i)), default=None)
     if lead:
         bluf.append(f"- Most decision-relevant: {_short_headline(lead.view.headline, 100)} ({_claim(lead).lower()}). {_decision(lead).capitalize()}.")
+    elif local:                                        # every material Australian item is a forecast: say so, do not report none
+        first = min(local, key=_rank)
+        bluf.append(f"- No Australian event or disruption met the materiality bar; material Australian reporting is forecast only: "
+                    f"{_short_headline(first.view.headline, 100)} (forecast, not an incident). This is not an all-clear.")
     else:
         bluf.append("- No Australian development met the materiality bar in collected reporting. This is not an all-clear.")
     if decisions:

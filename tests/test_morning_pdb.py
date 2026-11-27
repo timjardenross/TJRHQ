@@ -83,6 +83,7 @@ def _stub_brief(monkeypatch, events):
     monkeypatch.setattr(cb, "_get_recent_signals", lambda **kw: [])
     monkeypatch.setattr(cb, "_get_latest_ori_brief", lambda: None)
     monkeypatch.setattr(cb, "_get_previous_morning_record", lambda: None)
+    monkeypatch.setattr(cb, "_get_previous_evening_record", lambda: None)
     monkeypatch.setattr(cb, "_morning_gap", lambda: __import__("intelligence.brief_reliability", fromlist=["x"]).get_gap(lambda *a: [], "2026-11-26"))
     monkeypatch.setattr(be, "load_events", lambda sb_get, **kw: events)
 
@@ -182,3 +183,49 @@ def test_existing_product_findings_are_retained_and_branding_is_tjrhq(monkeypatc
     text = cb.generate_morning_brief()
     assert "&lt;retained finding&gt;" in text and "TJRHQ" in text
     assert "Starship" not in text and "Stardate" not in text
+
+
+FORECAST_TITLE = "Severe heatwave and extreme bushfire danger forecast across Victoria and South Australia this weekend"
+FORECAST = event(7, FORECAST_TITLE, MORNING + timedelta(hours=6))
+
+
+def _evening_row(events):
+    sections = ea.assess(events, None, now=EVENING)
+    return {"brief_text": text_of(sections), "generated_at": EVENING.isoformat()}
+
+
+def _next_morning(events, evening_row):
+    previous = {"brief_text": text_of(ea.assess_morning([OUTAGE], None, now=MORNING)), "generated_at": MORNING.isoformat()}
+    return dict(ea.assess_morning(events, previous, now=MORNING + timedelta(days=1), evening_row=evening_row))
+
+
+def test_forecast_only_bottom_line_does_not_contradict_the_material_count():
+    bluf = "\n".join(dict(ea.assess_morning([FORECAST], None, now=MORNING + timedelta(days=1)))["1. EXECUTIVE BOTTOM LINE"])
+    assert "Material items: 1 Australian" in bluf
+    assert "No Australian development met the materiality bar" not in bluf
+    assert "forecast, not an incident" in bluf and "not an all-clear" in bluf
+
+
+def test_item_already_in_the_evening_brief_is_not_new_next_morning():
+    events = [OUTAGE, FORECAST]
+    row = _evening_row(events)
+    assert "inc-" in row["brief_text"]
+    without = "\n".join(_next_morning(events, None)["6. MATERIAL CHANGES AND EMERGING PATTERNS"])
+    assert "NEW: Severe heatwave" in without                     # the defect: only the previous morning is compared
+    sections = _next_morning(events, row)
+    assert "NEW: Severe heatwave" not in "\n".join(sections["6. MATERIAL CHANGES AND EMERGING PATTERNS"])
+    assert "no new reporting since the previous brief" in "\n".join(sections["3. NATIONAL AND SYSTEMIC RESILIENCE"])
+
+
+def test_reporting_after_the_evening_brief_is_an_update_not_new():
+    row = _evening_row([OUTAGE, FORECAST])
+    later = event(8, FORECAST_TITLE, EVENING + timedelta(hours=3), source="The Age")
+    sections = _next_morning([OUTAGE, FORECAST, later], row)
+    assert "NEW: Severe heatwave" not in "\n".join(sections["6. MATERIAL CHANGES AND EMERGING PATTERNS"])
+    assert f"{ea.UPDATED}; FORECAST" in "\n".join(sections["3. NATIONAL AND SYSTEMIC RESILIENCE"])
+
+
+def test_item_absent_from_the_evening_brief_stays_new_and_an_older_evening_is_ignored():
+    events = [OUTAGE, FORECAST]
+    for row in (_evening_row([OUTAGE]), dict(_evening_row(events), generated_at=(MORNING - timedelta(hours=13)).isoformat())):
+        assert "NEW: Severe heatwave" in "\n".join(_next_morning(events, row)["6. MATERIAL CHANGES AND EMERGING PATTERNS"])
