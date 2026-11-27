@@ -582,7 +582,12 @@ def test_engineering_providers_are_screened_and_fail_closed(monkeypatch, out):
     assert out.external == []
 
 def test_engineering_text_is_never_sent_without_authorisation(nothing_authorised, out, monkeypatch):
-    from core.engineering.providers import _oai_compat, gemini, glm, mistral_batch, mistral_batch_api
+    from core.engineering.providers import (
+        gemini,
+        glm,
+        mistral_batch,
+        mistral_batch_api,
+    )
     monkeypatch.setenv("GEMINI_API_KEY", "synthetic")
     monkeypatch.setenv("GLM_API_KEY", "synthetic")
     monkeypatch.setenv("MISTRAL_API_KEY", "synthetic")
