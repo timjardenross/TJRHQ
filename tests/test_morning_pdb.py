@@ -55,7 +55,7 @@ def test_judgements_stated_unavailable_and_no_change_claimed_without_a_previous_
 
 def test_quiet_collection_is_not_an_all_clear():
     text = text_of(ea.assess_morning([event(3, "Council opens new library", MORNING - timedelta(hours=1))], None, now=MORNING))
-    assert "not an all-clear" in text and "Material items: 0 Australian, 0 international" in text
+    assert "not an all-clear" in text and "Material items: 0 Australian incident(s) or development(s), 0 Australian forecast(s)" in text
 
 
 def test_evening_assessment_reads_this_morning_product():
@@ -201,7 +201,7 @@ def _next_morning(events, evening_row):
 
 def test_forecast_only_bottom_line_does_not_contradict_the_material_count():
     bluf = "\n".join(dict(ea.assess_morning([FORECAST], None, now=MORNING + timedelta(days=1)))["1. EXECUTIVE BOTTOM LINE"])
-    assert "Material items: 1 Australian" in bluf
+    assert "0 Australian incident(s) or development(s), 1 Australian forecast(s)" in bluf
     assert "No Australian development met the materiality bar" not in bluf
     assert "forecast, not an incident" in bluf and "not an all-clear" in bluf
 
@@ -229,3 +229,119 @@ def test_item_absent_from_the_evening_brief_stays_new_and_an_older_evening_is_ig
     events = [OUTAGE, FORECAST]
     for row in (_evening_row([OUTAGE]), dict(_evening_row(events), generated_at=(MORNING - timedelta(hours=13)).isoformat())):
         assert "NEW: Severe heatwave" in "\n".join(_next_morning(events, row)["6. MATERIAL CHANGES AND EMERGING PATTERNS"])
+
+
+# ── 28 November corrections: classification, counts, continuity baseline ───────
+
+E1 = MORNING + timedelta(hours=11)          # 18:00 the same day
+M2 = MORNING + timedelta(hours=24)          # 07:00 the next day
+NIGHT = E1 + timedelta(hours=6)
+FIRE = "Emergency warning as out of control bushfire threatens homes near Ballarat"
+BACK = "Telstra mobile service restored for customers in Victoria after outage"
+
+
+def sequence(events):
+    """07:00 brief, 18:00 evening brief, next 07:00 brief; each built only from what had been collected by then."""
+    def upto(t):
+        return [e for e in events if datetime.fromisoformat(e["collected_at"]) <= t]
+    first = {"brief_text": text_of(ea.assess_morning(upto(MORNING), None, now=MORNING)), "generated_at": MORNING.isoformat()}
+    evening = {"brief_text": text_of(ea.assess(upto(E1), first, now=E1)), "generated_at": E1.isoformat()}
+    return evening["brief_text"], dict(ea.assess_morning(upto(M2), first, now=M2, evening_row=evening))
+
+
+def block(sections, prefix):
+    return "\n".join(next(body for heading, body in sections.items() if heading.startswith(prefix)))
+
+
+def changed(sections):
+    return block(sections, "6.").split("Patterns:")[0]
+
+
+def test_current_hazard_is_not_called_a_forecast():
+    sections = dict(ea.assess_morning([event(30, FIRE, M2 - timedelta(hours=2))], None, now=M2))
+    bluf = block(sections, "1.")
+    assert "1 Australian incident(s) or development(s), 0 Australian forecast(s)" in bluf
+    assert "current hazards: 1" in bluf and "service disruptions open: 0" in bluf
+    assert "forecast only" not in bluf and "met the materiality bar" not in bluf
+    assert "(current hazard; " in block(sections, "3.")
+    stored = ea.parse_morning({"brief_text": text_of(list(sections.items())), "generated_at": M2.isoformat()})
+    assert [state for _, state in stored.entries.values()] == ["current hazard"]     # the evening brief can read it back
+
+
+def test_forecasts_are_counted_apart_from_incidents_and_disruptions():
+    events = [event(7, FORECAST_TITLE, M2 - timedelta(hours=5)), event(31, OUTAGE["title"], M2 - timedelta(hours=3))]
+    bluf = block(dict(ea.assess_morning(events, None, now=M2)), "1.")
+    assert "1 Australian incident(s) or development(s), 1 Australian forecast(s)" in bluf
+    assert "service disruptions open: 1" in bluf and "current hazards: 0" in bluf
+    assert "Most decision-relevant: Telstra outage" in bluf
+
+
+def test_full_sequence_forecast_outage_and_overnight_item():
+    events = [OUTAGE, event(7, FORECAST_TITLE, MORNING + timedelta(hours=4)),
+              event(32, "Westpac outage leaves customers unable to access banking services", NIGHT)]
+    evening, sections = sequence(events)
+    assert "Severe heatwave" in evening
+    assert "NEW: Severe heatwave" not in changed(sections) and "NEW: Westpac" in changed(sections)
+    assert "1 Australian forecast(s)" in block(sections, "1.")
+
+
+@pytest.mark.parametrize("first_reported", [MORNING + timedelta(hours=3), MORNING - timedelta(hours=2)],
+                         ids=["first_reported_at_18", "open_at_07"])
+def test_overnight_restoration_is_a_material_change(first_reported):
+    _, sections = sequence([event(1, OUTAGE["title"], first_reported), event(33, BACK, NIGHT, source="The Age")])
+    assert "RESOLVED: " in changed(sections)
+
+
+@pytest.mark.parametrize("overnight", [
+    "Telstra mobile outage continues in Victoria as customers still without service",
+    "Telstra outage returns, thousands of customers in Victoria without mobile service again",
+])
+def test_failure_after_an_evening_restoration_is_deterioration(overnight):
+    _, sections = sequence([OUTAGE, event(34, BACK, MORNING + timedelta(hours=5), source="The Age"), event(35, overnight, NIGHT, source="Nine")])
+    assert "DETERIORATING: " in changed(sections)
+    assert "service disruptions open: 1" in block(sections, "1.")
+
+
+def test_more_reporting_of_the_same_status_is_not_a_change():
+    _, sections = sequence([OUTAGE, event(34, BACK, MORNING + timedelta(hours=5), source="The Age"),
+                            event(36, "Telstra says Victoria mobile service restored after outage", NIGHT, source="Nine")])
+    assert "RESOLVED" not in changed(sections) and "DETERIORATING" not in changed(sections)
+
+
+def test_an_id_only_mention_is_not_substantive_reporting():
+    events = [OUTAGE, event(7, FORECAST_TITLE, MORNING + timedelta(hours=4))]
+    first = {"brief_text": text_of(ea.assess_morning([OUTAGE], None, now=MORNING)), "generated_at": MORNING.isoformat()}
+    inc = next(i for i in ea.build_items(events, None, M2) if "heatwave" in i.view.headline).view.incident_id
+    only_id = {"brief_text": f"- New: 1 [{inc}] #00000007", "generated_at": E1.isoformat()}
+    sections = dict(ea.assess_morning(events, first, now=M2, evening_row=only_id))
+    assert "NEW: Severe heatwave" in changed(sections)
+
+
+def test_a_downgraded_hazard_is_not_current_and_is_reported_as_a_change():
+    events = [event(30, FIRE, MORNING + timedelta(hours=3)),
+              event(37, "Emergency warning near Ballarat bushfire downgraded as homes no longer under threat", NIGHT, source="The Age")]
+    _, sections = sequence(events)
+    assert "current hazards: 0" in block(sections, "1.")
+    assert "IMPROVING: " in changed(sections)
+
+
+@pytest.mark.parametrize("title,state", [
+    ("Telstra outage returns, thousands of customers in Victoria without mobile service again", "ongoing"),
+    ("Telstra mobile service returns for customers in Victoria after outage", "restored"),
+])
+def test_recurrence_wording_reopens_a_restored_service(title, state):
+    events = [OUTAGE, event(34, BACK, MORNING + timedelta(hours=5), source="The Age"), event(38, title, NIGHT, source="Nine")]
+    found = {i.restoration for i in ea.build_items(events, None, M2)}
+    assert found == {state}
+
+
+def test_another_operators_outage_is_not_folded_into_one_reported_last_evening():
+    banks = [("Westpac", "Ballarat"), ("NAB", "Bendigo"), ("ANZ", "Geelong"), ("Macquarie", "Sale"), ("Suncorp", "Horsham")]
+    events = [event(60 + n, f"{b} outage leaves customers in {t} unable to access banking services", MORNING + timedelta(hours=1 + n / 2))
+              for n, (b, t) in enumerate(banks)]
+    evening = {"brief_text": text_of(ea.assess(events[:2], None, now=E1)), "generated_at": E1.isoformat()}
+    first = {"brief_text": text_of(ea.assess_morning([OUTAGE], None, now=MORNING)), "generated_at": MORNING.isoformat()}
+    latest = ea.parse_morning(evening)
+    items = ea.build_items(events, ea.parse_morning(first), M2, latest=latest)
+    alone = ea.build_items(events, ea.parse_morning(first), M2)
+    assert sorted(i.view.incident_id for i in items) == sorted(i.view.incident_id for i in alone)

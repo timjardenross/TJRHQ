@@ -48,6 +48,8 @@ UNCHANGED = "CONTINUING, no new reporting"
 NOT_COMPARED = "NOT COMPARED"
 REPORTING = "NEW REPORTING, currency not verified"   # never counted as a change: the event may be old
 CHANGE_STATES = (DETERIORATING, ESCALATING, NEW, RESOLVED, IMPROVING, STRENGTHENED)
+_STATUS_CHANGES = (DETERIORATING, RESOLVED, IMPROVING)
+_CHANGE_ORDER = (DETERIORATING, RESOLVED, IMPROVING, ESCALATING, NEW, STRENGTHENED)    # what is listed first when the list is capped
 
 _PRIORITY_RANK = {"REFERENCE": 0, "WATCH": 1, "VERIFY": 2, "ESCALATE": 3}
 _EVIDENCE_RANK = {"unverified": 0, "reported": 1, "corroborated": 2, "officially_confirmed": 3}
@@ -149,7 +151,7 @@ class MorningRecord:
     caveat: str | None = None
 
 
-_ENTRY_RX = re.compile(r"^- (.+) \((ongoing|partially restored|restored|current status unknown|announced, not started|action suspended|suspension unverified|forecast, not an incident|currency not verified|no restoration status); \d+ reports; (inc-[0-9a-f]{10})\)", re.MULTILINE)
+_ENTRY_RX = re.compile(r"^- (.+) \((ongoing|partially restored|restored|current status unknown|current hazard|hazard downgraded or contained|hazard, currency not verified|announced, not started|action suspended|suspension unverified|forecast, not an incident|currency not verified|no restoration status); \d+ reports; (inc-[0-9a-f]{10})\)", re.MULTILINE)
 
 
 # The untiered Morning V1 line: "- [TAG] headline — facts; confidence [inc-xxxxxxxxxx; ...]".
@@ -199,6 +201,8 @@ class Item:
         return [s for s in self.view.record.get("critical_service_dependencies") or [] if s in _SECTOR_NAMES]
 
     foreign_indicator: bool = False
+    hazard: str = ""             # "" | current | ended | stale (``_hazard_state``)
+    quiet_since_morning: bool = False    # in the morning brief, nothing collected since: the only items a follow-up may be joined to
     stood_down: bool = False     # the latest reporting says the announced industrial action was suspended or called off
     supersedes: tuple = ()       # headlines of the earlier notices this reporting replaces
 
@@ -209,6 +213,8 @@ class Item:
             return "suspension unverified" if self.view.evidence_status == "unverified" else "action suspended"
         if self.planned:
             return "announced, not started"
+        if self.hazard:
+            return _HAZARD_WORDS[self.hazard]
         if self.is_forecast:
             return "forecast, not an incident"
         if self.currency_unverified:
@@ -219,7 +225,7 @@ class Item:
 
     @property
     def is_forecast(self) -> bool:
-        if self.stood_down:
+        if self.stood_down or self.hazard:
             return False
         if self.view.event_type == "hazard" and _HAZARD_OUTLOOK_RX.search(self.view.headline):
             return True
@@ -285,6 +291,33 @@ def _leading_indicator(view: be.IncidentView) -> bool:
             and bool(set(view.record.get("critical_service_dependencies") or []) & _LEADING_SECTORS))
 
 
+# A hazard happening now is not a forecast. Headline wording only; the latest report that says either way decides.
+_HAZARD_NOW_RX = re.compile(r"\b(?:emergency warnings?|watch and act|out of control|evacuate (?:now|immediately)|leave now|too late to leave|"
+                            r"threaten(?:s|ing) (?:\w+ ){0,2}?(?:homes|lives|properties))\b", re.IGNORECASE)
+_HAZARD_AHEAD_RX = re.compile(r"\b(?:forecast|outlook|expected|could|may|might|likely|predicted|possible)\b(?:\s+\w+){0,3}?\s+"
+                              r"(?:emergency warnings?|watch and act|out of control)\b", re.IGNORECASE)
+_HAZARD_NOT_OVER_RX = re.compile(r"\b(?:not|yet to be|still not)\s+(?:yet\s+)?(?:contained|under control|downgraded|lifted)\b", re.IGNORECASE)
+_HAZARD_OVER_RX = re.compile(r"\b(?:downgraded|all.clear|warnings? (?:lifted|cancelled)|contained|under control|extinguished)\b", re.IGNORECASE)
+HAZARD_CURRENT_HOURS = 24
+_HAZARD_WORDS = {"current": "current hazard", "ended": "hazard downgraded or contained", "stale": "hazard, currency not verified"}
+
+
+def _hazard_state(view, now: datetime) -> str:
+    """"" (not a hazard happening now or since), "current", "ended", or "stale" (reported as happening, nothing recent)."""
+    if view.event_type != "hazard":
+        return ""
+    reports = sorted(view.reports, key=_reported_at, reverse=True)
+    for n, r in enumerate(reports):
+        title = str(r.get("title") or "")
+        happening = bool(_HAZARD_NOW_RX.search(title)) and not _HAZARD_AHEAD_RX.search(title)
+        if _HAZARD_OVER_RX.search(_HAZARD_NOT_OVER_RX.sub(" ", title)):
+            earlier = any(_HAZARD_NOW_RX.search(str(x.get("title") or "")) for x in reports[n + 1:])
+            return "ended" if earlier or happening else ""
+        if happening:
+            return "current" if now - _reported_at(r) <= timedelta(hours=HAZARD_CURRENT_HOURS) else "stale"
+    return ""
+
+
 # Reporting about one person's alleged conduct, and sport, is not resilience intelligence unless an essential service is affected.
 # Headline wording only: a narrow exclusion that will miss other phrasings, not a relevance or privacy control.
 _PERSON_ROLE_RX = re.compile(r"\b(?:teacher|principal|doctor|nurse|paramedic|officer|worker|employee|coach|player|priest|councillor|man|woman)(?:'s)?\b",
@@ -307,6 +340,8 @@ def _material(i: Item) -> bool:
     if _out_of_scope(v):
         return False
     if i.supersedes and i.area != "other":     # replaces a notice that would otherwise have been shown
+        return True
+    if i.carried and i.state in _STATUS_CHANGES and i.area != "other":    # a change of status to something already reported
         return True
     if i.area == "other" or v.impact_status == "retrospective" and not i.carried:
         return False
@@ -393,7 +428,7 @@ def _link_continuations(items: list[Item], morning: MorningRecord, collected: di
     dropped: set = set()
     for new in [i for i in items if i.state == NEW]:
         for old in items:
-            if (old.carried and old.state == UNCHANGED and id(old) not in dropped and set(old.sectors) & set(new.sectors)
+            if (old.quiet_since_morning and old.state == UNCHANGED and id(old) not in dropped and set(old.sectors) & set(new.sectors)
                     and len(_words(old.view) & _words(new.view)) >= 3):
                 headline = old.view.headline
                 new.carried, new.known_before, new.continues = True, True, headline
@@ -481,31 +516,55 @@ def _item(view, state: str, restoration: str, carried: bool, known_before: bool)
     return Item(view, state, restoration, carried, known_before, "international" if indicator else area, foreign_indicator=indicator)
 
 
-def build_items(events: list[dict], morning: MorningRecord | None, now: datetime) -> list[Item]:
+def _printed(record: MorningRecord, view) -> bool:
+    """The brief stated this item's headline. An incident or report id on its own (a count, a list of ids) is not reporting."""
+    text = " ".join(record.text.split())
+    return any(len(t) >= 15 and t[:60] in text for r in view.reports if (t := " ".join(str(r.get("title") or "").split())))
+
+
+def build_items(events: list[dict], morning: MorningRecord | None, now: datetime, latest: MorningRecord | None = None) -> list[Item]:
+    """``morning``: the morning brief compared against. ``latest``: a later published assessment (yesterday evening's); an item whose
+    headline it stated is compared with what was true then instead."""
     views, restoration = _views(events, now)
-    before: dict = {}
-    if morning:
-        earlier = [e for e in events if (t := _when(e.get("collected_at"))) and t <= morning.generated_at]
-        b_views, b_rest = _views(earlier, morning.generated_at)
-        for v in b_views:
-            for rid in v.report_ids:
-                before[rid] = (v, _restoration_of(v, b_rest))
+    latest = latest if latest and morning and latest.generated_at > morning.generated_at else None
     collected = {str(e.get("id")): _when(e.get("collected_at")) for e in events}
+
+    def snapshot(record):
+        earlier = [e for e in events if (t := _when(e.get("collected_at"))) and t <= record.generated_at]
+        b_views, b_rest = _views(earlier, record.generated_at)
+        return {rid: (v, _restoration_of(v, b_rest)) for v in b_views for rid in v.report_ids}
+
+    before = {record.generated_at: snapshot(record) for record in (morning, latest) if record}
     items = []
     for v in views:
         rest = _restoration_of(v, restoration)
+        hazard = _hazard_state(v, now)
         if not morning:
-            items.append(_item(v, NOT_COMPARED, rest, False, False))
+            item = _item(v, NOT_COMPARED, rest, False, False)
+            item.hazard = hazard
+            items.append(item)
             continue
         ids = [str(r) for r in v.report_ids]
-        carried = v.incident_id in morning.incident_ids or any(r[:8] in morning.report_ids for r in ids)
-        known = carried or any((t := collected.get(r)) and t <= morning.generated_at for r in ids)
-        fresh = any((t := collected.get(r)) and t > morning.generated_at for r in ids)
-        prior = next((before[r] for r in ids if r in before), None)
-        state = _lifecycle(v, rest, known, fresh, prior, morning.entries.get(v.incident_id))
-        if state == UPDATED and _worse(v, morning, collected):
+        stated = bool(latest and _printed(latest, v))
+        base = latest if stated else morning
+        carried = stated or v.incident_id in morning.incident_ids or any(r[:8] in morning.report_ids for r in ids)
+        known = carried or any((t := collected.get(r)) and t <= base.generated_at for r in ids)
+        fresh = any((t := collected.get(r)) and t > base.generated_at for r in ids)
+        prior = next((before[base.generated_at][r] for r in ids if r in before[base.generated_at]), None)
+        state = _lifecycle(v, rest, known, fresh, prior, base.entries.get(v.incident_id))
+        if prior and fresh and state not in _STATUS_CHANGES:
+            was = _hazard_state(prior[0], base.generated_at)
+            if hazard == "current" and was != "current":
+                state = ESCALATING
+            elif hazard == "ended" and was != "ended":
+                state = IMPROVING
+        if state == UPDATED and _worse(v, base, collected):
             state = ESCALATING
-        items.append(_item(v, state, rest, carried, known))
+        item = _item(v, state, rest, carried, known)
+        item.hazard = hazard
+        in_morning = v.incident_id in morning.incident_ids or any(r[:8] in morning.report_ids for r in ids)
+        item.quiet_since_morning = in_morning and not any((t := collected.get(r)) and t > morning.generated_at for r in ids)
+        items.append(item)
     if morning:
         items = _link_continuations(items, morning, collected)
         for i in items:
@@ -534,6 +593,10 @@ def _claim(i: Item) -> str:
     v = i.view
     if i.is_forecast:
         return "FORECAST"
+    return f"{_HAZARD_WORDS[i.hazard]}; {_basis(v)}" if i.hazard else _basis(v)
+
+
+def _basis(v) -> str:
     if v.evidence_status == "officially_confirmed":
         return "FACT, officially confirmed"
     if v.evidence_status == "corroborated":
@@ -542,6 +605,9 @@ def _claim(i: Item) -> str:
 
 
 def _kind(i: Item) -> str:
+    if i.hazard:
+        return {"current": "current hazard; no service disruption established", "ended": "hazard reported downgraded or contained",
+                "stale": "hazard reported earlier, currency not verified"}[i.hazard]
     if i.is_forecast:
         return "warning or forecast, not an incident"
     if i.view.event_type == "vulnerability" or i.view.impact_status == "potential":
@@ -835,6 +901,10 @@ def _confidence(material: list[Item], morning, since_count: int, caveat: str | N
     return "LOW TO MODERATE (no material item is officially confirmed or corroborated)" if material else "MODERATE (coverage of collected sources only)"
 
 
+def _lead_order(i: Item) -> int:
+    return 0 if i.is_disruption else 1 if i.hazard == "current" else 2
+
+
 def _bottom_line(material: list[Item], morning, since_count: int, carried_forward: int, confidence: str,
                  decisions: list[PolicyItem]) -> list[str]:
     if not morning:
@@ -852,7 +922,9 @@ def _bottom_line(material: list[Item], morning, since_count: int, carried_forwar
     open_au = [i for i in material if i.unresolved and i.area in ("national", "professional")]
     unconfirmed = sum(1 for i in open_au if i.view.evidence_status not in _FIRM)
     local = [i for i in material if i.area in ("national", "professional")]
-    pending = [f"{n} {words}" for n, words in ((sum(1 for i in local if i.planned), "announced and not yet started"),
+    pending = [f"{n} {words}" for n, words in ((sum(1 for i in local if i.hazard == "current"), "current hazard(s)"),
+                                             (sum(1 for i in local if i.is_forecast), "forecast(s), not incidents"),
+                                             (sum(1 for i in local if i.planned), "announced and not yet started"),
                                              (sum(1 for i in local if i.currency_unverified), "reported but not verified as current")) if n]
     lines.append(f"- Australian service disruptions still open: {len(open_au)}" + (f" ({unconfirmed} not yet confirmed)" if unconfirmed else "") + (f"; also {', '.join(pending)}" if pending else "")
                  + (f"; {carried_forward} item(s) from this morning not otherwise covered (section 6)" if carried_forward else "") + ".")
@@ -860,7 +932,7 @@ def _bottom_line(material: list[Item], morning, since_count: int, carried_forwar
         lines.append(f"- Regulatory: {_short_headline(decisions[0].title, 100)}"
                      + (f" (+{len(decisions) - 1} more, section 4)." if len(decisions) > 1 else "."))
     australian = [i for i in material if i.area in ("national", "professional") and not i.is_forecast]
-    lead = min(australian, key=lambda i: (0 if i.is_disruption else 1, _rank(i)), default=material[0] if material else None)
+    lead = min(australian, key=lambda i: (_lead_order(i), _rank(i)), default=material[0] if material else None)
     if lead:
         lines.append(f"- Most decision-relevant: {_short_headline(lead.view.headline, 100)} ({_claim(lead).lower()}). {_decision(lead).capitalize()}.")
     lines.append(f"- Overall confidence: {confidence}.")
@@ -890,7 +962,7 @@ def assess(events: list[dict], morning_row: dict | None, *, now: datetime | None
     if not morning:
         changes = ["- Not assessed: there is no comparable morning record, so nothing is labelled new or changed."]
     else:
-        changed = [i for i in material if i.state in CHANGE_STATES]
+        changed = sorted((i for i in material if i.state in CHANGE_STATES), key=lambda i: _CHANGE_ORDER.index(i.state))
         changes = [f"- {i.state}: {_short_headline(i.view.headline, 100)} [{i.view.incident_id}]" for i in changed[:CHANGE_LIMIT]]
         if len(changed) > CHANGE_LIMIT:
             changes.append(f"- {len(changed) - CHANGE_LIMIT} further change(s) not shown.")
@@ -977,22 +1049,6 @@ def _morning_pool(items: list[Item], now: datetime) -> list[Item]:
     return [i for i in items if _material(i) and ((i.view.last_seen and i.view.last_seen >= cutoff) or (i.carried and (i.unresolved or i.planned)))]
 
 
-def _already_reported(items: list[Item], evening: MorningRecord, events: list[dict]) -> None:
-    """The evening brief is the last thing put before the reader. An item it already named is not new or newly changed this morning:
-    without later reporting it is unchanged, and an item it introduced that has later reporting is an update."""
-    collected = {str(e.get("id")): _when(e.get("collected_at")) for e in events}
-    for i in items:
-        ids = [str(r) for r in i.view.report_ids]
-        if i.state not in CHANGE_STATES + (REPORTING,) or not (i.view.incident_id in evening.incident_ids
-                                                              or any(r[:8] in evening.report_ids for r in ids)):
-            continue
-        if not any((t := collected.get(r)) and t > evening.generated_at for r in ids):
-            i.state = UNCHANGED
-        elif i.state == NEW:
-            i.state = ESCALATING if _worse(i.view, evening, collected) else UPDATED
-        i.carried = i.known_before = True
-
-
 def _morning_entry(i: Item, pirs: list) -> list[str]:
     v = i.view
     change = "" if i.state == NOT_COMPARED else "no new reporting since the previous brief; " if i.state == UNCHANGED else f"{i.state}; "
@@ -1035,12 +1091,9 @@ def assess_morning(events: list[dict], previous_row: dict | None, *, now: dateti
     ``evening_row``: the last stored evening brief; used only when it is later than ``previous_row``.
     ``judgements``: ready-made section 2 lines (intelligence.judgement_brief); None keeps the "not available" statement."""
     now = now or datetime.now(timezone.utc)
-    previous = parse_morning(previous_row)
-    items = build_items(events, previous, now)
     evening = parse_morning(evening_row)
-    if previous and evening and evening.generated_at > previous.generated_at:
-        _already_reported(items, evening, events)
-        items.sort(key=_rank)
+    previous = parse_morning(previous_row) or evening
+    items = build_items(events, previous, now, latest=evening)
     pool = _morning_pool(items, now)
     pirs = req.load_pirs()
     shown = [i for area in ("national", "professional", "international") for i in [x for x in pool if x.area == area][:MORNING_SECTION_LIMIT]]
@@ -1069,15 +1122,21 @@ def assess_morning(events: list[dict], previous_row: dict | None, *, now: dateti
     unconfirmed = sum(1 for i in open_au if i.view.evidence_status not in _FIRM)
     planned = sum(1 for i in local if i.planned)
     unverified = sum(1 for i in local if i.currency_unverified)
-    bluf = [f"- Material items: {len(local)} Australian, {sum(1 for i in pool if i.area == 'international')} international.",
+    forecasts = sum(1 for i in local if i.is_forecast)
+    hazards = sum(1 for i in local if i.hazard == "current")
+    abroad = sum(1 for i in pool if i.area == "international")
+    counts = (f"- Material items: {len(local) - forecasts} Australian incident(s) or development(s), {forecasts} Australian forecast(s), "
+              f"{abroad} international item(s).")
+    bluf = [counts,
             f"- Australian service disruptions open: {len(open_au)}" + (f" ({unconfirmed} not yet confirmed)" if unconfirmed else "")
+            + f"; current hazards: {hazards}"
             + (f"; {planned} announced and not yet started" if planned else "") + (f"; {unverified} reported but not verified as current" if unverified else "") + "."]
-    lead = min([i for i in local if not i.is_forecast], key=lambda i: (0 if i.is_disruption else 1, _rank(i)), default=None)
+    lead = min([i for i in local if not i.is_forecast], key=lambda i: (_lead_order(i), _rank(i)), default=None)
     if lead:
         bluf.append(f"- Most decision-relevant: {_short_headline(lead.view.headline, 100)} ({_claim(lead).lower()}). {_decision(lead).capitalize()}.")
     elif local:                                        # every material Australian item is a forecast: say so, do not report none
         first = min(local, key=_rank)
-        bluf.append(f"- No Australian event or disruption met the materiality bar; material Australian reporting is forecast only: "
+        bluf.append(f"- No Australian incident, current hazard or service disruption met the materiality bar; material Australian reporting is forecast only: "
                     f"{_short_headline(first.view.headline, 100)} (forecast, not an incident). This is not an all-clear.")
     else:
         bluf.append("- No Australian development met the materiality bar in collected reporting. This is not an all-clear.")
@@ -1092,7 +1151,7 @@ def assess_morning(events: list[dict], previous_row: dict | None, *, now: dateti
     if not previous:
         changes = ["- Change cannot be assessed: there is no previous morning brief to compare against."]
     else:
-        changed = [i for i in pool if i.state in CHANGE_STATES]
+        changed = sorted((i for i in pool if i.state in CHANGE_STATES), key=lambda i: _CHANGE_ORDER.index(i.state))
         changes = [f"- {i.state}: {_short_headline(i.view.headline, 100)} [{i.view.incident_id}]" for i in changed[:CHANGE_LIMIT]]
         if len(changed) > CHANGE_LIMIT:
             changes.append(f"- {len(changed) - CHANGE_LIMIT} further change(s) not shown.")

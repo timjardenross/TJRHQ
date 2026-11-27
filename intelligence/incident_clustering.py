@@ -142,6 +142,12 @@ def restoration_signal(m: ed.Candidate, now: datetime | None = None) -> bool:
 _PARTIAL_RX = re.compile(r"\bbroad recovery\b|\bbeing restored\b|\brecovering\b|\bgradually\b|\bslowly\b", re.IGNORECASE)
 
 
+# An explicit statement that a disruption has come back. Requires the disruption itself to be the subject ('outage returns', 'down
+# again'): 'service returns' and 'power returns' are restorations.
+_RECURRENCE_RX = re.compile(r"\b(?:outage|blackout|disruption|fault)s?\s+(?:has\s+|have\s+)?(?:returns|returned|recurs|recurred|resumes|resumed)\b"
+                            r"|\b(?:down|offline|without(?:\s+\w+){0,3}?\s+(?:service|power|water|internet|coverage))\s+again\b", re.IGNORECASE)
+
+
 def resolve_restoration(reports: list[ClassifiedReport], base: str, now: datetime | None = None) -> str:
     """Incident restoration state from report ROLES in time order (``reports`` is chronological): a RESTORATION_UPDATE sets restored
     (full) or partially_restored; a factual report with an unresolved cue reopens to ongoing; a cause or scale update after a
@@ -151,8 +157,11 @@ def resolve_restoration(reports: list[ClassifiedReport], base: str, now: datetim
     for r in reports:
         if r.relation == RESTORATION_UPDATE:
             state = "restored" if r.restoration == "full" else "partially_restored"
-        elif r.relation in (NEW, SUBSEQUENT) and (state is None or ed._report_state(r.candidate, now) == "ongoing"):
-            state = "ongoing"
+        else:
+            reported = r.relation in (NEW, SUBSEQUENT) and (state is None or ed._report_state(r.candidate, now) == "ongoing")
+            recurred = state == "restored" and bool(_RECURRENCE_RX.search(r.candidate.title)) and ed._live(r.candidate, now)
+            if reported or recurred:
+                state = "ongoing"
     if state is None:
         return base
     if state in ed.CURRENT_DISRUPTION and now is not None:
