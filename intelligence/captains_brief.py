@@ -1710,7 +1710,8 @@ def _morning_pdb_lines(collection_caveat: str | None) -> list[str] | None:
         except Exception as exc:  # noqa: BLE001 - coverage detail is optional
             log.warning("[morning-pdb] coverage unavailable: %s", exc)
         sections = ea.assess_morning(events, _get_previous_morning_record(), caveat=collection_caveat, coverage=coverage,
-                                     limitations=ea.source_limitations(), retained=_retained_product_lines())
+                                     limitations=ea.source_limitations(), retained=_retained_product_lines(),
+                                     judgements=_judgement_lines())
         lines: list[str] = []
         for heading, body in sections:
             lines += [f"<b>{_esc(heading)}</b>", *[_esc(x) for x in body], ""]
@@ -1722,6 +1723,16 @@ def _morning_pdb_lines(collection_caveat: str | None) -> list[str] | None:
     except Exception as exc:  # noqa: BLE001 - the legacy brief must still be produced
         log.warning("[morning-pdb] unavailable: %s", exc)
         return []
+
+
+def _judgement_lines() -> list[str] | None:
+    """Section 2 of the morning product (flag BRIEF_JUDGEMENTS_V1, default off). None keeps the "not available" statement."""
+    try:
+        from intelligence import judgement_brief as jb
+        return jb.morning_section(datetime.now(jb.jd.TZ).date())
+    except Exception as exc:  # noqa: BLE001 - optional section; the brief must still be produced
+        log.warning("[judgement-brief] unavailable: %s", exc)
+        return None
 
 
 def _theme_lines() -> list[str]:

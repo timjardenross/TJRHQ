@@ -998,9 +998,10 @@ def _patterns(pool: list[Item]) -> list[str]:
 
 def assess_morning(events: list[dict], previous_row: dict | None, *, now: datetime | None = None, caveat: str | None = None,
                    coverage: list[str] | None = None, limitations: list[str] | None = None,
-                   retained: list[str] | None = None) -> list[tuple[str, list[str]]]:
+                   retained: list[str] | None = None, judgements: list[str] | None = None) -> list[tuple[str, list[str]]]:
     """Return [(heading, lines)] for the morning product. ``previous_row``: the last stored morning brief before today, or None.
-    Deterministic: no model call, no capacity input."""
+    Deterministic: no model call, no capacity input.
+    ``judgements``: ready-made section 2 lines (intelligence.judgement_brief); None keeps the "not available" statement."""
     now = now or datetime.now(timezone.utc)
     previous = parse_morning(previous_row)
     items = build_items(events, previous, now)
@@ -1065,15 +1066,18 @@ def assess_morning(events: list[dict], previous_row: dict | None, *, now: dateti
         gaps.append(f"- Collection: {caveat}.")
     gaps.append(f"- {len(shown) - firm} of {len(shown)} item(s) shown rest on a single or unverified source.")
     gaps += [f"- {x}" for x in limitations or []]
-    gaps.append("- Assessment lines are rule-based from headline and summary evidence; they are not analyst or model judgement and can miss "
+    scope = "Assessment lines are" if judgements is None else "Outside section 2, assessment lines are"
+    gaps.append(f"- {scope} rule-based from headline and summary evidence; they are not analyst or model judgement and can miss "
                 "connections or misread wording.")
+    if judgements is None:
+        judgements = [("- NOT AVAILABLE. No analytical judgement capability is operating yet (planned: Milestone 3). "
+                       "Nothing in this brief is an analyst or model judgement.")]
     supporting = [f"- {len(items)} incident(s) formed from {len(events)} report(s) in {WINDOW_HOURS} h; {len(items) - len(pool)} not material or not current."]
     supporting += list(coverage or [])
 
     return [
         ("1. EXECUTIVE BOTTOM LINE", bluf),
-        ("2. KEY INTELLIGENCE JUDGEMENTS", [("- NOT AVAILABLE. No analytical judgement capability is operating yet (planned: Milestone 3). "
-                                            "Nothing in this brief is an analyst or model judgement.")]),
+        ("2. KEY INTELLIGENCE JUDGEMENTS", judgements),
         ("3. NATIONAL AND SYSTEMIC RESILIENCE", _morning_area(pool, "national", pirs, "No material national development identified.")),
         ("4. PROFESSIONAL AND SECTOR INTELLIGENCE", professional),
         ("5. INTERNATIONAL LEADING INDICATORS",
