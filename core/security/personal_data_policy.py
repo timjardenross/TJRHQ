@@ -17,10 +17,12 @@ Two layers, because neither alone is enough:
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 FLAG = "HEALTH_LLM_EXTERNAL_ALLOWED"
 _TRUE = ("1", "true", "yes", "on")
@@ -71,3 +73,44 @@ def is_cloud_hosted_model(model: str) -> bool:
 def profile_excerpt_allowed() -> bool:
     """The health-profile excerpt may enter a prompt only when no external provider is permitted."""
     return not external_ai_allowed()
+
+
+# --- private / unclassified content ------------------------------------------------------------
+# External eligibility is a property of the SOURCE of the text, decided before any provider is
+# chosen. Only a caller that knows its input is public-source material may say so; everything else
+# (captures, notes, internal records, anything unknown) stays on this host. The health opt-in
+# above does not open this gate, and content screening is not a substitute for it.
+
+
+class ExternalEgressBlockedError(PersonalDataBlockedError):
+    """Private or unclassified content was about to leave this machine."""
+
+
+def assert_external_eligible(public_source: bool, *, route: str) -> None:
+    """Raise unless the caller states, with the literal True, that the input is public-source material."""
+    if public_source is not True:
+        raise ExternalEgressBlockedError(
+            f"blocked from {route}: private or unclassified content is processed on this host only")
+
+
+def is_local_target(base_url: str, model: str = "") -> bool:
+    """True only when base_url is this host or a private address AND the model is not cloud-hosted.
+    Anything unparseable or unknown is not local."""
+    if is_cloud_hosted_model(model):
+        return False
+    try:
+        host = (urlparse(base_url or "").hostname or "").lower()
+    except ValueError:
+        return False
+    if host == "localhost" or host.endswith((".local", ".internal")):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private
+
+
+def assert_local_target(base_url: str, model: str = "", *, route: str) -> None:
+    if not is_local_target(base_url, model):
+        raise ExternalEgressBlockedError(f"blocked from {route}: the configured model target is not local")
