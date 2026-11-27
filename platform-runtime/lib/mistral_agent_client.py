@@ -119,6 +119,7 @@ def call_agent(
     prompt: str,
     mission_id: str | None = None,
     timeout_ms: int = 60_000,
+    public_source: bool = False,
 ) -> str | None:
     """
     Call a named Mistral agent and return the assistant's text response.
@@ -129,6 +130,8 @@ def call_agent(
         prompt:     User message content
         mission_id: Optional mission ID for log correlation
         timeout_ms: Request timeout (passed to SDK server_url not directly; used for log)
+        public_source: True only if every part of prompt is public-source material. The default
+                    refuses the call; a True call is still screened before it is sent.
 
     Returns:
         Assistant text string, or None if the call fails for any reason.
@@ -137,6 +140,13 @@ def call_agent(
         Emits structured log lines at each outcome:
         [research] stage=X provider=mistral_agent status=Y agent_id=... elapsed_ms=N mission=M
     """
+    if public_source is not True:
+        log.warning(
+            "[research] stage=%s provider=mistral_agent status=blocked reason=private_or_unclassified mission=%s",
+            stage, mission_id,
+        )
+        return None
+
     api_key = os.getenv("MISTRAL_API_KEY", "")
     if not api_key:
         log.warning(
@@ -166,6 +176,18 @@ def call_agent(
         agent_version = int(os.getenv(ver_var, ver_default))
     except ValueError:
         agent_version = int(ver_default)
+
+    # Existing cloud-egress screening; any failure (including an unavailable guard) means no send.
+    try:
+        from core.llm.provider_chain import screen_inbound, screen_outbound
+
+        _, prompt = screen_outbound("", prompt)
+    except Exception as exc:  # noqa: BLE001 - fail closed on any screening failure
+        log.warning(
+            "[research] stage=%s provider=mistral_agent status=blocked reason=screening_%s mission=%s",
+            stage, type(exc).__name__, mission_id,
+        )
+        return None
 
     log.info(
         "[research] stage=%s provider=mistral_agent status=calling agent_id=%s... mission=%s",
@@ -208,6 +230,7 @@ def call_agent(
                         log.debug("[lib.mistral_agent_client] best-effort step failed, continuing: %s", _exc)
 
                 if text:
+                    screen_inbound(text)
                     log.info(
                         "[research] stage=%s provider=mistral_agent status=success "
                         "agent_id=%s... elapsed_ms=%d chars=%d mission=%s",

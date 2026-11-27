@@ -93,6 +93,7 @@ class TestGeminiQuotaAware:
                     )
 
                     result = delegate_research_task(
+                    public_source=True,
                         task_description="Test research task",
                         mission_id="MSN-TEST-002"
                     )
@@ -142,6 +143,7 @@ class TestGeminiQuotaAware:
             )
 
             result1 = delegate_research_task(
+                    public_source=True,
                 task_description="First task",
                 mission_id=mission_id,
                 provider_health=ProviderHealth()
@@ -177,6 +179,7 @@ class TestGeminiQuotaAware:
                 )
 
                 result2 = delegate_research_task(
+                    public_source=True,
                     task_description="Second task",
                     mission_id=mission_id,
                     provider_health=ProviderHealth()
@@ -222,6 +225,7 @@ class TestGeminiQuotaAware:
             )
 
             result1 = delegate_research_task(
+                    public_source=True,
                 task_description="Task 1",
                 mission_id=mission_id,
                 provider_health=provider_health
@@ -252,6 +256,7 @@ class TestGeminiQuotaAware:
                 )
 
                 result2 = delegate_research_task(
+                    public_source=True,
                     task_description="Task 2",
                     mission_id=mission_id,
                     provider_health=provider_health
@@ -288,6 +293,7 @@ class TestGeminiQuotaAware:
 
                 # Capture logging output
                 result = delegate_research_task(
+                    public_source=True,
                     task_description="Test with detailed logging",
                     mission_id=mission_id
                 )
@@ -322,7 +328,7 @@ class TestGeminiQuotaAware:
             mock_mistral.return_value = ResearchOutcome(status="failed", provider="mistral_agent", error_message="not configured")
             mock_ollama.return_value = ResearchOutcome(status="failed", provider="ollama", error_message="model not available")
 
-            result = delegate_research_task(task_description="Test no retries")
+            result = delegate_research_task(task_description="Test no retries", public_source=True)
 
             # Verify: Gemini called exactly once (no retries)
             assert call_count["gemini"] == 1
