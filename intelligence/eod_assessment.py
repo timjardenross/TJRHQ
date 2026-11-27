@@ -877,7 +877,8 @@ def assess(events: list[dict], morning_row: dict | None, *, now: datetime | None
     since = morning.generated_at if morning else now - timedelta(hours=24)
     since_count = sum(1 for e in events if (t := _when(e.get("collected_at"))) and t > since)
     shown = [i for area in ("national", "professional", "international") for i in _area_shown(material, area)]
-    carried_forward = _carried_unmatched(shown, morning)
+    # a story left out for relevance is accounted for: it must not come back through the list of morning items not otherwise covered
+    carried_forward = _carried_unmatched(shown + [i for i in items if _out_of_scope(i.view)], morning)
     confidence = _confidence(material, morning, since_count, caveat)
     policy = [p for p in policy_items(events, since) if not (morning and p.ref.rsplit("#", 1)[1] in morning.report_ids)]
     if morning:
