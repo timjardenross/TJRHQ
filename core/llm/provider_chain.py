@@ -145,10 +145,14 @@ def _guard_lock():
         os.close(fd)  # closing the descriptor releases the flock
 
 
+SHARED_WORKLOAD = "shared-provider-chain"
+
+
 def _guard_outbound(system_prompt: str, prompt: str) -> tuple[str, str]:
     """Input rail then redaction over everything that would leave this host. Returns the
     (system_prompt, prompt) pair to send. Raises, so nothing is sent, if the text is too long,
     the guard is unavailable or busy, the rail blocks, or redaction mangles the part boundary."""
+    personal_data_policy.assert_authorised_workload(SHARED_WORKLOAD)
     # R6: default-deny for personal health content, before any other work. Raises
     # PersonalDataBlockedError (so nothing is sent) unless HEALTH_LLM_EXTERNAL_ALLOWED=1.
     personal_data_policy.assert_may_leave_host(system_prompt, prompt, route="cloud LLM provider")

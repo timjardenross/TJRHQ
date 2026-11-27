@@ -24,6 +24,18 @@ PUBLIC = "New review finds mindfulness reduces chronic pain; CPAP therapy trial 
 
 
 @pytest.fixture(autouse=True)
+def _workload_authorised(monkeypatch):
+    """These tests exercise behaviour behind workload authorisation (screening, fallback, parsing)."""
+    from core.security import personal_data_policy
+
+    class _Every(frozenset):
+        def __contains__(self, item):
+            return True
+
+    monkeypatch.setattr(personal_data_policy, "AUTHORISED_HOSTED_WORKLOADS", _Every())
+
+
+@pytest.fixture(autouse=True)
 def _closed(monkeypatch):
     monkeypatch.delenv(pol.FLAG, raising=False)
     monkeypatch.delenv("OLLAMA_CLOUD_DISABLED", raising=False)
