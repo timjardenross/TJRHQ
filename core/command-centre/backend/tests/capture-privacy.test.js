@@ -1,6 +1,6 @@
 /**
  * Capture enrichment privacy: raw personal-health capture text must never be sent to an external model
- * (default-deny, fail-closed), while clearly non-health captures keep their enrichment.
+ * (default-deny, fail-closed), and no other captured text is sent either (private or unclassified stays local).
  * Run: npm test
  */
 const { test } = require('node:test');
@@ -49,24 +49,37 @@ test('a personal title alone is enough to withhold', async () => {
   assert.equal(d.calls.length, 0);
 });
 
-test('non-health capture keeps external enrichment', async () => {
+test('non-health (unclassified) capture is never sent and is reported queued', async () => {
   const d = deps();
   const r = await enrichCapture('Router retries', 'Add retry logic to the model router deploy script', d);
-  assert.equal(d.calls.length, 1);
-  assert.match(d.calls[0].payload, /retry logic/);
-  assert.equal(r.ok, true); assert.equal(r.classification, 'mission'); assert.equal(r.model, 'gemini-3.5-flash-lite');
+  assert.equal(d.calls.length, 0);
+  assert.equal(r.ok, false); assert.equal(r.blocked, true);
 });
 
-test('non-health capture without an API key still fails soft (no send)', async () => {
+test('missing API key changes nothing: still no send, still queued', async () => {
   const d = deps({});
   const r = await enrichCapture('x', 'Add retry logic to the router', d);
-  assert.equal(r.ok, false); assert.equal(d.calls.length, 0);
+  assert.equal(r.blocked, true); assert.equal(d.calls.length, 0);
 });
 
-test('explicit opt-in restores external enrichment', async () => {
+test('the health opt-in does not open captured text to an external model', async () => {
   const d = deps({ GEMINI_API_KEY: 'k', HEALTH_LLM_EXTERNAL_ALLOWED: '1' });
   await enrichCapture('', 'Slept badly again, pain 7/10 today', d);
-  assert.equal(d.calls.length, 1);
+  await enrichCapture('Router', 'Add retry logic', d);
+  assert.equal(d.calls.length, 0);
+});
+
+test('governance summary is deterministic and makes no outbound request', async () => {
+  const https = require('node:https');
+  const original = https.request;
+  let sent = 0;
+  https.request = () => { sent += 1; throw new Error('external request attempted'); };
+  process.env.GEMINI_API_KEY = 'k'; process.env.MISTRAL_API_KEY = 'k';
+  try {
+    const { generateSummary } = require('../api/governance');
+    const r = await generateSummary({ decisions: [{ id: 'D-1', title: 'synthetic' }], lessons: [], adrs: [], directives: [] });
+    assert.equal(r.provider, 'deterministic'); assert.match(r.text, /1 governance decisions/); assert.equal(sent, 0);
+  } finally { https.request = original; delete process.env.GEMINI_API_KEY; delete process.env.MISTRAL_API_KEY; }
 });
 
 test('values other than an explicit opt-in stay closed', async () => {
