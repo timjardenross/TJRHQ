@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 import time
 from pathlib import Path
@@ -28,6 +29,8 @@ from retrieve_knowledge import (
 from specialist_router import RouteDecision, route_question
 
 SupabaseClient = import_sibling("supabase_client").SupabaseClient
+EmbeddingError = import_sibling("embedding_client").EmbeddingError
+logger = logging.getLogger(__name__)
 
 
 def permission_allowed_types(client: SupabaseClient, role: str, governance_allowed: list[str]) -> list[str]:
@@ -55,7 +58,14 @@ def retrieve_allowed_results(
     model = ""
     for doc_type in allowed_types:
         if semantic:
-            rows, model = semantic_results(client, question, doc_type, limit, threshold)
+            try:
+                rows, model = semantic_results(client, question, doc_type, limit, threshold)
+            except EmbeddingError as exc:
+                # Query embedding blocked or unavailable: keep the capability on keyword search.
+                logger.warning("Semantic retrieval unavailable, using keyword retrieval: %s", exc)
+                keyword_rows = retrieve_allowed_results(client, question, allowed_types, limit, False, threshold)[0]
+                return (keyword_rows, "keyword (semantic unavailable)",
+                        round((time.monotonic() - started) * 1000, 2))
         else:
             rows = keyword_results(client, question, doc_type, limit)
         results.extend(rows)

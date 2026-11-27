@@ -5,9 +5,13 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
+
+_REPO_ROOT = str(Path(__file__).resolve().parents[2])
 
 DEFAULT_PROVIDER = "mistral"
 DEFAULT_OLLAMA_MODEL = "nomic-embed-text"
@@ -20,8 +24,22 @@ class EmbeddingError(RuntimeError):
     """Raised when embedding generation fails."""
 
 
+def _policy():
+    """The existing data policy and cloud screening, or EmbeddingError (fail closed)."""
+    try:
+        if _REPO_ROOT not in sys.path:
+            sys.path.append(_REPO_ROOT)
+        from core.llm.provider_chain import screen_outbound
+        from core.security import personal_data_policy
+    except Exception as error:
+        raise EmbeddingError(f"Data policy unavailable ({type(error).__name__}); nothing was sent.") from error
+    return personal_data_policy, screen_outbound
+
+
 class EmbeddingClient:
-    def __init__(self) -> None:
+    def __init__(self, *, public_source: bool = False) -> None:
+        # True only for public-source text; otherwise a hosted provider is refused.
+        self.public_source = public_source
         self.provider = os.environ.get("EMBEDDING_PROVIDER", DEFAULT_PROVIDER).strip().lower()
         if self.provider == "ollama":
             self.model = os.environ.get("OLLAMA_EMBEDDING_MODEL", DEFAULT_OLLAMA_MODEL)
@@ -43,6 +61,9 @@ class EmbeddingClient:
         return self._create_openai(inputs)
 
     def _create_ollama(self, text: str) -> list[float]:
+        policy, _ = _policy()
+        if not policy.is_local_target(self.base_url, self.model):
+            raise EmbeddingError("Embedding blocked: the Ollama target is not local.")
         payload = json.dumps({"model": self.model, "prompt": text}).encode("utf-8")
         request = urllib.request.Request(
             f"{self.base_url}/api/embeddings",
@@ -64,6 +85,12 @@ class EmbeddingClient:
         return embedding
 
     def _create_openai(self, inputs: list[str]) -> list[list[float]]:
+        policy, screen = _policy()
+        try:
+            policy.assert_external_eligible(self.public_source, route="hosted embeddings")
+            inputs = [screen("", text)[1] for text in inputs]
+        except Exception as error:
+            raise EmbeddingError(f"Hosted embedding blocked ({type(error).__name__}): {error}") from error
         payload = json.dumps({"model": self.model, "input": inputs}).encode("utf-8")
         request = urllib.request.Request(
             f"{self.base_url}/embeddings",
