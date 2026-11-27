@@ -743,6 +743,13 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     escalation_reason = ""
 
     t0 = time.time()
+    dispatched = False                # public-source route only: has the payload gone to the provider?
+
+    def _outcome(exc: Exception) -> dict[str, str]:
+        if not policy.get("public_source_boundary"):
+            return {}
+        return {"outcome": "provider_failure" if dispatched else getattr(exc, "outcome", "not_sent")}
+
     try:
         if policy.get("provider") == "gemini":
             # Guardrails gate (see the module-level comment above): raises
@@ -757,12 +764,14 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                     # redact_pii directly, preserving exactly the four reviewed types; no fail-open on this route
                     _redaction = redact_pii(prompt, preserve_entities=_judgement_route.PRESERVE)
                     safe_prompt = _redaction.redacted_text
-                    payload_id = _judgement_route.audit(extra["event_ids"], safe_prompt, _redaction.findings)   # no record, no send
+                    payload_id = _judgement_route.audit(extra["event_ids"], safe_prompt, _redaction.findings,     # no record, no send
+                                                        extra.get("minimised"))
                 else:
                     safe_prompt, _redaction = secure_outbound_prompt(prompt)
             if policy.get("public_source_boundary"):
                 # outside the lock: a held payload must not stall other router work. Raises unless this payload is released.
                 _judgement_route.await_release(payload_id, safe_prompt)
+                dispatched = True
             raw = _gemini_generate(
                 model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"),
                 policy.get("thinking_level"),
@@ -883,7 +892,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                    "route_tier": route_tier, "route_reason": route_reason})
         log.error("task=%s model=%s route_tier=%s error=%s", task_type, model, route_tier, exc)
         return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
-                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
+                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None, **_outcome(exc)}
     except Exception as exc:  # noqa: BLE001 - top-level dispatch boundary; catches anything the specific urllib.error branch above doesn't, already logged via log.error() and returned in the response
         duration_ms = int((time.time() - t0) * 1000)
         _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
@@ -891,7 +900,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                    "route_tier": route_tier, "route_reason": route_reason})
         log.error("task=%s model=%s route_tier=%s unexpected=%s", task_type, model, route_tier, exc)
         return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
-                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
+                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None, **_outcome(exc)}
 
 
 # ── HTTP handler ──────────────────────────────────────────────────────────────
@@ -1015,7 +1024,8 @@ class RouterHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": reason})
             return
         prompt, refs = _judgement_route.build_prompt(prepared)
-        result = _run_task(_judgement_route.TASK, prompt, {"event_ids": list(refs.values())})
+        result = _run_task(_judgement_route.TASK, prompt,
+                           {"event_ids": list(refs.values()), "minimised": prepared["minimised"]})
         if result.get("success"):
             _judgement_route.record_outputs(result.get("response", ""))
             result["refs"] = refs

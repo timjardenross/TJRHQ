@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,11 @@ _GUARDRAILS_CONFIG_DIR = _HERE / "guardrails" / "config"
 sys.path.insert(0, str(_HERE / "guardrails"))
 
 REFUSAL_MARKER = "Request blocked by TJR Model Router input/output guardrails"
+
+# A CVE sequence number of six or more digits reads as a telephone number and a licence number. Only those two types, and only
+# for a finding lying wholly inside a well-formed CVE identifier, are set aside.
+_CVE = re.compile(r"\bCVE-(?:19|20)\d\d-\d{6,7}(?![\d-])", re.IGNORECASE)
+_CVE_FALSE_TYPES = ("PHONE_NUMBER", "US_DRIVER_LICENSE")
 
 
 def _cmd_redact(payload: dict[str, Any]) -> dict[str, Any]:
@@ -74,6 +80,9 @@ def _cmd_redact(payload: dict[str, Any]) -> dict[str, Any]:
     preserve = set(payload.get("preserve") or ())
     if preserve:
         results = [r for r in results if r.entity_type not in preserve]
+        cves = [m.span() for m in _CVE.finditer(text)]
+        results = [r for r in results
+                   if not (r.entity_type in _CVE_FALSE_TYPES and any(a <= r.start and r.end <= b for a, b in cves))]
     anonymizer = AnonymizerEngine()
     anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
 

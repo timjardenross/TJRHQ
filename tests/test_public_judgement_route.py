@@ -430,3 +430,101 @@ def test_the_routes_own_wording_survives_redaction():
     for word in ("essential-services", "banking-payments", "telecoms-digital", "emerging_cascading", "src-"):
         assert word in out, word
     assert "<US_DRIVER_LICENSE>" not in template and all(ref in out for ref in refs)
+
+
+# ── relevance and information minimisation ───────────────────────────────────
+
+def minimised(title, summary="", detector=nobody):
+    records = {EV: {"event_id": EV, "publisher": "ABC News", "title": title, "summary": summary, "published": "2026-11-26"}}
+    return route.minimise(records, detector)
+
+
+@pytest.mark.parametrize("title,summary", [
+    ("Ballarat nurse stood down over misconduct claims", "The hospital says an investigation is under way."),
+    ("Bendigo councillor charged with assault", "He will face court next month."),
+    ("Former adviser banned for five years", "ASIC says the adviser failed to act in clients' interests."),
+    ("Shepparton principal diagnosed with cancer", "She will take leave next term."),
+])
+def test_individual_matters_without_a_systemic_connection_are_left_out(title, summary):
+    records, dropped, shortened = minimised(title, summary)
+    assert records == {} and dropped == {EV: route.NOT_RELEVANT} and shortened == []
+
+
+def test_systemic_connection_keeps_only_the_sentences_about_it():
+    records, dropped, shortened = minimised("Grandmother dies after long wait for ambulance",
+                                            "Her family says she waited two hours. Ambulance ramping is delaying responses statewide.")
+    assert dropped == {} and shortened == [EV]
+    assert records[EV]["title"] == "Ambulance ramping is delaying responses statewide." and records[EV]["summary"] == ""
+
+
+@pytest.mark.parametrize("title,summary", [
+    ("Ambulance service cannot meet response times", "Paramedics report ramping at three hospitals."),
+    ("Police investigate ransomware attack on water utility", "Billing systems remain offline."),
+    ("ASIC sues bank over alleged system failures", "The regulator alleges payments were processed twice."),
+    ("APRA fines Bendigo and Adelaide Bank", "Penalty over a cyber incident."),
+])
+def test_organisational_and_public_safety_reporting_is_not_excluded(title, summary):
+    records, dropped, shortened = minimised(title, summary)
+    assert records[EV]["title"] == title and records[EV]["summary"] == summary and dropped == {} and shortened == []
+
+
+def test_a_named_person_is_found_by_the_detector():
+    def detector(text):
+        at = text.find("Jo Bloggs")
+        return [(at, at + 9)] if at >= 0 else []
+    records, dropped, _ = minimised("Jo Bloggs pleads guilty to fraud", "", detector)
+    assert records == {} and dropped == {EV: route.NOT_RELEVANT}
+
+
+def test_relevance_screening_fails_closed():
+    def broken(_):
+        raise RuntimeError("down")
+    with pytest.raises(route.Rejected, match="could not be screened"):
+        minimised("Anything", "", broken)
+
+
+def test_excluded_item_never_reaches_the_prompt():
+    other = "00000002-0000-0000-0000-000000000000"
+    reader = store(row(), row(event_id=other, title="Teacher charged with assault", summary="He appears in court Friday."))
+    prepared = prepare(ask(event_ids=[EV, other]), reader=reader)
+    prompt, refs = route.build_prompt(prepared)
+    assert other not in refs.values() and "charged with assault" not in prompt and prepared["dropped"][other] == route.NOT_RELEVANT
+
+
+# ── withheld, expired and CVE identifiers ────────────────────────────────────
+
+def test_withhold_ends_the_hold_and_wins_over_a_release(state):
+    pid, text = held_payload()
+
+    def refuse(t):
+        route.release_payload(pid, route._sha(text))
+        route.withhold_payload(pid, route._sha(text))
+    with pytest.raises(route.Withheld) as caught:
+        run_hold(pid, text, refuse)
+    assert caught.value.outcome == "withheld_security_review"
+    assert not [p for p in (state / "outbound").iterdir() if p.suffix in (".release", ".withhold", ".held")]
+    with pytest.raises(route.Rejected, match="no such held payload"):
+        route.withhold_payload(pid, route._sha(text))
+
+
+def test_expiry_is_not_reported_as_withholding(state):
+    pid, text = held_payload()
+    with pytest.raises(route.HoldExpired) as caught:
+        run_hold(pid, text, lambda t: None, seconds=4)
+    assert caught.value.outcome == "hold_expired"
+
+
+def test_cve_identifiers_survive_and_real_numbers_do_not():
+    if not guard._venv_ready():
+        pytest.skip("llmsec venv not present")
+    text = ("CVE-2025-123456 Vendor flaw. CVE-2023-1234567 Other flaw. Call 0412 345 678. Driver licence A1234567. Ring CVE-2025-0412345678. "
+            "Reference 2025-123456 was quoted.")
+    out = guard.redact_pii(text, preserve_entities=route.PRESERVE).redacted_text
+    assert "CVE-2025-123456" in out and "CVE-2023-1234567" in out, out
+    assert "0412345678" not in out and "0412 345 678" not in out and "A1234567" not in out and "Reference 2025-123456" not in out, out
+    assert "CVE-2025-123456" not in guard.redact_pii(text).redacted_text          # every other route is unchanged
+
+
+def test_a_passenger_counts_as_a_person():
+    records, dropped, _ = minimised("A passenger was hospitalised on Tuesday")
+    assert records == {} and dropped == {EV: route.NOT_RELEVANT}
