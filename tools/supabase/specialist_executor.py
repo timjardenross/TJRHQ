@@ -71,7 +71,9 @@ def execute_specialist(
     profile = profiles[route.specialist]
     client = SupabaseClient()
     allowed_types = permission_allowed_types(client, route.specialist, profile.allowed_types)
-    results, _, latency_ms = retrieve_allowed_results(client, question, allowed_types, limit, semantic, threshold)
+    results, mode, latency_ms = retrieve_allowed_results(client, question, allowed_types, limit, semantic, threshold)
+    if mode.startswith("keyword"):
+        semantic = False  # report the mode actually used (semantic may have been blocked or unavailable)
     decision = RouteDecision(profile, route.matched_terms, route.confidence, None)
     confidence = confidence_from_results(decision, results, semantic)
     sources = [
