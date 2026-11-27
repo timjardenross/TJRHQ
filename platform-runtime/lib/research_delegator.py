@@ -136,6 +136,7 @@ def call_mistral_research(
     task_description: str,
     timeout_sec: int = 60,
     mission_id: str | None = None,
+    public_source: bool = False,
 ) -> ResearchOutcome:
     """
     Call the Mistral Research Agent as primary provider for task execution.
@@ -160,6 +161,7 @@ def call_mistral_research(
         prompt=task_description,
         mission_id=mission_id,
         timeout_ms=timeout_sec * 1000,
+        public_source=public_source,
     )
     if text:
         return ResearchOutcome(
@@ -181,11 +183,27 @@ def call_mistral_research(
 
 def call_legacy_research_routing(
     task_description: str,
-    timeout_sec: int = 120
+    timeout_sec: int = 120,
+    public_source: bool = False,
 ) -> ResearchOutcome:
-    """Compatibility shim that routes legacy calls to Gemini Lite."""
+    """Compatibility shim that routes legacy calls to Gemini Lite (public-source input only)."""
     log.info("Legacy research call routed to Gemini Lite")
-    return call_gemini_2_5_flash_lite_research(task_description, timeout_sec)
+    return call_gemini_2_5_flash_lite_research(task_description, timeout_sec, public_source=public_source)
+
+
+def _screen_for_gemini(prompt: str, provider: str, public_source: bool) -> tuple[str, ResearchOutcome | None]:
+    """Eligibility first, then the existing cloud screening. Returns (screened prompt, None) or
+    ("", blocked outcome); nothing may be sent in the second case."""
+    try:
+        from core.llm.provider_chain import screen_outbound
+        from core.security import personal_data_policy
+
+        personal_data_policy.assert_external_eligible(public_source, route=provider)
+        return screen_outbound("", prompt)[1], None
+    except Exception as exc:  # noqa: BLE001 - fail closed on any eligibility or screening failure
+        log.warning("[research] provider=%s status=blocked reason=%s", provider, type(exc).__name__)
+        return "", ResearchOutcome(status="blocked", provider=provider,
+                                   error_message=f"external provider blocked: {type(exc).__name__}")
 
 # ============================================================================
 # Provider: qwen3 via Ollama (Fallback)
@@ -211,6 +229,9 @@ def call_ollama_research(
         ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
     try:
+        from core.security import personal_data_policy
+
+        personal_data_policy.assert_local_target(ollama_url, "qwen3:8b", route="local research model")
         # Ollama endpoint
         endpoint = f"{ollama_url}/api/generate"
 
@@ -301,7 +322,8 @@ Keep response concise but informative."""
 
 def call_gemini_2_flash_research(
     task_description: str,
-    timeout_sec: int = 120
+    timeout_sec: int = 120,
+    public_source: bool = False,
 ) -> ResearchOutcome:
     """Submit research task to Gemini 2 Flash via Google AI SDK (higher quota fallback).
 
@@ -312,6 +334,10 @@ def call_gemini_2_flash_research(
     Returns:
         ResearchOutcome with findings or error status
     """
+
+    task_description, blocked = _screen_for_gemini(task_description, "gemini-2-flash", public_source)
+    if blocked:
+        return blocked
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -388,6 +414,10 @@ def call_gemini_2_flash_research(
             else:
                 raise
 
+        if response.text:
+            from core.llm.provider_chain import screen_inbound
+
+            screen_inbound(response.text)
         findings = response.text if response.text else "No findings returned"
 
         log.info(f"Gemini 2 Flash research successful: {len(findings)} chars")
@@ -426,7 +456,8 @@ def call_gemini_2_flash_research(
 
 def call_gemini_2_5_flash_lite_research(
     task_description: str,
-    timeout_sec: int = 120
+    timeout_sec: int = 120,
+    public_source: bool = False,
 ) -> ResearchOutcome:
     """Submit research task to Gemini 2.5 Flash Lite (primary research provider).
 
@@ -441,6 +472,10 @@ def call_gemini_2_5_flash_lite_research(
     Returns:
         ResearchOutcome with findings or error status
     """
+
+    task_description, blocked = _screen_for_gemini(task_description, "gemini-3.5-flash-lite", public_source)
+    if blocked:
+        return blocked
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -534,6 +569,10 @@ def call_gemini_2_5_flash_lite_research(
             else:
                 raise
 
+        if response.text:
+            from core.llm.provider_chain import screen_inbound
+
+            screen_inbound(response.text)
         findings = response.text if response.text else "No findings returned"
 
         log.info(f"Gemini 2.5 Flash Lite research successful: {len(findings)} chars")
@@ -577,6 +616,7 @@ def delegate_research_task(
     ollama_timeout_sec: int = 120,
     provider_health: ProviderHealth | None = None,
     mission_id: str | None = None,
+    public_source: bool = False,
 ) -> ResearchOutcome:
     """Delegate research task with quota-aware provider chain fallback.
 
@@ -623,6 +663,8 @@ def delegate_research_task(
         ollama_timeout_sec: Timeout for Ollama calls
         provider_health: Optional ProviderHealth tracker (MSN-0055C WP2)
         mission_id: Mission ID for per-mission quota budgeting
+        public_source: True only for public-source task text. Otherwise (the default) the chain is
+                      the local model alone, with no external fallback.
 
     Returns:
         ResearchOutcome with findings (success or error status) and provider telemetry
@@ -630,7 +672,7 @@ def delegate_research_task(
     """
 
     start_time = time.time()
-    log.info(f"Starting research delegation: {task_description[:80]}...")
+    log.info("Starting research delegation (%d chars)", len(task_description))
     if mission_id:
         log.debug(f"[QUOTA-AWARE] Mission: {mission_id}")
 
@@ -648,9 +690,9 @@ def delegate_research_task(
     # Provider chain: Mistral first, then Ollama, then Gemini
     # M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW
     providers = [
-        ("mistral_agent", "Mistral Research Agent (primary)", lambda td, timeout_sec=60: call_mistral_research(td, timeout_sec=timeout_sec, mission_id=mission_id)),
+        ("mistral_agent", "Mistral Research Agent (primary)", lambda td, timeout_sec=60: call_mistral_research(td, timeout_sec=timeout_sec, mission_id=mission_id, public_source=public_source)),
         ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (local fallback)", call_ollama_research),
-        ("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
+        ("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite (secondary fallback - quota-aware)", lambda td, timeout_sec=120: call_gemini_2_5_flash_lite_research(td, timeout_sec=timeout_sec, public_source=public_source)),
     ]
 
     # ========================================================================
@@ -680,9 +722,9 @@ def delegate_research_task(
     # Provider chain: Mistral first, Ollama second, Gemini fallback
     # M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW
     providers = [
-        ("mistral_agent", "Mistral Research Agent (primary)", lambda td, timeout_sec=60: call_mistral_research(td, timeout_sec=timeout_sec, mission_id=mission_id)),
+        ("mistral_agent", "Mistral Research Agent (primary)", lambda td, timeout_sec=60: call_mistral_research(td, timeout_sec=timeout_sec, mission_id=mission_id, public_source=public_source)),
         ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (local fallback)", call_ollama_research),
-        ("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
+        ("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite (secondary fallback - quota-aware)", lambda td, timeout_sec=120: call_gemini_2_5_flash_lite_research(td, timeout_sec=timeout_sec, public_source=public_source)),
     ]
 
     # MSN-0060B: Reorder providers by adaptive routing if available
@@ -705,6 +747,12 @@ def delegate_research_task(
                 log.info(f"[msp-0060b] Reordered providers by quality: {[p[0] for p in providers]}")
         except Exception as e:  # noqa: BLE001 - best-effort step, already logged (provider reordering failed, using default: {e})
             log.warning(f"[msp-0060b] Provider reordering failed, using default: {e}")
+
+    # Eligibility is decided before any provider is chosen, after every reordering above.
+    if public_source is not True:
+        providers_skipped += [f"{p[0]}(private_or_unclassified)" for p in providers if p[0] != "ollama"]
+        providers = [p for p in providers if p[0] == "ollama"]
+        log.info("[research] private or unclassified task: local model only")
 
     for provider_id, provider_name, provider_func in providers:
         # Check circuit breaker: skip providers marked unavailable
@@ -780,7 +828,7 @@ def delegate_research_task(
         provider_attempted=providers_attempted,
         provider_skipped=providers_skipped,
         execution_time_ms=execution_time_ms,
-        error_message="All providers exhausted (Gemini 3.5 Flash Lite, Ollama)",
+        error_message="All eligible providers exhausted",
         fallback_reason="all_providers_failed"
     )
 

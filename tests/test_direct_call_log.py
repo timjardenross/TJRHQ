@@ -73,7 +73,7 @@ class ProviderChainOllamaTest(DirectLogTestBase):
     def test_success_is_logged(self):
         payload = {"response": " hi ", "prompt_eval_count": 7, "eval_count": 2}
         with patch("urllib.request.urlopen", _urlopen_returning(payload)):
-            provider_chain.call_ollama("sys", PROMPT_MARKER, base_url="http://x", model="gemma3:4b")
+            provider_chain.call_ollama("sys", PROMPT_MARKER, base_url="http://localhost:1", model="gemma3:4b")
         (e,) = self.entries()
         self.assertTrue(e["success"])
         self.assertEqual(e["model"], "gemma3:4b")
@@ -85,7 +85,7 @@ class ProviderChainOllamaTest(DirectLogTestBase):
         def boom(req, timeout=None):
             raise TimeoutError("slow")
         with patch("urllib.request.urlopen", boom), self.assertRaises(TimeoutError):
-            provider_chain.call_ollama("s", "p", base_url="http://x", model="m")
+            provider_chain.call_ollama("s", "p", base_url="http://localhost:1", model="m")
         (e,) = self.entries()
         self.assertFalse(e["success"])
         self.assertEqual(e["error"], "TimeoutError")
@@ -93,14 +93,14 @@ class ProviderChainOllamaTest(DirectLogTestBase):
     def test_empty_response_is_logged_as_failure_and_raises(self):
         with patch("urllib.request.urlopen", _urlopen_returning({"response": "  "})), \
                 self.assertRaises(RuntimeError):
-            provider_chain.call_ollama("s", "p", base_url="http://x", model="m")
+            provider_chain.call_ollama("s", "p", base_url="http://localhost:1", model="m")
         (e,) = self.entries()
         self.assertFalse(e["success"])
 
     def test_log_failure_does_not_break_the_call(self):
         with patch.dict(os.environ, {"LLM_DIRECT_CALL_LOG": "/proc/nope/call_log.jsonl"}), \
                 patch("urllib.request.urlopen", _urlopen_returning({"response": "ok"})):
-            result = provider_chain.call_ollama("s", "p", base_url="http://x", model="m")
+            result = provider_chain.call_ollama("s", "p", base_url="http://localhost:1", model="m")
         self.assertEqual(result.text, "ok")
 
 

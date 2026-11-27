@@ -5,7 +5,7 @@ Orchestrates research delegation for the Number One Research Mission.
 
 Core Responsibilities:
   - Accept research topic
-  - Decompose topic into tasks (via Mistral Agents API → Gemini → Ollama fallback)
+  - Decompose topic into tasks (local model only: research input is private or unclassified)
   - Execute tasks sequentially (via research_delegator.py)
   - Consolidate findings
   - Generate recommendation/decision candidate
@@ -182,8 +182,6 @@ try:
         _delegator_module = sys.modules["research_delegator"]
         delegate_research_task = _delegator_module.delegate_research_task
         ResearchOutcome = _delegator_module.ResearchOutcome
-        call_legacy_research_routing = _delegator_module.call_legacy_research_routing
-        call_gemini_2_5_flash_lite_research = _delegator_module.call_gemini_2_5_flash_lite_research
         log.debug("Reused already-loaded research_delegator from sys.modules")
     elif (_spec := importlib.util.spec_from_file_location(
         "research_delegator",
@@ -200,8 +198,6 @@ try:
         _spec.loader.exec_module(_delegator_module)
         delegate_research_task = _delegator_module.delegate_research_task
         ResearchOutcome = _delegator_module.ResearchOutcome
-        call_legacy_research_routing = _delegator_module.call_legacy_research_routing
-        call_gemini_2_5_flash_lite_research = _delegator_module.call_gemini_2_5_flash_lite_research
         log.debug(f"Loaded research_delegator from {_research_delegator_file}")
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
@@ -209,14 +205,10 @@ except (ImportError, AttributeError, FileNotFoundError):
     log.exception(
         f"Failed to import research_delegator from {_research_delegator_file}"
     )
-    call_legacy_research_routing = None
-    call_gemini_2_5_flash_lite_research = None
 except Exception:
     log.exception(
         f"Unexpected error loading research_delegator from {_research_delegator_file}"
     )
-    call_legacy_research_routing = None
-    call_gemini_2_5_flash_lite_research = None
 
 # Startup logging for troubleshooting
 log.info("[startup] research_orchestration.py loaded")
@@ -224,16 +216,6 @@ log.info(f"[startup] delegate_research_task loaded = {delegate_research_task is 
 log.info(f"[startup] ResearchOutcome loaded = {ResearchOutcome is not None}")
 log.info(f"[startup] Research delegator file: {_research_delegator_file}")
 log.info(f"[startup] Research delegator file exists = {_research_delegator_file.exists()}")
-
-# ─── Mistral agent client ─────────────────────────────────────────────────────
-# _platform_runtime_lib_dir is already in sys.path (added above), so this import works.
-try:
-    import mistral_agent_client as _mac
-    log.info("[startup] mistral_agent_client loaded from platform-runtime/lib")
-except ImportError as _e:
-    _mac = None
-    log.warning(f"[startup] mistral_agent_client not available — Mistral stages will fall back: {_e}")
-
 
 class _StageOutcome:
     """Minimal duck-typed stand-in for ResearchOutcome used by _call_stage()."""
@@ -251,31 +233,24 @@ def _call_stage(
     mission_id: str | None = None,
 ) -> _StageOutcome:
     """
-    Mistral-first stage call with automatic fallback to the legacy provider chain.
-
-    Priority:
-      1. Mistral Agents (agent_name maps to MISTRAL_<NAME>_AGENT_ID)
-      2. Legacy routing (Gemini 2.5 Flash Lite → Gemini Flash → Ollama)
+    Synthesis stage on the local model only. Research input is the Captain's captured items and
+    content notes (private or unclassified), so no stage has an external provider or fallback.
 
     Returns a _StageOutcome compatible with ResearchOutcome (.status / .findings).
     """
-    # 1. Try Mistral first
-    if _mac is not None:
-        text = _mac.call_agent(
-            stage=stage,
-            agent_name=agent_name,
-            prompt=prompt,
-            mission_id=mission_id,
-            timeout_ms=timeout_sec * 1000,
-        )
-        if text:
-            return _StageOutcome(status="success", findings=text)
+    try:
+        from core.llm.provider_chain import call_ollama
 
-    # 2. Fall back to legacy provider chain (Gemini Lite → Gemini Flash → Ollama)
-    if call_legacy_research_routing:
-        outcome = call_legacy_research_routing(prompt, timeout_sec=timeout_sec)
-        return outcome  # already has .status and .findings
-    return _StageOutcome(status="failed", findings="")
+        text = call_ollama(
+            "", prompt,
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+            model=os.getenv("LOCAL_FALLBACK_MODEL", "qwen3:8b"),
+            timeout=timeout_sec, local_only=True,
+        ).text
+        return _StageOutcome(status="success", findings=text)
+    except Exception as exc:  # noqa: BLE001 - callers have deterministic fallbacks; reported here
+        log.warning("[research] stage=%s local model unavailable: %s", stage, type(exc).__name__)
+        return _StageOutcome(status="failed", findings="")
 
 
 # ============================================================================
@@ -492,7 +467,7 @@ class ResearchOrchestrator:
                 errors=[msg],
             )
 
-        log.info(f"Starting research mission {mission_id}: {research_topic[:80]}...")
+        log.info("Starting research mission %s (%d chars)", mission_id, len(research_topic))
 
         # MSN-RECOMMENDATION-FIX Option B: Classify request type (informational vs decision-oriented)
         request_type = classify_request_type(research_topic)
@@ -502,7 +477,7 @@ class ResearchOrchestrator:
         metrics = ResearchMetricsCollector(mission_id, research_topic)
 
         # Step 1: Decompose into tasks
-        log.info("Step 1: Task decomposition (Mistral → Gemini → Ollama fallback chain)")
+        log.info("Step 1: Task decomposition (local model)")
         task_descriptions = self._decompose_research_topic(research_topic)
 
         if not task_descriptions:
@@ -551,7 +526,7 @@ class ResearchOrchestrator:
 
         primary_provider = None
         for task in tasks:
-            log.info(f"  Executing task {task.order_index}/{len(tasks)}: {task.description[:60]}...")
+            log.info("  Executing task %d/%d", task.order_index, len(tasks))
 
             # MSN-0055C WP2: Pass provider health tracker for circuit breaker
             outcome = delegate_research_task(
@@ -812,12 +787,9 @@ class ResearchOrchestrator:
 
     def _decompose_research_topic(self, research_topic: str) -> list[str]:
         """
-        Decompose research topic into tasks using provider fallback chain.
+        Decompose research topic into tasks on the local model.
 
-        Provider chain:
-        1. Mistral Decomposition Agent (primary)
-        2. Gemini 2.5 Flash Lite (secondary)
-        3. qwen3:8b via Ollama (local fallback)
+        Falls back to a deterministic split; never to an external provider.
 
         Args:
             research_topic: Research request
@@ -842,11 +814,9 @@ Return ONLY a JSON array of 2-3 task strings, like:
 
 Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
-        # Provider chain: Mistral Agents API primary, then Gemini, then Ollama local fallback
+        # Private or unclassified research topic: local model only, then the deterministic split.
         providers = [
-            ("mistral-agent", "Mistral Decomposition Agent (primary)", self._decompose_with_mistral),
-            ("gemini-3.5-flash-lite", "Gemini 2.5 Flash Lite (secondary)", self._decompose_with_gemini_lite),
-            ("ollama", "qwen3:8b via Ollama (local fallback)", self._decompose_with_ollama),
+            ("ollama", "qwen3:8b via Ollama (local)", self._decompose_with_ollama),
         ]
 
         for provider_id, provider_name, provider_func in providers:
@@ -863,64 +833,6 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         log.error("All decomposition providers exhausted; using deterministic fallback decomposition")
         return self._fallback_decomposition_tasks(research_topic)
 
-    def _decompose_with_mistral(self, prompt: str) -> list[str]:
-        """Decompose using the Mistral Decomposition Agent (primary).
-
-        Routes through the shared mistral_agent_client.call_agent so the request
-        is built and retried exactly like every other (working) Mistral stage.
-        The previous inline client call passed `inputs` as a dict and
-        `agent_version` as an int, which failed the SDK's request validation on
-        every call (2 validation errors: string_type/list_type — the inputs
-        union expects str|list) and silently forced the Gemini fallback.
-        """
-        if _mac is None:
-            log.warning("[decompose] Mistral: mistral_agent_client unavailable")
-            return []
-        try:
-            text = _mac.call_agent(
-                stage="decompose",
-                agent_name=_mac.AGENT_DECOMPOSITION,
-                prompt=prompt,
-                mission_id=getattr(self, "mission_id", None),
-            )
-            if not text:
-                log.warning("[decompose] Mistral: Empty response")
-                return []
-
-            tasks = self._parse_json_tasks(text)
-            if tasks:
-                log.info(f"[decompose] Mistral: SUCCESS — {len(tasks)} tasks")
-            return tasks
-
-        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
-            log.warning(f"[decompose] Mistral: FAILED — {type(e).__name__}: {e}")
-            return []
-
-    def _decompose_with_gemini_lite(self, prompt: str) -> list[str]:
-        """Decompose using Gemini 2.5 Flash Lite."""
-        try:
-            import google.generativeai as genai
-            api_key = os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                log.error("[decompose] Gemini 2.5 Flash Lite: GEMINI_API_KEY not set")
-                return []
-
-            log.info("[decompose] Gemini 2.5 Flash Lite: API key present, configuring...")
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-3.5-flash-lite")
-            log.info("[decompose] Gemini 2.5 Flash Lite: Sending request...")
-            response = model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0.5))
-
-            if response.text:
-                log.info("[decompose] Gemini 2.5 Flash Lite: SUCCESS - received response")
-                return self._parse_json_tasks(response.text)
-            else:
-                log.error("[decompose] Gemini 2.5 Flash Lite: Empty response from API")
-                return []
-        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
-            log.error(f"[decompose] Gemini 2.5 Flash Lite: FAILED - {type(e).__name__}: {e}")
-            return []
-
     def _decompose_with_legacy_routing(self, prompt: str) -> list[str]:
         """Compatibility hook retained for legacy task decomposition paths."""
         log.info("[decompose] Legacy routing active; using Ollama")
@@ -931,6 +843,9 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         try:
             ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
             log.info(f"[decompose] Ollama: Using URL {ollama_url}")
+            from core.security import personal_data_policy
+
+            personal_data_policy.assert_local_target(ollama_url, "qwen3:8b", route="local decomposition model")
 
             endpoint = f"{ollama_url}/api/generate"
             request_data = {
@@ -1144,7 +1059,7 @@ Consolidation Requirements:
 Provide only the consolidated summary, no headers or metadata."""
 
         try:
-            log.info("[research] stage=consolidate provider=mistral_agent_or_fallback")
+            log.info("[research] stage=consolidate provider=local")
             outcome = _call_stage("consolidate", "summary", consolidation_prompt, timeout_sec=60, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
@@ -1230,7 +1145,7 @@ Disadvantages:
 Cost/Effort: [if relevant]"""
 
         try:
-            log.debug("[research] stage=extract_options provider=mistral_agent_or_fallback")
+            log.debug("[research] stage=extract_options provider=local")
             outcome = _call_stage("extract_options", "summary", options_prompt, timeout_sec=20, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
@@ -1285,7 +1200,7 @@ Format as a clear comparison table or matrix showing how each option trades off 
 Be specific with numbers/timelines where possible."""
 
         try:
-            log.debug("[research] stage=tradeoff_analysis provider=mistral_agent_or_fallback")
+            log.debug("[research] stage=tradeoff_analysis provider=local")
             outcome = _call_stage("tradeoff_analysis", "summary", tradeoff_prompt, timeout_sec=20, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
@@ -1338,7 +1253,7 @@ For each option, identify:
 Format clearly. Be specific about probability and impact."""
 
         try:
-            log.debug("[research] stage=risk_assessment provider=mistral_agent_or_fallback")
+            log.debug("[research] stage=risk_assessment provider=local")
             outcome = _call_stage("risk_assessment", "challenge", risk_prompt, timeout_sec=20, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
@@ -1522,6 +1437,9 @@ CONFIDENCE: [0.0-1.0]"""
         ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
         try:
+            from core.security import personal_data_policy
+
+            personal_data_policy.assert_local_target(ollama_url, "qwen2.5-coder:7b", route="local recommendation model")
             endpoint = f"{ollama_url}/api/generate"
             request_data = {
                 "model": "qwen2.5-coder:7b",
@@ -1664,7 +1582,7 @@ FIRST THREE ACTIONS:
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            log.debug("[research] stage=decision_framework provider=mistral_agent_or_fallback")
+            log.debug("[research] stage=decision_framework provider=local")
             outcome = _call_stage("decision_framework", "summary", decision_framework_prompt, timeout_sec=30, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
@@ -1742,7 +1660,7 @@ RECOMMENDATION: [your recommendation]
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            log.debug("[research] stage=recommend provider=mistral_agent_or_fallback")
+            log.debug("[research] stage=recommend provider=local")
             outcome = _call_stage("recommend", "summary", recommendation_prompt, timeout_sec=20, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:

@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 # ─── Path setup ──────────────────────────────────────────────────────────────
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -25,6 +27,16 @@ SLACK_BOT_LIB = REPO_ROOT / "platform-runtime" / "lib"
 for p in [str(REPO_ROOT), str(SLACK_BOT_LIB), str(REPO_ROOT / "platform-runtime")]:
     if p not in sys.path:
         sys.path.insert(0, p)
+
+
+@pytest.fixture(autouse=True)
+def _stub_screening(monkeypatch):
+    """These tests cover client mechanics for eligible (public-source) calls; the screening itself is
+    covered in tests/test_private_egress.py."""
+    from core.llm import provider_chain
+
+    monkeypatch.setattr(provider_chain, "screen_outbound", lambda system, prompt: (system, prompt))
+    monkeypatch.setattr(provider_chain, "screen_inbound", lambda text: None)
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -188,19 +200,19 @@ class TestCallAgent:
         fake_mistral_module.Mistral.return_value = fake_client
 
         with patch.dict(os.environ, self._env()), patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-            result = self.mac.call_agent("execute", "research", "What is X?")
+            result = self.mac.call_agent("execute", "research", "What is X?", public_source=True)
 
         assert result == "research findings here"
 
     def test_returns_none_when_api_key_missing(self):
         with patch.dict(os.environ, {"MISTRAL_API_KEY": ""}, clear=False):
-            result = self.mac.call_agent("execute", "research", "prompt")
+            result = self.mac.call_agent("execute", "research", "prompt", public_source=True)
         assert result is None
 
     def test_returns_none_when_agent_id_missing(self):
         env = {"MISTRAL_API_KEY": "key", "MISTRAL_RESEARCH_AGENT_ID": ""}
         with patch.dict(os.environ, env, clear=False):
-            result = self.mac.call_agent("execute", "research", "prompt")
+            result = self.mac.call_agent("execute", "research", "prompt", public_source=True)
         assert result is None
 
     def test_returns_none_on_sdk_exception(self):
@@ -210,7 +222,7 @@ class TestCallAgent:
         fake_mistral_module.Mistral.return_value = fake_client
 
         with patch.dict(os.environ, self._env()), patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-            result = self.mac.call_agent("execute", "research", "prompt")
+            result = self.mac.call_agent("execute", "research", "prompt", public_source=True)
         assert result is None
 
     def test_retries_on_429(self):
@@ -223,12 +235,12 @@ class TestCallAgent:
         fake_mistral_module.Mistral.return_value = fake_client
 
         with patch.dict(os.environ, self._env()), patch.dict(sys.modules, {"mistralai": fake_mistral_module}), patch("mistral_agent_client.time.sleep"):
-            result = self.mac.call_agent("execute", "research", "prompt")
+            result = self.mac.call_agent("execute", "research", "prompt", public_source=True)
         assert result == "retry worked"
 
     def test_unknown_agent_name_returns_none(self):
         with patch.dict(os.environ, self._env()):
-            result = self.mac.call_agent("execute", "nonexistent_agent", "prompt")
+            result = self.mac.call_agent("execute", "nonexistent_agent", "prompt", public_source=True)
         assert result is None
 
 
@@ -254,7 +266,7 @@ class TestOrchestrationResearchMistralFirst:
                 "MISTRAL_RESEARCH_AGENT_VERSION": "23",
             }),
         ):
-            result = mac.call_agent("execute", "research", "research question")
+            result = mac.call_agent("execute", "research", "research question", public_source=True)
 
         assert result is not None
         assert "task" in result.lower() or "[" in result
@@ -438,7 +450,7 @@ class TestStructuredLogging:
             "MISTRAL_BRIEFING_AGENT_VERSION": "2",
         }
         with caplog.at_level(logging.INFO, logger="mistral_agent_client"), patch.dict(os.environ, env), patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-            mac.call_agent("consolidate", "briefing", "prompt", mission_id="MSN-42")
+            mac.call_agent("consolidate", "briefing", "prompt", mission_id="MSN-42", public_source=True)
 
         log_text = " ".join(caplog.messages)
         assert "stage=consolidate" in log_text
@@ -450,7 +462,7 @@ class TestStructuredLogging:
         env = {"MISTRAL_API_KEY": "key", "MISTRAL_BRIEFING_AGENT_ID": ""}
 
         with caplog.at_level(logging.WARNING, logger="mistral_agent_client"), patch.dict(os.environ, env):
-            mac.call_agent("consolidate", "briefing", "prompt")
+            mac.call_agent("consolidate", "briefing", "prompt", public_source=True)
 
         log_text = " ".join(caplog.messages)
         assert "no_agent_id" in log_text or "status=failed" in log_text

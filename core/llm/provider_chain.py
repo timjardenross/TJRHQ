@@ -19,7 +19,8 @@ they FAIL CLOSED like the router: an unavailable guard, a blocked prompt or
 response, or text too long to redact raises (GuardrailsUnavailableError /
 BlockedByGuardrailsError, both RuntimeError subclasses, so callers'
 existing fall-through to the next provider still works) and nothing is sent.
-call_ollama is local and unguarded by design. Cost: roughly 45-90s per call
+call_ollama is unguarded only for a local target; a cloud-tagged model or a non-local base URL gets
+the same checks, and local_only=True refuses it. Cost: roughly 45-90s per call
 on this CPU-only host, because the NeMo rails run on the local Ollama.
 """
 
@@ -172,6 +173,11 @@ def _guard_inbound(text: str) -> None:
         check_output_rail(text)
 
 
+# Public names for the few callers that must use a provider SDK instead of call_gemini/call_mistral.
+screen_outbound = _guard_outbound
+screen_inbound = _guard_inbound
+
+
 def call_gemini(
     system_prompt: str,
     prompt: str,
@@ -283,10 +289,16 @@ def call_ollama(
     temperature: float = 0.3,
     num_predict: int = 1200,
     timeout: int = 60,
+    local_only: bool = False,
 ) -> LLMCallResult:
-    # An Ollama "cloud" tag is proxied off this machine: treat it as external for personal data.
-    if personal_data_policy.is_cloud_hosted_model(model):
-        personal_data_policy.assert_may_leave_host(system_prompt, prompt, route=f"cloud-hosted Ollama model {model}")
+    # A "cloud" tag is proxied off this machine and a non-local base_url leaves it directly. Either
+    # way this is an external call: screened like call_gemini/call_mistral, and refused outright for
+    # a local_only (private or unclassified) caller.
+    external = not personal_data_policy.is_local_target(base_url, model)
+    if external:
+        if local_only:
+            personal_data_policy.assert_local_target(base_url, model, route=f"Ollama model {model}")
+        system_prompt, prompt = _guard_outbound(system_prompt, prompt)
     body = json.dumps({
         "model": model,
         "prompt": f"{system_prompt}\n\n{prompt}",
@@ -320,6 +332,8 @@ def call_ollama(
     )
     if not text:
         raise RuntimeError("Ollama returned an empty response")
+    if external:
+        _guard_inbound(text)
     return LLMCallResult(
         text=text,
         model=model,

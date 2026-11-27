@@ -7,13 +7,12 @@ runs a two-pass AI pipeline to generate a publishable draft, and advances
 the item to status='draft'.
 
 Pass 1 — Research (ResearchOrchestrator):
-  Decomposes the content topic into research tasks, executes them via the
-  Mistral Agents / Gemini / Ollama provider chain, and consolidates findings.
+  Decomposes the content topic into research tasks, executes them on the
+  local model, and consolidates findings.
 
-Pass 2 — Writing (Mistral Briefing Agent):
-  Sends the consolidated research to the Briefing Officer agent with a
-  content-writing prompt. Falls back to mistral-small via chat completions
-  if the agent conversation API is unavailable.
+Pass 2 — Writing (local model):
+  Writes the draft from the consolidated research. No external provider: the
+  content notes are private or unclassified.
 
 Usage:
     python -m core.content.draft_worker               # process up to 5 pending items
@@ -56,9 +55,6 @@ from core.platform.heartbeat import record_heartbeat_failed, record_heartbeat_ok
 
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY       = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-MISTRAL_API_KEY    = os.environ.get("MISTRAL_API_KEY", "").strip()
-MISTRAL_BRIEFING_AGENT_ID      = os.environ.get("MISTRAL_BRIEFING_AGENT_ID", "").strip()
-MISTRAL_BRIEFING_AGENT_VERSION = int(os.environ.get("MISTRAL_BRIEFING_AGENT_VERSION", "1") or "1")
 
 DEFAULT_BATCH = 5
 
@@ -215,102 +211,26 @@ def _build_writing_prompt(item: dict, research: str) -> str:
     return prompt
 
 
-def _call_mistral_agent(prompt: str) -> str | None:
-    """Call Briefing Officer via Mistral conversations API."""
-    if not MISTRAL_API_KEY or not MISTRAL_BRIEFING_AGENT_ID:
-        return None
-    try:
-        from mistralai import Mistral
-        client = Mistral(api_key=MISTRAL_API_KEY)
-        response = client.beta.conversations.start(
-            agent_id=MISTRAL_BRIEFING_AGENT_ID,
-            agent_version=MISTRAL_BRIEFING_AGENT_VERSION,
-            inputs=[{"role": "user", "content": f"{_WRITING_SYSTEM_PROMPT}\n\n{prompt}"}],
-        )
-        if hasattr(response, "outputs") and response.outputs:
-            for entry in response.outputs:
-                if getattr(entry, "role", None) != "assistant":
-                    continue
-                content = getattr(entry, "content", None)
-                if not content:
-                    continue
-                if isinstance(content, list):
-                    return "".join(
-                        c.text if hasattr(c, "text") else str(c) for c in content
-                    ).strip()
-                return str(content).strip()
-        return None
-    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
-        log.warning("Mistral agent call failed: %s", exc)
-        return None
-
-
-def _call_mistral_direct(prompt: str) -> str | None:
-    """Fallback: mistral-small via chat completions."""
-    if not MISTRAL_API_KEY:
-        return None
-    try:
-        body = json.dumps({
-            "model": "mistral-small-latest",
-            "messages": [
-                {"role": "system", "content": _WRITING_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            "max_tokens": 1500,
-            "temperature": 0.4,
-        }).encode()
-        req = urllib.request.Request(
-            "https://api.mistral.ai/v1/chat/completions",
-            data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {MISTRAL_API_KEY}",
-            },
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=45) as resp:  # nosec B310 - url is a hardcoded Mistral API constant, not user input - reviewed 2026-09-12
-            data = json.loads(resp.read())
-        return data["choices"][0]["message"]["content"].strip()
-    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
-        log.warning("Mistral direct call failed: %s", exc)
-        return None
-
-
-def _call_mistral_batch_provider(prompt: str) -> str | None:
-    """Last resort: mistral_batch.call() from engineering provider."""
-    try:
-        from core.engineering.providers.mistral_batch import call as mistral_call
-        text, _ = mistral_call(f"{_WRITING_SYSTEM_PROMPT}\n\n{prompt}")
-        return text or None
-    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
-        log.warning("mistral_batch fallback failed: %s", exc)
-        return None
-
-
 def run_writing_pass(item: dict, research: str) -> str | None:
-    """Run Pass 2 — Briefing Officer → direct → batch fallback. Returns draft body or None."""
+    """Run Pass 2 on the local model only (content notes and research are private or
+    unclassified). Returns the draft, or None; the item then stays queued for a later run."""
     prompt = _build_writing_prompt(item, research)
-    log.info("[%s] Pass 2 — writing via Briefing Officer agent", item["id"][:8])
+    log.info("[%s] Pass 2 — writing on the local model", item["id"][:8])
+    try:
+        from core.llm.provider_chain import call_ollama
 
-    draft = _call_mistral_agent(prompt)
-    if draft:
-        log.info("[%s] Draft generated via Briefing Officer (%d chars)", item["id"][:8], len(draft))
-        return draft
-
-    log.warning("[%s] Briefing Officer unavailable — falling back to mistral-small direct", item["id"][:8])
-    draft = _call_mistral_direct(prompt)
-    if draft:
-        log.info("[%s] Draft generated via mistral-small direct (%d chars)", item["id"][:8], len(draft))
-        return draft
-
-    log.warning("[%s] Direct call failed — falling back to mistral_batch provider", item["id"][:8])
-    draft = _call_mistral_batch_provider(prompt)
-    if draft:
-        log.info("[%s] Draft generated via mistral_batch (%d chars)", item["id"][:8], len(draft))
-        return draft
-
-    log.error("[%s] All writing providers exhausted — no draft generated", item["id"][:8])
-    return None
+        draft = call_ollama(
+            _WRITING_SYSTEM_PROMPT, prompt,
+            base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
+            model=os.environ.get("OLLAMA_MODEL", "gemma4:12b"),
+            num_predict=1500, timeout=600, local_only=True,
+        ).text
+    except Exception as exc:  # noqa: BLE001 - reported here and by the caller's heartbeat
+        log.error("[%s] Local writing model unavailable: %s — no draft, item left queued",
+                  item["id"][:8], type(exc).__name__)
+        return None
+    log.info("[%s] Draft generated locally (%d chars)", item["id"][:8], len(draft))
+    return draft
 
 
 # ── Main processing loop ──────────────────────────────────────────────────────

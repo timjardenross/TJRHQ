@@ -166,7 +166,8 @@ def _build_research_topic(item: dict) -> str:
 def _run_research(item_id: str, item: dict) -> None:
     """
     Background thread: call ResearchOrchestrator then persist results.
-    All failures are non-blocking — sets research_status='failed' and logs.
+    All failures are non-blocking. A run that produced nothing stays 'pending' for retry; an import
+    error or unexpected exception sets research_status='failed'.
     """
     try:
         from core.coordination.research_orchestration import ResearchOrchestrator
@@ -190,8 +191,17 @@ def _run_research(item_id: str, item: dict) -> None:
         result = ResearchOrchestrator().run_research_mission(
             research_topic=topic,
         )
+        if result.status not in ("success", "partial"):
+            # Nothing was produced (local model unavailable, or the daily cap). Keep the item
+            # queued so the sweep retries it; there is no external fallback.
+            _db.update("captured_items", item_id, {"research_status": "pending"})
+            log.warning(
+                "[inbox-orchestrator] Research not completed item_id=%s status=%s - left pending",
+                item_id, result.status,
+            )
+            return
         _db.update("captured_items", item_id, {
-            "research_status": "completed" if result.status in ("success", "partial") else "failed",
+            "research_status": "completed",
             "research_findings": result.consolidated_findings or "",
             "research_brief": result.captains_brief or "",
             "research_mission_id": result.mission_id,
@@ -297,7 +307,7 @@ def process_captured_item(item_id: str) -> None:
                 name=f"inbox-research-{item_id[:8]}",
             )
             t.start()
-            log.info("[inbox-orchestrator] Research thread launched for item_id=%s topic=%s", item_id, _build_research_topic(item)[:80])
+            log.info("[inbox-orchestrator] Research thread launched for item_id=%s", item_id)
 
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[inbox-orchestrator] Processing failed for %s: %s", item_id, exc)
