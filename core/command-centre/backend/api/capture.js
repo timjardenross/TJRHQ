@@ -311,6 +311,14 @@ router.post('/:id/enrich', asyncHandler(async (req, res) => {
 
   const enrichResult = await _callEnrichmentLLM(item.title, item.raw_text);
 
+  if (enrichResult.blocked) {
+    // Not a failure: put the capture back in the local worker's queue.
+    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, {
+      ai_enrichment_status: 'not_enriched',
+    });
+    return res.json(successResponse({ id, enriched: false, queued: true, error: enrichResult.error }, 200));
+  }
+
   if (!enrichResult.ok) {
     await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, {
       ai_enrichment_status: 'failed',

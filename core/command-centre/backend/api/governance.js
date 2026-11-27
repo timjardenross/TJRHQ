@@ -101,68 +101,6 @@ function buildFallbackSummary(counts) {
   );
 }
 
-function httpsPost(url, headers, body) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const options = {
-      hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers },
-    };
-    const req = https.request(options, res => {
-      let data = '';
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) resolve(data);
-        else reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`));
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(25000, () => { req.destroy(new Error('LLM request timeout')); });
-    req.write(body);
-    req.end();
-  });
-}
-
-async function callGemini(prompt) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
-  const body = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
-    thinkingConfig: { thinkingBudget: 0 },
-  });
-  const raw = await httpsPost(url, {}, body);
-  const data = JSON.parse(raw);
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  // Gemini 2.5 Flash may return thinking + text parts; join non-thought text parts
-  const text = parts
-    .filter(p => p.text && !p.thought)
-    .map(p => p.text)
-    .join('')
-    .trim();
-  if (!text) throw new Error('Gemini returned no text');
-  return text;
-}
-
-async function callMistral(prompt) {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) throw new Error('MISTRAL_API_KEY not set');
-  const body = JSON.stringify({
-    model: 'mistral-small-2503',
-    messages: [{ role: 'user', content: prompt }],
-    max_tokens: 800,
-    temperature: 0.3,
-  });
-  const raw = await httpsPost('https://api.mistral.ai/v1/chat/completions', { Authorization: `Bearer ${apiKey}` }, body);
-  const data = JSON.parse(raw);
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Mistral returned no text');
-  return text.trim();
-}
-
 async function getLessons() {
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -197,52 +135,18 @@ async function getLessons() {
   }
 }
 
+// Decisions, lessons, ADRs and directives are internal governance records: they are never sent to
+// an external model. The summary is deterministic.
 async function generateSummary(records) {
   const { decisions, lessons, adrs, directives } = records;
-
-  const decisionLines = decisions.slice(0, 20).map(d =>
-    `  [${d.id}] ${d.title}${d.status ? ` (${d.status.split('—')[0].trim()})` : ''}${d.outcome ? ` → ${d.outcome.slice(0, 80)}` : ''}`
-  ).join('\n');
-
-  const lessonLines = lessons.slice(0, 15).map(l =>
-    `  [${l.lesson_id || '?'}] ${l.title}${l.future_guidance ? ` → ${l.future_guidance.slice(0, 80)}` : ''}`
-  ).join('\n');
-
-  const adrLines = adrs.map(a =>
-    `  [${a.id}] ${a.title}${a.decision ? ` → ${a.decision.slice(0, 80)}` : ''}`
-  ).join('\n');
-
-  const directiveLines = directives.map(d =>
-    `  [${d.id}] ${d.title}`
-  ).join('\n');
-
-  const prompt =
-    `You are the Executive Intelligence Officer aboard USS Starship Endeavour. ` +
-    `Write a 3–5 sentence narrative executive summary for the Captain's governance dashboard. ` +
-    `Tell the story of this ship's decision-making and learning — what themes emerge, what the command has been focused on, ` +
-    `what operating patterns are visible, and what the next governance priority should be. ` +
-    `Be direct and insightful. Reference specific decisions, lessons, or directives by name where it adds meaning. ` +
-    `Prose only — no bullets, no headers, no markdown.\n\n` +
-    `GOVERNANCE DECISIONS (${decisions.length} total — most recent 20 shown):\n${decisionLines || '  (none)'}\n\n` +
-    `LESSONS LEARNED (${lessons.length} total — most recent 15 shown):\n${lessonLines || '  (none)'}\n\n` +
-    `ARCHITECTURAL DECISIONS (${adrs.length} total):\n${adrLines || '  (none)'}\n\n` +
-    `CAPTAIN'S DIRECTIVES (${directives.length} total):\n${directiveLines || '  (none)'}`;
-
-  const providers = [
-    ['gemini-3.5-flash-lite', callGemini],
-    ['mistral-small-2503', callMistral],
-  ];
-
-  for (const [name, fn] of providers) {
-    try {
-      const text = await fn(prompt);
-      return { text, provider: name };
-    } catch (err) {
-      console.warn(`[governance/summary] ${name} failed:`, err.message);
-    }
-  }
-
-  return { text: buildFallbackSummary(counts), provider: 'deterministic' };
+  console.warn('[governance/summary] model narrative unavailable: internal records are not sent externally');
+  const text = buildFallbackSummary({
+    decisions: decisions.length,
+    lessons: lessons.length,
+    adrs: adrs.length,
+    directives: directives.length,
+  });
+  return { text, provider: 'deterministic' };
 }
 
 async function getRecords() {
@@ -304,3 +208,4 @@ router.get('/directives', asyncHandler(async (req, res) => {
 }));
 
 module.exports = router;
+module.exports.generateSummary = generateSummary;
