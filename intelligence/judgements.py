@@ -103,12 +103,13 @@ def public_source(report: dict) -> tuple[bool, str]:
 
 
 def _source_record(incident_id: str, report: dict) -> dict:
-    title = claim_gate.sanitize_untrusted(report.get("title"), 220)
+    # the same lengths the router sends: what a draft is checked against must be what the model was given
+    title = claim_gate.sanitize_untrusted(report.get("title"), route.TITLE_CHARS)
     name = str(report.get("source_name") or report.get("source") or "")
     event_id = str(report.get("report_id") or report.get("event_id") or "")
     return {"ref": event_id, "event_id": event_id, "incident_id": incident_id, "source": name,
             "publisher": publisher_family(name, title), "official": source_kind(name) == PRIMARY, "title": title,
-            "summary": claim_gate.sanitize_untrusted(report.get("summary"), 400), "url": str(report.get("url") or ""),
+            "summary": claim_gate.sanitize_untrusted(report.get("summary"), route.SUMMARY_CHARS), "url": str(report.get("url") or ""),
             "published_at": str(report.get("published_at") or "")[:40], "geography": str(report.get("geography") or "")}
 
 
@@ -313,8 +314,8 @@ def _unscoped(text: str) -> str:
 
 
 def _gate(text: str, sources: list[dict], field: str) -> bool:
-    evidence = [{"id": s["ref"], "title": s["title"], "summary": s["summary"], "source": s["source"], "canonical_url": s["url"]}
-                for s in sources]
+    evidence = [{"id": s["ref"], "title": s["title"], "summary": s["summary"], "source": s["source"], "canonical_url": s["url"],
+                 "published_at": s.get("published_at") or ""} for s in sources]
     return claim_gate.validate_text(text, evidence, field=field, mode="enforce").passed
 
 
@@ -429,7 +430,8 @@ def apply_reply(reply: dict, candidates: list[dict], open_: dict[str, dict], tod
         if judgement is not None and prior is None and any({s["event_id"] for s in judgement["evidence"]} <= r for r in rejected or []):
             judgement, why = None, "you rejected a judgement on this evidence; nothing new has been added"
         if judgement is None:
-            abstained.append({"topic": topic, "reason": why})
+            # the whole draft stays in the register so a rejection can be examined; it is never printed or delivered
+            abstained.append({"topic": topic, "reason": why, "draft": raw})
             continue
         jid = prior["id"] if prior else "jdg-" + "".join(secrets.choice(string.ascii_lowercase) for _ in range(6))
         records.append({"type": "judgement", "id": jid, "run_date": today.isoformat(),

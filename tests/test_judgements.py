@@ -312,3 +312,21 @@ def test_router_error_body_is_read(monkeypatch, code, body, expected):
     with pytest.raises(jd.DraftUnavailable) as caught:
         jd.draft_via_router({"as_of": "2026-11-28", "event_ids": [], "standing_ids": []})
     assert caught.value.outcome == expected
+
+
+def test_a_draft_is_checked_against_the_same_text_and_date_the_model_was_given():
+    from core.security import public_judgement_route as route
+
+    record = jd._source_record("inc", {"report_id": "r", "title": "t" * 400, "summary": "word " * 200, "source": "ABC News",
+                                       "url": "https://example.com.au/a", "published_at": "2026-11-24T01:00:00+00:00"})
+    assert len(record["title"]) == route.TITLE_CHARS and len(record["summary"]) == route.SUMMARY_CHARS
+    source = {**record, "title": "Bank payments outage", "summary": "Payments were disrupted."}
+    assert jd._gate("Payments were disrupted on 24 November.", [source], "digest")
+    assert not jd._gate("Payments were disrupted on 19 November.", [source], "digest")
+
+
+def test_a_rejected_draft_is_kept_in_the_register_but_not_in_the_product(tmp_path):
+    result = run(tmp_path, two_publishers(), lambda p: reply_for(p, assessment="Optus has lost 4000 services in Perth since Tuesday."))
+    (kept,) = [a for a in result["run"]["abstentions"] if "draft" in a]
+    assert kept["draft"]["reasoning"] and "claim gate" in kept["reason"]
+    assert kept["draft"]["reasoning"] not in result["text"]
