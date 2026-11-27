@@ -273,9 +273,10 @@ class TestRecomputeAllRetention(unittest.TestCase):
         self.assertEqual(save.call_args.kwargs["threshold_value"], 45)
 
     def test_nothing_written_when_stored_values_cannot_be_read(self):
-        results, save = self._run(RuntimeError("down"))
-        save.assert_not_called()
-        self.assertEqual(results, [])
+        for answer in ((None, None, None), (45, "ollama", "r"), (999999, "ollama", "r")):
+            results, save = self._run(RuntimeError("down"), answer)
+            save.assert_not_called()
+            self.assertEqual(results, [])
 
 
 if __name__ == "__main__":

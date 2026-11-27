@@ -420,7 +420,9 @@ def _level(name, source="llm_learned", hours=2):
 
 def test_current_or_cold_start_calibration_says_nothing():
     assert _calibration([_level("A"), _level("B", "bootstrap_default_insufficient_history", 500), _level("Z", "bootstrap_default_llm_unavailable")]) == []
-    assert _calibration([], active=()) == []
+    assert _calibration([], active=()) == ["- Outage report detection: calibration state could not be checked."]
+    inactive = {"intelligence_source_registry": [{"source_name": "Downdetector AU — A", "active": False}]}
+    assert bc.calibration_lines(fake_sb(inactive), NOW) == []
 
 
 def test_retained_and_generic_levels_are_reported_as_degraded():
@@ -437,3 +439,18 @@ def test_the_first_failed_night_shows_in_the_morning_brief():
 
 def test_unreadable_calibration_state_is_not_silence():
     assert _calibration([]) == ["- Outage report detection: calibration state could not be checked."]
+
+
+def test_a_failed_registry_read_through_the_briefs_reader_is_reported_and_the_block_survives(monkeypatch):
+    from intelligence import captains_brief as cb
+
+    def request(table, query=""):
+        if "source_type=eq.downdetector" in query:
+            raise RuntimeError("registry read failed")
+        return []
+
+    monkeypatch.setattr(cb, "_sb_request", request)
+    monkeypatch.setenv(bc.MORNING_FLAG, "1")
+    lines = bc.coverage_lines(cb._sb_get, alerts(), now=NOW)
+    assert "- Outage report detection: calibration state could not be checked." in lines
+    assert lines[0].startswith("COVERAGE") and lines[-1] == "- Official warnings: none active."

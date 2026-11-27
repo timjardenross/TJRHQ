@@ -178,10 +178,13 @@ def calibration_lines(sb_get, now: datetime) -> list[str]:
     A service still collecting its first weeks of history is not degraded."""
     unreadable = ["- Outage report detection: calibration state could not be checked."]
     try:
-        active = sb_get("intelligence_source_registry", "active=eq.true&source_type=eq.downdetector&select=source_name&limit=200")
-        if not active:
-            return []
-        names = {r["source_name"] for r in active if str(r.get("source_name") or "").lower().startswith("downdetector au")}
+        # Inactive rows are asked for too: the brief's reader turns a failed read into [], so an empty answer must mean
+        # "could not look", not "nothing monitored".
+        registered = sb_get("intelligence_source_registry", "source_type=eq.downdetector&select=source_name,active&limit=200")
+        if not registered:
+            return unreadable
+        names = {r["source_name"] for r in registered
+                 if r.get("active", True) and str(r.get("source_name") or "").lower().startswith("downdetector au")}
         if not names:
             return []
         rows = sb_get("downdetector_learned_thresholds", "select=source_name,threshold_source,computed_at&limit=200")

@@ -481,7 +481,7 @@ def recompute_all(
     try:
         priors: dict | None = store.load_downdetector_thresholds_strict()
     except Exception as exc:  # noqa: BLE001 - without the stored rows, only a newly learned value is safe to write
-        log.warning("[downdetector-threshold] stored thresholds unreadable, keeping them unchanged: %s", exc)
+        log.warning("[downdetector-threshold] stored thresholds unreadable, writing nothing this run: %s", exc)
         priors = None
 
     all_sources = [
@@ -500,9 +500,9 @@ def recompute_all(
             result = recompute_threshold_for_source(
                 source_name, sector, observations, min_history_days=min_history_days,
             )
+            if priors is None:
+                continue  # nothing written, learned or not: never overwrite a stored row that could not be read
             if result.threshold_source != "llm_learned":
-                if priors is None:
-                    continue  # nothing written: a valid stored value must not be overwritten blind
                 prior = priors.get(source_name)
                 keep, why = retention_check(
                     prior, sector, summarize_history(observations), bootstrap_default(sector), now,
