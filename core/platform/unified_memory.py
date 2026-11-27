@@ -88,6 +88,12 @@ class _Mem0Backend:
             return False
 
         try:
+            from core.security import personal_data_policy
+
+            # Same rule as memory_graph: memories are private and mem0 is configured with a hosted
+            # model and embedder. Falls through to the Supabase tables.
+            personal_data_policy.assert_external_eligible(False, route="mem0 (Gemini model and embeddings)")
+
             from mem0 import Memory  # type: ignore[import]
             from mem0.configs.base import MemoryConfig  # type: ignore[import]
 
