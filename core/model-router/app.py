@@ -871,7 +871,9 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             task_type, model, duration_ms, escalated, route_tier,
         )
 
+        sent_view = ({"projection": _judgement_route.projection(safe_prompt)} if policy.get("public_source_boundary") else {})
         result = {
+            **sent_view,
             "success": True,
             "task_type": task_type,
             "model": model,

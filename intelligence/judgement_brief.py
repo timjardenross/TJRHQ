@@ -111,11 +111,19 @@ def section_lines(today: date, register: jd.Register) -> list[str]:
     # drafter's retirements are unreviewed, and rejected drafts and abstention notes are never quoted: all are only counted.
     since = {r.get("run_date") for r in recent}
     issued_text = {r["id"]: r["assessment"] for r in records if r.get("type") == "judgement"}
+    waiting: set[str] = set()
+    for r in records:
+        if r.get("type") == "retire_proposal":
+            waiting.add(r["id"])
+        elif r.get("type") in ("judgement", "retire"):
+            waiting.discard(r.get("id"))
     retired = [r for r in records if r.get("type") == "retire" and r.get("run_date") in since and r.get("id") in passed]
     notes += [f"- No longer carried, review date passed: {issued_text[r['id']]}" for r in retired
               if r.get("by") == "code" and r.get("id") in issued_text]
-    if proposed := sum(1 for r in retired if r.get("by") != "code"):
-        notes.append(f"- {proposed} earlier judgement(s) closed by the drafter, not yet reviewed; see the evaluation record.")
+    notes += [f"- No longer carried, retirement confirmed by review: {issued_text[r['id']]}" for r in retired
+              if r.get("by") == "reviewer" and r.get("id") in issued_text]
+    if shown_waiting := [j["id"] for j in usable[:MAX_SHOWN] if j["id"] in waiting]:
+        notes.append(f"- Retirement proposed and awaiting review for: {', '.join(shown_waiting)}.")
     if declined := len(run.get("abstentions") or []):
         notes.append(f"- {declined} further topic(s) not offered as judgements; reasons are in the evaluation record.")
     return [*lines, *([""] if notes else []), *notes, "", f"- {jd.SCREENING_LIMITATION}"]
