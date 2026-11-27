@@ -610,3 +610,20 @@ def test_vm_ollama_refuses_a_cloud_tagged_model(out):
     with pytest.raises(pdp.ExternalEgressBlockedError):
         vm_ollama.call(GOVERNANCE, model="synthetic:cloud")
     assert out.external == []
+
+
+@pytest.mark.parametrize("entry", ["submit_pending", "run_sync", "run_sync_one"])
+def test_unauthorised_engineering_handoffs_stay_pending(nothing_authorised, out, monkeypatch, tmp_path, entry):
+    from core.engineering import batch_coding as bc
+    handoff = tmp_path / "synthetic.md"
+    handoff.write_text("synthetic")
+    stamped = []
+    monkeypatch.setattr(bc, "_stamp", lambda *a, **k: stamped.append(a))
+    monkeypatch.setattr(bc, "_pending_handoffs", lambda base=None: [(handoff, {"batch_status": "PENDING"})])
+    monkeypatch.setattr(bc, "_build_request", lambda p, f: {"custom_id": "1", "body": {"messages": []}})
+    monkeypatch.setattr(bc, "_parse_handoff_file", lambda p: {"batch_status": "PENDING"})
+    monkeypatch.setattr(bc, "_is_pending", lambda f: True)
+    result = getattr(bc, entry)(handoff) if entry == "run_sync_one" else getattr(bc, entry)()
+    assert bc.NOT_AUTHORISED in (result.get("note"), result.get("error"))
+    assert stamped == [] and out.external == [] and handoff.read_text() == "synthetic"
+
