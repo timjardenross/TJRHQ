@@ -169,13 +169,57 @@ def warnings_line(load_alerts) -> str:
     return f"- Official warnings are active{where}. {most}{tail}"
 
 
+CALIBRATION_STALE_HOURS = 25   # nightly at 05:00, so by the 07:00 brief a row from the night before (26 h) was not redone
+_CALIBRATION_FAILED = frozenset({"bootstrap_default_llm_unavailable", "bootstrap_default_after_llm_reject"})
+
+
+def calibration_lines(sb_get, now: datetime) -> list[str]:
+    """One line when outage-report calibration is degraded for a monitored (active Downdetector) service, else [].
+    A service still collecting its first weeks of history is not degraded."""
+    unreadable = ["- Outage report detection: calibration state could not be checked."]
+    try:
+        # Inactive rows are asked for too: the brief's reader turns a failed read into [], so an empty answer must mean
+        # "could not look", not "nothing monitored".
+        registered = sb_get("intelligence_source_registry", "source_type=eq.downdetector&select=source_name,active&limit=200")
+        if not registered:
+            return unreadable
+        names = {r["source_name"] for r in registered
+                 if r.get("active", True) and str(r.get("source_name") or "").lower().startswith("downdetector au")}
+        if not names:
+            return []
+        rows = sb_get("downdetector_learned_thresholds", "select=source_name,threshold_source,computed_at&limit=200")
+        if not rows:
+            return unreadable
+        retained = generic = 0
+        for row in rows:
+            if row.get("source_name") not in names:
+                continue
+            source = row.get("threshold_source")
+            if source in _CALIBRATION_FAILED:
+                generic += 1
+            elif source == "llm_learned":
+                when = _parse(row.get("computed_at"))
+                retained += when is None or now - when > timedelta(hours=CALIBRATION_STALE_HOURS)
+        if not retained + generic:
+            return []
+        parts = ([f"{retained} on an earlier retained level"] if retained else []) + (
+            [f"{generic} on the generic level"] if generic else [])
+        line = (f"- Outage report detection: calibration degraded for {retained + generic} of {len(names)} "
+                f"monitored services ({', '.join(parts)}).")
+        return [line]
+    except Exception:
+        log.warning("coverage calibration line unavailable", exc_info=True)
+        return unreadable
+
+
 def coverage_lines(sb_get, load_alerts, now: datetime | None = None) -> list[str]:
     """The block as plain text lines, or [] when the flag is off. Never raises."""
     if not enabled():
         return []
     try:
         now = now or datetime.now(timezone.utc)
-        return ["COVERAGE (what this brief could see)", *collection_lines(sb_get, now), warnings_line(load_alerts)]
+        return ["COVERAGE (what this brief could see)", *collection_lines(sb_get, now), *calibration_lines(sb_get, now),
+                warnings_line(load_alerts)]
     except Exception:
         log.warning("coverage block unavailable", exc_info=True)
         return ["COVERAGE", "- Could not be checked, so do not read the sections below as quiet."]

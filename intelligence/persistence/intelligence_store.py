@@ -1506,3 +1506,10 @@ def load_all_downdetector_thresholds() -> dict[str, dict]:
     the sector bootstrap default, which is the safe behaviour."""
     rows = _get("downdetector_learned_thresholds?select=*")
     return {row["source_name"]: row for row in rows}
+
+
+def load_downdetector_thresholds_strict() -> dict[str, dict]:
+    """As load_all_downdetector_thresholds(), but raises when the read fails, so
+    the recompute job can tell "no stored rows" from "could not look"."""
+    rows = _get_strict("downdetector_learned_thresholds?select=*")
+    return {row["source_name"]: row for row in rows}

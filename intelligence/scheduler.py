@@ -1383,15 +1383,16 @@ def _downdetector_threshold_recompute_job() -> None:
 
         results = recompute_all()
         learned = sum(1 for r in results if r.threshold_source == "llm_learned")
-        bootstrap = len(results) - learned
+        retained = sum(1 for r in results if r.threshold_source == "retained_previous")
+        bootstrap = len(results) - learned - retained
         log.info(
             "Downdetector threshold recompute complete: %d source(s), %d LLM-learned, "
-            "%d on bootstrap/fallback default",
-            len(results), learned, bootstrap,
+            "%d retained, %d on bootstrap/fallback default",
+            len(results), learned, retained, bootstrap,
         )
         _record_heartbeat(
             "downdetector_threshold_recompute", "ok",
-            detail=f"sources={len(results)} learned={learned} bootstrap={bootstrap}",
+            detail=f"sources={len(results)} learned={learned} retained={retained} bootstrap={bootstrap}",
         )
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Downdetector threshold recompute job failed: %s", exc)
