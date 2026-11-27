@@ -11,6 +11,8 @@ records. Nothing about eligibility is trusted from the caller:
 * content: records with personal identifiers, addresses, health content or a sensitive attribute tied to a person are left out;
 * release: unless unattended running has been switched on, nothing is sent until the exact audited payload is released by its
   SHA-256, once, within the time limit;
+* relevance and minimisation: reporting about an individual's conduct, allegations, discipline or health is left out unless it also
+  reports an operational or systemic effect, and then only the sentences about that effect are kept;
 * every other entity type stays redacted, rails stay on, no fail-open. Flag default off.
 
 Stdlib only: the router runs under system Python.
@@ -58,7 +60,17 @@ class Rejected(ValueError):
 
 
 class NotReleased(RuntimeError):
-    """The held payload was not released in time. Nothing was sent."""
+    """The held payload was not released. Nothing was sent."""
+
+    outcome = "not_sent"
+
+
+class HoldExpired(NotReleased):
+    outcome = "hold_expired"
+
+
+class Withheld(NotReleased):
+    outcome = "withheld_security_review"
 
 
 def _truthy(value: object) -> bool:
@@ -225,14 +237,37 @@ def register_open() -> dict[str, dict]:
     return open_
 
 
+def cleared_for_external() -> set[str]:
+    """Judgements whose CURRENT version passed evidence review and was explicitly cleared. A new version or a later review without
+    clearance removes it."""
+    path = state_dir() / "register.jsonl"
+    cleared: set[str] = set()
+    if not path.exists():
+        return cleared
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(line)
+            if r.get("type") == "judgement":
+                cleared.discard(r["id"])
+            elif r.get("type") == "review":
+                ok = r.get("facts") == "pass" and r.get("reasoning") == "pass" and r.get("cleared_external") is True
+                (cleared.add if ok else cleared.discard)(r["id"])
+        except (ValueError, KeyError, AttributeError, TypeError):
+            continue
+    return cleared
+
+
 def standing_entries(standing_ids: list[str]) -> tuple[list[dict], dict[str, str]]:
     """([{id, area, assessment, indicators, evidence}], {id: why left out}). An id that is not an open judgement refuses."""
-    open_, seen = register_open(), known_outputs()
+    open_, seen, cleared = register_open(), known_outputs(), cleared_for_external()
     out, left_out = [], {}
     for jid in standing_ids:
         j = open_.get(jid)
         if j is None:
             raise Rejected("a standing identifier is not an open judgement")
+        if jid not in cleared:
+            left_out[jid] = "not reviewed and cleared for external processing"
+            continue
         try:
             indicators = [{"indicator": str(i["indicator"]), "threshold": str(i["threshold"]),
                            "check_by": date.fromisoformat(str(i["check_by"])).isoformat()} for i in j.get("indicators", [])]
@@ -315,6 +350,84 @@ def sensitive(texts: dict[str, str], detector=None) -> dict[str, str]:
         raise Rejected(f"personal information could not be screened ({type(exc).__name__})") from exc
 
 
+# ── relevance and minimisation ────────────────────────────────────────────────
+# Wording rules, applied AFTER the screening above (which is unchanged): this can only remove or shorten, never admit.
+
+_CONDUCT = re.compile(
+    r"\b(?:alleg\w*|accus\w*|charged|arrest\w*|police (?:are |is )?(?:investigat\w*|probe\w*)|under (?:police )?investigation|"
+    r"police investigation|pleads?|pleaded|convicted|sentenc\w*|jailed|offences?|offending|assault\w*|abus\w*|harass\w*|murder\w*|"
+    r"manslaughter|misconduct|disciplin\w*|sacked|stood down|struck off|deregist\w*|banned|disqualified|"
+    r"reprimand\w*|cautioned|tribunal|drink[- ]driving|drug[- ]tests?|tested positive|confess\w*|"
+    r"(?:licen[cs]e|registration) (?:has been |was |is )?(?:suspended|cancelled|revoked)|"
+    r"suspended (?:from|licen[cs]e|registration))\b", re.IGNORECASE)
+_HEALTH = re.compile(
+    r"\b(?:diagnos\w*|hospitali[sz]\w*|in hospital|injur\w*|illness|surgery|cancer|stroke|heart attack|mental health|overdose|"
+    r"died|dies|death|collapsed|unwell|medical (?:episode|leave|condition)|(?:stress|sick) leave|medication|insomnia|asleep)\b", re.IGNORECASE)
+# singular only: "paramedics" or "teachers" describe a workforce, not a person
+_PERSON_WORD = re.compile(
+    r"\b(?:he|she|his|her|him|\d{1,3}[- ]year[- ]old|man|woman|boy|girl|teenager|child|baby|mother|father|grandmother|grandfather|"
+    r"teacher|principal|doctor|nurse|paramedic|officer|worker|employee|driver|pilot|adviser|advisor|broker|director|"
+    r"electrician|dispatcher|signaller|pharmacist|technician|mechanic|spokesman|spokeswoman|chief executive|ceo|manager|councillor|mayor|minister|player|coach|priest|resident|student|patient)(?:['’]s)?\b",
+    re.IGNORECASE)
+# a reported effect on a service, system or community that an approved requirement is about
+_CONNECTION = re.compile(
+    r"\b(?:outages?|disrupt\w*|delay(?:s|ed)?|shortages?|backlogs?|ramping|capacity|understaff\w*|offline|unavailab\w*|"
+    r"systemic|(?:system|service|control|compliance|governance|network)s? (?:failures?|breakdowns?)|response times?|"
+    r"data breach(?:es)?|cyber[- ]?attacks?|ransomware|compromis\w*|vulnerabilit\w*|evacuat\w*|bushfires?|floods?|flooding|"
+    r"cyclones?|power (?:cuts?|outages?)|critical infrastructure|essential services?)\b", re.IGNORECASE)
+# singular only; "child care" and similar are services, not a child
+_CHILD_OR_VICTIM = re.compile(
+    r"\b(?:(?:child|boy|girl|teenager|toddler|infant|baby|schoolboy|schoolgirl|victim)(?:['’]s)?(?![ -](?:care|protection|safety))"
+    r"|(?:[1-9]|1[0-7])[- ](?:year|month|week)[- ]old)\b", re.IGNORECASE)
+NOT_RELEVANT = "individual matter without a reported operational or systemic connection"
+
+
+def _sentences(record: dict) -> list[str]:
+    return [s.strip() for part in (record["title"], record["summary"]) for s in re.split(r"(?<=[.!?;])\s+", part) if s.strip()]
+
+
+def minimise(records: dict[str, dict], detector) -> tuple[dict[str, dict], dict[str, str], list[str]]:
+    """(records to send, {id: why left out}, ids shortened). Raises Rejected if people cannot be detected."""
+    parts = [(key, s) for key, r in records.items() for s in _sentences(r)]
+    bounds, at = [], 0
+    for _, s in parts:
+        bounds.append((at, at + len(s)))
+        at += len(s) + 3
+    try:
+        spans = detector("\n.\n".join(s for _, s in parts)) if parts else []
+    except Rejected:
+        raise
+    except Exception as exc:  # unscreenable content may not leave
+        raise Rejected(f"personal information could not be screened ({type(exc).__name__})") from exc
+    marked: dict[str, list[tuple[str, bool]]] = {}
+    for (key, s), (lo, hi) in zip(parts, bounds):
+        marked.setdefault(key, []).append((s, bool(_PERSON_WORD.search(s) or _INDIVIDUAL.search(s)) or any(lo <= a < hi for a, _ in spans)))
+    surnames: dict[str, set[str]] = {}                       # a full name found once also marks later surname-only sentences
+    joined = "\n.\n".join(s for _, s in parts)
+    for (key, _), (lo, hi) in zip(parts, bounds):
+        for a, b in spans:
+            words = joined[a:b].split()
+            if lo <= a < hi and len(words) > 1:
+                surnames.setdefault(key, set()).add(re.sub(r"['’]s$", "", words[-1]))
+    out, dropped, shortened = {}, {}, []
+    for key, record in records.items():
+        sentences = [(s, person or any(re.search(rf"\b{re.escape(n)}\b", s) for n in surnames.get(key, ())))
+                     for s, person in marked.get(key, [])]
+        individual = any(person for _, person in sentences) and any(_CONDUCT.search(s) or _HEALTH.search(s) for s, _ in sentences)
+        individual = individual or any(person and _CHILD_OR_VICTIM.search(s) for s, person in sentences)
+        if not individual:
+            out[key] = record
+            continue
+        kept = [s for s, person in sentences
+                if not person and not _CONDUCT.search(s) and not _CHILD_OR_VICTIM.search(s) and _CONNECTION.search(s)]
+        if not kept:
+            dropped[key] = NOT_RELEVANT
+            continue
+        out[key] = {**record, "title": kept[0], "summary": " ".join(kept[1:])}
+        shortened.append(key)
+    return out, dropped, shortened
+
+
 # ── request ───────────────────────────────────────────────────────────────────
 
 def prepare(body: object, *, reader=None, detector=None) -> dict:
@@ -343,6 +456,8 @@ def prepare(body: object, *, reader=None, detector=None) -> dict:
     unsafe = sensitive(texts, detector)
     dropped.update(unsafe)
     records = {k: r for k, r in records.items() if k not in unsafe}
+    records, irrelevant, shortened = minimise(records, detector)
+    dropped.update(irrelevant)
     kept = []
     for s in standing:
         if s["id"] in unsafe:
@@ -353,7 +468,8 @@ def prepare(body: object, *, reader=None, detector=None) -> dict:
         kept.append({k: s[k] for k in ("id", "area", "assessment", "indicators")})
     if not records:
         raise Rejected("no eligible record")
-    return {"as_of": as_of, "records": [records[e] for e in wanted if e in records][:MAX_RECORDS], "standing": kept, "dropped": dropped}
+    return {"as_of": as_of, "records": [records[e] for e in wanted if e in records][:MAX_RECORDS], "standing": kept, "dropped": dropped,
+            "minimised": shortened}
 
 
 def build_prompt(prepared: dict) -> tuple[str, dict[str, str]]:
@@ -371,11 +487,9 @@ def build_prompt(prepared: dict) -> tuple[str, dict[str, str]]:
                                               ensure_ascii=False))
     lines.append(token + "|END")
     evidence = "\n".join(lines)
-    prompt = f"""You draft intelligence judgements for an Australian operational-resilience principal. Date: {prepared['as_of']}.
-Areas: national_systemic (Australian national and systemic resilience), sector (professional and sector resilience),
+    prompt = f"""You draft intelligence judgements on operational resilience in Australia. Date: {prepared['as_of']}.
+Areas: national_systemic (Australian national and systemic resilience), sector (industry and sector resilience),
 emerging_cascading (material emerging and cascading risks).
-Core requirements (use these words): essential-services, concentration, policy-change, emerging-threats, banking-payments,
-telecoms-digital, obligations-enforcement.
 
 Return at most 3 substantive judgements. Fewer, or none, is correct when the evidence does not support more.
 A judgement is a claim about what is happening or likely to matter that could turn out wrong. A restated headline is not a judgement.
@@ -401,7 +515,7 @@ Reply with JSON only:
 {{"judgements":[{{"id":null,"area":"","assessment":"","facts":[{{"text":"","refs":["src-..."]}}],"reasoning":"","key_assumption":"",
 "connection":{{"statement":"","refs":[]}},"australian_relevance":"","implications":"","uncertainty":"","competing_explanation":"",
 "change":"new|unchanged|strengthened|weakened","change_reason":"",
-"indicators":[{{"indicator":"","threshold":"","check_by":"YYYY-MM-DD"}}],"review_by":"YYYY-MM-DD","requirements":["essential-services"]}}],
+"indicators":[{{"indicator":"","threshold":"","check_by":"YYYY-MM-DD"}}],"review_by":"YYYY-MM-DD"}}],
 "retire":[{{"id":"","status":"closed|withdrawn","reason":"","refs":["src-..."]}}],"abstentions":[{{"topic":"","reason":""}}]}}"""
     return prompt, refs
 
@@ -427,12 +541,12 @@ def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def audit(event_ids: list[str], redacted_prompt: str, findings: list) -> str:
+def audit(event_ids: list[str], redacted_prompt: str, findings: list, minimised: list[str] | None = None) -> str:
     """Record the exact payload BEFORE any dispatch and return its id. Raises if it cannot be written: no audit, no send."""
     payload_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + secrets.token_hex(4)
     _append(state_dir() / "outbound" / f"{payload_id}.txt", redacted_prompt)
     _note(payload=payload_id, event_ids=event_ids, redactions_by_type=dict(Counter(f.entity_type for f in findings)),
-          preserved_types=sorted(PRESERVE), sha256=_sha(redacted_prompt))
+          preserved_types=sorted(PRESERVE), minimised_event_ids=minimised or [], sha256=_sha(redacted_prompt))
     return payload_id
 
 
@@ -444,16 +558,21 @@ def await_release(payload_id: str, redacted_prompt: str, *, sleep=time.sleep, cl
     directory = state_dir() / "outbound"
     digest = _sha(redacted_prompt)
     release, held = directory / f"{payload_id}.release", directory / f"{payload_id}.held"
+    withhold = directory / f"{payload_id}.withhold"
     try:
         seconds = min(max(int(os.environ.get(HOLD_SECONDS_ENV) or HOLD_DEFAULT), 0), HOLD_MAX)
     except ValueError:
         seconds = HOLD_DEFAULT
     release.unlink(missing_ok=True)                                   # nothing written before the hold counts
+    withhold.unlink(missing_ok=True)
     _append(held, digest + "\n")
     log.warning("judgement payload HELD id=%s sha256=%s for %ss; nothing sent", payload_id, digest, seconds)
     deadline = clock() + seconds
     try:
         while clock() < deadline:
+            if withhold.exists():                                     # a refusal wins over any release
+                _note(payload=payload_id, release="withheld", sha256=digest)
+                raise Withheld("payload withheld by security review")
             if release.exists():
                 given = release.read_text().strip()
                 release.unlink()                                      # single use
@@ -464,9 +583,21 @@ def await_release(payload_id: str, redacted_prompt: str, *, sleep=time.sleep, cl
                 raise NotReleased("release did not match the held payload")
             sleep(2)
         _note(payload=payload_id, release="expired")
-        raise NotReleased("held payload was not released in time")
+        raise HoldExpired("held payload was not released in time")
     finally:
         held.unlink(missing_ok=True)
+        release.unlink(missing_ok=True)
+        withhold.unlink(missing_ok=True)
+
+
+def withhold_payload(payload_id: str, digest: str) -> None:
+    """The approver's refusal, recorded so the run reports it as one. Ends the hold; can never cause a send."""
+    directory = state_dir() / "outbound"
+    if not re.match(r"^\d{8}T\d{6}Z-[0-9a-f]{8}$", payload_id) or not (directory / f"{payload_id}.held").exists():
+        raise Rejected("no such held payload")
+    if (directory / f"{payload_id}.held").read_text().strip() != digest:
+        raise Rejected("digest does not match the held payload")
+    _append(directory / f"{payload_id}.withhold", digest)
 
 
 def release_payload(payload_id: str, digest: str) -> None:
@@ -502,13 +633,20 @@ def main(argv: list[str] | None = None) -> int:
     rel = sub.add_parser("release", help="release one held payload after inspecting it")
     rel.add_argument("payload_id")
     rel.add_argument("sha256")
+    ref = sub.add_parser("withhold", help="refuse one held payload after inspecting it")
+    ref.add_argument("payload_id")
+    ref.add_argument("sha256")
     args = parser.parse_args(argv)
+    act, done = (release_payload, "released") if args.command == "release" else (withhold_payload, "withheld")
     try:
-        release_payload(args.payload_id, args.sha256)
+        act(args.payload_id, args.sha256)
     except (Rejected, OSError) as exc:
-        print(f"not released: {exc}")
+        print(f"not {done}: {exc}")
         return 1
-    print(f"released {args.payload_id}")
+    if args.command == "withhold":   # the hold may have ended between the check and the write: the audit is the record
+        print(f"withhold recorded for {args.payload_id}; confirm 'withheld' for it in outbound/audit.jsonl")
+    else:
+        print(f"{done} {args.payload_id}")
     return 0
 
 

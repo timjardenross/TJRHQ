@@ -17,7 +17,7 @@ principal, not by this module.
 CLI:  python -m intelligence.judgements run [--force]
       python -m intelligence.judgements adjudicate <id> --relevant y|n --useful y|n
              --decision none|action|monitoring|investigation|preparedness|non-action [--reject] [--note TEXT]
-      python -m intelligence.judgements review <id> --facts pass|fail --reasoning pass|fail [--note TEXT]
+      python -m intelligence.judgements review <id> --facts pass|fail --reasoning pass|fail [--note TEXT] [--clear-external]
       python -m intelligence.judgements miss "<what>" --materiality critical|material|minor --consequence TEXT --cause TEXT
 """
 from __future__ import annotations
@@ -31,6 +31,7 @@ import os
 import re
 import secrets
 import string
+import urllib.error
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -195,8 +196,25 @@ class Register:
 
 # ── drafting ──────────────────────────────────────────────────────────────────
 
+# what happened, in words that cannot be mistaken for a finding about risk
+OUTCOMES = {
+    "withheld_security_review": "No assessment: payload withheld by security review. Nothing was sent.",
+    "hold_expired": "No assessment: payload hold expired without release. Nothing was sent.",
+    "not_sent": "No assessment: the request was refused or failed before sending. Nothing was sent.",
+    "provider_failure": "No assessment: provider or inference failure after the payload was released.",
+    "no_reply": "No assessment: no reply from the router. Whether anything was sent is not known; check the outbound audit.",
+    "no_eligible_evidence": "No assessment: no eligible evidence, so no model was asked.",
+    "model_abstention": "Valid model abstention: the model returned no judgement on the evidence it was given.",
+    "drafts_rejected": "No judgement issued: the model's drafts failed validation (reasons below).",
+    "completed": "Assessment completed.",
+}
+_NOT_A_FINDING = " This is not an abstention or a finding of low risk."
+
+
 class DraftUnavailable(RuntimeError):
-    pass
+    def __init__(self, detail: str, outcome: str = "provider_failure"):
+        super().__init__(detail)
+        self.outcome = outcome
 
 
 def build_request(candidates: list[dict], open_: dict[str, dict], today: date) -> dict:
@@ -209,7 +227,7 @@ def draft_via_router(request_body: dict) -> tuple[str, dict[str, str], dict[str,
     """(reply text, {model ref: event id}, {id: why the router left it out}). Any failure is DraftUnavailable; no fallback."""
     base = os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:8891").rstrip("/")
     if urlsplit(base).hostname not in ("127.0.0.1", "localhost"):
-        raise DraftUnavailable("router is not local; not sent")
+        raise DraftUnavailable("router is not local; not sent", "not_sent")
     headers = {"Content-Type": "application/json"}
     if os.environ.get("MODEL_ROUTER_AUTH_TOKEN", "").strip():
         headers["Authorization"] = "Bearer " + os.environ["MODEL_ROUTER_AUTH_TOKEN"].strip()
@@ -219,8 +237,17 @@ def draft_via_router(request_body: dict) -> tuple[str, dict[str, str], dict[str,
         # local rails take minutes, and a held payload may wait for release (up to an hour in the router)
         with urllib.request.urlopen(request, timeout=4500) as resp:  # nosec B310 - local router only, checked above
             data = json.loads(resp.read())
+    except urllib.error.HTTPError as exc:  # the router says what happened in the body
+        try:
+            outcome = str(json.loads(exc.read()).get("outcome"))
+        except Exception:  # noqa: BLE001 - an unreadable body is reported as unknown, below
+            outcome = ""
+        if outcome not in OUTCOMES:
+            outcome = "not_sent" if exc.code < 500 else "no_reply"
+        raise DraftUnavailable(f"router: HTTP {exc.code}", outcome) from exc      # no router text is stored or sent on
     except Exception as exc:  # every failure means no draft
-        raise DraftUnavailable(f"router: {type(exc).__name__}") from exc
+        refused = isinstance(getattr(exc, "reason", None), ConnectionRefusedError)
+        raise DraftUnavailable(f"router: {type(exc).__name__}", "not_sent" if refused else "no_reply") from exc
     text = str(data.get("response") or "").strip()
     refs = data.get("refs")
     if not text or not isinstance(refs, dict):
@@ -424,10 +451,11 @@ def expire(open_: dict[str, dict], touched: set[str], today: date) -> list[dict]
 
 def render(today: date, run: dict, issued: list[dict], standing: list[dict], retired: list[dict]) -> str:
     out = [f"EVALUATION ONLY - PDB judgements for {today.isoformat()}. Not part of the daily brief.", ""]
+    outcome = run["outcome"]
+    line = OUTCOMES[outcome]
     if run["status"] == "drafting_unavailable":
-        out += [f"No new judgements: drafting unavailable ({run.get('detail')}).", ""]
-    elif not issued:
-        out += ["No new judgement today: evidence did not support one.", ""]
+        line += _NOT_A_FINDING + (f" Detail: drafting unavailable, {run['detail']}." if run.get("detail") else "")
+    out += [line, ""]
 
     def block(j: dict, label: str) -> list[str]:
         lines = [f"{j['id']} [{label}] {AREAS[j['area']]}", f"Assessment: {j['assessment']}",
@@ -502,34 +530,47 @@ def run(evidence_set, *, coverage: dict | None, register: Register | None = None
     open_, rejected = register.state()
     candidates, excluded = build_candidates(evidence_set, pirs=pirs)
     records, abstained, status, detail, dropped = [], [], "ok", "", {}
+    outcome, drafted = "no_eligible_evidence", False
     if candidates or open_:
         try:
             text, refs, *rest = drafter(build_request(candidates, open_, today))
             dropped = rest[0] if rest else {}
-            records, abstained = apply_reply(translate_refs(parse_reply(text), refs), candidates, open_, today, rejected)
+            reply = parse_reply(text)
+            drafted = bool(reply.get("judgements"))
+            records, abstained = apply_reply(translate_refs(reply, refs), candidates, open_, today, rejected)
+            outcome = "drafts_rejected" if drafted else "model_abstention"
         except DraftUnavailable as exc:
-            status, detail = "drafting_unavailable", str(exc)
+            status, detail, outcome = "drafting_unavailable", str(exc), exc.outcome
         except (AttributeError, TypeError, KeyError, ValueError) as exc:    # wrong shapes inside otherwise valid JSON
             records, abstained = [], []
-            status, detail = "drafting_unavailable", f"malformed reply ({type(exc).__name__})"
+            status, detail, outcome = "drafting_unavailable", f"malformed reply ({type(exc).__name__})", "provider_failure"
     else:
         detail = "no eligible evidence"
     issued = [r for r in records if r["type"] == "judgement"]
     if status == "ok" and not issued:
         status = "abstained"
+    if issued:
+        outcome = "completed"
     touched = {r["id"] for r in records}
     # a day without drafting is not a day without support: nothing expires on it
     if status != "drafting_unavailable":
         records += expire(open_, touched, today)
     retired = [r for r in records if r["type"] == "retire"]
     standing = [j for j in open_.values() if j["id"] not in {r["id"] for r in records}]
-    run_record = {"type": "run", "run_date": today.isoformat(), "status": status, "detail": detail,
-                  "candidates": len(candidates), "excluded": excluded, "issued": [j["id"] for j in issued],
+    run_record = {"type": "run", "run_date": today.isoformat(), "status": status, "outcome": outcome,
+                  "detail": detail, "candidates": len(candidates), "excluded": excluded, "issued": [j["id"] for j in issued],
                   "abstentions": abstained, "limits": collection_limits(coverage, excluded, candidates, open_) + router_limits(dropped)}
     text = render(today, run_record, issued, standing, retired)
     register.append(records + [run_record])
     (register.dir / f"evaluation-{today.isoformat()}.txt").write_text(text, encoding="utf-8")
     return {"status": status, "text": text, "run": run_record}
+
+
+def current_events(events: list[dict], now: datetime) -> list[dict]:
+    from intelligence import eod_assessment as ea
+
+    replaced = ea.superseded_report_ids(events, now) if events else set()
+    return [e for e in events if str(e.get("id")) not in replaced]
 
 
 def run_live() -> dict:
@@ -538,7 +579,8 @@ def run_live() -> dict:
     from intelligence import captains_brief as cb
     from intelligence import requirements as req
 
-    events = be.load_events(cb._sb_get, hours=72)
+    # lifecycle is settled by code before drafting: a notice that later reporting replaced is never offered to the model
+    events = current_events(be.load_events(cb._sb_get, hours=72), datetime.now(timezone.utc))
     evidence_set = be.build_evidence(events, window_hours=72) if events else be.EvidenceSet(
         be.ed.METHOD_VERSION, datetime.now(timezone.utc), 72, 0, [])
     ori = cb._get_latest_ori_brief()
@@ -576,6 +618,7 @@ def main(argv: list[str] | None = None) -> int:
     rev.add_argument("--facts", choices=("pass", "fail"), required=True)
     rev.add_argument("--reasoning", choices=("pass", "fail"), required=True)
     rev.add_argument("--note", default="")
+    rev.add_argument("--clear-external", action="store_true", help="allow this reviewed version to be sent as a standing judgement")
     miss = sub.add_parser("miss")
     miss.add_argument("text")
     miss.add_argument("--materiality", choices=MATERIALITY, required=True)
@@ -594,7 +637,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"unknown judgement id: {args.id}")
         return 1
     if args.command == "review":
-        register.append([{"type": "review", "id": args.id, "facts": args.facts, "reasoning": args.reasoning, "note": args.note}])
+        if args.clear_external and (args.facts, args.reasoning) != ("pass", "pass"):
+            print("not recorded: only a judgement that passed both reviews can be cleared")
+            return 1
+        register.append([{"type": "review", "id": args.id, "facts": args.facts, "reasoning": args.reasoning, "note": args.note,
+                          "cleared_external": args.clear_external}])
         return 0
     register.append([{"type": "adjudication", "id": args.id, "relevant": args.relevant == "y", "useful": args.useful == "y",
                       "decision": args.decision, "rejected": args.reject, "note": args.note}])

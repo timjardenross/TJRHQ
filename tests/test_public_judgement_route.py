@@ -3,6 +3,7 @@ hold before dispatch, unchanged redaction for everything else. Real loopback soc
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -153,6 +154,9 @@ JUDGEMENT = {"type": "judgement", "id": "jdg-abcdef", "area": "sector", "assessm
              "indicators": [{"indicator": "More failures", "threshold": "any", "check_by": "2026-11-28"}], "evidence": [{"event_id": EV}]}
 
 
+CLEARED = {"type": "review", "id": "jdg-abcdef", "facts": "pass", "reasoning": "pass", "cleared_external": True}
+
+
 def register(state, *records):
     (state / "register.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records))
 
@@ -163,7 +167,7 @@ def standing():
 
 def test_validated_and_returned_judgement_is_carried(state):
     route.record_outputs(json.dumps({"judgements": [JUDGEMENT]}))
-    register(state, JUDGEMENT, {"type": "adjudication", "id": "jdg-abcdef", "rejected": False, "note": "private zebra"})
+    register(state, JUDGEMENT, CLEARED, {"type": "adjudication", "id": "jdg-abcdef", "rejected": False, "note": "private zebra"})
     prepared = prepare(standing())
     assert [s["id"] for s in prepared["standing"]] == ["jdg-abcdef"] and "zebra" not in route.build_prompt(prepared)[0]
 
@@ -175,9 +179,24 @@ def test_unvalidated_model_output_cannot_stand(state):
 
 
 def test_register_text_the_route_never_returned_cannot_stand(state):
-    register(state, JUDGEMENT)
+    register(state, JUDGEMENT, CLEARED)
     prepared = prepare(standing())
     assert prepared["standing"] == [] and prepared["dropped"]["jdg-abcdef"] == "text was not returned by this route"
+
+
+@pytest.mark.parametrize("records", [
+    [JUDGEMENT],                                                                                  # never reviewed
+    [JUDGEMENT, {**CLEARED, "cleared_external": False}],                                          # reviewed, not cleared
+    [JUDGEMENT, {**CLEARED, "facts": "fail"}],                                                    # failed
+    [JUDGEMENT, CLEARED, JUDGEMENT],                                                              # new version after clearance
+    [JUDGEMENT, CLEARED, {**CLEARED, "cleared_external": False}],                                 # clearance withdrawn
+])
+def test_standing_judgement_needs_review_and_clearance_of_its_current_version(state, records):
+    route.record_outputs(json.dumps({"judgements": [JUDGEMENT]}))
+    register(state, *records)
+    prepared = prepare(standing())
+    assert prepared["standing"] == [] and prepared["dropped"]["jdg-abcdef"] == "not reviewed and cleared for external processing"
+    assert "Payments are exposed" not in route.build_prompt(prepared)[0]
 
 
 @pytest.mark.parametrize("closing", [{"type": "retire", "id": "jdg-abcdef"},
@@ -193,7 +212,7 @@ def test_standing_judgement_loses_its_place_when_evidence_is_no_longer_eligible(
     other = "00000002-0000-0000-0000-000000000000"
     judgement = {**JUDGEMENT, "evidence": [{"event_id": other}]}
     route.record_outputs(json.dumps({"judgements": [judgement]}))
-    register(state, judgement)
+    register(state, judgement, CLEARED)
     prepared = prepare(standing(), reader=store(row(), row(event_id=other, source_id=NEWS_SEARCH)))
     assert prepared["standing"] == [] and prepared["dropped"]["jdg-abcdef"] == "evidence no longer eligible"
 
@@ -427,6 +446,136 @@ def test_the_routes_own_wording_survives_redaction():
     prompt, refs = route.build_prompt(prepare(ask()))
     out = guard.redact_pii(prompt, preserve_entities=route.PRESERVE).redacted_text
     template = out.split("Sources (each line starts")[0]
-    for word in ("essential-services", "banking-payments", "telecoms-digital", "emerging_cascading", "src-"):
+    assert "essential-services" not in prompt and "principal" not in prompt.split("Sources (")[0]
+    for word in ("emerging_cascading", "src-"):
         assert word in out, word
     assert "<US_DRIVER_LICENSE>" not in template and all(ref in out for ref in refs)
+
+
+# ── relevance and information minimisation ───────────────────────────────────
+
+def minimised(title, summary="", detector=nobody):
+    records = {EV: {"event_id": EV, "publisher": "ABC News", "title": title, "summary": summary, "published": "2026-11-26"}}
+    return route.minimise(records, detector)
+
+
+@pytest.mark.parametrize("title,summary", [
+    ("Ballarat nurse stood down over misconduct claims", "The hospital says an investigation is under way."),
+    ("Bendigo councillor charged with assault", "He will face court next month."),
+    ("Former adviser banned for five years", "ASIC says the adviser failed to act in clients' interests."),
+    ("Shepparton principal diagnosed with cancer", "She will take leave next term."),
+])
+def test_individual_matters_without_a_systemic_connection_are_left_out(title, summary):
+    records, dropped, shortened = minimised(title, summary)
+    assert records == {} and dropped == {EV: route.NOT_RELEVANT} and shortened == []
+
+
+def test_systemic_connection_keeps_only_the_sentences_about_it():
+    records, dropped, shortened = minimised("Grandmother dies after long wait for ambulance",
+                                            "Her family says she waited two hours. Ambulance ramping is delaying responses statewide.")
+    assert dropped == {} and shortened == [EV]
+    assert records[EV]["title"] == "Ambulance ramping is delaying responses statewide." and records[EV]["summary"] == ""
+
+
+@pytest.mark.parametrize("title,summary", [
+    ("Ambulance service cannot meet response times", "Paramedics report ramping at three hospitals."),
+    ("Police investigate ransomware attack on water utility", "Billing systems remain offline."),
+    ("ASIC sues bank over alleged system failures", "The regulator alleges payments were processed twice."),
+    ("APRA fines Bendigo and Adelaide Bank", "Penalty over a cyber incident."),
+])
+def test_organisational_and_public_safety_reporting_is_not_excluded(title, summary):
+    records, dropped, shortened = minimised(title, summary)
+    assert records[EV]["title"] == title and records[EV]["summary"] == summary and dropped == {} and shortened == []
+
+
+def test_a_named_person_is_found_by_the_detector():
+    def detector(text):
+        at = text.find("Jo Bloggs")
+        return [(at, at + 9)] if at >= 0 else []
+    records, dropped, _ = minimised("Jo Bloggs pleads guilty to fraud", "", detector)
+    assert records == {} and dropped == {EV: route.NOT_RELEVANT}
+
+
+def test_relevance_screening_fails_closed():
+    def broken(_):
+        raise RuntimeError("down")
+    with pytest.raises(route.Rejected, match="could not be screened"):
+        minimised("Anything", "", broken)
+
+
+def test_excluded_item_never_reaches_the_prompt():
+    other = "00000002-0000-0000-0000-000000000000"
+    reader = store(row(), row(event_id=other, title="Teacher charged with assault", summary="He appears in court Friday."))
+    prepared = prepare(ask(event_ids=[EV, other]), reader=reader)
+    prompt, refs = route.build_prompt(prepared)
+    assert other not in refs.values() and "charged with assault" not in prompt and prepared["dropped"][other] == route.NOT_RELEVANT
+
+
+# ── withheld, expired and CVE identifiers ────────────────────────────────────
+
+def test_withhold_ends_the_hold_and_wins_over_a_release(state):
+    pid, text = held_payload()
+
+    def refuse(t):
+        route.release_payload(pid, route._sha(text))
+        route.withhold_payload(pid, route._sha(text))
+    with pytest.raises(route.Withheld) as caught:
+        run_hold(pid, text, refuse)
+    assert caught.value.outcome == "withheld_security_review"
+    assert not [p for p in (state / "outbound").iterdir() if p.suffix in (".release", ".withhold", ".held")]
+    with pytest.raises(route.Rejected, match="no such held payload"):
+        route.withhold_payload(pid, route._sha(text))
+
+
+def test_expiry_is_not_reported_as_withholding(state):
+    pid, text = held_payload()
+    with pytest.raises(route.HoldExpired) as caught:
+        run_hold(pid, text, lambda t: None, seconds=4)
+    assert caught.value.outcome == "hold_expired"
+
+
+def test_cve_identifiers_survive_and_real_numbers_do_not():
+    if not guard._venv_ready():
+        pytest.skip("llmsec venv not present")
+    text = ("CVE-2025-123456 Vendor flaw. CVE-2023-1234567 Other flaw. Call 0412 345 678. Driver licence A1234567. Ring CVE-2025-0412345678. "
+            "Reference 2025-123456 was quoted.")
+    out = guard.redact_pii(text, preserve_entities=route.PRESERVE).redacted_text
+    assert "CVE-2025-123456" in out and "CVE-2023-1234567" in out, out
+    assert "0412345678" not in out and "0412 345 678" not in out and "A1234567" not in out and "Reference 2025-123456" not in out, out
+    assert "CVE-2025-123456" not in guard.redact_pii(text).redacted_text          # every other route is unchanged
+
+
+def test_a_passenger_counts_as_a_person():
+    records, dropped, _ = minimised("A passenger was hospitalised on Tuesday")
+    assert records == {} and dropped == {EV: route.NOT_RELEVANT}
+
+
+@pytest.mark.parametrize("title,sent", [
+    ("Search continues for missing boy Jack Example after Shepparton floods", False),
+    ("Jack Example, 9-year-old, rescued as floods cut power", False),
+    ("Child care outages disrupt services across Victoria", True),
+    ("Minister Jane Example says power outage response was too slow", True),
+])
+def test_children_and_victims_are_left_out_but_public_roles_are_not(title, sent):
+    people = lambda text: [(m.start(), m.end()) for m in re.finditer(r"Jack Example|Jane Example", text)]
+    out, dropped, _ = route.minimise({EV: {"title": title, "summary": title}}, people)
+    assert (EV in out and out[EV]["title"] == title) is sent, (out, dropped)
+
+
+def test_judgement_request_is_marked_not_to_be_stored_and_other_tasks_are_unchanged(monkeypatch):
+    spec = importlib.util.spec_from_file_location("router_store_check", ROOT / "core" / "model-router" / "app.py")
+    app = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(app)
+    bodies = []
+
+    def capture(request, timeout=None):
+        bodies.append(json.loads(request.data))
+        raise OSError("not sent")
+
+    monkeypatch.setenv("GEMINI_API_KEY", "synthetic")
+    monkeypatch.setattr(app.urllib.request, "urlopen", capture)
+    for policy in (app.TASK_POLICY[route.TASK], app.TASK_POLICY["intelligence-brief"]):
+        with pytest.raises(OSError):
+            app._gemini_generate(policy["model"], "synthetic", 1, store=policy.get("store"))
+    assert bodies[0]["store"] is False and "store" not in bodies[1]
+    assert [name for name, p in app.TASK_POLICY.items() if "store" in p] == [route.TASK]

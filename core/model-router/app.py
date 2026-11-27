@@ -237,7 +237,7 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
     # Public-source judgements only. Deliberately NOT in TASK_ROUTES: it never takes a bare prompt (own handler, own boundary).
     "intelligence-judgement": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low",
-                               "public_source_boundary": True},
+                               "public_source_boundary": True, "store": False},   # not kept in the provider's project logs
     # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine.
     # Same tier as intelligence-brief: infrequent, quality-sensitive, not
     # latency-sensitive. Per the Captain's resolved hybrid design, this
@@ -535,6 +535,7 @@ def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) ->
 
 def _gemini_generate(
     model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY", thinking_level: str | None = None,
+    store: bool | None = None,
 ) -> dict[str, Any]:
     """POST /v1beta/models/{model}:generateContent. Returns parsed response dict.
 
@@ -555,6 +556,8 @@ def _gemini_generate(
     body: dict[str, Any] = {"contents": [{"parts": [{"text": prompt}]}]}
     if thinking_level:
         body["generationConfig"] = {"thinkingConfig": {"thinking_level": thinking_level}}
+    if store is not None:                     # request-level logging setting; takes precedence over the project's
+        body["store"] = store
     payload = json.dumps(body).encode()
     req = urllib.request.Request(
         url, data=payload,
@@ -743,6 +746,13 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     escalation_reason = ""
 
     t0 = time.time()
+    dispatched = False                # public-source route only: has the payload gone to the provider?
+
+    def _outcome(exc: Exception) -> dict[str, str]:
+        if not policy.get("public_source_boundary"):
+            return {}
+        return {"outcome": "provider_failure" if dispatched else getattr(exc, "outcome", "not_sent")}
+
     try:
         if policy.get("provider") == "gemini":
             # Guardrails gate (see the module-level comment above): raises
@@ -757,15 +767,17 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                     # redact_pii directly, preserving exactly the four reviewed types; no fail-open on this route
                     _redaction = redact_pii(prompt, preserve_entities=_judgement_route.PRESERVE)
                     safe_prompt = _redaction.redacted_text
-                    payload_id = _judgement_route.audit(extra["event_ids"], safe_prompt, _redaction.findings)   # no record, no send
+                    payload_id = _judgement_route.audit(extra["event_ids"], safe_prompt, _redaction.findings,     # no record, no send
+                                                        extra.get("minimised"))
                 else:
                     safe_prompt, _redaction = secure_outbound_prompt(prompt)
             if policy.get("public_source_boundary"):
                 # outside the lock: a held payload must not stall other router work. Raises unless this payload is released.
                 _judgement_route.await_release(payload_id, safe_prompt)
+                dispatched = True
             raw = _gemini_generate(
                 model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"),
-                policy.get("thinking_level"),
+                policy.get("thinking_level"), **({"store": policy["store"]} if "store" in policy else {}),
             )
             candidates = raw.get("candidates", [])
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
@@ -883,7 +895,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                    "route_tier": route_tier, "route_reason": route_reason})
         log.error("task=%s model=%s route_tier=%s error=%s", task_type, model, route_tier, exc)
         return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
-                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
+                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None, **_outcome(exc)}
     except Exception as exc:  # noqa: BLE001 - top-level dispatch boundary; catches anything the specific urllib.error branch above doesn't, already logged via log.error() and returned in the response
         duration_ms = int((time.time() - t0) * 1000)
         _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
@@ -891,7 +903,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                    "route_tier": route_tier, "route_reason": route_reason})
         log.error("task=%s model=%s route_tier=%s unexpected=%s", task_type, model, route_tier, exc)
         return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
-                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
+                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None, **_outcome(exc)}
 
 
 # ── HTTP handler ──────────────────────────────────────────────────────────────
@@ -1015,7 +1027,8 @@ class RouterHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": reason})
             return
         prompt, refs = _judgement_route.build_prompt(prepared)
-        result = _run_task(_judgement_route.TASK, prompt, {"event_ids": list(refs.values())})
+        result = _run_task(_judgement_route.TASK, prompt,
+                           {"event_ids": list(refs.values()), "minimised": prepared["minimised"]})
         if result.get("success"):
             _judgement_route.record_outputs(result.get("response", ""))
             result["refs"] = refs
