@@ -36,12 +36,18 @@ create table if not exists intel.passage_embedding (
   document_id bigint not null, ordinal int not null, model text not null, embedding vector(768) not null,
   primary key (document_id, ordinal),
   foreign key (document_id, ordinal) references intel.passage on delete cascade);
+-- documents an active investigation depends on: their vectors are rebuilt first after a recovery
+create table if not exists intel.rebuild_priority (
+  document_id bigint primary key references intel.document(id) on delete cascade,
+  reason text not null);
+create index if not exists document_retrieved on intel.document (retrieved_at desc);
 create index if not exists passage_embedding_hnsw on intel.passage_embedding using hnsw (embedding vector_cosine_ops);
 alter table intel.object owner to intel_owner;
 alter table intel.document owner to intel_owner;
 alter table intel.passage owner to intel_owner;
 alter table intel.passage_embedding owner to intel_owner;
+alter table intel.rebuild_priority owner to intel_owner;
 grant usage on schema intel to intel_ingest, intel_read, intel_maint;
 grant select on all tables in schema intel to intel_read, intel_ingest, intel_maint;
-grant insert on intel.object, intel.document, intel.passage, intel.passage_embedding to intel_ingest;
+grant insert on intel.rebuild_priority, intel.object, intel.document, intel.passage, intel.passage_embedding to intel_ingest;
 grant delete on intel.object, intel.document to intel_maint;

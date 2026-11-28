@@ -24,10 +24,11 @@ async def reconcile(manifest):
         objects = [[r["domain"], r["sha256"]] for r in await con.fetch("select domain, sha256 from intel.object order by sha256")]
         checked = await store.verify(con)
         stray, unused = await store.orphans(con)
+        semantic = await store.coverage(con)
     finally:
         await con.close()
     return {"counts_match": counts == manifest["counts"], "lineage_match": lineage == manifest["lineage_md5"], "object_set_match": objects == manifest["objects"],
-            "objects": checked, "orphan_files": len(stray), "orphan_rows": len(unused), "counts": counts}
+            "objects": checked, "orphan_files": len(stray), "orphan_rows": len(unused), "counts": counts, "semantic_search": semantic}
 
 
 def main(work):

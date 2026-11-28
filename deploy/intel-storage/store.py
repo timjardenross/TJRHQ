@@ -6,7 +6,8 @@
   store.py orphans             (intel_read)   files without a row, rows without a document
   store.py gc                  (intel_maint)  remove orphans
   store.py search TEXT         (intel_read)   full-text search
-  store.py similar TEXT        (intel_read)   nearest embedded passages
+  store.py similar TEXT        (intel_read)   nearest embedded passages, with how much of the corpus that covers
+  store.py coverage            (intel_read)   share of substantive passages searchable by meaning
 """
 import asyncio
 import fcntl
@@ -95,6 +96,24 @@ def embed(texts):
         return json.load(resp)["embeddings"]
 
 
+COVERAGE = """
+select count(*) filter (where p.substantive) as substantive, count(e.document_id) filter (where p.substantive) as embedded,
+       count(*) filter (where p.substantive and r.document_id is not null) as priority,
+       count(e.document_id) filter (where p.substantive and r.document_id is not null) as priority_embedded
+from intel.passage p left join intel.passage_embedding e using (document_id, ordinal) left join intel.rebuild_priority r using (document_id)"""
+
+
+async def coverage(con):
+    """What semantic search can currently see. Anything short of all substantive passages is stated as degraded."""
+    c = dict(await con.fetchrow(COVERAGE))
+    c["percent"] = round(100 * c["embedded"] / c["substantive"], 2) if c["substantive"] else 100.0
+    c["degraded"] = c["embedded"] < c["substantive"]
+    if c["degraded"]:
+        c["notice"] = (f"Semantic search is degraded: {c['percent']}% of substantive passages are searchable by meaning. "
+                       "A missing result is not evidence of absence; use full-text search.")
+    return c
+
+
 def vec(values):
     return "[" + ",".join(f"{v:.7f}" for v in values) + "]"
 
@@ -127,7 +146,9 @@ async def main(argv):
         elif cmd == "similar":
             v = vec(embed(["search_query: " + argv[1]])[0])
             rows = await con.fetch("select document_id from intel.passage_embedding order by embedding <=> $1::vector limit 5", v)
-            print(json.dumps([r["document_id"] for r in rows]))
+            print(json.dumps({"documents": [r["document_id"] for r in rows], "coverage": await coverage(con)}))
+        elif cmd == "coverage":
+            print(json.dumps(await coverage(con)))
     finally:
         await con.close()
 
