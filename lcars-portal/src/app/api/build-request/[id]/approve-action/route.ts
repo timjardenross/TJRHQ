@@ -21,6 +21,9 @@ interface BuildRequestRow {
 // proposal sits in build_request_inbox as awaiting_review indefinitely,
 // exactly like any other governed queue item.
 
+// A claim older than this is treated as abandoned (the process died mid-execution).
+const CLAIM_STALE_MS = 5 * 60_000;
+
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const id = decodeURIComponent(params.id ?? '').trim();
   if (!id) {
@@ -71,6 +74,31 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (!validation.ok) {
     await recordExecutionResult(admin, id, { type: row.action_type, success: false, detail: validation.error });
     return NextResponse.json({ error: 'Execution refused', detail: validation.error }, { status: 400 });
+  }
+
+  // Claim the row BEFORE executing, as one conditional UPDATE the database
+  // applies atomically. fetchGovernedRow above only READ the status, so two
+  // simultaneous approvals (two tabs, HQ and /decisions) could both pass it and
+  // both execute (two missions). Only the request that wins this claim runs.
+  // The claim is stored in action_result (no schema change): it is open to a
+  // retry after a recorded failure ({success:false}), and to recovery if a
+  // previous attempt died mid-execution (marker older than CLAIM_STALE_MS).
+  const staleIso = new Date(Date.now() - CLAIM_STALE_MS).toISOString();
+  const { data: claimed, error: claimErr } = await admin
+    .from('build_request_inbox')
+    .update({ action_result: { state: 'executing', claimed_at: new Date().toISOString() } })
+    .eq('id', id)
+    .eq('status', 'awaiting_review')
+    .or(`action_result.is.null,action_result->>success.eq.false,action_result->>claimed_at.lt.${staleIso}`)
+    .select('id');
+  if (claimErr) {
+    return NextResponse.json({ error: 'Could not start the approval', detail: claimErr.message }, { status: 500 });
+  }
+  if (!claimed || claimed.length === 0) {
+    return NextResponse.json(
+      { error: 'Another approval of this item is already in progress or has completed. Nothing was run.' },
+      { status: 409 },
+    );
   }
 
   let execution: ActionResult;

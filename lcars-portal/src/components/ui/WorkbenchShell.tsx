@@ -38,6 +38,7 @@ import { Sidebar } from './Sidebar';
 import { BrandMark } from '@/components/brand';
 import { ActionHistoryPanel } from '@/components/FocusLane';
 import { trackTaskEvent } from '@/lib/taskTelemetry';
+import { useHqEnabled } from '@/lib/hq/useHqEnabled';
 
 const GLOBAL_HOME = '/workbenches';
 
@@ -118,6 +119,8 @@ export function WorkbenchShell({
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
   const pathname = usePathname();
+  // Shown only when the HQ workbench is switched on; otherwise nothing renders.
+  const hqEnabled = useHqEnabled();
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const from = searchParams.get('from');
   const item = searchParams.get('item');
@@ -223,6 +226,14 @@ export function WorkbenchShell({
                 >
                   <Settings className="h-4 w-4" aria-hidden />
                 </Link>
+                {!minimal && hqEnabled && (
+                  <Link
+                    href="/hq"
+                    className="rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-wb-label text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                  >
+                    HQ
+                  </Link>
+                )}
                 {!minimal && <WorkbenchSwitcher />}
               </span>
             </div>

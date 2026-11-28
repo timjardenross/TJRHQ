@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import sys
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -327,8 +328,33 @@ def api_opportunity(opportunity_id):
     return jsonify(opp)
 
 
+# Decisions are read-check-write against an append-only file store. The lock
+# makes the whole of that one critical section atomic within this process, so two
+# simultaneous POSTs cannot both pass the guard below. (The overnight
+# orchestrator is a separate process; it does not make human decisions.)
+_DECIDE_LOCK = threading.Lock()
+
+# Decisions that must not be applied on top of a state they would contradict or
+# regress. Deliberately a deny-list: every transition the portal UI uses
+# (proposed -> approve/more_evidence/reject/create_mission, approved -> create_mission,
+# watching -> turn_into_improvement/not_useful, approved|implementing -> mark_implemented,
+# rejected -> turn_into_improvement) stays legal.
+_PROGRESSED = {"implementing", "verifying", "learned"}
+_DECISION_CONFLICTS = {
+    "approve_improvement": {"rejected"} | _PROGRESSED,
+    "create_mission": {"rejected", "verifying", "learned"},
+    "reject": {"approved"} | _PROGRESSED,
+    "not_useful": {"approved"} | _PROGRESSED,
+}
+
+
 @app.route("/api/opportunity/decide", methods=["POST"])
 def api_opportunity_decide():
+    with _DECIDE_LOCK:
+        return _apply_opportunity_decision()
+
+
+def _apply_opportunity_decision():
     """Record a human decision against an opportunity (section 30: the
     human gate). decision_type picks the lifecycle transition; reasoning is
     optional free text captured against whichever field that transition
@@ -363,6 +389,21 @@ def api_opportunity_decide():
         return jsonify({"error": f"mark_implemented requires the opportunity to be 'approved' or 'implementing' (currently '{lifecycle.detail_of(existing)}')"}), 400
     if decision_type == "mark_implemented" and not existing.get("outcome_contract"):
         return jsonify({"error": "No outcome contract on this opportunity — approve_improvement or create_mission must run first"}), 400
+
+    # Decision integrity. Replaying a decision is an idempotent no-op (200, unchanged),
+    # and a decision that would contradict or regress the current state is refused (409).
+    # Both return before anything is written, so a replayed approve can never re-run the
+    # remediation bridge or rewrite the outcome contract, and a stale click cannot
+    # undo a decision that has already progressed.
+    current = lifecycle.detail_of(existing)
+    target = DECISION_TRANSITIONS[decision_type]["lifecycle_state"]
+    if decision_type == "create_mission" and current == "implementing" and existing.get("mission_id") and mission_id != existing.get("mission_id"):
+        return jsonify({"error": f"Already linked to mission {existing.get('mission_id')}", "current_state": current}), 409
+    repeat_evidence = decision_type == "more_evidence" and reasoning and reasoning not in (existing.get("missing_evidence") or [])
+    if current == target and not repeat_evidence:
+        return jsonify({"success": True, "unchanged": True, "current_state": current, "opportunity": existing}), 200
+    if current in _DECISION_CONFLICTS.get(decision_type, ()):
+        return jsonify({"error": f"Conflicting decision: '{decision_type}' on a '{current}' opportunity", "current_state": current}), 409
 
     changes = dict(DECISION_TRANSITIONS[decision_type])
     if decision_type in ("reject", "not_useful"):

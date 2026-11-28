@@ -221,11 +221,18 @@ function describeProposal(actionType: ProposableActionType, payload: ActionPaylo
  * so api/comms/[id]/advance/route.ts can queue a publish_content proposal
  * the same governed way parseAndProposeActions queues everything else -
  * one proposal mechanism, not a second one reimplemented per caller. */
-export async function proposeAction(actionType: ProposableActionType, payload: ActionPayload): Promise<ActionResult> {
+export async function proposeAction(
+  actionType: ProposableActionType,
+  payload: ActionPayload,
+  /** Optional (HQ decision requests): a caller-chosen request_id makes the row's
+   * UNIQUE request_id the dedupe key, and `source` labels where the proposal came
+   * from. Omit both and behaviour is exactly as before. */
+  opts?: { requestId?: string; source?: string },
+): Promise<ActionResult & { duplicate?: boolean }> {
   const { title, summary, rationale } = describeProposal(actionType, payload);
   const ts = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 15);
   const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const requestId = `AI-${actionType.toUpperCase()}-${ts}-${rand}`;
+  const requestId = opts?.requestId ?? `AI-${actionType.toUpperCase()}-${ts}-${rand}`;
 
   const row = {
     request_id: requestId,
@@ -234,13 +241,19 @@ export async function proposeAction(actionType: ProposableActionType, payload: A
     rationale: rationale || null,
     suggested_next_step: (payload.notes as string) ?? null,
     status: 'awaiting_review',
-    source: 'lcars-ai-console-proposed',
+    source: opts?.source ?? 'lcars-ai-console-proposed',
     action_type: actionType,
     action_payload: payload,
   };
 
   const { data, error } = await supabaseAdmin().from('build_request_inbox').insert(row).select('id').single();
-  if (error) return { type: actionType, success: false, detail: `Could not queue proposal: ${error.message}` };
+  if (error) {
+    // 23505 = unique_violation: with a caller-chosen request_id this means the request already exists.
+    if (opts?.requestId && (error as { code?: string }).code === '23505') {
+      return { type: actionType, success: false, duplicate: true, detail: 'A request for this item already exists.' };
+    }
+    return { type: actionType, success: false, detail: `Could not queue proposal: ${error.message}` };
+  }
   return {
     type: actionType,
     success: true,

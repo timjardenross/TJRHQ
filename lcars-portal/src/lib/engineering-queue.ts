@@ -228,19 +228,28 @@ function ageInDays(iso: string | null | undefined): number | null {
 export async function setQueueItemStatus(
   item: QueueItem,
   decision: 'approved' | 'rejected',
-): Promise<{ ok: boolean; error?: string }> {
+  /** Optional compare-and-set guard (added for the HQ workbench). When given,
+   * the update only applies if the row is STILL in this status, so a decision
+   * already made from another interface is never silently overwritten. Omit it
+   * and behaviour is exactly as before. */
+  expectedStatus?: string,
+): Promise<{ ok: boolean; error?: string; alreadyDecided?: boolean }> {
   if (item.source !== 'build') {
     return { ok: false, error: 'Only build-inbox items can be approved here.' };
   }
   try {
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase
+    let query = supabase
       .from('build_request_inbox')
       .update({ status: decision })
-      .eq('id', item.id)
-      .select('id');
+      .eq('id', item.id);
+    if (expectedStatus !== undefined) query = query.eq('status', expectedStatus);
+    const { data, error } = await query.select('id');
     if (error) return { ok: false, error: error.message };
     if (!data || data.length === 0) {
+      if (expectedStatus !== undefined) {
+        return { ok: false, alreadyDecided: true, error: 'Already decided elsewhere — nothing was changed.' };
+      }
       return { ok: false, error: 'No row updated — this role may not have write access (RLS).' };
     }
     return { ok: true };
