@@ -7,7 +7,7 @@ An export is a folder: events.jsonl, edges.jsonl, sources.jsonl, manifest.json.
   package_c.py synthetic DIR                    write a synthetic export with the cohort's shape (fictional content)
   package_c.py plan DIR --holds F               check files, digests and holds; write nothing           (any user)
   package_c.py import DIR --holds F --batch B   load in one transaction                                 (tjrhq-intel-ingest)
-  package_c.py verify DIR --holds F --batch B   compare the store with the export, field by field       (tjrhq-intel-read)
+  package_c.py verify DIR --holds F --batch B   compare the store with the export, field by field       (tjrhq-intel-ingest)
   package_c.py compare OLD NEW                  what changed at the source between two exports          (any user)
   package_c.py rollback --batch B               remove exactly that batch                               (tjrhq-intel-ingest as intel_maint)
 
@@ -221,7 +221,7 @@ async def do_verify(folder, holds_path, batch):
 
     manifest, data = load_export(folder)
     holds = load_holds(holds_path, data["events"])
-    con = await store.connect("intel_read")
+    con = await store.connect("intel_ingest")        # reads only; the staging folder belongs to the ingest identity
     try:
         failed = await compare_store(con, batch, data, holds)
     finally:

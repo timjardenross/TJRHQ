@@ -65,7 +65,9 @@ create table if not exists intel.c_event (
   event_id text primary key, batch_id text not null references intel.c_batch on delete cascade, source_id text not null,
   raw_title text, raw_summary text, canonical_url text, geography text, collected_at timestamptz, published_at timestamptz,
   published_at_basis text, published_at_precision text, published_at_confidence text, signal_status text,
-  date_evidence text not null check (date_evidence in ('verified', 'unverified')),   -- the publication date only, not accuracy suppressed boolean, suppression_reason text, publisher_domain text, publisher_family text,
+  -- the publication date only, not factual accuracy
+  date_evidence text not null check (date_evidence in ('verified', 'unverified')),
+  suppressed boolean, suppression_reason text, publisher_domain text, publisher_family text,
   canonical_signal_id text,
   canonical_state text not null check (canonical_state in ('held', 'external', 'not_recorded', 'deleted')),
   search tsvector generated always as (setweight(to_tsvector('english', coalesce(raw_title, '')), 'A') || to_tsvector('english', coalesce(raw_summary, ''))) stored,
