@@ -354,12 +354,15 @@ def attach_shadow(existing: dict | None, layered_result: dict, *, pir_items: lis
 
 
 def attach_to_health(health: dict | None, *, text: str, collection_caveat: str | None, sb_get, ori_brief: dict | None = None,
-                     now: datetime | None = None) -> dict | None:
+                     now: datetime | None = None, events_get=None) -> dict | None:
     """Morning-path entry point (the caller checks ``enabled()`` first). Loads the same 72 h evidence the morning text used (reads only),
     builds the layered shadow and returns ``health`` with ``shadow_v1`` added. Any failure returns ``health`` unchanged."""
     try:
         from intelligence import brief_evidence as be
-        events = be.load_events(sb_get, hours=72)
+        events = be.load_events(events_get or sb_get, hours=72)
+        note = be.retrieval_note(events, 72)
+        if note:
+            collection_caveat = "; ".join(x for x in (collection_caveat, note) if x)
         ev = be.build_evidence(events, window_hours=72) if events else be.EvidenceSet(be.ed.METHOD_VERSION, now or datetime.now(timezone.utc), 72, 0, [])
         fields = load_classifier_fields(sb_get, [r.get("report_id") for i in ev.incidents for r in (_g(i, "reports", []) or [])])
         reg, hl = load_source_state(sb_get) if cc.enabled() else (None, None)

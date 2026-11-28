@@ -34,6 +34,7 @@ def _morning(monkeypatch, *, flag, rows):
          patch.object(cb, "_get_recent_signals", return_value=[]), \
          patch.object(cb, "_get_infra_verification", return_value={"state": "ok"}), \
          patch.object(cb, "_sb_get", lambda *a, **k: rows), \
+         patch.object(cb, "_sb_request", lambda t, q="": [] if "&or=" in q else rows), \
          patch.object(cb, "build_daily_digest", None):
         return cb.generate_morning_brief()
 
@@ -145,7 +146,7 @@ def _lines_with(monkeypatch, *, flag, sb):
         monkeypatch.delenv(k, raising=False)
     if flag:
         monkeypatch.setenv("BRIEF_EVIDENCE_V1_MORNING", "1")
-    with patch.object(cb, "_sb_get", sb):
+    with patch.object(cb, "_sb_get", sb), patch.object(cb, "_sb_request", sb):
         return cb._evidence_lines("morning", 72)
 
 
@@ -172,7 +173,7 @@ def test_flag_off_empty_or_failing_returns_nothing(monkeypatch):
 
 def test_weekly_empty_unchanged(monkeypatch):
     monkeypatch.setenv("BRIEF_EVIDENCE_V1_WEEKLY", "1")
-    with patch.object(cb, "_sb_get", lambda *a, **k: []):
+    with patch.object(cb, "_sb_request", lambda *a, **k: []):
         assert cb._evidence_lines("weekly", 168) == []
 
 
@@ -182,10 +183,11 @@ def test_morning_brief_end_to_end_when_query_fails_is_labelled(monkeypatch):
          patch.object(cb, "_get_capacity_today", return_value=CAPACITY), \
          patch.object(cb, "_get_recent_signals", return_value=[]), \
          patch.object(cb, "_get_infra_verification", return_value={"state": "ok"}), \
-         patch.object(cb, "_sb_get", _raise), \
+         patch.object(cb, "_sb_get", _raise), patch.object(cb, "_sb_request", _raise), \
          patch.object(cb, "build_daily_digest", None):
         text = cb.generate_morning_brief()
-    assert "EVIDENCE COVERAGE INSUFFICIENT" in text and "no reports collected in the last 72 hours" in text
+    assert "EVIDENCE COVERAGE INSUFFICIENT" in text and "Report retrieval failed" in text
+    assert "no reports collected in the last 72 hours" not in text                 # a failed read is not reported as an empty window
     from intelligence import brief_evidence as be
     with patch.object(be, "build_evidence", _raise):
         text2 = _morning(monkeypatch, flag=True, rows=_rows())
