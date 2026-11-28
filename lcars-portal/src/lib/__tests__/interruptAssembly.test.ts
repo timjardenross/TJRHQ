@@ -285,6 +285,39 @@ describe('assembleInterrupts', () => {
     expect(result.interrupts.find((i) => i.domain === 'Recovery pain trend')?.text).toContain('critically high');
   });
 
+  it('state trend: nominates when 3 of the last 5 check-ins are higher than usual or above', async () => {
+    const supabase = fakeSupabase({
+      capacity_checkins: {
+        data: [
+          { pain_state: 'baseline', pain_score: null, captured_at: '2026-07-10T08:00:00Z' },
+          { pain_state: 'elevated', pain_score: null, captured_at: '2026-07-09T08:00:00Z' },
+          { pain_state: 'elevated', pain_score: null, captured_at: '2026-07-08T08:00:00Z' },
+          { pain_state: 'baseline', pain_score: null, captured_at: '2026-07-07T08:00:00Z' },
+          { pain_state: 'high', pain_score: null, captured_at: '2026-07-06T08:00:00Z' },
+        ],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    const pain = result.interrupts.find((i) => i.domain === 'Recovery pain trend');
+    expect(pain?.text).toContain('3 of the last 5 check-ins');
+  });
+
+  it('state trend: 2 of 5 does not nominate', async () => {
+    const supabase = fakeSupabase({
+      capacity_checkins: {
+        data: [
+          { pain_state: 'baseline', pain_score: null, captured_at: '2026-07-10T08:00:00Z' },
+          { pain_state: 'elevated', pain_score: null, captured_at: '2026-07-09T08:00:00Z' },
+          { pain_state: 'elevated', pain_score: null, captured_at: '2026-07-08T08:00:00Z' },
+          { pain_state: 'baseline', pain_score: null, captured_at: '2026-07-07T08:00:00Z' },
+          { pain_state: 'low', pain_score: null, captured_at: '2026-07-06T08:00:00Z' },
+        ],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Recovery pain trend')).toBeUndefined();
+  });
+
   it('does not nominate a pain-trend interrupt at or below the elevated threshold (6)', async () => {
     const supabase = fakeSupabase({
       capacity_checkins: { data: [{ pain_score: 4, captured_at: '2026-07-09T08:00:00Z' }] },
