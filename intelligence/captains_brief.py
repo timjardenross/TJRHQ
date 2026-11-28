@@ -531,15 +531,19 @@ def _get_recent_signals(hours: int = 24, limit: int = 12) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    rows = _sb_get(
-        "intelligence_events",
-        f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE"
-        f"&raw_title=not.ilike.CVE-*{_EXCLUDE_GITHUB_STATUS}"
-        f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
-        f"&order=rank_score.desc&limit={limit}"
-        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary,"
-        f"intelligence_source_registry(source_name)",
-    )
+    try:
+        rows = _sb_request(
+            "intelligence_events",
+            f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE"
+            f"&raw_title=not.ilike.CVE-*{_EXCLUDE_GITHUB_STATUS}"
+            f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
+            f"&order=rank_score.desc&limit={limit}"
+            f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary,"
+            f"intelligence_source_registry(source_name)",
+        )
+    except Exception as exc:  # noqa: BLE001 - the brief is still produced; the failure is stated where the signals would be
+        log.warning("Supabase fetch failed (intelligence_events, recent signals): %s", exc)
+        return paged_read.PagedRead(complete=False, reason=paged_read.PAGE_FAILED)
     return _with_risk_label(rows)
 
 
@@ -599,6 +603,8 @@ def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4
     (2026-08-13, replaces each brief's own flat top-N list). LOW/none-rated
     signals are never shown here — same "only surface what's worth a
     look" principle _format_infra_block already uses."""
+    if not getattr(signals, "complete", True):
+        return [f"<b>{header}</b>", f"  <i>⚠️ The signal read failed ({_esc(signals.reason)}): this is not an empty window.</i>", ""]
     high = [s for s in signals if _bucket_for_display(s) == "HIGH"][:max_high]
     medium = [s for s in signals if _bucket_for_display(s) == "MEDIUM"][:max_medium]
     if not high and not medium:
@@ -1236,8 +1242,10 @@ def _format_weekly_osint_block(
     `empty_caveat` (HQ V1 Integration QA §21/§9): when supplied, appended
     as an extra line so a silent collector failure never reads identically
     to a genuinely quiet week — see _health_osint_collector_caveat()."""
-    incomplete = None if getattr(rows, "complete", True) else (
-        f"  <i>⚠ Retrieval was incomplete ({_esc(rows.reason)}): these figures cover only the {len(rows)} signal(s) read.</i>")
+    incomplete = None
+    if not getattr(rows, "complete", True):
+        incomplete = (f"  <i>⚠ Retrieval was incomplete ({_esc(rows.reason)}): these figures cover only the {len(rows)} signal(s) read.</i>"
+                      if rows else f"  <i>⚠ Retrieval failed ({_esc(rows.reason)}): this is not a quiet week.</i>")
     if not rows:
         lines = [f"<b>{emoji} {title} — WEEKLY</b>", incomplete or "  No signals collected this week."]
         if empty_caveat:
@@ -1612,6 +1620,32 @@ def _morning_view_lines(be, ev, events: list[dict], hours: int) -> list[str]:
     return view
 
 
+class _NoReports(list):
+    """The empty "product could not be built" value, carrying what the report read found."""
+
+    def __init__(self, note: str):
+        super().__init__()
+        self.note = note
+
+
+class _NoReportsText(str):
+    """The same for the evening assessment, which signals failure with an empty string."""
+
+    note = ""
+
+    def __new__(cls, note: str):
+        value = super().__new__(cls, "")
+        value.note = note
+        return value
+
+
+def _no_reports_note(events, hours: int) -> str:
+    """Why there are no reports: a failed read, or a window that really is empty."""
+    from intelligence import brief_evidence as be
+
+    return be.retrieval_note(events, hours) or f"No reports were collected in the last {hours} hours (the read completed)"
+
+
 def _with_retrieval_note(caveat: str | None, note: str | None) -> str | None:
     """The collection caveat plus the incomplete-read sentence, when there is one."""
     if not note:
@@ -1631,8 +1665,8 @@ def _evidence_lines(kind: str, hours: int) -> list[str]:
         note = be.retrieval_note(events, hours)
         if not events:
             if kind == "morning":
-                return _evidence_unavailable_lines(f"no reports collected in the last {hours} hours (or the evidence query failed)")
-            return []
+                return _evidence_unavailable_lines(note or f"no reports collected in the last {hours} hours (the read completed)")
+            return [_esc(f"⚠️ {note}."), ""] if note else []
         ev = be.build_evidence(events, window_hours=hours)
         if kind == "morning":
             view = _morning_view_lines(be, ev, events, hours)
@@ -1727,7 +1761,7 @@ def _morning_pdb_lines(collection_caveat: str | None) -> list[str] | None:
         events = be.load_events(_sb_request, hours=ea.WINDOW_HOURS)
         if not events:
             log.warning("[morning-pdb] no evidence loaded; using the legacy brief")
-            return []
+            return _NoReports(_no_reports_note(events, ea.WINDOW_HOURS))
         coverage = _criticality_lines()
         try:
             from intelligence import brief_coverage as bc
@@ -1840,6 +1874,8 @@ def generate_morning_brief(gap=None, collection_caveat: str | None = None, catch
         return "\n".join(lines)
     if product == []:
         lines += ["<i>⚠️ The improved morning brief could not be produced; the previous format follows. This is not an all-clear.</i>", ""]
+        if getattr(product, "note", ""):
+            lines += [_esc(f"⚠️ {product.note}."), ""]
 
     lines += _format_capacity_block(capacity)
 
@@ -1906,9 +1942,11 @@ def generate_morning_brief(gap=None, collection_caveat: str | None = None, catch
             f"  {_esc(digest_text)}",
             "",
         ]
+        if not getattr(signals, "complete", True):
+            lines += _format_signals_block(signals, "📡 OTHER SIGNALS (24h)")
     else:
         other_header = "📡 OTHER SIGNALS (24h; not evidence-checked)" if evidence_authoritative else "📡 OTHER SIGNALS (24h)"
-        signal_block = _format_signals_block(signals, other_header) if signals else []
+        signal_block = _format_signals_block(signals, other_header) if signals or not getattr(signals, "complete", True) else []
         if signal_block:
             lines += signal_block
 
@@ -1957,7 +1995,7 @@ def _eod_assessment_text(now: datetime) -> str | None:
         events = be.load_events(_sb_request, hours=ea.WINDOW_HOURS)
         if not events:
             log.warning("[eod-assessment] no evidence loaded; using the legacy summary")
-            return ""
+            return _NoReportsText(_no_reports_note(events, ea.WINDOW_HOURS))
         coverage: list[str] = []
         try:
             from intelligence import brief_coverage as bc
@@ -2010,6 +2048,8 @@ def generate_eod_summary() -> str:
     ]
     if assessment == "":
         lines += ["<i>⚠️ The end-of-day assessment could not be produced; the headline summary follows. This is not an all-clear.</i>", ""]
+        if getattr(assessment, "note", ""):
+            lines += [_esc(f"⚠️ {assessment.note}."), ""]
 
     lines += _format_capacity_block(capacity)
     lines += _format_signals_block(todays_signals, "🌙 TODAY'S INTELLIGENCE")

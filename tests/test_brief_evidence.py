@@ -124,7 +124,7 @@ def test_load_events_fails_soft_and_maps_rows():
     assert be.load_events(boom, hours=24) == []
     rows = [{"event_id": "e1", "raw_title": "T", "raw_summary": None, "geography": "AU", "collected_at": "2026-11-22T00:00:00Z",
              "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
-    out = be.load_events(lambda *a, **k: rows, hours=24)
+    out = be.load_events(lambda t, q="": [] if "&or=" in q else rows, hours=24)
     assert out == [{"id": "e1", "title": "T", "summary": "", "source": "ABC News", "geography": "AU",
                     "collected_at": "2026-11-22T00:00:00Z", "published_at": None, "url": "https://x"}]
 
@@ -137,7 +137,7 @@ def test_flagged_hook_adds_a_block_and_a_failure_does_not_break_the_brief(monkey
     rows = [{"event_id": "p1", "raw_title": EVENTS[0]["title"], "raw_summary": "", "geography": "AU",
              "collected_at": (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
              "canonical_url": "https://x", "intelligence_source_registry": {"source_name": "ABC News"}}]
-    monkeypatch.setattr(cb, "_sb_request", lambda *a, **k: rows)
+    monkeypatch.setattr(cb, "_sb_request", lambda t, q="": [] if "&or=" in q else rows)
     out = "\n".join(cb._evidence_lines("morning", 72))
     assert "EVIDENCE-BASED PICTURE" in out and "inc-" in out
     monkeypatch.setattr(be, "build_evidence", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))

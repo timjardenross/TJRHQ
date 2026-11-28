@@ -187,6 +187,9 @@ def retrieval_note(events, hours: int) -> str | None:
     before any filtering (a filtered copy no longer carries the status)."""
     if getattr(events, "complete", True):
         return None
+    if not events:
+        return (f"Report retrieval failed ({events.reason}): no usable report was read for the {hours} h window; "
+                "this is not an empty window")
     times = [str(e.get("collected_at")) for e in events if e.get("collected_at")]
     back_to = f", reaching back to {min(times)[:16].replace('T', ' ')} UTC" if times else ""
     return (f"Report retrieval was incomplete ({events.reason}): {len(events)} report(s) read{back_to}; "

@@ -644,7 +644,7 @@ def run_live() -> dict:
     ori = cb._get_latest_ori_brief()
     coverage = dict((ori or {}).get("coverage") or {}) or None
     if not events:
-        coverage = {"degraded": True, "reason": "no events could be read"}
+        coverage = {"degraded": True, "reason": note or "no events could be read"}
     elif note:
         coverage = {**(coverage or {}), "degraded": True, "reason": "; ".join(x for x in ((coverage or {}).get("reason"), note) if x)}
     try:

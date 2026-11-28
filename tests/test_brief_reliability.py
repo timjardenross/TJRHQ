@@ -134,7 +134,7 @@ def _render(gap, events, now):
     real = cb._get_recent_signals
 
     def recent(hours=24, limit=12):
-        with patch.object(cb, "_sb_get", _fake_get(events)), patch("intelligence.captains_brief.datetime") as dt:
+        with patch.object(cb, "_sb_request", _fake_get(events)), patch("intelligence.captains_brief.datetime") as dt:
             dt.now.side_effect = lambda tz=None: now.astimezone(tz) if tz else now
             return real(hours=hours, limit=limit)
     with patch.object(cb, "_get_latest_ori_brief", return_value=None), \

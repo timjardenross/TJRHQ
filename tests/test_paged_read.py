@@ -20,7 +20,8 @@ def row(i: int, minutes_ago: float, **extra) -> dict:
 
 
 class Api:
-    """Enough of PostgREST: collected_at filters, two-column descending order, limit, and a server maximum below any limit."""
+    """Enough of PostgREST: eligibility, collected_at filters, the compound cursor, two-column descending order, limit, and a server
+    maximum below any limit."""
 
     def __init__(self, rows, cap=1000, fail_on=None, on_call=None):
         self.rows, self.cap, self.fail_on, self.on_call, self.queries = list(rows), cap, fail_on, on_call, []
@@ -31,20 +32,29 @@ class Api:
             self.on_call(self, len(self.queries))
         if self.fail_on == len(self.queries):
             raise RuntimeError("synthetic failure")
-        out, limit, id_col, offset = list(self.rows), None, "event_id", 0
+        out = [r for r in self.rows if not r.get("suppressed")]
+        limit, id_col = None, "event_id"
+        when = lambda text: datetime.fromisoformat(text.strip('"').replace("Z", "+00:00"))
         for key, value in parse_qsl(query):
             op, _, arg = value.partition(".")
             if key == "collected_at":
-                keep = {"gte": lambda a, b: a >= b, "lte": lambda a, b: a <= b, "lt": lambda a, b: a < b}[op]
-                out = [r for r in out if keep(datetime.fromisoformat(r["collected_at"]), datetime.fromisoformat(arg.replace("Z", "+00:00")))]
+                keep = {"gte": lambda a, b: a >= b, "lte": lambda a, b: a <= b}[op]
+                out = [r for r in out if keep(when(r["collected_at"]), when(arg))]
+            elif key == "or":
+                older, tied = value[1:-1].split(",")
+                ts, (col, _, last) = when(older.partition(".lt.")[2]), tied.partition(".lt.")
+                out = [r for r in out if when(r["collected_at"]) < ts or r[col] < last.strip('"')]
             elif key == "limit":
                 limit = int(value)
-            elif key == "offset":
-                offset = int(value)
             elif key == "order":
                 id_col = value.split(",")[1].split(".")[0]
-        out.sort(key=lambda r: (datetime.fromisoformat(r["collected_at"]), r[id_col]), reverse=True)
-        return [dict(r) for r in out[offset : offset + min(self.cap, limit or self.cap)]]
+        out.sort(key=lambda r: (when(r["collected_at"]), r[id_col]), reverse=True)
+        return [dict(r) for r in out[: min(self.cap, limit or self.cap)]]
+
+
+def once(rows):
+    """A stand-in that holds one page of rows and nothing beyond it."""
+    return lambda table, query="": [] if "&or=" in query else rows
 
 
 def read(api, **kw):
@@ -75,9 +85,51 @@ def test_more_rows_on_one_timestamp_than_a_request_returns_are_all_read(ties, ol
     assert got.complete and len(set(ids(got))) == len(got) == ties + older
 
 
-def test_a_getter_that_ignores_the_cursor_ends():
+@pytest.mark.parametrize("gone", ["already returned", "not yet returned"])
+@pytest.mark.parametrize("cap", [2, 3])
+def test_eligibility_changing_during_a_tied_read_loses_no_eligible_record(gone, cap):
+    rows = [row(i, 1) for i in (1, 2, 3, 4)]
+    victim = 3 if gone == "already returned" else 1             # 4 and 3 are on the first page
+
+    def suppress(api, call):
+        if call == 2:
+            api.rows[victim - 1]["suppressed"] = True
+
+    got = read(Api(rows, cap=cap, on_call=suppress))
+    expected = {f"e{i:05d}" for i in (1, 2, 3, 4)} - ({"e00001"} if victim == 1 and cap < 4 else set())
+    assert got.complete and set(ids(got)) == expected and len(ids(got)) == len(expected)
+
+
+def test_records_becoming_eligible_behind_the_cursor_are_read():
+    rows = [row(i, 1) for i in range(10)]
+    rows[2]["suppressed"] = True
+
+    def restore(api, call):
+        if call == 2:
+            api.rows[2]["suppressed"] = False
+
+    got = read(Api(rows, cap=4, on_call=restore))
+    assert got.complete and len(set(ids(got))) == 10
+
+
+def test_a_repeated_page_is_not_completion():
     got = read(lambda table, query: [row(1, 1), row(2, 2)])
-    assert got.complete and len(got) == 2
+    assert not got.complete and got.reason == pr.NOT_ADVANCING and len(got) == 2
+
+
+@pytest.mark.parametrize("missing", ["collected_at", "event_id"])
+@pytest.mark.parametrize("later", [False, True])
+def test_a_row_without_its_cursor_field_is_not_completion_however_short_the_page(missing, later):
+    bad = {k: v for k, v in row(9, 9).items() if k != missing}
+    pages = [[row(1, 1)], [bad]] if later else [[bad]]
+    got = read(lambda table, query: pages.pop(0) if pages else [])
+    assert not got.complete and got.reason == pr.NO_KEY and len(got) == (2 if later else 1)
+
+
+@pytest.mark.parametrize("response", [None, {"message": "synthetic error"}])
+def test_a_response_that_is_not_a_list_is_not_an_empty_window(response):
+    got = read(lambda table, query: response)
+    assert not got.complete and got.reason == pr.BAD_RESPONSE and got == []
 
 
 @pytest.mark.parametrize("failing_call", [1, 2, 3])
@@ -144,4 +196,72 @@ def test_weekly_block_discloses_an_incomplete_read():
     assert "Retrieval was incomplete" in text
     empty = pr.PagedRead(complete=False, reason=pr.PAGE_FAILED)
     text = "\n".join(cb._format_weekly_osint_block("TECH OSINT", "x", empty, "confidence_level", "title"))
-    assert "Retrieval was incomplete" in text and "No signals collected" not in text
+    assert "Retrieval failed" in text and "No signals collected" not in text
+
+
+# ── a failed read stays distinguishable from an empty window, in every brief and fallback path ────────────────────────
+
+def _failing(table, query=""):
+    raise RuntimeError("synthetic outage")
+
+
+def _empty(table, query=""):
+    return []
+
+
+@pytest.fixture
+def quiet(monkeypatch):
+    """Everything around the report read is stubbed, so only the read differs."""
+    for name, value in {"_get_latest_ori_brief": None, "_get_capacity_today": None, "_get_infra_verification": None,
+                        "_get_todays_morning_record": None, "_get_todays_morning_brief_text": None, "_get_previous_morning_record": None,
+                        "_get_previous_evening_record": None, "_theme_lines": [], "_health_lines": [], "_coverage_lines": [],
+                        "_format_capacity_block": [], "_format_infra_block": [], "_format_intelligence_posture_block": []}.items():
+        monkeypatch.setattr(cb, name, lambda *a, _v=value, **k: _v)
+    monkeypatch.setattr(cb, "build_daily_digest", None)
+    monkeypatch.setattr(cb, "_sb_get", _empty)
+    for flag in ("BRIEF_EVIDENCE_V1", "BRIEF_EVIDENCE_V1_MORNING", "BRIEF_EVIDENCE_V1_WEEKLY", "BRIEF_MORNING_PDB_V1",
+                 "BRIEF_EOD_ASSESSMENT_V1"):
+        monkeypatch.delenv(flag, raising=False)
+    return monkeypatch
+
+
+def _morning():
+    gap = type("Gap", (), {"missed": False, "lookback_hours": 24})()
+    return cb.generate_morning_brief(gap=gap)
+
+
+@pytest.mark.parametrize("flags", [("BRIEF_MORNING_PDB_V1", "BRIEF_EVIDENCE_V1_MORNING"), ("BRIEF_MORNING_PDB_V1",),
+                                   ("BRIEF_EVIDENCE_V1_MORNING",), ()])
+def test_morning_paths_tell_a_failed_read_from_an_empty_window(quiet, flags):
+    for flag in flags:
+        quiet.setenv(flag, "1")
+    quiet.setattr(cb, "_sb_request", _failing)
+    failed = _morning()
+    quiet.setattr(cb, "_sb_request", _empty)
+    empty = _morning()
+    assert "read failed" in failed.lower() or "retrieval failed" in failed.lower()
+    assert "read failed" not in empty.lower() and "retrieval failed" not in empty.lower() and failed != empty
+
+
+@pytest.mark.parametrize("flags", [("BRIEF_EOD_ASSESSMENT_V1",), ()])
+def test_evening_paths_tell_a_failed_read_from_an_empty_window(quiet, flags):
+    for flag in flags:
+        quiet.setenv(flag, "1")
+    quiet.setattr(cb, "_sb_request", _failing)
+    failed = cb.generate_eod_summary()
+    quiet.setattr(cb, "_sb_request", _empty)
+    empty = cb.generate_eod_summary()
+    assert "read failed" in failed.lower() or "retrieval failed" in failed.lower()
+    assert "read failed" not in empty.lower() and "retrieval failed" not in empty.lower()
+
+
+def test_weekly_evidence_and_roll_up_tell_a_failed_read_from_an_empty_week(quiet):
+    quiet.setenv("BRIEF_EVIDENCE_V1_WEEKLY", "1")
+    quiet.setattr(cb, "_sb_request", _failing)
+    failed = "\n".join(cb._evidence_lines("weekly", 168) + cb._format_weekly_osint_block(
+        "TECH OSINT", "x", cb._get_weekly_tech_signals(), "osint_confidence_level", "raw_title"))
+    quiet.setattr(cb, "_sb_request", _empty)
+    empty_evidence = cb._evidence_lines("weekly", 168)
+    empty = "\n".join(cb._format_weekly_osint_block("TECH OSINT", "x", cb._get_weekly_tech_signals(), "osint_confidence_level", "raw_title"))
+    assert "Report retrieval failed" in failed and "Retrieval failed" in failed and "No signals collected" not in failed
+    assert empty_evidence == [] and "No signals collected" in empty and "failed" not in empty
