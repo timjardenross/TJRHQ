@@ -58,7 +58,7 @@ async def export(folder):
 RULES_VERSION = "C1-E2"
 ROLE = (r"(?:Deputy |Assistant )?(?:Chair(?:man|woman|person)?|Governor|Treasurer|Member|Minister|President|Secretary|Commissioner)"
         r"|(?:APRA|RBA) Member|(?:Executive |General |Managing )?Director|Chief (?:Executive|Risk|Operating|Economist|Financial)(?: Officer)?|CEO|Head of [A-Z][A-Za-z]+")
-IN_ROLE = re.compile(r"\b(?:speech|remarks|address|statement|opening|keynote|testimony) (?:by|from|of|to)\b|\b(?:said|says|announc\w+|speak\w*|spoke|deliver\w+|appoint\w+|address\w*|welcom\w+|"
+IN_ROLE = re.compile(r"\b(?:speech|remarks|address|statement|opening|keynote|testimony|interview|appearance|letter) (?:by|from|of|to|with|before)\b|\b(?:appear\w+|chair(?:s|ed)|present\w+|respond\w+|writes?|wrote|joins?|joined|retir\w+|step\w+ down|conclud\w+)\b|'s (?:speech|remarks|address|statement|opening|testimony)\b|\b(?:said|says|announc\w+|speak\w*|spoke|deliver\w+|appoint\w+|address\w*|welcom\w+|"
                      r"decid\w+|commenced|discuss\w+|told|noted|outlined)\b", re.IGNORECASE)
 # wording the earlier supervised screening does not list but that is adverse or sensitive when it is about a person
 ADVERSE = re.compile(r"\b(?:disqualif\w+|enforceable undertaking|civil penalt\w+|prosecut\w+|investigat\w+|breach(?:es|ed)? (?:of )?(?:duty|duties|the act)|charges? against|facing charges|"
@@ -86,7 +86,25 @@ def address_established(event, publisher):
     return url.scheme == "https" and not url.username and not url.password and (host == domain or host.endswith("." + domain))
 
 
-def named_in_role(text, spans):
+def person_key(span_text):
+    return " ".join(w.lower() for w in name_words(span_text))
+
+
+def officeholders(texts, detector):
+    """The locally kept list of office holders: names the cohort itself gives with an official role. Never printed or shared."""
+    names = set()
+    for text in texts:
+        for start, end in detector(text):
+            key = person_key(text[start:end])
+            if not key or len(key.split()) < 2:
+                continue
+            name = re.escape(" ".join(name_words(text[start:end])))
+            if re.search(rf"\b(?:{ROLE})\b,? (?:(?:Mr|Ms|Mrs|Dr|Professor) )?{name}|{name},? (?:the |APRA's |RBA's |its |new )?(?:{ROLE})\b|{name},? (?:has been |was |is )?appointed", text):
+                names.add(key)
+    return frozenset(names)
+
+
+def named_in_role(text, spans, officers=frozenset()):
     """Every detected name sits with an official role in its sentence, and the sentence shows the person acting in it."""
     for start, end in spans:
         left = max(text.rfind(c, 0, start) for c in ".!?;") + 1
@@ -95,16 +113,44 @@ def named_in_role(text, spans):
         name = re.sub(rf"^(?:(?:APRA|RBA|Mr|Ms|Mrs|Dr|Professor)\.? |(?:{ROLE})\b,? )+", "", name)     # a detector span may include the title
         beside = rf"(?:\b(?:{ROLE})\b,? (?:(?:Mr|Ms|Mrs|Dr|Professor) )?{re.escape(name)}|{re.escape(name)}, (?:the |APRA's |RBA's |its |new )?(?:{ROLE})\b)"
         appointed = rf"{re.escape(name)},? (?:has been |was |is |will be )?appointed (?:as )?(?:the |an? )?(?:new )?(?:{ROLE})\b"
-        if not ((re.search(beside, sentence) or re.search(appointed, sentence)) and IN_ROLE.search(sentence)):
+        official = person_key(name) in officers or re.search(beside, sentence) or re.search(appointed, sentence)
+        if not (official and IN_ROLE.search(sentence)):
             return False
     return True
 
 
-def union_detector(route, batch=25):
+ROLE_WORDS = {"apra", "rba", "mr", "ms", "mrs", "dr", "professor", "chair", "chairman", "chairwoman", "deputy", "assistant", "governor", "treasurer",
+              "member", "minister", "president", "secretary", "commissioner", "director", "executive", "general", "managing", "chief", "head"}
+TITLE_BEFORE = re.compile(r"\b(?:Mr|Mrs|Ms|Miss|Mx|Dr|Professor|Prof|Sir|Dame|Hon)\.? *$")
+
+
+def load_vocabulary(path=None):
+    """Words seen in lower case in collected public reporting: ordinary words, which a personal name is not. Absent file: nothing is ordinary."""
+    path = path or os.environ.get("INTEL_VOCABULARY", "")
+    if not path or not os.path.exists(path):
+        return frozenset()
+    with open(path, encoding="utf-8") as fh:
+        return frozenset(line.strip().lower() for line in fh if line.strip())
+
+
+def name_words(span_text):
+    return [w for w in re.findall(r"[^\W\d_]+(?:['’-][^\W\d_]+)*", span_text) if w.lower().rstrip("'’s") not in ROLE_WORDS and w.lower() not in ROLE_WORDS]
+
+
+def could_be_name(text, start, end, vocabulary):
+    """False only when every word of the span is an ordinary word (or a role word) and no personal title introduces it."""
+    if TITLE_BEFORE.search(text[:start]) or TITLE_BEFORE.match(text[start:end].split(" ")[0] + " "):
+        return True
+    words = name_words(text[start:end])
+    return any(re.sub(r"['’]s$", "", w.lower()) not in vocabulary for w in words)
+
+
+def union_detector(route, batch=25, vocabulary=None):
     """The existing on-host person detector plus the over-inclusive second finder; a failure of either raises, so the record is held.
     ``prime(texts)`` runs both over many texts with few model loads; a text not primed is detected on its own."""
     worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "names_worker.py")
     cache: dict[str, list] = {}
+    ordinary = load_vocabulary() if vocabulary is None else vocabulary
 
     def second(texts):
         r = subprocess.run([f"{APP}/platform-runtime/.venv-llmsec/bin/python", "-B", worker], input=json.dumps(texts), capture_output=True,
@@ -130,7 +176,8 @@ def union_detector(route, batch=25):
             at += len(t) + 3
         joined = route.person_spans("\n.\n".join(texts))
         for t, (lo, hi), extra in zip(texts, bounds, second(texts), strict=True):
-            cache[t] = merge([(s - lo, min(e, hi) - lo) for s, e in joined if lo <= s < hi] + [tuple(x) for x in extra])
+            found = merge([(s - lo, min(e, hi) - lo) for s, e in joined if lo <= s < hi] + [tuple(x) for x in extra])
+            cache[t] = [(s, e) for s, e in found if could_be_name(t, s, e, ordinary)]
 
     def detect(text):
         if text not in cache:
@@ -142,7 +189,7 @@ def union_detector(route, batch=25):
         for i in range(0, len(todo), batch):
             try:
                 run_batch(todo[i:i + batch])
-            except Exception:  # noqa: BLE001, PERF203, S112 - left unprimed: each record is then tried alone and held if it still fails
+            except Exception:  # noqa: BLE001, S112 - left unprimed: each record is then tried alone and held if it still fails
                 continue
 
     detect.prime = prime
@@ -153,7 +200,7 @@ def text_of(event):
     return f"{str(event.get('raw_title') or '').strip()}. {str(event.get('raw_summary') or '').strip()}".strip()
 
 
-def classify(event, publisher, route, detector):
+def classify(event, publisher, route, detector, officers=frozenset()):
     """(disposition, [rule:class, ...]). Every rule that matched is listed; anything not eligible is not copied."""
     held, review = [], []
     if event.get("source_id") not in COHORT:
@@ -185,7 +232,7 @@ def classify(event, publisher, route, detector):
         held.append("E-5:sensitive_attribute_about_individual")
     if spans and PRIVATE.search(text):
         held.append("E-5:private_individual")
-    elif spans and not named_in_role(text, spans):
+    elif spans and not named_in_role(text, spans, officers):
         review.append("E-5:person_role_unclear")
     flagged = ["E-5:official_named_in_role"] if spans and not held and not review else []
     if held:
@@ -216,9 +263,13 @@ def screen_events(events, publishers, route, detector):
     out = {}
     if hasattr(detector, "prime"):
         detector.prime([text_of(e) for e in events])
+    try:
+        officers = officeholders([text_of(e) for e in events], detector)
+    except Exception:  # noqa: BLE001 - without the list, names without a role in their own sentence stay held for review
+        officers = frozenset()
     for e in events:
         try:
-            out[e["event_id"]] = classify(e, publishers.get(e["source_id"], "APRA"), route, detector)
+            out[e["event_id"]] = classify(e, publishers.get(e["source_id"], "APRA"), route, detector, officers)
         except Exception as exc:  # noqa: BLE001 - unscreenable is held; the message may quote content, so only the type is kept
             out[e["event_id"]] = ("held", ["E-5:screening_failed_" + type(exc).__name__])
     return out
@@ -230,7 +281,7 @@ def run(folder, route=None, detector=None, require_offline=True):
     if route is None:
         sys.path.insert(0, APP)
         from core.security import public_judgement_route as route
-    detector = detector or union_detector(route)
+    detector = detector or union_detector(route, vocabulary=load_vocabulary(os.path.join(folder, "vocabulary.txt")))
     _manifest, data = package_c.load_export(folder)
     publishers = {s["source_id"]: "RBA" if "rba.gov.au" in s["licence_url"] else "APRA" for s in data["sources"]}
     results = screen_events(data["events"], publishers, route, detector)
@@ -247,7 +298,7 @@ def run(folder, route=None, detector=None, require_offline=True):
         counts[d] = counts.get(d, 0) + 1
         for x in r:
             rules[x] = rules.get(x, 0) + 1
-    return {"records": len(results), "dispositions": counts, "rules": dict(sorted(rules.items())), **versions()}
+    return {"records": len(results), "dispositions": counts, "rule_counts": dict(sorted(rules.items())), **versions()}
 
 
 def sheet(folder, events, results, sample=10):
