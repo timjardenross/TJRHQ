@@ -69,6 +69,8 @@ def run():
         fcntl.flock(nightly, fcntl.LOCK_EX)         # never concurrent with the existing nightly backup
         fcntl.flock(maint, fcntl.LOCK_EX)           # no object removal between the dump and the copy
         counts, lineage, objects = asyncio.run(dump())
+        if not counts["documents"]:
+            raise SystemExit("refused: the store is empty, so this snapshot must not become the latest recoverable one")
         manifest = {"taken_at": taken, "counts": counts, "lineage_md5": lineage, "objects": objects,
                     "db_dump_sha256": hashlib.sha256(open(f"{STAGE}/db.dump", "rb").read()).hexdigest(),
                     "image": open("/etc/tjrhq-intel/image").read().strip()}
@@ -87,7 +89,11 @@ def run():
 
 
 def check_fresh():
-    last = json.load(open(f"{STAGE}/last-success.json"))
+    try:
+        last = json.load(open(f"{STAGE}/last-success.json"))
+    except (OSError, ValueError):
+        print(json.dumps({"snapshot": None, "within_24h": False, "reason": "no successful backup recorded on this installation"}))
+        return 1
     age = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(last["taken_at"])).total_seconds() / 3600
     print(json.dumps({"snapshot": last["snapshot"], "age_hours": round(age, 2), "within_24h": age <= 24}))
     return 0 if age <= 24 else 1

@@ -90,7 +90,7 @@ async def orphans(con):
 
 
 def embed(texts):
-    req = urllib.request.Request(OLLAMA, data=json.dumps({"model": MODEL, "input": texts}).encode(), headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(OLLAMA, data=json.dumps({"model": MODEL, "input": texts, "options": {"num_thread": 2}}).encode(), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310 - fixed loopback address
         return json.load(resp)["embeddings"]
 

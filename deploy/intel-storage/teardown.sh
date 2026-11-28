@@ -2,9 +2,9 @@
 # Stop and remove the store. --purge also removes its data, configuration, code, users and groups. Nothing else is touched.
 set -uo pipefail
 [ "$(id -u)" = 0 ] || { echo "run as root" >&2; exit 1; }
-systemctl disable -q --now tjrhq-intel-backup.timer tjrhq-intel-postgres.service 2>/dev/null
+systemctl disable -q --now tjrhq-intel-backup.timer tjrhq-intel-freshness.timer tjrhq-intel-postgres.service 2>/dev/null
 docker rm -f tjrhq-intel-pg >/dev/null 2>&1
-rm -f /etc/systemd/system/tjrhq-intel-postgres.service /etc/systemd/system/tjrhq-intel-backup.service /etc/systemd/system/tjrhq-intel-backup.timer
+rm -f /etc/systemd/system/tjrhq-intel-postgres.service /etc/systemd/system/tjrhq-intel-backup.service /etc/systemd/system/tjrhq-intel-backup.timer /etc/systemd/system/tjrhq-intel-freshness.service /etc/systemd/system/tjrhq-intel-freshness.timer
 systemctl daemon-reload
 if [ "${1:-}" = "--purge" ]; then
   rm -rf --one-file-system /var/lib/tjrhq-intel /etc/tjrhq-intel /opt/tjrhq-intel /run/tjrhq-intel

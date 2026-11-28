@@ -78,6 +78,27 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 UNIT
+cat > /etc/systemd/system/tjrhq-intel-freshness.service <<UNIT
+[Unit]
+Description=Alert when the intelligence store has no off-host snapshot under 24 hours old
+OnFailure=alert-on-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I $OPT/backup.py check-fresh
+UNIT
+cat > /etc/systemd/system/tjrhq-intel-freshness.timer <<'UNIT'
+[Unit]
+Description=Check intelligence store snapshot age
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+OnCalendar=*-*-* 16:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
 systemctl daemon-reload
 systemctl enable -q --now tjrhq-intel-postgres.service
 for _ in $(seq 1 60); do docker exec -u "$(id -u tjrhq-intel-db)" tjrhq-intel-pg psql -qAt -U tjrhq-intel-db -d intel -c 'select 1' >/dev/null 2>&1 && break; read -t 1 <> <(:) || true; done

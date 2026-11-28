@@ -9,6 +9,8 @@ revoke all on database intel from public;
 grant connect on database intel to intel_ingest, intel_read, intel_maint;
 revoke create on schema public from public;
 create schema if not exists intel authorization intel_owner;
+-- the index default (40) missed a true nearest neighbour in the first rehearsal
+alter database intel set hnsw.ef_search = 200;
 create table if not exists intel.object (
   sha256 text primary key check (sha256 ~ '^[0-9a-f]{64}$'),
   domain text not null check (domain ~ '^[a-z][a-z0-9_-]{0,39}$'),
