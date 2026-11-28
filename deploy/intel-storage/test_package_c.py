@@ -3,10 +3,9 @@ import json
 import subprocess
 import types
 
-import pytest
-
 import deletions
 import package_c
+import pytest
 import screen
 
 
