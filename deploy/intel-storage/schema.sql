@@ -69,7 +69,7 @@ create table if not exists intel.c_event (
   date_evidence text not null check (date_evidence in ('verified', 'unverified')),
   suppressed boolean, suppression_reason text, publisher_domain text, publisher_family text,
   canonical_signal_id text,
-  canonical_state text not null check (canonical_state in ('held', 'external', 'not_recorded', 'deleted')),
+  canonical_state text not null check (canonical_state in ('loaded', 'held', 'external', 'not_recorded', 'deleted')),
   search tsvector generated always as (setweight(to_tsvector('english', coalesce(raw_title, '')), 'A') || to_tsvector('english', coalesce(raw_summary, ''))) stored,
   foreign key (batch_id, source_id) references intel.c_source (batch_id, source_id) on delete cascade);
 create index if not exists c_event_search on intel.c_event using gin (search);
@@ -77,7 +77,7 @@ create table if not exists intel.c_edge (
   batch_id text not null references intel.c_batch on delete cascade,
   cohort_event_id text not null,                      -- no foreign key: a held record's links are kept without its content
   relation text not null, linked_id text not null,
-  endpoint text not null check (endpoint in ('held', 'external', 'not_event', 'deleted')),
+  endpoint text not null check (endpoint in ('loaded', 'held', 'external', 'not_event', 'deleted')),
   origin_held boolean not null,
   not_independent_because text,
   primary key (cohort_event_id, relation, linked_id));

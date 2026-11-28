@@ -5,14 +5,15 @@ The source stays authoritative and is only ever read. Existing links are copied 
 An export is a folder: events.jsonl, edges.jsonl, sources.jsonl, manifest.json.
 
   package_c.py synthetic DIR                    write a synthetic export with the cohort's shape (fictional content)
-  package_c.py plan DIR --holds F               check files, digests and holds; write nothing           (any user)
-  package_c.py import DIR --holds F --batch B   load in one transaction                                 (tjrhq-intel-ingest)
-  package_c.py verify DIR --holds F --batch B   compare the store with the export, field by field       (tjrhq-intel-ingest)
+  package_c.py plan DIR --screening F               check files, digests and holds; write nothing           (any user)
+  package_c.py import DIR --screening F --batch B   load in one transaction                                 (tjrhq-intel-ingest)
+  package_c.py verify DIR --screening F --batch B   compare the store with the export, field by field       (tjrhq-intel-ingest)
   package_c.py compare OLD NEW                  what changed at the source between two exports          (any user)
   package_c.py rollback --batch B               remove exactly that batch                               (tjrhq-intel-ingest as intel_maint)
 
-A holds file lists every record that must not be copied: JSON {"event_id": {"disposition": "held"|"review", "rules": [...]}}. It is
-required; {} states that screening held none. Recorded links of held records are still kept, as identifiers only.
+A screening file gives a disposition for EVERY record and is bound to the export's digests and the rules version. Only records marked
+eligible are copied. A missing, partial or stale screening is refused. Real exports may only contain the approved five sources up to the
+watermark; a synthetic export may only contain addresses under example.invalid. Recorded links of held records are kept as identifiers.
 Importing anything that is not marked synthetic needs --authorised "<the principal's execution authority>".
 """
 # ruff: noqa: SIM115  (small single-user command-line tool)
@@ -32,6 +33,10 @@ EVENT_FIELDS = ("event_id", "source_id", "raw_title", "raw_summary", "canonical_
                 "published_at_basis", "signal_status", "suppressed", "suppression_reason", "publisher_domain", "publisher_family",
                 "published_at_precision", "published_at_confidence")
 TIME_FIELDS = ("collected_at", "published_at")
+RULES_VERSION = "C1-E2"
+COHORT = ("3b4edf0b-cbf9-4859-9fc0-a315276b7437", "c715aa9e-dbf2-4af9-9445-339a14bc3bd4", "e86ae4aa-7c94-41b7-80fb-e1b644fed8cf",
+          "b92f589e-5ddf-4328-a984-fd2bdb33bf99", "2c99282c-0f57-4384-950d-f9a71a916f0a")
+WATERMARK = "2026-11-28 04:21:33+00"
 EDGE_FIELDS = ("cohort_event_id", "relation", "linked_id")
 SOURCE_FIELDS = ("source_id", "source_name", "licence_url", "attribution")
 EVENT_RELATIONS = ("canonical_of_this", "has_this_as_canonical", "corroborated_by", "corroborates")
@@ -93,18 +98,39 @@ def load_export(folder):
         bad.append("an edge starts outside the cohort")
     if len({tuple(e[f] for f in EDGE_FIELDS) for e in data["edges"]}) != len(data["edges"]):
         bad.append("duplicate edges")
+    used = sources | {e["source_id"] for e in data["events"]}
+    if manifest.get("synthetic") is True:
+        if used & set(COHORT) or any(".invalid" not in str(e.get("canonical_url") or "") for e in data["events"]):
+            bad.append("marked synthetic but carries cohort sources or addresses outside example.invalid")
+    else:
+        if used - set(COHORT):
+            bad.append("a source outside the approved five-source cohort")
+        mark = norm_time(WATERMARK)
+        if any(not e.get("collected_at") or norm_time(e["collected_at"]) > mark for e in data["events"]):
+            bad.append("a record after the approved cohort watermark or without a collection time")
     if bad:
         raise SystemExit("export refused: " + "; ".join(bad))
     return manifest, data
 
 
-def load_holds(path, events):
-    holds = json.load(open(path))
-    unknown = set(holds) - {e["event_id"] for e in events}
-    good = all(isinstance(v, dict) and v.get("disposition") in ("held", "review") and v.get("rules") for v in holds.values())
-    if unknown or not good:
-        raise SystemExit(f"holds refused: every entry needs a cohort event id, a disposition and the rules matched ({len(unknown)} unknown id(s))")
-    return holds
+def load_screening(path, manifest, data):
+    """The records NOT to copy, from a screening that decided every record of exactly this export under the current rules."""
+    with open(path, encoding="utf-8") as fh:
+        body = json.load(fh)
+    records = body.get("records") if isinstance(body, dict) else None
+    ids = {e["event_id"] for e in data["events"]}
+    bad = []
+    if not isinstance(records, dict) or set(records) != ids:
+        bad.append("it does not decide every record of this export, and only those")
+    elif not all(isinstance(v, dict) and v.get("disposition") in ("eligible", "held", "review") for v in records.values()):
+        bad.append("a record has no valid disposition")
+    if body.get("export_digests") != manifest["digests"] if isinstance(body, dict) else True:
+        bad.append("it was made for a different export")
+    if not isinstance(body, dict) or body.get("rules_version") != RULES_VERSION:
+        bad.append("it was made under different rules")
+    if bad:
+        raise SystemExit("screening refused: " + "; ".join(bad))
+    return {k: v for k, v in records.items() if v["disposition"] != "eligible"}
 
 
 def date_evidence(event):
@@ -139,9 +165,12 @@ def expected(data, holds):
     held and where its other end is. Nothing is added."""
     events = [e for e in data["events"] if e["event_id"] not in holds]
     by_id = {e["event_id"]: e for e in events}
+    cohort = {e["event_id"] for e in data["events"]}
     edges = []
     for e in data["edges"]:
-        endpoint = "not_event" if e["relation"] not in EVENT_RELATIONS else "held" if e["linked_id"] in by_id else "external"
+        other = e["linked_id"]
+        endpoint = ("not_event" if e["relation"] not in EVENT_RELATIONS else "loaded" if other in by_id
+                    else "held" if other in cohort else "external")
         edges.append({**{f: e[f] for f in EDGE_FIELDS}, "endpoint": endpoint, "origin_held": e["cohort_event_id"] not in by_id,
                       "not_independent_because": not_independent_because(e, by_id)})
     linked = {e["cohort_event_id"]: e for e in edges if e["relation"] == "canonical_of_this"}
@@ -152,6 +181,38 @@ def expected(data, holds):
         rows.append({**canonical(e, EVENT_FIELDS), "canonical_signal_id": edge["linked_id"] if edge else None, "canonical_state": state,
                      "date_evidence": date_evidence(e)})
     return rows, edges
+
+
+def check_states(data, holds, rows, edges):
+    """Names of failed checks on relationship classification, derived directly from the export and the held set, not from expected()."""
+    cohort = {e["event_id"] for e in data["events"]}
+    held = set(holds)
+    loaded = {r["event_id"] for r in rows}
+    failed = []
+    if loaded != cohort - held:
+        failed.append("loaded_set")
+    wanted = {}
+    for e in data["edges"]:
+        other = e["linked_id"]
+        if e["relation"] not in EVENT_RELATIONS:
+            wanted[(e["cohort_event_id"], e["relation"], other)] = "not_event"
+        else:
+            wanted[(e["cohort_event_id"], e["relation"], other)] = "external" if other not in cohort else "held" if other in held else "loaded"
+    got = {(e["cohort_event_id"], e["relation"], e["linked_id"]): e["endpoint"] for e in edges}
+    if got != wanted:
+        failed.append("endpoint_states")
+    canonical = {e["cohort_event_id"]: e["linked_id"] for e in data["edges"] if e["relation"] == "canonical_of_this"}
+    for r in rows:
+        target = canonical.get(r["event_id"])
+        state = "not_recorded" if target is None else wanted[(r["event_id"], "canonical_of_this", target)]
+        if r["canonical_signal_id"] != target or r["canonical_state"] != state:
+            failed.append("canonical_pointers")
+            break
+    missing = {e["event_id"] for e in data["events"] if e.get("signal_status") == "DUPLICATE" and e["event_id"] not in canonical and e["event_id"] not in held}
+    stored = {r["event_id"] for r in rows if r.get("signal_status") == "DUPLICATE" and r["canonical_state"] == "not_recorded"} if all("signal_status" in r for r in rows) else None
+    if stored != missing:
+        failed.append("duplicates_without_canonical")
+    return failed
 
 
 def summary(manifest, data, holds):
@@ -179,7 +240,12 @@ async def do_import(folder, holds_path, batch, authorised):
     manifest, data = load_export(folder)
     if not manifest["synthetic"] and not authorised:
         raise SystemExit("refused: this export is not synthetic and no execution authority was given")
-    holds = load_holds(holds_path, data["events"])
+    holds = load_screening(holds_path, manifest, data)
+    import deletions
+
+    deleted = {r["id"] for r in deletions.entries() if r.get("id")} & {e["event_id"] for e in data["events"] if e["event_id"] not in holds}
+    if deleted:
+        raise SystemExit(f"refused: {len(deleted)} record(s) are on the deletion ledger and may not be copied again")
     rows, edges = expected(data, holds)
     con = await store.connect("intel_ingest")
     try:
@@ -213,14 +279,14 @@ async def compare_store(con, batch, data, holds):
               "event_fields": digest_rows(got, STORE_FIELDS) == digest_rows(rows, STORE_FIELDS),
               "edges": digest_rows(got_edges, EDGE_STORE) == digest_rows(edges, EDGE_STORE),
               "sources_and_attribution": digest_rows(got_sources, SOURCE_FIELDS) == digest_rows(data["sources"], SOURCE_FIELDS)}
-    return [k for k, ok in checks.items() if not ok]
+    return [k for k, ok in checks.items() if not ok] + check_states(data, holds, got, got_edges)
 
 
 async def do_verify(folder, holds_path, batch):
     import store
 
     manifest, data = load_export(folder)
-    holds = load_holds(holds_path, data["events"])
+    holds = load_screening(holds_path, manifest, data)
     con = await store.connect("intel_ingest")        # reads only; the staging folder belongs to the ingest identity
     try:
         failed = await compare_store(con, batch, data, holds)
@@ -299,7 +365,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="package_c")
     ap.add_argument("cmd", choices=("synthetic", "plan", "import", "verify", "compare", "rollback"))
     ap.add_argument("paths", nargs="*")
-    ap.add_argument("--holds")
+    ap.add_argument("--screening", dest="holds")
     ap.add_argument("--batch")
     ap.add_argument("--authorised")
     a = ap.parse_args(argv)
@@ -311,7 +377,7 @@ def main(argv=None):
         out = asyncio.run(do_rollback(a.batch))
     elif a.cmd == "plan":
         manifest, data = load_export(a.paths[0])
-        out = summary(manifest, data, load_holds(a.holds, data["events"]))
+        out = summary(manifest, data, load_screening(a.holds, manifest, data))
     elif a.cmd == "import":
         out = asyncio.run(do_import(a.paths[0], a.holds, a.batch, a.authorised))
     else:

@@ -2,7 +2,7 @@
 """Local export and privacy screening of the pilot cohort. Run as root on the host; record content never leaves it.
 
   screen.py export DIR         one repeatable-read snapshot of the cohort through the approved read views (root only: DIR is 0700)
-  screen.py run DIR            classify every record; writes DIR/holds.json and DIR/screening.csv (identifiers and classes only)
+  screen.py run DIR            classify every record; writes DIR/screening.json and DIR/screening.csv (identifiers and classes only)
 
 Reuses the programme's local screening (identifier, address, health and conduct wording, and the on-host person detector). Run `run`
 under `unshare -n`: it needs no network and refuses to start if it has one. Nothing printed contains record content.
@@ -24,9 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import package_c
 
 APP = "/opt/starship-endeavour"
-COHORT = ("3b4edf0b-cbf9-4859-9fc0-a315276b7437", "c715aa9e-dbf2-4af9-9445-339a14bc3bd4", "e86ae4aa-7c94-41b7-80fb-e1b644fed8cf",
-          "b92f589e-5ddf-4328-a984-fd2bdb33bf99", "2c99282c-0f57-4384-950d-f9a71a916f0a")
-WATERMARK = "2026-11-28 04:21:33+00"
+COHORT, WATERMARK = package_c.COHORT, package_c.WATERMARK
 CONTACT = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|(?<![\w-])(?:\+?61|0)[2-478](?:[ -]?\d){8}(?![\w-])")
 
 
@@ -55,7 +53,7 @@ async def export(folder):
     print(json.dumps({"as_of": manifest["as_of"], "counts": manifest["counts"], "digests": manifest["digests"]}))
 
 
-RULES_VERSION = "C1-E2"
+RULES_VERSION = package_c.RULES_VERSION
 ROLE = (r"(?:Deputy |Assistant )?(?:Chair(?:man|woman|person)?|Governor|Treasurer|Member|Minister|President|Secretary|Commissioner)"
         r"|(?:APRA|RBA) Member|(?:Executive |General |Managing )?Director|Chief (?:Executive|Risk|Operating|Economist|Financial)(?: Officer)?|CEO|Head of [A-Z][A-Za-z]+")
 IN_ROLE = re.compile(r"\b(?:speech|remarks|address|statement|opening|keynote|testimony|interview|appearance|letter) (?:by|from|of|to|with|before)\b|\b(?:appear\w+|chair(?:s|ed)|present\w+|respond\w+|writes?|wrote|joins?|joined|retir\w+|step\w+ down|conclud\w+)\b|'s (?:speech|remarks|address|statement|opening|testimony)\b|\b(?:said|says|announc\w+|speak\w*|spoke|deliver\w+|appoint\w+|address\w*|welcom\w+|"
@@ -121,42 +119,21 @@ def named_in_role(text, spans, officers=frozenset()):
 
 ROLE_WORDS = {"apra", "rba", "mr", "ms", "mrs", "dr", "professor", "chair", "chairman", "chairwoman", "deputy", "assistant", "governor", "treasurer",
               "member", "minister", "president", "secretary", "commissioner", "director", "executive", "general", "managing", "chief", "head"}
-TITLE_BEFORE = re.compile(r"\b(?:Mr|Mrs|Ms|Miss|Mx|Dr|Professor|Prof|Sir|Dame|Hon)\.? *$")
-
-
-def load_vocabulary(path=None):
-    """Words seen in lower case in collected public reporting: ordinary words, which a personal name is not. Absent file: nothing is ordinary."""
-    path = path or os.environ.get("INTEL_VOCABULARY", "")
-    if not path or not os.path.exists(path):
-        return frozenset()
-    with open(path, encoding="utf-8") as fh:
-        return frozenset(line.strip().lower() for line in fh if line.strip())
-
-
 def name_words(span_text):
     return [w for w in re.findall(r"[^\W\d_]+(?:['’-][^\W\d_]+)*", span_text) if w.lower().rstrip("'’s") not in ROLE_WORDS and w.lower() not in ROLE_WORDS]
 
 
-def could_be_name(text, start, end, vocabulary):
-    """False only when every word of the span is an ordinary word (or a role word) and no personal title introduces it."""
-    if TITLE_BEFORE.search(text[:start]) or TITLE_BEFORE.match(text[start:end].split(" ")[0] + " "):
-        return True
-    words = name_words(text[start:end])
-    return any(re.sub(r"['’]s$", "", w.lower()) not in vocabulary for w in words)
-
-
-def union_detector(route, batch=25, vocabulary=None):
+def union_detector(route, batch=25):
     """The existing on-host person detector plus the over-inclusive second finder; a failure of either raises, so the record is held.
     ``prime(texts)`` runs both over many texts with few model loads; a text not primed is detected on its own."""
     worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "names_worker.py")
     cache: dict[str, list] = {}
-    ordinary = load_vocabulary() if vocabulary is None else vocabulary
 
     def second(texts):
         r = subprocess.run([f"{APP}/platform-runtime/.venv-llmsec/bin/python", "-B", worker], input=json.dumps(texts), capture_output=True,
                            text=True, check=True, timeout=300)
         out = json.loads(r.stdout)
-        if len(out) != len(texts):
+        if len(out["person"]) != len(texts) or len(out["caps"]) != len(texts):
             raise ValueError("name finder returned the wrong number of results")
         return out
 
@@ -175,9 +152,11 @@ def union_detector(route, batch=25, vocabulary=None):
             bounds.append((at, at + len(t)))
             at += len(t) + 3
         joined = route.person_spans("\n.\n".join(texts))
-        for t, (lo, hi), extra in zip(texts, bounds, second(texts), strict=True):
-            found = merge([(s - lo, min(e, hi) - lo) for s, e in joined if lo <= s < hi] + [tuple(x) for x in extra])
-            cache[t] = [(s, e) for s, e in found if could_be_name(t, s, e, ordinary)]
+        extra = second(texts)
+        for t, (lo, hi), person, caps in zip(texts, bounds, extra["person"], extra["caps"], strict=True):
+            # every span either finder reports is kept: nothing suggesting a person is discarded
+            positive = [(s - lo, min(e, hi) - lo) for s, e in joined if lo <= s < hi] + [tuple(x) for x in person]
+            cache[t] = merge(positive + [tuple(x) for x in caps])
 
     def detect(text):
         if text not in cache:
@@ -281,12 +260,14 @@ def run(folder, route=None, detector=None, require_offline=True):
     if route is None:
         sys.path.insert(0, APP)
         from core.security import public_judgement_route as route
-    detector = detector or union_detector(route, vocabulary=load_vocabulary(os.path.join(folder, "vocabulary.txt")))
-    _manifest, data = package_c.load_export(folder)
+    detector = detector or union_detector(route)
+    manifest, data = package_c.load_export(folder)
     publishers = {s["source_id"]: "RBA" if "rba.gov.au" in s["licence_url"] else "APRA" for s in data["sources"]}
     results = screen_events(data["events"], publishers, route, detector)
     os.umask(0o077)
-    json.dump({k: {"disposition": d, "rules": r} for k, (d, r) in results.items() if d != "eligible"}, open(f"{folder}/holds.json", "w"), indent=1)
+    # every record gets a disposition, bound to this exact export: the importer refuses anything less
+    json.dump({"export_digests": manifest["digests"], "rules_version": RULES_VERSION,
+               "records": {k: {"disposition": d, "rules": r} for k, (d, r) in results.items()}}, open(f"{folder}/screening.json", "w"), indent=1)
     with open(f"{folder}/screening.csv", "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(("event_id", "source_id", "disposition", "rules"))

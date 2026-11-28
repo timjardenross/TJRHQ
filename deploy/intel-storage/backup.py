@@ -13,6 +13,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import deletions
 import store
 
 STAGE = "/var/lib/tjrhq-intel/backup-stage"
@@ -90,7 +91,8 @@ def run():
         manifest = {"taken_at": taken, "counts": counts, "lineage_md5": lineage, "objects": objects,
                     "db_dump_sha256": hashlib.sha256(open(f"{STAGE}/db.dump", "rb").read()).hexdigest(),
                     "image": open("/etc/tjrhq-intel/image").read().strip(),
-                    "revision": open("/opt/tjrhq-intel/REVISION").read().strip(), "code_sha256": code_hashes()}
+                    "revision": open("/opt/tjrhq-intel/REVISION").read().strip(), "code_sha256": code_hashes(),
+                    "deletions_known": max(0, len(deletions.entries()) - 1)}
         json.dump(manifest, open(f"{STAGE}/manifest.json", "w"))
         out = restic("backup", "--tag", TAG, "--json", f"{STAGE}/db.dump", f"{STAGE}/manifest.json", store.ROOT, "/etc/tjrhq-intel", "/opt/tjrhq-intel")
     summary = next(j for j in map(json.loads, out.splitlines()) if j.get("message_type") == "summary")

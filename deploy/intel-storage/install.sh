@@ -106,4 +106,8 @@ for _ in $(seq 1 60); do docker exec -u "$(id -u tjrhq-intel-db)" tjrhq-intel-pg
 read -t 3 <> <(:) || true     # the image restarts the server once after first initialisation
 for _ in $(seq 1 60); do docker exec tjrhq-intel-pg pg_isready -q && break; read -t 1 <> <(:) || true; done
 docker exec -i -u "$(id -u tjrhq-intel-db)" tjrhq-intel-pg psql -q -v ON_ERROR_STOP=1 -U tjrhq-intel-db -d intel < "$OPT/schema.sql"
+# a store whose restore was never verified stays closed to the service roles, whatever the schema grants
+if [ -e "$ROOT/QUARANTINE" ]; then
+  docker exec -u "$(id -u tjrhq-intel-db)" tjrhq-intel-pg psql -q -U tjrhq-intel-db -d intel -c 'revoke connect on database intel from intel_read, intel_ingest, intel_maint'
+fi
 echo installed
