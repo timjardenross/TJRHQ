@@ -17,7 +17,7 @@ install -d -m 0700 -o tjrhq-intel-ingest -g tjrhq-intel "$ROOT/spool"
 install -d -m 0700 -o root -g root "$ROOT/backup-stage"
 printf 'd %s 2750 tjrhq-intel-db tjrhq-intel -\n' "$RUN" > /etc/tmpfiles.d/tjrhq-intel.conf
 systemd-tmpfiles --create /etc/tmpfiles.d/tjrhq-intel.conf
-install -m 0755 "$SRC"/guard.py "$SRC"/store.py "$SRC"/embed.py "$SRC"/fixtures.py "$SRC"/backup.py "$SRC"/restore.py "$OPT"/
+install -m 0755 "$SRC"/guard.py "$SRC"/store.py "$SRC"/embed.py "$SRC"/fixtures.py "$SRC"/backup.py "$SRC"/restore.py "$SRC"/package_c.py "$SRC"/deletions.py "$SRC"/screen.py "$SRC"/validate_screening.py "$SRC"/names_worker.py "$OPT"/
 install -m 0644 "$SRC"/schema.sql "$OPT"/
 { git -C "$SRC" rev-parse HEAD 2>/dev/null || echo unknown; git -C "$SRC" status --porcelain -- . 2>/dev/null | grep -q . && echo "uncommitted changes" || true; } > "$OPT/REVISION"
 # the container sees only these accounts, so peer authentication maps host identities to database roles: no passwords exist

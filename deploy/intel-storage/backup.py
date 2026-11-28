@@ -19,9 +19,14 @@ STAGE = "/var/lib/tjrhq-intel/backup-stage"
 TAG = "intel-b"
 CEILING_BYTES, MIN_REMOTE_FREE_BYTES = 15 * 10**9, 2 * 2**30
 COUNTS = ("select (select count(*) from intel.object) objects, (select count(*) from intel.document) documents, (select count(*) from intel.passage) passages, "
-          "(select count(*) from intel.rebuild_priority) rebuild_priority")
-LINEAGE = ("select md5(coalesce(string_agg(id || ':' || object_sha256 || ':' || coalesce(previous_id, 0) || ':' || md5(body), ',' order by id), '')) "
-           "from intel.document")
+          "(select count(*) from intel.rebuild_priority) rebuild_priority, "
+          "(select count(*) from intel.c_batch) c_batches, (select count(*) from intel.c_event) c_events, (select count(*) from intel.c_edge) c_edges")
+LINEAGE = (
+    "select md5(concat_ws('|', "
+    "(select string_agg(id || ':' || object_sha256 || ':' || coalesce(previous_id, 0) || ':' || md5(body), ',' order by id) from intel.document), "
+    "(select string_agg(md5(row(e.*)::text), ',' order by event_id) from intel.c_event e), "
+    "(select string_agg(md5(row(g.*)::text), ',' order by cohort_event_id, relation, linked_id) from intel.c_edge g), "
+    "(select string_agg(md5(row(s.*)::text), ',' order by batch_id, source_id) from intel.c_source s)))")
 
 
 def restic_env():

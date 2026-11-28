@@ -14,6 +14,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backup
+import deletions
 import store
 
 
@@ -48,6 +49,18 @@ async def destination_contents():
     return held
 
 
+async def smoke():
+    """Full-text search answers and the read role cannot write: checked before the store is handed back."""
+    con = await store.connect("tjrhq-intel-db")
+    try:
+        search = await con.fetchval("select count(*) >= 0 from intel.document where search @@ websearch_to_tsquery('english', 'outage')")
+        writes = await con.fetchval("select has_table_privilege('intel_read', 'intel.document', 'insert,update,delete') "
+                                    "or has_table_privilege('intel_read', 'intel.c_event', 'insert,update,delete')")
+    finally:
+        await con.close()
+    return {"full_text_answers": bool(search), "read_role_cannot_write": not writes}
+
+
 def failures(result):
     bad = [k for k in CHECKS if not result[k]]
     bad += [k for k in ("missing_or_unreadable", "digest_mismatch") if result["objects"][k]]
@@ -74,9 +87,18 @@ def main(work, snapshot="latest"):
     subprocess.run(["chown", "-R", "tjrhq-intel-ingest:tjrhq-intel-obj", store.ROOT], check=True)
     subprocess.run(["find", store.ROOT, "-type", "d", "-exec", "chmod", "2750", "{}", "+"], check=True)
     result = asyncio.run(reconcile(manifest))
+    # reconciliation above is against the snapshot as taken; mandatory deletions recorded since then are applied before any use
+    entries = deletions.fetch_latest(work + "-ledger")
+    after = asyncio.run(deletions.run("apply"))
+    result["deletion_ledger"] = {"entries": entries, **after}
     here = backup.code_hashes(os.path.dirname(os.path.abspath(__file__)))
     result.update({"snapshot_revision": manifest.get("revision"), "code_differs_from_snapshot": sorted(k for k, v in manifest.get("code_sha256", {}).items() if here.get(k) != v),
                    "failed_checks": failures(result)})
+    result["smoke"] = asyncio.run(smoke())
+    if result["code_differs_from_snapshot"] and os.environ.get("INTEL_ALLOW_CODE_CHANGE") != "1":
+        result["failed_checks"].append("code_matches_snapshot")
+    result["failed_checks"] += [k for k, ok in result["smoke"].items() if not ok]
+    result["failed_checks"] += ["deleted_content_present"] if after["still_present"] else []
     result.update({"snapshot_taken_at": manifest["taken_at"], "fetch_seconds": round(t_fetch, 1), "total_seconds": round(time.monotonic() - t0, 1)})
     print(json.dumps(result))
     return 2 if result["failed_checks"] else 0
