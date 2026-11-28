@@ -51,3 +51,42 @@ grant usage on schema intel to intel_ingest, intel_read, intel_maint;
 grant select on all tables in schema intel to intel_read, intel_ingest, intel_maint;
 grant insert on intel.rebuild_priority, intel.object, intel.document, intel.passage, intel.passage_embedding to intel_ingest;
 grant delete on intel.object, intel.document to intel_maint;
+
+-- Package C pilot: one historical cohort, copied with its recorded links. Identifiers from the source are kept as text.
+create table if not exists intel.c_batch (
+  batch_id text primary key, source_as_of text not null, synthetic boolean not null, authority text,
+  export_digests jsonb not null, held jsonb not null, imported_at timestamptz not null default now(),
+  check (synthetic or authority is not null));
+create table if not exists intel.c_source (
+  batch_id text not null references intel.c_batch on delete cascade,
+  source_id text not null, source_name text not null, licence_url text not null, attribution text not null,
+  primary key (batch_id, source_id));
+create table if not exists intel.c_event (
+  event_id text primary key, batch_id text not null references intel.c_batch on delete cascade, source_id text not null,
+  raw_title text, raw_summary text, canonical_url text, geography text, collected_at timestamptz, published_at timestamptz,
+  published_at_basis text, published_at_precision text, published_at_confidence text, signal_status text,
+  -- the publication date only, not factual accuracy
+  date_evidence text not null check (date_evidence in ('verified', 'unverified')),
+  suppressed boolean, suppression_reason text, publisher_domain text, publisher_family text,
+  canonical_signal_id text,
+  canonical_state text not null check (canonical_state in ('loaded', 'held', 'external', 'not_recorded', 'deleted')),
+  search tsvector generated always as (setweight(to_tsvector('english', coalesce(raw_title, '')), 'A') || to_tsvector('english', coalesce(raw_summary, ''))) stored,
+  foreign key (batch_id, source_id) references intel.c_source (batch_id, source_id) on delete cascade);
+create index if not exists c_event_search on intel.c_event using gin (search);
+create table if not exists intel.c_edge (
+  batch_id text not null references intel.c_batch on delete cascade,
+  cohort_event_id text not null,                      -- no foreign key: a held record's links are kept without its content
+  relation text not null, linked_id text not null,
+  endpoint text not null check (endpoint in ('loaded', 'held', 'external', 'not_event', 'deleted')),
+  origin_held boolean not null,
+  not_independent_because text,
+  primary key (cohort_event_id, relation, linked_id));
+create index if not exists c_edge_linked on intel.c_edge (linked_id);
+do $$ declare t text; begin
+  foreach t in array array['c_batch', 'c_source', 'c_event', 'c_edge'] loop
+    execute format('alter table intel.%I owner to intel_owner', t);
+    execute format('grant select on intel.%I to intel_read, intel_ingest, intel_maint', t);
+    execute format('grant insert on intel.%I to intel_ingest', t);
+  end loop;
+end $$;
+grant delete on intel.c_batch to intel_maint;

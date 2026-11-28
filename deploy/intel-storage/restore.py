@@ -14,6 +14,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backup
+import deletions
 import store
 
 
@@ -33,6 +34,23 @@ async def reconcile(manifest):
 
 
 CHECKS = ("counts_match", "lineage_match", "object_set_match")
+QUARANTINE = "/var/lib/tjrhq-intel/QUARANTINE"
+SERVICE_ROLES = "intel_read, intel_ingest, intel_maint"
+
+
+async def gate(open_for_service):
+    """The service roles can connect only after a restore has passed every check, deletions included."""
+    con = await store.connect("tjrhq-intel-db")
+    try:
+        await con.execute(f"{'grant' if open_for_service else 'revoke'} connect on database intel {'to' if open_for_service else 'from'} {SERVICE_ROLES}")
+    finally:
+        await con.close()
+    if open_for_service:
+        if os.path.exists(QUARANTINE):
+            os.unlink(QUARANTINE)
+    else:
+        with open(QUARANTINE, "w") as fh:  # noqa: ASYNC230 - one-line marker in a single-user command
+            fh.write("restore not verified: service roles may not connect\n")
 
 
 async def destination_contents():
@@ -48,6 +66,18 @@ async def destination_contents():
     return held
 
 
+async def smoke():
+    """Full-text search answers and the read role cannot write: checked before the store is handed back."""
+    con = await store.connect("tjrhq-intel-db")
+    try:
+        search = await con.fetchval("select count(*) >= 0 from intel.document where search @@ websearch_to_tsquery('english', 'outage')")
+        writes = await con.fetchval("select has_table_privilege('intel_read', 'intel.document', 'insert,update,delete') "
+                                    "or has_table_privilege('intel_read', 'intel.c_event', 'insert,update,delete')")
+    finally:
+        await con.close()
+    return {"full_text_answers": bool(search), "read_role_cannot_write": not writes}
+
+
 def failures(result):
     bad = [k for k in CHECKS if not result[k]]
     bad += [k for k in ("missing_or_unreadable", "digest_mismatch") if result["objects"][k]]
@@ -60,6 +90,7 @@ def main(work, snapshot="latest"):
     if held:
         raise SystemExit(f"refused: the destination is not empty: {held}")
     os.makedirs(work, mode=0o700, exist_ok=False)
+    asyncio.run(gate(open_for_service=False))                # closed until everything below has passed
     backup.restic("restore", snapshot, "--tag", backup.TAG, "--target", work)
     t_fetch = time.monotonic() - t0
     stage = work + backup.STAGE
@@ -74,10 +105,25 @@ def main(work, snapshot="latest"):
     subprocess.run(["chown", "-R", "tjrhq-intel-ingest:tjrhq-intel-obj", store.ROOT], check=True)
     subprocess.run(["find", store.ROOT, "-type", "d", "-exec", "chmod", "2750", "{}", "+"], check=True)
     result = asyncio.run(reconcile(manifest))
+    # reconciliation above is against the snapshot as taken; mandatory deletions recorded since then are applied before any use
+    try:
+        entries = deletions.fetch_latest(work + "-ledger", at_least=manifest.get("deletions_known", 0))
+    except deletions.LedgerError as exc:
+        raise SystemExit(f"restore NOT handed back (service roles stay disconnected): {exc}") from None
+    after = asyncio.run(deletions.run("apply"))
+    result["deletion_ledger"] = {"entries": entries, **after}
     here = backup.code_hashes(os.path.dirname(os.path.abspath(__file__)))
     result.update({"snapshot_revision": manifest.get("revision"), "code_differs_from_snapshot": sorted(k for k, v in manifest.get("code_sha256", {}).items() if here.get(k) != v),
                    "failed_checks": failures(result)})
+    result["smoke"] = asyncio.run(smoke())
+    if result["code_differs_from_snapshot"] and os.environ.get("INTEL_ALLOW_CODE_CHANGE") != "1":
+        result["failed_checks"].append("code_matches_snapshot")
+    result["failed_checks"] += [k for k, ok in result["smoke"].items() if not ok]
+    result["failed_checks"] += ["deleted_content_present"] if after["still_present"] else []
     result.update({"snapshot_taken_at": manifest["taken_at"], "fetch_seconds": round(t_fetch, 1), "total_seconds": round(time.monotonic() - t0, 1)})
+    if not result["failed_checks"]:
+        asyncio.run(gate(open_for_service=True))
+    result["handed_back"] = not result["failed_checks"]
     print(json.dumps(result))
     return 2 if result["failed_checks"] else 0
 
