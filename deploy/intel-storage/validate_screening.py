@@ -60,6 +60,7 @@ def main():
 
     results, failed, missed_names = [], [], []
     detector = screen.union_detector(route)
+    detector.prime([screen.text_of({"raw_title": t, "raw_summary": m}) for _k, t, m, _a, _n in CASES])
     for n, (kind, title, summary, allowed, names) in enumerate(CASES, 1):
         text = f"{title}. {summary}"
         spans = detector(text)

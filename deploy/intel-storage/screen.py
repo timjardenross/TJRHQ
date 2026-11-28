@@ -58,15 +58,19 @@ async def export(folder):
 RULES_VERSION = "C1-E2"
 ROLE = (r"(?:Deputy |Assistant )?(?:Chair(?:man|woman|person)?|Governor|Treasurer|Member|Minister|President|Secretary|Commissioner)"
         r"|(?:APRA|RBA) Member|(?:Executive |General |Managing )?Director|Chief (?:Executive|Risk|Operating|Economist|Financial)(?: Officer)?|CEO|Head of [A-Z][A-Za-z]+")
-IN_ROLE = re.compile(r"\b(?:speech|remarks|address|statement|opening|keynote|testimony) (?:by|from|of|to)\b|\b(?:said|says|announc\w+|speak\w*|spoke|deliver\w+|appoint\w+|welcom\w+|"
+IN_ROLE = re.compile(r"\b(?:speech|remarks|address|statement|opening|keynote|testimony) (?:by|from|of|to)\b|\b(?:said|says|announc\w+|speak\w*|spoke|deliver\w+|appoint\w+|address\w*|welcom\w+|"
                      r"decid\w+|commenced|discuss\w+|told|noted|outlined)\b", re.IGNORECASE)
 # wording the earlier supervised screening does not list but that is adverse or sensitive when it is about a person
-ADVERSE = re.compile(r"\b(?:disqualif\w+|enforceable undertaking|civil penalt\w+|prosecut\w+|investigat\w+|breach(?:es|ed)? (?:of )?(?:duty|duties|the act)|"
+ADVERSE = re.compile(r"\b(?:disqualif\w+|enforceable undertaking|civil penalt\w+|prosecut\w+|investigat\w+|breach(?:es|ed)? (?:of )?(?:duty|duties|the act)|charges? against|facing charges|"
                      r"fraud\w*|bankrupt\w+|insolven\w+|court|proceedings|fined|penalt\w+|removed from|infringement|dismiss\w+|resign\w+ (?:amid|after|following))\b", re.IGNORECASE)
 OFFICE_HOLDER = re.compile(r"\b(?:the|a|an|former|its|his|her) (?:\w+ )?(?:treasurer|chair(?:man|woman|person)?|governor|secretary|commissioner|president|minister|applicant|executive)\b", re.IGNORECASE)
+# attributes the earlier screening does not list, and wording that marks someone as a private individual
+SENSITIVE_MORE = re.compile(r"\b(?:church|mosque|synagogue|congregation|parish)(?:\w*)? (?:member|goer|volunteer|elder)|\b(?:union (?:member|delegate|official|representative)|trade unionist|"
+                            r"member of (?:a|the) (?:\w+ )?(?:union|church|party)|party member|political affiliation|on (?:sick|medical|mental health|parental|compassionate) leave)\b", re.IGNORECASE)
+PRIVATE = re.compile(r"\b(?:pensioner|retiree|customer|consumer|complainant|resident|policy ?holder|borrower|depositor|tenant|widow|widower)\b", re.IGNORECASE)
 BIRTH = re.compile(r"\b(?:born (?:on |in )?\d|born in [A-Z]|aged \d{1,3}\b|\d{1,3}[- ]year[- ]old|date of birth|d\.o\.b)", re.IGNORECASE)
 PHONE = re.compile(r"(?<![\w-])(?:\+?61[ -]?\(?0?\)?|\(0[2-478]\)|0)[ -]?[2-478]?(?:[ -]?\d){8}(?!\d)|\b1[38]00(?:[ -]?\d){6}\b")
-RIGHTS = re.compile(r"\b(?:coat of arms|logo|reproduced with permission|copyright of|third[- ]party material|photograph|banknotes?|cash rate target|econometric model)\b", re.IGNORECASE)
+RIGHTS = re.compile(r"\b(?:coat of arms|logo|reproduced with permission|copyright of|third[- ]party material|photograph|banknotes?|cash rate (?:data|series|statistics)|financial data|econometric model)\b", re.IGNORECASE)
 FURNITURE = re.compile(r"^(?:home|search|news|media|publications|consultations|speeches|contact us|about(?: us)?|subscribe|read more|menu|skip to .*|page \d+)$", re.IGNORECASE)
 
 
@@ -88,28 +92,65 @@ def named_in_role(text, spans):
         left = max(text.rfind(c, 0, start) for c in ".!?;") + 1
         stops = [i for i in (text.find(c, end) for c in ".!?;") if i >= 0]
         sentence, name = text[left:min(stops, default=len(text))], text[start:end]
+        name = re.sub(rf"^(?:(?:APRA|RBA|Mr|Ms|Mrs|Dr|Professor)\.? |(?:{ROLE})\b,? )+", "", name)     # a detector span may include the title
         beside = rf"(?:\b(?:{ROLE})\b,? (?:(?:Mr|Ms|Mrs|Dr|Professor) )?{re.escape(name)}|{re.escape(name)}, (?:the |APRA's |RBA's |its |new )?(?:{ROLE})\b)"
-        if not (re.search(beside, sentence) and IN_ROLE.search(sentence)):
+        appointed = rf"{re.escape(name)},? (?:has been |was |is |will be )?appointed (?:as )?(?:the |an? )?(?:new )?(?:{ROLE})\b"
+        if not ((re.search(beside, sentence) or re.search(appointed, sentence)) and IN_ROLE.search(sentence)):
             return False
     return True
 
 
-def union_detector(route):
-    """The existing on-host person detector plus the over-inclusive second finder; a failure of either raises, so the record is held."""
+def union_detector(route, batch=25):
+    """The existing on-host person detector plus the over-inclusive second finder; a failure of either raises, so the record is held.
+    ``prime(texts)`` runs both over many texts with few model loads; a text not primed is detected on its own."""
     worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "names_worker.py")
+    cache: dict[str, list] = {}
 
-    def detect(text):
-        r = subprocess.run([f"{APP}/platform-runtime/.venv-llmsec/bin/python", "-B", worker], input=json.dumps([text]), capture_output=True,
-                           text=True, check=True, timeout=120)
+    def second(texts):
+        r = subprocess.run([f"{APP}/platform-runtime/.venv-llmsec/bin/python", "-B", worker], input=json.dumps(texts), capture_output=True,
+                           text=True, check=True, timeout=300)
+        out = json.loads(r.stdout)
+        if len(out) != len(texts):
+            raise ValueError("name finder returned the wrong number of results")
+        return out
+
+    def merge(spans):
         merged = []
-        for start, end in sorted(set(route.person_spans(text)) | {tuple(x) for x in json.loads(r.stdout)[0]}):
+        for start, end in sorted(set(spans)):
             if merged and start <= merged[-1][1]:
                 merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
             else:
                 merged.append((start, end))
         return merged
 
+    def run_batch(texts):
+        bounds, at = [], 0
+        for t in texts:
+            bounds.append((at, at + len(t)))
+            at += len(t) + 3
+        joined = route.person_spans("\n.\n".join(texts))
+        for t, (lo, hi), extra in zip(texts, bounds, second(texts), strict=True):
+            cache[t] = merge([(s - lo, min(e, hi) - lo) for s, e in joined if lo <= s < hi] + [tuple(x) for x in extra])
+
+    def detect(text):
+        if text not in cache:
+            run_batch([text])
+        return cache[text]
+
+    def prime(texts):
+        todo = [t for t in dict.fromkeys(texts) if t not in cache]
+        for i in range(0, len(todo), batch):
+            try:
+                run_batch(todo[i:i + batch])
+            except Exception:  # noqa: BLE001, PERF203, S112 - left unprimed: each record is then tried alone and held if it still fails
+                continue
+
+    detect.prime = prime
     return detect
+
+
+def text_of(event):
+    return f"{str(event.get('raw_title') or '').strip()}. {str(event.get('raw_summary') or '').strip()}".strip()
 
 
 def classify(event, publisher, route, detector):
@@ -124,7 +165,7 @@ def classify(event, publisher, route, detector):
         held.append("E-3:not_an_item")
     elif len(title.split()) < 3:
         review.append("E-3:item_unclear")
-    text = f"{title}. {summary}".strip()
+    text = text_of(event)
     if RIGHTS.search(text):
         review.append("E-4:rights_unclear")
     spans = detector(text)
@@ -140,6 +181,10 @@ def classify(event, publisher, route, detector):
         held.append("E-5:adverse_or_sensitive_about_individual")
     elif adverse:
         review.append("E-5:adverse_wording_no_person_found")
+    if spans and SENSITIVE_MORE.search(text):
+        held.append("E-5:sensitive_attribute_about_individual")
+    if spans and PRIVATE.search(text):
+        held.append("E-5:private_individual")
     elif spans and not named_in_role(text, spans):
         review.append("E-5:person_role_unclear")
     flagged = ["E-5:official_named_in_role"] if spans and not held and not review else []
@@ -169,6 +214,8 @@ def must_be_offline():
 
 def screen_events(events, publishers, route, detector):
     out = {}
+    if hasattr(detector, "prime"):
+        detector.prime([text_of(e) for e in events])
     for e in events:
         try:
             out[e["event_id"]] = classify(e, publishers.get(e["source_id"], "APRA"), route, detector)
