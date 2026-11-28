@@ -207,7 +207,7 @@ def classify(event, publisher, route, detector, officers=frozenset()):
         held.append("E-1:out_of_scope")
     if not address_established(event, publisher):
         held.append("E-2:source_or_address_not_established")
-    title, summary = str(event.get("raw_title") or "").strip(), str(event.get("raw_summary") or "").strip()
+    title = str(event.get("raw_title") or "").strip()
     if not title or FURNITURE.match(title):
         held.append("E-3:not_an_item")
     elif len(title.split()) < 3:
