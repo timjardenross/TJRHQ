@@ -636,13 +636,17 @@ def run_live() -> dict:
     from intelligence import requirements as req
 
     # lifecycle is settled by code before drafting: a notice that later reporting replaced is never offered to the model
-    events = current_events(be.load_events(cb._sb_get, hours=72), datetime.now(timezone.utc))
+    read = be.load_events(cb._sb_request, hours=72)
+    note = be.retrieval_note(read, 72)
+    events = current_events(read, datetime.now(timezone.utc))
     evidence_set = be.build_evidence(events, window_hours=72) if events else be.EvidenceSet(
         be.ed.METHOD_VERSION, datetime.now(timezone.utc), 72, 0, [])
     ori = cb._get_latest_ori_brief()
     coverage = dict((ori or {}).get("coverage") or {}) or None
     if not events:
         coverage = {"degraded": True, "reason": "no events could be read"}
+    elif note:
+        coverage = {**(coverage or {}), "degraded": True, "reason": "; ".join(x for x in ((coverage or {}).get("reason"), note) if x)}
     try:
         pirs = req.load_pirs()
     except Exception as exc:  # noqa: BLE001 - tagging only ranks

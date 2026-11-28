@@ -27,7 +27,7 @@ from urllib.parse import urlsplit
 
 from intelligence import event_detection as ed
 from intelligence import freshness as fr
-from intelligence import provenance
+from intelligence import paged_read, provenance
 from intelligence import weekly_evidence as we
 
 MASTER_FLAG = "BRIEF_EVIDENCE_V1"
@@ -155,20 +155,23 @@ def _retrospective_import(source: str, published_at, now: datetime, hours: int) 
     return published is not None and now - published > timedelta(hours=hours)
 
 
-def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None = None) -> list[dict]:
-    """Read validated reports through an injected PostgREST getter (captains_brief._sb_get). Fails soft: returns [] on any error so a
-    brief is never blocked by the evidence layer."""
+def load_events(sb_get, *, hours: int, limit: int = paged_read.MAX_ROWS, now: datetime | None = None) -> paged_read.PagedRead:
+    """Every validated report in the window, newest first, read in pages through an injected PostgREST getter. ``sb_get`` must raise on
+    a failed request (captains_brief._sb_request) or a failed page cannot be told from the end. Fails soft: never raises, so a brief is
+    never blocked by the evidence layer; ``retrieval_note`` says when the read is not complete. ``limit`` caps the reports read."""
     now = now or datetime.now(timezone.utc)
     since = (now - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
-        rows = sb_get("intelligence_events",
-                      f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE&order=collected_at.desc&limit={limit}"
-                      "&select=event_id,raw_title,raw_summary,geography,collected_at,published_at,canonical_url,intelligence_source_registry(source_name)"
-                      + provenance.select_columns())      # '' until INTEL_PROVENANCE_COLUMNS says the migration was applied
+        rows = paged_read.read_all(
+            sb_get, "intelligence_events",
+            f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE"
+            "&select=event_id,raw_title,raw_summary,geography,collected_at,published_at,canonical_url,intelligence_source_registry(source_name)"
+            + provenance.select_columns(),      # '' until INTEL_PROVENANCE_COLUMNS says the migration was applied
+            id_col="event_id", max_rows=limit)
     except Exception:  # noqa: BLE001 - evidence layer is additive; the legacy brief must still render
-        return []
-    out = []
-    for r in rows or []:
+        return paged_read.PagedRead(complete=False, reason=paged_read.PAGE_FAILED)
+    out = paged_read.PagedRead(complete=rows.complete, reason=rows.reason)
+    for r in rows:
         reg = r.get("intelligence_source_registry") or {}
         if _retrospective_import(reg.get("source_name") or "", r.get("published_at"), now, hours):
             continue
@@ -177,6 +180,17 @@ def load_events(sb_get, *, hours: int, limit: int = 3000, now: datetime | None =
                     "collected_at": r.get("collected_at"), "published_at": r.get("published_at"), "url": r.get("canonical_url"),
                     **provenance.event_provenance_fields(r)})
     return out
+
+
+def retrieval_note(events, hours: int) -> str | None:
+    """One sentence for a product when the report read behind it is not complete, else None. Call it on what ``load_events`` returned,
+    before any filtering (a filtered copy no longer carries the status)."""
+    if getattr(events, "complete", True):
+        return None
+    times = [str(e.get("collected_at")) for e in events if e.get("collected_at")]
+    back_to = f", reaching back to {min(times)[:16].replace('T', ' ')} UTC" if times else ""
+    return (f"Report retrieval was incomplete ({events.reason}): {len(events)} report(s) read{back_to}; "
+            f"other reports from the {hours} h window may be missing")
 
 
 # ── helpers shared by the views ───────────────────────────────────────────────────────────────────────

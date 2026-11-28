@@ -33,10 +33,14 @@ def _num(name: str, default: float, lo: float, hi: float) -> float:
         return default
 
 
-def load_events(hours: int, *, limit: int = 3000) -> list[dict]:
+def load_events(hours: int, *, limit: int | None = None) -> list[dict]:
     from intelligence import brief_evidence as be
     from intelligence.captains_brief import _sb_request
-    return be.load_events(_sb_request, hours=hours, limit=limit)
+    events = be.load_events(_sb_request, hours=hours, **({} if limit is None else {"limit": limit}))
+    note = be.retrieval_note(events, hours)
+    if note:
+        log.warning("[incident-alert] %s", note)
+    return events
 
 
 def run_after_collection(source: str = "", *, store=None, sender: Callable | None = None, events: list[dict] | None = None,

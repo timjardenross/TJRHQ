@@ -34,6 +34,7 @@ def _morning(monkeypatch, *, flag, rows):
          patch.object(cb, "_get_recent_signals", return_value=[]), \
          patch.object(cb, "_get_infra_verification", return_value={"state": "ok"}), \
          patch.object(cb, "_sb_get", lambda *a, **k: rows), \
+         patch.object(cb, "_sb_request", lambda *a, **k: rows), \
          patch.object(cb, "build_daily_digest", None):
         return cb.generate_morning_brief()
 
@@ -145,7 +146,7 @@ def _lines_with(monkeypatch, *, flag, sb):
         monkeypatch.delenv(k, raising=False)
     if flag:
         monkeypatch.setenv("BRIEF_EVIDENCE_V1_MORNING", "1")
-    with patch.object(cb, "_sb_get", sb):
+    with patch.object(cb, "_sb_get", sb), patch.object(cb, "_sb_request", sb):
         return cb._evidence_lines("morning", 72)
 
 
