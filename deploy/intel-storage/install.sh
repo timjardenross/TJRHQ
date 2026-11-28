@@ -19,6 +19,7 @@ printf 'd %s 2750 tjrhq-intel-db tjrhq-intel -\n' "$RUN" > /etc/tmpfiles.d/tjrhq
 systemd-tmpfiles --create /etc/tmpfiles.d/tjrhq-intel.conf
 install -m 0755 "$SRC"/guard.py "$SRC"/store.py "$SRC"/embed.py "$SRC"/fixtures.py "$SRC"/backup.py "$SRC"/restore.py "$OPT"/
 install -m 0644 "$SRC"/schema.sql "$OPT"/
+{ git -C "$SRC" rev-parse HEAD 2>/dev/null || echo unknown; git -C "$SRC" status --porcelain -- . 2>/dev/null | grep -q . && echo "uncommitted changes" || true; } > "$OPT/REVISION"
 # the container sees only these accounts, so peer authentication maps host identities to database roles: no passwords exist
 { echo "root:x:0:0::/root:/bin/sh"; for u in tjrhq-intel-db tjrhq-intel-ingest tjrhq-intel-read; do echo "$u:x:$(id -u $u):$(id -g $u)::/nonexistent:/bin/sh"; done; } > "$ETC/passwd"
 { echo "root:x:0:"; echo "tjrhq-intel:x:$(getent group tjrhq-intel | cut -d: -f3):"; } > "$ETC/group"

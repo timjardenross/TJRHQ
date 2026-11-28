@@ -18,7 +18,8 @@ import store
 STAGE = "/var/lib/tjrhq-intel/backup-stage"
 TAG = "intel-b"
 CEILING_BYTES, MIN_REMOTE_FREE_BYTES = 15 * 10**9, 2 * 2**30
-COUNTS = "select (select count(*) from intel.object) objects, (select count(*) from intel.document) documents, (select count(*) from intel.passage) passages"
+COUNTS = ("select (select count(*) from intel.object) objects, (select count(*) from intel.document) documents, (select count(*) from intel.passage) passages, "
+          "(select count(*) from intel.rebuild_priority) rebuild_priority")
 LINEAGE = ("select md5(coalesce(string_agg(id || ':' || object_sha256 || ':' || coalesce(previous_id, 0) || ':' || md5(body), ',' order by id), '')) "
            "from intel.document")
 
@@ -35,6 +36,16 @@ def restic_env():
 
 def restic(*args, **kw):
     return subprocess.run(["restic", "-o", "rclone.program=/usr/local/bin/rclone", *args], env=restic_env(), check=True, capture_output=True, text=True, **kw).stdout
+
+
+def code_hashes(folder="/opt/tjrhq-intel"):
+    """SHA-256 of every installed program and schema file, so a snapshot names the exact code that made it."""
+    out = {}
+    for name in sorted(os.listdir(folder)):
+        if name.endswith((".py", ".sql")):
+            with open(os.path.join(folder, name), "rb") as fh:
+                out[name] = hashlib.sha256(fh.read()).hexdigest()
+    return out
 
 
 def remote_free():
@@ -73,7 +84,8 @@ def run():
             raise SystemExit("refused: the store is empty, so this snapshot must not become the latest recoverable one")
         manifest = {"taken_at": taken, "counts": counts, "lineage_md5": lineage, "objects": objects,
                     "db_dump_sha256": hashlib.sha256(open(f"{STAGE}/db.dump", "rb").read()).hexdigest(),
-                    "image": open("/etc/tjrhq-intel/image").read().strip()}
+                    "image": open("/etc/tjrhq-intel/image").read().strip(),
+                    "revision": open("/opt/tjrhq-intel/REVISION").read().strip(), "code_sha256": code_hashes()}
         json.dump(manifest, open(f"{STAGE}/manifest.json", "w"))
         out = restic("backup", "--tag", TAG, "--json", f"{STAGE}/db.dump", f"{STAGE}/manifest.json", store.ROOT, "/etc/tjrhq-intel", "/opt/tjrhq-intel")
     summary = next(j for j in map(json.loads, out.splitlines()) if j.get("message_type") == "summary")
